@@ -173,3 +173,49 @@ int xrecvwait(int fd, char *buf, int len, union socksaddr *sa, int timeout)
 
   return len;
 }
+
+// Convert space/low ascii to %XX escapes, plus any chars in "and" string.
+// Returns newly allocated copy of string (even if no changes)
+char *escape_url(char *str, char *and)
+{
+  int i, j , count;
+  char *ret QUIET, *ss QUIET;
+
+  for (j = count = 0;;) {
+    for (i = 0;;) {
+      if (str[i] && (str[i]<=' ' || (and && strchr(and, str[i])))) {
+        if (j) ss += sprintf(ss, "%%%02x", str[i]);
+        else count++;
+      } else if (j) *ss++ = str[i];
+      if (!str[i++]) break;
+    }
+    if (j++) break;
+    ret = ss = xmalloc(i+count*2);
+  }
+
+  return ret;
+}
+
+// Convert %XX escapes to character (in place)
+char *unescape_url(char *str, int do_cut)
+{
+  char *to, *cut = do_cut ? strchr(str, '?') : 0;
+  int i;
+
+  for (to = str;;) {
+    if (*str!='%' || !isxdigit(str[1]) || !isxdigit(str[2])) {
+      if (str==cut) {
+        *to = 0;
+        cut++;
+
+        break;
+      } else if (!(*to++ = *str++)) break;
+    } else {
+      sscanf(++str, "%2x", &i);
+      *to++ = i;
+      str += 2;
+    }
+  }
+
+  return cut;
+}

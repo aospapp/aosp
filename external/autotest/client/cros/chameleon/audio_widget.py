@@ -771,7 +771,7 @@ class CrosInputWidgetHandler(CrosWidgetHandler):
 
         with tempfile.NamedTemporaryFile(prefix='recorded_') as f:
             self._audio_facade.get_recorded_file(remote_path, f.name)
-            return open(f.name).read()
+            return open(f.name, "rb").read()
 
 
 class CrosUSBInputWidgetHandler(CrosInputWidgetHandler):

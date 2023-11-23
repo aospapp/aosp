@@ -26,7 +26,7 @@
 #include "ixheaacd_basic_ops32.h"
 #include "ixheaacd_basic_ops40.h"
 
-static const FLOAT32 ixheaacd_gamma_table[17] = {
+const FLOAT32 ixheaacd_gamma_table[17] = {
     1.0f,      0.92f,     0.8464f,   0.778688f, 0.716393f, 0.659082f,
     0.606355f, 0.557847f, 0.513219f, 0.472161f, 0.434389f, 0.399637f,
     0.367666f, 0.338253f, 0.311193f, 0.286298f, 0.263394f};
@@ -39,9 +39,6 @@ WORD16 ixheaacd_rand_gen(WORD16 *seed) {
 VOID ixheaacd_preemphsis_tool(WORD32 *signal, WORD32 mu, WORD32 len,
                               WORD32 mem) {
   WORD32 i;
-  WORD32 temp;
-
-  temp = signal[len - 1];
   for (i = len - 1; i > 0; i--) {
     signal[i] -= (WORD32)ixheaacd_mul32_sh(mu, signal[i - 1], 16);
   }
@@ -52,8 +49,6 @@ VOID ixheaacd_preemphsis_tool(WORD32 *signal, WORD32 mu, WORD32 len,
 VOID ixheaacd_preemphsis_tool_float(FLOAT32 *signal, FLOAT32 mu, WORD32 len,
                                     FLOAT32 mem) {
   WORD32 i;
-  FLOAT32 temp;
-  temp = signal[len - 1];
   for (i = len - 1; i > 0; i--) {
     signal[i] = signal[i] - mu * signal[i - 1];
   }

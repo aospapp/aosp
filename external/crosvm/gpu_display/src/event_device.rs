@@ -1,21 +1,27 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use base::{AsRawDescriptor, RawDescriptor};
-use data_model::DataInit;
-use linux_input_sys::{
-    virtio_input_event, InputEventDecoder, ABS_MT_POSITION_X, ABS_MT_POSITION_Y, ABS_MT_SLOT,
-    ABS_MT_TRACKING_ID,
-};
-use std::cmp::max;
 use std::collections::VecDeque;
-use std::io::{self, Error, ErrorKind, Read, Write};
+use std::fmt;
+use std::io;
+use std::io::Error;
+use std::io::ErrorKind;
+use std::io::Write;
 use std::iter::ExactSizeIterator;
-use std::os::unix::net::UnixStream;
+
+use base::AsRawDescriptor;
+use base::RawDescriptor;
+use base::StreamChannel;
+use data_model::zerocopy_from_reader;
+use linux_input_sys::virtio_input_event;
+use linux_input_sys::InputEventDecoder;
+use serde::Deserialize;
+use serde::Serialize;
+use zerocopy::AsBytes;
 
 const EVENT_SIZE: usize = virtio_input_event::SIZE;
-const EVENT_BUFFER_LEN_MAX: usize = 16 * EVENT_SIZE;
+const EVENT_BUFFER_LEN_MAX: usize = 64 * EVENT_SIZE;
 
 // /// Half-way build `EventDevice` with only the `event_socket` defined. Finish building the
 // /// `EventDevice` by using `status_socket`.
@@ -31,7 +37,7 @@ const EVENT_BUFFER_LEN_MAX: usize = 16 * EVENT_SIZE;
 //     }
 // }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum EventDeviceKind {
     /// Produces relative mouse motions, wheel, and button clicks while the real mouse is captured.
     Mouse,
@@ -42,23 +48,15 @@ pub enum EventDeviceKind {
 }
 
 /// Encapsulates a virtual event device, such as a mouse or keyboard
+#[derive(Deserialize, Serialize)]
 pub struct EventDevice {
     kind: EventDeviceKind,
     event_buffer: VecDeque<u8>,
-    event_socket: UnixStream,
-}
-
-// Captures information for emulating MT events. Once more than slot 0 is supported will need to
-// store slot information as well.
-#[derive(Default, Copy, Clone)]
-struct MTEvent {
-    id: i32,
-    x: i32,
-    y: i32,
+    event_socket: StreamChannel,
 }
 
 impl EventDevice {
-    pub fn new(kind: EventDeviceKind, event_socket: UnixStream) -> EventDevice {
+    pub fn new(kind: EventDeviceKind, mut event_socket: StreamChannel) -> EventDevice {
         let _ = event_socket.set_nonblocking(true);
         EventDevice {
             kind,
@@ -68,17 +66,17 @@ impl EventDevice {
     }
 
     #[inline]
-    pub fn mouse(event_socket: UnixStream) -> EventDevice {
+    pub fn mouse(event_socket: StreamChannel) -> EventDevice {
         Self::new(EventDeviceKind::Mouse, event_socket)
     }
 
     #[inline]
-    pub fn touchscreen(event_socket: UnixStream) -> EventDevice {
+    pub fn touchscreen(event_socket: StreamChannel) -> EventDevice {
         Self::new(EventDeviceKind::Touchscreen, event_socket)
     }
 
     #[inline]
-    pub fn keyboard(event_socket: UnixStream) -> EventDevice {
+    pub fn keyboard(event_socket: StreamChannel) -> EventDevice {
         Self::new(EventDeviceKind::Keyboard, event_socket)
     }
 
@@ -106,22 +104,17 @@ impl EventDevice {
         self.event_buffer.is_empty()
     }
 
-    /// Compares (potential) events and calculates the oldest one
-    fn capture_oldest_event(
-        current_mt_event: &Option<MTEvent>,
-        oldest_mt_event: &mut Option<MTEvent>,
-    ) {
-        if let Some(current) = current_mt_event {
-            if current.id != -1 {
-                if let Some(oldest) = oldest_mt_event {
-                    if current.id < oldest.id {
-                        *oldest_mt_event = Some(*current);
-                    }
-                } else {
-                    *oldest_mt_event = Some(*current);
-                }
-            }
-        }
+    /// Determines if there is space in the event buffer for the given number
+    /// of events. The buffer is capped at `EVENT_BUFFER_LEN_MAX`.
+    #[inline]
+    fn can_buffer_events(&self, num_events: usize) -> bool {
+        let event_bytes = match EVENT_SIZE.checked_mul(num_events) {
+            Some(bytes) => bytes,
+            None => return false,
+        };
+        let free_bytes = EVENT_BUFFER_LEN_MAX.saturating_sub(self.event_buffer.len());
+
+        free_bytes >= event_bytes
     }
 
     pub fn send_report<E: IntoIterator<Item = virtio_input_event>>(
@@ -132,86 +125,18 @@ impl EventDevice {
         E::IntoIter: ExactSizeIterator,
     {
         let it = events.into_iter();
-        let mut emulated_events: Vec<virtio_input_event> = vec![];
-        let mut evdev_st_events_present = false;
-        let mut oldest_mt_event: Option<MTEvent> = None;
-        let mut current_mt_event: Option<MTEvent> = None;
 
-        if self.event_buffer.len() > (EVENT_BUFFER_LEN_MAX - EVENT_SIZE * (it.len() + 1)) {
+        if !self.can_buffer_events(it.len() + 1) {
             return Ok(false);
         }
 
-        // Assumptions made for MT emulation:
-        // * There may exist real ABS_* events coming from e.g. evdev. cancel emulation in this case
-        // * For current gpu_display_{x, wl} implementations, there is only one slot and all
-        //   available tracking id information is sent. If this assumption is broken in the future,
-        //   `EventDevice` will need to maintain state of the oldest contact for each slot, so that
-        //   this can be compared to any incoming 'sparse' event set.
         for event in it {
-            let bytes = event.as_slice();
-            self.event_buffer.extend(bytes.iter());
-
-            if event.is_valid_st_event() {
-                // Real evdev event, we shouldnt emulate anything
-                evdev_st_events_present = true;
-            }
-
-            // For MT events, we want to also emulate their corresponding ST events
-            if !evdev_st_events_present {
-                match event.code.to_native() {
-                    ABS_MT_SLOT => {
-                        // MT packets begin with a SLOT event, begin a new current event and potentially
-                        // store the current as oldest.
-                        EventDevice::capture_oldest_event(&current_mt_event, &mut oldest_mt_event);
-                        // Only care about slot 0 in current implementation, if more slots are added
-                        // we will need to keep track of events / ids per slot, as well as maintain
-                        // which slot is currently active.
-                        current_mt_event = Some(MTEvent {
-                            ..Default::default()
-                        })
-                    }
-                    ABS_MT_TRACKING_ID => {
-                        if let Some(mut current) = current_mt_event {
-                            current.id = event.value.to_native();
-                        }
-                    }
-                    ABS_MT_POSITION_X => {
-                        if let Some(mut current) = current_mt_event {
-                            current.x = event.value.to_native();
-                        }
-                    }
-                    ABS_MT_POSITION_Y => {
-                        if let Some(mut current) = current_mt_event {
-                            current.y = event.value.to_native();
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        // Finalize the current event - MT packets have a 'begin' signal but not an 'end' signal, so the
-        // last collected 'current' event has no chance to be compared in the event loop.
-        EventDevice::capture_oldest_event(&current_mt_event, &mut oldest_mt_event);
-
-        if !evdev_st_events_present {
-            if let Some(oldest_event) = oldest_mt_event {
-                emulated_events.push(virtio_input_event::touch(true));
-                emulated_events.push(virtio_input_event::absolute_x(max(0, oldest_event.x)));
-                emulated_events.push(virtio_input_event::absolute_y(max(0, oldest_event.y)));
-            } else {
-                // No contacts remain, emit lift
-                emulated_events.push(virtio_input_event::touch(false));
-            }
-        }
-
-        for event in emulated_events.into_iter() {
-            let bytes = event.as_slice();
+            let bytes = event.as_bytes();
             self.event_buffer.extend(bytes.iter());
         }
 
         self.event_buffer
-            .extend(virtio_input_event::syn().as_slice().iter());
+            .extend(virtio_input_event::syn().as_bytes().iter());
 
         self.flush_buffered_events()
     }
@@ -223,14 +148,14 @@ impl EventDevice {
             return Ok(false);
         }
 
-        let bytes = event.as_slice();
+        let bytes = event.as_bytes();
         let written = self.event_socket.write(bytes)?;
 
         if written == bytes.len() {
             return Ok(true);
         }
 
-        if self.event_buffer.len() <= (EVENT_BUFFER_LEN_MAX - EVENT_SIZE) {
+        if self.can_buffer_events(1) {
             self.event_buffer.extend(bytes[written..].iter());
         }
 
@@ -238,20 +163,19 @@ impl EventDevice {
     }
 
     pub fn recv_event_encoded(&self) -> io::Result<virtio_input_event> {
-        let mut event_bytes = [0u8; 24];
-        (&self.event_socket).read_exact(&mut event_bytes)?;
-        match virtio_input_event::from_slice(&event_bytes) {
-            Some(event) => Ok(*event),
-            None => Err(Error::new(
-                ErrorKind::InvalidInput,
-                "failed to read virtio_input_event",
-            )),
-        }
+        zerocopy_from_reader::<_, virtio_input_event>(&self.event_socket)
+            .map_err(|_| Error::new(ErrorKind::InvalidInput, "failed to read virtio_input_event"))
     }
 }
 
 impl AsRawDescriptor for EventDevice {
     fn as_raw_descriptor(&self) -> RawDescriptor {
         self.event_socket.as_raw_descriptor()
+    }
+}
+
+impl fmt::Debug for EventDevice {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Event device ({:?})", self.kind)
     }
 }

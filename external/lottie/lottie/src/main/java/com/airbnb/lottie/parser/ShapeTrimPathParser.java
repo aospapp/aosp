@@ -1,6 +1,8 @@
 package com.airbnb.lottie.parser;
 
 
+import static com.airbnb.lottie.parser.moshi.JsonReader.Options;
+
 import com.airbnb.lottie.LottieComposition;
 import com.airbnb.lottie.model.animatable.AnimatableFloatValue;
 import com.airbnb.lottie.model.content.ShapeTrimPath;
@@ -8,12 +10,12 @@ import com.airbnb.lottie.parser.moshi.JsonReader;
 
 import java.io.IOException;
 
-import static com.airbnb.lottie.parser.moshi.JsonReader.*;
-
 class ShapeTrimPathParser {
 
-  private ShapeTrimPathParser() {}
-  private static Options NAMES = Options.of(
+  private ShapeTrimPathParser() {
+  }
+
+  private static final Options NAMES = Options.of(
       "s",
       "e",
       "o",
@@ -21,6 +23,7 @@ class ShapeTrimPathParser {
       "m",
       "hd"
   );
+
   static ShapeTrimPath parse(
       JsonReader reader, LottieComposition composition) throws IOException {
     String name = null;

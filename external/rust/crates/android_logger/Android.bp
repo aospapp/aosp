@@ -43,7 +43,7 @@ rust_test {
     name: "android_logger_test_src_lib",
     crate_name: "android_logger",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.10.1",
+    cargo_pkg_version: "0.12.0",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
@@ -55,8 +55,8 @@ rust_test {
     rustlibs: [
         "libandroid_log_sys",
         "libenv_logger",
-        "liblazy_static",
         "liblog_rust",
+        "libonce_cell",
     ],
 }
 
@@ -64,7 +64,7 @@ rust_defaults {
     name: "android_logger_test_defaults",
     crate_name: "android_logger",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.10.1",
+    cargo_pkg_version: "0.12.0",
     test_suites: ["general-tests"],
     auto_gen_config: true,
     edition: "2015",
@@ -76,8 +76,8 @@ rust_defaults {
         "libandroid_log_sys",
         "libandroid_logger",
         "libenv_logger",
-        "liblazy_static",
         "liblog_rust",
+        "libonce_cell",
     ],
 }
 
@@ -103,7 +103,7 @@ rust_library {
     name: "libandroid_logger",
     crate_name: "android_logger",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.10.1",
+    cargo_pkg_version: "0.12.0",
     srcs: ["src/lib.rs"],
     edition: "2015",
     features: [
@@ -113,17 +113,14 @@ rust_library {
     rustlibs: [
         "libandroid_log_sys",
         "libenv_logger",
-        "liblazy_static",
         "liblog_rust",
+        "libonce_cell",
     ],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
-        "com.android.compos",
-        "com.android.resolv",
-        "com.android.uwb",
-        "com.android.virt",
+        "//apex_available:anyapex",
     ],
+    product_available: true,
     vendor_available: true,
     min_sdk_version: "29",
 }

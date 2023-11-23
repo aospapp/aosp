@@ -33,6 +33,8 @@ rust_library {
         "com.android.resolv",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }
 
@@ -54,8 +56,3 @@ rust_test {
         "libuntrusted",
     ],
 }
-
-// Errors when listing tests:
-// error: lint `non_autolinks` has been renamed to `rustdoc::bare_urls`
-// error: aborting due to previous error
-// error: test failed, to rerun pass '--doc'

@@ -79,7 +79,8 @@ public final class InstrSupport {
 	 * <code>boolean[]</code>).
 	 */
 	// BEGIN android-change
-	public static final String DATAFIELD_DESC = "Lorg/jacoco/core/data/IExecutionData;";
+	public static final String DATAFIELD_DESC_UNQUALIFIED = "org/jacoco/core/data/IExecutionData";
+	public static final String DATAFIELD_DESC = "L" + DATAFIELD_DESC_UNQUALIFIED + ";";
 	// END android-change
 
 	// === Init Method ===

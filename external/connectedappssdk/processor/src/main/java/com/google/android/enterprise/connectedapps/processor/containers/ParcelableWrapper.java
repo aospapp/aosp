@@ -31,7 +31,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 /** Information about a Parcelable Wrapper. */
 @AutoValue
@@ -70,23 +69,23 @@ public abstract class ParcelableWrapper {
   }
 
   public static Collection<ParcelableWrapper> createCustomParcelableWrappers(
-      Types types, Elements elements, Collection<TypeElement> customParcelableWrappers) {
+      Context context, Collection<TypeElement> customParcelableWrappers) {
     Collection<ParcelableWrapper> wrappers = new ArrayList<>();
 
-    addCustomParcelableWrappers(types, wrappers, customParcelableWrappers);
+    addCustomParcelableWrappers(context, wrappers, customParcelableWrappers);
 
     return wrappers;
   }
 
   public static Collection<ParcelableWrapper> createGlobalParcelableWrappers(
-      Types types, Elements elements, Collection<ExecutableElement> methods) {
+      Context context, Collection<ExecutableElement> methods) {
     Collection<ParcelableWrapper> wrappers = new ArrayList<>();
 
-    addDefaultParcelableWrappers(types, elements, wrappers);
+    addDefaultParcelableWrappers(context, wrappers);
 
     Collection<TypeMirror> usedTypes = extractTypesFromMethods(methods);
 
-    addGeneratedProtoParcelableWrappers(types, elements, wrappers, usedTypes);
+    addGeneratedProtoParcelableWrappers(context, wrappers, usedTypes);
 
     return wrappers;
   }
@@ -129,16 +128,16 @@ public abstract class ParcelableWrapper {
   }
 
   private static void addCustomParcelableWrappers(
-      Types types,
+      Context context,
       Collection<ParcelableWrapper> wrappers,
       Collection<TypeElement> customParcelableWrappers) {
     for (TypeElement parcelableWrapper : customParcelableWrappers) {
-      addCustomParcelableWrapper(types, wrappers, parcelableWrapper);
+      addCustomParcelableWrapper(context, wrappers, parcelableWrapper);
     }
   }
 
   private static void addCustomParcelableWrapper(
-      Types types, Collection<ParcelableWrapper> wrappers, TypeElement parcelableWrapper) {
+      Context context, Collection<ParcelableWrapper> wrappers, TypeElement parcelableWrapper) {
 
     CustomParcelableWrapper customParcelableWrapperAnnotation =
         parcelableWrapper.getAnnotation(CustomParcelableWrapper.class);
@@ -150,7 +149,7 @@ public abstract class ParcelableWrapper {
 
     ParcelableWrapperAnnotationInfo annotationInfo =
         ParcelableWrapperAnnotationInfo.extractFromParcelableWrapperAnnotation(
-            types, customParcelableWrapperAnnotation);
+            context, customParcelableWrapperAnnotation);
     wrappers.add(
         ParcelableWrapper.create(
             annotationInfo.originalType().asType(),
@@ -159,7 +158,8 @@ public abstract class ParcelableWrapper {
   }
 
   private static void addDefaultParcelableWrappers(
-      Types types, Elements elements, Collection<ParcelableWrapper> wrappers) {
+      Context context, Collection<ParcelableWrapper> wrappers) {
+    Elements elements = context.elements();
     tryAddWrapper(
         elements,
         wrappers,
@@ -214,15 +214,18 @@ public abstract class ParcelableWrapper {
         "android.graphics.Bitmap",
         ClassName.get(PARCELABLE_WRAPPER_PACKAGE, "ParcelableBitmap"));
 
-    addArrayWrappers(types, elements, wrappers);
+    tryAddWrapper(
+        elements,
+        wrappers,
+        "android.graphics.drawable.Drawable",
+        ClassName.get(PARCELABLE_WRAPPER_PACKAGE, "ParcelableDrawable"));
+
+    addArrayWrappers(context, wrappers);
   }
 
   private static void addGeneratedProtoParcelableWrappers(
-      Types types,
-      Elements elements,
-      Collection<ParcelableWrapper> wrappers,
-      Collection<TypeMirror> usedTypes) {
-    TypeElement protoElement = elements.getTypeElement("com.google.protobuf.MessageLite");
+      Context context, Collection<ParcelableWrapper> wrappers, Collection<TypeMirror> usedTypes) {
+    TypeElement protoElement = context.elements().getTypeElement("com.google.protobuf.MessageLite");
     if (protoElement == null) {
       // Protos are not included at compile-time
       return;
@@ -231,12 +234,12 @@ public abstract class ParcelableWrapper {
 
     Collection<TypeMirror> protoTypes =
         usedTypes.stream()
-                // <any> is the value when the compiler encounters a type which isn't accessible
-                // or does not exist. This passes the types.isAssignable filter, which makes such
-                // bugs hard to debug. This will already fail because the Java compiler won't allow
-                // it - so this is just to suppress strange test failures
+            // <any> is the value when the compiler encounters a type which isn't accessible
+            // or does not exist. This passes the types.isAssignable filter, which makes such
+            // bugs hard to debug. This will already fail because the Java compiler won't allow
+            // it - so this is just to suppress strange test failures
             .filter(t -> !t.toString().equals("<any>"))
-            .filter(t -> types.isAssignable(t, proto))
+            .filter(t -> context.types().isAssignable(t, proto))
             .collect(toSet());
 
     for (TypeMirror protoType : protoTypes) {
@@ -246,10 +249,9 @@ public abstract class ParcelableWrapper {
     }
   }
 
-  private static void addArrayWrappers(
-      Types types, Elements elements, Collection<ParcelableWrapper> wrappers) {
-    TypeElement typeElement = elements.getTypeElement("java.lang.Object");
-    TypeMirror typeMirror = types.getArrayType(typeElement.asType());
+  private static void addArrayWrappers(Context context, Collection<ParcelableWrapper> wrappers) {
+    TypeElement typeElement = context.elements().getTypeElement("java.lang.Object");
+    TypeMirror typeMirror = context.types().getArrayType(typeElement.asType());
 
     ClassName wrapperClassName = ClassName.get(PARCELABLE_WRAPPER_PACKAGE, "ParcelableArray");
 

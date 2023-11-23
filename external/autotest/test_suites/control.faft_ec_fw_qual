@@ -14,6 +14,9 @@ TEST_TYPE = "Server"
 DOC = """
 This test suite verifies if the EC firmware is ready for production
 release.
+
+Tests intended for both production release and bring-up should be in
+both suite:faft_ec and suite:faft_ec_fw_qual.
 """
 
 import common

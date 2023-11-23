@@ -1,8 +1,9 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
-import mock
 import os
+import six
 import unittest
+from unittest import mock
 
 import common
 from autotest_lib.client.common_lib import autotemp
@@ -150,10 +151,14 @@ class test_local_host_class(unittest.TestCase):
         # create some files in tmpdir
         open(files[0], 'w').close()
         open(files[1], 'w').close()
-
-        self.assertItemsEqual(
-                files,
-                host.list_files_glob(os.path.join(self.tmpdir.name, '*')))
+        if six.PY2:
+            self.assertItemsEqual(
+                    files,
+                    host.list_files_glob(os.path.join(self.tmpdir.name, '*')))
+        else:
+            self.assertCountEqual(
+                    files,
+                    host.list_files_glob(os.path.join(self.tmpdir.name, '*')))
 
 
     def test_symlink_closure_does_not_add_existent_file(self):
@@ -167,9 +172,12 @@ class test_local_host_class(unittest.TestCase):
 
         # test that when the symlinks point to already know files
         # nothing is added
-        self.assertItemsEqual(
-                [fname, sname],
-                host.symlink_closure([fname, sname]))
+        if six.PY2:
+            self.assertItemsEqual([fname, sname],
+                                  host.symlink_closure([fname, sname]))
+        else:
+            self.assertCountEqual([fname, sname],
+                                  host.symlink_closure([fname, sname]))
 
 
     def test_symlink_closure_adds_missing_files(self):
@@ -182,9 +190,12 @@ class test_local_host_class(unittest.TestCase):
         os.symlink(fname, sname)
 
         # test that when the symlinks point to unknown files they are added
-        self.assertItemsEqual(
-                [fname, sname],
-                host.symlink_closure([sname]))
+        if six.PY2:
+            self.assertItemsEqual([fname, sname],
+                                  host.symlink_closure([sname]))
+        else:
+            self.assertCountEqual([fname, sname],
+                                  host.symlink_closure([sname]))
 
 
     def test_get_file(self):

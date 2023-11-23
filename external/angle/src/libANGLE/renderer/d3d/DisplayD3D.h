@@ -92,6 +92,7 @@ class DisplayD3D : public DisplayImpl, public d3d::Context
     egl::Error waitNative(const gl::Context *context, EGLint engine) override;
     gl::Version getMaxSupportedESVersion() const override;
     gl::Version getMaxConformantESVersion() const override;
+    Optional<gl::Version> getMaxSupportedDesktopVersion() const override;
 
     void handleResult(HRESULT hr,
                       const char *message,
@@ -100,6 +101,8 @@ class DisplayD3D : public DisplayImpl, public d3d::Context
                       unsigned int line) override;
 
     const std::string &getStoredErrorString() const { return mStoredErrorString; }
+
+    void initializeFrontendFeatures(angle::FrontendFeatures *features) const override;
 
     void populateFeatureList(angle::FeatureList *features) override;
 

@@ -14,6 +14,9 @@ cc_test {
     srcs: [
         "alarm_test.cc",
     ],
+    header_libs: [
+        "libgrpc++_internal_headers",
+    ],
     static_libs: [
         "libgpr_test_util",
     ],

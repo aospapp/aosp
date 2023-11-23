@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 import os
 import sys
@@ -8,7 +8,7 @@ import version
 version_string = '%s.%s.%s' % (version.major, version.minor, version.patch)
 
 if len(sys.argv) < 2:
-    print sys.stderr, "Usage: %s <Version.inc.in>"
+    print(f"Usage: {sys.argv[0]} <Version.inc.in>", file=sys.stderr)
     sys.exit(1)
 
 with open(sys.argv[1], 'r') as f:
@@ -22,6 +22,6 @@ with open(sys.argv[1], 'r') as f:
 
     for line in f:
         line = line.strip()
-        for replace, to in replacements.iteritems():
+        for replace, to in replacements.items():
             line = line.replace(replace, to)
-        print line
+        print(line)

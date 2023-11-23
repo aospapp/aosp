@@ -317,7 +317,7 @@ ubrk_openBinaryRules(const uint8_t *binaryRules, int32_t rulesLength,
  * @return pointer to the new clone
  * @deprecated ICU 69 Use ubrk_clone() instead.
  */
-U_CAPI UBreakIterator * U_EXPORT2
+U_DEPRECATED UBreakIterator * U_EXPORT2
 ubrk_safeClone(
           const UBreakIterator *bi,
           void *stackBuffer,
@@ -325,7 +325,6 @@ ubrk_safeClone(
           UErrorCode *status);
 
 #endif /* U_HIDE_DEPRECATED_API */
-
 
 /**
  * Thread safe cloning operation.
@@ -337,7 +336,6 @@ ubrk_safeClone(
 U_CAPI UBreakIterator * U_EXPORT2
 ubrk_clone(const UBreakIterator *bi,
            UErrorCode *status);
-
 
 #ifndef U_HIDE_DEPRECATED_API
 

@@ -1,11 +1,13 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 mod data;
 
-use data::{MapEntry, KEYCODE_MAP};
 use std::collections::HashMap;
+
+use data::MapEntry;
+use data::KEYCODE_MAP;
 
 /// Specifies which type of scancode to convert *from* in the KeycodeTranslator.
 #[allow(dead_code)]

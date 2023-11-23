@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (c) Linux Test Project, 2014-2021
+# Copyright (c) Linux Test Project, 2014-2022
 # Author: Cyril Hrubis <chrubis@suse.cz>
 #
 # LTP test library for shell.
@@ -17,24 +17,38 @@ export TST_ITERATIONS=1
 export TST_TMPDIR_RHOST=0
 export TST_LIB_LOADED=1
 
+if [ -z "$TST_FS_TYPE" ]; then
+	export TST_FS_TYPE="${LTP_DEV_FS_TYPE:-ext2}"
+fi
+
 . tst_ansi_color.sh
 . tst_security.sh
 
 # default trap function
-trap "tst_brk TBROK 'test interrupted or timed out'" INT
+trap "tst_brk TBROK 'test interrupted'" INT
+trap "unset _tst_setup_timer_pid; tst_brk TBROK 'test terminated'" TERM
+
+_tst_do_cleanup()
+{
+	if [ -n "$TST_DO_CLEANUP" -a -n "$TST_CLEANUP" -a -z "$TST_NO_CLEANUP" ]; then
+		if command -v $TST_CLEANUP >/dev/null 2>/dev/null; then
+			$TST_CLEANUP
+		else
+			tst_res TWARN "TST_CLEANUP=$TST_CLEANUP declared, but function not defined (or cmd not found)"
+		fi
+	fi
+	TST_DO_CLEANUP=
+}
 
 _tst_do_exit()
 {
 	local ret=0
 	TST_DO_EXIT=1
 
-	if [ -n "$TST_DO_CLEANUP" -a -n "$TST_CLEANUP" -a -z "$TST_NO_CLEANUP" ]; then
-		if type $TST_CLEANUP >/dev/null 2>/dev/null; then
-			$TST_CLEANUP
-		else
-			tst_res TWARN "TST_CLEANUP=$TST_CLEANUP declared, but function not defined (or cmd not found)"
-		fi
-	fi
+	_tst_do_cleanup
+
+	cd "$LTPROOT"
+	[ "$TST_MOUNT_FLAG" = 1 ] && tst_umount
 
 	if [ "$TST_NEEDS_DEVICE" = 1 -a "$TST_DEVICE_FLAG" = 1 ]; then
 		if ! tst_device release "$TST_DEVICE"; then
@@ -43,9 +57,12 @@ _tst_do_exit()
 	fi
 
 	if [ "$TST_NEEDS_TMPDIR" = 1 -a -n "$TST_TMPDIR" ]; then
-		cd "$LTPROOT"
 		rm -r "$TST_TMPDIR"
 		[ "$TST_TMPDIR_RHOST" = 1 ] && tst_cleanup_rhost
+	fi
+
+	if [ -n "$TST_NEEDS_CHECKPOINTS" -a -f "$LTP_IPC_PATH" ]; then
+		rm $LTP_IPC_PATH
 	fi
 
 	_tst_cleanup_timer
@@ -70,13 +87,15 @@ _tst_do_exit()
 		_tst_check_security_modules
 	fi
 
-	echo
-	echo "Summary:"
-	echo "passed   $TST_PASS"
-	echo "failed   $TST_FAIL"
-	echo "broken   $TST_BROK"
-	echo "skipped  $TST_CONF"
-	echo "warnings $TST_WARN"
+	cat >&2 << EOF
+
+Summary:
+passed   $TST_PASS
+failed   $TST_FAIL
+broken   $TST_BROK
+skipped  $TST_CONF
+warnings $TST_WARN
+EOF
 
 	exit $ret
 }
@@ -98,9 +117,6 @@ tst_res()
 {
 	local res=$1
 	shift
-
-	tst_color_enabled
-	local color=$?
 
 	_tst_inc_res "$res"
 
@@ -125,7 +141,9 @@ tst_brk()
 
 ROD_SILENT()
 {
-	local tst_out="$(tst_rod $@ 2>&1)"
+	local tst_out
+
+	tst_out="$(tst_rod $@ 2>&1)"
 	if [ $? -ne 0 ]; then
 		echo "$tst_out"
 		tst_brk TBROK "$@ failed"
@@ -252,17 +270,40 @@ TST_RTNL_CHK()
 	tst_brk TBROK "$@ failed: $output"
 }
 
+TST_CHECKPOINT_WAIT()
+{
+	ROD tst_checkpoint wait 10000 "$1"
+}
+
+TST_CHECKPOINT_WAKE()
+{
+	ROD tst_checkpoint wake 10000 "$1" 1
+}
+
+TST_CHECKPOINT_WAKE2()
+{
+	ROD tst_checkpoint wake 10000 "$1" "$2"
+}
+
+TST_CHECKPOINT_WAKE_AND_WAIT()
+{
+	TST_CHECKPOINT_WAKE "$1"
+	TST_CHECKPOINT_WAIT "$1"
+}
+
 tst_mount()
 {
-	local mnt_opt mnt_err
+	local mnt_opt mnt_err mnt_real
 
 	if [ -n "$TST_FS_TYPE" ]; then
 		mnt_opt="-t $TST_FS_TYPE"
 		mnt_err=" $TST_FS_TYPE type"
 	fi
+	local cmd="mount $mnt_opt $TST_DEVICE $TST_MNTPOINT $TST_MNT_PARAMS"
 
 	ROD_SILENT mkdir -p $TST_MNTPOINT
-	mount $mnt_opt $TST_DEVICE $TST_MNTPOINT $TST_MNT_PARAMS
+	tst_res TINFO "Mounting device: $cmd"
+	$cmd
 	local ret=$?
 
 	if [ $ret -eq 32 ]; then
@@ -276,69 +317,84 @@ tst_mount()
 
 tst_umount()
 {
-	local device="${1:-$TST_DEVICE}"
+	local mntpoint="${1:-$TST_MNTPOINT}"
 	local i=0
 
-	[ -z "$device" ] && return
+	[ -z "$mntpoint" ] && return
 
-	if ! grep -q "$device" /proc/mounts; then
-		tst_res TINFO "The $device is not mounted, skipping umount"
+	if ! echo "$mntpoint" | grep -q ^/; then
+		tst_brk TCONF "The '$mntpoint' is not an absolute path"
+	fi
+
+	if ! grep -q "${mntpoint%/}" /proc/mounts; then
+		tst_res TINFO "The '$mntpoint' is not mounted, skipping umount"
 		return
 	fi
 
 	while [ "$i" -lt 50 ]; do
-		if umount "$device" > /dev/null; then
+		if umount "$mntpoint" > /dev/null; then
 			return
 		fi
 
 		i=$((i+1))
 
-		tst_res TINFO "umount($device) failed, try $i ..."
+		tst_res TINFO "umount($mntpoint) failed, try $i ..."
 		tst_res TINFO "Likely gvfsd-trash is probing newly mounted "\
 		              "fs, kill it to speed up tests."
 
 		tst_sleep 100ms
 	done
 
-	tst_res TWARN "Failed to umount($device) after 50 retries"
+	tst_res TWARN "Failed to umount($mntpoint) after 50 retries"
 }
 
 tst_mkfs()
 {
+	local opts
 	local fs_type=${1:-$TST_FS_TYPE}
-	local device=${2:-$TST_DEVICE}
 	[ $# -ge 1 ] && shift
-	[ $# -ge 1 ] && shift
-	local fs_opts="$@"
 
-	if [ -z "$fs_type" ]; then
-		tst_brk TBROK "No fs_type specified"
+	opts="$@"
+
+	if [ "$fs_type" = tmpfs ]; then
+		tst_res TINFO "Skipping mkfs for TMPFS filesystem"
+		return
 	fi
 
-	if [ -z "$device" ]; then
-		tst_brk TBROK "No device specified"
+	if [ -z "$opts" ]; then
+		if [ "$TST_NEEDS_DEVICE" != 1 ]; then
+			tst_brk "Using default parameters in tst_mkfs requires TST_NEEDS_DEVICE=1"
+		fi
+		opts="$TST_DEVICE"
 	fi
 
 	tst_require_cmds mkfs.$fs_type
 
-	tst_res TINFO "Formatting $device with $fs_type extra opts='$fs_opts'"
-	ROD_SILENT mkfs.$fs_type $fs_opts $device
+	tst_res TINFO "Formatting $fs_type with opts='$opts'"
+	ROD_SILENT mkfs.$fs_type $opts
+}
+
+# Detect whether running under hypervisor: Microsoft Hyper-V
+# Return 0: running under Hyper-V
+# Return 1: not running under Hyper-V (bare metal, other hypervisor or
+#           failure of detection)
+tst_virt_hyperv()
+{
+	local v
+
+	tst_cmd_available systemd-detect-virt || return 1
+
+	v="$(systemd-detect-virt)"
+
+	[ $? -eq 0 ] || return 1
+	[ "$v" = "microsoft" ] || return 1
+
+	return 0
 }
 
 tst_cmd_available()
 {
-	if type command > /dev/null 2>&1; then
-		command -v $1 > /dev/null 2>&1 || return 1
-	else
-		which $1 > /dev/null 2>&1
-		if [ $? -eq 0 ]; then
-			return 0
-		elif [ $? -eq 127 ]; then
-			tst_brk TCONF "missing which command"
-		else
-			return 1
-		fi
-	fi
+	command -v $1 >/dev/null 2>&1
 }
 
 tst_require_cmds()
@@ -373,6 +429,26 @@ tst_require_drivers()
 	return 0
 }
 
+tst_require_kconfigs()
+{
+	local delim
+
+	if [ $# -gt 2 ]; then
+		return 0
+	elif [ $# -eq 1 ]; then
+		delim="$TST_NEEDS_KCONFIGS_IFS"
+	else
+		delim="$2"
+	fi
+
+	[ -z "$1" ] && return 0
+
+	tst_check_kconfigs "$1" "$delim" > /dev/null
+
+	[ $? -ne 0 ] && tst_brk TCONF "Aborting due to unsuitable kernel config, see above!"
+	return 0
+}
+
 tst_is_int()
 {
 	[ "$1" -eq "$1" ] 2>/dev/null
@@ -390,11 +466,28 @@ tst_usage()
 		$TST_USAGE
 	else
 		echo "usage: $0"
-		echo "OPTIONS"
+		echo
+		echo "Options"
+		echo "-------"
 	fi
 
 	echo "-h      Prints this help"
 	echo "-i n    Execute test n times"
+
+	cat << EOF
+
+Environment Variables
+---------------------
+KCONFIG_PATH         Specify kernel config file
+KCONFIG_SKIP_CHECK   Skip kernel config check if variable set (not set by default)
+LTPROOT              Prefix for installed LTP (default: /opt/ltp)
+LTP_COLORIZE_OUTPUT  Force colorized output behaviour (y/1 always, n/0: never)
+LTP_DEV              Path to the block device to be used (for .needs_device)
+LTP_DEV_FS_TYPE      Filesystem used for testing (default: ext2)
+LTP_SINGLE_FS_TYPE   Testing only - specifies filesystem instead all supported (for TST_ALL_FILESYSTEMS=1)
+LTP_TIMEOUT_MUL      Timeout multiplier (must be a number >=1, ceiled to int)
+TMPDIR               Base directory for template directory (for .needs_tmpdir, default: /tmp)
+EOF
 }
 
 _tst_resstr()
@@ -435,45 +528,13 @@ _tst_multiply_timeout()
 	return 0
 }
 
-_tst_kill_test()
-{
-	local i=10
-
-	trap '' INT
-	tst_res TBROK "Test timeouted, sending SIGINT! If you are running on slow machine, try exporting LTP_TIMEOUT_MUL > 1"
-	kill -INT -$pid
-	tst_sleep 100ms
-
-	while kill -0 $pid >/dev/null 2>&1 && [ $i -gt 0 ]; do
-		tst_res TINFO "Test is still running, waiting ${i}s"
-		sleep 1
-		i=$((i-1))
-	done
-
-	if kill -0 $pid >/dev/null 2>&1; then
-		tst_res TBROK "Test still running, sending SIGKILL"
-		kill -KILL -$pid
-	fi
-}
-
 _tst_cleanup_timer()
 {
 	if [ -n "$_tst_setup_timer_pid" ]; then
 		kill -TERM $_tst_setup_timer_pid 2>/dev/null
-		wait $_tst_setup_timer_pid 2>/dev/null
+		# kill is succesful only on test timeout
+		wait $_tst_setup_timer_pid 2>/dev/null || true
 	fi
-}
-
-_tst_timeout_process()
-{
-	local sleep_pid
-
-	sleep $sec &
-	sleep_pid=$!
-	trap "kill $sleep_pid; exit" TERM
-	wait $sleep_pid
-	trap - TERM
-	_tst_kill_test
 }
 
 _tst_setup_timer()
@@ -500,9 +561,21 @@ _tst_setup_timer()
 
 	_tst_cleanup_timer
 
-	_tst_timeout_process &
+	tst_timeout_kill $sec $pid &
 
 	_tst_setup_timer_pid=$!
+
+	while true; do
+		local state
+
+		state=$(cut -d' ' -f3 "/proc/$_tst_setup_timer_pid/stat")
+
+		if [ "$state" = "S" ]; then
+			break;
+		fi
+
+		tst_sleep 1ms
+	done
 }
 
 tst_require_root()
@@ -539,51 +612,92 @@ tst_set_timeout()
 	_tst_setup_timer
 }
 
+_tst_init_checkpoints()
+{
+	local pagesize
+
+	LTP_IPC_PATH="/dev/shm/ltp_${TST_ID}_$$"
+	pagesize=$(tst_getconf PAGESIZE)
+	if [ $? -ne 0 ]; then
+		tst_brk TBROK "tst_getconf PAGESIZE failed"
+	fi
+	ROD_SILENT dd if=/dev/zero of="$LTP_IPC_PATH" bs="$pagesize" count=1
+	ROD_SILENT chmod 600 "$LTP_IPC_PATH"
+	export LTP_IPC_PATH
+}
+
+_prepare_device()
+{
+	if [ "$TST_FORMAT_DEVICE" = 1 ]; then
+		tst_device clear "$TST_DEVICE"
+		tst_mkfs $TST_FS_TYPE $TST_DEV_FS_OPTS $TST_DEVICE $TST_DEV_EXTRA_OPTS
+	fi
+
+	if [ "$TST_MOUNT_DEVICE" = 1 ]; then
+		tst_mount
+		TST_MOUNT_FLAG=1
+	fi
+}
+
+_tst_run_tcases_per_fs()
+{
+	local fs
+	local filesystems
+
+	filesystems="$(tst_supported_fs -s "$TST_SKIP_FILESYSTEMS")"
+	if [ $? -ne 0 ]; then
+		tst_brk TCONF "There are no supported filesystems or all skipped"
+	fi
+
+	for fs in $filesystems; do
+		tst_res TINFO "=== Testing on $fs ==="
+		TST_FS_TYPE="$fs"
+		_tst_run_iterations
+	done
+}
+
 tst_run()
 {
 	local _tst_i
 	local _tst_data
 	local _tst_max
 	local _tst_name
+	local _tst_pattern='[='\''"} \t\/:`$\;|].*'
+	local ret
 
 	if [ -n "$TST_TEST_PATH" ]; then
-		for _tst_i in $(grep '^[^#]*\bTST_' "$TST_TEST_PATH" | sed 's/.*TST_//; s/[="} \t\/:`].*//'); do
+		for _tst_i in $(grep '^[^#]*\bTST_' "$TST_TEST_PATH" | sed "s/.*TST_//; s/$_tst_pattern//"); do
 			case "$_tst_i" in
-			DISABLE_APPARMOR|DISABLE_SELINUX);;
+			ALL_FILESYSTEMS|DISABLE_APPARMOR|DISABLE_SELINUX);;
 			SETUP|CLEANUP|TESTFUNC|ID|CNT|MIN_KVER);;
 			OPTS|USAGE|PARSE_ARGS|POS_ARGS);;
 			NEEDS_ROOT|NEEDS_TMPDIR|TMPDIR|NEEDS_DEVICE|DEVICE);;
 			NEEDS_CMDS|NEEDS_MODULE|MODPATH|DATAROOT);;
 			NEEDS_DRIVERS|FS_TYPE|MNTPOINT|MNT_PARAMS);;
+			NEEDS_KCONFIGS|NEEDS_KCONFIGS_IFS);;
 			IPV6|IPV6_FLAG|IPVER|TEST_DATA|TEST_DATA_IFS);;
 			RETRY_FUNC|RETRY_FN_EXP_BACKOFF|TIMEOUT);;
 			NET_DATAROOT|NET_MAX_PKT|NET_RHOST_RUN_DEBUG|NETLOAD_CLN_NUMBER);;
+			NET_SKIP_VARIABLE_INIT|NEEDS_CHECKPOINTS);;
+			CHECKPOINT_WAIT|CHECKPOINT_WAKE);;
+			CHECKPOINT_WAKE2|CHECKPOINT_WAKE_AND_WAIT);;
+			DEV_EXTRA_OPTS|DEV_FS_OPTS|FORMAT_DEVICE|MOUNT_DEVICE);;
+			SKIP_FILESYSTEMS);;
 			*) tst_res TWARN "Reserved variable TST_$_tst_i used!";;
 			esac
 		done
 
-		for _tst_i in $(grep '^[^#]*\b_tst_' "$TST_TEST_PATH" | sed 's/.*_tst_//; s/[="} \t\/:`].*//'); do
+		for _tst_i in $(grep '^[^#]*\b_tst_' "$TST_TEST_PATH" | sed "s/.*_tst_//; s/$_tst_pattern//"); do
 			tst_res TWARN "Private variable or function _tst_$_tst_i used!"
 		done
 	fi
-
-	OPTIND=1
-
-	while getopts ":hi:$TST_OPTS" _tst_name $TST_ARGS; do
-		case $_tst_name in
-		'h') tst_usage; exit 0;;
-		'i') TST_ITERATIONS=$OPTARG;;
-		'?') tst_usage; exit 2;;
-		*) $TST_PARSE_ARGS "$_tst_name" "$OPTARG";;
-		esac
-	done
 
 	if ! tst_is_int "$TST_ITERATIONS"; then
 		tst_brk TBROK "Expected number (-i) not '$TST_ITERATIONS'"
 	fi
 
-	if [ "$TST_ITERATIONS" -le 0 ]; then
-		tst_brk TBROK "Number of iterations (-i) must be > 0"
+	if [ "$TST_ITERATIONS" -lt 0 ]; then
+		tst_brk TBROK "Number of iterations (-i) must be >= 0"
 	fi
 
 	[ "$TST_NEEDS_ROOT" = 1 ] && tst_require_root
@@ -592,6 +706,7 @@ tst_run()
 	[ "$TST_DISABLE_SELINUX" = 1 ] && tst_disable_selinux
 
 	tst_require_cmds $TST_NEEDS_CMDS
+	tst_require_kconfigs "$TST_NEEDS_KCONFIGS"
 	tst_require_drivers $TST_NEEDS_DRIVERS
 
 	if [ -n "$TST_MIN_KVER" ]; then
@@ -599,8 +714,10 @@ tst_run()
 			tst_brk TCONF "test requires kernel $TST_MIN_KVER+"
 	fi
 
-	_tst_setup_timer
+	[ -n "$TST_NEEDS_MODULE" ] && tst_require_module "$TST_NEEDS_MODULE"
 
+	[ "$TST_MOUNT_DEVICE" = 1 ] && TST_FORMAT_DEVICE=1
+	[ "$TST_FORMAT_DEVICE" = 1 -o "$TST_ALL_FILESYSTEMS" = 1 ] && TST_NEEDS_DEVICE=1
 	[ "$TST_NEEDS_DEVICE" = 1 ] && TST_NEEDS_TMPDIR=1
 
 	if [ "$TST_NEEDS_TMPDIR" = 1 ]; then
@@ -613,27 +730,58 @@ tst_run()
 		chmod 777 "$TST_TMPDIR"
 
 		TST_STARTWD=$(pwd)
-
 		cd "$TST_TMPDIR"
 	fi
 
-	TST_MNTPOINT="${TST_MNTPOINT:-mntpoint}"
+	# needs to be after cd $TST_TMPDIR to keep test_dev.img under $TST_TMPDIR
 	if [ "$TST_NEEDS_DEVICE" = 1 ]; then
-
 		TST_DEVICE=$(tst_device acquire)
 
 		if [ ! -b "$TST_DEVICE" -o $? -ne 0 ]; then
 			unset TST_DEVICE
 			tst_brk TBROK "Failed to acquire device"
 		fi
-
 		TST_DEVICE_FLAG=1
+
+		if [ -z "$TST_FS_TYPE" ]; then
+			export TST_FS_TYPE="${LTP_DEV_FS_TYPE:-ext2}"
+		fi
 	fi
 
-	[ -n "$TST_NEEDS_MODULE" ] && tst_require_module "$TST_NEEDS_MODULE"
+	if [ "$TST_ALL_FILESYSTEMS" != 1 -a "$TST_SKIP_FILESYSTEMS" ]; then
+		if ! tst_supported_fs -s "$TST_SKIP_FILESYSTEMS" -d . > /dev/null; then
+			tst_brk TCONF "filesystem is not supported by the test"
+		fi
+
+		tst_res TINFO "filesystem is supported by the test"
+	fi
+
+	[ -n "$TST_NEEDS_CHECKPOINTS" ] && _tst_init_checkpoints
+
+	TST_MNTPOINT="${TST_MNTPOINT:-$PWD/mntpoint}"
+
+	if [ "$TST_ALL_FILESYSTEMS" = 1 ]; then
+		_tst_run_tcases_per_fs
+	else
+		_tst_run_iterations
+	fi
+
+	_tst_do_exit
+}
+
+_tst_run_iterations()
+{
+	local _tst_i=$TST_ITERATIONS
+	local _tst_j
+
+	[ "$TST_NEEDS_TMPDIR" = 1 ] && cd "$TST_TMPDIR"
+
+	_prepare_device
+
+	_tst_setup_timer
 
 	if [ -n "$TST_SETUP" ]; then
-		if type $TST_SETUP >/dev/null 2>/dev/null; then
+		if command -v $TST_SETUP >/dev/null 2>/dev/null; then
 			TST_DO_CLEANUP=1
 			$TST_SETUP
 		else
@@ -642,20 +790,27 @@ tst_run()
 	fi
 
 	#TODO check that test reports some results for each test function call
-	while [ $TST_ITERATIONS -gt 0 ]; do
+	while [ $_tst_i -gt 0 ]; do
 		if [ -n "$TST_TEST_DATA" ]; then
 			tst_require_cmds cut tr wc
 			_tst_max=$(( $(echo $TST_TEST_DATA | tr -cd "$TST_TEST_DATA_IFS" | wc -c) +1))
-			for _tst_i in $(seq $_tst_max); do
-				_tst_data="$(echo "$TST_TEST_DATA" | cut -d"$TST_TEST_DATA_IFS" -f$_tst_i)"
+			for _tst_j in $(seq $_tst_max); do
+				_tst_data="$(echo "$TST_TEST_DATA" | cut -d"$TST_TEST_DATA_IFS" -f$_tst_j)"
 				_tst_run_tests "$_tst_data"
 			done
 		else
 			_tst_run_tests
 		fi
-		TST_ITERATIONS=$((TST_ITERATIONS-1))
+		_tst_i=$((_tst_i-1))
 	done
-	_tst_do_exit
+
+	_tst_do_cleanup
+
+	if [ "$TST_MOUNT_FLAG" = 1 ]; then
+		cd "$LTPROOT"
+		tst_umount
+		TST_MOUNT_FLAG=
+	fi
 }
 
 _tst_run_tests()
@@ -665,7 +820,7 @@ _tst_run_tests()
 
 	TST_DO_CLEANUP=1
 	for _tst_i in $(seq ${TST_CNT:-1}); do
-		if type ${TST_TESTFUNC}1 > /dev/null 2>&1; then
+		if command -v ${TST_TESTFUNC}1 > /dev/null 2>&1; then
 			_tst_run_test "$TST_TESTFUNC$_tst_i" $_tst_i "$_tst_data"
 		else
 			_tst_run_test "$TST_TESTFUNC" $_tst_i "$_tst_data"
@@ -683,6 +838,8 @@ _tst_run_test()
 	_tst_rescmp "$_tst_res"
 	TST_COUNT=$((TST_COUNT+1))
 }
+
+export LC_ALL=C
 
 if [ -z "$TST_ID" ]; then
 	_tst_filename=$(basename $0) || \
@@ -711,6 +868,8 @@ if [ -z "$TST_NO_DEFAULT_RUN" ]; then
 
 	TST_TEST_DATA_IFS="${TST_TEST_DATA_IFS:- }"
 
+	TST_NEEDS_KCONFIGS_IFS="${TST_NEEDS_KCONFIGS_IFS:-,}"
+
 	if [ -n "$TST_CNT" ]; then
 		if ! tst_is_int "$TST_CNT"; then
 			tst_brk TBROK "TST_CNT must be integer"
@@ -733,22 +892,26 @@ if [ -z "$TST_NO_DEFAULT_RUN" ]; then
 
 	TST_ARGS="$@"
 
-	while getopts ":hi:$TST_OPTS" tst_name; do
-		case $tst_name in
-		'h') TST_PRINT_HELP=1;;
-		*);;
+	OPTIND=1
+
+	while getopts ":hi:$TST_OPTS" _tst_name $TST_ARGS; do
+		case $_tst_name in
+		'h') tst_usage; exit 0;;
+		'i') TST_ITERATIONS=$OPTARG;;
+		'?') tst_usage; exit 2;;
+		*) $TST_PARSE_ARGS "$_tst_name" "$OPTARG";;
 		esac
 	done
 
 	shift $((OPTIND - 1))
 
 	if [ -n "$TST_POS_ARGS" ]; then
-		if [ -z "$TST_PRINT_HELP" -a $# -ne "$TST_POS_ARGS" ]; then
+		if [ $# -ne "$TST_POS_ARGS" ]; then
 			tst_brk TBROK "Invalid number of positional parameters:"\
 					  "have ($@) $#, expected ${TST_POS_ARGS}"
 		fi
 	else
-		if [ -z "$TST_PRINT_HELP" -a $# -ne 0 ]; then
+		if [ $# -ne 0 ]; then
 			tst_brk TBROK "Unexpected positional arguments '$@'"
 		fi
 	fi

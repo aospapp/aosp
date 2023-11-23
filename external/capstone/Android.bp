@@ -1,4 +1,3 @@
-
 package {
     default_applicable_licenses: ["external_capstone_license"],
 }
@@ -82,8 +81,11 @@ cc_defaults {
         "-Wno-missing-field-initializers",
         "-DCAPSTONE_USE_SYS_DYN_MEM",
     ],
-    export_include_dirs: [".", "include"],
-    clang: true,
+    export_include_dirs: [
+        ".",
+        "include",
+    ],
+
     arch: {
         arm: {
             cflags: arm_flags,
@@ -93,15 +95,15 @@ cc_defaults {
             cflags: arm_flags + arm64_flags + x86_flags,
             srcs: arm_srcs + arm64_srcs + x86_srcs,
         },
-	x86_64: {
+        x86_64: {
             cflags: arm_flags + arm64_flags + x86_flags,
             srcs: arm_srcs + arm64_srcs + x86_srcs,
         },
         arm64: {
             cflags: arm_flags + arm64_flags,
-            srcs: arm_srcs + arm64_srcs
-        }
-    }
+            srcs: arm_srcs + arm64_srcs,
+        },
+    },
 }
 
 // For the host and device platform

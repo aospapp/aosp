@@ -1,15 +1,21 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 use std::boxed::Box;
-use std::cmp::{max, min, Ord, Ordering, PartialOrd};
+use std::cmp::max;
+use std::cmp::min;
+use std::cmp::Ord;
+use std::cmp::Ordering;
+use std::cmp::PartialOrd;
 use std::mem::size_of;
-use std::sync::{Arc, MutexGuard};
-use sync::Mutex;
+use std::sync::Arc;
+use std::sync::MutexGuard;
 
 use base::error;
-use data_model::DataInit;
+use sync::Mutex;
+use zerocopy::AsBytes;
+use zerocopy::FromBytes;
 
 /// Type of offset in the register space.
 pub type RegisterOffset = u64;
@@ -59,7 +65,11 @@ pub trait RegisterValue:
     'static
     + Into<u64>
     + Clone
-    + DataInit
+    + AsBytes
+    + FromBytes
+    + Send
+    + Sync
+    + Copy
     + std::ops::BitOr<Self, Output = Self>
     + std::ops::BitAnd<Self, Output = Self>
     + std::ops::Not<Output = Self>
@@ -172,7 +182,7 @@ where
 #[macro_export]
 macro_rules! static_register {
     (ty: $ty:ty,offset: $offset:expr,value: $value:expr,) => {{
-        use crate::register_space::*;
+        use $crate::register_space::*;
         static REG_SPEC: StaticRegisterSpec<$ty> = StaticRegisterSpec::<$ty> {
             offset: $offset,
             value: $value,
@@ -258,7 +268,7 @@ impl<T: RegisterValue> RegisterInterface for Register<T> {
         let total_size = (overlap.to - overlap.from) as usize + 1;
 
         let mut reg_value: T = self.lock().value;
-        let value: &mut [u8] = reg_value.as_mut_slice();
+        let value: &mut [u8] = reg_value.as_bytes_mut();
         for i in 0..total_size {
             value[my_start_idx + i] = self.apply_write_masks_to_byte(
                 value[my_start_idx + i],
@@ -354,7 +364,7 @@ macro_rules! register {
         guest_writeable_mask: $mask:expr,
         guest_write_1_to_clear_mask: $w1tcm:expr,
     ) => {{
-        use crate::register_space::*;
+        use $crate::register_space::*;
         let spec: RegisterSpec<$ty> = RegisterSpec::<$ty> {
             name: String::from($name),
             offset: $offset,
@@ -365,7 +375,7 @@ macro_rules! register {
         Register::<$ty>::new(spec, $rv)
     }};
     (name: $name:tt, ty: $ty:ty,offset: $offset:expr,reset_value: $rv:expr,) => {{
-        use crate::register_space::*;
+        use $crate::register_space::*;
         let spec: RegisterSpec<$ty> = RegisterSpec::<$ty> {
             name: String::from($name),
             offset: $offset,
@@ -390,7 +400,7 @@ macro_rules! register_array {
         $gwm:expr,guest_write_1_to_clear_mask:
         $gw1tcm:expr,
     ) => {{
-        use crate::register_space::*;
+        use $crate::register_space::*;
         let mut v: Vec<Register<$ty>> = Vec::new();
         for i in 0..$cnt {
             let offset = $base_offset + ($stride * i) as RegisterOffset;

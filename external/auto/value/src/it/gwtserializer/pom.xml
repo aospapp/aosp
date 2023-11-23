@@ -22,14 +22,14 @@
   <parent>
     <groupId>com.google.auto.value</groupId>
     <artifactId>auto-value-parent</artifactId>
-    <version>1.7.4</version>
+    <version>HEAD-SNAPSHOT</version>
     <relativePath>../../../pom.xml</relativePath>
   </parent>
   <url>https://github.com/google/auto/tree/master/value</url>
 
   <groupId>com.google.auto.value.it.gwtserializer</groupId>
   <artifactId>gwtserializer</artifactId>
-  <version>1.7.4</version>
+  <version>HEAD-SNAPSHOT</version>
   <name>Auto-Value GWT-RPC Serialization Integration Test</name>
   <dependencyManagement>
     <dependencies>
@@ -99,7 +99,7 @@
           <dependency>
             <groupId>org.codehaus.plexus</groupId>
             <artifactId>plexus-java</artifactId>
-            <version>1.0.7</version>
+            <version>1.1.0</version>
           </dependency>
         </dependencies>
         <configuration>

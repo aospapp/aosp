@@ -10,7 +10,6 @@
       <enumerator name='green1' value='1'/>
       <enumerator name='blue1' value='2'/>
     </enum-decl>
-    <type-decl name='unsigned int' size-in-bits='32' alignment-in-bits='32' id='f0981eeb'/>
-    <var-decl name='primary1' type-id='08f5ca17' mangled-name='primary1' visibility='default'/>
+    <var-decl name='primary1' type-id='08f5ca17' mangled-name='primary1' visibility='default' elf-symbol-id='primary1'/>
   </abi-instr>
 </abi-corpus>

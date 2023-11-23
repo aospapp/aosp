@@ -11,12 +11,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "os/os_misc.h"
+#include "util/os_misc.h"
 #include "virgl_util.h"
 
 #define VKR_RENDERER_THREAD_SYNC (1u << 0)
-#define VKR_RENDERER_MULTI_PROCESS (1u << 1)
-#define VKR_RENDERER_ASYNC_FENCE_CB (1u << 2)
+#define VKR_RENDERER_ASYNC_FENCE_CB (1u << 1)
+#define VKR_RENDERER_RENDER_SERVER (1u << 2)
 
 struct virgl_context;
 

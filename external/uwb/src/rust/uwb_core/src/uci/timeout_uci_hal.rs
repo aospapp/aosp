@@ -19,11 +19,14 @@ use async_trait::async_trait;
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 
-use crate::uci::error::{Error, Result};
-use crate::uci::params::SessionId;
-use crate::uci::uci_hal::{RawUciMessage, UciHal};
+use crate::error::{Error, Result};
+use crate::params::uci_packets::SessionId;
+use crate::uci::command::UciCommand;
+use crate::uci::uci_hal::{UciHal, UciHalPacket};
 
-const HAL_API_TIMEOUT_MS: u64 = 800;
+const HAL_API_TIMEOUT_MS: u64 = 1000;
+// TODO(b/279175027): Reduce this once vendor fixes their initialization sequence.
+const HAL_OPEN_TIMEOUT_MS: u64 = 20000; // Extra time may be needed for starting UWB stack.
 
 pub(crate) struct TimeoutUciHal<T: UciHal>(T);
 
@@ -32,8 +35,11 @@ impl<T: UciHal> TimeoutUciHal<T> {
         Self(hal)
     }
 
-    async fn call_with_timeout(future: impl Future<Output = Result<()>>) -> Result<()> {
-        match timeout(Duration::from_millis(HAL_API_TIMEOUT_MS), future).await {
+    async fn call_with_timeout(
+        future: impl Future<Output = Result<()>>,
+        duration: u64,
+    ) -> Result<()> {
+        match timeout(Duration::from_millis(duration), future).await {
             Ok(result) => result,
             Err(_) => Err(Error::Timeout),
         }
@@ -42,20 +48,25 @@ impl<T: UciHal> TimeoutUciHal<T> {
 
 #[async_trait]
 impl<T: UciHal> UciHal for TimeoutUciHal<T> {
-    async fn open(&mut self, msg_sender: mpsc::UnboundedSender<RawUciMessage>) -> Result<()> {
-        Self::call_with_timeout(self.0.open(msg_sender)).await
+    async fn open(&mut self, packet_sender: mpsc::UnboundedSender<UciHalPacket>) -> Result<()> {
+        Self::call_with_timeout(self.0.open(packet_sender), HAL_OPEN_TIMEOUT_MS).await
     }
 
     async fn close(&mut self) -> Result<()> {
-        Self::call_with_timeout(self.0.close()).await
+        Self::call_with_timeout(self.0.close(), HAL_API_TIMEOUT_MS).await
     }
 
     async fn notify_session_initialized(&mut self, session_id: SessionId) -> Result<()> {
-        Self::call_with_timeout(self.0.notify_session_initialized(session_id)).await
+        Self::call_with_timeout(self.0.notify_session_initialized(session_id), HAL_API_TIMEOUT_MS)
+            .await
     }
 
-    async fn send_command(&mut self, cmd: RawUciMessage) -> Result<()> {
-        Self::call_with_timeout(self.0.send_command(cmd)).await
+    async fn send_command(&mut self, cmd: UciCommand) -> Result<()> {
+        Self::call_with_timeout(self.0.send_command(cmd), HAL_API_TIMEOUT_MS).await
+    }
+
+    async fn send_packet(&mut self, packet: UciHalPacket) -> Result<()> {
+        Self::call_with_timeout(self.0.send_packet(packet), HAL_API_TIMEOUT_MS).await
     }
 }
 
@@ -73,13 +84,13 @@ mod tests {
 
     #[async_trait]
     impl UciHal for FakeUciHal {
-        async fn open(&mut self, _: mpsc::UnboundedSender<RawUciMessage>) -> Result<()> {
+        async fn open(&mut self, _: mpsc::UnboundedSender<UciHalPacket>) -> Result<()> {
             Ok(())
         }
         async fn close(&mut self) -> Result<()> {
-            Err(Error::HalFailed)
+            Err(Error::Unknown)
         }
-        async fn send_command(&mut self, _: RawUciMessage) -> Result<()> {
+        async fn send_packet(&mut self, _: UciHalPacket) -> Result<()> {
             sleep(Duration::MAX).await;
             Ok(())
         }
@@ -102,7 +113,7 @@ mod tests {
     async fn test_fail() {
         let mut hal = setup_hal();
 
-        assert!(matches!(hal.close().await, Err(Error::HalFailed)));
+        assert!(matches!(hal.close().await, Err(Error::Unknown)));
     }
 
     #[tokio::test]
@@ -110,6 +121,6 @@ mod tests {
         let mut hal = setup_hal();
         let cmd = vec![];
 
-        assert!(matches!(hal.send_command(cmd).await, Err(Error::Timeout)));
+        assert!(matches!(hal.send_packet(cmd).await, Err(Error::Timeout)));
     }
 }

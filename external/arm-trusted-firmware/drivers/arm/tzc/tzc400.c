@@ -68,6 +68,7 @@ DEFINE_TZC_COMMON_WRITE_REGION_BASE(400, 400)
 DEFINE_TZC_COMMON_WRITE_REGION_TOP(400, 400)
 DEFINE_TZC_COMMON_WRITE_REGION_ATTRIBUTES(400, 400)
 DEFINE_TZC_COMMON_WRITE_REGION_ID_ACCESS(400, 400)
+DEFINE_TZC_COMMON_UPDATE_FILTERS(400, 400)
 DEFINE_TZC_COMMON_CONFIGURE_REGION0(400)
 DEFINE_TZC_COMMON_CONFIGURE_REGION(400)
 
@@ -271,6 +272,15 @@ void tzc400_configure_region(unsigned int filters,
 						sec_attr, nsaid_permissions);
 }
 
+void tzc400_update_filters(unsigned int region, unsigned int filters)
+{
+	/* Do range checks on filters and regions. */
+	assert(((filters >> tzc400.num_filters) == 0U) &&
+	       (region < tzc400.num_regions));
+
+	_tzc400_update_filters(tzc400.base, region, tzc400.num_filters, filters);
+}
+
 void tzc400_enable_filters(void)
 {
 	unsigned int state;
@@ -281,6 +291,11 @@ void tzc400_enable_filters(void)
 	for (filter = 0U; filter < tzc400.num_filters; filter++) {
 		state = _tzc400_get_gate_keeper(tzc400.base, filter);
 		if (state != 0U) {
+			/* Filter 0 is special and cannot be disabled.
+			 * So here we allow it being already enabled. */
+			if (filter == 0U) {
+				continue;
+			}
 			/*
 			 * The TZC filter is already configured. Changing the
 			 * programmer's view in an active system can cause
@@ -302,14 +317,17 @@ void tzc400_enable_filters(void)
 void tzc400_disable_filters(void)
 {
 	unsigned int filter;
+	unsigned int state;
+	unsigned int start = 0U;
 
 	assert(tzc400.base != 0U);
 
-	/*
-	 * We don't do the same state check as above as the Gatekeepers are
-	 * disabled after reset.
-	 */
-	for (filter = 0; filter < tzc400.num_filters; filter++)
+	/* Filter 0 is special and cannot be disabled. */
+	state = _tzc400_get_gate_keeper(tzc400.base, 0);
+	if (state != 0U) {
+		start++;
+	}
+	for (filter = start; filter < tzc400.num_filters; filter++)
 		_tzc400_set_gate_keeper(tzc400.base, filter, 0);
 }
 

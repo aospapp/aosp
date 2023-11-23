@@ -11,10 +11,11 @@
 
 #include <xnnpack.h>
 #include <xnnpack/allocator.h>
+#include <xnnpack/cache.h>
 #include <xnnpack/log.h>
 #include <xnnpack/operator.h>
 #include <xnnpack/pack.h>
-#include <xnnpack/params-init.h>
+#include <xnnpack/microparams-init.h>
 #include <xnnpack/params.h>
 
 
@@ -28,6 +29,7 @@ static enum xnn_status create_prelu_nc(
     xnn_pack_prelu_w_function pack_prelu_w,
     uint32_t datatype_init_flags,
     enum xnn_operator_type operator_type,
+    xnn_caches_t caches,
     xnn_operator_t* prelu_op_out)
 {
   xnn_operator_t prelu_op = NULL;
@@ -83,15 +85,19 @@ static enum xnn_status create_prelu_nc(
     goto error;
   }
 
-  const size_t packed_weights_size = (channels << log2_weights_element_size) + XNN_EXTRA_BYTES;
-  prelu_op->packed_weights = xnn_allocate_simd_memory(packed_weights_size);
-  if (prelu_op->packed_weights == NULL) {
-    xnn_log_error(
-      "failed to allocate %zu bytes for %s operator packed weights",
-      packed_weights_size, xnn_operator_type_to_string(operator_type));
-    goto error;
+  if (caches != NULL) {
+    prelu_op->weights_cache = caches->weights_cache;
   }
-  pack_prelu_w(channels, negative_slope, prelu_op->packed_weights);
+
+  const size_t packed_weights_size = (channels << log2_weights_element_size) + XNN_EXTRA_BYTES;
+  const size_t aligned_total_weights_size = round_up_po2(packed_weights_size, XNN_ALLOCATION_ALIGNMENT);
+  void* weights_ptr = xnn_get_pointer_to_write_weights(prelu_op, aligned_total_weights_size, 0);
+  pack_prelu_w(channels, negative_slope, weights_ptr);
+
+  if (use_weights_cache(prelu_op)) {
+    prelu_op->packed_weights.offset = xnn_get_or_insert_weights_cache(
+        prelu_op->weights_cache, weights_ptr, aligned_total_weights_size);
+  }
 
   prelu_op->channels = channels;
   prelu_op->input_pixel_stride = input_stride;
@@ -117,6 +123,7 @@ enum xnn_status xnn_create_prelu_nc_f16(
     size_t output_stride,
     const void* negative_slope,
     uint32_t flags,
+    xnn_caches_t caches,
     xnn_operator_t* prelu_op_out)
 {
   xnn_pack_prelu_w_function pack_prelu_w = (xnn_pack_prelu_w_function) xnn_pack_f16_prelu_w;
@@ -130,6 +137,7 @@ enum xnn_status xnn_create_prelu_nc_f16(
     1 /* log2(sizeof(uint16_t)) */,
     pack_prelu_w,
     XNN_INIT_FLAG_F16, xnn_operator_type_prelu_nc_f16,
+    caches,
     prelu_op_out);
 }
 
@@ -139,6 +147,7 @@ enum xnn_status xnn_create_prelu_nc_f32(
     size_t output_stride,
     const float* negative_slope,
     uint32_t flags,
+    xnn_caches_t caches,
     xnn_operator_t* prelu_op_out)
 {
   return create_prelu_nc(
@@ -147,6 +156,7 @@ enum xnn_status xnn_create_prelu_nc_f32(
     2 /* log2(sizeof(float)) */,
     (xnn_pack_prelu_w_function) xnn_pack_f32_prelu_w,
     XNN_INIT_FLAG_F32, xnn_operator_type_prelu_nc_f32,
+    caches,
     prelu_op_out);
 }
 
@@ -186,26 +196,36 @@ static enum xnn_status setup_prelu_nc(
     return xnn_status_success;
   }
 
+  if (prelu_op->weights_cache != NULL && !xnn_weights_cache_is_finalized(prelu_op->weights_cache)) {
+    xnn_log_error("failed to setup %s operator: weights cache is not finalized",
+      xnn_operator_type_to_string(expected_operator_type));
+    return xnn_status_invalid_state;
+  }
+
   const size_t channels = prelu_op->channels;
   prelu_op->context.prelu = (struct prelu_context) {
     .n = channels << log2_element_size,
     .x = input,
     .x_stride = prelu_op->input_pixel_stride << log2_element_size,
-    .w = prelu_op->packed_weights,
+    .w = packed_weights(prelu_op),
     .y = output,
     .y_stride = prelu_op->output_pixel_stride << log2_element_size,
     .ukernel = prelu->ukernel,
   };
 
-  size_t batch_tile = batch_size;
-  if (num_threads > 1) {
-    const size_t target_tiles_per_thread = 5;
-    const size_t max_batch_tile = divide_round_up(batch_size, num_threads * target_tiles_per_thread);
-    if (max_batch_tile < batch_tile) {
-      const uint32_t row_tile = prelu->row_tile;
-      batch_tile = min(batch_tile, divide_round_up(batch_tile, max_batch_tile * row_tile) * row_tile);
+  #if XNN_TEST_MODE
+    const size_t batch_tile = prelu->row_tile;
+  #else
+    size_t batch_tile = batch_size;
+    if (num_threads > 1) {
+      const size_t target_tiles_per_thread = 5;
+      const size_t max_batch_tile = divide_round_up(batch_size, num_threads * target_tiles_per_thread);
+      if (max_batch_tile < batch_tile) {
+        const uint32_t row_tile = prelu->row_tile;
+        batch_tile = min(batch_tile, divide_round_up(batch_tile, max_batch_tile * row_tile) * row_tile);
+      }
     }
-  }
+  #endif
   prelu_op->compute.type = xnn_parallelization_type_1d_tile_1d;
   prelu_op->compute.task_1d_tile_1d = (pthreadpool_task_1d_tile_1d_t) xnn_compute_prelu;
   prelu_op->compute.range[0] = batch_size;

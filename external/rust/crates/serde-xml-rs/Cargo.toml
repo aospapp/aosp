@@ -12,11 +12,13 @@
 [package]
 edition = "2018"
 name = "serde-xml-rs"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["Ingvar Stepanyan <me@rreverser.com>"]
 description = "xml-rs based deserializer for Serde (compatible with 0.9+)"
+readme = "README.md"
 license = "MIT"
 repository = "https://github.com/RReverser/serde-xml-rs"
+
 [dependencies.log]
 version = "0.4"
 
@@ -28,11 +30,16 @@ version = "1.0"
 
 [dependencies.xml-rs]
 version = "0.8"
+
 [dev-dependencies.docmatic]
 version = "0.1"
 
-[dev-dependencies.serde_derive]
+[dev-dependencies.rstest]
+version = "0.12"
+
+[dev-dependencies.serde]
 version = "1.0"
+features = ["derive"]
 
 [dev-dependencies.simple_logger]
-version = "1.0"
+version = "2.1"

@@ -101,6 +101,7 @@ public class LogManagerTest extends TestCase {
       */
     protected void tearDown() throws Exception {
         super.tearDown();
+        manager.reset();
         handler = null;
     }
 

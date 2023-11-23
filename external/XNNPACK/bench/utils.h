@@ -80,6 +80,10 @@ typedef bool (*IsaCheckFunction)(benchmark::State& state);
 // If VFP is unsupported, report error in benchmark state, and return false.
 bool CheckVFP(benchmark::State& state);
 
+// Check if ARMv6 extensions are supported.
+// If ARMv6 extensions are unsupported, report error in benchmark state, and return false.
+bool CheckARMV6(benchmark::State& state);
+
 // Check if ARM NEON extension is supported.
 // If NEON is unsupported, report error in benchmark state, and return false.
 bool CheckNEON(benchmark::State& state);
@@ -99,6 +103,10 @@ bool CheckNEONV8(benchmark::State& state);
 // Check if ARM NEON-FP16-ARITH extension is supported.
 // If NEON-FP16-ARITH is unsupported, report error in benchmark state, and return false.
 bool CheckNEONFP16ARITH(benchmark::State& state);
+
+// Check if ARM NEON-BF16 extension is supported.
+// If NEON-BF16 is unsupported, report error in benchmark state, and return false.
+bool CheckNEONBF16(benchmark::State& state);
 
 // Check if ARM DOT extension is supported.
 // If DOT is unsupported, report error in benchmark state, and return false.

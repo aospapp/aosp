@@ -29,10 +29,11 @@ android_library {
     name: "setupdesign",
     static_libs: [
         "androidx.annotation_annotation",
+        "androidx.appcompat_appcompat",
         "androidx.core_core",
         "androidx.legacy_legacy-support-core-ui",
-        "androidx.appcompat_appcompat",
         "androidx.recyclerview_recyclerview",
+        "androidx.window_window",
         "com.google.android.material_material",
         "error_prone_annotations",
         "setupcompat",
@@ -47,6 +48,9 @@ android_library {
         "main/src/**/*.java",
     ],
     min_sdk_version: "14",
+    optimize: {
+        proguard_flags_files: ["proguard.flags"],
+    }
 }
 
 //

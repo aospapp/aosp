@@ -61,6 +61,8 @@ constexpr char kMultiTaskSrP13nModelFileName[] =
     "actions_suggestions_test.multi_task_sr_p13n.model";
 constexpr char kMultiTaskSrEmojiModelFileName[] =
     "actions_suggestions_test.multi_task_sr_emoji.model";
+constexpr char kMultiTaskSrEmojiConceptModelFileName[] =
+    "actions_suggestions_test.multi_task_sr_emoji_concept.model";
 constexpr char kSensitiveTFliteModelFileName[] =
     "actions_suggestions_test.sensitive_tflite.model";
 constexpr char kLiveRelayTFLiteModelFileName[] =
@@ -1833,6 +1835,25 @@ TEST_F(ActionsSuggestionsTest, MultiTaskSrEmojiModelRemovesTextHeadEmoji) {
   EXPECT_EQ(response.actions[1].type, "text_reply");
   EXPECT_EQ(response.actions[2].response_text, "Okay");
   EXPECT_EQ(response.actions[2].type, "text_reply");
+}
+
+TEST_F(ActionsSuggestionsTest, MultiTaskSrEmojiModelUsesConcepts) {
+  std::unique_ptr<ActionsSuggestions> actions_suggestions =
+      LoadTestModel(kMultiTaskSrEmojiConceptModelFileName);
+
+  const ActionsSuggestionsResponse response =
+      actions_suggestions->SuggestActions(
+          {{{/*user_id=*/1, "i am tired",
+             /*reference_time_ms_utc=*/0,
+             /*reference_timezone=*/"Europe/Zurich",
+             /*annotations=*/{},
+             /*locales=*/"en"}}});
+  std::vector<std::string> sigh_emojis = {"😔", "😞"};
+
+  EXPECT_TRUE(std::find(sigh_emojis.begin(), sigh_emojis.end(),
+                        response.actions[0].response_text) !=
+              sigh_emojis.end());
+  EXPECT_EQ(response.actions[0].type, "emoji_reply");
 }
 
 TEST_F(ActionsSuggestionsTest, LiveRelayModel) {

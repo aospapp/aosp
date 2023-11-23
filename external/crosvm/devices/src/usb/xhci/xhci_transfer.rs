@@ -1,26 +1,40 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use super::interrupter::{Error as InterrupterError, Interrupter};
-use super::scatter_gather_buffer::{Error as BufferError, ScatterGatherBuffer};
-use super::usb_hub::{Error as HubError, UsbPort};
-use super::xhci_abi::{
-    AddressedTrb, Error as TrbError, EventDataTrb, SetupStageTrb, TransferDescriptor, TrbCast,
-    TrbCompletionCode, TrbType,
-};
-use super::xhci_regs::MAX_INTERRUPTER;
-use base::{error, Error as SysError, Event};
+use std::cmp::min;
+use std::fmt;
+use std::fmt::Display;
+use std::mem;
+use std::sync::Arc;
+use std::sync::Weak;
+
+use base::error;
+use base::Error as SysError;
+use base::Event;
 use bit_field::Error as BitFieldError;
 use remain::sorted;
-use std::cmp::min;
-use std::fmt::{self, Display};
-use std::mem;
-use std::sync::{Arc, Weak};
 use sync::Mutex;
 use thiserror::Error;
-use usb_util::{TransferStatus, UsbRequestSetup};
+use usb_util::TransferStatus;
+use usb_util::UsbRequestSetup;
 use vm_memory::GuestMemory;
+
+use super::interrupter::Error as InterrupterError;
+use super::interrupter::Interrupter;
+use super::scatter_gather_buffer::Error as BufferError;
+use super::scatter_gather_buffer::ScatterGatherBuffer;
+use super::usb_hub::Error as HubError;
+use super::usb_hub::UsbPort;
+use super::xhci_abi::AddressedTrb;
+use super::xhci_abi::Error as TrbError;
+use super::xhci_abi::EventDataTrb;
+use super::xhci_abi::SetupStageTrb;
+use super::xhci_abi::TransferDescriptor;
+use super::xhci_abi::TrbCast;
+use super::xhci_abi::TrbCompletionCode;
+use super::xhci_abi::TrbType;
+use super::xhci_regs::MAX_INTERRUPTER;
 
 #[sorted]
 #[derive(Error, Debug)]
@@ -48,7 +62,7 @@ pub enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 /// Type of usb endpoints.
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum TransferDirection {
     In,
     Out,
@@ -310,12 +324,12 @@ impl XhciTransfer {
                 // kernel driver does not do anything meaningful when it sees a stopped event.
                 return self
                     .transfer_completion_event
-                    .write(1)
+                    .signal()
                     .map_err(Error::WriteCompletionEvent);
             }
             TransferStatus::Completed => {
                 self.transfer_completion_event
-                    .write(1)
+                    .signal()
                     .map_err(Error::WriteCompletionEvent)?;
             }
             _ => {
@@ -323,7 +337,7 @@ impl XhciTransfer {
                 // short packets for in transfer and might think control transfer is successful. It
                 // will eventually find out device is in a wrong state.
                 self.transfer_completion_event
-                    .write(1)
+                    .signal()
                     .map_err(Error::WriteCompletionEvent)?;
             }
         }
@@ -407,14 +421,14 @@ impl XhciTransfer {
                 None => {
                     error!("backend is already disconnected");
                     self.transfer_completion_event
-                        .write(1)
+                        .signal()
                         .map_err(Error::WriteCompletionEvent)?;
                 }
             }
         } else {
             error!("invalid td on transfer ring");
             self.transfer_completion_event
-                .write(1)
+                .signal()
                 .map_err(Error::WriteCompletionEvent)?;
         }
         Ok(())

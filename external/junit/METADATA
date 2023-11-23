@@ -6,14 +6,14 @@ third_party {
     value: "https://junit.org/junit4/"
   }
   url {
-    type: ARCHIVE
-    value: "https://github.com/junit-team/junit4/archive/r4.12.tar.gz"
+    type: GIT
+    value: "https://github.com/junit-team/junit4.git"
   }
-  version: "r4.12"
+  version: "r4.13.2"
   license_type: RECIPROCAL
   last_upgrade_date {
-    year: 2016
-    month: 12
-    day: 14
+    year: 2021
+    month: 3
+    day: 3
   }
 }

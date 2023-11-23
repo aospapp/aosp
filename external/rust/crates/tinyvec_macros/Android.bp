@@ -38,12 +38,14 @@ rust_library {
     host_supported: true,
     crate_name: "tinyvec_macros",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.1.0",
+    cargo_pkg_version: "0.1.1",
     srcs: ["src/lib.rs"],
     edition: "2018",
     apex_available: [
         "//apex_available:platform",
         "com.android.resolv",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }

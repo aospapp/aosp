@@ -180,6 +180,8 @@ class UsageStore {
   //   INTERNAL_ERROR on I/O error
   libtextclassifier3::Status Reset();
 
+  int32_t num_elements() const { return usage_score_cache_->num_elements(); }
+
  private:
   explicit UsageStore(std::unique_ptr<FileBackedVector<UsageScores>>
                           document_id_to_scores_mapper,

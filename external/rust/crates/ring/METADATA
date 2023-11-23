@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/ring
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "ring"
 description: "Safe, fast, small crypto using Rust."
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/ring/ring-0.16.20.crate"
+    value: "https://static.crates.io/crates/ring/ring-0.17.0-alpha.11.crate"
   }
-  version: "0.16.20"
+  version: "0.17.0-alpha.11"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2021
-    month: 6
-    day: 24
+    year: 2023
+    month: 2
+    day: 3
   }
 }

@@ -24,7 +24,7 @@ namespace
 
 DeviceVk *gDevice = nullptr;
 
-class ANGLE_NO_DISCARD ScopedEnv : public angle::vk::ScopedVkLoaderEnvironment
+class [[nodiscard]] ScopedEnv : public angle::vk::ScopedVkLoaderEnvironment
 {
   public:
     ScopedEnv()
@@ -66,7 +66,7 @@ egl::Error DeviceVk::getAttribute(const egl::Display *display, EGLint attribute,
     {
         case EGL_VULKAN_VERSION_ANGLE:
         {
-            auto version = static_cast<intptr_t>(mRenderer->getApiVersion());
+            auto version = static_cast<intptr_t>(mRenderer->getDeviceVersion());
             *outValue    = reinterpret_cast<void *>(version);
             return egl::NoError();
         }

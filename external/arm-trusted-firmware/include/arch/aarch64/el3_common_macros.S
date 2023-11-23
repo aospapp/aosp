@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2015-2021, Arm Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -88,6 +88,13 @@
 	 */
 	orr	x0, x0, #(SCR_API_BIT | SCR_APK_BIT)
 #endif
+#if ENABLE_RME
+	/*
+	 * TODO: Settting the EEL2 bit to allow EL3 access to secure only registers
+	 * in context management. This will need to be refactored.
+	 */
+	orr	x0, x0, #SCR_EEL2_BIT
+#endif
 	msr	scr_el3, x0
 
 	/* ---------------------------------------------------------------------
@@ -126,13 +133,31 @@
 	 *  Debug is not implemented this bit does not have any effect on the
 	 *  counters unless there is support for the implementation defined
 	 *  authentication interface ExternalSecureNoninvasiveDebugEnabled().
+	 *
+	 * MDCR_EL3.NSTB, MDCR_EL3.NSTBE: Set to zero so that Trace Buffer
+	 *  owning security state is Secure state. If FEAT_TRBE is implemented,
+	 *  accesses to Trace Buffer control registers at EL2 and EL1 in any
+	 *  security state generates trap exceptions to EL3.
+	 *  If FEAT_TRBE is not implemented, these bits are RES0.
+	 *
+	 * MDCR_EL3.TTRF: Set to one so that access to trace filter control
+	 *  registers in non-monitor mode generate EL3 trap exception,
+	 *  unless the access generates a higher priority exception when trace
+	 *  filter control(FEAT_TRF) is implemented.
+	 *  When FEAT_TRF is not implemented, this bit is RES0.
 	 * ---------------------------------------------------------------------
 	 */
 	mov_imm	x0, ((MDCR_EL3_RESET_VAL | MDCR_SDD_BIT | \
 		      MDCR_SPD32(MDCR_SPD32_DISABLE) | MDCR_SCCD_BIT | \
 		      MDCR_MCCD_BIT) & ~(MDCR_SPME_BIT | MDCR_TDOSA_BIT | \
-		      MDCR_TDA_BIT | MDCR_TPM_BIT))
+		      MDCR_TDA_BIT | MDCR_TPM_BIT | MDCR_NSTB(MDCR_NSTB_EL1) | \
+		      MDCR_NSTBE | MDCR_TTRF_BIT))
 
+	mrs	x1, id_aa64dfr0_el1
+	ubfx	x1, x1, #ID_AA64DFR0_TRACEFILT_SHIFT, #ID_AA64DFR0_TRACEFILT_LENGTH
+	cbz	x1, 1f
+	orr	x0, x0, #MDCR_TTRF_BIT
+1:
 	msr	mdcr_el3, x0
 
 	/* ---------------------------------------------------------------------
@@ -179,6 +204,12 @@
 	 * CPTR_EL3.TCPAC: Set to zero so that any accesses to CPACR_EL1,
 	 *  CPTR_EL2, CPACR, or HCPTR do not trap to EL3.
 	 *
+	 * CPTR_EL3.TTA: Set to one so that accesses to the trace system
+	 *  registers trap to EL3 from all exception levels and security
+	 *  states when system register trace is implemented.
+	 *  When system register trace is not implemented, this bit is RES0 and
+	 *  hence set to zero.
+	 *
 	 * CPTR_EL3.TTA: Set to zero so that System register accesses to the
 	 *  trace registers do not trap to EL3.
 	 *
@@ -191,9 +222,17 @@
 	 *
 	 * CPTR_EL3.EZ: Set to zero so that all SVE functionality is trapped
 	 *  to EL3 by default.
+	 *
+	 * CPTR_EL3.ESM: Set to zero so that all SME functionality is trapped
+	 *  to EL3 by default.
 	 */
 
 	mov_imm x0, (CPTR_EL3_RESET_VAL & ~(TCPAC_BIT | TTA_BIT | TFP_BIT))
+	mrs	x1, id_aa64dfr0_el1
+	ubfx	x1, x1, #ID_AA64DFR0_TRACEVER_SHIFT, #ID_AA64DFR0_TRACEVER_LENGTH
+	cbz	x1, 1f
+	orr	x0, x0, #TTA_BIT
+1:
 	msr	cptr_el3, x0
 
 	/*
@@ -336,6 +375,7 @@
 	msr	vbar_el3, x0
 	isb
 
+#if !(defined(IMAGE_BL2) && ENABLE_RME)
 	/* ---------------------------------------------------------------------
 	 * It is a cold boot.
 	 * Perform any processor specific actions upon reset e.g. cache, TLB
@@ -343,6 +383,7 @@
 	 * ---------------------------------------------------------------------
 	 */
 	bl	reset_handler
+#endif
 
 	el3_arch_init_common
 
@@ -385,17 +426,31 @@
 	 * ---------------------------------------------------------------------
 	 */
 	.if \_init_c_runtime
-#if defined(IMAGE_BL31) || (defined(IMAGE_BL2) && BL2_AT_EL3 && BL2_INV_DCACHE)
+#if defined(IMAGE_BL31) || (defined(IMAGE_BL2) && \
+	((BL2_AT_EL3 && BL2_INV_DCACHE) || ENABLE_RME))
 		/* -------------------------------------------------------------
 		 * Invalidate the RW memory used by the BL31 image. This
 		 * includes the data and NOBITS sections. This is done to
 		 * safeguard against possible corruption of this memory by
 		 * dirty cache lines in a system cache as a result of use by
-		 * an earlier boot loader stage.
+		 * an earlier boot loader stage. If PIE is enabled however,
+		 * RO sections including the GOT may be modified during
+                 * pie fixup. Therefore, to be on the safe side, invalidate
+		 * the entire image region if PIE is enabled.
 		 * -------------------------------------------------------------
 		 */
+#if ENABLE_PIE
+#if SEPARATE_CODE_AND_RODATA
+		adrp	x0, __TEXT_START__
+		add	x0, x0, :lo12:__TEXT_START__
+#else
+		adrp	x0, __RO_START__
+		add	x0, x0, :lo12:__RO_START__
+#endif /* SEPARATE_CODE_AND_RODATA */
+#else
 		adrp	x0, __RW_START__
 		add	x0, x0, :lo12:__RW_START__
+#endif /* ENABLE_PIE */
 		adrp	x1, __RW_END__
 		add	x1, x1, :lo12:__RW_END__
 		sub	x1, x1, x0

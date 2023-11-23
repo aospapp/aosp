@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -42,7 +43,7 @@ class BluetoothAdapterHIDReportTests(
 
 
     def run_keyboard_tests(self, device):
-        """Run all bluetooth mouse reports tests.
+        """Run all bluetooth keyboard reports tests.
 
         @param device: the bluetooth HID device.
 
@@ -60,64 +61,103 @@ class BluetoothAdapterHIDReportTests(
 
         self.test_battery_reporting(device)
 
-    def run_hid_reports_test(self, device,
+    def run_hid_reports_test(self,
+                             device,
                              check_connected_method=lambda device: True,
-                             suspend_resume=False, reboot=False):
+                             suspend_resume=False,
+                             reboot=False,
+                             restart=False):
         """Running Bluetooth HID reports tests."""
         logging.info("run hid reports test")
         # Reset the adapter and set it pairable.
-        self.test_reset_on_adapter()
-        self.test_pairable()
+        if not self.test_reset_on_adapter():
+            return
+        if not self.test_pairable():
+            return
 
-        # Let the adapter pair, and connect to the target device.
-        self.test_discover_device(device.address)
-        self.test_pairing(device.address, device.pin, trusted=True)
-        self.test_connection_by_adapter(device.address)
-
-        # Run hid test to make sure profile is connected
-        check_connected_method(device)
-
-        if suspend_resume:
-            self.suspend_resume()
+        def run_hid_test():
+            """Checks if the device is connected and can be used."""
+            time.sleep(self.HID_TEST_SLEEP_SECS)
+            if not self.test_device_name(device.address, device.name):
+                return False
 
             time.sleep(self.HID_TEST_SLEEP_SECS)
-            self.test_device_is_paired(device.address)
+            if not check_connected_method(device):
+                return False
+            return True
 
+        dev_paired = False
+        dev_connected = False
+        try:
+            # Let the adapter pair, and connect to the target device.
+            self.test_discover_device(device.address)
+            dev_paired = self.test_pairing(device.address,
+                                           device.pin,
+                                           trusted=True)
+            if not dev_paired:
+                return
+            dev_connected = self.test_connection_by_adapter(device.address)
+            if not dev_connected:
+                return
 
-            # check if peripheral is connected after suspend resume, reconnect
-            # if it isn't
-            if not self.ignore_failure(check_connected_method, device):
-                logging.info("device not connected after suspend_resume")
-                self.test_connection_by_device(device)
-            else:
-                logging.info("device remains connected after suspend_resume")
+            # Run hid test to make sure profile is connected
+            if not run_hid_test():
+                return
 
-            time.sleep(self.HID_TEST_SLEEP_SECS)
-            check_connected_method(device)
+            if suspend_resume:
+                self.suspend_resume()
 
-            time.sleep(self.HID_TEST_SLEEP_SECS)
-            self.test_device_name(device.address, device.name)
+                time.sleep(self.HID_TEST_SLEEP_SECS)
+                if not self.test_device_is_paired(device.address):
+                    return
 
-        if reboot:
-            self.reboot()
+                # Check if peripheral is connected after suspend resume, reconnect
+                # and try again if it isn't.
+                if not self.ignore_failure(check_connected_method, device):
+                    logging.info("device not connected after suspend_resume")
+                    self.test_connection_by_device(device)
+                run_hid_test()
 
-            time.sleep(self.HID_TEST_SLEEP_SECS)
-            # TODO(b/173146480) - Power on the adapter for now until this bug
-            # is resolved.
-            self.test_power_on_adapter()
+            if reboot:
+                # If we expect the DUT to automatically reconnect to the peer on
+                # boot, we reset the peer into a connectable state
+                if self.platform_will_reconnect_on_boot():
+                    logging.info(
+                            "Restarting peer to accept DUT connection on boot")
+                    device_type = self.get_peer_device_type(device)
+                    self.reset_emulated_device(device, device_type)
 
-            self.test_device_is_paired(device.address)
+                self.reboot()
 
-            time.sleep(self.HID_TEST_SLEEP_SECS)
-            self.test_connection_by_device(device)
+                time.sleep(self.HID_TEST_SLEEP_SECS)
+                # TODO(b/173146480) - Power on the adapter for now until this bug
+                # is resolved.
+                if not self.bluetooth_facade.is_powered_on():
+                    self.test_power_on_adapter()
 
-            time.sleep(self.HID_TEST_SLEEP_SECS)
-            self.test_device_name(device.address, device.name)
+                if not self.test_device_is_paired(device.address):
+                    return
 
-        # Run HID test after suspend/reboot as well.
-        if suspend_resume or reboot:
-            check_connected_method(device)
+                time.sleep(self.HID_TEST_SLEEP_SECS)
+                if not self.platform_will_reconnect_on_boot():
+                    self.test_connection_by_device(device)
 
-        # Disconnect the device, and remove the pairing.
-        self.test_disconnection_by_adapter(device.address)
-        self.test_remove_pairing(device.address)
+                else:
+                    self.test_device_is_connected(device.address)
+                run_hid_test()
+
+            if restart:
+                self.test_stop_bluetoothd()
+                self.test_start_bluetoothd()
+
+                if not self.ignore_failure(self.test_device_is_connected,
+                                           device.address):
+                    self.test_connection_by_device(device)
+                run_hid_test()
+
+        finally:
+            # Cleans up the test
+            if dev_connected:
+                self.test_disconnection_by_adapter(device.address)
+            if dev_paired:
+                self.test_remove_pairing(device.address)

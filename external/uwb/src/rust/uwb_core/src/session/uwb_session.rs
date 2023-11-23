@@ -12,28 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
+use std::iter::FromIterator;
 use std::time::Duration;
 
 use log::{debug, error, warn};
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::timeout;
 
-use crate::session::error::{Error, Result};
-use crate::session::params::AppConfigParams;
-use crate::uci::error::StatusCode;
-use crate::uci::notification::SessionRangeData;
-use crate::uci::params::{
-    Controlee, ControleeStatus, MulticastUpdateStatusCode, SessionId, SessionState, SessionType,
-    UpdateMulticastListAction,
+use crate::error::{Error, Result};
+use crate::params::app_config_params::AppConfigParams;
+use crate::params::ccc_started_app_config_params::CccStartedAppConfigParams;
+use crate::params::uci_packets::{
+    Controlee, ControleeStatus, Controlees, MulticastUpdateStatusCode, SessionId, SessionState,
+    SessionType, UpdateMulticastListAction,
 };
+use crate::uci::error::status_code_to_result;
 use crate::uci::uci_manager::UciManager;
 
 const NOTIFICATION_TIMEOUT_MS: u64 = 1000;
 
-pub(crate) struct UwbSession {
-    cmd_sender: mpsc::UnboundedSender<(Command, oneshot::Sender<Result<()>>)>,
+#[derive(Debug)]
+pub(super) enum Response {
+    Null,
+    AppConfigParams(AppConfigParams),
+}
+pub(super) type ResponseSender = oneshot::Sender<Result<Response>>;
+
+pub(super) struct UwbSession {
+    cmd_sender: mpsc::UnboundedSender<(Command, ResponseSender)>,
     state_sender: watch::Sender<SessionState>,
-    range_data_sender: mpsc::UnboundedSender<SessionRangeData>,
     controlee_status_notf_sender: Option<oneshot::Sender<Vec<ControleeStatus>>>,
 }
 
@@ -42,7 +50,6 @@ impl UwbSession {
         uci_manager: T,
         session_id: SessionId,
         session_type: SessionType,
-        range_data_sender: mpsc::UnboundedSender<SessionRangeData>,
     ) -> Self {
         let (cmd_sender, cmd_receiver) = mpsc::unbounded_channel();
         let (state_sender, mut state_receiver) = watch::channel(SessionState::SessionStateDeinit);
@@ -58,34 +65,26 @@ impl UwbSession {
         );
         tokio::spawn(async move { actor.run().await });
 
-        Self { cmd_sender, state_sender, range_data_sender, controlee_status_notf_sender: None }
+        Self { cmd_sender, state_sender, controlee_status_notf_sender: None }
     }
 
-    pub fn initialize(
-        &mut self,
-        params: AppConfigParams,
-        result_sender: oneshot::Sender<Result<()>>,
-    ) {
+    pub fn initialize(&mut self, params: AppConfigParams, result_sender: ResponseSender) {
         let _ = self.cmd_sender.send((Command::Initialize { params }, result_sender));
     }
 
-    pub fn deinitialize(&mut self, result_sender: oneshot::Sender<Result<()>>) {
+    pub fn deinitialize(&mut self, result_sender: ResponseSender) {
         let _ = self.cmd_sender.send((Command::Deinitialize, result_sender));
     }
 
-    pub fn start_ranging(&mut self, result_sender: oneshot::Sender<Result<()>>) {
+    pub fn start_ranging(&mut self, result_sender: ResponseSender) {
         let _ = self.cmd_sender.send((Command::StartRanging, result_sender));
     }
 
-    pub fn stop_ranging(&mut self, result_sender: oneshot::Sender<Result<()>>) {
+    pub fn stop_ranging(&mut self, result_sender: ResponseSender) {
         let _ = self.cmd_sender.send((Command::StopRanging, result_sender));
     }
 
-    pub fn reconfigure(
-        &mut self,
-        params: AppConfigParams,
-        result_sender: oneshot::Sender<Result<()>>,
-    ) {
+    pub fn reconfigure(&mut self, params: AppConfigParams, result_sender: ResponseSender) {
         let _ = self.cmd_sender.send((Command::Reconfigure { params }, result_sender));
     }
 
@@ -93,7 +92,7 @@ impl UwbSession {
         &mut self,
         action: UpdateMulticastListAction,
         controlees: Vec<Controlee>,
-        result_sender: oneshot::Sender<Result<()>>,
+        result_sender: ResponseSender,
     ) {
         let (notf_sender, notf_receiver) = oneshot::channel();
         self.controlee_status_notf_sender = Some(notf_sender);
@@ -101,6 +100,10 @@ impl UwbSession {
             Command::UpdateControllerMulticastList { action, controlees, notf_receiver },
             result_sender,
         ));
+    }
+
+    pub fn params(&mut self, result_sender: ResponseSender) {
+        let _ = self.cmd_sender.send((Command::GetParams, result_sender));
     }
 
     pub fn on_session_status_changed(&mut self, state: SessionState) {
@@ -112,14 +115,10 @@ impl UwbSession {
             let _ = sender.send(status_list);
         }
     }
-
-    pub fn on_range_data_received(&mut self, data: SessionRangeData) {
-        let _ = self.range_data_sender.send(data);
-    }
 }
 
 struct UwbSessionActor<T: UciManager> {
-    cmd_receiver: mpsc::UnboundedReceiver<(Command, oneshot::Sender<Result<()>>)>,
+    cmd_receiver: mpsc::UnboundedReceiver<(Command, ResponseSender)>,
     state_receiver: watch::Receiver<SessionState>,
     uci_manager: T,
     session_id: SessionId,
@@ -129,7 +128,7 @@ struct UwbSessionActor<T: UciManager> {
 
 impl<T: UciManager> UwbSessionActor<T> {
     fn new(
-        cmd_receiver: mpsc::UnboundedReceiver<(Command, oneshot::Sender<Result<()>>)>,
+        cmd_receiver: mpsc::UnboundedReceiver<(Command, ResponseSender)>,
         state_receiver: watch::Receiver<SessionState>,
         uci_manager: T,
         session_id: SessionId,
@@ -153,9 +152,7 @@ impl<T: UciManager> UwbSessionActor<T> {
                                 Command::Deinitialize => self.deinitialize().await,
                                 Command::StartRanging => self.start_ranging().await,
                                 Command::StopRanging => self.stop_ranging().await,
-                                Command::Reconfigure { params } => {
-                                    self.reconfigure(params).await
-                                }
+                                Command::Reconfigure { params } => self.reconfigure(params).await,
                                 Command::UpdateControllerMulticastList {
                                     action,
                                     controlees,
@@ -167,7 +164,8 @@ impl<T: UciManager> UwbSessionActor<T> {
                                         notf_receiver,
                                     )
                                     .await
-                                }
+                                },
+                                Command::GetParams => self.params().await,
                             };
                             let _ = result_sender.send(result);
                         }
@@ -177,104 +175,119 @@ impl<T: UciManager> UwbSessionActor<T> {
         }
     }
 
-    async fn initialize(&mut self, params: AppConfigParams) -> Result<()> {
+    async fn initialize(&mut self, params: AppConfigParams) -> Result<Response> {
         debug_assert!(*self.state_receiver.borrow() == SessionState::SessionStateDeinit);
 
-        if let Err(e) = self.uci_manager.session_init(self.session_id, self.session_type).await {
-            error!("Failed to initialize session: {:?}", e);
-            return Err(Error::Uci);
-        }
+        // TODO(b/279669973): Support CR-461 fully here. Need to wait for session init rsp.
+        // But, that does not seem to be fully plumbed up in session_manager yet.
+        self.uci_manager.session_init(self.session_id, self.session_type).await?;
         self.wait_state(SessionState::SessionStateInit).await?;
 
         self.reconfigure(params).await?;
         self.wait_state(SessionState::SessionStateIdle).await?;
 
-        Ok(())
+        Ok(Response::Null)
     }
 
-    async fn deinitialize(&mut self) -> Result<()> {
-        if let Err(e) = self.uci_manager.session_deinit(self.session_id).await {
-            error!("Failed to deinit session: {:?}", e);
-            return Err(Error::Uci);
-        }
-        Ok(())
+    async fn deinitialize(&mut self) -> Result<Response> {
+        self.uci_manager.session_deinit(self.session_id).await?;
+        Ok(Response::Null)
     }
 
-    async fn start_ranging(&mut self) -> Result<()> {
+    async fn start_ranging(&mut self) -> Result<Response> {
         let state = *self.state_receiver.borrow();
         match state {
             SessionState::SessionStateActive => {
                 warn!("Session {} is already running", self.session_id);
-                Ok(())
+                Err(Error::BadParameters)
             }
             SessionState::SessionStateIdle => {
-                if let Err(e) = self.uci_manager.range_start(self.session_id).await {
-                    error!("Failed to start ranging: {:?}", e);
-                    return Err(Error::Uci);
-                }
+                self.uci_manager.range_start(self.session_id).await?;
                 self.wait_state(SessionState::SessionStateActive).await?;
 
-                Ok(())
+                let params = if self.session_type != SessionType::Ccc {
+                    // self.params should be Some() in this state.
+                    self.params.clone().unwrap()
+                } else {
+                    // Get the CCC specific app config after ranging started.
+                    let tlvs = self
+                        .uci_manager
+                        .session_get_app_config(self.session_id, vec![])
+                        .await
+                        .map_err(|e| {
+                            error!("Failed to get CCC app config after start ranging: {:?}", e);
+                            e
+                        })?;
+                    let config_map = HashMap::from_iter(tlvs.into_iter().map(|tlv| {
+                        let tlv = tlv.into_inner();
+                        (tlv.cfg_id, tlv.v.clone())
+                    }));
+                    let params = CccStartedAppConfigParams::from_config_map(config_map)
+                        .ok_or_else(|| {
+                            error!("Failed to generate CccStartedAppConfigParams");
+                            Error::Unknown
+                        })?;
+                    AppConfigParams::CccStarted(params)
+                };
+                Ok(Response::AppConfigParams(params))
             }
             _ => {
                 error!("Session {} cannot start running at {:?}", self.session_id, state);
-                Err(Error::WrongState(state))
+                Err(Error::BadParameters)
             }
         }
     }
 
-    async fn stop_ranging(&mut self) -> Result<()> {
+    async fn stop_ranging(&mut self) -> Result<Response> {
         let state = *self.state_receiver.borrow();
         match state {
             SessionState::SessionStateIdle => {
                 warn!("Session {} is already stopped", self.session_id);
-                Ok(())
+                Ok(Response::Null)
             }
             SessionState::SessionStateActive => {
-                if let Err(e) = self.uci_manager.range_stop(self.session_id).await {
-                    error!("Failed to start ranging: {:?}", e);
-                    return Err(Error::Uci);
-                }
+                self.uci_manager.range_stop(self.session_id).await?;
                 self.wait_state(SessionState::SessionStateIdle).await?;
 
-                Ok(())
+                Ok(Response::Null)
             }
             _ => {
                 error!("Session {} cannot stop running at {:?}", self.session_id, state);
-                Err(Error::WrongState(state))
+                Err(Error::BadParameters)
             }
         }
     }
 
-    async fn reconfigure(&mut self, params: AppConfigParams) -> Result<()> {
+    async fn reconfigure(&mut self, params: AppConfigParams) -> Result<Response> {
         debug_assert!(*self.state_receiver.borrow() != SessionState::SessionStateDeinit);
 
+        let state = *self.state_receiver.borrow();
         let tlvs = match self.params.as_ref() {
-            Some(prev_params) => params.generate_updated_tlvs(prev_params),
+            Some(prev_params) => {
+                if let Some(tlvs) = params.generate_updated_tlvs(prev_params, state) {
+                    tlvs
+                } else {
+                    error!("Cannot update the app config at state {:?}: {:?}", state, params);
+                    return Err(Error::BadParameters);
+                }
+            }
             None => params.generate_tlvs(),
         };
 
-        match self.uci_manager.session_set_app_config(self.session_id, tlvs).await {
-            Ok(result) => {
-                for config_status in result.config_status.iter() {
-                    warn!(
-                        "AppConfig {:?} is not applied: {:?}",
-                        config_status.cfg_id, config_status.status
-                    );
-                }
-                if result.status != StatusCode::UciStatusOk {
-                    error!("Failed to set app_config. StatusCode: {:?}", result.status);
-                    return Err(Error::Uci);
-                }
-            }
-            Err(e) => {
-                error!("Failed to set app_config: {:?}", e);
-                return Err(Error::Uci);
-            }
+        let result = self.uci_manager.session_set_app_config(self.session_id, tlvs).await?;
+        for config_status in result.config_status.iter() {
+            warn!(
+                "AppConfig {:?} is not applied: {:?}",
+                config_status.cfg_id, config_status.status
+            );
+        }
+        if let Err(e) = status_code_to_result(result.status) {
+            error!("Failed to set app_config. StatusCode: {:?}", result.status);
+            return Err(e);
         }
 
         self.params = Some(params);
-        Ok(())
+        Ok(Response::Null)
     }
 
     async fn update_controller_multicast_list(
@@ -282,20 +295,25 @@ impl<T: UciManager> UwbSessionActor<T> {
         action: UpdateMulticastListAction,
         controlees: Vec<Controlee>,
         notf_receiver: oneshot::Receiver<Vec<ControleeStatus>>,
-    ) -> Result<()> {
+    ) -> Result<Response> {
+        if self.session_type == SessionType::Ccc {
+            error!("Cannot update multicast list for CCC session");
+            return Err(Error::BadParameters);
+        }
+
         let state = *self.state_receiver.borrow();
         if !matches!(state, SessionState::SessionStateIdle | SessionState::SessionStateActive) {
             error!("Cannot update multicast list at state {:?}", state);
-            return Err(Error::WrongState(state));
+            return Err(Error::BadParameters);
         }
 
         self.uci_manager
-            .session_update_controller_multicast_list(self.session_id, action, controlees)
-            .await
-            .map_err(|e| {
-                error!("Failed to update multicast list: {:?}", e);
-                Error::Uci
-            })?;
+            .session_update_controller_multicast_list(
+                self.session_id,
+                action,
+                Controlees::NoSessionKey(controlees),
+            )
+            .await?;
 
         // Wait for the notification of the update status.
         let results = timeout(Duration::from_millis(NOTIFICATION_TIMEOUT_MS), notf_receiver)
@@ -306,7 +324,7 @@ impl<T: UciManager> UwbSessionActor<T> {
             })?
             .map_err(|_| {
                 error!("oneshot sender is dropped.");
-                Error::TokioFailure
+                Error::Unknown
             })?;
 
         // Check the update status for adding new controlees.
@@ -314,12 +332,12 @@ impl<T: UciManager> UwbSessionActor<T> {
             for result in results.iter() {
                 if result.status != MulticastUpdateStatusCode::StatusOkMulticastListUpdate {
                     error!("Failed to update multicast list: {:?}", result);
-                    return Err(Error::Uci);
+                    return Err(Error::Unknown);
                 }
             }
         }
 
-        Ok(())
+        Ok(Response::Null)
     }
 
     async fn wait_state(&mut self, expected_state: SessionState) -> Result<()> {
@@ -332,7 +350,7 @@ impl<T: UciManager> UwbSessionActor<T> {
             })?
             .map_err(|_| {
                 debug!("UwbSession is about to drop.");
-                Error::TokioFailure
+                Error::Unknown
             })?;
 
         // Check if the latest session status is expected or not.
@@ -342,10 +360,17 @@ impl<T: UciManager> UwbSessionActor<T> {
                 "Transit to wrong Session state {:?}. The expected state is {:?}",
                 state, expected_state
             );
-            return Err(Error::WrongState(state));
+            return Err(Error::BadParameters);
         }
 
         Ok(())
+    }
+
+    async fn params(&mut self) -> Result<Response> {
+        match &self.params {
+            None => Err(Error::BadParameters),
+            Some(params) => Ok(Response::AppConfigParams(params.clone())),
+        }
     }
 }
 
@@ -364,4 +389,5 @@ enum Command {
         controlees: Vec<Controlee>,
         notf_receiver: oneshot::Receiver<Vec<ControleeStatus>>,
     },
+    GetParams,
 }

@@ -251,10 +251,8 @@ pid_t xpopen_setup(char **argv, int *pipes, void (*callback)(char **argv))
 
   // Make the pipes?
   memset(cestnepasun, 0, sizeof(cestnepasun));
-  if (pipes) for (pid = 0; pid < 2; pid++) {
-    if (pipes[pid] != -1) continue;
-    if (pipe(cestnepasun+(2*pid))) perror_exit("pipe");
-  }
+  if (pipes) for (pid = 0; pid < 2; pid++)
+    if (pipes[pid]==-1 && pipe(cestnepasun+(2*pid))) perror_exit("pipe");
 
   if (!(pid = CFG_TOYBOX_FORK ? xfork() : XVFORK())) {
     // Child process: Dance of the stdin/stdout redirection.
@@ -341,7 +339,7 @@ pid_t xpopen_both(char **argv, int *pipes)
 // Wait for child process to exit, then return adjusted exit code.
 int xwaitpid(pid_t pid)
 {
-  int status;
+  int status = 127<<8;
 
   while (-1 == waitpid(pid, &status, 0) && errno == EINTR) errno = 0;
 
@@ -351,8 +349,8 @@ int xwaitpid(pid_t pid)
 int xpclose_both(pid_t pid, int *pipes)
 {
   if (pipes) {
-    close(pipes[0]);
-    close(pipes[1]);
+    if (pipes[0]) close(pipes[0]);
+    if (pipes[1]>1) close(pipes[1]);
   }
 
   return xwaitpid(pid);
@@ -382,6 +380,34 @@ int xpclose(pid_t pid, int pipe)
 int xrun(char **argv)
 {
   return xpclose_both(xpopen_both(argv, 0), 0);
+}
+
+// Run child, writing to_stdin, returning stdout or NULL, pass through stderr
+char *xrunread(char *argv[], char *to_stdin)
+{
+  char *result = 0;
+  int pipe[] = {-1, -1}, total = 0, len;
+  pid_t pid;
+
+  pid = xpopen_both(argv, pipe);
+  if (to_stdin && *to_stdin) writeall(*pipe, to_stdin, strlen(to_stdin));
+  close(*pipe);
+  for (;;) {
+    if (0>=(len = readall(pipe[1], libbuf, sizeof(libbuf)))) break;
+    memcpy((result = xrealloc(result, 1+total+len))+total, libbuf, len);
+    total += len;
+    if (len != sizeof(libbuf)) break;
+  }
+  if (result) result[total] = 0;
+  close(pipe[1]);
+
+  if (xwaitpid(pid)) {
+    free(result);
+
+    return 0;
+  }
+
+  return result;
 }
 
 void xaccess(char *path, int flags)
@@ -431,9 +457,7 @@ int xdup(int fd)
   return fd;
 }
 
-// Move file descriptor above stdin/stdout/stderr, using /dev/null to consume
-// old one. (We should never be called with stdin/stdout/stderr closed, but...)
-int notstdio(int fd)
+int xnotstdio(int fd)
 {
   if (fd<0) return fd;
 
@@ -466,13 +490,13 @@ int xtempfile(char *name, char **tempname)
 // Create a file but don't return stdin/stdout/stderr
 int xcreate(char *path, int flags, int mode)
 {
-  return notstdio(xcreate_stdio(path, flags, mode));
+  return xnotstdio(xcreate_stdio(path, flags, mode));
 }
 
 // Open a file descriptor NOT in stdin/stdout/stderr
 int xopen(char *path, int flags)
 {
-  return notstdio(xopen_stdio(path, flags));
+  return xnotstdio(xopen_stdio(path, flags));
 }
 
 // Open read only, treating "-" as a synonym for stdin, defaulting to warn only
@@ -605,8 +629,8 @@ char *xabspath(char *path, int flags)
     }
 
     // Is this a symlink?
-    if (flags & (ABS_KEEP<<!todo)) errno = len = 0;
-    else len = readlinkat(dirfd, new->str, libbuf, sizeof(libbuf));
+    if (flags & (ABS_KEEP<<!todo)) len = 0, errno = EINVAL;
+    else len = readlinkat(dirfd, str, libbuf, sizeof(libbuf));
     if (len>4095) goto error;
 
     // Not a symlink: add to linked list, move dirfd, fail if error

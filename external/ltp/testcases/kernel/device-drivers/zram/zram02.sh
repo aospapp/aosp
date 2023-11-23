@@ -7,7 +7,6 @@
 
 TST_CNT=6
 TST_TESTFUNC="do_test"
-. zram_lib.sh
 
 # List of parameters for zram devices.
 # For each number the test creates own zram device.
@@ -29,7 +28,7 @@ zram_makeswap()
 	tst_require_cmds mkswap swapon swapoff
 	local i=0
 
-	for i in $(seq 0 $(($dev_num - 1))); do
+	for i in $(seq $dev_start $dev_end); do
 		ROD mkswap /dev/zram$i
 		ROD swapon /dev/zram$i
 		tst_res TINFO "done with /dev/zram$i"
@@ -44,7 +43,7 @@ zram_swapoff()
 	tst_require_cmds swapoff
 	local i
 
-	for i in $(seq 0 $dev_makeswap); do
+	for i in $(seq $dev_start $dev_end); do
 		ROD swapoff /dev/zram$i
 	done
 	dev_makeswap=-1
@@ -64,4 +63,5 @@ do_test()
 	esac
 }
 
+. zram_lib.sh
 tst_run

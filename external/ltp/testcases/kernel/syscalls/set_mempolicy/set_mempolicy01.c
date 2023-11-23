@@ -1,6 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * SPDX-License-Identifier: GPL-2.0-or-later
- *
  * Copyright (c) 2018 Cyril Hrubis <chrubis@suse.cz>
  */
 
@@ -36,6 +35,15 @@ static void setup(void)
 	nodes = tst_get_nodemap(TST_NUMA_MEM, 2 * PAGES_ALLOCATED * page_size / 1024);
 	if (nodes->cnt <= 1)
 		tst_brk(TCONF, "Test requires at least two NUMA memory nodes");
+
+	/*
+	 * In most cases, set_mempolicy01 finish quickly, but when the platform
+	 * has multiple NUMA nodes, the test matrix combination grows exponentially
+	 * and bring about test time to increase extremely fast.
+	 *
+	 * Here reset the maximum runtime according to the NUMA nodes.
+	 */
+	tst_set_max_runtime(test.max_runtime * (1 << nodes->cnt/16));
 }
 
 static void cleanup(void)
@@ -55,12 +63,12 @@ static void verify_mempolicy(unsigned int node, int mode)
 	if (TST_RET) {
 		tst_res(TFAIL | TTERRNO,
 		        "set_mempolicy(%s) node %u",
-		        tst_numa_mode_name(mode), node);
+		        tst_mempolicy_mode_name(mode), node);
 		return;
 	}
 
 	tst_res(TPASS, "set_mempolicy(%s) node %u",
-	        tst_numa_mode_name(mode), node);
+	        tst_mempolicy_mode_name(mode), node);
 
 	numa_free_nodemask(bm);
 
@@ -111,6 +119,7 @@ static struct tst_test test = {
 	.tcnt = 2,
 	.forks_child = 1,
 	.needs_checkpoints = 1,
+	.max_runtime = 600,
 };
 
 #else

@@ -37,6 +37,8 @@
 // ANDROID-CHANGED: Needed for vmDebug_onDisconnect, vmDebug_notifyDebuggerActivityStart &
 // vmDebug_notifyDebuggerActivityEnd.
 #include "vmDebug.h"
+// ANDROID-CHANGED: Needed for sending ART timings
+#include "timing.h"
 
 
 static void JNICALL reader(jvmtiEnv* jvmti_env, JNIEnv* jni_env, void* arg);
@@ -65,6 +67,7 @@ lastCommand(jdwpCmdPacket *cmd)
         return JNI_FALSE;
     }
 }
+
 
 void
 debugLoop_initialize(void)
@@ -123,6 +126,11 @@ debugLoop_run(void)
             PacketInputStream in;
             PacketOutputStream out;
             CommandHandler func;
+
+            // ANDROID-CHANGED: To be able to send cmd processing time
+            // periodically, we notify the timing system of when they
+            // start. This "startCmd" MUST be paired by a "endCmd".
+            timings_startCmd(cmd->id, cmd->cmdSet, cmd->cmd);
 
             /* Should reply be sent to sender.
              * For error handling, assume yes, since
@@ -194,6 +202,10 @@ debugLoop_run(void)
             outStream_destroy(&out);
 
             shouldListen = !lastCommand(cmd);
+
+            // ANDROID-CHANGED: Let the timing system know that the cmd
+            // was fully processed. This may trigger a flush.
+            timings_endCmd();
         }
     }
     threadControl_onDisconnect();

@@ -4,8 +4,8 @@
 
 """Unit tests for the `stable_version` module and CLI."""
 
-import mock
 import unittest
+from unittest import mock
 
 import common
 from autotest_lib.server import frontend

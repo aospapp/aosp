@@ -1,8 +1,9 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import ConfigParser
+import six.moves.configparser
 import io
 import collections
 import logging
@@ -40,7 +41,7 @@ def avahi_config(options, src_file='/etc/avahi/avahi-daemon.conf', host=None):
     """
     run = utils.run if host is None else host.run
     existing_config = run('cat %s 2> /dev/null' % src_file).stdout
-    conf = ConfigParser.SafeConfigParser()
+    conf = six.moves.configparser.SafeConfigParser()
     conf.readfp(io.BytesIO(existing_config))
 
     for section, option, value in options:

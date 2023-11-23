@@ -357,6 +357,8 @@ fn qonef(x: f32) -> f32 {
     return (0.375 + r / s) / x;
 }
 
+// PowerPC tests are failing on LLVM 13: https://github.com/rust-lang/rust/issues/88520
+#[cfg(not(target_arch = "powerpc64"))]
 #[cfg(test)]
 mod tests {
     use super::{j1f, y1f};
@@ -367,6 +369,12 @@ mod tests {
     }
     #[test]
     fn test_y1f_2002() {
-        assert_eq!(y1f(2.0000002_f32), -0.10703229_f32);
+        //allow slightly different result on x87
+        let res = y1f(2.0000002_f32);
+        if cfg!(all(target_arch = "x86", not(target_feature = "sse2"))) && (res == -0.10703231_f32)
+        {
+            return;
+        }
+        assert_eq!(res, -0.10703229_f32);
     }
 }

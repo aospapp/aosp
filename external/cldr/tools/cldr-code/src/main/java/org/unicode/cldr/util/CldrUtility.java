@@ -43,6 +43,7 @@ import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -64,6 +65,19 @@ import com.ibm.icu.util.Freezable;
 import com.ibm.icu.util.TimeZone;
 
 public class CldrUtility {
+    /**
+     * These need to be consistent with "CLDR-Code-Git-Commit" in tools/cldr-code/pom.xml
+     *
+     * If and when "CLDR-Apps-Git-Commit" in tools/cldr-apps/pom.xml becomes usable for the
+     * cldr-apps war file, we may add APPS_SLUG = "CLDR-Apps" here, and in some contexts
+     * use APPS_SLUG in addition to, or instead of, CODE_SLUG
+     */
+    public static final String CODE_SLUG = "CLDR-Code";
+    public static final String GIT_COMMIT_SUFFIX = "-Git-Commit";
+
+    public static final String HOME_KEY = "CLDRHOME";
+    public static final String DIR_KEY = "CLDR_DIR";
+    public static final String MAIN_KEY = "CLDR_MAIN";
 
     public static final boolean DEBUG_MISSING_DIRECTORIES = false;
 
@@ -659,8 +673,6 @@ public class CldrUtility {
      *
      * @param source
      *            The source set
-     * @param escaper
-     *            A transliterator that is used to escape the characters according to the requirements of the regex.
      * @return
      */
     public static String toRegex(UnicodeSet source) {
@@ -1214,8 +1226,7 @@ public class CldrUtility {
      * otherwise the default value (for either empty or null).
      *
      * @param key
-     * @param valueIfNull
-     * @param valueIfEmpty
+     * @param defaultValue
      * @return
      */
     public static String getProperty(String key, String defaultValue) {
@@ -1386,12 +1397,36 @@ public class CldrUtility {
         return getCopyrightString("");
     }
 
+    private static final class CopyrightHelper {
+        public static final CopyrightHelper INSTANCE = new CopyrightHelper();
+        public final String COPYRIGHT_SHORT = 
+            "Copyright \u00A9 1991-" + Calendar.getInstance().get(Calendar.YEAR) + " Unicode, Inc.";
+    }
+
     public static String getCopyrightString(String linePrefix) {
         // now do the rest
-        return linePrefix + "Copyright \u00A9 1991-" + Calendar.getInstance().get(Calendar.YEAR) + " Unicode, Inc." + CldrUtility.LINE_SEPARATOR
+        return linePrefix + getCopyrightShort() + CldrUtility.LINE_SEPARATOR
             + linePrefix + "For terms of use, see http://www.unicode.org/copyright.html" + CldrUtility.LINE_SEPARATOR
             + linePrefix + CLDRURLS.UNICODE_SPDX_HEADER + CldrUtility.LINE_SEPARATOR
             + linePrefix + "CLDR data files are interpreted according to the LDML specification " + "(http://unicode.org/reports/tr35/)";
+    }
+
+    /**
+     * Returns the '## License' section in markdown.
+     */
+    public static String getCopyrightMarkdown() {
+        return "## License\n" + 
+        "\n" +
+        getCopyrightShort() + "\n" +
+        "[Terms of Use](http://www.unicode.org/copyright.html)\n\n" +
+        CLDRURLS.UNICODE_SPDX_HEADER + "\n";
+    }
+
+    /**
+     * Get the short copyright string, "Copyright © YYYY-YYYY Unicode, Inc."
+     */
+    public static String getCopyrightShort() {
+        return CopyrightHelper.INSTANCE.COPYRIGHT_SHORT;
     }
 
     // TODO Move to collection utilities
@@ -1407,7 +1442,7 @@ public class CldrUtility {
 
     /**
      * Type-safe contains
-     * @param map
+     * @param collection
      * @param key
      * @return value
      */
@@ -1573,28 +1608,101 @@ public class CldrUtility {
      * @return the hash, like "9786e05e95a2e4f02687fa3b84126782f9f698a3"
      */
     public final static String getGitHashForDir(String dir) {
-        final String GIT_HASH_COMMANDS[] = { "git",  "rev-parse", "HEAD" };
+        // Try #1
+        String hash = getGitHashDirectlyForDir(dir);
+        if (hash == null) {
+            // Try #2
+            hash = getGitHashByRevParseForDir(dir);
+        }
+        if (hash == null) {
+            // return 'unknown'
+            hash = CLDRURLS.UNKNOWN_REVISION;
+        }
+        return hash;
+    }
+
+    /**
+     * Attempt to retrieve git hash by digging through .git/HEAD and related files
+     * @param dir
+     * @return the hash, like "9786e05e95a2e4f02687fa3b84126782f9f698a3"
+     */
+    private static String getGitHashDirectlyForDir(String dir) {
+        // First, try just reading .git/HEAD
+        final File gitDir = new File(dir, ".git");
+        final File headfile = new File(gitDir, "HEAD");
+        if (headfile.canRead()) {
+            // Try this first, fallback to git commands
+            try {
+                String s = Files.readString(headfile.toPath());
+                if (s != null && !s.isBlank()) {
+                    s = s.trim();
+                    if (s.startsWith("ref: ")) {
+                        s = s.substring(5); // refs/heads/main
+                        final Path refPath = gitDir.toPath().resolve(s);
+                        if (refPath.startsWith(gitDir.toPath())) {
+                            s = Files.readString(refPath);
+                            if (s != null && !s.isBlank()) {
+                                return s.trim();
+                            }
+                        } else { // ignore something like refs: ../../../yourfiles
+                            System.err.println("Ignoring strange git refPath " + refPath);
+                        }
+                    } // else, maybe detached head
+                    return s.trim();
+                }
+            } catch (IOException e) {
+                System.err.println(e + ": readString failed for " + headfile);
+                e.printStackTrace();
+            }
+
+        }
+        return null; // not found;
+    }
+
+    /**
+     * Attempt to retrieve git hash by calling 'git rev-parse HEAD'
+     * @param dir
+     * @return the hash, like "9786e05e95a2e4f02687fa3b84126782f9f698a3"
+     */
+    private static String getGitHashByRevParseForDir(String dir) {
+        final String GIT_HASH_COMMANDS[] = { "git", "rev-parse", "HEAD" };
         try {
             if (dir == null) {
-                return CLDRURLS.UNKNOWN_REVISION; // no dir
+                return null; // no dir
             }
             File f = new File(dir);
             if (!f.isDirectory()) {
-                return CLDRURLS.UNKNOWN_REVISION; // does not exist
+                return null; // does not exist
             }
             Process p = Runtime.getRuntime().exec(GIT_HASH_COMMANDS, null, f);
+            if (!p.waitFor(15, TimeUnit.SECONDS)) {
+                System.err.println("Git query " + String.join(" ", GIT_HASH_COMMANDS) + " timed out");
+                p.destroyForcibly();
+                return null;
+            }
+            if (p.exitValue() != 0) {
+                System.err.println("Error return : " + p.exitValue() + " from " + String.join(" ", GIT_HASH_COMMANDS));
+                try (BufferedReader is = new BufferedReader(new InputStreamReader(p.getErrorStream()))) {
+                    String str = is.readLine();
+                    if (str.length() == 0) {
+                        throw new Exception("git returned empty");
+                    }
+                    System.err.println("git: " + str);
+                }
+                return null;
+            }
             try (BufferedReader is = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
                 String str = is.readLine();
-                if (str.length() == 0) {
+                if (str == null || str.length() == 0) {
                     throw new Exception("git returned empty");
                 }
                 return str;
             }
-        } catch(Throwable t) {
+        } catch (Throwable t) {
             // We do not expect this to be called frequently.
             System.err.println("While trying to get 'git' hash for " + dir + " : " + t.getMessage());
             t.printStackTrace();
-            return CLDRURLS.UNKNOWN_REVISION;
+            return null;
         }
     }
 }

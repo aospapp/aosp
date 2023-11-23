@@ -1,10 +1,15 @@
+# Lint as: python2, python3
 """Monkey patch lame-o vanilla unittest with test skip feature.
 
 From the patch that was never applied (shameful!):
 http://bugs.python.org/issue1034053
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import time, unittest
+from six.moves import map
 
 
 class SkipException(Exception):
@@ -130,8 +135,8 @@ def TextTestRunner_run(self, test):
     self.stream.writeln()
     if not result.wasSuccessful():
         self.stream.write("FAILED (")
-        failed, errored, skipped = map(
-            len, (result.failures, result.errors, result.skipped))
+        failed, errored, skipped = list(map(
+            len, (result.failures, result.errors, result.skipped)))
         if failed:
             self.stream.write("failures=%d" % failed)
         if errored:

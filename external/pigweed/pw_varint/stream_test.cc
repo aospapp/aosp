@@ -22,6 +22,7 @@
 
 #include "gtest/gtest.h"
 #include "pw_stream/memory_stream.h"
+#include "pw_varint/varint.h"
 
 namespace pw::varint {
 namespace {
@@ -238,6 +239,64 @@ TEST(VarintRead, Unsigned64_MultiByte) {
     EXPECT_TRUE(sws.ok());
     EXPECT_EQ(sws.size(), 10u);
     EXPECT_EQ(value, std::numeric_limits<uint64_t>::max());
+  }
+}
+
+TEST(VarintRead, Errors) {
+  uint64_t value = -1234;
+
+  {
+    std::array<std::byte, 0> buffer{};
+    stream::MemoryReader reader(buffer);
+    const auto sws = Read(reader, &value);
+    EXPECT_FALSE(sws.ok());
+    EXPECT_EQ(sws.status(), Status::OutOfRange());
+  }
+
+  {
+    const auto buffer = MakeBuffer("\xff\xff");
+    stream::MemoryReader reader(buffer);
+    const auto sws = Read(reader, &value);
+    EXPECT_FALSE(sws.ok());
+    EXPECT_EQ(sws.status(), Status::DataLoss());
+  }
+
+  {
+    std::array<std::byte, varint::kMaxVarint64SizeBytes + 1> buffer{};
+    for (auto& b : buffer) {
+      b = std::byte{0xff};
+    }
+
+    stream::MemoryReader reader(buffer);
+    const auto sws = Read(reader, &value);
+    EXPECT_FALSE(sws.ok());
+    EXPECT_EQ(sws.status(), Status::DataLoss());
+  }
+}
+
+TEST(VarintRead, SizeLimit) {
+  uint64_t value = -1234;
+
+  {
+    // buffer contains a valid varint, but we limit the read length to ensure
+    // that the final byte is not read, turning it into an error.
+    const auto buffer = MakeBuffer("\xff\xff\xff\xff\x0f");
+    stream::MemoryReader reader(buffer);
+    const auto sws = Read(reader, &value, 4);
+    EXPECT_FALSE(sws.ok());
+    EXPECT_EQ(sws.status(), Status::DataLoss());
+    EXPECT_EQ(reader.Tell(), 4u);
+  }
+
+  {
+    // If we tell varint::Read() to read zero bytes, it should always return
+    // OutOfRange() without moving the reader.
+    const auto buffer = MakeBuffer("\xff\xff\xff\xff\x0f");
+    stream::MemoryReader reader(buffer);
+    const auto sws = Read(reader, &value, 0);
+    EXPECT_FALSE(sws.ok());
+    EXPECT_EQ(sws.status(), Status::OutOfRange());
+    EXPECT_EQ(reader.Tell(), 0u);
   }
 }
 

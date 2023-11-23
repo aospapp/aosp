@@ -78,5 +78,4 @@ public class Task{
                 " mSipResponseCode=" + mSipResponseCode +
                 " mSipReasonPhrase=" + mSipReasonPhrase;
     }
-};
-
+}

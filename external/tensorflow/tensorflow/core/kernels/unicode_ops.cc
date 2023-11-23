@@ -238,7 +238,7 @@ Status GetErrorOptions(OpKernelConstruction* ctx, ErrorOptions* out) {
                                     &(out->replace_control_chars)));
   }
 
-  return Status::OK();
+  return OkStatus();
 }
 
 inline bool ShouldHandleFormatError(const ErrorOptions& error_options,
@@ -263,7 +263,7 @@ class UnicodeTranscodeOp : public OpKernel {
     // at execution time (and to warm any data caches the converter needs).
     // This instance is not used.
     std::unique_ptr<WrappedConverter> input_encoder =
-        absl::make_unique<WrappedConverter>();
+        std::make_unique<WrappedConverter>();
     input_encoder->init(input_encoding_);
     OP_REQUIRES(ctx, input_encoder->converter_,
                 errors::InvalidArgument(
@@ -363,7 +363,7 @@ class UnicodeDecodeBaseOp : public OpKernel {
     // at execution time (and to warm any data caches the converter needs).
     // This instance is not used.
     std::unique_ptr<WrappedConverter> input_encoder =
-        absl::make_unique<WrappedConverter>();
+        std::make_unique<WrappedConverter>();
     input_encoder->init(input_encoding_);
     OP_REQUIRES(ctx, input_encoder->converter_,
                 errors::InvalidArgument(
@@ -409,7 +409,7 @@ class UnicodeDecodeBaseOp : public OpKernel {
     const auto& input_vec = input_tensor->flat<tstring>();
 
     std::unique_ptr<WrappedConverter> input_encoder =
-        absl::make_unique<WrappedConverter>();
+        std::make_unique<WrappedConverter>();
     input_encoder->init(input_encoding_);
     OP_REQUIRES(ctx, input_encoder->converter_,
                 errors::InvalidArgument(
@@ -492,12 +492,12 @@ class UnicodeDecodeWithOffsetsOp : public UnicodeDecodeBaseOp<SPLITS_TYPE> {
 };
 
 REGISTER_KERNEL_BUILDER(
-    Name("UnicodeDecode").Device(DEVICE_CPU).TypeConstraint<int64>("Tsplits"),
-    UnicodeDecodeOp<int64>);
+    Name("UnicodeDecode").Device(DEVICE_CPU).TypeConstraint<int64_t>("Tsplits"),
+    UnicodeDecodeOp<int64_t>);
 REGISTER_KERNEL_BUILDER(Name("UnicodeDecodeWithOffsets")
                             .Device(DEVICE_CPU)
-                            .TypeConstraint<int64>("Tsplits"),
-                        UnicodeDecodeWithOffsetsOp<int64>);
+                            .TypeConstraint<int64_t>("Tsplits"),
+                        UnicodeDecodeWithOffsetsOp<int64_t>);
 REGISTER_KERNEL_BUILDER(
     Name("UnicodeDecode").Device(DEVICE_CPU).TypeConstraint<int32>("Tsplits"),
     UnicodeDecodeOp<int32>);
@@ -598,8 +598,8 @@ class UnicodeEncodeOp : public OpKernel {
 };
 
 REGISTER_KERNEL_BUILDER(
-    Name("UnicodeEncode").Device(DEVICE_CPU).TypeConstraint<int64>("Tsplits"),
-    UnicodeEncodeOp<int64>);
+    Name("UnicodeEncode").Device(DEVICE_CPU).TypeConstraint<int64_t>("Tsplits"),
+    UnicodeEncodeOp<int64_t>);
 REGISTER_KERNEL_BUILDER(
     Name("UnicodeEncode").Device(DEVICE_CPU).TypeConstraint<int32>("Tsplits"),
     UnicodeEncodeOp<int32>);

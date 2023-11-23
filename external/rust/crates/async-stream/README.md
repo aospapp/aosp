@@ -10,7 +10,7 @@ The `stream!` macro returns an anonymous type implementing the [`Stream`]
 trait. The `Item` associated type is the type of the values yielded from the
 stream. The `try_stream!` also returns an anonymous type implementing the
 [`Stream`] trait, but the `Item` associated type is `Result<T, Error>`. The
-`try_stream!` macro supports using `?` notiation as part of the
+`try_stream!` macro supports using `?` notation as part of the
 implementation.
 
 ## Usage
@@ -138,7 +138,7 @@ fn bind_and_accept(addr: SocketAddr)
 ## Implementation
 
 The `stream!` and `try_stream!` macros are implemented using proc macros.
-The macro searches the syntax tree for instances of `sender.send($expr)` and
+The macro searches the syntax tree for instances of `yield $expr` and
 transforms them into `sender.send($expr).await`.
 
 The stream uses a lightweight sender to send values from the stream
@@ -151,6 +151,7 @@ caller.
 [`Stream`]: https://docs.rs/futures-core/*/futures_core/stream/trait.Stream.html
 
 ## Supported Rust Versions
+
 `async-stream` is built against the latest stable release. The minimum supported version is 1.45 due to [function-like procedural macros in expression, pattern, and statement positions](https://blog.rust-lang.org/2020/07/16/Rust-1.45.0.html#stabilizing-function-like-procedural-macros-in-expressions-patterns-and-statements).
 
 ## License

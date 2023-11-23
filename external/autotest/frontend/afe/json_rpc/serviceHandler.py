@@ -18,10 +18,16 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import socket
 import traceback
 
 from json import decoder
+
+import six
 
 try:
     from django.core import exceptions as django_exceptions
@@ -44,13 +50,13 @@ def customConvertJson(value):
     """
     if isinstance(value, float):
         return int(value)
-    elif isinstance(value, unicode):
+    elif isinstance(value, six.text_type):
         return str(value)
     elif isinstance(value, list):
         return [customConvertJson(item) for item in value]
     elif isinstance(value, dict):
         new_dict = {}
-        for key, val in value.iteritems():
+        for key, val in six.iteritems(value):
             new_key = customConvertJson(key)
             new_val = customConvertJson(val)
             new_dict[new_key] = new_val
@@ -107,7 +113,7 @@ class ServiceHandler(object):
         try:
             meth = self.findServiceEndpoint(methName)
             results['result'] = self.invokeServiceEndpoint(meth, args)
-        except Exception, err:
+        except Exception as err:
             results['err_traceback'] = traceback.format_exc()
             results['err'] = err
 
@@ -165,9 +171,9 @@ class ServiceHandler(object):
                          'id': result_dict['id'],
                          'error': result_dict['err'] }
             data = json_encoder.encode(json_dict)
-        except TypeError, e:
+        except TypeError as e:
             err_traceback = traceback.format_exc()
-            print err_traceback
+            print(err_traceback)
             err = {"name" : "JSONEncodeException",
                    "message" : "Result Object Not Serializable",
                    "traceback" : err_traceback}

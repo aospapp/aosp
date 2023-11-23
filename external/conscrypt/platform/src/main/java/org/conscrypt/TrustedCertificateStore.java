@@ -81,8 +81,7 @@ import org.conscrypt.io.IoUtils;
  */
 @Internal
 public class TrustedCertificateStore implements ConscryptCertStore {
-
-    private static final String PREFIX_SYSTEM = "system:";
+    private static String PREFIX_SYSTEM = "system:";
     private static final String PREFIX_USER = "user:";
 
     public static final boolean isSystem(String alias) {
@@ -100,7 +99,15 @@ public class TrustedCertificateStore implements ConscryptCertStore {
         static {
             String ANDROID_ROOT = System.getenv("ANDROID_ROOT");
             String ANDROID_DATA = System.getenv("ANDROID_DATA");
-            defaultCaCertsSystemDir = new File(ANDROID_ROOT + "/etc/security/cacerts");
+            File updatableDir = new File("/apex/com.android.conscrypt/cacerts");
+            if ((System.getProperty("system.certs.enabled") != null)
+                    && (System.getProperty("system.certs.enabled")).equals("true")) {
+                defaultCaCertsSystemDir = new File(ANDROID_ROOT + "/etc/security/cacerts");
+            } else if (updatableDir.exists() && !(updatableDir.list().length == 0)) {
+                defaultCaCertsSystemDir = updatableDir;
+            } else {
+                defaultCaCertsSystemDir = new File(ANDROID_ROOT + "/etc/security/cacerts");
+            }
             setDefaultUserDirectory(new File(ANDROID_DATA + "/misc/keychain"));
         }
     }
@@ -126,6 +133,10 @@ public class TrustedCertificateStore implements ConscryptCertStore {
     public TrustedCertificateStore() {
         this(PreloadHolder.defaultCaCertsSystemDir, PreloadHolder.defaultCaCertsAddedDir,
                 PreloadHolder.defaultCaCertsDeletedDir);
+    }
+
+    public TrustedCertificateStore(File baseDir) {
+        this(baseDir, PreloadHolder.defaultCaCertsAddedDir, PreloadHolder.defaultCaCertsDeletedDir);
     }
 
     public TrustedCertificateStore(File systemDir, File addedDir, File deletedDir) {
@@ -229,7 +240,7 @@ public class TrustedCertificateStore implements ConscryptCertStore {
         }
         long time = file.lastModified();
         if (time == 0) {
-            return null;
+            time = 1672531200L; // Jan 1st, 2023
         }
         return new Date(time);
     }

@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,15 +9,26 @@
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io;
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::io::AsRawFd;
+use std::os::unix::io::FromRawFd;
+use std::os::unix::io::RawFd;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicPtr, AtomicU32, AtomicU64, AtomicUsize, Ordering};
+use std::ptr::null;
+use std::sync::atomic::AtomicPtr;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
-use base::{
-    AsRawDescriptor, MappedRegion, MemoryMapping, MemoryMappingBuilder, Protection, RawDescriptor,
-    WatchingEvents,
-};
+use base::AsRawDescriptor;
+use base::EventType;
+use base::MappedRegion;
+use base::MemoryMapping;
+use base::MemoryMappingBuilder;
+use base::Protection;
+use base::RawDescriptor;
 use data_model::IoBufMut;
+use libc::c_void;
 use remain::sorted;
 use sync::Mutex;
 use thiserror::Error as ThisError;
@@ -47,6 +58,9 @@ pub enum Error {
     /// The call to `io_uring_enter` failed with the given errno.
     #[error("Failed to enter io uring: {0}")]
     RingEnter(libc::c_int),
+    /// The call to `io_uring_register` failed with the given errno.
+    #[error("Failed to register operations for io uring: {0}")]
+    RingRegister(libc::c_int),
     /// The call to `io_uring_setup` failed with the given errno.
     #[error("Failed to setup io uring {0}")]
     Setup(libc::c_int),
@@ -68,16 +82,16 @@ impl From<Error> for io::Error {
 #[derive(Default)]
 pub struct URingStats {
     total_enter_calls: AtomicU64, // Number of times the uring has been entered.
-    total_ops: AtomicU64,         // Total ops submitted to io_uring.
+    pub total_ops: AtomicU64,     // Total ops submitted to io_uring.
     total_complete: AtomicU64,    // Total ops completed by io_uring.
 }
 
-struct SubmitQueue {
+pub struct SubmitQueue {
     submit_ring: SubmitQueueState,
     submit_queue_entries: SubmitQueueEntries,
     io_vecs: Pin<Box<[IoBufMut<'static>]>>,
     submitting: usize, // The number of ops in the process of being submitted.
-    added: usize,      // The number of ops added since the last call to `io_uring_enter`.
+    pub added: usize,  // The number of ops added since the last call to `io_uring_enter`.
     num_sqes: usize,   // The total number of sqes allocated in shared memory.
 }
 
@@ -91,19 +105,33 @@ impl io_uring_sqe {
     }
 
     pub fn set_buf_index(&mut self, val: u16) {
-        self.__bindgen_anon_4
-            .__bindgen_anon_1
-            .__bindgen_anon_1
-            .buf_index = val;
+        self.__bindgen_anon_4.buf_index = val;
     }
 
     pub fn set_rw_flags(&mut self, val: libc::c_int) {
         self.__bindgen_anon_3.rw_flags = val;
     }
 
-    pub fn set_poll_events(&mut self, val: u16) {
-        self.__bindgen_anon_3.poll_events = val;
+    pub fn set_poll_events(&mut self, val: u32) {
+        let val = if cfg!(target_endian = "big") {
+            // Swap words on big-endian platforms to match the original ABI where poll_events was 16
+            // bits wide.
+            val.rotate_left(16)
+        } else {
+            val
+        };
+        self.__bindgen_anon_3.poll32_events = val;
     }
+}
+
+// Convert a file offset to the raw io_uring offset format.
+// Some => explicit offset
+// None => use current file position
+fn file_offset_to_raw_offset(offset: Option<u64>) -> u64 {
+    // File offsets are interpretted as off64_t inside io_uring, with -1 representing the current
+    // file position.
+    const USE_CURRENT_FILE_POS: libc::off64_t = -1;
+    offset.unwrap_or(USE_CURRENT_FILE_POS as u64)
 }
 
 impl SubmitQueue {
@@ -171,7 +199,7 @@ impl SubmitQueue {
         ptr: *const u8,
         len: usize,
         fd: RawFd,
-        offset: u64,
+        offset: Option<u64>,
         user_data: UserData,
         op: u8,
     ) -> Result<()> {
@@ -181,7 +209,7 @@ impl SubmitQueue {
             sqe.opcode = op;
             sqe.set_addr(iovec as *const _ as *const libc::c_void as u64);
             sqe.len = 1;
-            sqe.set_off(offset);
+            sqe.set_off(file_offset_to_raw_offset(offset));
             sqe.set_buf_index(0);
             sqe.ioprio = 0;
             sqe.user_data = user_data;
@@ -190,6 +218,74 @@ impl SubmitQueue {
         })?;
 
         Ok(())
+    }
+}
+
+/// Enum to represent all io_uring operations
+#[repr(u32)]
+pub enum URingOperation {
+    Nop = io_uring_op_IORING_OP_NOP,
+    Readv = io_uring_op_IORING_OP_READV,
+    Writev = io_uring_op_IORING_OP_WRITEV,
+    Fsync = io_uring_op_IORING_OP_FSYNC,
+    ReadFixed = io_uring_op_IORING_OP_READ_FIXED,
+    WriteFixed = io_uring_op_IORING_OP_WRITE_FIXED,
+    PollAdd = io_uring_op_IORING_OP_POLL_ADD,
+    PollRemove = io_uring_op_IORING_OP_POLL_REMOVE,
+    SyncFileRange = io_uring_op_IORING_OP_SYNC_FILE_RANGE,
+    Sendmsg = io_uring_op_IORING_OP_SENDMSG,
+    Recvmsg = io_uring_op_IORING_OP_RECVMSG,
+    Timeout = io_uring_op_IORING_OP_TIMEOUT,
+    TimeoutRemove = io_uring_op_IORING_OP_TIMEOUT_REMOVE,
+    Accept = io_uring_op_IORING_OP_ACCEPT,
+    AsyncCancel = io_uring_op_IORING_OP_ASYNC_CANCEL,
+    LinkTimeout = io_uring_op_IORING_OP_LINK_TIMEOUT,
+    Connect = io_uring_op_IORING_OP_CONNECT,
+    Fallocate = io_uring_op_IORING_OP_FALLOCATE,
+    Openat = io_uring_op_IORING_OP_OPENAT,
+    Close = io_uring_op_IORING_OP_CLOSE,
+    FilesUpdate = io_uring_op_IORING_OP_FILES_UPDATE,
+    Statx = io_uring_op_IORING_OP_STATX,
+    Read = io_uring_op_IORING_OP_READ,
+    Write = io_uring_op_IORING_OP_WRITE,
+    Fadvise = io_uring_op_IORING_OP_FADVISE,
+    Madvise = io_uring_op_IORING_OP_MADVISE,
+    Send = io_uring_op_IORING_OP_SEND,
+    Recv = io_uring_op_IORING_OP_RECV,
+    Openat2 = io_uring_op_IORING_OP_OPENAT2,
+    EpollCtl = io_uring_op_IORING_OP_EPOLL_CTL,
+    Splice = io_uring_op_IORING_OP_SPLICE,
+    ProvideBuffers = io_uring_op_IORING_OP_PROVIDE_BUFFERS,
+    RemoveBuffers = io_uring_op_IORING_OP_REMOVE_BUFFERS,
+    Tee = io_uring_op_IORING_OP_TEE,
+    Shutdown = io_uring_op_IORING_OP_SHUTDOWN,
+    Renameat = io_uring_op_IORING_OP_RENAMEAT,
+    Unlinkat = io_uring_op_IORING_OP_UNLINKAT,
+    Mkdirat = io_uring_op_IORING_OP_MKDIRAT,
+    Symlinkat = io_uring_op_IORING_OP_SYMLINKAT,
+    Linkat = io_uring_op_IORING_OP_LINKAT,
+}
+
+/// Represents an allowlist of the restrictions to be registered to a uring.
+#[derive(Default)]
+pub struct URingAllowlist(Vec<io_uring_restriction>);
+
+impl URingAllowlist {
+    /// Create a new `UringAllowList` which allows no operation.
+    pub fn new() -> Self {
+        URingAllowlist::default()
+    }
+
+    /// Allow `operation` to be submitted to the submit queue of the io_uring.
+    pub fn allow_submit_operation(&mut self, operation: URingOperation) -> &mut Self {
+        self.0.push(io_uring_restriction {
+            opcode: IORING_RESTRICTION_SQE_OP as u16,
+            __bindgen_anon_1: io_uring_restriction__bindgen_ty_1 {
+                sqe_op: operation as u8,
+            },
+            ..Default::default()
+        });
+        self
     }
 }
 
@@ -205,12 +301,12 @@ impl SubmitQueue {
 /// # use std::fs::File;
 /// # use std::os::unix::io::AsRawFd;
 /// # use std::path::Path;
-/// # use base::WatchingEvents;
+/// # use base::EventType;
 /// # use io_uring::URingContext;
 /// let f = File::open(Path::new("/dev/zero")).unwrap();
-/// let uring = URingContext::new(16).unwrap();
+/// let uring = URingContext::new(16, None).unwrap();
 /// uring
-///   .add_poll_fd(f.as_raw_fd(), &WatchingEvents::empty().set_read(), 454)
+///   .add_poll_fd(f.as_raw_fd(), EventType::Read, 454)
 /// .unwrap();
 /// let (user_data, res) = uring.wait().unwrap().next().unwrap();
 /// assert_eq!(user_data, 454 as io_uring::UserData);
@@ -219,17 +315,23 @@ impl SubmitQueue {
 /// ```
 pub struct URingContext {
     ring_file: File, // Holds the io_uring context FD returned from io_uring_setup.
-    submit_ring: Mutex<SubmitQueue>,
-    complete_ring: CompleteQueueState,
+    pub submit_ring: Mutex<SubmitQueue>,
+    pub complete_ring: CompleteQueueState,
     in_flight: AtomicUsize, // The number of pending operations.
-    stats: URingStats,
+    pub stats: URingStats,
 }
 
 impl URingContext {
     /// Creates a `URingContext` where the underlying uring has a space for `num_entries`
-    /// simultaneous operations.
-    pub fn new(num_entries: usize) -> Result<URingContext> {
-        let ring_params = io_uring_params::default();
+    /// simultaneous operations. If `allowlist` is given, all operations other
+    /// than those explicitly permitted by `allowlist` are prohibited.
+    pub fn new(num_entries: usize, allowlist: Option<&URingAllowlist>) -> Result<URingContext> {
+        let mut ring_params = io_uring_params::default();
+        if allowlist.is_some() {
+            // To register restrictions, a uring must start in a disabled state.
+            ring_params.flags |= IORING_SETUP_R_DISABLED;
+        }
+
         // The below unsafe block isolates the creation of the URingContext. Each step on it's own
         // is unsafe. Using the uring FD for the mapping and the offsets returned by the kernel for
         // base addresses maintains safety guarantees assuming the kernel API guarantees are
@@ -239,6 +341,24 @@ impl URingContext {
             // an FD that it takes complete ownership of.
             let fd = io_uring_setup(num_entries, &ring_params).map_err(Error::Setup)?;
             let ring_file = File::from_raw_fd(fd);
+
+            // Register the restrictions if it's given
+            if let Some(restrictions) = allowlist {
+                // safe because IORING_REGISTER_RESTRICTIONS does not modify the memory and `restrictions`
+                // contains a valid pointer and length.
+                io_uring_register(
+                    fd,
+                    IORING_REGISTER_RESTRICTIONS,
+                    restrictions.0.as_ptr() as *const c_void,
+                    restrictions.0.len() as u32,
+                )
+                .map_err(Error::RingRegister)?;
+
+                // enables the URingContext since it was started in a disabled state.
+                // safe because IORING_REGISTER_RESTRICTIONS does not modify the memory
+                io_uring_register(fd, IORING_REGISTER_ENABLE_RINGS, null::<c_void>(), 0)
+                    .map_err(Error::RingRegister)?;
+            }
 
             // Mmap the submit and completion queues.
             // Safe because we trust the kernel to set valid sizes in `io_uring_setup` and any error
@@ -314,12 +434,17 @@ impl URingContext {
         ptr: *const u8,
         len: usize,
         fd: RawFd,
-        offset: u64,
+        offset: Option<u64>,
         user_data: UserData,
     ) -> Result<()> {
-        self.submit_ring
-            .lock()
-            .add_rw_op(ptr, len, fd, offset, user_data, IORING_OP_WRITEV as u8)
+        self.submit_ring.lock().add_rw_op(
+            ptr,
+            len,
+            fd,
+            offset,
+            user_data,
+            io_uring_op_IORING_OP_WRITEV as u8,
+        )
     }
 
     /// Asynchronously reads from `fd` to the address given in `ptr`.
@@ -335,12 +460,17 @@ impl URingContext {
         ptr: *mut u8,
         len: usize,
         fd: RawFd,
-        offset: u64,
+        offset: Option<u64>,
         user_data: UserData,
     ) -> Result<()> {
-        self.submit_ring
-            .lock()
-            .add_rw_op(ptr, len, fd, offset, user_data, IORING_OP_READV as u8)
+        self.submit_ring.lock().add_rw_op(
+            ptr,
+            len,
+            fd,
+            offset,
+            user_data,
+            io_uring_op_IORING_OP_READV as u8,
+        )
     }
 
     /// # Safety
@@ -350,7 +480,7 @@ impl URingContext {
         &self,
         iovecs: I,
         fd: RawFd,
-        offset: u64,
+        offset: Option<u64>,
         user_data: UserData,
     ) -> Result<()>
     where
@@ -384,14 +514,14 @@ impl URingContext {
         &self,
         iovecs: Pin<Box<[IoBufMut<'static>]>>,
         fd: RawFd,
-        offset: u64,
+        offset: Option<u64>,
         user_data: UserData,
     ) -> Result<()> {
         self.submit_ring.lock().prep_next_sqe(|sqe, _iovec| {
-            sqe.opcode = IORING_OP_WRITEV as u8;
+            sqe.opcode = io_uring_op_IORING_OP_WRITEV as u8;
             sqe.set_addr(iovecs.as_ptr() as *const _ as *const libc::c_void as u64);
             sqe.len = iovecs.len() as u32;
-            sqe.set_off(offset);
+            sqe.set_off(file_offset_to_raw_offset(offset));
             sqe.set_buf_index(0);
             sqe.ioprio = 0;
             sqe.user_data = user_data;
@@ -409,7 +539,7 @@ impl URingContext {
         &self,
         iovecs: I,
         fd: RawFd,
-        offset: u64,
+        offset: Option<u64>,
         user_data: UserData,
     ) -> Result<()>
     where
@@ -443,14 +573,14 @@ impl URingContext {
         &self,
         iovecs: Pin<Box<[IoBufMut<'static>]>>,
         fd: RawFd,
-        offset: u64,
+        offset: Option<u64>,
         user_data: UserData,
     ) -> Result<()> {
         self.submit_ring.lock().prep_next_sqe(|sqe, _iovec| {
-            sqe.opcode = IORING_OP_READV as u8;
+            sqe.opcode = io_uring_op_IORING_OP_READV as u8;
             sqe.set_addr(iovecs.as_ptr() as *const _ as *const libc::c_void as u64);
             sqe.len = iovecs.len() as u32;
-            sqe.set_off(offset);
+            sqe.set_off(file_offset_to_raw_offset(offset));
             sqe.set_buf_index(0);
             sqe.ioprio = 0;
             sqe.user_data = user_data;
@@ -465,7 +595,7 @@ impl URingContext {
     /// io_uring itself and for waking up a thread that's blocked inside a wait() call.
     pub fn add_nop(&self, user_data: UserData) -> Result<()> {
         self.submit_ring.lock().prep_next_sqe(|sqe, _iovec| {
-            sqe.opcode = IORING_OP_NOP as u8;
+            sqe.opcode = io_uring_op_IORING_OP_NOP as u8;
             sqe.fd = -1;
             sqe.user_data = user_data;
 
@@ -483,7 +613,7 @@ impl URingContext {
     /// defined.
     pub fn add_fsync(&self, fd: RawFd, user_data: UserData) -> Result<()> {
         self.submit_ring.lock().prep_next_sqe(|sqe, _iovec| {
-            sqe.opcode = IORING_OP_FSYNC as u8;
+            sqe.opcode = io_uring_op_IORING_OP_FSYNC as u8;
             sqe.fd = fd;
             sqe.user_data = user_data;
 
@@ -509,7 +639,7 @@ impl URingContext {
         // Note that len for fallocate in passed in the addr field of the sqe and the mode uses the
         // len field.
         self.submit_ring.lock().prep_next_sqe(|sqe, _iovec| {
-            sqe.opcode = IORING_OP_FALLOCATE as u8;
+            sqe.opcode = io_uring_op_IORING_OP_FALLOCATE as u8;
 
             sqe.fd = fd;
             sqe.set_addr(len);
@@ -529,17 +659,12 @@ impl URingContext {
     /// `wait`.
     /// Note that io_uring is always a one shot poll. After the fd is returned, it must be re-added
     /// to get future events.
-    pub fn add_poll_fd(
-        &self,
-        fd: RawFd,
-        events: &WatchingEvents,
-        user_data: UserData,
-    ) -> Result<()> {
+    pub fn add_poll_fd(&self, fd: RawFd, events: EventType, user_data: UserData) -> Result<()> {
         self.submit_ring.lock().prep_next_sqe(|sqe, _iovec| {
-            sqe.opcode = IORING_OP_POLL_ADD as u8;
+            sqe.opcode = io_uring_op_IORING_OP_POLL_ADD as u8;
             sqe.fd = fd;
             sqe.user_data = user_data;
-            sqe.set_poll_events(events.get_raw() as u16);
+            sqe.set_poll_events(events.into());
 
             sqe.set_addr(0);
             sqe.len = 0;
@@ -551,20 +676,37 @@ impl URingContext {
     }
 
     /// Removes an FD that was previously added with `add_poll_fd`.
-    pub fn remove_poll_fd(
-        &self,
-        fd: RawFd,
-        events: &WatchingEvents,
-        user_data: UserData,
-    ) -> Result<()> {
+    pub fn remove_poll_fd(&self, fd: RawFd, events: EventType, user_data: UserData) -> Result<()> {
         self.submit_ring.lock().prep_next_sqe(|sqe, _iovec| {
-            sqe.opcode = IORING_OP_POLL_REMOVE as u8;
+            sqe.opcode = io_uring_op_IORING_OP_POLL_REMOVE as u8;
             sqe.fd = fd;
             sqe.user_data = user_data;
-            sqe.set_poll_events(events.get_raw() as u16);
+            sqe.set_poll_events(events.into());
 
             sqe.set_addr(0);
             sqe.len = 0;
+            sqe.set_off(0);
+            sqe.set_buf_index(0);
+            sqe.ioprio = 0;
+            sqe.flags = 0;
+        })
+    }
+
+    /// Attempt to cancel an already issued request. addr must contain the user_data field of the
+    /// request that should be cancelled. The cancellation request will complete with one of the
+    /// following results codes. If found, the res field of the cqe will contain 0. If not found,
+    /// res will contain -ENOENT. If found and attempted cancelled, the res field will contain
+    /// -EALREADY. In this case, the request may or may not terminate. In general, requests that
+    /// are interruptible (like socket IO) will get cancelled, while disk IO requests cannot be
+    /// cancelled if already started.
+    pub fn async_cancel(&self, addr: UserData, user_data: UserData) -> Result<()> {
+        self.submit_ring.lock().prep_next_sqe(|sqe, _iovec| {
+            sqe.opcode = io_uring_op_IORING_OP_ASYNC_CANCEL as u8;
+            sqe.user_data = user_data;
+            sqe.set_addr(addr);
+
+            sqe.len = 0;
+            sqe.fd = 0;
             sqe.set_off(0);
             sqe.set_buf_index(0);
             sqe.ioprio = 0;
@@ -608,18 +750,28 @@ impl URingContext {
                 self.in_flight.fetch_add(added, Ordering::Release);
             }
             Err(e) => {
-                self.submit_ring.lock().fail_submit(added);
+                // An EBUSY return means that some completed events must be processed before
+                // submitting more, so wait for some to finish without pushing the new sqes in
+                // that case.
+                // An EINTR means we successfully submitted the events but were interrupted while
+                // waiting, so just wait again.
+                // Any other error should be propagated up.
 
-                if wait_nr == 0 || e != libc::EBUSY {
+                if e != libc::EINTR {
+                    self.submit_ring.lock().fail_submit(added);
+                }
+
+                if wait_nr == 0 || (e != libc::EBUSY && e != libc::EINTR) {
                     return Err(Error::RingEnter(e));
                 }
 
-                // An ebusy return means that some completed events must be processed before
-                // submitting more, wait for some to finish without pushing the new sqes in
-                // that case.
-                unsafe {
-                    io_uring_enter(self.ring_file.as_raw_fd(), 0, wait_nr, flags)
-                        .map_err(Error::RingEnter)?;
+                loop {
+                    // Safe because the only memory modified is in the completion queue.
+                    let res =
+                        unsafe { io_uring_enter(self.ring_file.as_raw_fd(), 0, wait_nr, flags) };
+                    if res != Err(libc::EINTR) {
+                        return res.map_err(Error::RingEnter);
+                    }
                 }
             }
         }
@@ -735,7 +887,7 @@ struct CompleteQueueData {
     pending_op_addrs: BTreeMap<UserData, Pin<Box<[IoBufMut<'static>]>>>,
 }
 
-struct CompleteQueueState {
+pub struct CompleteQueueState {
     mmap: MemoryMapping,
     pointers: QueuePointers,
     ring_mask: u32,
@@ -778,7 +930,7 @@ impl CompleteQueueState {
         }
     }
 
-    fn num_ready(&self) -> u32 {
+    pub fn num_ready(&self) -> u32 {
         let tail = self.pointers.tail(Ordering::Acquire);
         let head = self.pointers.head(Ordering::Relaxed);
 
@@ -876,701 +1028,5 @@ impl QueuePointers {
         // Safe because self being constructed from the correct mmap guaratees that the memory is
         // valid to read and it's used as an atomic to cover mutability concerns.
         unsafe { (*self.head).store(next_head, Ordering::Release) }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::BTreeSet;
-    use std::fs::OpenOptions;
-    use std::io::{IoSlice, IoSliceMut};
-    use std::io::{Read, Seek, SeekFrom, Write};
-    use std::mem;
-    use std::path::{Path, PathBuf};
-    use std::sync::mpsc::channel;
-    use std::sync::{Arc, Barrier};
-    use std::thread;
-    use std::time::Duration;
-
-    use base::{pipe, PollContext};
-    use sync::{Condvar, Mutex};
-    use tempfile::{tempfile, TempDir};
-
-    use super::*;
-
-    fn append_file_name(path: &Path, name: &str) -> PathBuf {
-        let mut joined = path.to_path_buf();
-        joined.push(name);
-        joined
-    }
-
-    fn check_one_read(
-        uring: &URingContext,
-        buf: &mut [u8],
-        fd: RawFd,
-        offset: u64,
-        user_data: UserData,
-    ) {
-        let (user_data_ret, res) = unsafe {
-            // Safe because the `wait` call waits until the kernel is done with `buf`.
-            uring
-                .add_read(buf.as_mut_ptr(), buf.len(), fd, offset, user_data)
-                .unwrap();
-            uring.wait().unwrap().next().unwrap()
-        };
-        assert_eq!(user_data_ret, user_data);
-        assert_eq!(res.unwrap(), buf.len() as u32);
-    }
-
-    fn check_one_readv(
-        uring: &URingContext,
-        buf: &mut [u8],
-        fd: RawFd,
-        offset: u64,
-        user_data: UserData,
-    ) {
-        let io_vecs = unsafe {
-            //safe to transmut from IoSlice to iovec.
-            vec![IoSliceMut::new(buf)]
-                .into_iter()
-                .map(|slice| std::mem::transmute::<IoSliceMut, libc::iovec>(slice))
-        };
-        let (user_data_ret, res) = unsafe {
-            // Safe because the `wait` call waits until the kernel is done with `buf`.
-            uring
-                .add_readv_iter(io_vecs, fd, offset, user_data)
-                .unwrap();
-            uring.wait().unwrap().next().unwrap()
-        };
-        assert_eq!(user_data_ret, user_data);
-        assert_eq!(res.unwrap(), buf.len() as u32);
-    }
-
-    fn create_test_file(size: u64) -> std::fs::File {
-        let f = tempfile().unwrap();
-        f.set_len(size).unwrap();
-        f
-    }
-
-    #[test]
-    // Queue as many reads as possible and then collect the completions.
-    fn read_parallel() {
-        const QUEUE_SIZE: usize = 10;
-        const BUF_SIZE: usize = 0x1000;
-
-        let uring = URingContext::new(QUEUE_SIZE).unwrap();
-        let mut buf = [0u8; BUF_SIZE * QUEUE_SIZE];
-        let f = create_test_file((BUF_SIZE * QUEUE_SIZE) as u64);
-
-        // check that the whole file can be read and that the queues wrapping is handled by reading
-        // double the quue depth of buffers.
-        for i in 0..QUEUE_SIZE * 64 {
-            let index = i as u64;
-            unsafe {
-                let offset = (i % QUEUE_SIZE) * BUF_SIZE;
-                match uring.add_read(
-                    buf[offset..].as_mut_ptr(),
-                    BUF_SIZE,
-                    f.as_raw_fd(),
-                    offset as u64,
-                    index,
-                ) {
-                    Ok(_) => (),
-                    Err(Error::NoSpace) => {
-                        let _ = uring.wait().unwrap().next().unwrap();
-                    }
-                    Err(_) => panic!("unexpected error from uring wait"),
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn read_readv() {
-        let queue_size = 128;
-
-        let uring = URingContext::new(queue_size).unwrap();
-        let mut buf = [0u8; 0x1000];
-        let f = create_test_file(0x1000 * 2);
-
-        // check that the whole file can be read and that the queues wrapping is handled by reading
-        // double the quue depth of buffers.
-        for i in 0..queue_size * 2 {
-            let index = i as u64;
-            check_one_read(&uring, &mut buf, f.as_raw_fd(), (index % 2) * 0x1000, index);
-            check_one_readv(&uring, &mut buf, f.as_raw_fd(), (index % 2) * 0x1000, index);
-        }
-    }
-
-    #[test]
-    fn readv_vec() {
-        let queue_size = 128;
-        const BUF_SIZE: usize = 0x2000;
-
-        let uring = URingContext::new(queue_size).unwrap();
-        let mut buf = [0u8; BUF_SIZE];
-        let mut buf2 = [0u8; BUF_SIZE];
-        let mut buf3 = [0u8; BUF_SIZE];
-        let io_vecs = unsafe {
-            //safe to transmut from IoSlice to iovec.
-            vec![
-                IoSliceMut::new(&mut buf),
-                IoSliceMut::new(&mut buf2),
-                IoSliceMut::new(&mut buf3),
-            ]
-            .into_iter()
-            .map(|slice| std::mem::transmute::<IoSliceMut, libc::iovec>(slice))
-            .collect::<Vec<libc::iovec>>()
-        };
-        let total_len = io_vecs.iter().fold(0, |a, iovec| a + iovec.iov_len);
-        let f = create_test_file(total_len as u64 * 2);
-        let (user_data_ret, res) = unsafe {
-            // Safe because the `wait` call waits until the kernel is done with `buf`.
-            uring
-                .add_readv_iter(io_vecs.into_iter(), f.as_raw_fd(), 0, 55)
-                .unwrap();
-            uring.wait().unwrap().next().unwrap()
-        };
-        assert_eq!(user_data_ret, 55);
-        assert_eq!(res.unwrap(), total_len as u32);
-    }
-
-    #[test]
-    fn write_one_block() {
-        let uring = URingContext::new(16).unwrap();
-        let mut buf = [0u8; 4096];
-        let mut f = create_test_file(0);
-        f.write_all(&buf).unwrap();
-        f.write_all(&buf).unwrap();
-
-        unsafe {
-            // Safe because the `wait` call waits until the kernel is done mutating `buf`.
-            uring
-                .add_write(buf.as_mut_ptr(), buf.len(), f.as_raw_fd(), 0, 55)
-                .unwrap();
-            let (user_data, res) = uring.wait().unwrap().next().unwrap();
-            assert_eq!(user_data, 55_u64);
-            assert_eq!(res.unwrap(), buf.len() as u32);
-        }
-    }
-
-    #[test]
-    fn write_one_submit_poll() {
-        let uring = URingContext::new(16).unwrap();
-        let mut buf = [0u8; 4096];
-        let mut f = create_test_file(0);
-        f.write_all(&buf).unwrap();
-        f.write_all(&buf).unwrap();
-
-        let ctx: PollContext<u64> = PollContext::build_with(&[(&uring, 1)]).unwrap();
-        {
-            // Test that the uring context isn't readable before any events are complete.
-            let events = ctx.wait_timeout(Duration::from_millis(1)).unwrap();
-            assert!(events.iter_readable().next().is_none());
-        }
-
-        unsafe {
-            // Safe because the `wait` call waits until the kernel is done mutating `buf`.
-            uring
-                .add_write(buf.as_mut_ptr(), buf.len(), f.as_raw_fd(), 0, 55)
-                .unwrap();
-            uring.submit().unwrap();
-            // Poll for completion with epoll.
-            let events = ctx.wait().unwrap();
-            let event = events.iter_readable().next().unwrap();
-            assert_eq!(event.token(), 1);
-            let (user_data, res) = uring.wait().unwrap().next().unwrap();
-            assert_eq!(user_data, 55_u64);
-            assert_eq!(res.unwrap(), buf.len() as u32);
-        }
-    }
-
-    #[test]
-    fn writev_vec() {
-        let queue_size = 128;
-        const BUF_SIZE: usize = 0x2000;
-        const OFFSET: u64 = 0x2000;
-
-        let uring = URingContext::new(queue_size).unwrap();
-        let buf = [0xaau8; BUF_SIZE];
-        let buf2 = [0xffu8; BUF_SIZE];
-        let buf3 = [0x55u8; BUF_SIZE];
-        let io_vecs = unsafe {
-            //safe to transmut from IoSlice to iovec.
-            vec![IoSlice::new(&buf), IoSlice::new(&buf2), IoSlice::new(&buf3)]
-                .into_iter()
-                .map(|slice| std::mem::transmute::<IoSlice, libc::iovec>(slice))
-                .collect::<Vec<libc::iovec>>()
-        };
-        let total_len = io_vecs.iter().fold(0, |a, iovec| a + iovec.iov_len);
-        let mut f = create_test_file(total_len as u64 * 2);
-        let (user_data_ret, res) = unsafe {
-            // Safe because the `wait` call waits until the kernel is done with `buf`.
-            uring
-                .add_writev_iter(io_vecs.into_iter(), f.as_raw_fd(), OFFSET, 55)
-                .unwrap();
-            uring.wait().unwrap().next().unwrap()
-        };
-        assert_eq!(user_data_ret, 55);
-        assert_eq!(res.unwrap(), total_len as u32);
-
-        let mut read_back = [0u8; BUF_SIZE];
-        f.seek(SeekFrom::Start(OFFSET)).unwrap();
-        f.read_exact(&mut read_back).unwrap();
-        assert!(!read_back.iter().any(|&b| b != 0xaa));
-        f.read_exact(&mut read_back).unwrap();
-        assert!(!read_back.iter().any(|&b| b != 0xff));
-        f.read_exact(&mut read_back).unwrap();
-        assert!(!read_back.iter().any(|&b| b != 0x55));
-    }
-
-    #[test]
-    fn fallocate_fsync() {
-        let tempdir = TempDir::new().unwrap();
-        let file_path = append_file_name(tempdir.path(), "test");
-
-        {
-            let buf = [0u8; 4096];
-            let mut f = OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(&file_path)
-                .unwrap();
-            f.write_all(&buf).unwrap();
-        }
-
-        let init_size = std::fs::metadata(&file_path).unwrap().len() as usize;
-        let set_size = init_size + 1024 * 1024 * 50;
-        let f = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(&file_path)
-            .unwrap();
-
-        let uring = URingContext::new(16).unwrap();
-        uring
-            .add_fallocate(f.as_raw_fd(), 0, set_size as u64, 0, 66)
-            .unwrap();
-        let (user_data, res) = uring.wait().unwrap().next().unwrap();
-        assert_eq!(user_data, 66_u64);
-        match res {
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::InvalidInput {
-                    // skip on kernels that don't support fallocate.
-                    return;
-                }
-                panic!("Unexpected fallocate error: {}", e);
-            }
-            Ok(val) => assert_eq!(val, 0_u32),
-        }
-
-        // Add a few writes and then fsync
-        let buf = [0u8; 4096];
-        let mut pending = std::collections::BTreeSet::new();
-        unsafe {
-            uring
-                .add_write(buf.as_ptr(), buf.len(), f.as_raw_fd(), 0, 67)
-                .unwrap();
-            pending.insert(67u64);
-            uring
-                .add_write(buf.as_ptr(), buf.len(), f.as_raw_fd(), 4096, 68)
-                .unwrap();
-            pending.insert(68);
-            uring
-                .add_write(buf.as_ptr(), buf.len(), f.as_raw_fd(), 8192, 69)
-                .unwrap();
-            pending.insert(69);
-        }
-        uring.add_fsync(f.as_raw_fd(), 70).unwrap();
-        pending.insert(70);
-
-        let mut wait_calls = 0;
-
-        while !pending.is_empty() && wait_calls < 5 {
-            let events = uring.wait().unwrap();
-            for (user_data, res) in events {
-                assert!(res.is_ok());
-                assert!(pending.contains(&user_data));
-                pending.remove(&user_data);
-            }
-            wait_calls += 1;
-        }
-        assert!(pending.is_empty());
-
-        uring
-            .add_fallocate(
-                f.as_raw_fd(),
-                init_size as u64,
-                (set_size - init_size) as u64,
-                (libc::FALLOC_FL_PUNCH_HOLE | libc::FALLOC_FL_KEEP_SIZE) as u32,
-                68,
-            )
-            .unwrap();
-        let (user_data, res) = uring.wait().unwrap().next().unwrap();
-        assert_eq!(user_data, 68_u64);
-        assert_eq!(res.unwrap(), 0_u32);
-
-        drop(f); // Close to ensure directory entires for metadata are updated.
-
-        let new_size = std::fs::metadata(&file_path).unwrap().len() as usize;
-        assert_eq!(new_size, set_size);
-    }
-
-    #[test]
-    fn dev_zero_readable() {
-        let f = File::open(Path::new("/dev/zero")).unwrap();
-        let uring = URingContext::new(16).unwrap();
-        uring
-            .add_poll_fd(f.as_raw_fd(), &WatchingEvents::empty().set_read(), 454)
-            .unwrap();
-        let (user_data, res) = uring.wait().unwrap().next().unwrap();
-        assert_eq!(user_data, 454_u64);
-        assert_eq!(res.unwrap(), 1_u32);
-    }
-
-    #[test]
-    fn queue_many_ebusy_retry() {
-        let num_entries = 16;
-        let f = File::open(Path::new("/dev/zero")).unwrap();
-        let uring = URingContext::new(num_entries).unwrap();
-        // Fill the sumbit ring.
-        for sqe_batch in 0..3 {
-            for i in 0..num_entries {
-                uring
-                    .add_poll_fd(
-                        f.as_raw_fd(),
-                        &WatchingEvents::empty().set_read(),
-                        (sqe_batch * num_entries + i) as u64,
-                    )
-                    .unwrap();
-            }
-            uring.submit().unwrap();
-        }
-        // Adding more than the number of cqes will cause the uring to return ebusy, make sure that
-        // is handled cleanly and wait still returns the completed entries.
-        uring
-            .add_poll_fd(
-                f.as_raw_fd(),
-                &WatchingEvents::empty().set_read(),
-                (num_entries * 3) as u64,
-            )
-            .unwrap();
-        // The first wait call should return the cques that are already filled.
-        {
-            let mut results = uring.wait().unwrap();
-            for _i in 0..num_entries * 2 {
-                assert_eq!(results.next().unwrap().1.unwrap(), 1_u32);
-            }
-            assert!(results.next().is_none());
-        }
-        // The second will finish submitting any more sqes and return the rest.
-        let mut results = uring.wait().unwrap();
-        for _i in 0..num_entries + 1 {
-            assert_eq!(results.next().unwrap().1.unwrap(), 1_u32);
-        }
-        assert!(results.next().is_none());
-    }
-
-    #[test]
-    fn wake_with_nop() {
-        const PIPE_READ: UserData = 0;
-        const NOP: UserData = 1;
-        const BUF_DATA: [u8; 16] = [0xf4; 16];
-
-        let uring = URingContext::new(4).map(Arc::new).unwrap();
-        let (pipe_out, mut pipe_in) = pipe(true).unwrap();
-        let (tx, rx) = channel();
-
-        let uring2 = uring.clone();
-        let wait_thread = thread::spawn(move || {
-            let mut buf = [0u8; BUF_DATA.len()];
-            unsafe {
-                uring2
-                    .add_read(buf.as_mut_ptr(), buf.len(), pipe_out.as_raw_fd(), 0, 0)
-                    .unwrap();
-            }
-
-            // This is still a bit racy as the other thread may end up adding the NOP before we make
-            // the syscall but I'm not aware of a mechanism that will notify the other thread
-            // exactly when we make the syscall.
-            tx.send(()).unwrap();
-            let mut events = uring2.wait().unwrap();
-            let (user_data, result) = events.next().unwrap();
-            assert_eq!(user_data, NOP);
-            assert_eq!(result.unwrap(), 0);
-
-            tx.send(()).unwrap();
-            let mut events = uring2.wait().unwrap();
-            let (user_data, result) = events.next().unwrap();
-            assert_eq!(user_data, PIPE_READ);
-            assert_eq!(result.unwrap(), buf.len() as u32);
-            assert_eq!(&buf, &BUF_DATA);
-        });
-
-        // Wait until the other thread is about to make the syscall.
-        rx.recv_timeout(Duration::from_secs(10)).unwrap();
-
-        // Now add a NOP operation. This should wake up the other thread even though it cannot yet
-        // read from the pipe.
-        uring.add_nop(NOP).unwrap();
-        uring.submit().unwrap();
-
-        // Wait for the other thread to process the NOP result.
-        rx.recv_timeout(Duration::from_secs(10)).unwrap();
-
-        // Now write to the pipe to finish the uring read.
-        pipe_in.write_all(&BUF_DATA).unwrap();
-
-        wait_thread.join().unwrap();
-    }
-
-    #[test]
-    fn complete_from_any_thread() {
-        let num_entries = 16;
-        let uring = URingContext::new(num_entries).map(Arc::new).unwrap();
-
-        // Fill the sumbit ring.
-        for sqe_batch in 0..3 {
-            for i in 0..num_entries {
-                uring.add_nop((sqe_batch * num_entries + i) as u64).unwrap();
-            }
-            uring.submit().unwrap();
-        }
-
-        // Spawn a bunch of threads that pull cqes out of the uring and make sure none of them see a
-        // duplicate.
-        const NUM_THREADS: usize = 7;
-        let completed = Arc::new(Mutex::new(BTreeSet::new()));
-        let cv = Arc::new(Condvar::new());
-        let barrier = Arc::new(Barrier::new(NUM_THREADS));
-
-        let mut threads = Vec::with_capacity(NUM_THREADS);
-        for _ in 0..NUM_THREADS {
-            let uring = uring.clone();
-            let completed = completed.clone();
-            let barrier = barrier.clone();
-            let cv = cv.clone();
-            threads.push(thread::spawn(move || {
-                barrier.wait();
-
-                'wait: while completed.lock().len() < num_entries * 3 {
-                    for (user_data, result) in uring.wait().unwrap() {
-                        assert_eq!(result.unwrap(), 0);
-
-                        let mut completed = completed.lock();
-                        assert!(completed.insert(user_data));
-                        if completed.len() >= num_entries * 3 {
-                            break 'wait;
-                        }
-                    }
-                }
-
-                cv.notify_one();
-            }));
-        }
-
-        // Wait until all the operations have completed.
-        let mut c = completed.lock();
-        while c.len() < num_entries * 3 {
-            c = cv.wait(c);
-        }
-        mem::drop(c);
-
-        // Let the OS clean up the still-waiting threads after the test run.
-    }
-
-    #[test]
-    fn submit_from_any_thread() {
-        const NUM_THREADS: usize = 7;
-        const ITERATIONS: usize = 113;
-        const NUM_ENTRIES: usize = 16;
-
-        fn wait_for_completion_thread(in_flight: &Mutex<isize>, cv: &Condvar) {
-            let mut in_flight = in_flight.lock();
-            while *in_flight > NUM_ENTRIES as isize {
-                in_flight = cv.wait(in_flight);
-            }
-        }
-
-        let uring = URingContext::new(NUM_ENTRIES).map(Arc::new).unwrap();
-        let in_flight = Arc::new(Mutex::new(0));
-        let cv = Arc::new(Condvar::new());
-
-        let mut threads = Vec::with_capacity(NUM_THREADS);
-        for idx in 0..NUM_THREADS {
-            let uring = uring.clone();
-            let in_flight = in_flight.clone();
-            let cv = cv.clone();
-            threads.push(thread::spawn(move || {
-                for iter in 0..ITERATIONS {
-                    loop {
-                        match uring.add_nop(((idx * NUM_THREADS) + iter) as UserData) {
-                            Ok(()) => *in_flight.lock() += 1,
-                            Err(Error::NoSpace) => {
-                                wait_for_completion_thread(&in_flight, &cv);
-                                continue;
-                            }
-                            Err(e) => panic!("Failed to add nop: {}", e),
-                        }
-
-                        // We don't need to wait for the completion queue if the submit fails with
-                        // EBUSY because we already added the operation to the submit queue. It will
-                        // get added eventually.
-                        match uring.submit() {
-                            Ok(()) => break,
-                            Err(Error::RingEnter(libc::EBUSY)) => break,
-                            Err(e) => panic!("Failed to submit ops: {}", e),
-                        }
-                    }
-                }
-            }));
-        }
-
-        let mut completed = 0;
-        while completed < NUM_THREADS * ITERATIONS {
-            for (_, res) in uring.wait().unwrap() {
-                assert_eq!(res.unwrap(), 0);
-                completed += 1;
-
-                let mut in_flight = in_flight.lock();
-                *in_flight -= 1;
-                let notify_submitters = *in_flight <= NUM_ENTRIES as isize;
-                mem::drop(in_flight);
-
-                if notify_submitters {
-                    cv.notify_all();
-                }
-
-                if completed >= NUM_THREADS * ITERATIONS {
-                    break;
-                }
-            }
-        }
-
-        for t in threads {
-            t.join().unwrap();
-        }
-
-        // Make sure we didn't submit more entries than expected.
-        assert_eq!(*in_flight.lock(), 0);
-        assert_eq!(uring.submit_ring.lock().added, 0);
-        assert_eq!(uring.complete_ring.num_ready(), 0);
-        assert_eq!(
-            uring.stats.total_ops.load(Ordering::Relaxed),
-            (NUM_THREADS * ITERATIONS) as u64
-        );
-    }
-
-    // TODO(b/183722981): Fix and re-enable test
-    #[test]
-    #[ignore]
-    fn multi_thread_submit_and_complete() {
-        const NUM_SUBMITTERS: usize = 7;
-        const NUM_COMPLETERS: usize = 3;
-        const ITERATIONS: usize = 113;
-        const NUM_ENTRIES: usize = 16;
-
-        fn wait_for_completion_thread(in_flight: &Mutex<isize>, cv: &Condvar) {
-            let mut in_flight = in_flight.lock();
-            while *in_flight > NUM_ENTRIES as isize {
-                in_flight = cv.wait(in_flight);
-            }
-        }
-
-        let uring = URingContext::new(NUM_ENTRIES).map(Arc::new).unwrap();
-        let in_flight = Arc::new(Mutex::new(0));
-        let cv = Arc::new(Condvar::new());
-
-        let mut threads = Vec::with_capacity(NUM_SUBMITTERS + NUM_COMPLETERS);
-        for idx in 0..NUM_SUBMITTERS {
-            let uring = uring.clone();
-            let in_flight = in_flight.clone();
-            let cv = cv.clone();
-            threads.push(thread::spawn(move || {
-                for iter in 0..ITERATIONS {
-                    loop {
-                        match uring.add_nop(((idx * NUM_SUBMITTERS) + iter) as UserData) {
-                            Ok(()) => *in_flight.lock() += 1,
-                            Err(Error::NoSpace) => {
-                                wait_for_completion_thread(&in_flight, &cv);
-                                continue;
-                            }
-                            Err(e) => panic!("Failed to add nop: {}", e),
-                        }
-
-                        // We don't need to wait for the completion queue if the submit fails with
-                        // EBUSY because we already added the operation to the submit queue. It will
-                        // get added eventually.
-                        match uring.submit() {
-                            Ok(()) => break,
-                            Err(Error::RingEnter(libc::EBUSY)) => break,
-                            Err(e) => panic!("Failed to submit ops: {}", e),
-                        }
-                    }
-                }
-            }));
-        }
-
-        let completed = Arc::new(AtomicUsize::new(0));
-        for _ in 0..NUM_COMPLETERS {
-            let uring = uring.clone();
-            let in_flight = in_flight.clone();
-            let cv = cv.clone();
-            let completed = completed.clone();
-            threads.push(thread::spawn(move || {
-                while completed.load(Ordering::Relaxed) < NUM_SUBMITTERS * ITERATIONS {
-                    for (_, res) in uring.wait().unwrap() {
-                        assert_eq!(res.unwrap(), 0);
-                        completed.fetch_add(1, Ordering::Relaxed);
-
-                        let mut in_flight = in_flight.lock();
-                        *in_flight -= 1;
-                        let notify_submitters = *in_flight <= NUM_ENTRIES as isize;
-                        mem::drop(in_flight);
-
-                        if notify_submitters {
-                            cv.notify_all();
-                        }
-
-                        if completed.load(Ordering::Relaxed) >= NUM_SUBMITTERS * ITERATIONS {
-                            break;
-                        }
-                    }
-                }
-            }));
-        }
-
-        for t in threads.drain(..NUM_SUBMITTERS) {
-            t.join().unwrap();
-        }
-
-        // Now that all submitters are finished, add NOPs to wake up any completers blocked on the
-        // syscall.
-        for i in 0..NUM_COMPLETERS {
-            uring
-                .add_nop((NUM_SUBMITTERS * ITERATIONS + i) as UserData)
-                .unwrap();
-        }
-        uring.submit().unwrap();
-
-        for t in threads {
-            t.join().unwrap();
-        }
-
-        // Make sure we didn't submit more entries than expected. Only the last few NOPs added to
-        // wake up the completer threads may still be in the completion ring.
-        assert!(uring.complete_ring.num_ready() <= NUM_COMPLETERS as u32);
-        assert_eq!(
-            in_flight.lock().abs() as u32 + uring.complete_ring.num_ready(),
-            NUM_COMPLETERS as u32
-        );
-        assert_eq!(uring.submit_ring.lock().added, 0);
-        assert_eq!(
-            uring.stats.total_ops.load(Ordering::Relaxed),
-            (NUM_SUBMITTERS * ITERATIONS + NUM_COMPLETERS) as u64
-        );
     }
 }

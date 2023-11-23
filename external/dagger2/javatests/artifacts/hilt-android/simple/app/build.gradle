@@ -13,9 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import org.gradle.util.VersionNumber
 
 apply plugin: 'com.android.application'
 apply plugin: 'dagger.hilt.android.plugin'
+
+// Gets additional test directories to be added to test and androidTest source
+// sets. If the directory name is appended with '-agp-x.x.x' then the directory
+// is conditionally added based on the AGP version of the project.
+def getAdditionalTestDirs(String variant) {
+    def testDirs = [
+        'androidTest': [],
+        'sharedTest': ['src/sharedTest/java'],
+        'test': []
+    ]
+    def suffix = '-agp-'
+    def agpVersion = VersionNumber.parse(agp_version)
+    file("${getProjectDir().absolutePath}/src").eachFile { file ->
+        int indexOf = file.name.indexOf(suffix)
+        if (file.isDirectory() && indexOf != -1) {
+            def dirAgpVersion =
+                VersionNumber.parse(file.name.substring(indexOf + suffix.length()))
+            if (agpVersion >= dirAgpVersion) {
+                testDirs[file.name.substring(0, indexOf)].add("src/${file.name}/java")
+            }
+        }
+    }
+    return testDirs[variant] + testDirs['sharedTest']
+}
 
 android {
     compileSdkVersion 30
@@ -40,19 +65,18 @@ android {
         checkReleaseBuilds = false
     }
     sourceSets {
-        String sharedTestDir = 'src/sharedTest/java'
         test {
-            java.srcDirs += sharedTestDir
+            java.srcDirs += getAdditionalTestDirs("test")
         }
         androidTest {
-            java.srcDirs += sharedTestDir
+            java.srcDirs += getAdditionalTestDirs("androidTest")
         }
     }
 }
 
 hilt {
-    enableExperimentalClasspathAggregation = true
     enableTransformForLocalTests = true
+    enableAggregatingTask = true
 }
 
 configurations.all {
@@ -97,8 +121,8 @@ dependencies {
 
   // To help us catch version skew related issues in hilt extensions.
   // TODO(bcorso): Add examples testing the actual API.
-  implementation 'androidx.hilt:hilt-work:1.0.0-alpha01'
-  annotationProcessor 'androidx.hilt:hilt-compiler:1.0.0-alpha01'
-  testAnnotationProcessor 'androidx.hilt:hilt-compiler:1.0.0-alpha01'
-  androidTestAnnotationProcessor 'androidx.hilt:hilt-compiler:1.0.0-alpha01'
+  implementation 'androidx.hilt:hilt-work:1.0.0'
+  annotationProcessor 'androidx.hilt:hilt-compiler:1.0.0'
+  testAnnotationProcessor 'androidx.hilt:hilt-compiler:1.0.0'
+  androidTestAnnotationProcessor 'androidx.hilt:hilt-compiler:1.0.0'
 }

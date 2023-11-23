@@ -18,11 +18,13 @@
 #include "api/audio_codecs/audio_decoder_factory.h"
 #include "api/audio_codecs/audio_encoder_factory.h"
 #include "api/crypto/crypto_options.h"
+#include "api/field_trials_view.h"
 #include "api/rtp_parameters.h"
 #include "api/video/video_bitrate_allocator_factory.h"
 #include "call/audio_state.h"
 #include "media/base/codec.h"
 #include "media/base/media_channel.h"
+#include "media/base/media_config.h"
 #include "media/base/video_common.h"
 #include "rtc_base/system/file_wrapper.h"
 
@@ -35,9 +37,28 @@ class Call;
 
 namespace cricket {
 
-webrtc::RTCError CheckRtpParametersValues(
-    const webrtc::RtpParameters& new_parameters);
+// Checks that the scalability_mode value of each encoding is supported by at
+// least one video codec of the list. If the list is empty, no check is done.
+webrtc::RTCError CheckScalabilityModeValues(
+    const webrtc::RtpParameters& new_parameters,
+    rtc::ArrayView<cricket::VideoCodec> codecs);
 
+// Checks the parameters have valid and supported values, and checks parameters
+// with CheckScalabilityModeValues().
+webrtc::RTCError CheckRtpParametersValues(
+    const webrtc::RtpParameters& new_parameters,
+    rtc::ArrayView<cricket::VideoCodec> codecs);
+
+// Checks that the immutable values have not changed in new_parameters and
+// checks all parameters with CheckRtpParametersValues().
+webrtc::RTCError CheckRtpParametersInvalidModificationAndValues(
+    const webrtc::RtpParameters& old_parameters,
+    const webrtc::RtpParameters& new_parameters,
+    rtc::ArrayView<cricket::VideoCodec> codecs);
+
+// Checks that the immutable values have not changed in new_parameters and
+// checks parameters (except SVC) with CheckRtpParametersValues(). It should
+// usually be paired with a call to CheckScalabilityModeValues().
 webrtc::RTCError CheckRtpParametersInvalidModificationAndValues(
     const webrtc::RtpParameters& old_parameters,
     const webrtc::RtpParameters& new_parameters);
@@ -62,7 +83,9 @@ class VoiceEngineInterface : public RtpHeaderExtensionQueryInterface {
  public:
   VoiceEngineInterface() = default;
   virtual ~VoiceEngineInterface() = default;
-  RTC_DISALLOW_COPY_AND_ASSIGN(VoiceEngineInterface);
+
+  VoiceEngineInterface(const VoiceEngineInterface&) = delete;
+  VoiceEngineInterface& operator=(const VoiceEngineInterface&) = delete;
 
   // Initialization
   // Starts the engine.
@@ -96,7 +119,9 @@ class VideoEngineInterface : public RtpHeaderExtensionQueryInterface {
  public:
   VideoEngineInterface() = default;
   virtual ~VideoEngineInterface() = default;
-  RTC_DISALLOW_COPY_AND_ASSIGN(VideoEngineInterface);
+
+  VideoEngineInterface(const VideoEngineInterface&) = delete;
+  VideoEngineInterface& operator=(const VideoEngineInterface&) = delete;
 
   // Creates a video media channel, paired with the specified voice channel.
   // Returns NULL on failure.
@@ -108,8 +133,20 @@ class VideoEngineInterface : public RtpHeaderExtensionQueryInterface {
       webrtc::VideoBitrateAllocatorFactory*
           video_bitrate_allocator_factory) = 0;
 
+  // Retrieve list of supported codecs.
   virtual std::vector<VideoCodec> send_codecs() const = 0;
   virtual std::vector<VideoCodec> recv_codecs() const = 0;
+  // As above, but if include_rtx is false, don't include RTX codecs.
+  // TODO(bugs.webrtc.org/13931): Remove default implementation once
+  // upstream subclasses have converted.
+  virtual std::vector<VideoCodec> send_codecs(bool include_rtx) const {
+    RTC_DCHECK(include_rtx);
+    return send_codecs();
+  }
+  virtual std::vector<VideoCodec> recv_codecs(bool include_rtx) const {
+    RTC_DCHECK(include_rtx);
+    return recv_codecs();
+  }
 };
 
 // MediaEngineInterface is an abstraction of a media engine which can be
@@ -120,9 +157,9 @@ class MediaEngineInterface {
  public:
   virtual ~MediaEngineInterface() {}
 
-  // Initialization
-  // Starts the engine.
+  // Initialization. Needs to be called on the worker thread.
   virtual bool Init() = 0;
+
   virtual VoiceEngineInterface& voice() = 0;
   virtual VideoEngineInterface& video() = 0;
   virtual const VoiceEngineInterface& voice() const = 0;
@@ -131,11 +168,17 @@ class MediaEngineInterface {
 
 // CompositeMediaEngine constructs a MediaEngine from separate
 // voice and video engine classes.
+// Optionally owns a FieldTrialsView trials map.
 class CompositeMediaEngine : public MediaEngineInterface {
  public:
+  CompositeMediaEngine(std::unique_ptr<webrtc::FieldTrialsView> trials,
+                       std::unique_ptr<VoiceEngineInterface> audio_engine,
+                       std::unique_ptr<VideoEngineInterface> video_engine);
   CompositeMediaEngine(std::unique_ptr<VoiceEngineInterface> audio_engine,
                        std::unique_ptr<VideoEngineInterface> video_engine);
   ~CompositeMediaEngine() override;
+
+  // Always succeeds.
   bool Init() override;
 
   VoiceEngineInterface& voice() override;
@@ -144,21 +187,9 @@ class CompositeMediaEngine : public MediaEngineInterface {
   const VideoEngineInterface& video() const override;
 
  private:
-  std::unique_ptr<VoiceEngineInterface> voice_engine_;
-  std::unique_ptr<VideoEngineInterface> video_engine_;
-};
-
-enum DataChannelType {
-  DCT_NONE = 0,
-  DCT_RTP = 1,
-  DCT_SCTP = 2,
-};
-
-class DataEngineInterface {
- public:
-  virtual ~DataEngineInterface() {}
-  virtual DataMediaChannel* CreateChannel(const MediaConfig& config) = 0;
-  virtual const std::vector<DataCodec>& data_codecs() = 0;
+  const std::unique_ptr<webrtc::FieldTrialsView> trials_;
+  const std::unique_ptr<VoiceEngineInterface> voice_engine_;
+  const std::unique_ptr<VideoEngineInterface> video_engine_;
 };
 
 webrtc::RtpParameters CreateRtpParametersWithOneEncoding();

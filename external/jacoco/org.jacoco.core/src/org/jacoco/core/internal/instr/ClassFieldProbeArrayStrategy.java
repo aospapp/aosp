@@ -29,7 +29,7 @@ class ClassFieldProbeArrayStrategy implements IProbeArrayStrategy {
 	 * Frame stack with a single boolean array.
 	 */
 	private static final Object[] FRAME_STACK_ARRZ = new Object[] {
-			InstrSupport.DATAFIELD_DESC };
+			InstrSupport.DATAFIELD_DESC_UNQUALIFIED };
 
 	/**
 	 * Empty frame locals.

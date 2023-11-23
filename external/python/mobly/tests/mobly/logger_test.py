@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 import shutil
 import tempfile
@@ -56,7 +57,8 @@ class LoggerTest(unittest.TestCase):
                                                mock_create_latest_log_alias,
                                                mock__setup_test_logger):
     logger.setup_test_logger(self.log_dir)
-    mock__setup_test_logger.assert_called_once_with(self.log_dir, None)
+    mock__setup_test_logger.assert_called_once_with(self.log_dir, logging.INFO,
+                                                    None)
     mock_create_latest_log_alias.assert_called_once_with(self.log_dir,
                                                          alias='latest')
 
@@ -207,6 +209,33 @@ class LoggerTest(unittest.TestCase):
     fake_filename = 'logcat.txt.'
     expected_filename = 'logcat.txt_'
     self.assertEqual(logger.sanitize_filename(fake_filename), expected_filename)
+
+  def test_prefix_logger_adapter_prefix_log_lines(self):
+    extra = {
+        logger.PrefixLoggerAdapter.EXTRA_KEY_LOG_PREFIX: '[MOCK_PREFIX]',
+    }
+    adapted_logger = logger.PrefixLoggerAdapter(mock.Mock(), extra)
+
+    kwargs = mock.Mock()
+    processed_log, processed_kwargs = adapted_logger.process('mock log line',
+                                                             kwargs=kwargs)
+
+    self.assertEqual(processed_log, '[MOCK_PREFIX] mock log line')
+    self.assertIs(processed_kwargs, kwargs)
+
+  def test_prefix_logger_adapter_modify_prefix(self):
+    extra = {
+        logger.PrefixLoggerAdapter.EXTRA_KEY_LOG_PREFIX: 'MOCK_PREFIX',
+    }
+    adapted_logger = logger.PrefixLoggerAdapter(mock.Mock(), extra)
+    adapted_logger.set_log_prefix('[NEW]')
+
+    kwargs = mock.Mock()
+    processed_log, processed_kwargs = adapted_logger.process('mock log line',
+                                                             kwargs=kwargs)
+
+    self.assertEqual(processed_log, '[NEW] mock log line')
+    self.assertIs(processed_kwargs, kwargs)
 
 
 if __name__ == "__main__":

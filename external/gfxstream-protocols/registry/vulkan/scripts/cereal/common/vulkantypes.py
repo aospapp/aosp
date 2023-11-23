@@ -12,6 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Dict, Optional, List, Set, Union
+from xml.etree.ElementTree import Element
 
 from generator import noneStr
 
@@ -87,6 +89,7 @@ CUSTOM_HANDLE_CREATE_TYPES = [
     "VkDeviceMemory",
     "VkDescriptorSet",
     "VkCommandBuffer",
+    "VkRenderPass",
 ]
 
 HANDLE_TYPES = list(sorted(list(set(DISPATCHABLE_HANDLE_TYPES +
@@ -105,7 +108,8 @@ for h in HANDLE_TYPES:
             HANDLE_INFO[h] = \
                 HandleInfo(
                     "VkQueue",
-                    "vkGetDeviceQueue", None)
+                    ["vkGetDeviceQueue", "vkGetDeviceQueue2"],
+                    None)
         if h == "VkPipeline":
             HANDLE_INFO[h] = \
                 HandleInfo(
@@ -124,6 +128,12 @@ for h in HANDLE_TYPES:
             HANDLE_INFO[h] = \
                 HandleInfo("VkCommandBuffer", "vkAllocateCommandBuffers",
                            "vkFreeCommandBuffers")
+        if h == "VkRenderPass":
+            HANDLE_INFO[h] = \
+                HandleInfo(
+                    "VkRenderPass",
+                    ["vkCreateRenderPass", "vkCreateRenderPass2", "vkCreateRenderPass2KHR"],
+                    "vkDestroyRenderPass")
     else:
         HANDLE_INFO[h] = \
             HandleInfo(h, "vkCreate" + h[2:], "vkDestroy" + h[2:])
@@ -169,6 +179,7 @@ TRIVIAL_TRANSFORMED_TYPES = [
 
 NON_TRIVIAL_TRANSFORMED_TYPES = [
     "VkExternalMemoryProperties",
+    "VkImageCreateInfo",
 ]
 
 TRANSFORMED_TYPES = TRIVIAL_TRANSFORMED_TYPES + NON_TRIVIAL_TRANSFORMED_TYPES
@@ -183,16 +194,16 @@ TRANSFORMED_TYPES = TRIVIAL_TRANSFORMED_TYPES + NON_TRIVIAL_TRANSFORMED_TYPES
 class VulkanType(object):
 
     def __init__(self):
-        self.parent = None
-        self.typeName = ""
+        self.parent: Optional[VulkanType] = None
+        self.typeName: str = ""
 
         self.isTransformed = False
 
-        self.paramName = None
+        self.paramName: Optional[str] = None
 
-        self.lenExpr = None
-        self.isOptional = False
-        self.optionalStr = None
+        self.lenExpr: Optional[str] = None  # Value of the `len` attribute in the spec
+        self.isOptional: bool = False
+        self.optionalStr: Optional[str] = None  # Value of the `optional` attribute in the spec
 
         self.isConst = False
 
@@ -239,27 +250,34 @@ class VulkanType(object):
         # All other annotations
         self.attribs = {}
 
+        self.nonDispatchableHandleCreate = False
+        self.nonDispatchableHandleDestroy = False
+        self.dispatchHandle = False
+        self.dispatchableHandleCreate = False
+        self.dispatchableHandleDestroy = False
+
+
     def __str__(self,):
         return ("(vulkantype %s %s paramName %s len %s optional? %s "
-                "staticArrExpr %s %s)") % (
+                "staticArrExpr %s)") % (
             self.typeName + ("*" * self.pointerIndirectionLevels) +
             ("ptr2constptr" if self.isPointerToConstPointer else ""), "const"
             if self.isConst else "nonconst", self.paramName, self.lenExpr,
-            self.isOptional, self.staticArrExpr, self.staticArrCount)
+            self.isOptional, self.staticArrExpr)
 
-    def isString(self,):
+    def isString(self):
         return self.pointerIndirectionLevels == 1 and (self.typeName == "char")
 
-    def isArrayOfStrings(self,):
+    def isArrayOfStrings(self):
         return self.isPointerToConstPointer and (self.typeName == "char")
 
-    def primEncodingSize(self,):
+    def primEncodingSize(self):
         return self.primitiveEncodingSize
 
     # Utility functions to make codegen life easier.
     # This method derives the correct "count" expression if possible.
     # Otherwise, returns None or "null-terminated" if a string.
-    def getLengthExpression(self,):
+    def getLengthExpression(self):
         if self.staticArrExpr != "":
             return self.staticArrExpr
         if self.lenExpr:
@@ -267,7 +285,7 @@ class VulkanType(object):
         return None
 
     # Can we just pass this to functions expecting T*
-    def accessibleAsPointer(self,):
+    def accessibleAsPointer(self):
         if self.staticArrExpr != "":
             return True
         if self.pointerIndirectionLevels > 0:
@@ -321,9 +339,16 @@ class VulkanType(object):
         return res
 
     def isNextPointer(self):
-        if self.paramName == "pNext":
-            return True
-        return False
+        return self.paramName == "pNext"
+
+    def isSigned(self):
+        return self.typeName in ["int", "int8_t", "int16_t", "int32_t", "int64_t"]
+
+    def isEnum(self, typeInfo):
+        return typeInfo.categoryOf(self.typeName) == "enum"
+
+    def isBitmask(self, typeInfo):
+        return typeInfo.categoryOf(self.typeName) == "enum"
 
     # Only deals with 'core' handle types here.
     def isDispatchableHandleType(self):
@@ -373,6 +398,38 @@ class VulkanType(object):
 
     def getStructEnumExpr(self,):
         return None
+
+    def getPrintFormatSpecifier(self):
+        kKnownTypePrintFormatSpecifiers = {
+            'float': '%f',
+            'int': '%d',
+            'int32_t': '%d',
+            'size_t': '%ld',
+            'uint16_t': '%d',
+            'uint32_t': '%d',
+            'uint64_t': '%ld',
+            'VkBool32': '%d',
+            'VkDeviceSize': '%ld',
+            'VkFormat': '%d',
+            'VkImageLayout': '%d',
+        }
+
+        if self.pointerIndirectionLevels > 0 or self.isHandleType():
+            return '%p'
+
+        if self.typeName in kKnownTypePrintFormatSpecifiers:
+            return kKnownTypePrintFormatSpecifiers[self.typeName]
+
+        if self.typeName.endswith('Flags'):
+            # Based on `typedef uint32_t VkFlags;`
+            return '%d'
+
+        return None
+    def isOptionalPointer(self) -> bool:
+        return self.isOptional and \
+               self.pointerIndirectionLevels > 0 and \
+               (not self.isNextPointer())
+
 
 # Is an S-expression w/ the following spec:
 # From https://gist.github.com/pib/240957
@@ -479,7 +536,8 @@ def parseLetBodyExpr(expr):
     print("parseLetBodyExpr: parsed %s" % res)
     return res
 
-def makeVulkanTypeFromXMLTag(typeInfo, tag):
+
+def makeVulkanTypeFromXMLTag(typeInfo, tag: Element) -> VulkanType:
     res = VulkanType()
 
     # Process the length expression
@@ -514,7 +572,6 @@ def makeVulkanTypeFromXMLTag(typeInfo, tag):
         res.isConst = True
 
     # Calculate type and pointer info
-
     for elem in tag:
         if elem.tag == "name":
             res.paramName = elem.text
@@ -557,8 +614,7 @@ def makeVulkanTypeFromXMLTag(typeInfo, tag):
     if res.paramName == "pNext":
         res.isOptional = True
 
-    res.primitiveEncodingSize = \
-        typeInfo.getPrimitiveEncodingSize(res.typeName)
+    res.primitiveEncodingSize = typeInfo.getPrimitiveEncodingSize(res.typeName)
 
     # Annotations: Environment binds
     if tag.attrib.get("binds") is not None:
@@ -570,9 +626,8 @@ def makeVulkanTypeFromXMLTag(typeInfo, tag):
     for k in DEVICE_MEMORY_INFO_KEYS:
         if tag.attrib.get(k) is not None:
             res.deviceMemoryAttrib = k
-            res.deviceMemoryVal = \
-                tag.attrib.get(k)
-            break;
+            res.deviceMemoryVal = tag.attrib.get(k)
+            break
 
     # Annotations: Filters
     if tag.attrib.get("filterVar") is not None:
@@ -635,9 +690,7 @@ def initDeviceMemoryInfoParameterIndices(parameters):
 
         if a in DEVICE_MEMORY_INFO_KEYS:
             use = True
-            deviceMemoryInfoById[
-                p.deviceMemoryVal] = \
-                    DeviceMemoryInfoParameterIndices(
+            deviceMemoryInfoById[p.deviceMemoryVal] =  DeviceMemoryInfoParameterIndices(
                         None, None, None, None, None)
 
     for (i, p) in enumerate(parameters):
@@ -645,8 +698,7 @@ def initDeviceMemoryInfoParameterIndices(parameters):
         if not a:
             continue
 
-        info = \
-            deviceMemoryInfoById[p.deviceMemoryVal]
+        info = deviceMemoryInfoById[p.deviceMemoryVal]
 
         if a == "devicememoryhandle":
             info.handle = i
@@ -667,24 +719,18 @@ def initDeviceMemoryInfoParameterIndices(parameters):
 # Classes for describing aggregate types (unions, structs) and API calls.
 class VulkanCompoundType(object):
 
-    def __init__(self, name, members, isUnion=False, structEnumExpr=None, structExtendsExpr=None, feature=None, initialEnv={}, optional=None):
-        self.name = name
-        self.typeName = name
-        self.members = members
+    def __init__(self, name: str, members: List[VulkanType], isUnion=False, structEnumExpr=None, structExtendsExpr=None, feature=None, initialEnv={}, optional=None):
+        self.name: str = name
+        self.typeName: str = name
+        self.members: List[VulkanType] = members
         self.environment = initialEnv
-
         self.isUnion = isUnion
         self.structEnumExpr = structEnumExpr
         self.structExtendsExpr = structExtendsExpr
         self.feature = feature
-
-        self.deviceMemoryInfoParameterIndices = \
-            initDeviceMemoryInfoParameterIndices(self.members)
-
+        self.deviceMemoryInfoParameterIndices = initDeviceMemoryInfoParameterIndices(self.members)
         self.isTransformed = name in TRANSFORMED_TYPES
-
         self.copy = None
-
         self.optionalStr = optional
 
     def initCopies(self):
@@ -693,7 +739,7 @@ class VulkanCompoundType(object):
         for m in self.members:
             m.parent = self.copy
 
-    def getMember(self, memberName):
+    def getMember(self, memberName) -> Optional[VulkanType]:
         for m in self.members:
             if m.paramName == memberName:
                 return m
@@ -704,14 +750,13 @@ class VulkanCompoundType(object):
 
 class VulkanAPI(object):
 
-    def __init__(self, name, retType, parameters, origName=None):
-        self.name = name
+    def __init__(self, name: str, retType: VulkanType, parameters, origName=None):
+        self.name: str = name
         self.origName = name
-        self.retType = retType
-        self.parameters = parameters
+        self.retType: VulkanType = retType
+        self.parameters: List[VulkanType] = parameters
 
-        self.deviceMemoryInfoParameterIndices = \
-            initDeviceMemoryInfoParameterIndices(self.parameters)
+        self.deviceMemoryInfoParameterIndices = initDeviceMemoryInfoParameterIndices(self.parameters)
 
         self.copy = None
 
@@ -781,22 +826,30 @@ def vulkanTypeforEachSubType(structOrApi, f):
 # Parses everything about Vulkan types into a Python readable format.
 class VulkanTypeInfo(object):
 
-    def __init__(self,):
-        self.categories = set([])
+    def __init__(self, generator):
+        self.generator = generator
+        self.categories: Set[str] = set([])
 
         # Tracks what Vulkan type is part of what category.
-        self.typeCategories = {}
+        self.typeCategories: Dict[str, str] = {}
 
-        # Tracks the primitve encoding size for each type,
-        # if applicable.
-        self.encodingSizes = {}
+        # Tracks the primitive encoding size for each type, if applicable.
+        self.encodingSizes: Dict[str, Optional[int]] = {}
 
-        self.structs = {}
-        self.apis = {}
+        self.structs: Dict[str, VulkanCompoundType] = {}
+        self.apis: Dict[str, VulkanAPI] = {}
+
+        # Maps bitmask types to the enum type used for the flags
+        # E.g. "VkImageAspectFlags" -> "VkImageAspectFlagBits"
+        self.bitmasks: Dict[str, str] = {}
+
+        # Maps all enum names to their values.
+        # For aliases, the value is the name of the canonical enum
+        self.enumValues: Dict[str, Union[int, str]] = {}
 
         self.feature = None
 
-    def initType(self, name, category):
+    def initType(self, name: str, category: str):
         self.categories.add(category)
         self.typeCategories[name] = category
         self.encodingSizes[name] = self.setPrimitiveEncodingSize(name)
@@ -809,30 +862,31 @@ class VulkanTypeInfo(object):
 
     # Queries relating to categories of Vulkan types.
     def isHandleType(self, name):
-        if name in self.typeCategories:
-            return self.typeCategories[name] == "handle"
-        return False
+        return self.typeCategories.get(name) == "handle"
 
-    def isCompoundType(self, name):
-        if name in self.typeCategories:
-            return self.typeCategories[name] in ["struct", "union"]
-        else:
-            return False
+    def isCompoundType(self, name: str):
+        return self.typeCategories.get(name) in ["struct", "union"]
 
     # Gets the best size in bytes
     # for encoding/decoding a particular Vulkan type.
     # If not applicable, returns None.
-    def setPrimitiveEncodingSize(self, name):
+    def setPrimitiveEncodingSize(self, name: str) -> Optional[int]:
         baseEncodingSizes = {
-            "void" : 8,
-            "char" : 1,
-            "float" : 4,
-            "uint8_t" : 1,
-            "uint16_t" : 2,
-            "uint32_t" : 4,
-            "uint64_t" : 8,
-            "size_t" : 8,
-            "ssize_t" : 8,
+            "void": 8,
+            "char": 1,
+            "float": 4,
+            "uint8_t": 1,
+            "uint16_t": 2,
+            "uint32_t": 4,
+            "uint64_t": 8,
+            "int": 4,
+            "int8_t": 1,
+            "int16_t": 2,
+            "int32_t": 4,
+            "int64_t": 8,
+            "size_t": 8,
+            "ssize_t": 8,
+            "VkBool32": 4,
         }
 
         if name in baseEncodingSizes:
@@ -840,19 +894,15 @@ class VulkanTypeInfo(object):
 
         category = self.typeCategories[name]
 
-        if category in [None, "api", "bitmask", "include", "define", "struct", "union"]:
+        if category in [None, "api", "include", "define", "struct", "union"]:
             return None
 
-        # Must be 8---handles are pointers and basetype includes VkDeviceSize
-        # which is 8 bytes
+        # Handles are pointers so they must be 8 bytes. Basetype includes VkDeviceSize which is 8 bytes.
         if category in ["handle", "basetype", "funcpointer"]:
             return 8
 
-        # Most of the time, enums are only 4 bytes, but this is
-        # vague enough to be the source of a future headache, and
-        # it's easy to just stream 8 bytes there anyway.
-        if category in ["enum"]:
-            return 8
+        if category in ["enum", "bitmask"]:
+            return 4
 
     def isNonAbiPortableType(self, typeName):
         if typeName in EXPLICITLY_ABI_PORTABLE_TYPES:
@@ -864,7 +914,7 @@ class VulkanTypeInfo(object):
         category = self.typeCategories[typeName]
         return category in NON_ABI_PORTABLE_TYPE_CATEGORIES
 
-    def onBeginFeature(self, featureName):
+    def onBeginFeature(self, featureName, featureType):
         self.feature = featureName
 
     def onEndFeature(self):
@@ -877,9 +927,12 @@ class VulkanTypeInfo(object):
         if category in ["struct", "union"]:
             self.onGenStruct(typeinfo, name, alias)
 
+        if category == "bitmask":
+            self.bitmasks[name] = typeinfo.elem.get("requires")
+
     def onGenStruct(self, typeinfo, typeName, alias):
         if not alias:
-            members = []
+            members: List[VulkanType] = []
 
             structExtendsExpr = typeinfo.elem.get("structextends")
 
@@ -913,19 +966,18 @@ class VulkanTypeInfo(object):
             for member in typeinfo.elem.findall(".//member"):
                 vulkanType = makeVulkanTypeFromXMLTag(self, member)
                 initialEnv[vulkanType.paramName] = {
-                    "type" : vulkanType.typeName,
-                    "binding" : vulkanType.paramName,
-                    "structmember" : True,
-                    "body" : None,
+                    "type": vulkanType.typeName,
+                    "binding": vulkanType.paramName,
+                    "structmember": True,
+                    "body": None,
                 }
-                vulkanType.paramName
                 members.append(vulkanType)
                 if vulkanType.typeName == "VkStructureType" and \
                    member.get("values"):
                    structEnumExpr = member.get("values")
 
             self.structs[typeName] = \
-                VulkanCompoundType( \
+                VulkanCompoundType(
                     typeName,
                     members,
                     isUnion = self.categoryOf(typeName) == "union",
@@ -936,11 +988,28 @@ class VulkanTypeInfo(object):
                     optional = typeinfo.elem.get("optional", None))
             self.structs[typeName].initCopies()
 
-    def onGenGroup(self, _groupinfo, groupName, _alias=None):
+    def onGenGroup(self, groupinfo, groupName, _alias=None):
         self.initType(groupName, "enum")
+        enums = groupinfo.elem.findall("enum")
+        for enum in enums:
+            intVal, strVal = self.generator.enumToValue(enum, True)
+            self.enumValues[enum.get('name')] = intVal if intVal is not None else strVal
 
-    def onGenEnum(self, _enuminfo, name, _alias):
+
+    def onGenEnum(self, enuminfo, name: str, alias):
         self.initType(name, "enum")
+        value: str = enuminfo.elem.get("value")
+        if value and value.isdigit():
+            self.enumValues[name] = int(value)
+        elif value and value[0] == '"' and value[-1] == '"':
+            self.enumValues[name] = value[1:-1]
+        elif alias is not None:
+            self.enumValues[name] = alias
+        else:
+            # There's about a dozen cases of using the bitwise NOT operator (e.g.: `(~0U)`, `(~0ULL)`)
+            # to concisely represent large values. Just ignore them for now.
+            # In the future, we can add a lookup table to convert these to int
+            return
 
     def onGenCmd(self, cmdinfo, name, _alias):
         self.initType(name, "api")
@@ -956,7 +1025,7 @@ class VulkanTypeInfo(object):
                          params)))
         self.apis[name].initCopies()
 
-    def onEnd(self,):
+    def onEnd(self):
         pass
 
 def hasNullOptionalStringFeature(forEachType):
@@ -964,19 +1033,17 @@ def hasNullOptionalStringFeature(forEachType):
            (hasattr(forEachType, "endCheckWithNullOptionalStringFeature")) and \
            (hasattr(forEachType, "finalCheckWithNullOptionalStringFeature"))
 
+
 # General function to iterate over a vulkan type and call code that processes
 # each of its sub-components, if any.
-def iterateVulkanType(typeInfo, vulkanType, forEachType):
+def iterateVulkanType(typeInfo: VulkanTypeInfo, vulkanType: VulkanType, forEachType):
     if not vulkanType.isArrayOfStrings():
         if vulkanType.isPointerToConstPointer:
             return False
 
     forEachType.registerTypeInfo(typeInfo)
 
-    needCheck = \
-        vulkanType.isOptional and \
-        vulkanType.pointerIndirectionLevels > 0 and \
-        (not vulkanType.isNextPointer())
+    needCheck = vulkanType.isOptionalPointer()
 
     if typeInfo.isCompoundType(vulkanType.typeName) and not vulkanType.isNextPointer():
 
@@ -989,9 +1056,7 @@ def iterateVulkanType(typeInfo, vulkanType, forEachType):
             forEachType.endCheck(vulkanType)
 
     else:
-
         if vulkanType.isString():
-
             if needCheck and hasNullOptionalStringFeature(forEachType):
                 forEachType.onCheckWithNullOptionalStringFeature(vulkanType)
                 forEachType.onString(vulkanType)
@@ -1006,15 +1071,12 @@ def iterateVulkanType(typeInfo, vulkanType, forEachType):
                 forEachType.onString(vulkanType)
 
         elif vulkanType.isArrayOfStrings():
-
             forEachType.onStringArray(vulkanType)
 
         elif vulkanType.staticArrExpr:
-
             forEachType.onStaticArr(vulkanType)
 
         elif vulkanType.isNextPointer():
-
             if needCheck:
                 forEachType.onCheck(vulkanType)
             forEachType.onStructExtension(vulkanType)
@@ -1027,8 +1089,8 @@ def iterateVulkanType(typeInfo, vulkanType, forEachType):
             forEachType.onPointer(vulkanType)
             if needCheck:
                 forEachType.endCheck(vulkanType)
-        else:
 
+        else:
             forEachType.onValue(vulkanType)
 
     return True
@@ -1058,15 +1120,12 @@ def vulkanTypeGetStructFieldLengthInfo(structInfo, vulkanType):
         ]
 
         for c in cases:
-            if (structInfo.name, vulkanType.paramName) == (c["structName"],
-                                                           c["field"]):
+            if (structInfo.name, vulkanType.paramName) == (c["structName"], c["field"]):
                 return c
 
         return None
 
-    specialCaseAccess = \
-        getSpecialCaseVulkanStructFieldLength( \
-            structInfo, vulkanType)
+    specialCaseAccess = getSpecialCaseVulkanStructFieldLength(structInfo, vulkanType)
 
     if specialCaseAccess is not None:
         return specialCaseAccess
@@ -1074,17 +1133,17 @@ def vulkanTypeGetStructFieldLengthInfo(structInfo, vulkanType):
     lenExpr = vulkanType.getLengthExpression()
 
     if lenExpr is None:
-        return lenExpr
+        return None
 
     return {
-        "structName" : structInfo.name,
+        "structName": structInfo.name,
         "field": vulkanType.typeName,
         "lenExpr": lenExpr,
-        "postprocess": lambda expr: expr }
+        "postprocess": lambda expr: expr}
+
 
 class VulkanTypeProtobufInfo(object):
     def __init__(self, typeInfo, structInfo, vulkanType):
-
         self.needsMessage = typeInfo.isCompoundType(vulkanType.typeName)
         self.isRepeatedString = vulkanType.isArrayOfStrings()
         self.isString = vulkanType.isString() or (

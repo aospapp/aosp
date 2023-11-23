@@ -1,0 +1,28 @@
+From 5b1146f2a218f689ff2a5a81999e1d861f148ff4 Mon Sep 17 00:00:00 2001
+From: Jeff Vander Stoep <jeffv@google.com>
+Date: Wed, 22 Mar 2023 15:18:53 +0100
+Subject: [PATCH] Use version 2.x of protobuf crate
+
+Test: TH
+Bug: 270895633
+Change-Id: I65b29fa910b87af2ae32b7b7818670ae9ace4f75
+---
+ Android.bp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Android.bp b/Android.bp
+index f2aa77d..674b27f 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -36,7 +36,7 @@ rust_library {
+         "liblibc",
+         "liblog_rust",
+         "libparking_lot",
+-        "libprotobuf",
++        "libprotobuf_deprecated",
+     ],
+     apex_available: [
+         "//apex_available:platform",
+-- 
+2.40.0.348.gf938b09366-goog
+

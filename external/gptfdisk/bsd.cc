@@ -7,9 +7,7 @@
   under the terms of the GNU GPL version 2, as detailed in the COPYING file. */
 
 #define __STDC_LIMIT_MACROS
-#ifndef __STDC_CONSTANT_MACROS
 #define __STDC_CONSTANT_MACROS
-#endif
 
 #include <stdio.h>
 //#include <unistd.h>
@@ -46,7 +44,7 @@ BSDData::~BSDData(void) {
 // just opens the device file and then calls an overloaded function to do
 // the bulk of the work. Returns 1 on success, 0 on failure.
 int BSDData::ReadBSDData(const string & device, uint64_t startSector, uint64_t endSector) {
-   int allOK = 1;
+   int allOK;
    DiskIO myDisk;
 
    if (device != "") {
@@ -66,7 +64,7 @@ int BSDData::ReadBSDData(const string & device, uint64_t startSector, uint64_t e
 // Load the BSD disklabel data from an already-opened disk
 // file, starting with the specified sector number.
 int BSDData::ReadBSDData(DiskIO *theDisk, uint64_t startSector, uint64_t endSector) {
-   int allOK = 1;
+   int allOK;
    int i, foundSig = 0, bigEnd = 0;
    int relative = 0; // assume absolute partition sector numbering
    uint8_t buffer[4096]; // I/O buffer

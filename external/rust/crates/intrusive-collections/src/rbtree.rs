@@ -856,7 +856,6 @@ unsafe fn post_insert<T: RBTreeOps>(
             x = link_ops.parent(x).unwrap_unchecked();
             link_ops.set_color(x, Color::Red);
             rotate_right(link_ops, x, root);
-            break;
         } else {
             let y = link_ops.left(grandparent);
             if let Some(y) = y {
@@ -882,8 +881,8 @@ unsafe fn post_insert<T: RBTreeOps>(
             x = link_ops.parent(x).unwrap_unchecked();
             link_ops.set_color(x, Color::Red);
             rotate_left(link_ops, x, root);
-            break;
         }
+        break;
     }
 }
 
@@ -1414,6 +1413,16 @@ where
             }
         }
     }
+
+    /// Consumes `CursorMut` and returns a reference to the object that
+    /// the cursor is currently pointing to. Unlike [get](Self::get),
+    /// the returned reference's lifetime is tied to `RBTree`'s lifetime.
+    ///
+    /// This returns None if the cursor is currently pointing to the null object.
+    #[inline]
+    pub fn into_ref(self) -> Option<&'a <A::PointerOps as PointerOps>::Value> {
+        Some(unsafe { &*self.tree.adapter.get_value(self.current?) })
+    }
 }
 
 impl<'a, A: for<'b> KeyAdapter<'b>> CursorMut<'a, A>
@@ -1721,9 +1730,10 @@ where
     /// If multiple elements with an identical key are found then an arbitrary
     /// one is returned.
     #[inline]
-    pub fn find<'a, Q: ?Sized + Ord>(&'a self, key: &Q) -> Cursor<'a, A>
+    pub fn find<'a, 'b, Q: ?Sized + Ord>(&'a self, key: &Q) -> Cursor<'a, A>
     where
-        <A as KeyAdapter<'a>>::Key: Borrow<Q>,
+        <A as KeyAdapter<'b>>::Key: Borrow<Q>,
+        'a: 'b,
     {
         Cursor {
             current: self.find_internal(key),
@@ -1737,9 +1747,10 @@ where
     /// If multiple elements with an identical key are found then an arbitrary
     /// one is returned.
     #[inline]
-    pub fn find_mut<'a, Q: ?Sized + Ord>(&'a mut self, key: &Q) -> CursorMut<'a, A>
+    pub fn find_mut<'a, 'b, Q: ?Sized + Ord>(&'a mut self, key: &Q) -> CursorMut<'a, A>
     where
-        <A as KeyAdapter<'a>>::Key: Borrow<Q>,
+        <A as KeyAdapter<'b>>::Key: Borrow<Q>,
+        'a: 'b,
     {
         CursorMut {
             current: self.find_internal(key),
@@ -1781,9 +1792,10 @@ where
     /// the given bound. If no such element is found then a null cursor is
     /// returned.
     #[inline]
-    pub fn lower_bound<'a, Q: ?Sized + Ord>(&'a self, bound: Bound<&Q>) -> Cursor<'a, A>
+    pub fn lower_bound<'a, 'b, Q: ?Sized + Ord>(&'a self, bound: Bound<&Q>) -> Cursor<'a, A>
     where
-        <A as KeyAdapter<'a>>::Key: Borrow<Q>,
+        <A as KeyAdapter<'b>>::Key: Borrow<Q>,
+        'a: 'b,
     {
         Cursor {
             current: self.lower_bound_internal(bound),
@@ -1795,9 +1807,13 @@ where
     /// above the given bound. If no such element is found then a null
     /// cursor is returned.
     #[inline]
-    pub fn lower_bound_mut<'a, Q: ?Sized + Ord>(&'a mut self, bound: Bound<&Q>) -> CursorMut<'a, A>
+    pub fn lower_bound_mut<'a, 'b, Q: ?Sized + Ord>(
+        &'a mut self,
+        bound: Bound<&Q>,
+    ) -> CursorMut<'a, A>
     where
-        <A as KeyAdapter<'a>>::Key: Borrow<Q>,
+        <A as KeyAdapter<'b>>::Key: Borrow<Q>,
+        'a: 'b,
     {
         CursorMut {
             current: self.lower_bound_internal(bound),
@@ -1839,9 +1855,10 @@ where
     /// the given bound. If no such element is found then a null cursor is
     /// returned.
     #[inline]
-    pub fn upper_bound<'a, Q: ?Sized + Ord>(&'a self, bound: Bound<&Q>) -> Cursor<'a, A>
+    pub fn upper_bound<'a, 'b, Q: ?Sized + Ord>(&'a self, bound: Bound<&Q>) -> Cursor<'a, A>
     where
-        <A as KeyAdapter<'a>>::Key: Borrow<Q>,
+        <A as KeyAdapter<'b>>::Key: Borrow<Q>,
+        'a: 'b,
     {
         Cursor {
             current: self.upper_bound_internal(bound),
@@ -1853,9 +1870,13 @@ where
     /// below the given bound. If no such element is found then a null
     /// cursor is returned.
     #[inline]
-    pub fn upper_bound_mut<'a, Q: ?Sized + Ord>(&'a mut self, bound: Bound<&Q>) -> CursorMut<'a, A>
+    pub fn upper_bound_mut<'a, 'b, Q: ?Sized + Ord>(
+        &'a mut self,
+        bound: Bound<&Q>,
+    ) -> CursorMut<'a, A>
     where
-        <A as KeyAdapter<'a>>::Key: Borrow<Q>,
+        <A as KeyAdapter<'b>>::Key: Borrow<Q>,
+        'a: 'b,
     {
         CursorMut {
             current: self.upper_bound_internal(bound),
@@ -2471,19 +2492,19 @@ mod tests {
         let b2 = make_obj(2);
         let c2 = make_obj(3);
         assert_eq!(
-            cur.replace_with(a2.clone()).unwrap().as_ref() as *const _,
+            cur.replace_with(a2).unwrap().as_ref() as *const _,
             a.as_ref() as *const _
         );
         assert!(!a.link.is_linked());
         cur.move_next();
         assert_eq!(
-            cur.replace_with(b2.clone()).unwrap().as_ref() as *const _,
+            cur.replace_with(b2).unwrap().as_ref() as *const _,
             b.as_ref() as *const _
         );
         assert!(!b.link.is_linked());
         cur.move_next();
         assert_eq!(
-            cur.replace_with(c2.clone()).unwrap().as_ref() as *const _,
+            cur.replace_with(c2).unwrap().as_ref() as *const _,
             c.as_ref() as *const _
         );
         assert!(!c.link.is_linked());
@@ -2542,7 +2563,7 @@ mod tests {
             for i in indices {
                 t.insert(v[i].clone());
                 expected.push(v[i].value);
-                expected[..].sort();
+                expected[..].sort_unstable();
                 assert_eq!(t.iter().map(|x| x.value).collect::<Vec<_>>(), expected);
             }
 
@@ -2580,7 +2601,7 @@ mod tests {
                     c.insert_before(v[i].clone());
                 }
                 expected.push(v[i].value);
-                expected[..].sort();
+                expected[..].sort_unstable();
                 assert_eq!(t.iter().map(|x| x.value).collect::<Vec<_>>(), expected);
             }
 
@@ -2608,7 +2629,7 @@ mod tests {
                     c.insert_after(v[i].clone());
                 }
                 expected.push(v[i].value);
-                expected[..].sort();
+                expected[..].sort_unstable();
                 assert_eq!(t.iter().map(|x| x.value).collect::<Vec<_>>(), expected);
             }
         }
@@ -3025,9 +3046,9 @@ mod tests {
         let d = make_obj(4);
         let e = make_obj(5);
         let f = make_obj(6);
-        t.entry(&3).or_insert(c.clone());
+        t.entry(&3).or_insert(c);
         t.entry(&2).or_insert(b.clone());
-        t.entry(&1).or_insert(a.clone());
+        t.entry(&1).or_insert(a);
 
         match t.entry(&2) {
             Entry::Vacant(_) => unreachable!(),

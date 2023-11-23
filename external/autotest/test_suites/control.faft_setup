@@ -2,9 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "faft_setup"
-PURPOSE = "Suite to setup and run sanity checks to ensure DUT is ready for FAFT"
+PURPOSE = "Suite to setup and run validity checks to ensure DUT is ready for FAFT"
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

@@ -57,9 +57,9 @@ SED_PROCESS = \
 #    increment age.
 # 6. If any interfaces have been removed or changed since the last public
 #    release, then set age to 0.
-LIBKMOD_CURRENT=5
-LIBKMOD_REVISION=6
-LIBKMOD_AGE=3
+LIBKMOD_CURRENT=6
+LIBKMOD_REVISION=0
+LIBKMOD_AGE=4
 
 noinst_LTLIBRARIES = shared/libshared.la
 shared_libshared_la_SOURCES = \
@@ -249,7 +249,7 @@ CREATE_ROOTFS = $(AM_V_GEN) ( $(RM) -rf $(ROOTFS) && mkdir -p $(dir $(ROOTFS)) &
 				find $(ROOTFS) -type d -exec chmod +w {} \; && \
 				find $(ROOTFS) -type f -name .gitignore -exec rm -f {} \; && \
 				$(top_srcdir)/testsuite/populate-modules.sh \
-					$(MODULE_PLAYGROUND) $(ROOTFS) ) && \
+					$(MODULE_PLAYGROUND) $(ROOTFS) $(top_builddir)/config.h ) && \
 				touch testsuite/stamp-rootfs
 
 build-module-playground:
@@ -280,13 +280,7 @@ TESTSUITE_OVERRIDE_LIBS = \
 TESTSUITE_OVERRIDE_LIBS_LDFLAGS = \
 	avoid-version -module -shared -export-dynamic -rpath /nowhere -ldl
 
-check-sysconfdir:
-	$(AM_V_at)if test "$(sysconfdir)" != "/etc" -a "$(sysconfdir)" != "/etc/"; then \
-		echo "warning: Some tests will fail without --sysconfdir=/etc" >&2; \
-	fi
-.PHONY: check-sysconfdir
-
-check-am: rootfs check-sysconfdir
+check-am: rootfs
 
 
 EXTRA_DIST += \
@@ -340,6 +334,10 @@ TESTSUITE_CPPFLAGS = $(AM_CPPFLAGS) \
 TESTSUITE_LDADD = \
 	testsuite/libtestsuite.la libkmod/libkmod-internal.la \
 	shared/libshared.la
+
+if KMOD_SYSCONFDIR_NOT_ETC
+TESTSUITE_CPPFLAGS += -DKMOD_SYSCONFDIR_NOT_ETC
+endif
 
 check_LTLIBRARIES += testsuite/libtestsuite.la
 testsuite_libtestsuite_la_SOURCES = \

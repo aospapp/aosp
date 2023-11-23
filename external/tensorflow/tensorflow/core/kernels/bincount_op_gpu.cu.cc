@@ -25,6 +25,7 @@ limitations under the License.
 #include "tensorflow/core/kernels/gpu_prim.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/types.h"
+#include "tensorflow/core/util/determinism.h"
 #include "tensorflow/core/util/gpu_kernel_helper.h"
 
 namespace tensorflow {
@@ -47,6 +48,15 @@ struct BincountFunctor<GPUDevice, Tidx, T, false> {
     }
     if (output.size() == 0) {
       return Status::OK();
+    }
+    if (tensorflow::OpDeterminismRequired()) {
+      // TODO(reedwm): Is this really nondeterministic?
+      // DeviceHistogram::HistogramEven is called, and it is unclear
+      // if it is deterministic on floating-point inputs.
+      // See https://github.com/NVIDIA/cub/issues/471#issuecomment-1194682443.
+      return errors::Unimplemented(
+          "Determinism is not yet supported in GPU implementation of "
+          "Bincount.");
     }
     // In case weight.size() == 0, use CUB
     size_t temp_storage_bytes = 0;
@@ -78,7 +88,8 @@ struct BincountFunctor<GPUDevice, Tidx, T, false> {
     Tensor temp_storage;
     TF_RETURN_IF_ERROR(context->allocate_temp(
         DataTypeToEnum<int8>::value,
-        TensorShape({static_cast<int64>(temp_storage_bytes)}), &temp_storage));
+        TensorShape({static_cast<int64_t>(temp_storage_bytes)}),
+        &temp_storage));
 
     void* d_temp_storage = temp_storage.flat<int8>().data();
     // The second HistogramEven is to actual run with d_temp_storage

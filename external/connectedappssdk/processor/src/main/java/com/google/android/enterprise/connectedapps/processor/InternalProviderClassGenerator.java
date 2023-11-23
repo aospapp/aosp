@@ -15,9 +15,10 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.classNameInferringPackageFromElement;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BUNDLE_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CONTEXT_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CROSS_PROFILE_CALLBACK_CLASSNAME;
-import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PARCEL_CLASSNAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTypeInfo;
@@ -29,7 +30,6 @@ import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.PackageElement;
 
 /**
  * Generate the {@code Profile_*_Internal} class for a single provider class.
@@ -146,20 +146,19 @@ final class InternalProviderClassGenerator {
     classBuilder.addMethod(
         MethodSpec.methodBuilder("call")
             .addModifiers(Modifier.PUBLIC)
-            .returns(PARCEL_CLASSNAME)
+            .returns(BUNDLE_CLASSNAME)
             .addParameter(CONTEXT_CLASSNAME, "context")
             .addParameter(long.class, "crossProfileTypeIdentifier")
             .addParameter(int.class, "methodIdentifier")
-            .addParameter(PARCEL_CLASSNAME, "params")
+            .addParameter(BUNDLE_CLASSNAME, "params")
             .addParameter(CROSS_PROFILE_CALLBACK_CLASSNAME, "callback")
             .addCode(methodCode.build())
             .addJavadoc(
                 "Call the {@code call} method on the internal type referenced by the {@code"
                     + " crossProfileTypeIdentifier}.\n\n"
-                    + "@return A {@link $1T} which contains the return value (if a synchronous"
-                    + " call) or is empty\n (if asynchronous). This {@link $1T} must be recycled"
-                    + " after use.\n",
-                PARCEL_CLASSNAME)
+                    + "@return A {@link $1T} which contains the return value under the key "
+                    + "\"return\" (if a synchronous call) or is empty\n (if asynchronous).\n",
+                BUNDLE_CLASSNAME)
             .build());
   }
 
@@ -176,11 +175,9 @@ final class InternalProviderClassGenerator {
 
   static ClassName getInternalProviderClassName(
       GeneratorContext generatorContext, ProviderClassInfo providerClass) {
-    PackageElement originalPackage =
-        generatorContext.elements().getPackageOf(providerClass.providerClassElement());
-    String internalProviderClassName =
-        String.format("Profile_%s_Internal", providerClass.simpleName());
-
-    return ClassName.get(originalPackage.getQualifiedName().toString(), internalProviderClassName);
+    return classNameInferringPackageFromElement(
+        generatorContext,
+        providerClass.providerClassElement(),
+        String.format("Profile_%s_Internal", providerClass.simpleName()));
   }
 }

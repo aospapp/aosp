@@ -38,6 +38,7 @@ public abstract class AbstractProfileConnector
 
   private final Context context;
   private final ScheduledExecutorService scheduledExecutorService;
+  private final boolean createdScheduledExecutorService;
   private final ConnectionBinder binder;
   private final String serviceClassName;
   private final @Nullable ProfileType primaryProfileType;
@@ -50,8 +51,10 @@ public abstract class AbstractProfileConnector
     }
     if (builder.scheduledExecutorService == null) {
       scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+      createdScheduledExecutorService = true;
     } else {
       scheduledExecutorService = builder.scheduledExecutorService;
+      createdScheduledExecutorService = false;
     }
 
     if (builder.binder == null) {
@@ -71,28 +74,28 @@ public abstract class AbstractProfileConnector
   }
 
   @Override
-  public void startConnecting() {
-    if (VERSION.SDK_INT < VERSION_CODES.O) {
-      return;
+  protected void finalize() throws Throwable {
+    if (createdScheduledExecutorService) {
+      scheduledExecutorService.shutdownNow();
     }
-    crossProfileSender().startManuallyBinding();
   }
 
   @Override
-  public void connect() throws UnavailableProfileException {
+  public ProfileConnectionHolder connect() throws UnavailableProfileException {
+    return connect(CrossProfileSender.MANUAL_MANAGEMENT_CONNECTION_HOLDER);
+  }
+
+  @Override
+
+  public ProfileConnectionHolder connect(Object connectionHolder)
+      throws UnavailableProfileException {
     if (VERSION.SDK_INT < VERSION_CODES.O) {
       throw new UnavailableProfileException(
           "Cross-profile calls are not supported on this version of Android");
     }
-    crossProfileSender().manuallyBind();
-  }
+    crossProfileSender().manuallyBind(connectionHolder);
 
-  @Override
-  public void stopManualConnectionManagement() {
-    if (VERSION.SDK_INT < VERSION_CODES.O) {
-      return;
-    }
-    crossProfileSender().stopManualConnectionManagement();
+    return ProfileConnectionHolder.create(this, connectionHolder);
   }
 
   @Override
@@ -115,12 +118,12 @@ public abstract class AbstractProfileConnector
   }
 
   @Override
-  public void registerConnectionListener(ConnectionListener listener) {
+  public void addConnectionListener(ConnectionListener listener) {
     connectionListeners.add(listener);
   }
 
   @Override
-  public void unregisterConnectionListener(ConnectionListener listener) {
+  public void removeConnectionListener(ConnectionListener listener) {
     connectionListeners.remove(listener);
   }
 
@@ -136,12 +139,12 @@ public abstract class AbstractProfileConnector
   }
 
   @Override
-  public void registerAvailabilityListener(AvailabilityListener listener) {
+  public void addAvailabilityListener(AvailabilityListener listener) {
     availabilityListeners.add(listener);
   }
 
   @Override
-  public void unregisterAvailabilityListener(AvailabilityListener listener) {
+  public void removeAvailabilityListener(AvailabilityListener listener) {
     availabilityListeners.remove(listener);
   }
 
@@ -204,8 +207,37 @@ public abstract class AbstractProfileConnector
   }
 
   @Override
-  public boolean isManuallyManagingConnection() {
-    return crossProfileSender().isManuallyManagingConnection();
+  public ProfileConnectionHolder addConnectionHolder(Object connectionHolder) {
+    if (VERSION.SDK_INT < VERSION_CODES.O) {
+      return ProfileConnectionHolder.create(this, connectionHolder);
+    }
+    crossProfileSender().addConnectionHolder(connectionHolder);
+
+    return ProfileConnectionHolder.create(this, connectionHolder);
+  }
+
+  @Override
+  public void addConnectionHolderAlias(Object key, Object value) {
+    if (VERSION.SDK_INT < VERSION_CODES.O) {
+      return;
+    }
+    crossProfileSender().addConnectionHolderAlias(key, value);
+  }
+
+  @Override
+  public void removeConnectionHolder(Object connectionHolder) {
+    if (VERSION.SDK_INT < VERSION_CODES.O) {
+      return;
+    }
+    crossProfileSender().removeConnectionHolder(connectionHolder);
+  }
+
+  @Override
+  public void clearConnectionHolders() {
+    if (VERSION.SDK_INT < VERSION_CODES.O) {
+      return;
+    }
+    crossProfileSender().clearConnectionHolders();
   }
 
   /** A builder for an {@link AbstractProfileConnector}. */

@@ -16,6 +16,7 @@ import("//build_overrides/pigweed.gni")
 
 import("$dir_pw_build/target_types.gni")
 import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_unit_test/test.gni")
 
 declare_args() {
   pw_assert_tokenized_HANDLER_BACKEND = "$dir_pw_assert_tokenized:log_handler"
@@ -52,7 +53,7 @@ pw_source_set("assert_backend") {
     "$dir_pw_tokenizer",
   ]
   public = [
-    "assert_public_overrides/pw_assert_backend/assert_lite_backend.h",
+    "assert_public_overrides/pw_assert_backend/assert_backend.h",
     "public/pw_assert_tokenized/assert_tokenized.h",
   ]
 }
@@ -68,10 +69,11 @@ pw_source_set("check_backend") {
   ]
   public_deps = [
     ":handler",
+    "$dir_pw_log_tokenized",
     "$dir_pw_tokenizer",
   ]
   public = [
-    "check_public_overrides/pw_assert_backend/assert_backend.h",
+    "check_public_overrides/pw_assert_backend/check_backend.h",
     "public/pw_assert_tokenized/check_tokenized.h",
   ]
 }
@@ -99,12 +101,17 @@ pw_source_set("log_handler") {
     ":handler",
     "$dir_pw_assert:config",
     "$dir_pw_base64",
+    "$dir_pw_bytes",
     "$dir_pw_log",
     "$dir_pw_log_tokenized",
+    "$dir_pw_span",
   ]
   sources = [ "log_handler.cc" ]
 }
 
 pw_doc_group("docs") {
   sources = [ "docs.rst" ]
+}
+
+pw_test_group("tests") {
 }

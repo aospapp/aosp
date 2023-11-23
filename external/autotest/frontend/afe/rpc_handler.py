@@ -37,7 +37,7 @@ def should_log_message(name):
 
 
 class RpcMethodHolder(object):
-    'Dummy class to hold RPC interface methods as attributes.'
+    'Stub class to hold RPC interface methods as attributes.'
 
 
 class RpcValidator(object):

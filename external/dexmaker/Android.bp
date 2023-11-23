@@ -60,6 +60,13 @@ java_library_static {
     ],
 
     sdk_version: "core_current",
+
+    errorprone: {
+        javacflags: [
+            "-Xep:EmptyTopLevelDeclaration:WARN",
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
+    },
 }
 
 // Build Dexmaker's MockMaker, a plugin to Mockito
@@ -179,6 +186,12 @@ java_library_static {
         "libdexmakerjvmtiagent",
         "libstaticjvmtiagent",
     ],
+
+    errorprone: {
+        javacflags: [
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
+    },
 }
 
 // Provides mockito functionality for on-device tests. Does not allow stubbing of final or static
@@ -279,6 +292,12 @@ java_library_static {
         "dexmaker",
         "junit",
     ],
+
+    errorprone: {
+        javacflags: [
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
+    },
 }
 
 // dexmaker-mockito tests
@@ -294,6 +313,12 @@ java_library_static {
         "junit",
         "dexmaker-mockmaker",
     ],
+
+    errorprone: {
+        javacflags: [
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
+    },
 }
 
 // dexmaker-mockito-inline tests

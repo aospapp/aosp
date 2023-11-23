@@ -15,10 +15,11 @@
 OUTPUT_FORMAT("elf64-littleaarch64")
 OUTPUT_ARCH(aarch64)
 
-INPUT(./bl31/bl31.elf)
 INPUT(./rom_trampoline.o)
+INPUT(./kernel_trampoline.o)
 
 TARGET(binary)
+INPUT(./bl31.bin)
 INPUT(./fdts/arm_fpga.dtb)
 
 ENTRY(_start)
@@ -32,8 +33,7 @@ SECTIONS
 
 	.bl31 (BL31_BASE): {
 		ASSERT(. == ALIGN(PAGE_SIZE), "BL31_BASE is not page aligned");
-		*bl31.elf(.text* .data* .rodata* ro* .bss*)
-		*bl31.elf(.stack)
+		*bl31.bin
 	}
 
 	.dtb (FPGA_PRELOADED_DTB_BASE): {
@@ -41,6 +41,12 @@ SECTIONS
 		*arm_fpga.dtb
 	}
 
+	.kern_tramp (PRELOADED_BL33_BASE): {
+		*kernel_trampoline.o(.text*)
+		KEEP(*(.kern_tramp))
+	}
+
+	/DISCARD/ : { *(stacks) }
 	/DISCARD/ : { *(.debug_*) }
 	/DISCARD/ : { *(.note*) }
 	/DISCARD/ : { *(.comment*) }

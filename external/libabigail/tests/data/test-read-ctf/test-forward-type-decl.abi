@@ -24,6 +24,6 @@
     <pointer-type-def type-id='type-id-1' size-in-bits='64' alignment-in-bits='64' id='type-id-5'/>
     <pointer-type-def type-id='type-id-4' size-in-bits='64' alignment-in-bits='64' id='type-id-3'/>
     <pointer-type-def type-id='type-id-6' size-in-bits='64' alignment-in-bits='64' id='type-id-2'/>
-    <var-decl name='addr' type-id='type-id-5' mangled-name='addr' visibility='default'/>
+    <var-decl name='addr' type-id='type-id-5' mangled-name='addr' visibility='default' elf-symbol-id='addr'/>
   </abi-instr>
 </abi-corpus>

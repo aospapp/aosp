@@ -18,7 +18,7 @@
  *
  *//*!
  * \file
- * \brief Android EGL platform.
+ * \brief Android EGL and Vulkan platforms.
  *//*--------------------------------------------------------------------*/
 
 #include "tcuAndroidPlatform.hpp"
@@ -194,8 +194,8 @@ eglu::NativeDisplay* NativeDisplayFactory::createDisplay (const EGLAttrib* attri
 class VulkanLibrary : public vk::Library
 {
 public:
-	VulkanLibrary (void)
-		: m_library	("libvulkan.so")
+	VulkanLibrary (const char* libraryPath)
+		: m_library	(libraryPath != DE_NULL ? libraryPath : "libvulkan.so")
 		, m_driver	(m_library)
 	{
 	}
@@ -234,6 +234,12 @@ public:
 	void resize(const UVec2& newSize)
 	{
 		DE_UNREF(newSize);
+	}
+
+	void setMinimized(bool minimized)
+	{
+		DE_UNREF(minimized);
+		TCU_THROW(NotSupportedError, "Minimized on Android is not implemented");
 	}
 
 	~VulkanWindow (void)
@@ -322,9 +328,9 @@ bool Platform::processEvents (void)
 	return true;
 }
 
-vk::Library* Platform::createLibrary (void) const
+vk::Library* Platform::createLibrary (const char* libraryPath) const
 {
-	return new VulkanLibrary();
+	return new VulkanLibrary(libraryPath);
 }
 
 void Platform::describePlatform (std::ostream& dst) const
@@ -332,7 +338,7 @@ void Platform::describePlatform (std::ostream& dst) const
 	tcu::Android::describePlatform(m_activity.getNativeActivity(), dst);
 }
 
-void Platform::getMemoryLimits (vk::PlatformMemoryLimits& limits) const
+void Platform::getMemoryLimits (tcu::PlatformMemoryLimits& limits) const
 {
 	// Worst-case estimates
 	const size_t	MiB				= (size_t)(1<<20);

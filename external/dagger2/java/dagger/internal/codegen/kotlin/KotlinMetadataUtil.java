@@ -16,9 +16,12 @@
 
 package dagger.internal.codegen.kotlin;
 
-import static com.google.auto.common.AnnotationMirrors.getAnnotatedAnnotations;
+
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.extension.DaggerStreams.toImmutableMap;
 import static dagger.internal.codegen.langmodel.DaggerElements.closestEnclosingTypeElement;
+import static dagger.internal.codegen.langmodel.DaggerElements.getAnnotatedAnnotations;
 import static kotlinx.metadata.Flag.Class.IS_COMPANION_OBJECT;
 import static kotlinx.metadata.Flag.Class.IS_DATA;
 import static kotlinx.metadata.Flag.Class.IS_OBJECT;
@@ -26,8 +29,10 @@ import static kotlinx.metadata.Flag.IS_PRIVATE;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.squareup.javapoet.ClassName;
 import dagger.internal.codegen.extension.DaggerCollectors;
-import java.lang.annotation.Annotation;
+import dagger.internal.codegen.kotlin.KotlinMetadata.FunctionMetadata;
 import java.util.Optional;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
@@ -37,7 +42,6 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.ElementFilter;
 import kotlin.Metadata;
-import kotlin.jvm.JvmStatic;
 import kotlinx.metadata.Flag;
 
 /** Utility class for interacting with Kotlin Metadata. */
@@ -65,11 +69,12 @@ public final class KotlinMetadataUtil {
    * method, if any, of a Kotlin property and not for annotations in its backing field.
    */
   public ImmutableCollection<? extends AnnotationMirror> getSyntheticPropertyAnnotations(
-      VariableElement fieldElement, Class<? extends Annotation> annotationType) {
+      VariableElement fieldElement, ClassName annotationType) {
     return metadataFactory
         .create(fieldElement)
         .getSyntheticAnnotationMethod(fieldElement)
-        .map(methodElement -> getAnnotatedAnnotations(methodElement, annotationType).asList())
+        .map(methodElement ->
+            getAnnotatedAnnotations(methodElement, annotationType).asList())
         .orElse(ImmutableList.of());
   }
 
@@ -163,9 +168,13 @@ public final class KotlinMetadataUtil {
   }
 
   /**
-   * Returns {@code true} if the <code>@JvmStatic</code> annotation is present in the given element.
+   * Returns a map mapping all method signatures within the given class element, including methods
+   * that it inherits from its ancestors, to their method names.
    */
-  public static boolean isJvmStaticPresent(ExecutableElement element) {
-    return isAnnotationPresent(element, JvmStatic.class);
+  public ImmutableMap<String, String> getAllMethodNamesBySignature(TypeElement element) {
+    checkState(
+        hasMetadata(element), "Can not call getAllMethodNamesBySignature for non-Kotlin class");
+    return metadataFactory.create(element).classMetadata().functionsBySignature().values().stream()
+        .collect(toImmutableMap(FunctionMetadata::signature, FunctionMetadata::name));
   }
 }

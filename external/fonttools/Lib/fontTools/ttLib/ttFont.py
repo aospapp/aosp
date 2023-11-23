@@ -1,7 +1,14 @@
+from fontTools.config import Config
 from fontTools.misc import xmlWriter
+from fontTools.misc.configTools import AbstractConfig
 from fontTools.misc.textTools import Tag, byteord, tostr
 from fontTools.misc.loggingTools import deprecateArgument
 from fontTools.ttLib import TTLibError
+from fontTools.ttLib.ttGlyphSet import (
+    _TTGlyphSet, _TTGlyph,
+    _TTGlyphCFF, _TTGlyphGlyf,
+    _TTVarGlyphSet,
+)
 from fontTools.ttLib.sfnt import SFNTReader, SFNTWriter
 from io import BytesIO, StringIO
 import os
@@ -49,7 +56,7 @@ class TTFont(object):
 		>> tt2.importXML("afont.ttx")
 		>> tt2['maxp'].numGlyphs
 		242
-	
+
 	The TTFont object may be used as a context manager; this will cause the file
 	reader to be closed after the context ``with`` block is exited::
 
@@ -89,7 +96,7 @@ class TTFont(object):
 			sfntVersion="\000\001\000\000", flavor=None, checkChecksums=0,
 			verbose=None, recalcBBoxes=True, allowVID=NotImplemented, ignoreDecompileErrors=False,
 			recalcTimestamp=True, fontNumber=-1, lazy=None, quiet=None,
-			_tableCache=None):
+			_tableCache=None, cfg={}):
 		for name in ("verbose", "quiet"):
 			val = locals().get(name)
 			if val is not None:
@@ -101,6 +108,7 @@ class TTFont(object):
 		self.recalcTimestamp = recalcTimestamp
 		self.tables = {}
 		self.reader = None
+		self.cfg = cfg.copy() if isinstance(cfg, AbstractConfig) else Config(cfg)
 		self.ignoreDecompileErrors = ignoreDecompileErrors
 
 		if not file:
@@ -378,12 +386,14 @@ class TTFont(object):
 		keys = sortedTagList(keys)
 		return ["GlyphOrder"] + keys
 
-	def ensureDecompiled(self):
+	def ensureDecompiled(self, recurse=None):
 		"""Decompile all the tables, even if a TTFont was opened in 'lazy' mode."""
 		for tag in self.keys():
 			table = self[tag]
-			if self.lazy is not False and hasattr(table, "ensureDecompiled"):
-				table.ensureDecompiled()
+			if recurse is None:
+				recurse = self.lazy is not False
+			if recurse and hasattr(table, "ensureDecompiled"):
+				table.ensureDecompiled(recurse=recurse)
 		self.lazy = False
 
 	def __len__(self):
@@ -670,7 +680,7 @@ class TTFont(object):
 		else:
 			raise KeyError(tag)
 
-	def getGlyphSet(self, preferCFF=True):
+	def getGlyphSet(self, preferCFF=True, location=None, normalized=False):
 		"""Return a generic GlyphSet, which is a dict-like object
 		mapping glyph names to glyph objects. The returned glyph objects
 		have a .draw() method that supports the Pen protocol, and will
@@ -681,16 +691,28 @@ class TTFont(object):
 		If the font contains both a 'CFF '/'CFF2' and a 'glyf' table, you can use
 		the 'preferCFF' argument to specify which one should be taken. If the
 		font contains both a 'CFF ' and a 'CFF2' table, the latter is taken.
+
+		If the 'location' parameter is set, it should be a dictionary mapping
+		four-letter variation tags to their float values, and the returned
+		glyph-set will represent an instance of a variable font at that location.
+		If the 'normalized' variable is set to True, that location is interpretted
+		as in the normalized (-1..+1) space, otherwise it is in the font's defined
+		axes space.
 		"""
 		glyphs = None
 		if (preferCFF and any(tb in self for tb in ["CFF ", "CFF2"]) or
 		   ("glyf" not in self and any(tb in self for tb in ["CFF ", "CFF2"]))):
 			table_tag = "CFF2" if "CFF2" in self else "CFF "
+			if location:
+				raise NotImplementedError # TODO
 			glyphs = _TTGlyphSet(self,
 			    list(self[table_tag].cff.values())[0].CharStrings, _TTGlyphCFF)
 
 		if glyphs is None and "glyf" in self:
-			glyphs = _TTGlyphSet(self, self["glyf"], _TTGlyphGlyf)
+			if location and 'gvar' in self:
+				glyphs = _TTVarGlyphSet(self, location=location, normalized=normalized)
+			else:
+				glyphs = _TTGlyphSet(self, self["glyf"], _TTGlyphGlyf)
 
 		if glyphs is None:
 			raise TTLibError("Font contains no outlines")
@@ -698,127 +720,29 @@ class TTFont(object):
 		return glyphs
 
 	def getBestCmap(self, cmapPreferences=((3, 10), (0, 6), (0, 4), (3, 1), (0, 3), (0, 2), (0, 1), (0, 0))):
-		"""Return the 'best' unicode cmap dictionary available in the font,
-		or None, if no unicode cmap subtable is available.
+		"""Returns the 'best' Unicode cmap dictionary available in the font
+		or ``None``, if no Unicode cmap subtable is available.
 
 		By default it will search for the following (platformID, platEncID)
-		pairs::
+		pairs in order::
 
-			(3, 10),
-			(0, 6),
-			(0, 4),
-			(3, 1),
-			(0, 3),
-			(0, 2),
-			(0, 1),
-			(0, 0)
+				(3, 10), # Windows Unicode full repertoire
+				(0, 6),  # Unicode full repertoire (format 13 subtable)
+				(0, 4),  # Unicode 2.0 full repertoire
+				(3, 1),  # Windows Unicode BMP
+				(0, 3),  # Unicode 2.0 BMP
+				(0, 2),  # Unicode ISO/IEC 10646
+				(0, 1),  # Unicode 1.1
+				(0, 0)   # Unicode 1.0
 
-		This can be customized via the ``cmapPreferences`` argument.
+		This particular order matches what HarfBuzz uses to choose what
+		subtable to use by default. This order prefers the largest-repertoire
+		subtable, and among those, prefers the Windows-platform over the
+		Unicode-platform as the former has wider support.
+
+		This order can be customized via the ``cmapPreferences`` argument.
 		"""
 		return self["cmap"].getBestCmap(cmapPreferences=cmapPreferences)
-
-
-class _TTGlyphSet(object):
-
-	"""Generic dict-like GlyphSet class that pulls metrics from hmtx and
-	glyph shape from TrueType or CFF.
-	"""
-
-	def __init__(self, ttFont, glyphs, glyphType):
-		"""Construct a new glyphset.
-
-		Args:
-			font (TTFont): The font object (used to get metrics).
-			glyphs (dict): A dictionary mapping glyph names to ``_TTGlyph`` objects.
-			glyphType (class): Either ``_TTGlyphCFF`` or ``_TTGlyphGlyf``.
-		"""
-		self._glyphs = glyphs
-		self._hmtx = ttFont['hmtx']
-		self._vmtx = ttFont['vmtx'] if 'vmtx' in ttFont else None
-		self._glyphType = glyphType
-
-	def keys(self):
-		return list(self._glyphs.keys())
-
-	def has_key(self, glyphName):
-		return glyphName in self._glyphs
-
-	__contains__ = has_key
-
-	def __getitem__(self, glyphName):
-		horizontalMetrics = self._hmtx[glyphName]
-		verticalMetrics = self._vmtx[glyphName] if self._vmtx else None
-		return self._glyphType(
-			self, self._glyphs[glyphName], horizontalMetrics, verticalMetrics)
-
-	def __len__(self):
-		return len(self._glyphs)
-
-	def get(self, glyphName, default=None):
-		try:
-			return self[glyphName]
-		except KeyError:
-			return default
-
-class _TTGlyph(object):
-
-	"""Wrapper for a TrueType glyph that supports the Pen protocol, meaning
-	that it has .draw() and .drawPoints() methods that take a pen object as
-	their only argument. Additionally there are 'width' and 'lsb' attributes,
-	read from the 'hmtx' table.
-
-	If the font contains a 'vmtx' table, there will also be 'height' and 'tsb'
-	attributes.
-	"""
-
-	def __init__(self, glyphset, glyph, horizontalMetrics, verticalMetrics=None):
-		"""Construct a new _TTGlyph.
-
-		Args:
-			glyphset (_TTGlyphSet): A glyphset object used to resolve components.
-			glyph (ttLib.tables._g_l_y_f.Glyph): The glyph object.
-			horizontalMetrics (int, int): The glyph's width and left sidebearing.
-		"""
-		self._glyphset = glyphset
-		self._glyph = glyph
-		self.width, self.lsb = horizontalMetrics
-		if verticalMetrics:
-			self.height, self.tsb = verticalMetrics
-		else:
-			self.height, self.tsb = None, None
-
-	def draw(self, pen):
-		"""Draw the glyph onto ``pen``. See fontTools.pens.basePen for details
-		how that works.
-		"""
-		self._glyph.draw(pen)
-
-	def drawPoints(self, pen):
-		# drawPoints is only implemented for _TTGlyphGlyf at this time.
-		raise NotImplementedError()
-
-class _TTGlyphCFF(_TTGlyph):
-	pass
-
-class _TTGlyphGlyf(_TTGlyph):
-
-	def draw(self, pen):
-		"""Draw the glyph onto Pen. See fontTools.pens.basePen for details
-		how that works.
-		"""
-		glyfTable = self._glyphset._glyphs
-		glyph = self._glyph
-		offset = self.lsb - glyph.xMin if hasattr(glyph, "xMin") else 0
-		glyph.draw(pen, glyfTable, offset)
-
-	def drawPoints(self, pen):
-		"""Draw the glyph onto PointPen. See fontTools.pens.pointPen
-		for details how that works.
-		"""
-		glyfTable = self._glyphset._glyphs
-		glyph = self._glyph
-		offset = self.lsb - glyph.xMin if hasattr(glyph, "xMin") else 0
-		glyph.drawPoints(pen, glyfTable, offset)
 
 
 class GlyphOrder(object):

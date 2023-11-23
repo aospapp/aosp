@@ -18,11 +18,10 @@
 
 <resources>
 
-  <color name="sud_system_secondary_text">@color/sud_system_neutral1_700</color>
-  <color name="sud_system_tertiary_text_inactive">@color/sud_system_neutral1_600</color>
-  <color name="sud_system_background_surface">@color/sud_system_neutral1_0</color>
   <color name="sud_system_button_surface">@color/sud_system_accent1_600</color>
-  <color name="sud_system_dividing_line">@color/sud_system_neutral1_500</color>
+  <color name="sud_system_button_text">@color/sud_system_neutral1_50</color>
+  <!-- used by other 1p-->
+  <color name="sud_system_dividing_line">@color/sud_system_neutral2_200</color>
 
   <color name="sud_glif_v3_nav_bar_divider_color_light">@android:color/transparent</color>
 </resources>

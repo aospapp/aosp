@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0+
+// SPDX-License-Identifier: GPL-2.0+ OR Apache-2.0
 /*
  * Copyright (C) 2018-2019 HUAWEI, Inc.
  *             http://www.huawei.com/
@@ -26,7 +26,7 @@ static bool erofs_bh_flush_drop_directly(struct erofs_buffer_head *bh)
 	return erofs_bh_flush_generic_end(bh);
 }
 
-struct erofs_bhops erofs_drop_directly_bhops = {
+const struct erofs_bhops erofs_drop_directly_bhops = {
 	.flush = erofs_bh_flush_drop_directly,
 };
 
@@ -35,7 +35,7 @@ static bool erofs_bh_flush_skip_write(struct erofs_buffer_head *bh)
 	return false;
 }
 
-struct erofs_bhops erofs_skip_write_bhops = {
+const struct erofs_bhops erofs_skip_write_bhops = {
 	.flush = erofs_bh_flush_skip_write,
 };
 
@@ -58,7 +58,7 @@ static bool erofs_bh_flush_buf_write(struct erofs_buffer_head *bh)
 	return erofs_bh_flush_generic_end(bh);
 }
 
-struct erofs_bhops erofs_buf_write_bhops = {
+const struct erofs_bhops erofs_buf_write_bhops = {
 	.flush = erofs_bh_flush_buf_write,
 };
 
@@ -331,7 +331,6 @@ struct erofs_buffer_head *erofs_battach(struct erofs_buffer_head *bh,
 		return ERR_PTR(ret);
 	}
 	return nbh;
-
 }
 
 static erofs_blk_t __erofs_mapbh(struct erofs_buffer_block *bb)

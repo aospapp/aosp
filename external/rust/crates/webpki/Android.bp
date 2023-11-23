@@ -47,6 +47,10 @@ rust_library {
         "libring",
         "libuntrusted",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
 }
 
 rust_test {

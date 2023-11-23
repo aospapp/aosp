@@ -1,11 +1,13 @@
 AUTHOR = "puthik"
 NAME = "power_ThermalLoad.fast"
 PURPOSE = "Run thermal workload and log temperature."
+
 CRITERIA = "This test is a benchmark."
 TIME = "SHORT"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test makes sure that power_ThermalLoad is working fine.

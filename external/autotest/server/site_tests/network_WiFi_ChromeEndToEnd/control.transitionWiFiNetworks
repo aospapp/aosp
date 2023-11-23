@@ -8,6 +8,7 @@ NAME = 'network_WiFi_ChromeEndToEnd.transitionWiFiNetworks'
 TEST_TYPE = 'Server'
 ATTRIBUTES = ('suite:wifi_endtoend, suite:wifi_release')
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 WiFi_ChromeEndToEnd test configures two APs and runs the client side

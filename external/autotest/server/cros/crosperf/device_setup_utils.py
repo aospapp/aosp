@@ -41,8 +41,8 @@ def run_command_on_dut(dut, command, ignore_status=False):
                    'returned %d\n'
                    'Error message: %s' % (dut.hostname, command, ret, err_msg))
         if ignore_status:
-            logging.warning(err_msg +
-                            '\n(Failure is considered non-fatal. Continue.)')
+            logging.warning(err_msg)
+            logging.warning('Failure is considered non-fatal. Continue.')
         else:
             logging.error(err_msg)
 
@@ -273,8 +273,8 @@ def get_cpu_online(dut):
     # If cpu0 not in the online list and it exists in all online CPUs
     # add it to the online list.
     if 0 not in cpu_online and '0' in all_online_str:
-      # Add core0 to online cores.
-      cpu_online[0] = 1
+        # Add core0 to online cores.
+        cpu_online[0] = 1
     # At least one CPU has to be online.
     assert cpu_online
 
@@ -357,8 +357,33 @@ def wait_cooldown(dut, cooldown_time, cooldown_temp):
     waittime = 0
     timeout_in_sec = int(cooldown_time) * 60
     # Temperature from sensors come in uCelsius units.
-    temp_in_ucels = int(cooldown_temp) * 1000
+    cooldown_temp_in_ucels = int(cooldown_temp) * 1000
     sleep_interval = 30
+
+    _, all_thermal_sensors, _ = run_command_on_dut(
+            dut, 'ls /sys/class/thermal/thermal_zone*/temp')
+    _, all_thermal_sensor_types, _ = run_command_on_dut(
+            dut, 'cat /sys/class/thermal/thermal_zone*/type')
+    all_thermal_sensors = all_thermal_sensors.split('\n')
+    all_thermal_sensor_types = all_thermal_sensor_types.split('\n')
+    assert len(all_thermal_sensors) == len(all_thermal_sensor_types), (
+            'Number of sensors must match the number of types '
+            'read from /sys/class/thermal/thermal_zone*/type.')
+
+    monitor_thermal_sensors = []
+    # Filter in only the relevant thermal sensors.
+    filter_in_thermal_sensors = ('cpu', 'gpu', 'soc', 'pkg', 'core')
+    for sensor_path, sensor_type in zip(all_thermal_sensors,
+                                        all_thermal_sensor_types):
+        if any(
+                sensor_type.startswith(cpu_type)
+                for cpu_type in filter_in_thermal_sensors):
+            # Monitor only the sensors which names start from
+            # cpu/gpu/soc/pkg/core.
+            # We don't want irrelant sensors to slow down performance testing.
+            monitor_thermal_sensors.append(sensor_path)
+            logging.info('Monitor thermal sensor %s of type %s', sensor_path,
+                         sensor_type)
 
     # Wait until any of two events occurs:
     # 1. CPU cools down to a specified temperature.
@@ -371,20 +396,29 @@ def wait_cooldown(dut, cooldown_time, cooldown_temp):
     # "high" should be calculated based on empirical data per platform.
     # Based on such reports we can adjust CPU configuration or
     # cooldown limits accordingly.
-    while waittime < timeout_in_sec:
-        _, temp_output, _ = run_command_on_dut(
-            dut,
-            'cat /sys/class/thermal/thermal_zone*/temp',
-            ignore_status=True)
-        if any(int(temp) > temp_in_ucels for temp in temp_output.split()):
+    for sensor in monitor_thermal_sensors:
+        while waittime < timeout_in_sec:
+            err, sensor_value_str, _ = run_command_on_dut(dut,
+                                                          'cat ' + sensor,
+                                                          ignore_status=True)
+            # If
+            # - sensor is not readable or
+            # - sensor temperature is below threshold
+            # stop monitoring the sensor and move to the next one.
+            if err:
+                logging.warning(
+                        'Sensor %s is removed from monitoring due '
+                        'to the read error %d', sensor, err)
+                break
+            elif int(sensor_value_str) <= cooldown_temp_in_ucels:
+                break
+
+            logging.debug(
+                    '%s=%s is above threshold %d mC.\n'
+                    'Wait %ds and check again.', sensor, sensor_value_str,
+                    cooldown_temp_in_ucels, sleep_interval)
             time.sleep(sleep_interval)
             waittime += sleep_interval
-        else:
-            # Exit the loop when:
-            # 1. Reported temp numbers from all thermal sensors do not exceed
-            # 'cooldown_temp' or
-            # 2. No data from the sensors.
-            break
 
     logging.info('Cooldown wait time: %.1f min', (waittime / 60))
     return waittime

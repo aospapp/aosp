@@ -68,6 +68,12 @@ if with_cython is True or (with_cython is None and has_cython):
 	ext_modules.append(
 		Extension("fontTools.cu2qu.cu2qu", ["Lib/fontTools/cu2qu/cu2qu.py"]),
 	)
+	ext_modules.append(
+		Extension("fontTools.pens.momentsPen", ["Lib/fontTools/pens/momentsPen.py"]),
+	)
+	ext_modules.append(
+		Extension("fontTools.varLib.iup", ["Lib/fontTools/varLib/iup.py"]),
+	)
 
 extras_require = {
 	# for fontTools.ufoLib: to read/write UFO fonts
@@ -123,6 +129,10 @@ extras_require = {
 	# for fontTools.ttLib.removeOverlaps, to remove overlaps in TTF fonts
 	"pathops": [
 		"skia-pathops >= 0.5.0",
+	],
+	# for packing GSUB/GPOS tables with Harfbuzz repacker
+	"repacker": [
+		"uharfbuzz >= 0.23.0",
 	],
 }
 # use a special 'all' key as shorthand to includes all the extra dependencies
@@ -439,7 +449,7 @@ if ext_modules:
 
 setup_params = dict(
 	name="fonttools",
-	version="4.31.2",
+	version="4.37.1",
 	description="Tools to manipulate font files",
 	author="Just van Rossum",
 	author_email="just@letterror.com",

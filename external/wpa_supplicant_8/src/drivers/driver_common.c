@@ -91,6 +91,13 @@ const char * event_to_string(enum wpa_event_type event)
 	E2S(UPDATE_DH);
 	E2S(UNPROT_BEACON);
 	E2S(TX_WAIT_EXPIRE);
+	E2S(BSS_COLOR_COLLISION);
+	E2S(CCA_STARTED_NOTIFY);
+	E2S(CCA_ABORTED_NOTIFY);
+	E2S(CCA_NOTIFY);
+	E2S(PASN_AUTH);
+	E2S(LINK_CH_SWITCH);
+	E2S(LINK_CH_SWITCH_STARTED);
 	}
 
 	return "UNKNOWN";
@@ -113,6 +120,8 @@ const char * channel_width_to_string(enum chan_width width)
 		return "80+80 MHz";
 	case CHAN_WIDTH_160:
 		return "160 MHz";
+	case CHAN_WIDTH_320:
+		return "320 MHz";
 	default:
 		return "unknown";
 	}
@@ -132,6 +141,8 @@ int channel_width_to_int(enum chan_width width)
 	case CHAN_WIDTH_80P80:
 	case CHAN_WIDTH_160:
 		return 160;
+	case CHAN_WIDTH_320:
+		return 320;
 	default:
 		return 0;
 	}
@@ -171,6 +182,21 @@ int vht_supported(const struct hostapd_hw_modes *mode)
 	 * TODO: Verify if this complies with the standard
 	 */
 	return (mode->vht_mcs_set[0] & 0x3) != 3;
+}
+
+
+bool he_supported(const struct hostapd_hw_modes *hw_mode,
+		  enum ieee80211_op_mode op_mode)
+{
+	if (!(hw_mode->flags & HOSTAPD_MODE_FLAG_HE_INFO_KNOWN)) {
+		/*
+		 * The driver did not indicate whether it supports HE. Assume
+		 * it does to avoid connection issues.
+		 */
+		return true;
+	}
+
+	return hw_mode->he_capab[op_mode].he_supported;
 }
 
 

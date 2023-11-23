@@ -1,17 +1,17 @@
 .\"
 .\" written by Andrew Main <zefram@dcs.warwick.ac.uk>
 .\"
-.TH CAP_INIT 3 "2008-05-11" "" "Linux Programmer's Manual"
+.TH CAP_INIT 3 "2021-03-06" "" "Linux Programmer's Manual"
 .SH NAME
 cap_init, cap_free, cap_dup \- capability data object storage management
 .SH SYNOPSIS
-.B #include <sys/capability.h>
-.sp
-.B cap_t cap_init(void);
-.sp
-.BI "int cap_free(void *" obj_d );
-.sp
-.BI "cap_t cap_dup(cap_t " cap_p );
+.nf
+#include <sys/capability.h>
+
+cap_t cap_init(void);
+int cap_free(void *obj_d);
+cap_t cap_dup(cap_t cap_p);
+.fi
 .sp
 Link with \fI\-lcap\fP.
 .SH DESCRIPTION

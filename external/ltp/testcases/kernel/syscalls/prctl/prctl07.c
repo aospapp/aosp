@@ -2,24 +2,29 @@
 /*
  * Copyright (c) 2019 FUJITSU LIMITED. All rights reserved.
  * Author: Yang Xu <xuyang2018.jy@cn.fujitsu.com>
+ */
+
+/*\
+ * [Description]
  *
  * Test the PR_CAP_AMBIENT of prctl(2).
+ *
  * Reads or changes the ambient capability set of the calling thread,
  * according to the value of arg2, which must be one of the following:
- * 1)PR_CAP_AMBIENT_RAISE:
- * The capability specified in arg3 is added to the ambient set.
- * The specified capability must already be present in both pE and pI.
- * If we set SECBIT_NO_CAP_AMBIENT_RAISE bit, raise option will be rejected
- * and retrun EPERM. We also raise a CAP twice.
- * 2)PR_CAP_AMBIENT_LOWER:
- * The capability specified in arg3 is removed from the ambient set.
- * Even though this cap is not in set, it also should return 0.
- * 3)PR_CAP_AMBIENT_IS_SET:
- * Returns 1 if the capability in arg3 is in the ambient set and 0 if it
- * is not.
- * 4)PR_CAP_AMBIENT_CLEAR_ALL:
- * All capabilities will be removed from the ambient set. This operation
- * requires setting arg3 to zero.
+ *
+ * - PR_CAP_AMBIENT_RAISE: The capability specified in arg3 is added to the
+ *   ambient set. The specified capability must already be present in both pE
+ *   and pI. If we set SECBIT_NO_CAP_AMBIENT_RAISE bit, raise option will be
+ *   rejected and return EPERM. We also raise a CAP twice.
+ *
+ * - PR_CAP_AMBIENT_LOWER: The capability specified in arg3 is removed from the
+ *   ambient set. Even though this cap is not in set, it also should return 0.
+ *
+ * - PR_CAP_AMBIENT_IS_SET: Returns 1 if the capability in arg3 is in the
+ *   ambient set and 0 if it is not.
+ *
+ * - PR_CAP_AMBIENT_CLEAR_ALL:  All capabilities will be removed from the
+ *   ambient set. This operation requires setting arg3 to zero.
  */
 
 #include <sys/prctl.h>
@@ -40,7 +45,7 @@
 
 static inline void check_cap_raise(unsigned int cap, char *message, int fail_flag)
 {
-	TEST(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, cap, 0, 0, 0));
+	TEST(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, cap, 0, 0));
 	switch (fail_flag) {
 	case 0:
 	if (TST_RET == 0)
@@ -66,7 +71,7 @@ static inline void check_cap_raise(unsigned int cap, char *message, int fail_fla
 
 static inline void check_cap_is_set(unsigned int cap, char *message, int val)
 {
-	TEST(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, cap, 0, 0, 0));
+	TEST(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, cap, 0, 0));
 	if (TST_RET == 1)
 		tst_res(val ? TPASS : TFAIL,
 			"PR_CAP_AMBIENT_IS_SET %s in AmbientCap", message);
@@ -79,7 +84,7 @@ static inline void check_cap_is_set(unsigned int cap, char *message, int val)
 
 static inline void check_cap_lower(unsigned int cap, char *message)
 {
-	TEST(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_LOWER, cap, 0, 0, 0));
+	TEST(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_LOWER, cap, 0, 0));
 	if (TST_RET == -1)
 		tst_res(TFAIL | TTERRNO,
 			"PR_CAP_AMBIENT_LOWER %s failed", message);
@@ -134,9 +139,9 @@ static void verify_prctl(void)
 	tst_res(TINFO, "After PR_CAP_AMBIENT_LORWER");
 	TST_ASSERT_FILE_STR(PROC_STATUS, "CapAmb", ZERO_STRING);
 
-	prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, CAP_NET_BIND_SERVICE, 0, 0, 0);
+	prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, CAP_NET_BIND_SERVICE, 0, 0);
 	tst_res(TINFO, "raise cap for clear");
-	TEST(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0, 0));
+	TEST(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0));
 	if (TST_RET == 0)
 		tst_res(TPASS, "PR_CAP_AMBIENT_CLEAR ALL succeeded");
 	else
@@ -153,7 +158,7 @@ static void verify_prctl(void)
 
 static void setup(void)
 {
-	TEST(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0, 0));
+	TEST(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0));
 	if (TST_RET == 0) {
 		tst_res(TINFO, "kernel supports PR_CAP_AMBIENT");
 		return;

@@ -1,84 +1,64 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use crate::descriptor::{AsRawDescriptor, FromRawDescriptor, IntoRawDescriptor, SafeDescriptor};
-use crate::{Error, MemfdSeals, RawDescriptor, Result};
-#[cfg(unix)]
-use std::os::unix::io::RawFd;
-use std::{
-    ffi::CStr,
-    fs::File,
-    os::unix::io::{AsRawFd, IntoRawFd},
-};
+use std::ffi::CString;
 
+use libc::EINVAL;
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::descriptor::AsRawDescriptor;
+use crate::descriptor::FromRawDescriptor;
+use crate::descriptor::IntoRawDescriptor;
+use crate::descriptor::SafeDescriptor;
 use crate::platform::SharedMemory as SysUtilSharedMemory;
-use serde::{Deserialize, Serialize};
+use crate::Error;
+use crate::RawDescriptor;
+use crate::Result;
 
 /// See [SharedMemory](crate::platform::SharedMemory) for struct- and method-level
 /// documentation.
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct SharedMemory(SysUtilSharedMemory);
+pub struct SharedMemory(pub(crate) SysUtilSharedMemory);
 impl SharedMemory {
-    pub fn named<T: Into<Vec<u8>>>(name: T, size: u64) -> Result<SharedMemory> {
-        SysUtilSharedMemory::named(name)
-            .and_then(|mut shm| shm.set_size(size).map(|_| shm))
-            .map(SharedMemory)
-    }
-
-    pub fn anon(size: u64) -> Result<SharedMemory> {
-        Self::new(None, size)
-    }
-
-    pub fn new(name: Option<&CStr>, size: u64) -> Result<SharedMemory> {
-        SysUtilSharedMemory::new(name)
-            .and_then(|mut shm| shm.set_size(size).map(|_| shm))
-            .map(SharedMemory)
+    /// Creates a new shared memory object of the given size.
+    ///
+    /// |name| is purely for debugging purposes. It does not need to be unique, and it does
+    /// not affect any non-debugging related properties of the constructed shared memory.
+    pub fn new<T: Into<Vec<u8>>>(debug_name: T, size: u64) -> Result<SharedMemory> {
+        let debug_name = CString::new(debug_name).map_err(|_| super::Error::new(EINVAL))?;
+        SysUtilSharedMemory::new(&debug_name, size).map(SharedMemory)
     }
 
     pub fn size(&self) -> u64 {
         self.0.size()
     }
-}
 
-pub trait Unix {
     /// Creates a SharedMemory instance from a SafeDescriptor owning a reference to a
     /// shared memory descriptor. Ownership of the underlying descriptor is transferred to the
     /// new SharedMemory object.
-    fn from_safe_descriptor(descriptor: SafeDescriptor) -> Result<SharedMemory> {
-        let file = unsafe { File::from_raw_descriptor(descriptor.into_raw_descriptor()) };
-        SysUtilSharedMemory::from_file(file).map(SharedMemory)
-    }
-
-    fn from_file(file: File) -> Result<SharedMemory> {
-        SysUtilSharedMemory::from_file(file).map(SharedMemory)
-    }
-
-    fn get_seals(&self) -> Result<MemfdSeals>;
-
-    fn add_seals(&mut self, seals: MemfdSeals) -> Result<()>;
-}
-
-impl Unix for SharedMemory {
-    fn get_seals(&self) -> Result<MemfdSeals> {
-        self.0.get_seals()
-    }
-
-    fn add_seals(&mut self, seals: MemfdSeals) -> Result<()> {
-        self.0.add_seals(seals)
+    /// `size` needs to be Some() on windows.
+    /// On unix, when `size` is Some(value), the mapping size is set to `value`.
+    // TODO(b:231319974): Make size non-optional arg.
+    pub fn from_safe_descriptor(
+        descriptor: SafeDescriptor,
+        size: Option<u64>,
+    ) -> Result<SharedMemory> {
+        SysUtilSharedMemory::from_safe_descriptor(descriptor, size).map(SharedMemory)
     }
 }
 
 impl AsRawDescriptor for SharedMemory {
     fn as_raw_descriptor(&self) -> RawDescriptor {
-        self.0.as_raw_fd()
+        self.0.as_raw_descriptor()
     }
 }
 
 impl IntoRawDescriptor for SharedMemory {
     fn into_raw_descriptor(self) -> RawDescriptor {
-        self.0.into_raw_fd()
+        self.0.into_raw_descriptor()
     }
 }
 
@@ -93,7 +73,7 @@ impl audio_streams::shm_streams::SharedMemory for SharedMemory {
     type Error = Error;
 
     fn anon(size: u64) -> Result<Self> {
-        SharedMemory::anon(size)
+        SharedMemory::new("shm_streams", size)
     }
 
     fn size(&self) -> u64 {
@@ -101,7 +81,7 @@ impl audio_streams::shm_streams::SharedMemory for SharedMemory {
     }
 
     #[cfg(unix)]
-    fn as_raw_fd(&self) -> RawFd {
+    fn as_raw_fd(&self) -> RawDescriptor {
         self.as_raw_descriptor()
     }
 }

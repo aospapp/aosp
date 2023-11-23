@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/qdisc.c            Queueing Disciplines
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2011 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -395,6 +388,38 @@ struct rtnl_qdisc *rtnl_qdisc_get_by_parent(struct nl_cache *cache,
 
 	nl_list_for_each_entry(q, &cache->c_items, ce_list) {
 		if (q->q_parent == parent && q->q_ifindex == ifindex) {
+			nl_object_get((struct nl_object *) q);
+			return q;
+		}
+	}
+
+	return NULL;
+}
+
+/**
+ * Search qdisc by kind
+ * @arg cache		Qdisc cache
+ * @arg ifindex		Interface index
+ * @arg kind		Qdisc kind (tbf, htb, cbq, etc)
+ *
+ * Searches a qdisc cache previously allocated with rtnl_qdisc_alloc_cache()
+ * and searches for a qdisc matching the interface index and kind.
+ *
+ * The reference counter is incremented before returning the qdisc, therefore
+ * the reference must be given back with rtnl_qdisc_put() after usage.
+ *
+ * @return pointer to qdisc inside the cache or NULL if no match was found.
+ */
+struct rtnl_qdisc *rtnl_qdisc_get_by_kind(struct nl_cache *cache,
+					    int ifindex, char *kind)
+{
+	struct rtnl_qdisc *q;
+
+	if (cache->c_ops != &rtnl_qdisc_ops)
+		return NULL;
+
+	nl_list_for_each_entry(q, &cache->c_items, ce_list) {
+		if ((q->q_ifindex == ifindex) && (!strcmp(q->q_kind, kind))) {
 			nl_object_get((struct nl_object *) q);
 			return q;
 		}

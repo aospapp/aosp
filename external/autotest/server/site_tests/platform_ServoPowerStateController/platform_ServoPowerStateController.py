@@ -106,6 +106,8 @@ class platform_ServoPowerStateController(test.test):
     """Test servo can power on and off DUT in recovery and non-recovery mode."""
     version = 1
 
+    # Acceptable power states when device is turned off
+    POWER_OFF_STATES = ['S5','G3']
 
     def initialize(self, host):
         """Initialize DUT for testing."""
@@ -154,7 +156,7 @@ class platform_ServoPowerStateController(test.test):
                                  ('rec' if rec_on else 'on', boot_source))
 
 
-    def assert_dut_off(self, error_message):
+    def assert_dut_off(self, error_message, check_power_state_off=True):
         """Confirm DUT is off and does not turn back on after 30 seconds.
 
         @param error_message: Error message to raise if DUT stays on.
@@ -162,6 +164,13 @@ class platform_ServoPowerStateController(test.test):
         """
         if not self.host.ping_wait_down(timeout=10):
             raise error.TestFail(error_message)
+
+        # Check that power state is actually off (in S5 or G3)
+        if check_power_state_off:
+            ap_power_state = self.host.servo.get('ec_system_powerstate')
+            logging.info('Read power state: %s' % ap_power_state)
+            if ap_power_state not in self.POWER_OFF_STATES:
+                raise error.TestFail('%s. %s' % (error_message, 'DUT not in S5 or G3 state.'))
 
         if self.host.ping_wait_up(timeout=30):
             raise error.TestFail('%s. %s' % (error_message, 'DUT turns back on'
@@ -190,7 +199,7 @@ class platform_ServoPowerStateController(test.test):
         logging.info('Power DUT on in recovery mode, DUT shall boot from USB.')
         self.host.servo.switch_usbkey('off')
         self.host.power_on_via_servo(self.controller.REC_ON)
-        self.assert_dut_off('power_state:rec didn\'t stay at recovery screen.')
+        self.assert_dut_off('power_state:rec didn\'t stay at recovery screen.', False)
 
         self.host.servo.switch_usbkey('dut')
         time.sleep(30)
@@ -277,5 +286,5 @@ class platform_ServoPowerStateController(test.test):
         self.controller = host.servo.get_power_state_controller()
 
         self.test_with_usb_unplugged()
-        if usb_available:
+        if usb_available and host.is_servo_usb_usable():
             self.test_with_usb_plugged_in()

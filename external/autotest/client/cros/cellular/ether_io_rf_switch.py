@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -12,11 +12,18 @@ This file is both a python module and a command line utility to speak
 to the module
 """
 
-import cellular_logging
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import collections
 import socket
 import struct
 import sys
+
+from six.moves import range
+
+from autotest_lib.client.cros.cellular import cellular_logging
 
 log = cellular_logging.SetupCellularLogging('ether_io_rf_switch')
 
@@ -39,7 +46,7 @@ class EtherIo24(object):
 
     def SendOperation(self, opcode, list_bytes):
         """Sends the specified opcode with [list_bytes] as an argument."""
-        payload = opcode + struct.pack(('=%dB' % len(list_bytes)), *list_bytes)
+        payload = opcode + struct.pack(('=%dB' % len(list_bytes)), *list_bytes).decode('utf-8')
         self.SendPayload(payload)
         return payload
 
@@ -48,7 +55,7 @@ class EtherIo24(object):
         then reads to make sure command was executed."""
         if read_opcode is None:
             read_opcode = write_opcode.lower()
-        for _ in xrange(3):
+        for _ in range(3):
             write_sent = self.SendOperation(write_opcode, list_bytes)
             self.SendOperation(read_opcode, list_bytes)
             try:
@@ -83,8 +90,8 @@ class RfSwitch(object):
         decode = [0xe, 0xd, 0xb, 0x7]
 
         self.port_mapping = []
-        for upper in xrange(3):
-            for lower in xrange(4):
+        for upper in range(3):
+            for lower in range(4):
                 self.port_mapping.append(decode[upper] << 4 | decode[lower])
 
     def SelectPort(self, n):
@@ -120,16 +127,16 @@ def CommandLineUtility(arguments):
     def Query(switch, unused_remaining_args):
         (raw_status, port, direction) = switch.Query()
         if direction != 0x00:
-            print 'Warning: Direction register is %x, should be 0x00' % \
-                  direction
+            print('Warning: Direction register is %x, should be 0x00' % \
+                  direction)
         if port is None:
             port_str = 'Invalid'
         else:
             port_str = str(port)
-        print 'Port %s  (0x%x)' % (port_str, raw_status)
+        print('Port %s  (0x%x)' % (port_str, raw_status))
 
     def Usage():
-        print 'usage:  %s hostname {query|select portnumber}' % sys.argv[0]
+        print('usage:  %s hostname {query|select portnumber}' % sys.argv[0])
         exit(1)
 
     try:

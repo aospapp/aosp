@@ -6,16 +6,28 @@
 use std::fs::File;
 use std::mem;
 use std::path::Path;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::MutexGuard;
 
-use base::{AsRawDescriptor, Event, RawDescriptor, INVALID_DESCRIPTOR};
+use base::AsRawDescriptor;
+use base::Event;
+use base::RawDescriptor;
+use base::INVALID_DESCRIPTOR;
+use data_model::zerocopy_from_reader;
 use data_model::DataInit;
 
-use super::connection::{Endpoint, EndpointExt};
-use super::message::*;
-use super::{take_single_file, Error as VhostUserError, Result as VhostUserResult};
-use crate::backend::{VhostBackend, VhostUserMemoryRegionInfo, VringConfigData};
-use crate::{Result, SystemStream};
+use crate::backend::VhostBackend;
+use crate::backend::VhostUserMemoryRegionInfo;
+use crate::backend::VringConfigData;
+use crate::connection::Endpoint;
+use crate::connection::EndpointExt;
+use crate::message::*;
+use crate::take_single_file;
+use crate::Error as VhostUserError;
+use crate::Result as VhostUserResult;
+use crate::Result;
+use crate::SystemStream;
 
 /// Trait for vhost-user master to provide extra methods not covered by the VhostBackend yet.
 pub trait VhostUserMaster: VhostBackend {
@@ -68,6 +80,9 @@ pub trait VhostUserMaster: VhostBackend {
 
     /// Remove a guest memory mapping from vhost.
     fn remove_mem_region(&mut self, region: &VhostUserMemoryRegionInfo) -> Result<()>;
+
+    /// Gets the shared memory regions used by the device.
+    fn get_shared_memory_regions(&self) -> Result<Vec<VhostSharedMemoryRegion>>;
 }
 
 /// Struct for the vhost-user master endpoint.
@@ -95,7 +110,6 @@ impl<E: Endpoint<MasterReq>> Master<E> {
                 acked_protocol_features: 0,
                 protocol_features_ready: false,
                 max_queue_num,
-                error: None,
                 hdr_flags: VhostUserHeaderFlag::empty(),
             })),
         }
@@ -359,6 +373,11 @@ impl<E: Endpoint<MasterReq>> VhostUserMaster for Master<E> {
         if node.virtio_features & flag == 0 {
             return Err(VhostUserError::InvalidOperation);
         }
+        if features.contains(VhostUserProtocolFeatures::SHARED_MEMORY_REGIONS)
+            && !features.contains(VhostUserProtocolFeatures::SLAVE_REQ)
+        {
+            return Err(VhostUserError::FeatureMismatch);
+        }
         let val = VhostUserU64::new(features.bits());
         let hdr = node.send_request_with_body(MasterReq::SET_PROTOCOL_FEATURES, &val, None)?;
         // Don't wait for ACK here because the protocol feature negotiation process hasn't been
@@ -392,8 +411,7 @@ impl<E: Endpoint<MasterReq>> VhostUserMaster for Master<E> {
             return Err(VhostUserError::InvalidParam);
         }
 
-        let flag = if enable { 1 } else { 0 };
-        let val = VhostUserVringState::new(queue_index as u32, flag);
+        let val = VhostUserVringState::new(queue_index as u32, enable.into());
         let hdr = node.send_request_with_body(MasterReq::SET_VRING_ENABLE, &val, None)?;
         node.wait_for_ack(&hdr)
     }
@@ -555,6 +573,26 @@ impl<E: Endpoint<MasterReq>> VhostUserMaster for Master<E> {
         let hdr = node.send_request_with_body(MasterReq::REM_MEM_REG, &body, None)?;
         node.wait_for_ack(&hdr)
     }
+
+    fn get_shared_memory_regions(&self) -> Result<Vec<VhostSharedMemoryRegion>> {
+        let mut node = self.node();
+        let hdr = node.send_request_header(MasterReq::GET_SHARED_MEMORY_REGIONS, None)?;
+        let (body_reply, buf_reply, rfds) = node.recv_reply_with_payload::<VhostUserU64>(&hdr)?;
+        let struct_size = mem::size_of::<VhostSharedMemoryRegion>();
+        if rfds.is_some() || buf_reply.len() != body_reply.value as usize * struct_size {
+            return Err(VhostUserError::InvalidMessage);
+        }
+        let mut regions = Vec::new();
+        let mut offset = 0;
+        for _ in 0..body_reply.value {
+            regions.push(
+                // Can't fail because the input is the correct size.
+                zerocopy_from_reader(&buf_reply[offset..(offset + struct_size)]).unwrap(),
+            );
+            offset += struct_size;
+        }
+        Ok(regions)
+    }
 }
 
 impl<E: Endpoint<MasterReq> + AsRawDescriptor> AsRawDescriptor for Master<E> {
@@ -604,8 +642,6 @@ struct MasterInternal<E: Endpoint<MasterReq>> {
     protocol_features_ready: bool,
     // Cached maxinum number of queues supported from the slave.
     max_queue_num: u64,
-    // Internal flag to mark failure state.
-    error: Option<i32>,
     // List of header flags.
     hdr_flags: VhostUserHeaderFlag,
 }
@@ -616,7 +652,6 @@ impl<E: Endpoint<MasterReq>> MasterInternal<E> {
         code: MasterReq,
         fds: Option<&[RawDescriptor]>,
     ) -> VhostUserResult<VhostUserMsgHeader<MasterReq>> {
-        self.check_state()?;
         let hdr = self.new_request_header(code, 0);
         self.main_sock.send_header(&hdr, fds)?;
         Ok(hdr)
@@ -631,8 +666,6 @@ impl<E: Endpoint<MasterReq>> MasterInternal<E> {
         if mem::size_of::<T>() > MAX_MSG_SIZE {
             return Err(VhostUserError::InvalidParam);
         }
-        self.check_state()?;
-
         let hdr = self.new_request_header(code, mem::size_of::<T>() as u32);
         self.main_sock.send_message(&hdr, msg, fds)?;
         Ok(hdr)
@@ -654,8 +687,6 @@ impl<E: Endpoint<MasterReq>> MasterInternal<E> {
                 return Err(VhostUserError::InvalidParam);
             }
         }
-        self.check_state()?;
-
         let hdr = self.new_request_header(code, len as u32);
         self.main_sock
             .send_message_with_payload(&hdr, msg, payload, fds)?;
@@ -671,8 +702,6 @@ impl<E: Endpoint<MasterReq>> MasterInternal<E> {
         if queue_index as u64 >= self.max_queue_num {
             return Err(VhostUserError::InvalidParam);
         }
-        self.check_state()?;
-
         // Bits (0-7) of the payload contain the vring index. Bit 8 is the invalid FD flag.
         // This flag is set when there is no file descriptor in the ancillary data. This signals
         // that polling will be used instead of waiting for the call.
@@ -689,8 +718,6 @@ impl<E: Endpoint<MasterReq>> MasterInternal<E> {
         if mem::size_of::<T>() > MAX_MSG_SIZE || hdr.is_reply() {
             return Err(VhostUserError::InvalidParam);
         }
-        self.check_state()?;
-
         let (reply, body, rfds) = self.main_sock.recv_body::<T>()?;
         if !reply.is_reply_for(hdr) || rfds.is_some() || !body.is_valid() {
             return Err(VhostUserError::InvalidMessage);
@@ -705,7 +732,6 @@ impl<E: Endpoint<MasterReq>> MasterInternal<E> {
         if mem::size_of::<T>() > MAX_MSG_SIZE || hdr.is_reply() {
             return Err(VhostUserError::InvalidParam);
         }
-        self.check_state()?;
 
         let (reply, body, files) = self.main_sock.recv_body::<T>()?;
         if !reply.is_reply_for(hdr) || files.is_none() || !body.is_valid() {
@@ -718,23 +744,12 @@ impl<E: Endpoint<MasterReq>> MasterInternal<E> {
         &mut self,
         hdr: &VhostUserMsgHeader<MasterReq>,
     ) -> VhostUserResult<(T, Vec<u8>, Option<Vec<File>>)> {
-        if mem::size_of::<T>() > MAX_MSG_SIZE
-            || hdr.get_size() as usize <= mem::size_of::<T>()
-            || hdr.get_size() as usize > MAX_MSG_SIZE
-            || hdr.is_reply()
-        {
+        if mem::size_of::<T>() > MAX_MSG_SIZE || hdr.is_reply() {
             return Err(VhostUserError::InvalidParam);
         }
-        self.check_state()?;
 
-        let mut buf: Vec<u8> = vec![0; hdr.get_size() as usize - mem::size_of::<T>()];
-        let (reply, body, bytes, files) = self.main_sock.recv_payload_into_buf::<T>(&mut buf)?;
-        if !reply.is_reply_for(hdr)
-            || reply.get_size() as usize != mem::size_of::<T>() + bytes
-            || files.is_some()
-            || !body.is_valid()
-            || bytes != buf.len()
-        {
+        let (reply, body, buf, files) = self.main_sock.recv_payload_into_buf::<T>()?;
+        if !reply.is_reply_for(hdr) || files.is_some() || !body.is_valid() {
             return Err(VhostUserError::InvalidMessage);
         }
 
@@ -747,7 +762,6 @@ impl<E: Endpoint<MasterReq>> MasterInternal<E> {
         {
             return Ok(());
         }
-        self.check_state()?;
 
         let (reply, body, rfds) = self.main_sock.recv_body::<VhostUserU64>()?;
         if !reply.is_reply_for(hdr) || rfds.is_some() || !body.is_valid() {
@@ -763,15 +777,6 @@ impl<E: Endpoint<MasterReq>> MasterInternal<E> {
         self.acked_protocol_features & VhostUserProtocolFeatures::MQ.bits() != 0
     }
 
-    fn check_state(&self) -> VhostUserResult<()> {
-        match self.error {
-            Some(e) => Err(VhostUserError::SocketBroken(
-                std::io::Error::from_raw_os_error(e),
-            )),
-            None => Ok(()),
-        }
-    }
-
     #[inline]
     fn new_request_header(&self, request: MasterReq, size: u32) -> VhostUserMsgHeader<MasterReq> {
         VhostUserMsgHeader::new(request, self.hdr_flags.bits() | 0x1, size)
@@ -780,9 +785,12 @@ impl<E: Endpoint<MasterReq>> MasterInternal<E> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::connection::tests::{create_pair, TestEndpoint, TestMaster};
     use base::INVALID_DESCRIPTOR;
+
+    use super::*;
+    use crate::connection::tests::create_pair;
+    use crate::connection::tests::TestEndpoint;
+    use crate::connection::tests::TestMaster;
 
     #[test]
     fn create_master() {

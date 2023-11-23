@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Mike Truty <truty@google.com>/Chrome OS Kernel"
+AUTHOR = "Mike Truty <truty@google.com>/ChromeOS Kernel"
 NAME = "kernel_daily_regression"
 PURPOSE = "Test required functionality - longer running than bvt tests usually."
 

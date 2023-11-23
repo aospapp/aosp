@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_Dummy"
 PURPOSE = "Dummy client test for testing power autotest infrastructures."
 CRITERIA = "This test is a benchmark."
@@ -11,6 +11,7 @@ TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
 ATTRIBUTES = ""
+PY_VERSION = 3
 
 DOC = """
 Dummy client test for testing power telemetry wrapper tests, measurement

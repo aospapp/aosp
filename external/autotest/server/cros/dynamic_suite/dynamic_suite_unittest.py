@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -9,9 +9,8 @@
 import os
 import signal
 import unittest
-
-import mox
-import mock
+from unittest import mock
+from unittest.mock import MagicMock
 
 import common
 from autotest_lib.client.common_lib import base_job, error
@@ -20,7 +19,7 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 from autotest_lib.server.cros.dynamic_suite.suite import Suite
 
 
-class DynamicSuiteTest(mox.MoxTestBase):
+class DynamicSuiteTest(unittest.TestCase):
     """Unit tests for dynamic_suite module methods.
 
     @var _DARGS: default args to vet.
@@ -33,15 +32,17 @@ class DynamicSuiteTest(mox.MoxTestBase):
     def setUp(self):
 
         super(DynamicSuiteTest, self).setUp()
-        self._DARGS = {'name': 'name',
-                       'builds': self._BUILDS,
-                       'board': 'board',
-                       'job': self.mox.CreateMock(base_job.base_job),
-                       'pool': 'pool',
-                       'check_hosts': False,
-                       'add_experimental': False,
-                       'suite_dependencies': ['test_dep'],
-                       'devserver_url': self._DEVSERVER_HOST}
+        self._DARGS = {
+                'name': 'name',
+                'builds': self._BUILDS,
+                'board': 'board',
+                'job': MagicMock(base_job.base_job),
+                'pool': 'pool',
+                'check_hosts': False,
+                'add_experimental': False,
+                'suite_dependencies': ['test_dep'],
+                'devserver_url': self._DEVSERVER_HOST
+        }
 
 
 

@@ -11,6 +11,8 @@ TIME='MEDIUM'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "hardware"
 TEST_TYPE = 'client'
+ATTRIBUTES = "suite:memory_qual2"
+PY_VERSION = 3
 
 DOC = """
 This test will use the lat_mem_rd benchmark from lmbench3 to measure memory

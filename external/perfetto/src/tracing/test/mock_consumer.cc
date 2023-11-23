@@ -39,13 +39,22 @@ MockConsumer::~MockConsumer() {
   task_runner_->RunUntilCheckpoint(checkpoint_name);
 }
 
-void MockConsumer::Connect(TracingService* svc, uid_t uid) {
-  service_endpoint_ = svc->ConnectConsumer(this, uid);
+void MockConsumer::Connect(
+    std::unique_ptr<TracingService::ConsumerEndpoint> service_endpoint) {
+  service_endpoint_ = std::move(service_endpoint);
   static int i = 0;
   auto checkpoint_name = "on_consumer_connect_" + std::to_string(i++);
   auto on_connect = task_runner_->CreateCheckpoint(checkpoint_name);
   EXPECT_CALL(*this, OnConnect()).WillOnce(Invoke(on_connect));
   task_runner_->RunUntilCheckpoint(checkpoint_name);
+}
+
+void MockConsumer::Connect(TracingService* svc, uid_t uid) {
+  Connect(svc->ConnectConsumer(this, uid));
+}
+
+void MockConsumer::ForceDisconnect() {
+  service_endpoint_.reset();
 }
 
 void MockConsumer::EnableTracing(const TraceConfig& trace_config,
@@ -67,6 +76,10 @@ void MockConsumer::DisableTracing() {
 
 void MockConsumer::FreeBuffers() {
   service_endpoint_->FreeBuffers();
+}
+
+void MockConsumer::CloneSession(TracingSessionID tsid) {
+  service_endpoint_->CloneSession(tsid);
 }
 
 void MockConsumer::WaitForTracingDisabled(uint32_t timeout_ms) {
@@ -104,18 +117,17 @@ std::vector<protos::gen::TracePacket> MockConsumer::ReadBuffers() {
   std::string checkpoint_name = "on_read_buffers_" + std::to_string(i++);
   auto on_read_buffers = task_runner_->CreateCheckpoint(checkpoint_name);
   EXPECT_CALL(*this, OnTraceData(_, _))
-      .WillRepeatedly(
-          Invoke([&decoded_packets, on_read_buffers](
-                     std::vector<TracePacket>* packets, bool has_more) {
-            for (TracePacket& packet : *packets) {
-              decoded_packets.emplace_back();
-              protos::gen::TracePacket* decoded_packet =
-                  &decoded_packets.back();
-              decoded_packet->ParseFromString(packet.GetRawBytesForTesting());
-            }
-            if (!has_more)
-              on_read_buffers();
-          }));
+      .WillRepeatedly(Invoke([&decoded_packets, on_read_buffers](
+                                 std::vector<TracePacket>* packets,
+                                 bool has_more) {
+        for (TracePacket& packet : *packets) {
+          decoded_packets.emplace_back();
+          protos::gen::TracePacket* decoded_packet = &decoded_packets.back();
+          decoded_packet->ParseFromString(packet.GetRawBytesForTesting());
+        }
+        if (!has_more)
+          on_read_buffers();
+      }));
   service_endpoint_->ReadBuffers();
   task_runner_->RunUntilCheckpoint(checkpoint_name);
   return decoded_packets;

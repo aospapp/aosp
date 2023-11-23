@@ -1,4 +1,4 @@
-// Copyright 2021 The Pigweed Authors
+// Copyright 2022 The Pigweed Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
 // use this file except in compliance with the License. You may obtain a copy of
@@ -12,8 +12,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-/* eslint-env browser, jasmine */
-import 'jasmine';
+/* eslint-env browser */
 
 import {
   Channel,
@@ -21,21 +20,21 @@ import {
   decode,
   MethodStub,
   ServiceClient,
-} from '@pigweed/pw_rpc';
-import {Status} from '@pigweed/pw_status';
+} from 'pigweedjs/pw_rpc';
+import {Status} from 'pigweedjs/pw_status';
 import {
   PacketType,
   RpcPacket,
-} from 'packet_proto_tspb/packet_proto_tspb_pb/pw_rpc/internal/packet_pb';
-import {ProtoCollection} from 'transfer_proto_collection/generated/ts_proto_collection';
-import {Chunk} from 'transfer_proto_tspb/transfer_proto_tspb_pb/pw_transfer/transfer_pb';
+} from 'pigweedjs/protos/pw_rpc/internal/packet_pb';
+import {ProtoCollection} from 'pigweedjs/protos/collection';
+import {Chunk} from 'pigweedjs/protos/pw_transfer/transfer_pb';
 
 import {Manager} from './client';
 import {ProgressStats} from './transfer';
 
 const DEFAULT_TIMEOUT_S = 0.3;
 
-describe('Encoder', () => {
+describe('Transfer client', () => {
   const textEncoder = new TextEncoder();
   const textDecoder = new TextDecoder();
   let client: Client;
@@ -112,13 +111,13 @@ describe('Encoder', () => {
   }
 
   function buildChunk(
-    transferId: number,
+    sessionId: number,
     offset: number,
     data: string,
     remainingBytes: number
   ): Chunk {
     const chunk = new Chunk();
-    chunk.setTransferId(transferId);
+    chunk.setTransferId(sessionId);
     chunk.setOffset(offset);
     chunk.setData(textEncoder.encode(data));
     chunk.setRemainingBytes(remainingBytes);
@@ -133,8 +132,8 @@ describe('Encoder', () => {
 
     const data = await manager.read(3);
     expect(textDecoder.decode(data)).toEqual('abc');
-    expect(sentChunks).toHaveSize(2);
-    expect(sentChunks[sentChunks.length - 1].hasStatus()).toBeTrue();
+    expect(sentChunks).toHaveLength(2);
+    expect(sentChunks[sentChunks.length - 1].hasStatus()).toBe(true);
     expect(sentChunks[sentChunks.length - 1].getStatus()).toEqual(Status.OK);
   });
 
@@ -147,8 +146,8 @@ describe('Encoder', () => {
 
     const data = await manager.read(3);
     expect(data).toEqual(textEncoder.encode('abcdef'));
-    expect(sentChunks).toHaveSize(2);
-    expect(sentChunks[sentChunks.length - 1].hasStatus()).toBeTrue();
+    expect(sentChunks).toHaveLength(2);
+    expect(sentChunks[sentChunks.length - 1].hasStatus()).toBe(true);
     expect(sentChunks[sentChunks.length - 1].getStatus()).toEqual(Status.OK);
   });
 
@@ -165,8 +164,8 @@ describe('Encoder', () => {
       progress.push(stats);
     });
     expect(textDecoder.decode(data)).toEqual('abcdef');
-    expect(sentChunks).toHaveSize(2);
-    expect(sentChunks[sentChunks.length - 1].hasStatus()).toBeTrue();
+    expect(sentChunks).toHaveLength(2);
+    expect(sentChunks[sentChunks.length - 1].hasStatus()).toBe(true);
     expect(sentChunks[sentChunks.length - 1].getStatus()).toEqual(Status.OK);
 
     expect(progress).toEqual([
@@ -190,8 +189,8 @@ describe('Encoder', () => {
 
     const data = await manager.read(3);
     expect(data).toEqual(textEncoder.encode('123456789'));
-    expect(sentChunks).toHaveSize(3);
-    expect(sentChunks[sentChunks.length - 1].hasStatus()).toBeTrue();
+    expect(sentChunks).toHaveLength(3);
+    expect(sentChunks[sentChunks.length - 1].hasStatus()).toBe(true);
     expect(sentChunks[sentChunks.length - 1].getStatus()).toEqual(Status.OK);
   });
 
@@ -205,8 +204,8 @@ describe('Encoder', () => {
     expect(textDecoder.decode(data)).toEqual('xyz');
 
     // Two transfer parameter requests should have been sent.
-    expect(sentChunks).toHaveSize(3);
-    expect(sentChunks[sentChunks.length - 1].hasStatus()).toBeTrue();
+    expect(sentChunks).toHaveLength(3);
+    expect(sentChunks[sentChunks.length - 1].hasStatus()).toBe(true);
     expect(sentChunks[sentChunks.length - 1].getStatus()).toEqual(Status.OK);
   });
 
@@ -221,7 +220,7 @@ describe('Encoder', () => {
       .catch(error => {
         expect(error.id).toEqual(27);
         expect(Status[error.status]).toEqual(Status[Status.DEADLINE_EXCEEDED]);
-        expect(sentChunks).toHaveSize(4);
+        expect(sentChunks).toHaveLength(4);
       });
   });
 
@@ -278,7 +277,7 @@ describe('Encoder', () => {
     ]);
 
     await manager.write(4, textEncoder.encode('hello'));
-    expect(sentChunks).toHaveSize(2);
+    expect(sentChunks).toHaveLength(2);
     expect(receivedData()).toEqual(textEncoder.encode('hello'));
   });
 
@@ -301,7 +300,7 @@ describe('Encoder', () => {
     ]);
 
     await manager.write(4, textEncoder.encode('hello world'));
-    expect(sentChunks).toHaveSize(3);
+    expect(sentChunks).toHaveLength(3);
     expect(receivedData()).toEqual(textEncoder.encode('hello world'));
     expect(sentChunks[1].getData()).toEqual(textEncoder.encode('hello wo'));
     expect(sentChunks[2].getData()).toEqual(textEncoder.encode('rld'));
@@ -333,7 +332,7 @@ describe('Encoder', () => {
     ]);
 
     await manager.write(4, textEncoder.encode('data to write'));
-    expect(sentChunks).toHaveSize(3);
+    expect(sentChunks).toHaveLength(3);
     expect(receivedData()).toEqual(textEncoder.encode('data to write'));
     expect(sentChunks[1].getData()).toEqual(textEncoder.encode('data to '));
     expect(sentChunks[2].getData()).toEqual(textEncoder.encode('write'));
@@ -444,7 +443,7 @@ describe('Encoder', () => {
         progress.push(stats);
       }
     );
-    expect(sentChunks).toHaveSize(3);
+    expect(sentChunks).toHaveLength(3);
     expect(receivedData()).toEqual(textEncoder.encode('data to write'));
     expect(sentChunks[1].getData()).toEqual(textEncoder.encode('data to '));
     expect(sentChunks[2].getData()).toEqual(textEncoder.encode('write'));
@@ -497,7 +496,7 @@ describe('Encoder', () => {
     ]);
 
     await manager.write(4, textEncoder.encode('pigweed data transfer'));
-    expect(sentChunks).toHaveSize(5);
+    expect(sentChunks).toHaveLength(5);
     expect(sentChunks[1].getData()).toEqual(textEncoder.encode('pigweed '));
     expect(sentChunks[2].getData()).toEqual(textEncoder.encode('data tra'));
     expect(sentChunks[3].getData()).toEqual(textEncoder.encode('eed data'));
@@ -589,7 +588,7 @@ describe('Encoder', () => {
         fail('unexpected succesful write');
       })
       .catch(error => {
-        expect(sentChunks).toHaveSize(3); // Initial chunk + two retries.
+        expect(sentChunks).toHaveLength(3); // Initial chunk + two retries.
         expect(error.id).toEqual(22);
         expect(Status[error.status]).toEqual(Status[Status.DEADLINE_EXCEEDED]);
       });
@@ -613,17 +612,18 @@ describe('Encoder', () => {
       .catch(error => {
         const expectedChunk1 = new Chunk();
         expectedChunk1.setTransferId(22);
-        expectedChunk1.setType(Chunk.Type.TRANSFER_START);
+        expectedChunk1.setResourceId(22);
+        expectedChunk1.setType(Chunk.Type.START);
         const expectedChunk2 = new Chunk();
         expectedChunk2.setTransferId(22);
         expectedChunk2.setData(textEncoder.encode('01234'));
-        expectedChunk2.setType(Chunk.Type.TRANSFER_DATA);
+        expectedChunk2.setType(Chunk.Type.DATA);
         const lastChunk = new Chunk();
         lastChunk.setTransferId(22);
         lastChunk.setData(textEncoder.encode('56789'));
         lastChunk.setOffset(5);
         lastChunk.setRemainingBytes(0);
-        lastChunk.setType(Chunk.Type.TRANSFER_DATA);
+        lastChunk.setType(Chunk.Type.DATA);
 
         const expectedChunks = [
           expectedChunk1,

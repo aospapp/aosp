@@ -12,9 +12,10 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
-#include <functional>
 #include <random>
 #include <vector>
+
+#include <fp16.h>
 
 #include <xnnpack.h>
 
@@ -149,16 +150,75 @@ class ELUOperatorTester {
     return this->iterations_;
   }
 
+  void TestF16() const {
+    std::random_device random_device;
+    auto rng = std::mt19937(random_device());
+    std::uniform_real_distribution<float> f32dist(-25.0f, 25.0f);
+
+    std::vector<uint16_t> input((batch_size() - 1) * input_stride() + channels() + XNN_EXTRA_BYTES / sizeof(uint16_t));
+    std::vector<uint16_t> output((batch_size() - 1) * output_stride() + channels());
+    std::vector<float> output_ref(batch_size() * channels());
+    for (size_t iteration = 0; iteration < iterations(); iteration++) {
+      std::generate(input.begin(), input.end(), [&]() { return fp16_ieee_from_fp32_value(f32dist(rng)); });
+      std::fill(output.begin(), output.end(), UINT16_C(0x7E00) /* NaN */);
+
+      // Compute reference results.
+      for (size_t i = 0; i < batch_size(); i++) {
+        for (size_t c = 0; c < channels(); c++) {
+          const float x = fp16_ieee_to_fp32_value(input[i * input_stride() + c]);
+          output_ref[i * channels() + c] = std::signbit(x) ? std::expm1(x) * alpha() : x;
+        }
+      }
+
+      // Create, setup, run, and destroy ELU operator.
+      ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
+      xnn_operator_t elu_op = nullptr;
+
+      const xnn_status status = xnn_create_elu_nc_f16(
+          channels(), input_stride(), output_stride(),
+          alpha(),
+          0, &elu_op);
+      if (status == xnn_status_unsupported_hardware) {
+        GTEST_SKIP();
+      }
+      ASSERT_EQ(xnn_status_success, status);
+      ASSERT_NE(nullptr, elu_op);
+
+      // Smart pointer to automatically delete elu_op.
+      std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_elu_op(elu_op, xnn_delete_operator);
+
+      ASSERT_EQ(xnn_status_success,
+        xnn_setup_elu_nc_f16(
+          elu_op,
+          batch_size(),
+          input.data(), output.data(),
+          nullptr /* thread pool */));
+
+      ASSERT_EQ(xnn_status_success,
+        xnn_run_operator(elu_op, nullptr /* thread pool */));
+
+      // Verify results.
+      for (size_t i = 0; i < batch_size(); i++) {
+        for (size_t c = 0; c < channels(); c++) {
+          ASSERT_NEAR(
+              fp16_ieee_to_fp32_value(output[i * output_stride() + c]),
+              output_ref[i * channels() + c],
+              std::max(1.0e-4f, std::abs(output_ref[i * channels() + c]) * 5.0e-3f));
+        }
+      }
+    }
+  }
+
   void TestF32() const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(-20.0f, 20.0f), std::ref(rng));
+    std::uniform_real_distribution<float> f32dist(-20.0f, 20.0f);
 
     std::vector<float> input(XNN_EXTRA_BYTES / sizeof(float) + (batch_size() - 1) * input_stride() + channels());
     std::vector<float> output((batch_size() - 1) * output_stride() + channels());
     std::vector<double> output_ref(batch_size() * channels());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(input.begin(), input.end(), std::ref(f32rng));
+      std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
       std::fill(output.begin(), output.end(), std::nanf(""));
 
       // Compute reference results.
@@ -209,16 +269,15 @@ class ELUOperatorTester {
   void TestQS8() const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto i8rng = std::bind(
-      std::uniform_int_distribution<int32_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()),
-      std::ref(rng));
+    std::uniform_int_distribution<int32_t> i8dist(
+      std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max());
 
     std::vector<int8_t> input((batch_size() - 1) * input_stride() + channels() + XNN_EXTRA_BYTES / sizeof(int8_t));
     std::vector<int8_t> output((batch_size() - 1) * output_stride() + channels());
     std::vector<float> output_ref(batch_size() * channels());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(input.begin(), input.end(), std::ref(i8rng));
-      std::fill(output.begin(), output.end(), 0xA5);
+      std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
+      std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
       // Compute reference results.
       for (size_t i = 0; i < batch_size(); i++) {
@@ -249,7 +308,7 @@ class ELUOperatorTester {
       ASSERT_NE(nullptr, elu_op);
 
       // Smart pointer to automatically delete elu_op.
-      std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_sigmoid_op(elu_op, xnn_delete_operator);
+      std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_elu_op(elu_op, xnn_delete_operator);
 
       ASSERT_EQ(xnn_status_success,
         xnn_setup_elu_nc_qs8(

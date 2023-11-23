@@ -41,5 +41,5 @@ cc_test {
         "-Wall",
     ],
     ldflags: ["-Wl,-Bsymbolic"],
-    clang: true,
+
 }

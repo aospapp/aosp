@@ -79,8 +79,17 @@ java_library_static {
     errorprone: {
         javacflags: [
             "-Xep:CollectionIncompatibleType:WARN",  // b/74213384
+            "-Xep:BoxedPrimitiveEquality:WARN",
         ],
     }
+}
+
+// Compatibility library for Maven artifact naming scheme
+java_library_static {
+    name: "mockito-core",
+    hostdex: true,
+    static_libs: ["mockito"],
+    sdk_version: "core_current",
 }
 
 // Compatibility library for old name of host target

@@ -26,7 +26,7 @@ kt_jvm_library(
     srcs = glob(["*.kt"]),
     tags = ["maven_coordinates=com.google.dagger:dagger-lint:" + POM_VERSION],
     deps = [
-        "@google_bazel_common//third_party/java/auto:service",
+        "//third_party/java/auto:service",
         "@maven//:com_android_tools_external_com_intellij_intellij_core",
         "@maven//:com_android_tools_external_com_intellij_kotlin_compiler",
         "@maven//:com_android_tools_external_org_jetbrains_uast",

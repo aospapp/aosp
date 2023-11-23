@@ -2,7 +2,7 @@
 //!
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
 //! [crates-io]: https://img.shields.io/badge/crates.io-fc8d62?style=for-the-badge&labelColor=555555&logo=rust
-//! [docs-rs]: https://img.shields.io/badge/docs.rs-66c2a5?style=for-the-badge&labelColor=555555&logoColor=white&logo=data:image/svg+xml;base64,PHN2ZyByb2xlPSJpbWciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmlld0JveD0iMCAwIDUxMiA1MTIiPjxwYXRoIGZpbGw9IiNmNWY1ZjUiIGQ9Ik00ODguNiAyNTAuMkwzOTIgMjE0VjEwNS41YzAtMTUtOS4zLTI4LjQtMjMuNC0zMy43bC0xMDAtMzcuNWMtOC4xLTMuMS0xNy4xLTMuMS0yNS4zIDBsLTEwMCAzNy41Yy0xNC4xIDUuMy0yMy40IDE4LjctMjMuNCAzMy43VjIxNGwtOTYuNiAzNi4yQzkuMyAyNTUuNSAwIDI2OC45IDAgMjgzLjlWMzk0YzAgMTMuNiA3LjcgMjYuMSAxOS45IDMyLjJsMTAwIDUwYzEwLjEgNS4xIDIyLjEgNS4xIDMyLjIgMGwxMDMuOS01MiAxMDMuOSA1MmMxMC4xIDUuMSAyMi4xIDUuMSAzMi4yIDBsMTAwLTUwYzEyLjItNi4xIDE5LjktMTguNiAxOS45LTMyLjJWMjgzLjljMC0xNS05LjMtMjguNC0yMy40LTMzLjd6TTM1OCAyMTQuOGwtODUgMzEuOXYtNjguMmw4NS0zN3Y3My4zek0xNTQgMTA0LjFsMTAyLTM4LjIgMTAyIDM4LjJ2LjZsLTEwMiA0MS40LTEwMi00MS40di0uNnptODQgMjkxLjFsLTg1IDQyLjV2LTc5LjFsODUtMzguOHY3NS40em0wLTExMmwtMTAyIDQxLjQtMTAyLTQxLjR2LS42bDEwMi0zOC4yIDEwMiAzOC4ydi42em0yNDAgMTEybC04NSA0Mi41di03OS4xbDg1LTM4Ljh2NzUuNHptMC0xMTJsLTEwMiA0MS40LTEwMi00MS40di0uNmwxMDItMzguMiAxMDIgMzguMnYuNnoiPjwvcGF0aD48L3N2Zz4K
+//! [docs-rs]: https://img.shields.io/badge/docs.rs-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs
 //!
 //! <br>
 //!
@@ -364,10 +364,11 @@
 //! </table>
 
 #![no_std]
-#![doc(html_root_url = "https://docs.rs/cxx/1.0.54")]
+#![doc(html_root_url = "https://docs.rs/cxx/1.0.85")]
 #![deny(improper_ctypes, improper_ctypes_definitions, missing_docs)]
 #![cfg_attr(not(no_unsafe_op_in_unsafe_fn_lint), deny(unsafe_op_in_unsafe_fn))]
 #![cfg_attr(no_unsafe_op_in_unsafe_fn_lint, allow(unused_unsafe))]
+#![cfg_attr(doc_cfg, feature(doc_cfg))]
 #![allow(non_camel_case_types)]
 #![allow(
     clippy::cognitive_complexity,
@@ -388,6 +389,7 @@
     clippy::or_fun_call,
     clippy::ptr_arg,
     clippy::toplevel_ref_arg,
+    clippy::transmute_undefined_repr, // clippy bug: https://github.com/rust-lang/rust-clippy/issues/8417
     clippy::useless_let_if_seq,
     clippy::wrong_self_convention
 )]
@@ -395,18 +397,53 @@
 #[cfg(built_with_cargo)]
 extern crate link_cplusplus;
 
-extern crate alloc;
 extern crate self as cxx;
-extern crate std;
+
+#[doc(hidden)]
+pub extern crate core;
+
+#[cfg(feature = "alloc")]
+#[doc(hidden)]
+pub extern crate alloc;
+
+#[cfg(not(feature = "alloc"))]
+extern crate core as alloc;
+
+#[cfg(feature = "std")]
+#[doc(hidden)]
+pub extern crate std;
+
+// Block inadvertent use of items from libstd, which does not otherwise produce
+// a compile-time error on edition 2018+.
+#[cfg(not(feature = "std"))]
+extern crate core as std;
+
+#[cfg(not(any(feature = "alloc", cxx_experimental_no_alloc)))]
+compile_error! {
+    r#"cxx support for no_alloc is incomplete and semver exempt; you must build with at least one of feature="std", feature="alloc", or RUSTFLAGS='--cfg cxx_experimental_no_alloc'"#
+}
+
+#[cfg(all(compile_error_if_alloc, feature = "alloc"))]
+compile_error! {
+    r#"feature="alloc" is unexpectedly enabled"#
+}
+
+#[cfg(all(compile_error_if_std, feature = "std"))]
+compile_error! {
+    r#"feature="std" is unexpectedly enabled"#
+}
 
 #[macro_use]
 mod macros;
 
+mod c_char;
 mod cxx_vector;
 mod exception;
 mod extern_type;
 mod fmt;
 mod function;
+mod hash;
+mod lossy;
 pub mod memory;
 mod opaque;
 mod result;
@@ -416,6 +453,7 @@ mod rust_string;
 mod rust_type;
 mod rust_vec;
 mod shared_ptr;
+mod sip;
 #[path = "cxx_string.rs"]
 mod string;
 mod symbols;
@@ -426,6 +464,7 @@ pub mod vector;
 mod weak_ptr;
 
 pub use crate::cxx_vector::CxxVector;
+#[cfg(feature = "alloc")]
 pub use crate::exception::Exception;
 pub use crate::extern_type::{kind, ExternType};
 pub use crate::shared_ptr::SharedPtr;
@@ -451,21 +490,27 @@ pub type Vector<T> = CxxVector<T>;
 // Not public API.
 #[doc(hidden)]
 pub mod private {
+    pub use crate::c_char::c_char;
     pub use crate::cxx_vector::VectorElement;
     pub use crate::extern_type::{verify_extern_kind, verify_extern_type};
     pub use crate::function::FatFunction;
+    pub use crate::hash::hash;
     pub use crate::opaque::Opaque;
+    #[cfg(feature = "alloc")]
     pub use crate::result::{r#try, Result};
     pub use crate::rust_slice::RustSlice;
     pub use crate::rust_str::RustStr;
+    #[cfg(feature = "alloc")]
     pub use crate::rust_string::RustString;
     pub use crate::rust_type::{ImplBox, ImplVec, RustType};
+    #[cfg(feature = "alloc")]
     pub use crate::rust_vec::RustVec;
     pub use crate::shared_ptr::SharedPtrTarget;
     pub use crate::string::StackString;
     pub use crate::unique_ptr::UniquePtrTarget;
-    pub use crate::unwind::catch_unwind;
+    pub use crate::unwind::prevent_unwind;
     pub use crate::weak_ptr::WeakPtrTarget;
+    pub use core::{concat, module_path};
     pub use cxxbridge_macro::type_id;
 }
 

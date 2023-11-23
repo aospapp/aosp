@@ -1,10 +1,17 @@
+# Lint as: python2, python3
 # Please keep this code python 2.4 compatible and stand alone.
 
-import logging, os, shutil, sys, tempfile, time, urllib2
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import logging, os, shutil, sys, tempfile, time
+from six.moves import urllib
 import subprocess, re
 from distutils.version import LooseVersion
 
 from autotest_lib.client.common_lib import autotemp, revision_control, utils
+import six
 
 _READ_SIZE = 64*1024
 _MAX_PACKAGE_SIZE = 100*1024*1024
@@ -161,7 +168,7 @@ class ExternalPackage(object):
             return True
         try:
             module = __import__(self.module_name)
-        except ImportError, e:
+        except ImportError as e:
             logging.info("%s isn't present. Will install.", self.module_name)
             return True
         # Check if we're getting a module installed somewhere else,
@@ -235,7 +242,7 @@ class ExternalPackage(object):
         if not self.os_requirements:
             return
         failed = False
-        for file_names, package_name in self.os_requirements.iteritems():
+        for file_names, package_name in six.iteritems(self.os_requirements):
             if not any(os.path.exists(file_name) for file_name in file_names):
                 failed = True
                 logging.error('Can\'t find %s, %s probably needs it.',
@@ -553,8 +560,8 @@ class ExternalPackage(object):
         for url in self.urls:
             logging.info('Fetching %s', url)
             try:
-                url_file = urllib2.urlopen(url)
-            except (urllib2.URLError, EnvironmentError):
+                url_file = urllib.request.urlopen(url)
+            except (urllib.error.URLError, EnvironmentError):
                 logging.warning('Could not fetch %s package from %s.',
                                 self.name, url)
                 continue
@@ -563,7 +570,7 @@ class ExternalPackage(object):
                                                   _MAX_PACKAGE_SIZE))
             if data_length <= 0 or data_length > _MAX_PACKAGE_SIZE:
                 raise FetchError('%s from %s fails Content-Length %d '
-                                 'sanity check.' % (self.name, url,
+                                 'validity check.' % (self.name, url,
                                                     data_length))
             checksum = utils.hash('sha1')
             total_read = 0
@@ -622,10 +629,10 @@ class SetuptoolsPackage(ExternalPackage):
         if not egg_path:
             return False
 
-        print '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
-        print 'About to run sudo to install setuptools', self.version
-        print 'on your system for use by', sys.executable, '\n'
-        print '!! ^C within', self.SUDO_SLEEP_DELAY, 'seconds to abort.\n'
+        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n')
+        print('About to run sudo to install setuptools', self.version)
+        print('on your system for use by', sys.executable, '\n')
+        print('!! ^C within', self.SUDO_SLEEP_DELAY, 'seconds to abort.\n')
         time.sleep(self.SUDO_SLEEP_DELAY)
 
         # Copy the egg to the local filesystem /var/tmp so that root can
@@ -638,7 +645,7 @@ class SetuptoolsPackage(ExternalPackage):
             p = subprocess.Popen(['sudo', '/bin/sh', temp_egg],
                                  stdout=subprocess.PIPE)
             regex = re.compile('Copying (.*?) to (.*?)\n')
-            match = regex.search(p.communicate()[0])
+            match = regex.search(p.communicate()[0].decode('utf-8'))
             status = p.wait()
 
             if match:
@@ -709,24 +716,6 @@ class NumpyPackage(ExternalPackage):
     _build_and_install = ExternalPackage._build_and_install_from_package
     _build_and_install_current_dir = (
             ExternalPackage._build_and_install_current_dir_setupegg_py)
-
-
-
-class JsonRPCLib(ExternalPackage):
-    """jsonrpclib package"""
-    version = '0.1.3'
-    module_name = 'jsonrpclib'
-    local_filename = '%s-%s.tar.gz' % (module_name, version)
-    urls = (_CHROMEOS_MIRROR + local_filename,)
-    hex_sum = '431714ed19ab677f641ce5d678a6a95016f5c452'
-
-    def _get_installed_version_from_module(self, module):
-        # jsonrpclib doesn't contain a proper version
-        return self.version
-
-    _build_and_install = ExternalPackage._build_and_install_from_package
-    _build_and_install_current_dir = (
-                        ExternalPackage._build_and_install_current_dir_noegg)
 
 
 class GwtPackage(ExternalPackage):
@@ -864,34 +853,13 @@ class PsutilPackage(ExternalPackage):
                         ExternalPackage._build_and_install_current_dir_setup_py)
 
 
-class ElasticSearchPackage(ExternalPackage):
-    """elasticsearch-py package."""
-    version = '1.6.0'
-    url_filename = 'elasticsearch-%s.tar.gz' % version
-    local_filename = url_filename
-    urls = ('https://pypi.python.org/packages/source/e/elasticsearch/%s' %
-            (url_filename),)
-    hex_sum = '3e676c96f47935b1f52df82df3969564bd356b1c'
-    _build_and_install = ExternalPackage._build_and_install_from_package
-    _build_and_install_current_dir = (
-            ExternalPackage._build_and_install_current_dir_setup_py)
-
-    def _get_installed_version_from_module(self, module):
-        # Elastic's version format is like tuple (1, 6, 0), which needs to be
-        # transferred to 1.6.0.
-        try:
-            return '.'.join(str(i) for i in module.__version__)
-        except:
-            return self.version
-
-
 class Urllib3Package(ExternalPackage):
     """elasticsearch-py package."""
-    version = '1.9'
+    version = '1.23'
     url_filename = 'urllib3-%s.tar.gz' % version
     local_filename = url_filename
     urls = (_CHROMEOS_MIRROR + local_filename,)
-    hex_sum = '9522197efb2a2b49ce804de3a515f06d97b6602f'
+    hex_sum = '0c54209c397958a7cebe13cb453ec8ef5833998d'
     _build_and_install = ExternalPackage._build_and_install_from_package
     _build_and_install_current_dir = (
             ExternalPackage._build_and_install_current_dir_setup_py)
@@ -1000,6 +968,18 @@ class SixPackage(ExternalPackage):
             ExternalPackage._build_and_install_current_dir_setup_py)
 
 
+class SetuptoolsScmPackage(ExternalPackage):
+    """setuptools_scm package."""
+    version = '5.0.2'
+    url_filename = 'setuptools_scm-%s.tar.gz' % version
+    local_filename = url_filename
+    urls = (_CHROMEOS_MIRROR + local_filename, )
+    hex_sum = '28ec9ce4a5270f82f07e919398c74221da67a8bb'
+    _build_and_install = ExternalPackage._build_and_install_from_package
+    _build_and_install_current_dir = (
+            ExternalPackage._build_and_install_current_dir_setup_py)
+
+
 class LruCachePackage(ExternalPackage):
     """backports.functools_lru_cache package (dependency for astroid)."""
     version = '1.4'
@@ -1020,6 +1000,18 @@ class LogilabCommonPackage(ExternalPackage):
     local_filename = url_filename
     urls = (_CHROMEOS_MIRROR + local_filename,)
     hex_sum = 'ecad2d10c31dcf183c8bed87b6ec35e7ed397d27'
+    _build_and_install = ExternalPackage._build_and_install_from_package
+    _build_and_install_current_dir = (
+            ExternalPackage._build_and_install_current_dir_setup_py)
+
+
+class PytestRunnerPackage(ExternalPackage):
+    """pytest-runner package."""
+    version = '5.2'
+    url_filename = 'pytest-runner-%s.tar.gz' % version
+    local_filename = url_filename
+    urls = (_CHROMEOS_MIRROR + local_filename,)
+    hex_sum = '3427663b575c5d885ea3869a1be09aca36517f74'
     _build_and_install = ExternalPackage._build_and_install_from_package
     _build_and_install_current_dir = (
             ExternalPackage._build_and_install_current_dir_setup_py)
@@ -1073,33 +1065,6 @@ class DateutilPackage(ExternalPackage):
             ExternalPackage._build_and_install_current_dir_setup_py)
 
 
-class Pytz(ExternalPackage):
-    """Pytz package."""
-    version = '2016.10'
-    url_filename = 'pytz-%s.tar.gz' % version
-    local_filename = url_filename
-    #md5=cc9f16ba436efabdcef3c4d32ae4919c
-    urls = ('https://pypi.python.org/packages/42/00/'
-            '5c89fc6c9b305df84def61863528e899e9dccb196f8438f6cbe960758fc5/%s' %
-            (url_filename),)
-    hex_sum = '8d63f1e9b1ee862841b990a7d8ad1d4508d9f0be'
-    _build_and_install = ExternalPackage._build_and_install_from_package
-    _build_and_install_current_dir = (
-            ExternalPackage._build_and_install_current_dir_setup_py)
-
-
-class Tzlocal(ExternalPackage):
-    """Tzlocal package."""
-    version = '1.3'
-    url_filename = 'tzlocal-%s.tar.gz' % version
-    local_filename = url_filename
-    urls = (_CHROMEOS_MIRROR + local_filename,)
-    hex_sum = '730e9d7112335865a1dcfabec69c8c3086be424f'
-    _build_and_install = ExternalPackage._build_and_install_from_package
-    _build_and_install_current_dir = (
-            ExternalPackage._build_and_install_current_dir_setup_py)
-
-
 class PyYAMLPackage(ExternalPackage):
     """pyyaml package."""
     version = '3.12'
@@ -1117,17 +1082,6 @@ class GoogleAuthPackage(ExternalPackage):
     local_filename = 'google-auth-%s.tar.gz' % version
     urls = (_CHROMEOS_MIRROR + local_filename,)
     hex_sum = 'a76f97686ebe42097d91e0996a72b26b54118f3b'
-    _build_and_install = ExternalPackage._build_and_install_from_package
-    _build_and_install_current_dir = (
-            ExternalPackage._build_and_install_current_dir_setup_py)
-
-
-class CachetoolsPackage(ExternalPackage):
-    """Cachetools package."""
-    version = '3.1.1'
-    local_filename = 'cachetools-%s.tar.gz' % version
-    urls = (_CHROMEOS_MIRROR + local_filename,)
-    hex_sum = 'd030bfdfa91b0b1188993f5e8d7da077308c1eaf'
     _build_and_install = ExternalPackage._build_and_install_from_package
     _build_and_install_current_dir = (
             ExternalPackage._build_and_install_current_dir_setup_py)
@@ -1208,7 +1162,6 @@ class _ExternalGitRepo(ExternalPackage):
     # All the chromiumos projects used on the lab servers should have a 'prod'
     # branch used to track the software version deployed in prod.
     PROD_BRANCH = 'prod'
-    MASTER_BRANCH = 'master'
 
     def is_needed(self, unused_install_dir):
         """Tell build_externals that we need to fetch."""
@@ -1237,6 +1190,7 @@ class HdctoolsRepo(_ExternalGitRepo):
     temp_hdctools_dir = tempfile.mktemp(suffix='hdctools')
     _GIT_URL = ('https://chromium.googlesource.com/'
                 'chromiumos/third_party/hdctools')
+    MAIN_BRANCH = 'main'
 
     def fetch(self, unused_dest_dir):
         """
@@ -1281,20 +1235,21 @@ class ChromiteRepo(_ExternalGitRepo):
     """Clones or updates the chromite repo."""
 
     _GIT_URL = ('https://chromium.googlesource.com/chromiumos/chromite')
+    MAIN_BRANCH = 'main'
 
-    def build_and_install(self, install_dir, master_branch=False):
+    def build_and_install(self, install_dir, main_branch=False):
         """
         Clone if the repo isn't initialized, pull clean bits if it is.
 
-        Unlike it's hdctools counterpart the chromite repo clones master
+        Unlike it's hdctools counterpart the chromite repo clones main
         directly into site-packages. It doesn't use an intermediate temp
         directory because it doesn't need installation.
 
         @param install_dir: destination directory for chromite installation.
-        @param master_branch: if True, install master branch. Otherwise,
+        @param main_branch: if True, install main branch. Otherwise,
                               install prod branch.
         """
-        init_branch = (self.MASTER_BRANCH if master_branch
+        init_branch = (self.MAIN_BRANCH if main_branch
                        else self.PROD_BRANCH)
         local_chromite_dir = os.path.join(install_dir, 'chromite')
         git_repo = revision_control.GitRepo(
@@ -1309,38 +1264,14 @@ class ChromiteRepo(_ExternalGitRepo):
         return False
 
 
-class SuiteSchedulerRepo(_ExternalGitRepo):
-    """Clones or updates the suite_scheduler repo."""
-
-    _GIT_URL = ('https://chromium.googlesource.com/chromiumos/'
-                'infra/suite_scheduler')
-
-    def build_and_install(self, install_dir):
-        """
-        Clone if the repo isn't initialized, pull clean bits if it is.
-
-        @param install_dir: destination directory for suite_scheduler
-                            installation.
-        @param master_branch: if True, install master branch. Otherwise,
-                              install prod branch.
-        """
-        local_dir = os.path.join(install_dir, 'suite_scheduler')
-        git_repo = revision_control.GitRepo(
-                local_dir,
-                self._GIT_URL,
-                abs_work_tree=local_dir)
-        git_repo.reinit_repo_at(self.MASTER_BRANCH)
-
-        if git_repo.get_latest_commit_hash():
-            return True
-        return False
-
-
 class BtsocketRepo(_ExternalGitRepo):
     """Clones or updates the btsocket repo."""
 
     _GIT_URL = ('https://chromium.googlesource.com/'
                 'chromiumos/platform/btsocket')
+    # TODO b:169251326 terms below are set outside of this codebase and should
+    # be updated when possible ("master" -> "main").
+    MAIN_BRANCH = 'master'
 
     def fetch(self, unused_dest_dir):
         """
@@ -1398,6 +1329,9 @@ class SkylabInventoryRepo(_ExternalGitRepo):
 
     _GIT_URL = ('https://chromium.googlesource.com/chromiumos/infra/'
                 'skylab_inventory')
+    # TODO b:169251326 terms below are set outside of this codebase and should
+    # be updated when possible ("master" -> "main").
+    MAIN_BRANCH = 'master'
 
     # TODO(nxia): create a prod branch for skylab_inventory.
     def build_and_install(self, install_dir):
@@ -1410,7 +1344,7 @@ class SkylabInventoryRepo(_ExternalGitRepo):
                 local_skylab_dir,
                 self._GIT_URL,
                 abs_work_tree=local_skylab_dir)
-        git_repo.reinit_repo_at(self.MASTER_BRANCH)
+        git_repo.reinit_repo_at(self.MAIN_BRANCH)
 
         # The top-level __init__.py for skylab is at venv/skylab_inventory.
         source = os.path.join(local_skylab_dir, 'venv', 'skylab_inventory')

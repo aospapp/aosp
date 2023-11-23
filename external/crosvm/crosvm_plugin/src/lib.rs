@@ -1,7 +1,8 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#![cfg(unix)]
 #![cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #![allow(non_camel_case_types)]
 
@@ -18,32 +19,53 @@
 
 use std::env;
 use std::fs::File;
-use std::io::{IoSlice, IoSliceMut, Read, Write};
-use std::mem::{size_of, swap};
-use std::os::raw::{c_int, c_void};
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::io::IoSlice;
+use std::io::IoSliceMut;
+use std::io::Read;
+use std::io::Write;
+use std::mem::size_of;
+use std::mem::swap;
+use std::os::raw::c_int;
+use std::os::raw::c_void;
+use std::os::unix::io::AsRawFd;
+use std::os::unix::io::FromRawFd;
+use std::os::unix::io::IntoRawFd;
+use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixDatagram;
-use std::ptr::{self, null_mut};
+use std::ptr;
+use std::ptr::null_mut;
 use std::result;
 use std::slice;
-use std::slice::{from_raw_parts, from_raw_parts_mut};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::slice::from_raw_parts;
+use std::slice::from_raw_parts_mut;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-use libc::{E2BIG, EINVAL, ENOENT, ENOTCONN, EPROTO};
-
-use protobuf::{Message, ProtobufEnum, RepeatedField};
-
 use base::ScmSocket;
-
 use kvm::dirty_log_bitmap_size;
-
-use kvm_sys::{
-    kvm_clock_data, kvm_cpuid_entry2, kvm_debugregs, kvm_fpu, kvm_ioapic_state, kvm_lapic_state,
-    kvm_mp_state, kvm_msr_entry, kvm_pic_state, kvm_pit_state2, kvm_regs, kvm_sregs,
-    kvm_vcpu_events, kvm_xcrs,
-};
-
+use kvm_sys::kvm_clock_data;
+use kvm_sys::kvm_cpuid_entry2;
+use kvm_sys::kvm_debugregs;
+use kvm_sys::kvm_fpu;
+use kvm_sys::kvm_ioapic_state;
+use kvm_sys::kvm_lapic_state;
+use kvm_sys::kvm_mp_state;
+use kvm_sys::kvm_msr_entry;
+use kvm_sys::kvm_pic_state;
+use kvm_sys::kvm_pit_state2;
+use kvm_sys::kvm_regs;
+use kvm_sys::kvm_sregs;
+use kvm_sys::kvm_vcpu_events;
+use kvm_sys::kvm_xcrs;
+use libc::E2BIG;
+use libc::EINVAL;
+use libc::ENOENT;
+use libc::ENOTCONN;
+use libc::EPROTO;
+use protobuf::Message;
+use protobuf::ProtobufEnum;
+use protobuf::RepeatedField;
 use protos::plugin::*;
 
 #[cfg(feature = "stats")]
@@ -287,7 +309,7 @@ impl crosvm {
     }
 
     fn get_id_allocator(&self) -> &IdAllocator {
-        &*self.id_allocator
+        &self.id_allocator
     }
 
     fn main_transaction(
@@ -1368,19 +1390,6 @@ fn to_crosvm_rc<T>(r: result::Result<T, c_int>) -> c_int {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn crosvm_get_render_server_fd() -> c_int {
-    let fd = match env::var(CROSVM_GPU_SERVER_FD_ENV) {
-        Ok(v) => v,
-        _ => return -EINVAL,
-    };
-
-    match fd.parse() {
-        Ok(v) if v >= 0 => v,
-        _ => -EINVAL,
-    }
-}
-
-#[no_mangle]
 pub unsafe extern "C" fn crosvm_connect(out: *mut *mut crosvm) -> c_int {
     let _u = record(Stat::Connect);
     let socket_name = match env::var(CROSVM_SOCKET_ENV) {
@@ -1419,7 +1428,7 @@ pub unsafe extern "C" fn crosvm_new_connection(self_: *mut crosvm, out: *mut *mu
 #[no_mangle]
 pub unsafe extern "C" fn crosvm_destroy_connection(self_: *mut *mut crosvm) -> c_int {
     let _u = record(Stat::DestroyConnection);
-    Box::from_raw(*self_);
+    drop(Box::from_raw(*self_));
     *self_ = null_mut();
     0
 }

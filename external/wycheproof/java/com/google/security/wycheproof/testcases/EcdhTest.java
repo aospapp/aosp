@@ -990,7 +990,7 @@ public class EcdhTest extends TestCase {
     testModifiedPublicSpec("ECDHC");
   }
 
-  @SuppressWarnings("InsecureCryptoUsage")
+  @SuppressWarnings({"InsecureCryptoUsage", "JUnit3TestNotRun"})
   public void testDistinctCurves(String algorithm, ECPrivateKey priv, ECPublicKey pub)
       throws Exception {
     KeyAgreement kaA;

@@ -16,34 +16,25 @@
 
 package dagger.internal.codegen.binding;
 
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
 import static com.google.common.base.Suppliers.memoize;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.STATIC;
 
 import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.model.BindingKind;
-import dagger.model.DependencyRequest;
-import dagger.model.Scope;
-import java.util.List;
+import dagger.spi.model.BindingKind;
+import dagger.spi.model.DependencyRequest;
+import dagger.spi.model.Scope;
 import java.util.Optional;
 import java.util.Set;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.TypeParameterElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.SimpleTypeVisitor6;
 
 /**
- * An abstract type for classes representing a Dagger binding. Particularly, contains the {@link
- * Element} that generated the binding and the {@link DependencyRequest} instances that are required
- * to satisfy the binding, but leaves the specifics of the <i>mechanism</i> of the binding to the
+ * An abstract type for classes representing a Dagger binding. Particularly, contains the element
+ * that generated the binding and the {@link DependencyRequest} instances that are required to
+ * satisfy the binding, but leaves the specifics of the <i>mechanism</i> of the binding to the
  * subtypes.
  */
 public abstract class Binding extends BindingDeclaration {
@@ -56,7 +47,7 @@ public abstract class Binding extends BindingDeclaration {
     if (!bindingElement().isPresent() || !contributingModule().isPresent()) {
       return false;
     }
-    Set<Modifier> modifiers = bindingElement().get().getModifiers();
+    Set<Modifier> modifiers = toJavac(bindingElement().get()).getModifiers();
     return !modifiers.contains(ABSTRACT) && !modifiers.contains(STATIC);
   }
 
@@ -120,46 +111,5 @@ public abstract class Binding extends BindingDeclaration {
 
   public Optional<Scope> scope() {
     return Optional.empty();
-  }
-
-  // TODO(sameb): Remove the TypeElement parameter and pull it from the TypeMirror.
-  static boolean hasNonDefaultTypeParameters(
-      TypeElement element, TypeMirror type, DaggerTypes types) {
-    // If the element has no type parameters, nothing can be wrong.
-    if (element.getTypeParameters().isEmpty()) {
-      return false;
-    }
-
-    List<TypeMirror> defaultTypes = Lists.newArrayList();
-    for (TypeParameterElement parameter : element.getTypeParameters()) {
-      defaultTypes.add(parameter.asType());
-    }
-
-    List<TypeMirror> actualTypes =
-        type.accept(
-            new SimpleTypeVisitor6<List<TypeMirror>, Void>() {
-              @Override
-              protected List<TypeMirror> defaultAction(TypeMirror e, Void p) {
-                return ImmutableList.of();
-              }
-
-              @Override
-              public List<TypeMirror> visitDeclared(DeclaredType t, Void p) {
-                return ImmutableList.<TypeMirror>copyOf(t.getTypeArguments());
-              }
-            },
-            null);
-
-    // The actual type parameter size can be different if the user is using a raw type.
-    if (defaultTypes.size() != actualTypes.size()) {
-      return true;
-    }
-
-    for (int i = 0; i < defaultTypes.size(); i++) {
-      if (!types.isSameType(defaultTypes.get(i), actualTypes.get(i))) {
-        return true;
-      }
-    }
-    return false;
   }
 }

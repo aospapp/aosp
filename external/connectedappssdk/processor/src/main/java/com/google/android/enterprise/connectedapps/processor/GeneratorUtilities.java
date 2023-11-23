@@ -22,13 +22,13 @@ import static com.google.android.enterprise.connectedapps.processor.containers.C
 import static com.google.android.enterprise.connectedapps.processor.containers.CrossProfileMethodInfo.AutomaticallyResolvedParameterFilterBehaviour.REPLACE_AUTOMATICALLY_RESOLVED_PARAMETERS;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
 import com.google.android.enterprise.connectedapps.processor.annotationdiscovery.AnnotationFinder;
 import com.google.android.enterprise.connectedapps.processor.containers.Context;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileMethodInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileMethodInfo.AutomaticallyResolvedParameterFilterBehaviour;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTypeInfo;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ArrayTypeName;
@@ -44,7 +44,6 @@ import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
-import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -116,22 +115,27 @@ public final class GeneratorUtilities {
     throw new AssertionError("Could not extract classes from annotation");
   }
 
-  public static Set<ExecutableElement> findCrossProfileMethodsInClass(TypeElement clazz) {
-    return clazz.getEnclosedElements().stream()
+  public static ImmutableSet<ExecutableElement> findCrossProfileMethodsInClass(TypeElement clazz) {
+    ImmutableSet.Builder<ExecutableElement> result = ImmutableSet.builder();
+    clazz.getEnclosedElements().stream()
         .filter(e -> e instanceof ExecutableElement)
         .map(e -> (ExecutableElement) e)
         .filter(e -> e.getKind() == ElementKind.METHOD)
         .filter(AnnotationFinder::hasCrossProfileAnnotation)
-        .collect(toSet());
+        .forEach(result::add);
+    return result.build();
   }
 
-  public static Set<ExecutableElement> findCrossProfileProviderMethodsInClass(TypeElement clazz) {
-    return clazz.getEnclosedElements().stream()
+  public static ImmutableSet<ExecutableElement> findCrossProfileProviderMethodsInClass(
+      TypeElement clazz) {
+    ImmutableSet.Builder<ExecutableElement> result = ImmutableSet.builder();
+    clazz.getEnclosedElements().stream()
         .filter(e -> e instanceof ExecutableElement)
         .map(e -> (ExecutableElement) e)
         .filter(e -> e.getKind() == ElementKind.METHOD)
         .filter(AnnotationFinder::hasCrossProfileProviderAnnotation)
-        .collect(toSet());
+        .forEach(result::add);
+    return result.build();
   }
 
   /** Generate a {@code @link} reference to a given method. */
@@ -291,9 +295,5 @@ public final class GeneratorUtilities {
 
   private static List<TypeMirror> convertParametersToTypes(CrossProfileMethodInfo method) {
     return method.methodElement().getParameters().stream().map(Element::asType).collect(toList());
-  }
-
-  static ClassName appendToClassName(ClassName originalClassName, String suffix) {
-    return ClassName.get(originalClassName.packageName(), originalClassName.simpleName() + suffix);
   }
 }

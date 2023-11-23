@@ -18,6 +18,8 @@
         <option name="jar" value="Robolectric_processor_tests.jar" />
         <option name="java-flags" value="-Drobolectric.offline=true" />
         <option name="java-flags" value="-Drobolectric.resourcesMode=binary" />
+        <option name="java-flags" value="--add-modules=jdk.compiler"/>
+        <option name="java-flags" value="--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED"/>
         <option name="exclude-paths" value="java/" />
     </test>
 </configuration>

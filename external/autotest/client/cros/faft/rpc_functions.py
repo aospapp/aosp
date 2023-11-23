@@ -11,15 +11,12 @@ These will be exposed via an xmlrpc server running on the DUT.
 from __future__ import print_function
 
 import binascii
-import httplib
+from six.moves import http_client as httplib
 import logging
 import os
 import signal
-import six
-import sys
 import tempfile
-import traceback
-import xmlrpclib
+from six.moves import xmlrpc_client as xmlrpclib
 
 from autotest_lib.client.common_lib import lsbrelease_utils
 from autotest_lib.client.common_lib.cros import cros_config
@@ -57,6 +54,7 @@ class FaftXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         self.cgpt = CgptServicer(os_if)
         self.ec = EcServicer(os_if)
         self.kernel = KernelServicer(os_if)
+        self.minios_kernel = KernelServicer(os_if, is_minios=True)
         self.rootfs = RootfsServicer(os_if)
         self.rpc_settings = RpcSettingsServicer(os_if)
         self.system = SystemServicer(os_if)
@@ -68,6 +66,7 @@ class FaftXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
                 'cgpt': self.cgpt,
                 'ec': self.ec,
                 'kernel': self.kernel,
+                'minios': self.minios_kernel,
                 'rpc_settings': self.rpc_settings,
                 'rootfs': self.rootfs,
                 'system': self.system,
@@ -84,7 +83,6 @@ class FaftXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         """
         logging.debug("%s: Serving FAFT functions", self.__class__.__name__)
         self._ready = True
-        self._os_if.start_file_logging()
 
     def __exit__(self, exception, value, traceback):
         """Exit the delegate context (when XmlRpcServer.run() finishes).
@@ -93,7 +91,6 @@ class FaftXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         the wrong server when quitting one instance and starting another.
         """
         self._ready = False
-        self._os_if.stop_file_logging()
         logging.debug("%s: Done.", self.__class__.__name__)
 
     def quit(self):
@@ -109,47 +106,19 @@ class FaftXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         """
         return self._ready
 
-    def _report_error(self, fault_code, message, exc_info=False):
-        """Raise the given RPC error text, including information about last
-        exception from sys.exc_info().  The log file gets the traceback in text;
-        the raised exception keeps the old traceback (but not in text).
-
-        Note: this must be called right after the original exception, or it may
-        report the wrong exception.
-
-        @raise: xmlrpclib.Fault
+    def _report_error(self, fault_code, message):
+        """Raise the given RPC error text.
 
         @param fault_code: the status code to use
         @param message: the string message to include before exception text
-        @param exc_info: true to use the tuple from sys.exc_info()
         @return the exception to raise
 
         @type fault_code: int
         @type message: str
-        @type exc_info: bool
         @rtype: Exception
         """
-        if exc_info:
-            tb = None
-            try:
-                (exc_class, exc, tb) = sys.exc_info()
-
-                tb_str = ''.join(
-                        traceback.format_exception(exc_class, exc, tb))
-                self._os_if.log('Error: %s.\n%s' % (message, tb_str.rstrip()))
-
-                if not isinstance(exc, xmlrpclib.Fault):
-                    exc_str = ''.join(
-                            traceback.format_exception_only(exc_class, exc))
-                    exc = xmlrpclib.Fault(
-                            fault_code, '%s. %s' % (message, exc_str.rstrip()))
-                six.reraise(exc, None, tb)
-            finally:
-                del exc_info
-                del tb
-        else:
-            self._os_if.log('Error: %s' % message)
-            return xmlrpclib.Fault(fault_code, message)
+        logging.error(message)
+        return xmlrpclib.Fault(fault_code, message)
 
     def _dispatch(self, called_method, params):
         """
@@ -164,7 +133,7 @@ class FaftXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
 
         @raise: xmlrpclib.Fault (using http error codes for fault codes)
         """
-        self._os_if.log('Called: %s%s' % (called_method, params))
+        logging.info('Called: %s%s', called_method, params)
 
         name_pieces = called_method.split('.')
 
@@ -220,18 +189,15 @@ class FaftXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         try:
             method = getattr(holder, method_name)
 
-        except AttributeError:
-            raise self._report_error(
-                    httplib.NOT_IMPLEMENTED,
-                    'RPC method not found: "%s"' % called_method, exc_info=True)
-
+        except AttributeError as e:
+            logging.exception(e)
+            raise
         try:
             return method(*params)
 
-        except Exception:
-            raise self._report_error(
-                    httplib.INTERNAL_SERVER_ERROR,
-                    'RPC call failed: %s()' % called_method, exc_info=True)
+        except Exception as e:
+            logging.exception(e)
+            raise
 
 
 class BiosServicer(object):
@@ -318,61 +284,61 @@ class BiosServicer(object):
         """
         return self._bios_handler.get_section_fwid(section)
 
-    def corrupt_sig(self, section):
-        """Corrupt the requested firmware section signature.
+    def get_sig_one_byte(self, section):
+        """Get a specific byte of firmware signature of the section.
 
         @param section: A firmware section, either 'a' or 'b'.
+        @return: Tuple of (offset, byte).
         """
-        self._bios_handler.corrupt_firmware(section)
+        return self._bios_handler.get_firmware_sig_one_byte(section)
 
-    def restore_sig(self, section):
-        """Restore the previously corrupted firmware section signature.
+    def modify_sig(self, section, offset, value):
+        """Modify a byte of firmware signature of the section.
 
         @param section: A firmware section, either 'a' or 'b'.
+        @offset: Offset of section to be modified.
+        @value: The byte value.
         """
-        self._bios_handler.restore_firmware(section)
+        return self._bios_handler.modify_firmware_sig(section, offset, value)
 
-    def corrupt_body(self, section, corrupt_all=False):
-        """Corrupt the requested firmware section body.
+    def get_body_one_byte(self, section):
+        """Get a specific byte of firmware body of the section.
 
         @param section: A firmware section, either 'a' or 'b'.
-        @param corrupt_all (optional): Corrupt all bytes of the fw section,
-                                       rather than just one byte.
+        @return: Tuple of (offset, byte).
         """
-        self._bios_handler.corrupt_firmware_body(section, corrupt_all)
+        return self._bios_handler.get_firmware_body_one_byte(section)
 
-    def restore_body(self, section):
-        """Restore the previously corrupted firmware section body.
+    def modify_body(self, section, offset, value):
+        """Modify a byte of firmware body of the section.
 
         @param section: A firmware section, either 'a' or 'b'.
+        @offset: Offset of section to be modified.
+        @value: The byte value.
         """
-        self._bios_handler.restore_firmware_body(section)
+        return self._bios_handler.modify_firmware_body(section, offset, value)
 
-    def _modify_version(self, section, delta):
-        """Modify firmware version for the requested section, by adding delta.
+    def corrupt_mrc_cache(self):
+        """Corrupt MRC cache.
 
-        The passed in delta, a positive or a negative number, is added to the
-        original firmware version.
+        NOTE: This method is not idempotent. A second call will still change the
+        flashrom content of the client.
         """
-        original_version = self.get_version(section)
-        new_version = original_version + delta
-        flags = self._bios_handler.get_section_flags(section)
-        self._os_if.log('Setting firmware section %s version from %d to %d' %
-                        (section, original_version, new_version))
-        self._bios_handler.set_section_version(
-                section, new_version, flags, write_through=True)
-
-    def move_version_backward(self, section):
-        """Decrement firmware version for the requested section."""
-        self._modify_version(section, -1)
-
-    def move_version_forward(self, section):
-        """Increase firmware version for the requested section."""
-        self._modify_version(section, 1)
+        self._bios_handler.corrupt_mrc_cache()
 
     def get_version(self, section):
         """Retrieve firmware version of a section."""
         return self._bios_handler.get_section_version(section)
+
+    def set_version(self, section, version):
+        """Set firmware version of a section."""
+        flags = self._bios_handler.get_section_flags(section)
+        logging.info('Setting firmware section %s version to %d', section,
+                     version)
+        self._bios_handler.set_section_version(section,
+                                               version,
+                                               flags,
+                                               write_through=True)
 
     def get_datakey_version(self, section):
         """Return firmware data key version."""
@@ -471,7 +437,7 @@ class CgptServicer(object):
         """Set kernel attributes for either partition (or both)."""
         partitions = {'A': a, 'B': b}
         rootdev = self._os_if.get_root_dev()
-        modifiable_attributes = self._cgpt_handler.ATTR_TO_COMMAND.keys()
+        modifiable_attributes = list(self._cgpt_handler.ATTR_TO_COMMAND.keys())
         for partition_name in partitions.keys():
             partition = partitions[partition_name]
             if partition is None:
@@ -504,7 +470,7 @@ class EcServicer(object):
                     '/usr/share/vboot/devkeys', 'ec')
 
         else:
-            self._os_if.log('No EC is reported by mosys (rc=%s).' % ec_status)
+            logging.info('No EC is reported by mosys (rc=%s).', ec_status)
 
     @property
     def _ec_handler(self):
@@ -524,13 +490,46 @@ class EcServicer(object):
         """Reload the firmware image that may be changed."""
         self._ec_handler.new_image()
 
-    def get_version(self):
-        """Get EC version via mosys.
+    def get_version(self, target=None):
+        """Get the requested EC version.
 
-        @return: A string of the EC version.
+        @param target: 'ro'/'rw', or None to signify the active fw.
+                       On a Wilco EC, this would be ignored, since Wilco
+                       doesn't use ro/rw/active versions.
+        @return: A string of the requested EC version, or '' if DUT has no EC.
         """
-        return self._os_if.run_shell_command_get_output(
-                'mosys ec info | sed "s/.*| //"')[0]
+        CROS_EC_FILE = '/dev/cros_ec'
+        WILCO_VERSION_FILE = '/sys/bus/platform/devices/GOOG000C:00/version'
+
+        # If DUT has a Chrome EC, parse `ectool version` for the target.
+        if self._os_if.path_exists(CROS_EC_FILE):
+            out = self._os_if.run_shell_command_get_output('ectool version')
+            keyvals = dict([line.split(':', 1) for line in out])
+            ro = keyvals['RO version'].strip()
+            rw = keyvals['RW version'].strip()
+            active = keyvals['Firmware copy'].strip()
+            if target == None:
+                if active == 'RO':
+                    return ro
+                elif active == 'RW':
+                    return rw
+                raise ValueError(
+                        'Unexpected active FW type: want RO/RW; got ' + active)
+            elif target.lower() == 'ro':
+                return ro
+            elif target.lower() == 'rw':
+                return rw
+            raise ValueError(
+                    'Invalid EC version target: want ro/rw/None; got ' +
+                    target)
+        # If DUT has a Wilco EC read sysfs for the EC version.
+        # Wilco doesn't use RO/RW/active, so ignore target.
+        elif self._os_if.path_exists(WILCO_VERSION_FILE):
+            with open(WILCO_VERSION_FILE, "r") as f:
+                return f.read().strip()
+        # If DUT doesn't have an EC, return the empty string.
+        else:
+            return ''
 
     def get_active_hash(self):
         """Get hash of active EC RW firmware."""
@@ -555,9 +554,12 @@ class EcServicer(object):
     def corrupt_body(self, section):
         """Corrupt the requested EC section body.
 
+        NOTE: This method is not idempotent. A second call will still change the
+        flashrom content of the client.
+
         @param section: An EC section, either 'a' or 'b'.
         """
-        self._ec_handler.corrupt_firmware_body(section, corrupt_all=True)
+        self._ec_handler.corrupt_firmware_body(section)
 
     def dump_firmware(self, ec_path):
         """Dump the current EC firmware to a file, specified by ec_path.
@@ -582,7 +584,10 @@ class EcServicer(object):
         @return: {'enabled': True/False, 'start': '0x0', 'length': '0x0', ...}
         @rtype: dict
         """
-        return self._ec_handler.get_write_protect_status()
+        logging.debug("Calling self._ec_handler.get_write_protect_status")
+        rec = self._ec_handler.get_write_protect_status()
+        logging.debug("Returning %s", rec)
+        return rec
 
     def is_efs(self):
         """Return True if the EC supports EFS."""
@@ -616,12 +621,14 @@ class EcServicer(object):
 class KernelServicer(object):
     """Class to service all Kernel RPCs"""
 
-    def __init__(self, os_if):
+    def __init__(self, os_if, is_minios=False):
         """
         @type os_if: os_interface.OSInterface
+        @type is_minios: True if it is a MiniOS kernel; otherwise, False.
         """
         self._os_if = os_if
-        self._real_kernel_handler = kernel_handler.KernelHandler(self._os_if)
+        self._real_kernel_handler = kernel_handler.KernelHandler(
+                self._os_if, is_minios)
 
     @property
     def _kernel_handler(self):
@@ -657,8 +664,8 @@ class KernelServicer(object):
         """
         original_version = self._kernel_handler.get_version(section)
         new_version = original_version + delta
-        self._os_if.log('Setting kernel section %s version from %d to %d' %
-                        (section, original_version, new_version))
+        logging.info('Setting kernel section %s version from %d to %d',
+                     section, original_version, new_version)
         self._kernel_handler.set_version(section, new_version)
 
     def move_version_backward(self, section):
@@ -783,14 +790,6 @@ class SystemServicer(object):
         """
         return True
 
-    def dump_log(self, remove_log=False):
-        """Dump the log file.
-
-        @param remove_log: Remove the log file after dump.
-        @return: String of the log file content.
-        """
-        return self._os_if.dump_log(remove_log=remove_log)
-
     def run_shell_command(self, command, block=True):
         """Run shell command.
 
@@ -861,6 +860,26 @@ class SystemServicer(object):
         return self._os_if.run_shell_command_get_output(
                 'crossystem %s' % key)[0]
 
+    def get_boot_mode(self):
+        """Get the current firmware boot mode.
+
+        @return: Either 'normal', 'dev', or 'rec'.
+        @raise: ValueError if mainfw_type and devsw_boot do not correspond to
+                an expected boot mode combination.
+        """
+        mainfw_type = self._os_if.cs.mainfw_type
+        devsw_boot = self._os_if.cs.devsw_boot
+        if mainfw_type == 'normal' and devsw_boot == '0':
+            return 'normal'
+        elif mainfw_type == 'developer' and devsw_boot == '1':
+            return 'dev'
+        elif mainfw_type == 'recovery':
+            return 'rec'
+        else:
+            raise ValueError('Unexpected mainfw_type/devsw_boot combination: '
+                             'mainfw_type=%s, devsw_boot=%s' %
+                             (mainfw_type, devsw_boot))
+
     def get_root_dev(self):
         """Get the name of root device without partition number.
 
@@ -891,6 +910,21 @@ class SystemServicer(object):
         self._os_if.cs.fw_try_next = next
         if count:
             self._os_if.cs.fw_try_count = count
+
+    def get_minios_priority(self):
+        """Get minios_priority value, which denotes the minios image to try
+        first. (A or B)
+
+        @return: 'A' or 'B'
+        """
+        return self._os_if.cs.minios_priority
+
+    def set_minios_priority(self, priority):
+        """Set minios_priority to A or B.
+
+        @param priority: MiniOS partition to try first (A or B)
+        """
+        self._os_if.cs.minios_priority = priority
 
     def get_fw_vboot2(self):
         """Get fw_vboot2."""

@@ -2,7 +2,9 @@
 of a crate in the current workspace.
 """
 
-load("@rules_rust//rust:repositories.bzl", "DEFAULT_RUST_VERSION", "load_arbitrary_tool")
+load("@rules_rust//rust:defs.bzl", "rust_common")
+load("@rules_rust//rust:repositories.bzl", "load_arbitrary_tool")
+load("@rules_rust//rust/platform:triple.bzl", "get_host_triple")
 
 def _impl(repository_ctx):
     # Link cxx repository into @third-party.
@@ -10,21 +12,11 @@ def _impl(repository_ctx):
     workspace = lockfile.dirname.dirname
     repository_ctx.symlink(workspace, "workspace")
 
-    # Copy third-party/Cargo.lock since those are the crate versions that the
-    # BUILD file is written against.
-    vendor_lockfile = repository_ctx.path("workspace/third-party/Cargo.lock")
-    root_lockfile = repository_ctx.path("workspace/Cargo.lock")
-    _copy_file(repository_ctx, src = vendor_lockfile, dst = root_lockfile)
-
     # Figure out which version of cargo to use.
     if repository_ctx.attr.target_triple:
         target_triple = repository_ctx.attr.target_triple
-    elif "mac" in repository_ctx.os.name:
-        target_triple = "x86_64-apple-darwin"
-    elif "windows" in repository_ctx.os.name:
-        target_triple = "x86_64-pc-windows-msvc"
     else:
-        target_triple = "x86_64-unknown-linux-gnu"
+        target_triple = get_host_triple(repository_ctx).str
 
     # Download cargo.
     load_arbitrary_tool(
@@ -36,19 +28,15 @@ def _impl(repository_ctx):
         target_triple = target_triple,
     )
 
-    cmd = ["{}/bin/cargo".format(repository_ctx.path(".")), "vendor", "--versioned-dirs", "third-party/vendor"]
+    cmd = ["{}/bin/cargo".format(repository_ctx.path(".")), "vendor", "--versioned-dirs"]
     result = repository_ctx.execute(
         cmd,
         quiet = True,
-        working_directory = "workspace",
+        working_directory = "workspace/third-party",
     )
     _log_cargo_vendor(repository_ctx, result)
     if result.return_code != 0:
         fail("failed to execute `{}`".format(" ".join(cmd)))
-
-    # Copy lockfile back to third-party/Cargo.lock to reflect any modification
-    # performed by Cargo.
-    _copy_file(repository_ctx, src = root_lockfile, dst = vendor_lockfile)
 
     # Produce a token for third_party_glob to depend on so that the necessary
     # sequencing is visible to Bazel.
@@ -77,7 +65,6 @@ vendor = repository_rule(
     attrs = {
         "cargo_version": attr.string(
             doc = "The version of cargo to use",
-            default = DEFAULT_RUST_VERSION,
         ),
         "cargo_iso_date": attr.string(
             doc = "The date of the tool (or None, if the version is a specific version)",

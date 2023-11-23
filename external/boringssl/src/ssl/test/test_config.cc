@@ -17,6 +17,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +29,7 @@
 #include <type_traits>
 
 #include <openssl/base64.h>
+#include <openssl/hmac.h>
 #include <openssl/hpke.h>
 #include <openssl/rand.h>
 #include <openssl/span.h>
@@ -62,7 +64,7 @@ bool StringToInt(T *out, const char *str) {
 
   // |strtoull| allows leading '-' with wraparound. Additionally, both
   // functions accept empty strings and leading whitespace.
-  if (!isdigit(static_cast<unsigned char>(*str)) &&
+  if (!OPENSSL_isdigit(static_cast<unsigned char>(*str)) &&
       (!std::is_signed<T>::value || *str != '-')) {
     return false;
   }
@@ -364,7 +366,9 @@ std::vector<Flag> SortedFlags() {
       IntFlag("-install-one-cert-compression-alg",
               &TestConfig::install_one_cert_compression_alg),
       BoolFlag("-reverify-on-resume", &TestConfig::reverify_on_resume),
-      BoolFlag("-enforce-rsa-key-usage", &TestConfig::enforce_rsa_key_usage),
+      BoolFlag("-ignore-rsa-key-usage", &TestConfig::ignore_rsa_key_usage),
+      BoolFlag("-expect-key-usage-invalid",
+               &TestConfig::expect_key_usage_invalid),
       BoolFlag("-is-handshaker-supported",
                &TestConfig::is_handshaker_supported),
       BoolFlag("-handshaker-resume", &TestConfig::handshaker_resume),
@@ -385,6 +389,8 @@ std::vector<Flag> SortedFlags() {
                  &TestConfig::quic_early_data_context),
       IntFlag("-early-write-after-message",
               &TestConfig::early_write_after_message),
+      BoolFlag("-fips-202205", &TestConfig::fips_202205),
+      BoolFlag("-wpa-202304", &TestConfig::wpa_202304),
   };
   std::sort(flags.begin(), flags.end(), [](const Flag &a, const Flag &b) {
     return strcmp(a.name, b.name) < 0;
@@ -492,25 +498,26 @@ static CRYPTO_once_t once = CRYPTO_ONCE_INIT;
 static int g_config_index = 0;
 static CRYPTO_BUFFER_POOL *g_pool = nullptr;
 
-static void init_once() {
-  g_config_index = SSL_get_ex_new_index(0, NULL, NULL, NULL, NULL);
-  if (g_config_index < 0) {
-    abort();
-  }
-  g_pool = CRYPTO_BUFFER_POOL_new();
-  if (!g_pool) {
-    abort();
-  }
+static bool InitGlobals() {
+  CRYPTO_once(&once, [] {
+    g_config_index = SSL_get_ex_new_index(0, NULL, NULL, NULL, NULL);
+    g_pool = CRYPTO_BUFFER_POOL_new();
+  });
+  return g_config_index >= 0 && g_pool != nullptr;
 }
 
 bool SetTestConfig(SSL *ssl, const TestConfig *config) {
-  CRYPTO_once(&once, init_once);
+  if (!InitGlobals()) {
+    return false;
+  }
   return SSL_set_ex_data(ssl, g_config_index, (void *)config) == 1;
 }
 
 const TestConfig *GetTestConfig(const SSL *ssl) {
-  CRYPTO_once(&once, init_once);
-  return (const TestConfig *)SSL_get_ex_data(ssl, g_config_index);
+  if (!InitGlobals()) {
+    return nullptr;
+  }
+  return static_cast<const TestConfig *>(SSL_get_ex_data(ssl, g_config_index));
 }
 
 static int LegacyOCSPCallback(SSL *ssl, void *arg) {
@@ -567,8 +574,13 @@ static int NextProtosAdvertisedCallback(SSL *ssl, const uint8_t **out,
     return SSL_TLSEXT_ERR_NOACK;
   }
 
-  *out = (const uint8_t *)config->advertise_npn.data();
-  *out_len = config->advertise_npn.size();
+  if (config->advertise_npn.size() > UINT_MAX) {
+    fprintf(stderr, "NPN value too large.\n");
+    return SSL_TLSEXT_ERR_ALERT_FATAL;
+  }
+
+  *out = reinterpret_cast<const uint8_t *>(config->advertise_npn.data());
+  *out_len = static_cast<unsigned>(config->advertise_npn.size());
   return SSL_TLSEXT_ERR_OK;
 }
 
@@ -582,8 +594,9 @@ static void MessageCallback(int is_write, int version, int content_type,
   }
 
   if (content_type == SSL3_RT_HEADER) {
-    if (len !=
-        (config->is_dtls ? DTLS1_RT_HEADER_LENGTH : SSL3_RT_HEADER_LENGTH)) {
+    size_t header_len =
+        config->is_dtls ? DTLS1_RT_HEADER_LENGTH : SSL3_RT_HEADER_LENGTH;
+    if (len != header_len) {
       fprintf(stderr, "Incorrect length for record header: %zu.\n", len);
       state->msg_callback_ok = false;
     }
@@ -920,22 +933,6 @@ static bool GetCertificate(SSL *ssl, bssl::UniquePtr<X509> *out_x509,
   return true;
 }
 
-static bool FromHexDigit(uint8_t *out, char c) {
-  if ('0' <= c && c <= '9') {
-    *out = c - '0';
-    return true;
-  }
-  if ('a' <= c && c <= 'f') {
-    *out = c - 'a' + 10;
-    return true;
-  }
-  if ('A' <= c && c <= 'F') {
-    *out = c - 'A' + 10;
-    return true;
-  }
-  return false;
-}
-
 static bool HexDecode(std::string *out, const std::string &in) {
   if ((in.size() & 1) != 0) {
     return false;
@@ -944,7 +941,8 @@ static bool HexDecode(std::string *out, const std::string &in) {
   std::unique_ptr<uint8_t[]> buf(new uint8_t[in.size() / 2]);
   for (size_t i = 0; i < in.size() / 2; i++) {
     uint8_t high, low;
-    if (!FromHexDigit(&high, in[i * 2]) || !FromHexDigit(&low, in[i * 2 + 1])) {
+    if (!OPENSSL_fromxdigit(&high, in[i * 2]) ||
+        !OPENSSL_fromxdigit(&low, in[i * 2 + 1])) {
       return false;
     }
     buf[i] = (high << 4) | low;
@@ -1381,13 +1379,16 @@ static bool MaybeInstallCertCompressionAlg(
 }
 
 bssl::UniquePtr<SSL_CTX> TestConfig::SetupCtx(SSL_CTX *old_ctx) const {
+  if (!InitGlobals()) {
+    return nullptr;
+  }
+
   bssl::UniquePtr<SSL_CTX> ssl_ctx(
       SSL_CTX_new(is_dtls ? DTLS_method() : TLS_method()));
   if (!ssl_ctx) {
     return nullptr;
   }
 
-  CRYPTO_once(&once, init_once);
   SSL_CTX_set0_buffer_pool(ssl_ctx.get(), g_pool);
 
   std::string cipher_list = "ALL";
@@ -1617,7 +1618,7 @@ static unsigned PskClientCallback(SSL *ssl, const char *hint,
 
   OPENSSL_strlcpy(out_identity, config->psk_identity.c_str(), max_identity_len);
   OPENSSL_memcpy(out_psk, config->psk.data(), config->psk.size());
-  return config->psk.size();
+  return static_cast<unsigned>(config->psk.size());
 }
 
 static unsigned PskServerCallback(SSL *ssl, const char *identity,
@@ -1635,7 +1636,7 @@ static unsigned PskServerCallback(SSL *ssl, const char *identity,
   }
 
   OPENSSL_memcpy(out_psk, config->psk.data(), config->psk.size());
-  return config->psk.size();
+  return static_cast<unsigned>(config->psk.size());
 }
 
 static ssl_verify_result_t CustomVerifyCallback(SSL *ssl, uint8_t *out_alert) {
@@ -1741,8 +1742,8 @@ bssl::UniquePtr<SSL> TestConfig::NewSSL(
   if (reverify_on_resume) {
     SSL_CTX_set_reverify_on_resume(ssl_ctx, 1);
   }
-  if (enforce_rsa_key_usage) {
-    SSL_set_enforce_rsa_key_usage(ssl.get(), 1);
+  if (ignore_rsa_key_usage) {
+    SSL_set_enforce_rsa_key_usage(ssl.get(), 0);
   }
   if (no_tls13) {
     SSL_set_options(ssl.get(), SSL_OP_NO_TLSv1_3);
@@ -1764,6 +1765,20 @@ bssl::UniquePtr<SSL> TestConfig::NewSSL(
   }
   if (enable_ech_grease) {
     SSL_set_enable_ech_grease(ssl.get(), 1);
+  }
+  if (static_cast<int>(fips_202205) + static_cast<int>(wpa_202304) > 1) {
+    fprintf(stderr, "Multiple policy options given\n");
+    return nullptr;
+  }
+  if (fips_202205 && !SSL_set_compliance_policy(
+                         ssl.get(), ssl_compliance_policy_fips_202205)) {
+    fprintf(stderr, "SSL_set_compliance_policy failed\n");
+    return nullptr;
+  }
+  if (wpa_202304 && !SSL_set_compliance_policy(
+                         ssl.get(), ssl_compliance_policy_wpa3_192_202304)) {
+    fprintf(stderr, "SSL_set_compliance_policy failed\n");
+    return nullptr;
   }
   if (!ech_config_list.empty() &&
       !SSL_set1_ech_config_list(
@@ -1904,8 +1919,8 @@ bssl::UniquePtr<SSL> TestConfig::NewSSL(
           nids.push_back(NID_X25519);
           break;
 
-        case SSL_CURVE_CECPQ2:
-          nids.push_back(NID_CECPQ2);
+        case SSL_CURVE_X25519KYBER768:
+          nids.push_back(NID_X25519Kyber768);
           break;
       }
       if (!SSL_set1_curves(ssl.get(), &nids[0], nids.size())) {

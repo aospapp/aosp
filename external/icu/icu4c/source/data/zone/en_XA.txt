@@ -55,8 +55,7 @@ en_XA{
             ld{"[Îŕîšĥ Šţåñðåŕð Ţîɱé one two three]"}
         }
         "Europe:Kiev"{
-            ec{"[Ķîéṽ one]"}
-            ec%formal{"[Ķýîṽ one]"}
+            ec{"[Ķýîṽ one]"}
         }
         "Europe:London"{
             ld{"[Ɓŕîţîšĥ Šûɱɱéŕ Ţîɱé one two three]"}

@@ -8,6 +8,7 @@ TIME = 'SHORT'
 TEST_CATEGORY = 'General'
 TEST_CLASS = 'enterprise'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = '''
 Verify effects of DeviceUsbPowerShareEnabled policy.

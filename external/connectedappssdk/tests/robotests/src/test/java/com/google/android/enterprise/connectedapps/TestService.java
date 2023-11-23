@@ -15,8 +15,10 @@
  */
 package com.google.android.enterprise.connectedapps;
 
+import android.os.Bundle;
 import android.os.Parcel;
 import android.os.RemoteException;
+import com.google.android.enterprise.connectedapps.internal.Bundler;
 import com.google.android.enterprise.connectedapps.internal.ByteUtilities;
 import com.google.auto.value.AutoValue;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -29,7 +31,7 @@ public class TestService extends ICrossProfileService.Stub {
 
     abstract long getMethodIdentifier();
 
-    abstract Parcel getParams();
+    abstract Bundle getParams();
 
     @Nullable
     abstract ICrossProfileCallback callback();
@@ -37,7 +39,7 @@ public class TestService extends ICrossProfileService.Stub {
     static LoggedCrossProfileMethodCall create(
         long crossProfileTypeIdentifier,
         long methodIdentifier,
-        Parcel params,
+        Bundle params,
         ICrossProfileCallback callback) {
       return new AutoValue_TestService_LoggedCrossProfileMethodCall(
           crossProfileTypeIdentifier, methodIdentifier, params, callback);
@@ -45,24 +47,22 @@ public class TestService extends ICrossProfileService.Stub {
   }
 
   private LoggedCrossProfileMethodCall lastCall;
-  private Parcel responseParcel = Parcel.obtain(); // Recycled in #setResponseParcel
+  private Bundle responseBundle = new Bundle(Bundler.class.getClassLoader());
 
   LoggedCrossProfileMethodCall lastCall() {
     return lastCall;
   }
 
-  /**
-   * Set the parcel to be returned from a call to this service.
-   *
-   * <p>The previously set parcel will be recycled.
-   */
-  void setResponseParcel(Parcel responseParcel) {
-    this.responseParcel.recycle();
-    this.responseParcel = responseParcel;
+  /** Set the bundle to be returned from a call to this service. */
+  void setResponseBundle(Bundle responseBundle) {
+    this.responseBundle = responseBundle;
   }
 
   @Override
   public void prepareCall(long callId, int blockId, int numBytes, byte[] paramsBytes) {}
+
+  @Override
+  public void prepareBundle(long callId, int blockId, Bundle bundle) {}
 
   @Override
   public byte[] call(
@@ -77,16 +77,18 @@ public class TestService extends ICrossProfileService.Stub {
     Parcel parcel = Parcel.obtain(); // Recycled by this method on next call
     parcel.unmarshall(paramsBytes, 0, paramsBytes.length);
     parcel.setDataPosition(0);
-
-    if (lastCall != null) {
-      lastCall.getParams().recycle();
-    }
+    Bundle bundle = new Bundle(Bundler.class.getClassLoader());
+    bundle.readFromParcel(parcel);
 
     lastCall =
         LoggedCrossProfileMethodCall.create(
-            crossProfileTypeIdentifier, methodIdentifier, parcel, callback);
+            crossProfileTypeIdentifier, methodIdentifier, bundle, callback);
 
+    Parcel responseParcel = Parcel.obtain();
+    responseBundle.writeToParcel(responseParcel, /* flags= */ 0);
     byte[] parcelBytes = responseParcel.marshall();
+    responseParcel.recycle();
+
     return prepareResponse(parcelBytes);
   }
 
@@ -97,6 +99,11 @@ public class TestService extends ICrossProfileService.Stub {
 
   @Override
   public byte[] fetchResponse(long callId, int blockId) {
+    return null;
+  }
+
+  @Override
+  public Bundle fetchResponseBundle(long callId, int bundleId) {
     return null;
   }
 }

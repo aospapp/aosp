@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "bvt-cq"
 PURPOSE = "Test functionality required by the Commit Queue."
 
@@ -13,12 +13,12 @@ TEST_TYPE = "Server"
 
 DOC = """
 This is the portion of the Build Verification Test suite required to
-pass the Chrome OS Commit Queue and Pre-Flight Queue.  Test failures
+pass the ChromeOS Commit Queue and Pre-Flight Queue.  Test failures
 prevent code from being included in the tree or in canary builds:
-  * Chrome OS CLs must pass these tests prior to being accepted into
+  * ChromeOS CLs must pass these tests prior to being accepted into
     the tree.
   * A new Chrome build must pass these tests prior to the build
-    being included in a Chrome OS canary build.
+    being included in a ChromeOS canary build.
 
 Requirements for a test to be in this suite:
  1. The test should be SHORT, and should not require any specialized

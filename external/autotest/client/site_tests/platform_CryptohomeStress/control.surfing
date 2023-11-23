@@ -5,6 +5,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Security"
 TEST_CLASS = "security"
 TEST_TYPE = "client"
+PY_VERSION = 3
 ATTRIBUTES = "suite:bvt-perbuild"
 
 DOC = """

@@ -7,6 +7,7 @@
 #ifndef COMPILER_TRANSLATOR_TRANSLATORMETALDIRECT_DISCOVERDEPENDENTFUNCTIONS_H_
 #define COMPILER_TRANSLATOR_TRANSLATORMETALDIRECT_DISCOVERDEPENDENTFUNCTIONS_H_
 
+#include <functional>
 #include <unordered_set>
 
 #include "common/angleutils.h"
@@ -16,7 +17,7 @@ namespace sh
 {
 
 // Finds and returns all functions that contain the provided variables.
-ANGLE_NO_DISCARD std::unordered_set<const TFunction *> DiscoverDependentFunctions(
+[[nodiscard]] std::unordered_set<const TFunction *> DiscoverDependentFunctions(
     TIntermBlock &root,
     const std::function<bool(const TVariable &)> &vars);
 

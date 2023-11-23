@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -106,7 +107,7 @@ class audio_CrasDevSwitchStress(test.test):
         proc = subprocess.Popen(['cras_test_client', '--dump_a'],
                                 stdout=subprocess.PIPE)
         output, err = proc.communicate()
-        self._last_log_time = self._get_time(output.split('\n')[-2])
+        self._last_log_time = self._get_time(output.decode().split('\n')[-2])
 
     def _get_buffer_level(self, match_str, dev_id):
         """
@@ -123,7 +124,7 @@ class audio_CrasDevSwitchStress(test.test):
                                 stdout=subprocess.PIPE)
         output, err = proc.communicate()
         buffer_level = 0
-        lines = output.split('\n')
+        lines = output.decode().split('\n')
         start = False
         for line in lines:
             if not line or not start:
@@ -170,7 +171,7 @@ class audio_CrasDevSwitchStress(test.test):
                                   ignore_status=True).strip()
         try:
             pid = int(pid)
-        except ValueError, e:  # empty or invalid string
+        except ValueError as e:  # empty or invalid string
             raise error.TestFail('CRAS not running')
 
     def _switch_to_node(self, node):

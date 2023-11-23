@@ -34,7 +34,7 @@ typedef Eigen::GpuDevice GPUDevice;
 
 template <typename Index>
 Status CheckInvalidLabelIndex(const Tensor& labels, int64_t max_index) {
-  if (labels.NumElements() == 0) return Status::OK();
+  if (labels.NumElements() == 0) return OkStatus();
   const auto label_values = labels.vec<Index>();
   int64_t bad_index;
   auto min_max_dim_value = std::minmax_element(
@@ -47,18 +47,7 @@ Status CheckInvalidLabelIndex(const Tensor& labels, int64_t max_index) {
         " which is outside the valid range of [0, ", max_index,
         ").  Label values: ", labels.SummarizeValue(labels.NumElements()));
   }
-  return Status::OK();
-}
-
-bool DisableSparseSoftmaxXentWithLogitsOpDeterminismExceptions() {
-  static bool cached_disable = [] {
-    bool disable = false;
-    TF_CHECK_OK(tensorflow::ReadBoolFromEnvVar(
-        "TF_DISABLE_SPARSE_SOFTMAX_XENT_WITH_LOGITS_OP_DETERMINISM_EXCEPTIONS",
-        /*default_val=*/false, &disable));
-    return disable;
-  }();
-  return cached_disable;
+  return OkStatus();
 }
 
 template <typename Device, typename T, typename Index>
@@ -89,12 +78,12 @@ class SparseSoftmaxXentWithLogitsOp : public OpKernel {
 
     if (std::is_same<Device, GPUDevice>::value) {
       OP_REQUIRES(
-          context,
-          !OpDeterminismRequired() ||
-              DisableSparseSoftmaxXentWithLogitsOpDeterminismExceptions(),
+          context, !OpDeterminismRequired(),
           errors::Unimplemented(
-              "Deterministic GPU implementation of"
-              " SparseSoftmaxXentWithLogitsOp not available."));
+              "The GPU implementation of SparseSoftmaxCrossEntropyWithLogits"
+              " that would have been executed is not deterministic. Note that"
+              " the Python API uses an alternative, deterministic,"
+              " GPU-accelerated path when determinsim is enabled."));
     }
 
     Tensor scratch;
@@ -143,17 +132,19 @@ struct SparseXentFunctor<CPUDevice, T, Index> {
           .TypeConstraint<Index>("Tlabels"),      \
       SparseSoftmaxXentWithLogitsOp<Dev##Device, T, Index>);
 REGISTER(CPU, float, int32)
-REGISTER(CPU, float, int64)
+REGISTER(CPU, float, int64_t)
 REGISTER(CPU, double, int32)
-REGISTER(CPU, double, int64)
+REGISTER(CPU, double, int64_t)
 REGISTER(CPU, Eigen::half, int32)
-REGISTER(CPU, Eigen::half, int64)
+REGISTER(CPU, Eigen::half, int64_t)
+REGISTER(CPU, bfloat16, int32)
+REGISTER(CPU, bfloat16, int64_t)
 
 #if GOOGLE_CUDA || TENSORFLOW_USE_ROCM
 REGISTER(GPU, float, int32)
-REGISTER(GPU, float, int64)
+REGISTER(GPU, float, int64_t)
 REGISTER(GPU, Eigen::half, int32)
-REGISTER(GPU, Eigen::half, int64)
+REGISTER(GPU, Eigen::half, int64_t)
 #endif  // GOOGLE_CUDA || TENSORFLOW_USE_ROCM
 
 #undef REGISTER

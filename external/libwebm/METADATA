@@ -9,11 +9,11 @@ third_party {
     type: GIT
     value: "https://chromium.googlesource.com/webm/libwebm"
   }
-  version: "485fb67b324aec5298765e899dc054459d3946e5"
+  version: "1930e3ca23b007f3ff11d98a570077be6201957e"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2020
-    month: 11
-    day: 24
+    year: 2023
+    month: 3
+    day: 20
   }
 }

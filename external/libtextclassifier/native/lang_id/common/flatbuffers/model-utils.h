@@ -25,6 +25,7 @@
 #include "lang_id/common/flatbuffers/model_generated.h"
 #include "lang_id/common/lite_base/integral-types.h"
 #include "lang_id/common/lite_strings/stringpiece.h"
+#include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
 namespace saft_fbs {
@@ -46,7 +47,7 @@ inline const Model *GetVerifiedModelFromBytes(mobile::StringPiece bytes) {
 // Returns the |model| input with specified |name|.  Returns nullptr if no such
 // input exists.  If |model| contains multiple inputs with that |name|, returns
 // the first one (model builders should avoid building such models).
-const ModelInput *GetInputByName(const Model *model, const std::string &name);
+const ModelInput *GetInputByName(const Model *model, absl::string_view name);
 
 // Returns a StringPiece pointing to the bytes for the content of |input|.  In
 // case of errors, returns StringPiece(nullptr, 0).

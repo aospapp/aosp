@@ -18,7 +18,6 @@ limitations under the License.
 
 #include <memory>
 
-#include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "tensorflow/compiler/xla/array2d.h"
 #include "tensorflow/compiler/xla/array4d.h"
@@ -37,7 +36,6 @@ limitations under the License.
 #include "tensorflow/compiler/xla/tests/test_macros.h"
 #include "tensorflow/compiler/xla/xla_data.pb.h"
 #include "tensorflow/core/platform/test.h"
-#include "tensorflow/core/platform/types.h"
 
 namespace xla {
 namespace {
@@ -60,11 +58,11 @@ using TestTypes = ::testing::Types<float, Eigen::half>;
 #endif
 
 struct Convolve1DTestParam {
-  int64 input_feature;
-  int64 output_feature;
-  int64 batch;
-  int64 window_size;
-  int64 num_windows;
+  int64_t input_feature;
+  int64_t output_feature;
+  int64_t batch;
+  int64_t window_size;
+  int64_t num_windows;
 };
 
 class Convolve1D1WindowTestBase
@@ -79,10 +77,10 @@ class Convolve1D1WindowTestBase
     int64_t batch = GetParam().batch;
     int64_t num_windows = GetParam().num_windows;
     int64_t window_size = GetParam().window_size;
-    std::vector<int64> input_dims = {batch, window_size + num_windows - 1,
-                                     input_feature};
-    std::vector<int64> filter_dims = {window_size, input_feature,
-                                      output_feature};
+    std::vector<int64_t> input_dims = {batch, window_size + num_windows - 1,
+                                       input_feature};
+    std::vector<int64_t> filter_dims = {window_size, input_feature,
+                                        output_feature};
     Shape input_shape = ShapeUtil::MakeShapeWithType<T>(input_dims);
     Shape filter_shape = ShapeUtil::MakeShapeWithType<T>(filter_dims);
     {
@@ -107,24 +105,22 @@ class Convolve1D1WindowTestBase
     std::vector<T> input_elems(ShapeUtil::ElementsIn(input_shape),
                                static_cast<T>(1.0f));
     auto input_r1 = LiteralUtil::CreateR1<T>(input_elems);
-    auto input_r3 = input_r1.Reshape(input_dims).ConsumeValueOrDie();
+    auto input_r3 = input_r1.Reshape(input_dims).value();
 
     std::vector<T> filter_elems(ShapeUtil::ElementsIn(filter_shape),
                                 static_cast<T>(1.0f));
 
     auto filter_r1 = LiteralUtil::CreateR1<T>(filter_elems);
-    auto filter_r3 = filter_r1.Reshape(filter_dims).ConsumeValueOrDie();
+    auto filter_r3 = filter_r1.Reshape(filter_dims).value();
 
     std::vector<T> expect_elems(batch * output_feature * num_windows,
                                 static_cast<T>(window_size * input_feature));
     auto expected_r1 = LiteralUtil::CreateR1<T>(expect_elems);
-    auto expected_r3 = expected_r1.Reshape({batch, num_windows, output_feature})
-                           .ConsumeValueOrDie();
+    auto expected_r3 =
+        expected_r1.Reshape({batch, num_windows, output_feature}).value();
 
-    auto input_literal =
-        client_->TransferToServer(input_r3).ConsumeValueOrDie();
-    auto filter_literal =
-        client_->TransferToServer(filter_r3).ConsumeValueOrDie();
+    auto input_literal = client_->TransferToServer(input_r3).value();
+    auto filter_literal = client_->TransferToServer(filter_r3).value();
     ComputeAndCompareLiteral(&builder, expected_r3,
                              {input_literal.get(), filter_literal.get()},
                              error_spec_);
@@ -189,7 +185,7 @@ INSTANTIATE_TEST_CASE_P(
                       Convolve1DTestParam{128, 1, 1, 1, 1},
                       Convolve1DTestParam{139, 1, 1, 128, 1},
                       Convolve1DTestParam{640, 3, 3, 128, 1},
-                      Convolve1DTestParam{900, 1, 1, 10, 1},
+                      // Convolve1DTestParam{900, 1, 1, 10, 1}, b/195348220
                       Convolve1DTestParam{1, 10, 10, 1, 10},
                       Convolve1DTestParam{1, 10, 130, 1, 1},
                       Convolve1DTestParam{1, 10, 130, 1, 2},
@@ -221,10 +217,10 @@ XLA_TEST_F(ConvolutionTest, Convolve1D_1x2x5_1x2x2_Valid) {
 
   auto input_literal =
       client_->TransferToServer(LiteralUtil::CreateR3FromArray3D(input))
-          .ConsumeValueOrDie();
+          .value();
   auto filter_literal =
       client_->TransferToServer(LiteralUtil::CreateR3FromArray3D(filter))
-          .ConsumeValueOrDie();
+          .value();
 
   ComputeAndCompareR3<float>(&builder, expected,
                              {input_literal.get(), filter_literal.get()},
@@ -256,10 +252,10 @@ class Convolve1D_1x2x5_1x2x2_WithRHSDilation : public ConvolutionTest {
 
     auto input_literal =
         client_->TransferToServer(LiteralUtil::CreateR3FromArray3D(input))
-            .ConsumeValueOrDie();
+            .value();
     auto filter_literal =
         client_->TransferToServer(LiteralUtil::CreateR3FromArray3D(filter))
-            .ConsumeValueOrDie();
+            .value();
 
     ComputeAndCompareR3<T>(&builder, expected,
                            {input_literal.get(), filter_literal.get()},
@@ -291,10 +287,10 @@ XLA_TEST_F(ConvolutionTest, Convolve1D_1x2x5_1x2x2_WithLHSDilation) {
 
   auto input_literal =
       client_->TransferToServer(LiteralUtil::CreateR3FromArray3D(input))
-          .ConsumeValueOrDie();
+          .value();
   auto filter_literal =
       client_->TransferToServer(LiteralUtil::CreateR3FromArray3D(filter))
-          .ConsumeValueOrDie();
+          .value();
 
   ComputeAndCompareR3<float>(&builder, expected,
                              {input_literal.get(), filter_literal.get()},
@@ -322,10 +318,10 @@ XLA_TEST_F(ConvolutionTest, Convolve1D_1x2x5_1x2x2_WithLHSAndRHSDilation) {
 
   auto input_literal =
       client_->TransferToServer(LiteralUtil::CreateR3FromArray3D(input))
-          .ConsumeValueOrDie();
+          .value();
   auto filter_literal =
       client_->TransferToServer(LiteralUtil::CreateR3FromArray3D(filter))
-          .ConsumeValueOrDie();
+          .value();
 
   ComputeAndCompareR3<float>(&builder, expected,
                              {input_literal.get(), filter_literal.get()},
@@ -358,10 +354,10 @@ class Convolve1D_1x2x5_1x2x2_WithPadding : public ConvolutionTest {
 
     auto input_literal =
         client_->TransferToServer(LiteralUtil::CreateR3FromArray3D(input))
-            .ConsumeValueOrDie();
+            .value();
     auto filter_literal =
         client_->TransferToServer(LiteralUtil::CreateR3FromArray3D(filter))
-            .ConsumeValueOrDie();
+            .value();
 
     ComputeAndCompareR3<T>(&builder, expected,
                            {input_literal.get(), filter_literal.get()},

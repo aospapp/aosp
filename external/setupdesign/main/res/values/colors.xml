@@ -15,7 +15,8 @@
     limitations under the License.
 -->
 
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@color/sud_system_accent*,@color/sud_system_neutral*">
 
     <!-- General colors -->
     <color name="sud_color_accent_dark">#ff448aff</color>
@@ -80,6 +81,19 @@
 
 
     <color name="sud_system_accent2_100">#FFE8DEF8</color>
+
+    <color name="sud_system_accent2_200">#A4CFC7</color>
+
+    <color name="sud_system_accent2_600">#3D665F</color>
+
+
+
+    <color name="sud_system_accent3_100">#ECDBFF</color>
+
+    <color name="sud_system_accent3_200">#CFBFEB</color>
+
+    <color name="sud_system_accent3_600">#64587F</color>
+
 
 
 

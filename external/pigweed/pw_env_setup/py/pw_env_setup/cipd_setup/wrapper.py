@@ -69,8 +69,13 @@ try:
     SCRIPT_DIR = os.path.dirname(__file__)
 except NameError:  # __file__ not defined.
     try:
-        SCRIPT_DIR = os.path.join(os.environ['PW_ROOT'], 'pw_env_setup', 'py',
-                                  'pw_env_setup', 'cipd_setup')
+        SCRIPT_DIR = os.path.join(
+            os.environ['PW_ROOT'],
+            'pw_env_setup',
+            'py',
+            'pw_env_setup',
+            'cipd_setup',
+        )
     except KeyError:
         raise Exception('Environment variable PW_ROOT not set')
 
@@ -85,10 +90,14 @@ try:
 except KeyError:
     try:
         with open(os.devnull, 'w') as outs:
-            PW_ROOT = subprocess.check_output(
-                ['git', 'rev-parse', '--show-toplevel'],
-                stderr=outs,
-            ).strip().decode('utf-8')
+            PW_ROOT = (
+                subprocess.check_output(
+                    ['git', 'rev-parse', '--show-toplevel'],
+                    stderr=outs,
+                )
+                .strip()
+                .decode('utf-8')
+            )
     except subprocess.CalledProcessError:
         PW_ROOT = ''
 
@@ -117,10 +126,12 @@ def platform_normalized():
         raise Exception('unrecognized os: {}'.format(os_name))
 
 
-def arch_normalized():
+def arch_normalized(rosetta=False):
     """Normalize arch into format expected in CIPD paths."""
 
     machine = platform.machine()
+    if platform_normalized() == 'mac' and rosetta:
+        return 'amd64'
     if machine.startswith(('arm', 'aarch')):
         machine = machine.replace('aarch', 'arm')
         if machine == 'arm64':
@@ -133,14 +144,8 @@ def arch_normalized():
     raise Exception('unrecognized arch: {}'.format(machine))
 
 
-def platform_arch_normalized():
-    platform_arch = '{}-{}'.format(platform_normalized(), arch_normalized())
-
-    # Support `mac-arm64` through Rosetta until `mac-arm64` binaries are ready
-    if platform_arch == 'mac-arm64':
-        platform_arch = 'mac-amd64'
-
-    return platform_arch
+def platform_arch_normalized(rosetta=False):
+    return '{}-{}'.format(platform_normalized(), arch_normalized(rosetta))
 
 
 def user_agent():
@@ -148,7 +153,8 @@ def user_agent():
 
     try:
         rev = subprocess.check_output(
-            ['git', '-C', SCRIPT_DIR, 'rev-parse', 'HEAD']).strip()
+            ['git', '-C', SCRIPT_DIR, 'rev-parse', 'HEAD']
+        ).strip()
     except subprocess.CalledProcessError:
         rev = '???'
 
@@ -167,10 +173,10 @@ def actual_hash(path):
     return hasher.hexdigest()
 
 
-def expected_hash():
+def expected_hash(rosetta=False):
     """Pulls expected hash from digests file."""
 
-    expected_plat = platform_arch_normalized()
+    expected_plat = platform_arch_normalized(rosetta)
 
     with open(DIGESTS_FILE, 'r') as ins:
         for line in ins:
@@ -178,10 +184,9 @@ def expected_hash():
             if line.startswith('#') or not line:
                 continue
             plat, hashtype, hashval = line.split()
-            if (hashtype == 'sha256' and plat == expected_plat):
+            if hashtype == 'sha256' and plat == expected_plat:
                 return hashval
-    raise Exception('platform {} not in {}'.format(expected_plat,
-                                                   DIGESTS_FILE))
+    raise Exception('platform {} not in {}'.format(expected_plat, DIGESTS_FILE))
 
 
 def https_connect_with_proxy(target_url):
@@ -200,14 +205,15 @@ def https_connect_with_proxy(target_url):
         py_version = sys.version_info.major
         if py_version >= 3:
             headers['Proxy-Authorization'] = 'Basic ' + str(
-                base64.b64encode(auth.encode()).decode())
+                base64.b64encode(auth.encode()).decode()
+            )
         else:
             headers['Proxy-Authorization'] = 'Basic ' + base64.b64encode(auth)
     conn.set_tunnel(target_url, 443, headers)
     return conn
 
 
-def client_bytes():
+def client_bytes(rosetta=False):
     """Pull down the CIPD client and return it as a bytes object.
 
     Often CIPD_HOST returns a 302 FOUND with a pointer to
@@ -222,18 +228,20 @@ def client_bytes():
         conn = https_connect_with_proxy(CIPD_HOST)
     except AttributeError:
         print('=' * 70)
-        print('''
+        print(
+            '''
 It looks like this version of Python does not support SSL. This is common
 when using Homebrew. If using Homebrew please run the following commands.
 If not using Homebrew check how your version of Python was built.
 
 brew install openssl  # Probably already installed, but good to confirm.
 brew uninstall python && brew install python
-'''.strip())
+'''.strip()
+        )
         print('=' * 70)
         raise
 
-    full_platform = platform_arch_normalized()
+    full_platform = platform_arch_normalized(rosetta)
     if full_platform not in SUPPORTED_PLATFORMS:
         raise UnsupportedPlatform(full_platform)
 
@@ -272,7 +280,8 @@ brew uninstall python && brew install python
                 "Otherwise, check that your machine's Python can use SSL, "
                 'testing with the httplib module on Python 2 or http.client on '
                 'Python 3.',
-                file=sys.stderr)
+                file=sys.stderr,
+            )
             raise
 
         # Found client bytes.
@@ -291,11 +300,16 @@ brew uninstall python && brew install python
         else:
             break
 
-    raise Exception('failed to download client from https://{}{}'.format(
-        CIPD_HOST, path))
+    raise Exception(
+        'failed to download client from https://{}{}'.format(CIPD_HOST, path)
+    )
 
 
-def bootstrap(client, silent=('PW_ENVSETUP_QUIET' in os.environ)):
+def bootstrap(
+    client,
+    silent=('PW_ENVSETUP_QUIET' in os.environ),
+    rosetta=False,
+):
     """Bootstrap cipd client installation."""
 
     client_dir = os.path.dirname(client)
@@ -303,19 +317,24 @@ def bootstrap(client, silent=('PW_ENVSETUP_QUIET' in os.environ)):
         os.makedirs(client_dir)
 
     if not silent:
-        print('Bootstrapping cipd client for {}'.format(
-            platform_arch_normalized()))
+        print(
+            'Bootstrapping cipd client for {}'.format(
+                platform_arch_normalized(rosetta)
+            )
+        )
 
     tmp_path = client + '.tmp'
     with open(tmp_path, 'wb') as tmp:
-        tmp.write(client_bytes())
+        tmp.write(client_bytes(rosetta))
 
-    expected = expected_hash()
+    expected = expected_hash(rosetta=rosetta)
     actual = actual_hash(tmp_path)
 
     if expected != actual:
-        raise Exception('digest of downloaded CIPD client is incorrect, '
-                        'check that digests file is current')
+        raise Exception(
+            'digest of downloaded CIPD client is incorrect, '
+            'check that digests file is current'
+        )
 
     os.chmod(tmp_path, 0o755)
     os.rename(tmp_path, client)
@@ -327,9 +346,11 @@ def selfupdate(client):
     cmd = [
         client,
         'selfupdate',
-        '-version-file', VERSION_FILE,
-        '-service-url', 'https://{}'.format(CIPD_HOST),
-    ]  # yapf: disable
+        '-version-file',
+        VERSION_FILE,
+        '-service-url',
+        'https://{}'.format(CIPD_HOST),
+    ]
     subprocess.check_call(cmd)
 
 
@@ -340,7 +361,12 @@ def _default_client(install_dir):
     return client
 
 
-def init(install_dir=DEFAULT_INSTALL_DIR, silent=False, client=None):
+def init(
+    install_dir=DEFAULT_INSTALL_DIR,
+    silent=False,
+    client=None,
+    rosetta=False,
+):
     """Install/update cipd client."""
 
     if not client:
@@ -349,14 +375,16 @@ def init(install_dir=DEFAULT_INSTALL_DIR, silent=False, client=None):
     os.environ['CIPD_HTTP_USER_AGENT_PREFIX'] = user_agent()
 
     if not os.path.isfile(client):
-        bootstrap(client, silent)
+        bootstrap(client, silent, rosetta=rosetta)
 
     try:
         selfupdate(client)
     except subprocess.CalledProcessError:
-        print('CIPD selfupdate failed. Bootstrapping then retrying...',
-              file=sys.stderr)
-        bootstrap(client)
+        print(
+            'CIPD selfupdate failed. Bootstrapping then retrying...',
+            file=sys.stderr,
+        )
+        bootstrap(client, rosetta=rosetta)
         selfupdate(client)
 
     return client
@@ -375,15 +403,17 @@ def main(install_dir=DEFAULT_INSTALL_DIR, silent=False):
         raise
 
     except Exception:
-        print('Failed to initialize CIPD. Run '
-              '`CIPD_HTTP_USER_AGENT_PREFIX={user_agent}/manual {client} '
-              "selfupdate -version-file '{version_file}'` "
-              'to diagnose if this is persistent.'.format(
-                  user_agent=user_agent(),
-                  client=client,
-                  version_file=VERSION_FILE,
-              ),
-              file=sys.stderr)
+        print(
+            'Failed to initialize CIPD. Run '
+            '`CIPD_HTTP_USER_AGENT_PREFIX={user_agent}/manual {client} '
+            "selfupdate -version-file '{version_file}'` "
+            'to diagnose if this is persistent.'.format(
+                user_agent=user_agent(),
+                client=client,
+                version_file=VERSION_FILE,
+            ),
+            file=sys.stderr,
+        )
         raise
 
     return client

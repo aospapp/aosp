@@ -105,7 +105,6 @@ public class UnicodeSetIterator {
      *
      * @return this
      * @see UnicodeSet#strings()
-     * @hide draft / provisional / internal are hidden on Android
      */
     public UnicodeSetIterator skipToStrings() {
         // Finish code point/range iteration.

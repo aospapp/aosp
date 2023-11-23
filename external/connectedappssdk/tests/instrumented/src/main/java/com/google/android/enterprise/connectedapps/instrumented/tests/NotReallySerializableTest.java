@@ -29,7 +29,6 @@ import com.google.android.enterprise.connectedapps.testapp.NotReallySerializable
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
 import com.google.android.enterprise.connectedapps.testapp.types.ProfileTestCrossProfileType;
 import com.google.common.util.concurrent.ListenableFuture;
-
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.Test;
@@ -60,14 +59,14 @@ public class NotReallySerializableTest {
   }
 
   @AfterClass
-  public static void teardown() {
+  public static void teardownClass() {
     utilities.ensureNoWorkProfile();
   }
 
   @Test
   public void
       synchronous_serializableObjectIsNotReallySerializable_throwsProfileRuntimeException() {
-    utilities.manuallyConnectAndWait();
+    utilities.addConnectionHolderAndWait(this);
 
     assertThrows(
         ProfileRuntimeException.class,

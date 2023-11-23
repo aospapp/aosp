@@ -54,7 +54,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * not correctly obey its specification.
  *
  * <p>See the Guava User Guide article on <a href=
- * "https://github.com/google/guava/wiki/ImmutableCollectionsExplained"> immutable collections</a>.
+ * "https://github.com/google/guava/wiki/ImmutableCollectionsExplained">immutable collections</a>.
  *
  * @author Jared Levy
  * @author Louis Wasserman
@@ -742,6 +742,24 @@ public final class ImmutableSortedMap<K, V> extends ImmutableSortedMapFauxveride
         default:
           return fromEntries(comparator, false, entries, size);
       }
+    }
+
+    /**
+     * Throws UnsupportedOperationException. A future version may support this operation. Then the
+     * value for any given key will be the one that was last supplied in a {@code put} operation for
+     * that key.
+     *
+     * @throws UnsupportedOperationException always
+     * @since 31.1
+     * @deprecated This method is not currently implemented, and may never be.
+     */
+    @DoNotCall
+    @Deprecated
+    @Override
+    public final ImmutableSortedMap<K, V> buildKeepingLast() {
+      // TODO(emcmanus): implement
+      throw new UnsupportedOperationException(
+          "ImmutableSortedMap.Builder does not yet implement buildKeepingLast()");
     }
   }
 

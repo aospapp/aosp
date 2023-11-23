@@ -101,7 +101,7 @@ cc_library_static {
     // Work around b/25435766 core2md segfault.
     arch: {
         x86: {
-            clang_cflags: ["-mno-stackrealign"],
+            cflags: ["-mno-stackrealign"],
         },
     },
 }
@@ -120,7 +120,7 @@ cc_binary {
     // Work around b/25435766 core2md segfault.
     arch: {
         x86: {
-            clang_cflags: ["-mno-stackrealign"],
+            cflags: ["-mno-stackrealign"],
         },
     },
     cflags: [

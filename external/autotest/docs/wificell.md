@@ -3,7 +3,8 @@
 Most WiFi tests specify `DEPENDENCIES = 'wificell'` in their control file,
 which means they require not only an autotest server and a DUT, but also a
 special test-enabled Access Point (AP). Additionally, some tests require a
-packet capture (pcap) device or a signal attenuator.
+packet capture (pcap) device or a signal attenuator. For instructions on how
+to set up a wifcell for testing, visit [Setting up a WiFi Test Cell](https://chromeos.google.com/partner/dlm/docs/component-qual/settinguptestcell.html).
 
 The basics of running a wificell autotest are the same as any other, except
 that autotest also needs to know where to find your test AP. For some
@@ -14,15 +15,15 @@ configurations, this is sufficient:
 test_that my-host network_WiFi_SimpleConnect.wifi_check5HT40
 ````
 
-This works for most of the Chrome OS lab WiFi cells, where we configure DNS to
+This works for most of the ChromeOS lab WiFi cells, where we configure DNS to
 pair a DUT at address `${HOST}` with its companion AP at an address
 `${HOST}-router`. See below for more info on addressing your test AP.
 
 ## What is a test AP?
 
 A test AP can come in various forms, but as of this writing, it is typically a
-Chrome OS based router / access point such as Whirlwind or Gale, running a
-testbed-ap variant of a Chrome OS test image in Developer Mode. We have
+ChromeOS based router / access point such as Whirlwind or Gale, running a
+testbed-ap variant of a ChromeOS test image in Developer Mode. We have
 previously supported other consumer routers, running OpenWRT. Setting up a test
 AP is not in the scope for this document.
 
@@ -42,7 +43,7 @@ suites.
 
 Autotest assumes that if you have a DUT at address `${HOST}`, then your AP is
 at an address `${HOST}-router` (see [dnsname\_mangler]). This is configured
-automatically by the lab team for most Chrome OS lab WiFi setups.
+automatically by the lab team for most ChromeOS lab WiFi setups.
 
 For custom/local testing without modifying your DNS server, one can accomplish
 this by adding entries to your `/etc/hosts` file. Alternatively, you can supply

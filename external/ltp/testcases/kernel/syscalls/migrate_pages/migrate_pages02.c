@@ -273,10 +273,6 @@ static void setup(void)
 	if (num_nodes < 2)
 		tst_brk(TCONF, "at least 2 allowed NUMA nodes"
 			 " are required");
-	else if (tst_kvercmp(2, 6, 18) < 0)
-		tst_brk(TCONF, "2.6.18 or greater kernel required");
-
-	FILE_PRINTF("/proc/sys/kernel/numa_balancing", "0");
 	/*
 	 * find 2 nodes, which can hold NODE_MIN_FREEMEM bytes
 	 * The reason is that:
@@ -327,9 +323,10 @@ static struct tst_test test = {
 	.forks_child = 1,
 	.test_all = run,
 	.setup = setup,
-	.save_restore = (const char * const[]) {
-		"?/proc/sys/kernel/numa_balancing",
-		NULL,
+	.save_restore = (const struct tst_path_val[]) {
+		{"/proc/sys/kernel/numa_balancing", "0",
+			TST_SR_SKIP_MISSING | TST_SR_TCONF_RO},
+		{}
 	},
 };
 #else

@@ -91,6 +91,10 @@ public class GlifListLayout extends GlifLayout {
   protected View onInflateTemplate(LayoutInflater inflater, int template) {
     if (template == 0) {
       template = R.layout.sud_glif_list_template;
+      // if the activity is embedded should apply an embedded layout.
+      if (isEmbeddedActivityOnePaneEnabled(getContext())) {
+        template = R.layout.sud_glif_list_embedded_template;
+      }
     }
     return super.onInflateTemplate(inflater, template);
   }

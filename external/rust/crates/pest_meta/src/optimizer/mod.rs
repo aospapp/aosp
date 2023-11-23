@@ -7,7 +7,9 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
-use ast::*;
+//! Different optimizations for pest's ASTs.
+
+use crate::ast::*;
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -20,11 +22,13 @@ macro_rules! box_tree {
 
 mod concatenator;
 mod factorizer;
+mod lister;
 mod restorer;
 mod rotater;
 mod skipper;
 mod unroller;
 
+/// Takes pest's ASTs and optimizes them
 pub fn optimize(rules: Vec<Rule>) -> Vec<OptimizedRule> {
     let optimized: Vec<OptimizedRule> = rules
         .into_iter()
@@ -33,6 +37,7 @@ pub fn optimize(rules: Vec<Rule>) -> Vec<OptimizedRule> {
         .map(unroller::unroll)
         .map(concatenator::concatenate)
         .map(factorizer::factor)
+        .map(lister::list)
         .map(rule_to_optimized_rule)
         .collect();
 
@@ -85,36 +90,64 @@ fn to_hash_map(rules: &[OptimizedRule]) -> HashMap<String, OptimizedExpr> {
         .collect()
 }
 
+/// The optimized version of the pest AST's `Rule`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OptimizedRule {
+    /// The name of the rule.
     pub name: String,
+    /// The type of the rule.
     pub ty: RuleType,
+    /// The optimized expression of the rule.
     pub expr: OptimizedExpr,
 }
 
+/// The optimized version of the pest AST's `Expr`.
+///
+/// # Warning: Semantic Versioning
+/// There may be non-breaking changes to the meta-grammar
+/// between minor versions. Those non-breaking changes, however,
+/// may translate into semver-breaking changes due to the additional variants
+/// propaged from the `Rule` enum. This is a known issue and will be fixed in the
+/// future (e.g. by increasing MSRV and non_exhaustive annotations).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OptimizedExpr {
+    /// Matches an exact string, e.g. `"a"`
     Str(String),
+    /// Matches an exact string, case insensitively (ASCII only), e.g. `^"a"`
     Insens(String),
+    /// Matches one character in the range, e.g. `'a'..'z'`
     Range(String, String),
+    /// Matches the rule with the given name, e.g. `a`
     Ident(String),
+    /// Matches a custom part of the stack, e.g. `PEEK[..]`
     PeekSlice(i32, Option<i32>),
+    /// Positive lookahead; matches expression without making progress, e.g. `&e`
     PosPred(Box<OptimizedExpr>),
+    /// Negative lookahead; matches if expression doesn't match, without making progress, e.g. `!e`
     NegPred(Box<OptimizedExpr>),
+    /// Matches a sequence of two expressions, e.g. `e1 ~ e2`
     Seq(Box<OptimizedExpr>, Box<OptimizedExpr>),
+    /// Matches either of two expressions, e.g. `e1 | e2`
     Choice(Box<OptimizedExpr>, Box<OptimizedExpr>),
+    /// Optionally matches an expression, e.g. `e?`
     Opt(Box<OptimizedExpr>),
+    /// Matches an expression zero or more times, e.g. `e*`
     Rep(Box<OptimizedExpr>),
+    /// Continues to match expressions until one of the strings in the `Vec` is found
     Skip(Vec<String>),
+    /// Matches an expression and pushes it to the stack, e.g. `push(e)`
     Push(Box<OptimizedExpr>),
+    /// Restores an expression's checkpoint
     RestoreOnErr(Box<OptimizedExpr>),
 }
 
 impl OptimizedExpr {
+    /// Returns a top-down iterator over the `OptimizedExpr`.
     pub fn iter_top_down(&self) -> OptimizedExprTopDownIterator {
         OptimizedExprTopDownIterator::new(self)
     }
 
+    /// Applies `f` to the `OptimizedExpr` top-down.
     pub fn map_top_down<F>(self, mut f: F) -> OptimizedExpr
     where
         F: FnMut(OptimizedExpr) -> OptimizedExpr,
@@ -164,6 +197,7 @@ impl OptimizedExpr {
         map_internal(self, &mut f)
     }
 
+    /// Applies `f` to the `OptimizedExpr` bottom-up.
     pub fn map_bottom_up<F>(self, mut f: F) -> OptimizedExpr
     where
         F: FnMut(OptimizedExpr) -> OptimizedExpr,
@@ -214,6 +248,7 @@ impl OptimizedExpr {
     }
 }
 
+/// A top-down iterator over an `OptimizedExpr`.
 pub struct OptimizedExprTopDownIterator {
     current: Option<OptimizedExpr>,
     next: Option<OptimizedExpr>,
@@ -221,6 +256,7 @@ pub struct OptimizedExprTopDownIterator {
 }
 
 impl OptimizedExprTopDownIterator {
+    /// Creates a new top down iterator from an `OptimizedExpr`.
     pub fn new(expr: &OptimizedExpr) -> Self {
         let mut iter = OptimizedExprTopDownIterator {
             current: None,
@@ -279,7 +315,7 @@ mod tests {
     #[test]
     fn rotate() {
         let rules = {
-            use ast::Expr::*;
+            use crate::ast::Expr::*;
             vec![Rule {
                 name: "rule".to_owned(),
                 ty: RuleType::Normal,
@@ -293,7 +329,7 @@ mod tests {
             }]
         };
         let rotated = {
-            use optimizer::OptimizedExpr::*;
+            use crate::optimizer::OptimizedExpr::*;
             vec![OptimizedRule {
                 name: "rule".to_owned(),
                 ty: RuleType::Normal,
@@ -313,7 +349,7 @@ mod tests {
     #[test]
     fn skip() {
         let rules = {
-            use ast::Expr::*;
+            use crate::ast::Expr::*;
             vec![Rule {
                 name: "rule".to_owned(),
                 ty: RuleType::Atomic,
@@ -335,7 +371,7 @@ mod tests {
     #[test]
     fn concat_strings() {
         let rules = {
-            use ast::Expr::*;
+            use crate::ast::Expr::*;
             vec![Rule {
                 name: "rule".to_owned(),
                 ty: RuleType::Atomic,
@@ -362,7 +398,7 @@ mod tests {
             expr: Expr::RepExact(Box::new(Expr::Ident(String::from("a"))), 3),
         }];
         let unrolled = {
-            use optimizer::OptimizedExpr::*;
+            use crate::optimizer::OptimizedExpr::*;
             vec![OptimizedRule {
                 name: "rule".to_owned(),
                 ty: RuleType::Atomic,
@@ -384,7 +420,7 @@ mod tests {
             expr: Expr::RepMax(Box::new(Expr::Str("a".to_owned())), 3),
         }];
         let unrolled = {
-            use optimizer::OptimizedExpr::*;
+            use crate::optimizer::OptimizedExpr::*;
             vec![OptimizedRule {
                 name: "rule".to_owned(),
                 ty: RuleType::Atomic,
@@ -406,7 +442,7 @@ mod tests {
             expr: Expr::RepMin(Box::new(Expr::Str("a".to_owned())), 2),
         }];
         let unrolled = {
-            use optimizer::OptimizedExpr::*;
+            use crate::optimizer::OptimizedExpr::*;
             vec![OptimizedRule {
                 name: "rule".to_owned(),
                 ty: RuleType::Atomic,
@@ -428,7 +464,7 @@ mod tests {
             expr: Expr::RepMinMax(Box::new(Expr::Str("a".to_owned())), 2, 3),
         }];
         let unrolled = {
-            use optimizer::OptimizedExpr::*;
+            use crate::optimizer::OptimizedExpr::*;
             vec![OptimizedRule {
                 name: "rule".to_owned(),
                 ty: RuleType::Atomic,
@@ -452,7 +488,7 @@ mod tests {
     #[test]
     fn concat_insensitive_strings() {
         let rules = {
-            use ast::Expr::*;
+            use crate::ast::Expr::*;
             vec![Rule {
                 name: "rule".to_owned(),
                 ty: RuleType::Atomic,
@@ -474,7 +510,7 @@ mod tests {
     #[test]
     fn long_common_sequence() {
         let rules = {
-            use ast::Expr::*;
+            use crate::ast::Expr::*;
             vec![Rule {
                 name: "rule".to_owned(),
                 ty: RuleType::Silent,
@@ -491,7 +527,7 @@ mod tests {
             }]
         };
         let optimized = {
-            use optimizer::OptimizedExpr::*;
+            use crate::optimizer::OptimizedExpr::*;
             vec![OptimizedRule {
                 name: "rule".to_owned(),
                 ty: RuleType::Silent,
@@ -501,6 +537,84 @@ mod tests {
                         Ident(String::from("b")),
                         Choice(Ident(String::from("c")), Ident(String::from("d")))
                     )
+                )),
+            }]
+        };
+
+        assert_eq!(optimize(rules), optimized);
+    }
+
+    #[test]
+    fn short_common_sequence() {
+        let rules = {
+            use crate::ast::Expr::*;
+            vec![Rule {
+                name: "rule".to_owned(),
+                ty: RuleType::Atomic,
+                expr: box_tree!(Choice(
+                    Seq(Ident(String::from("a")), Ident(String::from("b"))),
+                    Ident(String::from("a"))
+                )),
+            }]
+        };
+        let optimized = {
+            use crate::optimizer::OptimizedExpr::*;
+            vec![OptimizedRule {
+                name: "rule".to_owned(),
+                ty: RuleType::Atomic,
+                expr: box_tree!(Seq(Ident(String::from("a")), Opt(Ident(String::from("b"))))),
+            }]
+        };
+
+        assert_eq!(optimize(rules), optimized);
+    }
+
+    #[test]
+    fn impossible_common_sequence() {
+        let rules = {
+            use crate::ast::Expr::*;
+            vec![Rule {
+                name: "rule".to_owned(),
+                ty: RuleType::Silent,
+                expr: box_tree!(Choice(
+                    Ident(String::from("a")),
+                    Seq(Ident(String::from("a")), Ident(String::from("b")))
+                )),
+            }]
+        };
+        let optimized = {
+            use crate::optimizer::OptimizedExpr::*;
+            vec![OptimizedRule {
+                name: "rule".to_owned(),
+                ty: RuleType::Silent,
+                expr: box_tree!(Ident(String::from("a"))),
+            }]
+        };
+
+        assert_eq!(optimize(rules), optimized);
+    }
+
+    #[test]
+    fn lister() {
+        let rules = {
+            use crate::ast::Expr::*;
+            vec![Rule {
+                name: "rule".to_owned(),
+                ty: RuleType::Silent,
+                expr: box_tree!(Seq(
+                    Rep(Seq(Ident(String::from("a")), Ident(String::from("b")))),
+                    Ident(String::from("a"))
+                )),
+            }]
+        };
+        let optimized = {
+            use crate::optimizer::OptimizedExpr::*;
+            vec![OptimizedRule {
+                name: "rule".to_owned(),
+                ty: RuleType::Silent,
+                expr: box_tree!(Seq(
+                    Ident(String::from("a")),
+                    Rep(Seq(Ident(String::from("b")), Ident(String::from("a"))))
                 )),
             }]
         };

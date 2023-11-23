@@ -61,11 +61,14 @@
     <attr name="sudGlifIconSize" format="dimension" />
 
     <attr name="sudGlifDescriptionStyle" format="reference" />
+    <attr name="sudGlifAccountNameStyle" format="reference" />
+    <attr name="sudGlifAccountAvatarStyle" format="reference" />
+    <attr name="sudGlifAccountContainerStyle" format="reference" />
+    <attr name="sudGlifAccountAvatarSize" format="dimension" />
 
     <attr name="sudButtonAllCaps" format="boolean" />
     <attr name="sudButtonCornerRadius" format="dimension" />
     <attr name="sudButtonFontFamily" format="string|reference" />
-    <!-- Values copied from frameworks/base/core/res/res/values/attrs.xml -->
     <attr name="sudButtonTertiaryGravity">
         <!-- Push object to the left of its container, not changing its size. -->
         <flag name="left" value="0x03" />

@@ -1,3 +1,5 @@
+//! Support for single-register read/write access.
+
 use crate::arch::Arch;
 use crate::target::{Target, TargetResult};
 
@@ -15,28 +17,29 @@ use crate::target::{Target, TargetResult};
 /// part of the default default register file used by the `read/write_registers`
 /// methods, and can only be accessed via this extension (e.g: the RISC-V
 /// Control and Status registers).
-pub trait SingleRegisterAccess<Id>: Target {
+pub trait SingleRegisterAccess<Tid>: Target
+where
+    Tid: crate::is_valid_tid::IsValidTid,
+{
     /// Read to a single register on the target.
     ///
     /// The `tid` field identifies which thread the value should be read from.
     /// On single threaded targets, `tid` is set to `()` and can be ignored.
     ///
     /// Implementations should write the value of the register using target's
-    /// native byte order in the buffer `dst`.
+    /// native byte order in the buffer `buf`.
+    ///
+    /// Return the number of bytes written into `buf` or `0` if the register is
+    /// valid but unavailable.
     ///
     /// If the requested register could not be accessed, an appropriate
     /// non-fatal error should be returned.
-    ///
-    /// _Note:_ This method includes a stubbed default implementation which
-    /// simply returns `Ok(())`. This is due to the fact that several built-in
-    /// `arch` implementations haven't been updated with proper `RegId`
-    /// implementations.
     fn read_register(
         &mut self,
-        tid: Id,
+        tid: Tid,
         reg_id: <Self::Arch as Arch>::RegId,
-        dst: &mut [u8],
-    ) -> TargetResult<(), Self>;
+        buf: &mut [u8],
+    ) -> TargetResult<usize, Self>;
 
     /// Write from a single register on the target.
     ///
@@ -49,19 +52,14 @@ pub trait SingleRegisterAccess<Id>: Target {
     ///
     /// If the requested register could not be accessed, an appropriate
     /// non-fatal error should be returned.
-    ///
-    /// _Note:_ This method includes a stubbed default implementation which
-    /// simply returns `Ok(())`. This is due to the fact that several built-in
-    /// `arch` implementations haven't been updated with proper `RegId`
-    /// implementations.
     fn write_register(
         &mut self,
-        tid: Id,
+        tid: Tid,
         reg_id: <Self::Arch as Arch>::RegId,
         val: &[u8],
     ) -> TargetResult<(), Self>;
 }
 
 /// See [`SingleRegisterAccess`]
-pub type SingleRegisterAccessOps<'a, Id, T> =
-    &'a mut dyn SingleRegisterAccess<Id, Arch = <T as Target>::Arch, Error = <T as Target>::Error>;
+pub type SingleRegisterAccessOps<'a, Tid, T> =
+    &'a mut dyn SingleRegisterAccess<Tid, Arch = <T as Target>::Arch, Error = <T as Target>::Error>;

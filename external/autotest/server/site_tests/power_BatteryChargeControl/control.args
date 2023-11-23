@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_BatteryChargeControl.args"
 PURPOSE = "Use Servo v4 to charge the DUT"
 CRITERIA = ""
@@ -13,6 +13,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 DUT is connected to Servo v4 via USB type-C, and Servo v4 is connected to AC

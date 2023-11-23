@@ -114,7 +114,7 @@ Go to [https://webrtc.googlesource.com/src][webrtc-repo-link].
 
 We have put sample applications [here][examples-link].
 
-[examples-link]: https://webrtc.googlesource.com/src/+/refs/heads/master/docs/native-code/development/index.md#example-applications
+[examples-link]: https://webrtc.googlesource.com/src/+/main/docs/native-code/development/index.md#example-applications
 
 
 ### Are WebRTC components subject to change?
@@ -133,7 +133,7 @@ feature set.
 Please see [Getting Started][getting-started-link] and
 [Contributing bug fixes][contributing-link] for more information.
 
-[getting-started-link]: https://webrtc.googlesource.com/src/+/refs/heads/master/docs/native-code/development/index.md
+[getting-started-link]: https://webrtc.googlesource.com/src/+/main/docs/native-code/development/index.md
 [contributing-link]: https://webrtc.org/support/contributing
 
 
@@ -144,6 +144,12 @@ Yes, each Contributor must sign and return the
 
 [cla-link]: https://developers.google.com/open-source/cla/individual?hl=en
 
+### How can I become a WebRTC committer?
+
+The process of becoming a committer is documented in a
+[separate page][become-a-committer].
+
+[become-a-committer]: https://webrtc.googlesource.com/src/+/refs/heads/main/g3doc/become_a_committer.md
 
 ### Do I have to be a programmer to use WebRTC?
 
@@ -181,7 +187,7 @@ royalties for WebRTC and its components including the codecs it supports (VP8
 for video and iSAC and iLBC for audio).  For more information, see the [License
 page][license-link].
 
-[license-link]: https://webrtc.googlesource.com/src/+/refs/heads/master/docs/license/index.md
+[license-link]: https://webrtc.googlesource.com/src/+/main/LICENSE
 
 
 ### What does this license let me do?

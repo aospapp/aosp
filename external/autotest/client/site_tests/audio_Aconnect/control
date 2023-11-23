@@ -9,10 +9,12 @@ PURPOSE = 'Test that the MIDI seq kernel interface is accessible.'
 CRITERIA = """
 Fails if /dev/snd/seq is inaccessible.
 """
+ATTRIBUTES = 'suite:infra_qual'
 TIME='SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = "audio"
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
 Check that aconnect can open and read information from /dev/snd/seq.

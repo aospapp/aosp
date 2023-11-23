@@ -39,14 +39,6 @@ python_library {
         "hazmat/bindings/openssl/*.py",
         "x509/*.py",
     ],
-    version: {
-        py2: {
-	    enabled: true,
-	},
-        py3: {
-            enabled: true,
-        },
-    },
     libs: [
         "py-asn1crypto",
         "py-cffi",

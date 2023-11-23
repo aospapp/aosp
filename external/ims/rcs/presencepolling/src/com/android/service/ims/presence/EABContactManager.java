@@ -47,6 +47,7 @@ import com.android.ims.RcsPresenceInfo;
 import com.android.ims.internal.Logger;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class EABContactManager {
@@ -625,7 +626,7 @@ public class EABContactManager {
             StringBuilder sb = new StringBuilder(512);
             sb.append("EABContactManager.Query { ");
             sb.append("\nSelection: " + selection);
-            sb.append("\nSelectionArgs: " + selectionArgs);
+            sb.append("\nSelectionArgs: " + Arrays.toString(selectionArgs));
             sb.append("\nOrderBy: " + orderBy);
             sb.append(" }");
             return sb.toString();

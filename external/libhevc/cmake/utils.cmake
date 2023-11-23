@@ -32,8 +32,6 @@ endfunction()
 
 # Adds defintions for all targets
 function(libhevc_add_definitions)
-  add_definitions(-DPROFILE_ENABLE -DMD5_DISABLE)
-
   if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64")
     add_definitions(-DARMV8 -DDEFAULT_ARCH=D_ARCH_ARMV8_GENERIC)
   elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch32")

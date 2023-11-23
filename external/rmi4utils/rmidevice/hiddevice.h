@@ -20,6 +20,7 @@
 
 #include <linux/hidraw.h>
 #include <string>
+#include <fstream>
 #include <stdint.h>
 #include "rmidevice.h"
 
@@ -41,7 +42,8 @@ public:
 		      m_mode(HID_RMI4_MODE_ATTN_REPORTS),
 		      m_initialMode(HID_RMI4_MODE_MOUSE),
 		      m_transportDeviceName(""),
-		      m_driverPath("")
+		      m_driverPath(""),
+		      hasVendorDefineLIDMode(false)
 	{}
 	virtual int Open(const char * filename);
 	virtual int Read(unsigned short addr, unsigned char *buf,
@@ -49,6 +51,7 @@ public:
 	virtual int Write(unsigned short addr, const unsigned char *buf,
 				 unsigned short len);
 	virtual int SetMode(int mode);
+	virtual int ToggleInterruptMask(bool enable);
 	virtual int WaitForAttention(struct timeval * timeout = NULL,
 					unsigned int source_mask = RMI_INTERUPT_SOURCES_ALL_MASK);
 	virtual int GetAttentionReport(struct timeval * timeout, unsigned int source_mask,
@@ -86,6 +89,8 @@ private:
 
 	std::string m_transportDeviceName;
 	std::string m_driverPath;
+
+	bool hasVendorDefineLIDMode;
 
 	int GetReport(int *reportId, struct timeval * timeout = NULL);
 	void PrintReport(const unsigned char *report);

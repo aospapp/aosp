@@ -24,7 +24,7 @@
 //    //icing/transform/map:map-normalizer_benchmark
 //
 //    $ blaze-bin/icing/transform/map/map-normalizer_benchmark
-//    --benchmarks=all
+//    --benchmark_filter=all
 //
 // Run on an Android device:
 //    $ blaze build --copt="-DGOOGLE_COMMANDLINEFLAGS_FULL_API=1"
@@ -35,7 +35,7 @@
 //    blaze-bin/icing/transform/map/map-normalizer_benchmark
 //    /data/local/tmp/
 //
-//    $ adb shell /data/local/tmp/map-normalizer_benchmark --benchmarks=all
+//    $ adb shell /data/local/tmp/map-normalizer_benchmark --benchmark_filter=all
 namespace icing {
 namespace lib {
 

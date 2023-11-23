@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -46,7 +47,7 @@ class platform_CryptohomeFio(test.test):
         for config in disk_configs:
             for sysctls in sysctls_list or [ {} ]:
                 graph_descr = ''
-                for key, val in sysctls.iteritems():
+                for key, val in list(sysctls.items()):
                     utils.sysctl(key, val)
                     graph_descr += '-'.join([os.path.basename(key), str(val)])
                 # Mount a test cryptohome vault.

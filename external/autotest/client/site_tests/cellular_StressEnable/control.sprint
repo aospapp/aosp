@@ -14,6 +14,7 @@ TEST_CATEGORY = "Stress"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
 DEPENDENCIES = "carrier:sprint"
+PY_VERSION = 3
 
 DOC = """
   Stress-tests enabling and disabling a technology at short intervals.

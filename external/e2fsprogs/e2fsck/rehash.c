@@ -91,7 +91,7 @@ struct fill_dir_struct {
 struct hash_entry {
 	ext2_dirhash_t	hash;
 	ext2_dirhash_t	minor_hash;
-	ino_t		ino;
+	ext2_ino_t	ino;
 	struct ext2_dir_entry	*dir;
 };
 
@@ -164,7 +164,7 @@ static int fill_dir_block(ext2_filsys fs,
 	/* While the directory block is "hot", index it. */
 	dir_offset = 0;
 	while (dir_offset < fs->blocksize) {
-		int min_rec = EXT2_DIR_ENTRY_HEADER_LEN;
+		unsigned int min_rec = EXT2_DIR_ENTRY_HEADER_LEN;
 		int extended = hash_in_entry && !is_fake_entry(fs, blockcnt, dir_offset);
 
 		if (extended)
@@ -414,6 +414,8 @@ static void mutate_name(char *str, unsigned int *len)
 			l += 2;
 		else
 			l = (l+3) & ~3;
+		if (l > 255)
+			l = 255;
 		str[l-2] = '~';
 		str[l-1] = '0';
 		*len = l;
@@ -548,7 +550,7 @@ static errcode_t copy_dir_entries(e2fsck_t ctx,
 	int			csum_size = 0;
 	struct			ext2_dir_entry_tail *t;
 	int hash_in_entry = ext4_hash_in_dirent(fd->inode);
-	int min_rec_len = ext2fs_dir_rec_len(1, hash_in_entry);
+	unsigned int min_rec_len = ext2fs_dir_rec_len(1, hash_in_entry);
 
 	if (ctx->htree_slack_percentage == 255) {
 		profile_get_uint(ctx->profile, "options",
@@ -1051,13 +1053,11 @@ retry_nohash:
 	/* Sort the list */
 resort:
 	if (fd.compress && fd.num_array > 1)
-		sort_r_simple(fd.harray+2, fd.num_array-2,
-			      sizeof(struct hash_entry),
-			      hash_cmp, &name_cmp_ctx);
+		sort_r(fd.harray+2, fd.num_array-2, sizeof(struct hash_entry),
+		       hash_cmp, &name_cmp_ctx);
 	else
-		sort_r_simple(fd.harray, fd.num_array,
-			      sizeof(struct hash_entry),
-			      hash_cmp, &name_cmp_ctx);
+		sort_r(fd.harray, fd.num_array, sizeof(struct hash_entry),
+		       hash_cmp, &name_cmp_ctx);
 
 	/*
 	 * Look for duplicates

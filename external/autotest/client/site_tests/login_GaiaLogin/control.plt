@@ -4,20 +4,20 @@
 
 from autotest_lib.client.common_lib.cros import power_load_util
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "login_GaiaLogin.plt"
 ATTRIBUTES = "suite:power_daily"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "login"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test verifies that logging into production Gaia works correctly.
 
-It logs in using the telemetry gaia_login flag, and navigates to
-accounts.google.com to verify that we're logged in to gaia, as opposed
-to fake telemetry login.
+It logs in using the telemetry gaia_login flag, and navigates to google.com to
+verify that we're logged in to gaia, as opposed to fake telemetry login.
 """
 
 username = power_load_util.get_username()

@@ -1,0 +1,14 @@
+rust_library_rlib {
+    name: "libuuid_nostd",
+    crate_name: "uuid",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.8.2",
+    srcs: ["src/lib.rs"],
+    edition: "2018",
+    prefer_rlib: true,
+    no_stdlibs: true,
+    stdlibs: [
+        "libcompiler_builtins.rust_sysroot",
+        "libcore.rust_sysroot",
+    ],
+}

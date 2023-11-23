@@ -15,9 +15,9 @@ import static org.junit.Assert.fail;
 
 import android.os.Build;
 import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+import androidx.test.filters.SmallTest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -39,8 +39,8 @@ import org.webrtc.EglBase;
 import org.webrtc.IceCandidate;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
+import org.webrtc.RTCStatsReport;
 import org.webrtc.SessionDescription;
-import org.webrtc.StatsReport;
 import org.webrtc.VideoCapturer;
 import org.webrtc.VideoFrame;
 import org.webrtc.VideoSink;
@@ -77,9 +77,9 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
   private ExecutorService signalingExecutor;
   private boolean isClosed;
   private boolean isIceConnected;
-  private SessionDescription localSdp;
+  private SessionDescription localDesc;
   private List<IceCandidate> iceCandidates = new ArrayList<>();
-  private final Object localSdpEvent = new Object();
+  private final Object localDescEvent = new Object();
   private final Object iceCandidateEvent = new Object();
   private final Object iceConnectedEvent = new Object();
   private final Object closeEvent = new Object();
@@ -133,11 +133,11 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
 
   // Peer connection events implementation.
   @Override
-  public void onLocalDescription(SessionDescription sdp) {
-    Log.d(TAG, "LocalSDP type: " + sdp.type);
-    synchronized (localSdpEvent) {
-      localSdp = sdp;
-      localSdpEvent.notifyAll();
+  public void onLocalDescription(SessionDescription desc) {
+    Log.d(TAG, "Local description type: " + desc.type);
+    synchronized (localDescEvent) {
+      localDesc = desc;
+      localDescEvent.notifyAll();
     }
   }
 
@@ -208,18 +208,18 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
   }
 
   @Override
-  public void onPeerConnectionStatsReady(StatsReport[] reports) {}
+  public void onPeerConnectionStatsReady(final RTCStatsReport report) {}
 
   // Helper wait functions.
-  private boolean waitForLocalSDP(int timeoutMs) throws InterruptedException {
-    synchronized (localSdpEvent) {
+  private boolean waitForLocalDescription(int timeoutMs) throws InterruptedException {
+    synchronized (localDescEvent) {
       final long endTimeMs = System.currentTimeMillis() + timeoutMs;
-      while (localSdp == null) {
+      while (localDesc == null) {
         final long waitTimeMs = endTimeMs - System.currentTimeMillis();
         if (waitTimeMs < 0) {
           return false;
         }
-        localSdpEvent.wait(waitTimeMs);
+        localDescEvent.wait(waitTimeMs);
       }
       return true;
     }
@@ -369,8 +369,8 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
         createParametersForVideoCall(VIDEO_CODEC_VP8),
         createCameraCapturer(false /* captureToTexture */));
 
-    // Wait for local SDP and ice candidates set events.
-    assertTrue("Local SDP was not set.", waitForLocalSDP(WAIT_TIMEOUT));
+    // Wait for local description and ice candidates set events.
+    assertTrue("Local description was not set.", waitForLocalDescription(WAIT_TIMEOUT));
     assertTrue("ICE candidates were not generated.", waitForIceCandidates(WAIT_TIMEOUT));
 
     // Check that local video frames were rendered.
@@ -397,11 +397,11 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
     }
     pcClient = createPeerConnectionClient(localRenderer, remoteRenderer, parameters, videoCapturer);
 
-    // Wait for local SDP, rename it to answer and set as remote SDP.
-    assertTrue("Local SDP was not set.", waitForLocalSDP(WAIT_TIMEOUT));
-    SessionDescription remoteSdp = new SessionDescription(
-        SessionDescription.Type.fromCanonicalForm("answer"), localSdp.description);
-    pcClient.setRemoteDescription(remoteSdp);
+    // Wait for local description, change type to answer and set as remote description.
+    assertTrue("Local description was not set.", waitForLocalDescription(WAIT_TIMEOUT));
+    SessionDescription remoteDescription = new SessionDescription(
+        SessionDescription.Type.fromCanonicalForm("answer"), localDesc.description);
+    pcClient.setRemoteDescription(remoteDescription);
 
     // Wait for ICE connection.
     assertTrue("ICE connection failure.", waitForIceConnected(ICE_CONNECTION_WAIT_TIMEOUT));
@@ -453,10 +453,6 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
   @Test
   @SmallTest
   public void testLoopbackVp8DecodeToTexture() throws InterruptedException {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-      Log.i(TAG, "Decode to textures is not supported, requires SDK version 19.");
-      return;
-    }
     doLoopbackTest(createParametersForVideoCall(VIDEO_CODEC_VP8),
         createCameraCapturer(false /* captureToTexture */), true /* decodeToTexture */);
   }
@@ -464,10 +460,6 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
   @Test
   @SmallTest
   public void testLoopbackVp9DecodeToTexture() throws InterruptedException {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-      Log.i(TAG, "Decode to textures is not supported, requires SDK version 19.");
-      return;
-    }
     doLoopbackTest(createParametersForVideoCall(VIDEO_CODEC_VP9),
         createCameraCapturer(false /* captureToTexture */), true /* decodeToTexture */);
   }
@@ -475,10 +467,6 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
   @Test
   @SmallTest
   public void testLoopbackH264DecodeToTexture() throws InterruptedException {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-      Log.i(TAG, "Decode to textures is not supported, requires SDK version 19.");
-      return;
-    }
     doLoopbackTest(createParametersForVideoCall(VIDEO_CODEC_H264),
         createCameraCapturer(false /* captureToTexture */), true /* decodeToTexture */);
   }
@@ -486,10 +474,6 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
   @Test
   @SmallTest
   public void testLoopbackVp8CaptureToTexture() throws InterruptedException {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-      Log.i(TAG, "Encode to textures is not supported. Requires SDK version 19");
-      return;
-    }
     doLoopbackTest(createParametersForVideoCall(VIDEO_CODEC_VP8),
         createCameraCapturer(true /* captureToTexture */), true /* decodeToTexture */);
   }
@@ -497,10 +481,6 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
   @Test
   @SmallTest
   public void testLoopbackH264CaptureToTexture() throws InterruptedException {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-      Log.i(TAG, "Encode to textures is not supported. Requires KITKAT");
-      return;
-    }
     doLoopbackTest(createParametersForVideoCall(VIDEO_CODEC_H264),
         createCameraCapturer(true /* captureToTexture */), true /* decodeToTexture */);
   }
@@ -520,11 +500,11 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
         createParametersForVideoCall(VIDEO_CODEC_VP8),
         createCameraCapturer(false /* captureToTexture */));
 
-    // Wait for local SDP, rename it to answer and set as remote SDP.
-    assertTrue("Local SDP was not set.", waitForLocalSDP(WAIT_TIMEOUT));
-    SessionDescription remoteSdp = new SessionDescription(
-        SessionDescription.Type.fromCanonicalForm("answer"), localSdp.description);
-    pcClient.setRemoteDescription(remoteSdp);
+    // Wait for local description, set type to answer and set as remote description.
+    assertTrue("Local description was not set.", waitForLocalDescription(WAIT_TIMEOUT));
+    SessionDescription remoteDescription = new SessionDescription(
+        SessionDescription.Type.fromCanonicalForm("answer"), localDesc.description);
+    pcClient.setRemoteDescription(remoteDescription);
 
     // Wait for ICE connection.
     assertTrue("ICE connection failure.", waitForIceConnected(ICE_CONNECTION_WAIT_TIMEOUT));
@@ -568,11 +548,11 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
         createParametersForVideoCall(VIDEO_CODEC_VP8),
         createCameraCapturer(false /* captureToTexture */));
 
-    // Wait for local SDP, rename it to answer and set as remote SDP.
-    assertTrue("Local SDP was not set.", waitForLocalSDP(WAIT_TIMEOUT));
-    SessionDescription remoteSdp = new SessionDescription(
-        SessionDescription.Type.fromCanonicalForm("answer"), localSdp.description);
-    pcClient.setRemoteDescription(remoteSdp);
+    // Wait for local description, set type to answer and set as remote description.
+    assertTrue("Local description was not set.", waitForLocalDescription(WAIT_TIMEOUT));
+    SessionDescription remoteDescription = new SessionDescription(
+        SessionDescription.Type.fromCanonicalForm("answer"), localDesc.description);
+    pcClient.setRemoteDescription(remoteDescription);
 
     // Wait for ICE connection.
     assertTrue("ICE connection failure.", waitForIceConnected(ICE_CONNECTION_WAIT_TIMEOUT));
@@ -617,11 +597,11 @@ public class PeerConnectionClientTest implements PeerConnectionEvents {
         createParametersForVideoCall(VIDEO_CODEC_VP8),
         createCameraCapturer(false /* captureToTexture */));
 
-    // Wait for local SDP, rename it to answer and set as remote SDP.
-    assertTrue("Local SDP was not set.", waitForLocalSDP(WAIT_TIMEOUT));
-    SessionDescription remoteSdp = new SessionDescription(
-        SessionDescription.Type.fromCanonicalForm("answer"), localSdp.description);
-    pcClient.setRemoteDescription(remoteSdp);
+    // Wait for local description, set type to answer and set as remote description.
+    assertTrue("Local description was not set.", waitForLocalDescription(WAIT_TIMEOUT));
+    SessionDescription remoteDescription = new SessionDescription(
+        SessionDescription.Type.fromCanonicalForm("answer"), localDesc.description);
+    pcClient.setRemoteDescription(remoteDescription);
 
     // Wait for ICE connection.
     assertTrue("ICE connection failure.", waitForIceConnected(ICE_CONNECTION_WAIT_TIMEOUT));

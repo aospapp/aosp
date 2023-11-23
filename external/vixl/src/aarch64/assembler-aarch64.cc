@@ -1054,7 +1054,7 @@ void Assembler::cls(const Register& rd, const Register& rn) {
   void Assembler::PRE##za(const Register& xd) {                    \
     VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));                      \
     VIXL_ASSERT(xd.Is64Bits());                                    \
-    Emit(SF(xd) | OP##ZA | Rd(xd));                                \
+    Emit(SF(xd) | OP##ZA | Rd(xd) | Rn(xzr));                      \
   }                                                                \
                                                                    \
   void Assembler::PRE##b(const Register& xd, const Register& xn) { \
@@ -1066,7 +1066,7 @@ void Assembler::cls(const Register& rd, const Register& rn) {
   void Assembler::PRE##zb(const Register& xd) {                    \
     VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));                      \
     VIXL_ASSERT(xd.Is64Bits());                                    \
-    Emit(SF(xd) | OP##ZB | Rd(xd));                                \
+    Emit(SF(xd) | OP##ZB | Rd(xd) | Rn(xzr));                      \
   }
 
 PAUTH_VARIATIONS(VIXL_DEFINE_ASM_FUNC)
@@ -1083,13 +1083,13 @@ void Assembler::pacga(const Register& xd,
 void Assembler::xpaci(const Register& xd) {
   VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
   VIXL_ASSERT(xd.Is64Bits());
-  Emit(SF(xd) | XPACI | Rd(xd));
+  Emit(SF(xd) | XPACI | Rd(xd) | Rn(xzr));
 }
 
 void Assembler::xpacd(const Register& xd) {
   VIXL_ASSERT(CPUHas(CPUFeatures::kPAuth));
   VIXL_ASSERT(xd.Is64Bits());
-  Emit(SF(xd) | XPACD | Rd(xd));
+  Emit(SF(xd) | XPACD | Rd(xd) | Rn(xzr));
 }
 
 
@@ -1134,10 +1134,10 @@ void Assembler::LoadStorePair(const CPURegister& rt,
   if (addr.IsImmediateOffset()) {
     addrmodeop = LoadStorePairOffsetFixed;
   } else {
-    if (addr.IsPreIndex()) {
+    if (addr.IsImmediatePreIndex()) {
       addrmodeop = LoadStorePairPreIndexFixed;
     } else {
-      VIXL_ASSERT(addr.IsPostIndex());
+      VIXL_ASSERT(addr.IsImmediatePostIndex());
       addrmodeop = LoadStorePairPostIndexFixed;
     }
   }
@@ -3852,6 +3852,15 @@ void Assembler::udot(const VRegister& vd,
   Emit(VFormat(vd) | NEON_UDOT | Rm(vm) | Rn(vn) | Rd(vd));
 }
 
+void Assembler::usdot(const VRegister& vd,
+                      const VRegister& vn,
+                      const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kI8MM));
+  VIXL_ASSERT(AreSameFormat(vn, vm));
+  VIXL_ASSERT((vd.Is2S() && vn.Is8B()) || (vd.Is4S() && vn.Is16B()));
+
+  Emit(VFormat(vd) | 0x0e809c00 | Rm(vm) | Rn(vn) | Rd(vd));
+}
 
 void Assembler::faddp(const VRegister& vd, const VRegister& vn) {
   VIXL_ASSERT(CPUHas(CPUFeatures::kFP, CPUFeatures::kNEON));
@@ -4166,6 +4175,32 @@ void Assembler::udot(const VRegister& vd,
        ImmNEONHLM(vm_index, index_num_bits) | Rm(vm) | Rn(vn) | Rd(vd));
 }
 
+void Assembler::sudot(const VRegister& vd,
+                      const VRegister& vn,
+                      const VRegister& vm,
+                      int vm_index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kI8MM));
+  VIXL_ASSERT((vd.Is2S() && vn.Is8B() && vm.Is1S4B()) ||
+              (vd.Is4S() && vn.Is16B() && vm.Is1S4B()));
+  int q = vd.Is4S() ? (1U << NEONQ_offset) : 0;
+  int index_num_bits = 2;
+  Emit(q | 0x0f00f000 | ImmNEONHLM(vm_index, index_num_bits) | Rm(vm) | Rn(vn) |
+       Rd(vd));
+}
+
+
+void Assembler::usdot(const VRegister& vd,
+                      const VRegister& vn,
+                      const VRegister& vm,
+                      int vm_index) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON, CPUFeatures::kI8MM));
+  VIXL_ASSERT((vd.Is2S() && vn.Is8B() && vm.Is1S4B()) ||
+              (vd.Is4S() && vn.Is16B() && vm.Is1S4B()));
+  int q = vd.Is4S() ? (1U << NEONQ_offset) : 0;
+  int index_num_bits = 2;
+  Emit(q | 0x0f80f000 | ImmNEONHLM(vm_index, index_num_bits) | Rm(vm) | Rn(vn) |
+       Rd(vd));
+}
 
 // clang-format off
 #define NEON_BYELEMENT_LIST(V)                        \
@@ -5224,6 +5259,32 @@ void Assembler::uqrshrn2(const VRegister& vd, const VRegister& vn, int shift) {
   NEONShiftImmediateN(vd, vn, shift, NEON_UQRSHRN);
 }
 
+void Assembler::smmla(const VRegister& vd, const VRegister& vn, const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
+  VIXL_ASSERT(CPUHas(CPUFeatures::kI8MM));
+  VIXL_ASSERT(vd.IsLaneSizeS());
+  VIXL_ASSERT(vn.IsLaneSizeB() && vm.IsLaneSizeB());
+
+  Emit(0x4e80a400 | Rd(vd) | Rn(vn) | Rm(vm));
+}
+
+void Assembler::usmmla(const VRegister& vd, const VRegister& vn, const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
+  VIXL_ASSERT(CPUHas(CPUFeatures::kI8MM));
+  VIXL_ASSERT(vd.IsLaneSizeS());
+  VIXL_ASSERT(vn.IsLaneSizeB() && vm.IsLaneSizeB());
+
+  Emit(0x4e80ac00 | Rd(vd) | Rn(vn) | Rm(vm));
+}
+
+void Assembler::ummla(const VRegister& vd, const VRegister& vn, const VRegister& vm) {
+  VIXL_ASSERT(CPUHas(CPUFeatures::kNEON));
+  VIXL_ASSERT(CPUHas(CPUFeatures::kI8MM));
+  VIXL_ASSERT(vd.IsLaneSizeS());
+  VIXL_ASSERT(vn.IsLaneSizeB() && vm.IsLaneSizeB());
+
+  Emit(0x6e80a400 | Rd(vd) | Rn(vn) | Rm(vm));
+}
 
 // Note:
 // For all ToImm instructions below, a difference in case
@@ -5287,6 +5348,44 @@ Instr Assembler::ImmFP64(double imm) { return FP64ToImm8(imm) << ImmFP_offset; }
 
 
 // Code generation helpers.
+bool Assembler::OneInstrMoveImmediateHelper(Assembler* assm,
+                                            const Register& dst,
+                                            uint64_t imm) {
+  bool emit_code = assm != NULL;
+  unsigned n, imm_s, imm_r;
+  int reg_size = dst.GetSizeInBits();
+
+  if (IsImmMovz(imm, reg_size) && !dst.IsSP()) {
+    // Immediate can be represented in a move zero instruction. Movz can't write
+    // to the stack pointer.
+    if (emit_code) {
+      assm->movz(dst, imm);
+    }
+    return true;
+  } else if (IsImmMovn(imm, reg_size) && !dst.IsSP()) {
+    // Immediate can be represented in a move negative instruction. Movn can't
+    // write to the stack pointer.
+    if (emit_code) {
+      assm->movn(dst, dst.Is64Bits() ? ~imm : (~imm & kWRegMask));
+    }
+    return true;
+  } else if (IsImmLogical(imm, reg_size, &n, &imm_s, &imm_r)) {
+    // Immediate can be represented in a logical orr instruction.
+    VIXL_ASSERT(!dst.IsZero());
+    if (emit_code) {
+      assm->LogicalImmediate(dst,
+                             AppropriateZeroRegFor(dst),
+                             n,
+                             imm_s,
+                             imm_r,
+                             ORR);
+    }
+    return true;
+  }
+  return false;
+}
+
+
 void Assembler::MoveWide(const Register& rd,
                          uint64_t imm,
                          int shift,
@@ -5694,11 +5793,11 @@ Instr Assembler::LoadStoreMemOperand(const MemOperand& addr,
            ExtendMode(ext) | ImmShiftLS((shift_amount > 0) ? 1 : 0);
   }
 
-  if (addr.IsPreIndex() && IsImmLSUnscaled(offset)) {
+  if (addr.IsImmediatePreIndex() && IsImmLSUnscaled(offset)) {
     return base | LoadStorePreIndexFixed | ImmLS(offset);
   }
 
-  if (addr.IsPostIndex() && IsImmLSUnscaled(offset)) {
+  if (addr.IsImmediatePostIndex() && IsImmLSUnscaled(offset)) {
     return base | LoadStorePostIndexFixed | ImmLS(offset);
   }
 
@@ -5720,10 +5819,10 @@ void Assembler::LoadStorePAC(const Register& xt,
                              const MemOperand& addr,
                              LoadStorePACOp op) {
   VIXL_ASSERT(xt.Is64Bits());
-  VIXL_ASSERT(addr.IsImmediateOffset() || addr.IsPreIndex());
+  VIXL_ASSERT(addr.IsImmediateOffset() || addr.IsImmediatePreIndex());
 
   Instr pac_op = op;
-  if (addr.IsPreIndex()) {
+  if (addr.IsImmediatePreIndex()) {
     pac_op |= LoadStorePACPreBit;
   }
 

@@ -1,5 +1,5 @@
 // Automatically generated with:
-// go2bp -rewrite google.golang.org/protobuf=golang-protobuf -rewrite github.com/google/go-cmp/cmp=go-cmp -exclude-src internal/detrand/rand_test.go
+// go2bp -rewrite google.golang.org/protobuf=golang-protobuf -rewrite github.com/google/go-cmp/cmp=go-cmp -exclude-src internal/detrand/rand_test.go -exclude-src cmd/protoc-gen-go/retention_test.go -exclude-dep google.golang.org/protobuf/cmd/protoc-gen-go/testdata/retention
 
 bootstrap_go_package {
     name: "golang-protobuf-android",
@@ -21,6 +21,7 @@ blueprint_go_binary {
         "golang-protobuf-internal-genid",
         "golang-protobuf-internal-version",
         "golang-protobuf-proto",
+        "golang-protobuf-reflect-protoreflect",
         "golang-protobuf-types-descriptorpb",
     ],
     srcs: [
@@ -41,6 +42,8 @@ bootstrap_go_package {
         "golang-protobuf-internal-genid",
         "golang-protobuf-internal-version",
         "golang-protobuf-proto",
+        "golang-protobuf-reflect-protopath",
+        "golang-protobuf-reflect-protorange",
         "golang-protobuf-reflect-protoreflect",
         "golang-protobuf-runtime-protoimpl",
         "golang-protobuf-types-descriptorpb",
@@ -67,6 +70,7 @@ bootstrap_go_package {
         "golang-protobuf-reflect-protoreflect",
         "golang-protobuf-reflect-protoregistry",
         "golang-protobuf-types-descriptorpb",
+        "golang-protobuf-types-dynamicpb",
         "golang-protobuf-types-pluginpb",
     ],
     srcs: [
@@ -74,6 +78,19 @@ bootstrap_go_package {
     ],
     testSrcs: [
         "compiler/protogen/protogen_test.go",
+    ],
+}
+
+bootstrap_go_package {
+    name: "golang-protobuf-encoding-protodelim",
+    pkgPath: "google.golang.org/protobuf/encoding/protodelim",
+    deps: [
+        "golang-protobuf-encoding-protowire",
+        "golang-protobuf-internal-errors",
+        "golang-protobuf-proto",
+    ],
+    srcs: [
+        "encoding/protodelim/protodelim.go",
     ],
 }
 
@@ -1206,6 +1223,19 @@ bootstrap_go_package {
 }
 
 bootstrap_go_package {
+    name: "golang-protobuf-protoadapt",
+    pkgPath: "google.golang.org/protobuf/protoadapt",
+    deps: [
+        "golang-protobuf-proto",
+        "golang-protobuf-runtime-protoiface",
+        "golang-protobuf-runtime-protoimpl",
+    ],
+    srcs: [
+        "protoadapt/convert.go",
+    ],
+}
+
+bootstrap_go_package {
     name: "golang-protobuf-reflect-protodesc",
     pkgPath: "google.golang.org/protobuf/reflect/protodesc",
     deps: [
@@ -1288,6 +1318,7 @@ bootstrap_go_package {
         "reflect/protoreflect/source_gen.go",
         "reflect/protoreflect/type.go",
         "reflect/protoreflect/value.go",
+        "reflect/protoreflect/value_equal.go",
         "reflect/protoreflect/value_union.go",
         "reflect/protoreflect/value_unsafe.go",
     ],

@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2009 IBM Corporation
-# Copyright (c) 2018-2020 Petr Vorel <pvorel@suse.cz>
+# Copyright (c) 2018-2021 Petr Vorel <pvorel@suse.cz>
 # Author: Mimi Zohar <zohar@linux.ibm.com>
 #
 # Verify that measurements are added to the measurement list based on policy.
@@ -9,44 +9,13 @@
 TST_NEEDS_CMDS="awk cut sed"
 TST_SETUP="setup"
 TST_CNT=3
-TST_NEEDS_DEVICE=1
-
-. ima_setup.sh
 
 setup()
 {
 	require_ima_policy_cmdline "tcb"
 
 	TEST_FILE="$PWD/test.txt"
-	POLICY="$IMA_DIR/policy"
-	[ -f "$POLICY" ] || tst_res TINFO "not using default policy"
-}
-
-ima_check()
-{
-	local algorithm digest expected_digest line tmp
-
-	# need to read file to get updated $ASCII_MEASUREMENTS
-	cat $TEST_FILE > /dev/null
-
-	line="$(grep $TEST_FILE $ASCII_MEASUREMENTS | tail -1)"
-
-	if tmp=$(get_algorithm_digest "$line"); then
-		algorithm=$(echo "$tmp" | cut -d'|' -f1)
-		digest=$(echo "$tmp" | cut -d'|' -f2)
-	else
-		tst_res TBROK "failed to get algorithm/digest for '$TEST_FILE': $tmp"
-	fi
-
-	tst_res TINFO "computing digest for $algorithm algorithm"
-	expected_digest="$(compute_digest $algorithm $TEST_FILE)" || \
-		tst_brk TCONF "cannot compute digest for $algorithm algorithm"
-
-	if [ "$digest" = "$expected_digest" ]; then
-		tst_res TPASS "correct digest found"
-	else
-		tst_res TFAIL "digest not found"
-	fi
+	[ -f "$IMA_POLICY" ] || tst_res TINFO "not using default policy"
 }
 
 check_iversion_support()
@@ -83,8 +52,8 @@ check_iversion_support()
 test1()
 {
 	tst_res TINFO "verify adding record to the IMA measurement list"
-	ROD echo "$(date) this is a test file" \> $TEST_FILE
-	ima_check
+	ROD echo "$(cat /proc/uptime) this is a test file" \> $TEST_FILE
+	ima_check $TEST_FILE
 }
 
 test2()
@@ -92,8 +61,8 @@ test2()
 
 	tst_res TINFO "verify updating record in the IMA measurement list"
 	check_iversion_support || return
-	ROD echo "$(date) modified file" \> $TEST_FILE
-	ima_check
+	ROD echo "$(cat /proc/uptime) modified file" \> $TEST_FILE
+	ima_check $TEST_FILE
 }
 
 test3()
@@ -111,14 +80,15 @@ test3()
 		return
 	fi
 
-	mkdir -m 0700 $dir
+	[ -d "$dir" ] || mkdir -m 0700 $dir
 	chown $user $dir
 	cd $dir
 	# need to read file to get updated $ASCII_MEASUREMENTS
-	sudo -n -u $user sh -c "echo $(date) user file > $file; cat $file > /dev/null"
+	sudo -n -u $user sh -c "echo $(cat /proc/uptime) user file > $file; cat $file > /dev/null"
 	cd ..
 
 	EXPECT_FAIL "grep $file $ASCII_MEASUREMENTS"
 }
 
+. ima_setup.sh
 tst_run

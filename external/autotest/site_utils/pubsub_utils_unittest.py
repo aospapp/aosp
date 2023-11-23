@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -8,18 +8,20 @@
 from __future__ import print_function
 import os
 import unittest
+from unittest.mock import patch
+from unittest.mock import MagicMock
 
-import mox
+import common
 
 # TODO(crbug.com/1050892): The unittests rely on apiclient in chromite.
-import chromite  # pylint: disable=unused-import
+import autotest_lib.utils.frozen_chromite  # pylint: disable=unused-import
 
 from apiclient import discovery
 from oauth2client.client import ApplicationDefaultCredentialsError
 from oauth2client.client import GoogleCredentials
 from googleapiclient.errors import UnknownApiNameOrVersion
 
-import pubsub_utils
+from autotest_lib.site_utils import pubsub_utils
 
 _TEST_CLOUD_SERVICE_ACCOUNT_FILE = '/tmp/test-credential'
 
@@ -74,95 +76,99 @@ def _create_sample_message():
     return msg_payload
 
 
-class PubSubTests(mox.MoxTestBase):
+class PubSubTests(unittest.TestCase):
     """Tests for pubsub related functios."""
+
+    def setUp(self):
+        patcher = patch.object(os.path, 'isfile')
+        self.isfile_mock = patcher.start()
+        self.addCleanup(patcher.stop)
+        creds_patcher = patch.object(GoogleCredentials, 'from_stream')
+        self.creds_mock = creds_patcher.start()
+        self.addCleanup(creds_patcher.stop)
 
     def test_pubsub_with_no_service_account(self):
         """Test getting the pubsub service"""
-        self.mox.StubOutWithMock(os.path, 'isfile')
-        self.mox.ReplayAll()
         with self.assertRaises(pubsub_utils.PubSubException):
             pubsub_utils.PubSubClient()
-        self.mox.VerifyAll()
 
     def test_pubsub_with_non_existing_service_account(self):
         """Test getting the pubsub service"""
-        self.mox.StubOutWithMock(os.path, 'isfile')
-        os.path.isfile(_TEST_CLOUD_SERVICE_ACCOUNT_FILE).AndReturn(False)
-        self.mox.ReplayAll()
+        self.isfile_mock.return_value = False
         with self.assertRaises(pubsub_utils.PubSubException):
             pubsub_utils.PubSubClient(_TEST_CLOUD_SERVICE_ACCOUNT_FILE)
-        self.mox.VerifyAll()
+        self.isfile_mock.assert_called_with(_TEST_CLOUD_SERVICE_ACCOUNT_FILE)
 
     def test_pubsub_with_corrupted_service_account(self):
         """Test pubsub with corrupted service account."""
-        self.mox.StubOutWithMock(os.path, 'isfile')
-        self.mox.StubOutWithMock(GoogleCredentials, 'from_stream')
-        os.path.isfile(_TEST_CLOUD_SERVICE_ACCOUNT_FILE).AndReturn(True)
-        GoogleCredentials.from_stream(
-            _TEST_CLOUD_SERVICE_ACCOUNT_FILE).AndRaise(
-                ApplicationDefaultCredentialsError())
-        self.mox.ReplayAll()
+
+        self.isfile_mock.return_value = True
+        self.creds_mock.side_effect = ApplicationDefaultCredentialsError
+
         with self.assertRaises(pubsub_utils.PubSubException):
             pubsub_utils.PubSubClient(_TEST_CLOUD_SERVICE_ACCOUNT_FILE)
-        self.mox.VerifyAll()
+
+        self.creds_mock.assert_called_with(_TEST_CLOUD_SERVICE_ACCOUNT_FILE)
+        self.isfile_mock.assert_called_with(_TEST_CLOUD_SERVICE_ACCOUNT_FILE)
 
     def test_pubsub_with_invalid_service_account(self):
         """Test pubsubwith invalid service account."""
-        self.mox.StubOutWithMock(os.path, 'isfile')
-        self.mox.StubOutWithMock(GoogleCredentials, 'from_stream')
-        os.path.isfile(_TEST_CLOUD_SERVICE_ACCOUNT_FILE).AndReturn(True)
-        credentials = self.mox.CreateMock(GoogleCredentials)
-        GoogleCredentials.from_stream(
-            _TEST_CLOUD_SERVICE_ACCOUNT_FILE).AndReturn(credentials)
-        credentials.create_scoped_required().AndReturn(True)
-        credentials.create_scoped(pubsub_utils.PUBSUB_SCOPES).AndReturn(
-            credentials)
-        self.mox.StubOutWithMock(discovery, 'build')
-        discovery.build(
-            pubsub_utils.PUBSUB_SERVICE_NAME,
-            pubsub_utils.PUBSUB_VERSION,
-            credentials=credentials).AndRaise(UnknownApiNameOrVersion())
-        self.mox.ReplayAll()
-        with self.assertRaises(pubsub_utils.PubSubException):
-            msg = _create_sample_message()
-            pubsub_client = pubsub_utils.PubSubClient(
-                _TEST_CLOUD_SERVICE_ACCOUNT_FILE)
-            pubsub_client.publish_notifications('test_topic', [msg])
-        self.mox.VerifyAll()
+        self.isfile_mock.return_value = True
+        credentials = MagicMock(GoogleCredentials)
+        self.creds_mock.return_value = credentials
+
+        credentials.create_scoped_required.return_value = True
+        credentials.create_scoped.return_value = credentials
+
+        with patch.object(discovery, 'build') as discovery_mock:
+            discovery_mock.side_effect = UnknownApiNameOrVersion
+
+            with self.assertRaises(pubsub_utils.PubSubException):
+                msg = _create_sample_message()
+                pubsub_client = pubsub_utils.PubSubClient(
+                        _TEST_CLOUD_SERVICE_ACCOUNT_FILE)
+                pubsub_client.publish_notifications('test_topic', [msg])
+
+            credentials.create_scoped.assert_called_with(
+                    pubsub_utils.PUBSUB_SCOPES)
+            discovery_mock.assert_called_with(pubsub_utils.PUBSUB_SERVICE_NAME,
+                                              pubsub_utils.PUBSUB_VERSION,
+                                              credentials=credentials)
+        self.creds_mock.assert_called_with(_TEST_CLOUD_SERVICE_ACCOUNT_FILE)
+        self.isfile_mock.assert_called_with(_TEST_CLOUD_SERVICE_ACCOUNT_FILE)
 
     def test_publish_notifications(self):
         """Test getting the pubsub service"""
-        self.mox.StubOutWithMock(os.path, 'isfile')
-        self.mox.StubOutWithMock(GoogleCredentials, 'from_stream')
-        os.path.isfile(_TEST_CLOUD_SERVICE_ACCOUNT_FILE).AndReturn(True)
-        credentials = self.mox.CreateMock(GoogleCredentials)
-        GoogleCredentials.from_stream(
-            _TEST_CLOUD_SERVICE_ACCOUNT_FILE).AndReturn(credentials)
-        credentials.create_scoped_required().AndReturn(True)
-        credentials.create_scoped(pubsub_utils.PUBSUB_SCOPES).AndReturn(
-            credentials)
-        self.mox.StubOutWithMock(discovery, 'build')
-        msg = _create_sample_message()
-        discovery.build(
-            pubsub_utils.PUBSUB_SERVICE_NAME,
-            pubsub_utils.PUBSUB_VERSION,
-            credentials=credentials).AndReturn(MockedPubSub(
-                self,
-                'test_topic',
-                msg,
-                pubsub_utils.DEFAULT_PUBSUB_NUM_RETRIES,
-                # use tuple ('123') instead of list just for easy to
-                # write the test.
-                ret_val={'messageIds': ('123')}))
+        self.isfile_mock.return_value = True
+        credentials = MagicMock(GoogleCredentials)
+        self.creds_mock.return_value = credentials
 
-        self.mox.ReplayAll()
-        pubsub_client = pubsub_utils.PubSubClient(
-                _TEST_CLOUD_SERVICE_ACCOUNT_FILE)
-        msg_ids = pubsub_client.publish_notifications('test_topic', [msg])
-        self.assertEquals(('123'), msg_ids)
+        credentials.create_scoped_required.return_value = True
+        credentials.create_scoped.return_value = credentials
 
-        self.mox.VerifyAll()
+        with patch.object(discovery, 'build') as discovery_mock:
+            msg = _create_sample_message()
+            discovery_mock.return_value = MockedPubSub(
+                    self,
+                    'test_topic',
+                    msg,
+                    pubsub_utils.DEFAULT_PUBSUB_NUM_RETRIES,
+                    # use tuple ('123') instead of list just for easy to
+                    # write the test.
+                    ret_val={'messageIds': ('123')})
+
+            pubsub_client = pubsub_utils.PubSubClient(
+                    _TEST_CLOUD_SERVICE_ACCOUNT_FILE)
+            msg_ids = pubsub_client.publish_notifications('test_topic', [msg])
+            self.assertEquals(('123'), msg_ids)
+
+            credentials.create_scoped.assert_called_with(
+                    pubsub_utils.PUBSUB_SCOPES)
+            discovery_mock.assert_called_with(pubsub_utils.PUBSUB_SERVICE_NAME,
+                                              pubsub_utils.PUBSUB_VERSION,
+                                              credentials=credentials)
+        self.creds_mock.assert_called_with(_TEST_CLOUD_SERVICE_ACCOUNT_FILE)
+        self.isfile_mock.assert_called_with(_TEST_CLOUD_SERVICE_ACCOUNT_FILE)
 
 
 if __name__ == '__main__':

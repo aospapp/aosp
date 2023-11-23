@@ -33,15 +33,6 @@ import java.lang.annotation.Target;
 public @interface CrossProfile {
 
   /**
-   * The name of the Profile class generated for this cross-profile type.
-   *
-   * <p>This argument can only be passed when annotating types, not methods.
-   *
-   * <p>Defaults to this type name prefixed with "Profile".
-   */
-  String profileClassName() default "";
-
-  /**
    * The {@link CustomProfileConnector} used by this type.
    *
    * <p>Setting this option for a cross-profile type ensures the generated code provides a better
@@ -73,11 +64,4 @@ public @interface CrossProfile {
    * <p>This argument can only be passed when annotating types, not methods.
    */
   boolean isStatic() default false;
-
-  /**
-   * The number of milliseconds to wait before timing out asynchronous calls to this method or type.
-   *
-   * <p>Defaults to {@link #DEFAULT_TIMEOUT_MILLIS}.
-   */
-  long timeoutMillis() default -1;
 }

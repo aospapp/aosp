@@ -1,0 +1,53 @@
+From 899aaaeeb0887a36d247df9fddaab8eca634a5c3 Mon Sep 17 00:00:00 2001
+From: Nicole LeGare <legare@google.com>
+Date: Mon, 12 Dec 2022 18:42:21 +0000
+Subject: [PATCH] PATCH: Add mmap API for Trusty
+
+Change-Id: Ib9d576533be631c8f5e7cd21a3916e269f713cd1
+---
+ src/trusty.rs | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/src/trusty.rs b/src/trusty.rs
+index c7e4e4fa..7791a84a 100644
+--- a/src/trusty.rs
++++ b/src/trusty.rs
+@@ -3,6 +3,8 @@ pub use core::ffi::c_void;
+ pub type size_t = usize;
+ pub type ssize_t = isize;
+ 
++pub type off_t = i64;
++
+ #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
+ pub type c_char = u8;
+ #[cfg(target_arch = "x86_64")]
+@@ -43,6 +45,10 @@ pub type time_t = c_long;
+ pub const STDOUT_FILENO: ::c_int = 1;
+ pub const STDERR_FILENO: ::c_int = 2;
+ 
++pub const AT_PAGESZ: ::c_ulong = 6;
++
++pub const MAP_FAILED: *mut ::c_void = !0 as *mut ::c_void;
++
+ extern "C" {
+     pub fn calloc(nobj: size_t, size: size_t) -> *mut c_void;
+     pub fn malloc(size: size_t) -> *mut c_void;
+@@ -53,6 +59,16 @@ extern "C" {
+     pub fn write(fd: ::c_int, buf: *const ::c_void, count: ::size_t) -> ::ssize_t;
+     pub fn writev(fd: ::c_int, iov: *const ::iovec, iovcnt: ::c_int) -> ::ssize_t;
+     pub fn strlen(cs: *const c_char) -> size_t;
++    pub fn getauxval(type_: c_ulong) -> c_ulong;
++    pub fn mmap(
++        addr: *mut ::c_void,
++        len: ::size_t,
++        prot: ::c_int,
++        flags: ::c_int,
++        fd: ::c_int,
++        offset: off_t,
++    ) -> *mut ::c_void;
++    pub fn munmap(addr: *mut ::c_void, len: ::size_t) -> ::c_int;
+ }
+ 
+ s! {
+-- 
+2.39.0.rc1.256.g54fd8350bd-goog

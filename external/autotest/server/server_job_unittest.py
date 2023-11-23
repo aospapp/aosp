@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 import os
 import tempfile
@@ -58,7 +58,8 @@ class test_init(base_job_unittest.test_init.generic_tests, unittest.TestCase):
                            lambda *a,**k: manager())
         class sysi:
             log_per_reboot_data = lambda self: None
-        self.god.stub_with(server_job.sysinfo, 'sysinfo', lambda r: sysi())
+        self.god.stub_with(
+                server_job.sysinfo, 'sysinfo', lambda r, version=None: sysi())
 
         self.job.__init__(
                 self.control_file,

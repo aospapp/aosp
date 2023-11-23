@@ -1,6 +1,6 @@
 /*
  * hostapd / Configuration helper functions
- * Copyright (c) 2003-2014, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2003-2022, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -463,9 +463,12 @@ static int hostapd_derive_psk(struct hostapd_ssid *ssid)
 	wpa_hexdump_ascii_key(MSG_DEBUG, "PSK (ASCII passphrase)",
 			      (u8 *) ssid->wpa_passphrase,
 			      os_strlen(ssid->wpa_passphrase));
-	pbkdf2_sha1(ssid->wpa_passphrase,
-		    ssid->ssid, ssid->ssid_len,
-		    4096, ssid->wpa_psk->psk, PMK_LEN);
+	if (pbkdf2_sha1(ssid->wpa_passphrase,
+			ssid->ssid, ssid->ssid_len,
+			4096, ssid->wpa_psk->psk, PMK_LEN) != 0) {
+		wpa_printf(MSG_ERROR, "Error in pbkdf2_sha1()");
+		return -1;
+	}
 	wpa_hexdump_key(MSG_DEBUG, "PSK (from passphrase)",
 			ssid->wpa_psk->psk, PMK_LEN);
 	return 0;
@@ -478,9 +481,11 @@ int hostapd_setup_sae_pt(struct hostapd_bss_config *conf)
 	struct hostapd_ssid *ssid = &conf->ssid;
 	struct sae_password_entry *pw;
 
-	if ((conf->sae_pwe == 0 && !hostapd_sae_pw_id_in_use(conf) &&
+	if ((conf->sae_pwe == SAE_PWE_HUNT_AND_PECK &&
+	     !hostapd_sae_pw_id_in_use(conf) &&
+	     !wpa_key_mgmt_sae_ext_key(conf->wpa_key_mgmt) &&
 	     !hostapd_sae_pk_in_use(conf)) ||
-	    conf->sae_pwe == 3 ||
+	    conf->sae_pwe == SAE_PWE_FORCE_HUNT_AND_PECK ||
 	    !wpa_key_mgmt_sae(conf->wpa_key_mgmt))
 		return 0; /* PT not needed */
 
@@ -794,6 +799,7 @@ void hostapd_config_free_bss(struct hostapd_bss_config *conf)
 	os_free(conf->radius_req_attr_sqlite);
 	os_free(conf->rsn_preauth_interfaces);
 	os_free(conf->ctrl_interface);
+	os_free(conf->config_id);
 	os_free(conf->ca_cert);
 	os_free(conf->server_cert);
 	os_free(conf->server_cert2);
@@ -811,6 +817,7 @@ void hostapd_config_free_bss(struct hostapd_bss_config *conf)
 	os_free(conf->eap_fast_a_id);
 	os_free(conf->eap_fast_a_id_info);
 	os_free(conf->eap_sim_db);
+	os_free(conf->imsi_privacy_key);
 	os_free(conf->radius_server_clients);
 	os_free(conf->radius);
 	os_free(conf->radius_das_shared_secret);
@@ -945,6 +952,8 @@ void hostapd_config_free_bss(struct hostapd_bss_config *conf)
 #ifdef CONFIG_DPP
 	os_free(conf->dpp_name);
 	os_free(conf->dpp_mud_url);
+	os_free(conf->dpp_extra_conf_req_name);
+	os_free(conf->dpp_extra_conf_req_value);
 	os_free(conf->dpp_connector);
 	wpabuf_free(conf->dpp_netaccesskey);
 	wpabuf_free(conf->dpp_csign);
@@ -1204,6 +1213,14 @@ static bool hostapd_config_check_bss_6g(struct hostapd_bss_config *bss)
 		return false;
 	}
 
+#ifdef CONFIG_SAE
+	if (wpa_key_mgmt_sae(bss->wpa_key_mgmt) &&
+	    bss->sae_pwe == SAE_PWE_HUNT_AND_PECK) {
+		wpa_printf(MSG_INFO, "SAE: Enabling SAE H2E on 6 GHz");
+		bss->sae_pwe = SAE_PWE_BOTH;
+	}
+#endif /* CONFIG_SAE */
+
 	return true;
 }
 
@@ -1245,15 +1262,18 @@ static int hostapd_config_check_bss(struct hostapd_bss_config *bss,
 
 	if (full_config && bss->wpa &&
 	    bss->wpa_psk_radius != PSK_RADIUS_IGNORED &&
+	    bss->wpa_psk_radius != PSK_RADIUS_DURING_4WAY_HS &&
 	    bss->macaddr_acl != USE_EXTERNAL_RADIUS_AUTH) {
 		wpa_printf(MSG_ERROR, "WPA-PSK using RADIUS enabled, but no "
 			   "RADIUS checking (macaddr_acl=2) enabled.");
 		return -1;
 	}
 
-	if (full_config && bss->wpa && (bss->wpa_key_mgmt & WPA_KEY_MGMT_PSK) &&
+	if (full_config && bss->wpa &&
+	    wpa_key_mgmt_wpa_psk_no_sae(bss->wpa_key_mgmt) &&
 	    bss->ssid.wpa_psk == NULL && bss->ssid.wpa_passphrase == NULL &&
 	    bss->ssid.wpa_psk_file == NULL &&
+	    bss->wpa_psk_radius != PSK_RADIUS_DURING_4WAY_HS &&
 	    (bss->wpa_psk_radius != PSK_RADIUS_REQUIRED ||
 	     bss->macaddr_acl != USE_EXTERNAL_RADIUS_AUTH)) {
 		wpa_printf(MSG_ERROR, "WPA-PSK enabled, but PSK or passphrase "
@@ -1426,13 +1446,34 @@ static int hostapd_config_check_bss(struct hostapd_bss_config *bss,
 #endif /* CONFIG_SAE_PK */
 
 #ifdef CONFIG_FILS
-	if (full_config && bss->fils_discovery_min_int &&
+	if (full_config && bss->fils_discovery_max_int &&
+	    (!conf->ieee80211ax || bss->disable_11ax)) {
+		wpa_printf(MSG_ERROR,
+			   "Currently IEEE 802.11ax support is mandatory to enable FILS discovery transmission.");
+		return -1;
+	}
+
+	if (full_config && bss->fils_discovery_max_int &&
 	    bss->unsol_bcast_probe_resp_interval) {
 		wpa_printf(MSG_ERROR,
 			   "Cannot enable both FILS discovery and unsolicited broadcast Probe Response at the same time");
 		return -1;
 	}
 #endif /* CONFIG_FILS */
+
+#ifdef CONFIG_IEEE80211BE
+	if (full_config && !bss->disable_11be && bss->disable_11ax) {
+		bss->disable_11be = true;
+		wpa_printf(MSG_INFO,
+			   "Disabling IEEE 802.11be as IEEE 802.11ax is disabled for this BSS");
+	}
+#endif /* CONFIG_IEEE80211BE */
+
+	if (full_config && bss->ignore_broadcast_ssid && conf->mbssid) {
+		wpa_printf(MSG_ERROR,
+			   "Hidden SSID is not suppored when MBSSID is enabled");
+		return -1;
+	}
 
 	return 0;
 }
@@ -1464,6 +1505,13 @@ static int hostapd_config_check_cw(struct hostapd_config *conf, int queue)
 int hostapd_config_check(struct hostapd_config *conf, int full_config)
 {
 	size_t i;
+
+	if (full_config && is_6ghz_op_class(conf->op_class) &&
+	    !conf->hw_mode_set) {
+		/* Use the appropriate hw_mode value automatically when the
+		 * op_class parameter has been set, but hw_mode was not. */
+		conf->hw_mode = HOSTAPD_MODE_IEEE80211A;
+	}
 
 	if (full_config && conf->ieee80211d &&
 	    (!conf->country[0] || !conf->country[1])) {
@@ -1500,6 +1548,20 @@ int hostapd_config_check(struct hostapd_config *conf, int full_config)
 	for (i = 0; i < NUM_TX_QUEUES; i++) {
 		if (hostapd_config_check_cw(conf, i))
 			return -1;
+	}
+
+#ifdef CONFIG_IEEE80211BE
+	if (full_config && conf->ieee80211be && !conf->ieee80211ax) {
+		wpa_printf(MSG_ERROR,
+			   "Cannot set ieee80211be without ieee80211ax");
+		return -1;
+	}
+#endif /* CONFIG_IEEE80211BE */
+
+	if (full_config && conf->mbssid && !conf->ieee80211ax) {
+		wpa_printf(MSG_ERROR,
+			   "Cannot enable multiple BSSID support without ieee80211ax");
+		return -1;
 	}
 
 	for (i = 0; i < conf->num_bss; i++) {
@@ -1648,3 +1710,49 @@ bool hostapd_sae_pk_exclusively(struct hostapd_bss_config *conf)
 	return with_pk;
 }
 #endif /* CONFIG_SAE_PK */
+
+
+int hostapd_acl_comp(const void *a, const void *b)
+{
+	const struct mac_acl_entry *aa = a;
+	const struct mac_acl_entry *bb = b;
+	return os_memcmp(aa->addr, bb->addr, sizeof(macaddr));
+}
+
+
+int hostapd_add_acl_maclist(struct mac_acl_entry **acl, int *num,
+			    int vlan_id, const u8 *addr)
+{
+	struct mac_acl_entry *newacl;
+
+	newacl = os_realloc_array(*acl, *num + 1, sizeof(**acl));
+	if (!newacl) {
+		wpa_printf(MSG_ERROR, "MAC list reallocation failed");
+		return -1;
+	}
+
+	*acl = newacl;
+	os_memcpy((*acl)[*num].addr, addr, ETH_ALEN);
+	os_memset(&(*acl)[*num].vlan_id, 0, sizeof((*acl)[*num].vlan_id));
+	(*acl)[*num].vlan_id.untagged = vlan_id;
+	(*acl)[*num].vlan_id.notempty = !!vlan_id;
+	(*num)++;
+
+	return 0;
+}
+
+
+void hostapd_remove_acl_mac(struct mac_acl_entry **acl, int *num,
+			    const u8 *addr)
+{
+	int i = 0;
+
+	while (i < *num) {
+		if (os_memcmp((*acl)[i].addr, addr, ETH_ALEN) == 0) {
+			os_remove_in_array(*acl, *num, sizeof(**acl), i);
+			(*num)--;
+		} else {
+			i++;
+		}
+	}
+}

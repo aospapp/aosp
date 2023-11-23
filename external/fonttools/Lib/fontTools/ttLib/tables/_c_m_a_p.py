@@ -91,6 +91,11 @@ class table__c_m_a_p(DefaultTable.DefaultTable):
 				(0, 1),  # Unicode 1.1
 				(0, 0)   # Unicode 1.0
 
+		This particular order matches what HarfBuzz uses to choose what
+		subtable to use by default. This order prefers the largest-repertoire
+		subtable, and among those, prefers the Windows-platform over the
+		Unicode-platform as the former has wider support.
+
 		This order can be customized via the ``cmapPreferences`` argument.
 		"""
 		for platformID, platEncID in cmapPreferences:
@@ -159,7 +164,9 @@ class table__c_m_a_p(DefaultTable.DefaultTable):
 		if ttFont.lazy is False:  # Be lazy for None and True
 			self.ensureDecompiled()
 
-	def ensureDecompiled(self):
+	def ensureDecompiled(self, recurse=False):
+		# The recurse argument is unused, but part of the signature of
+		# ensureDecompiled across the library.
 		for st in self.tables:
 			st.ensureDecompiled()
 
@@ -172,13 +179,11 @@ class table__c_m_a_p(DefaultTable.DefaultTable):
 		seen = {}  # Some tables are the same object reference. Don't compile them twice.
 		done = {}  # Some tables are different objects, but compile to the same data chunk
 		for table in self.tables:
-			try:
-				offset = seen[id(table.cmap)]
-			except KeyError:
+			offset = seen.get(id(table.cmap))
+			if offset is None:
 				chunk = table.compile(ttFont)
-				if chunk in done:
-					offset = done[chunk]
-				else:
+				offset = done.get(chunk)
+				if offset is None:
 					offset = seen[id(table.cmap)] = done[chunk] = totalOffset + len(tableData)
 					tableData = tableData + chunk
 			data = data + struct.pack(">HHl", table.platformID, table.platEncID, offset)
@@ -238,7 +243,9 @@ class CmapSubtable(object):
 		self.platEncID = None   #: The encoding ID of this subtable (interpretation depends on ``platformID``)
 		self.language = None    #: The language ID of this subtable (Macintosh platform only)
 
-	def ensureDecompiled(self):
+	def ensureDecompiled(self, recurse=False):
+		# The recurse argument is unused, but part of the signature of
+		# ensureDecompiled across the library.
 		if self.data is None:
 			return
 		self.decompile(None, None) # use saved data.
@@ -800,7 +807,6 @@ class cmap_format_4(CmapSubtable):
 			start = startCode[i]
 			delta = idDelta[i]
 			rangeOffset = idRangeOffset[i]
-			# *someone* needs to get killed.
 			partial = rangeOffset // 2 - start + i - len(idRangeOffset)
 
 			rangeCharCodes = list(range(startCode[i], endCode[i] + 1))
@@ -891,7 +897,6 @@ class cmap_format_4(CmapSubtable):
 				idDelta.append((indices[0] - startCode[i]) % 0x10000)
 				idRangeOffset.append(0)
 			else:
-				# someone *definitely* needs to get killed.
 				idDelta.append(0)
 				idRangeOffset.append(2 * (len(endCode) + len(glyphIndexArray) - i))
 				glyphIndexArray.extend(indices)

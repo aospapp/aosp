@@ -21,6 +21,7 @@
 #include <string>
 
 #include "annotator/collections.h"
+#include "annotator/model_generated.h"
 #include "annotator/types.h"
 #include "utils/base/logging.h"
 #include "utils/strings/split.h"
@@ -38,7 +39,8 @@ bool NumberAnnotator::ClassifyText(
       context, selection_indices.first, selection_indices.second);
 
   std::vector<AnnotatedSpan> results;
-  if (!FindAll(substring_selected, annotation_usecase, &results)) {
+  if (!FindAll(substring_selected, annotation_usecase, ModeFlag_CLASSIFICATION,
+               &results)) {
     return false;
   }
 
@@ -216,8 +218,9 @@ bool NumberAnnotator::TryParseNumber(const UnicodeText& token_text,
 
 bool NumberAnnotator::FindAll(const UnicodeText& context,
                               AnnotationUsecase annotation_usecase,
+                              ModeFlag mode,
                               std::vector<AnnotatedSpan>* result) const {
-  if (!options_->enabled()) {
+  if (!options_->enabled() || !(options_->enabled_modes() & mode)) {
     return true;
   }
 

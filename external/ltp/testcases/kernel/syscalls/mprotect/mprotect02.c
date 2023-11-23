@@ -60,7 +60,7 @@ int main(int ac, char **av)
 	int lc;
 
 	int bytes_to_write, fd;
-	unsigned int num_bytes;
+	size_t num_bytes;
 	pid_t pid;
 
 	tst_parse_opts(ac, av, NULL, NULL);
@@ -80,7 +80,8 @@ int main(int ac, char **av)
 			bytes_to_write = MIN(strlen(buf), num_bytes);
 
 			num_bytes -=
-			    SAFE_WRITE(cleanup, 1, fd, buf, bytes_to_write);
+			    SAFE_WRITE(cleanup, SAFE_WRITE_ALL, fd, buf,
+				bytes_to_write);
 
 		} while (0 < num_bytes);
 

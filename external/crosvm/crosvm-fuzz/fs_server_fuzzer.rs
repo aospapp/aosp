@@ -1,17 +1,22 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#![cfg(not(test))]
 #![no_main]
 
-#[cfg(fuzzing)]
-mod fs_server_fuzzer {
+#[cfg(unix)]
+mod fuzzer {
     use std::convert::TryInto;
 
     use cros_fuzz::fuzz_target;
-    use devices::virtio::{create_descriptor_chain, DescriptorType, Reader, Writer};
+    use devices::virtio::create_descriptor_chain;
+    use devices::virtio::DescriptorType;
+    use devices::virtio::Reader;
+    use devices::virtio::Writer;
     use fuse::fuzzing::fuzz_server;
-    use vm_memory::{GuestAddress, GuestMemory};
+    use vm_memory::GuestAddress;
+    use vm_memory::GuestMemory;
 
     const MEM_SIZE: u64 = 256 * 1024 * 1024;
     const BUFFER_ADDR: GuestAddress = GuestAddress(0x100);
@@ -48,4 +53,11 @@ mod fs_server_fuzzer {
             fuzz_server(r, w);
         });
     });
+}
+
+#[cfg(not(unix))]
+mod fuzzer {
+    use cros_fuzz::fuzz_target;
+
+    fuzz_target!(|_data| {});
 }

@@ -1,0 +1,39 @@
+diff --git a/Android.bp b/Android.bp
+index 7d066e6..58422c6 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -18,10 +18,9 @@
+     ],
+ }
+ 
+-rust_library {
+-    name: "libtokio",
++rust_defaults {
++    name: "tokio_defaults",
+     host_supported: true,
+-    crate_name: "tokio",
+     cargo_env_compat: true,
+     cargo_pkg_version: "1.25.0",
+     srcs: ["src/lib.rs"],
+@@ -64,6 +63,21 @@
+     min_sdk_version: "29",
+ }
+ 
++rust_library {
++    name: "libtokio",
++    crate_name: "tokio",
++    defaults: ["tokio_defaults"],
++}
++
++rust_library {
++    name: "libtokio_for_test",
++    crate_name: "tokio",
++    defaults: ["tokio_defaults"],
++    features: [
++        "test-util",
++    ],
++}
++
+ rust_defaults {
+     name: "tokio_defaults_tests",
+     crate_name: "tokio",

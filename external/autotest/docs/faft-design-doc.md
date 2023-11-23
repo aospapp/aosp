@@ -1,6 +1,8 @@
 <a name="faft" />
 
-# FAFT (Fully Automated Firmware Test)
+# FAFT (Fully Automated Firmware Test): Design Doc
+
+_Self-link: [go/faft-design-doc](https://goto.google.com/faft-design-doc)_
 
 _Last updated: 2011/11/08_
 
@@ -30,15 +32,15 @@ _Last updated: 2011/11/08_
 
 ## FAFT Related Documents
 
-- FAFT Setup Instructions: [http://goto/faft-setup](http://goto/faft-setup)
-- FAFT Test Coverage: [http://goto/faft-coverage](http://goto/faft-coverage)
-- FAFT Comparing Existing Manual Test Cases: [http://goto/faft-comparison](http://goto/faft-comparison)
+- [FAFT Setup Instructions](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/refs/heads/main/docs/faft-how-to-run-doc.md)  ([Google specific instructions](http://goto/faft-setup))
+- FAFT Test Coverage (Google internal only): [http://goto/faft-coverage](http://goto/faft-coverage)
+- FAFT Comparing Existing Manual Test Cases (Google internal only): [http://goto/faft-comparison](http://goto/faft-comparison)
 
 <a name="introduction" />
 
 ## Introduction
 
-Security is one of the selling points of Chrome OS netbooks. Verified boot provides a solution to Chrome OS security model. In the verified boot design, firmware is the foundation of this secured castle. In addition, part of the firmware is marked as read-only, that means we are unable to patch security holes via autoupdate. So firmware testing is very important; however, our current firmware is lack of automated tests. It only relies on the manual tests by developers, our test team, and dogfooders. It seems to be a risk.
+Security is one of the selling points of ChromeOS netbooks. Verified boot provides a solution to ChromeOS security model. In the verified boot design, firmware is the foundation of this secured castle. In addition, part of the firmware is marked as read-only, that means we are unable to patch security holes via autoupdate. So firmware testing is very important; however, our current firmware is lack of automated tests. It only relies on the manual tests by developers, our test team, and dogfooders. It seems to be a risk.
 
 This document proposes a solution to the test problem. The advantages of FAFT:
 - Fully automatic, no human involved;
@@ -52,7 +54,7 @@ This document proposes a solution to the test problem. The advantages of FAFT:
 
 This document uses [U-Boot](http://en.wikipedia.org/wiki/Das_U-Boot) as an example to discuss the FAFT test approach. It can be also applied to [coreboot](http://en.wikipedia.org/wiki/Coreboot) and any proprietary BIOS in a similar way.
 
-The U-Boot software stack looks like the following graph: [cl/70339149](https://critique.corp.google.com/#review/70339149)
+The U-Boot software stack looks like the following graph:
 
 ![faft-u-boot-stack](assets/faft-u-boot-stack.png)
 
@@ -109,7 +111,7 @@ SAFT assumes the whole firmware as a black-box and tests the whole system from f
 
 Design Doc: [https://docs.google.com/a/google.com/document/d/1XZgX4_v-Ps7YBRnjZmCFYjrjyBZQz5YmRrg7YWBFfV0/edit?hl=en_US](https://docs.google.com/a/google.com/document/d/1XZgX4_v-Ps7YBRnjZmCFYjrjyBZQz5YmRrg7YWBFfV0/edit?hl=en_US)
 
-This work is an on-going project to ensure the whole factory install flow work fine. It downloads a factory bundle from buildbot, setup TFTP and Omaha servers. It uses a mini-Servo board to control a Chrome OS device, like switching dev switch, resetting device, sending Ctrl-D key, etc. This work is done by Rong Chang and the factory team to ensure partners get a good factory bundle.
+This work is an on-going project to ensure the whole factory install flow work fine. It downloads a factory bundle from buildbot, setup TFTP and Omaha servers. It uses a mini-Servo board to control a ChromeOS device, like switching dev switch, resetting device, sending Ctrl-D key, etc. This work is done by Rong Chang and the factory team to ensure partners get a good factory bundle.
 
 Since using a Servo board can automate almost all the human behaviors. The test can be done fully automated. The proposed FAFT in this document is an extension of this work.
 
@@ -129,7 +131,7 @@ Simon proposed a U-Boot native test system to split the U-Boot components into p
 
 ### Test Environment
 
-We need a [Servo board](https://sites.google.com/a/google.com/chromeos-partner/hardware-control-and-debug/servo) to connect a DUT such that we can:
+We need a [Servo board](https://chromium.googlesource.com/chromiumos/third_party/hdctools/+/HEAD/docs/servo.md) to connect a DUT such that we can:
 
 - flash a new firmware image;
 - run regression tests;
@@ -143,7 +145,7 @@ We need a [Servo board](https://sites.google.com/a/google.com/chromeos-partner/h
 
 ### Test Harness
 
-We use Autotest as our test harness and run FAFT as server tests. The host uses Ethernet to connect a DUT to push the test commands to it. Since Autotest is widely used in the Chrome OS projects. We can benefit in:
+We use Autotest as our test harness and run FAFT as server tests. The host uses Ethernet to connect a DUT to push the test commands to it. Since Autotest is widely used in the ChromeOS projects. We can benefit in:
 
 - easy to integrate to buildbot;
 - easy to run remotely;
@@ -282,7 +284,7 @@ The normal boot and developer boot can be verified by SAFT. However, we still mi
 4. Insert a recovery shim;
 5. Wait for the complete of recovery process;
 6. Reboot;
-7. Boot to normal Chrome OS.
+7. Boot to normal ChromeOS.
 
 This sequence can be fully automated by FAFT. For example, in step 1, we require an USB stick plugged to the Servo board by default. We first mux it to connect to the host machine such that we can write the recovery shim image to it. In step 4, we then mux the USB stick to the DUT. Another approach is to emulate an USB storage gadget in the host machine, it would be more flexible to control its functionalities by software.
 

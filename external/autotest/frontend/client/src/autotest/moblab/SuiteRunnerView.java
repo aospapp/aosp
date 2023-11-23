@@ -59,6 +59,7 @@ public class SuiteRunnerView extends TabView {
     "bvt-cq",
     "bvt-inline",
     "bvt-tast-cq",
+    "camera-usb-qual",
     "check_setup_cts_N",
     "check_setup_storage_qual",
     "cts_N",
@@ -72,8 +73,7 @@ public class SuiteRunnerView extends TabView {
     "power_loadtest_1hour",
     "power_loadtest_fast",
     "power_measurement_wrapper",
-    "power_sanity",
-    "usb-camera",
+    "power_check",
     "wifi_matfunc",
     "wifi_perf"
   );

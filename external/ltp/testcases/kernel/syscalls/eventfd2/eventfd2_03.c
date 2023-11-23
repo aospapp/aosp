@@ -52,7 +52,7 @@ void cleanup(void)
 
 static int eventfd2(int count, int flags)
 {
-	return ltp_syscall(__NR_eventfd2, count, flags);
+	return tst_syscall(__NR_eventfd2, count, flags);
 }
 
 static void xsem_wait(int fd)
@@ -118,11 +118,6 @@ int main(int argc, char **argv)
 			usage(argv[0]);
 			return 1;
 		}
-	}
-	if ((tst_kvercmp(2, 6, 27)) < 0) {
-		tst_brkm(TCONF,
-			 NULL,
-			 "This test can only run on kernels that are 2.6.27 and higher");
 	}
 	if ((fd1 = eventfd2(0, EFD_SEMLIKE)) == -1 ||
 	    (fd2 = eventfd2(0, EFD_SEMLIKE)) == -1) {

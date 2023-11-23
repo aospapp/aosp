@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/qdisc/tbf.c		TBF Qdisc
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2011 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -121,9 +115,9 @@ static void tbf_dump_details(struct rtnl_tc *tc, void *data,
 		cl = nl_cancel_down_bits(1 << tbf->qt_peakrate.rs_cell_log,
 					 &clu);
 
-		nl_dump_line(p, "    peak-rate %.2f%s/s (%.0f%s) "
-				"bucket-size %.1f%s cell-size %.1f%s"
-				"latency %.1f%s",
+		nl_dump_line(p,
+			     "    peak-rate %.2f%s/s (%.0f%s) "
+			     "bucket-size %.1f%s cell-size %.1f%s",
 			     pr, pru, prb, prbu, bs, bsu, cl, clu);
 	}
 }

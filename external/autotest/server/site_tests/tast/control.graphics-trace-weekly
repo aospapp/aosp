@@ -8,6 +8,7 @@ TIME = 'LONG'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:graphics_per-week'
 MAX_RESULT_SIZE_KB = 1024 * 1024
+PY_VERSION = 3
 
 # tast.py uses binaries inatalled from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True

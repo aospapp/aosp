@@ -441,6 +441,7 @@ static struct p2p_device * p2p_create_device(struct p2p_data *p2p,
 		return NULL;
 	dl_list_add(&p2p->devices, &dev->list);
 	os_memcpy(dev->info.p2p_device_addr, addr, ETH_ALEN);
+	dev->support_6ghz = false;
 
 	return dev;
 }
@@ -611,6 +612,8 @@ static void p2p_copy_wps_info(struct p2p_data *p2p, struct p2p_device *dev,
 		dev->info.group_capab = msg->capability[1];
 	}
 
+	p2p_update_peer_6ghz_capab(dev, msg);
+
 	if (msg->ext_listen_timing) {
 		dev->ext_listen_period = WPA_GET_LE16(msg->ext_listen_timing);
 		dev->ext_listen_interval =
@@ -631,6 +634,15 @@ static void p2p_copy_wps_info(struct p2p_data *p2p, struct p2p_device *dev,
 			dev->info.config_methods = new_config_methods;
 		}
 	}
+}
+
+
+void p2p_update_peer_6ghz_capab(struct p2p_device *dev,
+				const struct p2p_message *msg)
+{
+	if (msg->capability &&
+	    (msg->capability[0] & P2P_DEV_CAPAB_6GHZ_BAND_CAPABLE))
+		dev->support_6ghz = true;
 }
 
 
@@ -1803,6 +1815,7 @@ int p2p_go_params(struct p2p_data *p2p, struct p2p_go_neg_results *params)
 		os_memcpy(params->passphrase, p2p->passphrase, os_strlen(p2p->passphrase));
 	} else {
 		p2p_random(params->passphrase, p2p->cfg->passphrase_len);
+		params->passphrase[p2p->cfg->passphrase_len] = '\0';
 	}
 	p2p->passphrase_set = 0;
 	return 0;
@@ -1837,6 +1850,7 @@ void p2p_go_complete(struct p2p_data *p2p, struct p2p_device *peer)
 		os_memcpy(res.ssid, p2p->ssid, p2p->ssid_len);
 		res.ssid_len = p2p->ssid_len;
 		p2p_random(res.passphrase, p2p->cfg->passphrase_len);
+		res.passphrase[p2p->cfg->passphrase_len] = '\0';
 	} else {
 		res.freq = peer->oper_freq;
 		if (p2p->ssid_len) {
@@ -2083,6 +2097,7 @@ static void p2p_add_dev_from_probe_req(struct p2p_data *p2p, const u8 *addr,
 			}
 		}
 
+		p2p_update_peer_6ghz_capab(dev, &msg);
 		os_get_reltime(&dev->last_seen);
 		p2p_parse_free(&msg);
 		return; /* already known */
@@ -2941,6 +2956,14 @@ bool is_p2p_6ghz_disabled(struct p2p_data *p2p)
 {
 	if (p2p)
 		return p2p->cfg->p2p_6ghz_disable;
+	return false;
+}
+
+
+bool is_p2p_dfs_chan_enabled(struct p2p_data *p2p)
+{
+	if (p2p)
+		return p2p->cfg->p2p_dfs_chan_enable;
 	return false;
 }
 
@@ -4098,9 +4121,11 @@ static void p2p_timeout_invite(struct p2p_data *p2p)
 		/*
 		 * Better remain on operating channel instead of listen channel
 		 * when running a group.
+		 * Wait 120 ms to let the P2P GO to send its beacon on the
+		 * intended TBTT.
 		 */
 		p2p_dbg(p2p, "Inviting in active GO role - wait on operating channel");
-		p2p_set_timeout(p2p, 0, 100000);
+		p2p_set_timeout(p2p, 0, 120000);
 		return;
 	}
 	p2p_listen_in_find(p2p, 0);
@@ -5540,7 +5565,7 @@ void p2p_go_neg_wait_timeout(void *eloop_ctx, void *timeout_ctx)
 
 
 void p2p_set_own_pref_freq_list(struct p2p_data *p2p,
-				const unsigned int *pref_freq_list,
+				const struct weighted_pcl *pref_freq_list,
 				unsigned int size)
 {
 	unsigned int i;
@@ -5548,10 +5573,11 @@ void p2p_set_own_pref_freq_list(struct p2p_data *p2p,
 	if (size > P2P_MAX_PREF_CHANNELS)
 		size = P2P_MAX_PREF_CHANNELS;
 	p2p->num_pref_freq = size;
+	os_memcpy(p2p->pref_freq_list, pref_freq_list,
+		  size * sizeof(struct weighted_pcl));
 	for (i = 0; i < size; i++) {
-		p2p->pref_freq_list[i] = pref_freq_list[i];
 		p2p_dbg(p2p, "Own preferred frequency list[%u]=%u MHz",
-			i, p2p->pref_freq_list[i]);
+			i, p2p->pref_freq_list[i].freq);
 	}
 }
 
@@ -5603,7 +5629,7 @@ bool p2p_is_peer_6ghz_capab(struct p2p_data *p2p, const u8 *addr)
 	if (!dev)
 		return false;
 
-	return !!(dev->info.dev_capab & P2P_DEV_CAPAB_6GHZ_BAND_CAPABLE);
+	return dev->support_6ghz;
 }
 
 

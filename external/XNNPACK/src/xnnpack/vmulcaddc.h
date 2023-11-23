@@ -8,8 +8,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <xnnpack/params.h>
 #include <xnnpack/common.h>
+#include <xnnpack/microparams.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,6 +41,12 @@ DECLARE_F32_VMULCADDC_MINMAX_UKERNEL_FUNCTION(xnn_f32_vmulcaddc_minmax_ukernel_c
 
 DECLARE_F32_VMULCADDC_MINMAX_UKERNEL_FUNCTION(xnn_f32_vmulcaddc_minmax_ukernel_c4__wasmsimd_x86_2x)
 DECLARE_F32_VMULCADDC_MINMAX_UKERNEL_FUNCTION(xnn_f32_vmulcaddc_minmax_ukernel_c8__wasmsimd_x86_2x)
+
+DECLARE_F32_VMULCADDC_MINMAX_UKERNEL_FUNCTION(xnn_f32_vmulcaddc_minmax_ukernel_c4__wasmrelaxedsimd_2x)
+DECLARE_F32_VMULCADDC_MINMAX_UKERNEL_FUNCTION(xnn_f32_vmulcaddc_minmax_ukernel_c8__wasmrelaxedsimd_2x)
+
+DECLARE_F32_VMULCADDC_MINMAX_UKERNEL_FUNCTION(xnn_f32_vmulcaddc_minmax_ukernel_c4__wasmrelaxedsimd_fma_2x)
+DECLARE_F32_VMULCADDC_MINMAX_UKERNEL_FUNCTION(xnn_f32_vmulcaddc_minmax_ukernel_c8__wasmrelaxedsimd_fma_2x)
 
 DECLARE_F32_VMULCADDC_MINMAX_UKERNEL_FUNCTION(xnn_f32_vmulcaddc_minmax_ukernel_c1__wasm_2x)
 DECLARE_F32_VMULCADDC_MINMAX_UKERNEL_FUNCTION(xnn_f32_vmulcaddc_minmax_ukernel_c2__wasm_2x)

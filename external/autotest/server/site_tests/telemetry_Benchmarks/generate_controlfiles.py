@@ -1,10 +1,11 @@
-#!/usr/bin/env python2
+# Lint as: python2, python3
+#!/usr/bin/env python3
 
 """
-This file generates all telemetry_Benchmarks control files from a master list.
+This file generates all telemetry_Benchmarks control files from a main list.
 """
 
-from __future__ import print_function
+
 
 from datetime import datetime
 import os
@@ -45,10 +46,10 @@ EXTRA_ARGS_MAP = {
 
 DEFAULT_YEAR = str(datetime.now().year)
 
-DEFAULT_AUTHOR = 'Chrome OS Team'
+DEFAULT_AUTHOR = 'ChromeOS Team'
 
 CONTROLFILE_TEMPLATE = (
-"""# Copyright {year} The Chromium OS Authors. All rights reserved.
+        """# Copyright {year} The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -63,11 +64,12 @@ TIME = 'LONG'
 TEST_CATEGORY = 'Benchmark'
 TEST_CLASS = 'performance'
 TEST_TYPE = 'server'
+PY_VERSION = 3
 
 DOC = '''
 This server side test suite executes the Telemetry Benchmark:
 {test}
-This is part of Chrome for Chrome OS performance testing.
+This is part of Chrome for ChromeOS performance testing.
 
 Pass local=True to run with local telemetry and no AFE server.
 '''

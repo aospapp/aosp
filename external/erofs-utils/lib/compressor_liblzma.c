@@ -1,7 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0+
+// SPDX-License-Identifier: GPL-2.0+ OR Apache-2.0
 /*
- * erofs-utils/lib/compressor_liblzma.c
- *
  * Copyright (C) 2021 Gao Xiang <xiang@kernel.org>
  */
 #include <stdlib.h>
@@ -18,8 +16,8 @@ struct erofs_liblzma_context {
 	lzma_stream strm;
 };
 
-static int erofs_liblzma_compress_destsize(struct erofs_compress *c,
-					   void *src, unsigned int *srcsize,
+static int erofs_liblzma_compress_destsize(const struct erofs_compress *c,
+					   const void *src, unsigned int *srcsize,
 					   void *dst, unsigned int dstsize)
 {
 	struct erofs_liblzma_context *ctx = c->private_data;
@@ -96,7 +94,7 @@ static int erofs_compressor_liblzma_init(struct erofs_compress *c)
 	return 0;
 }
 
-struct erofs_compressor erofs_compressor_lzma = {
+const struct erofs_compressor erofs_compressor_lzma = {
 	.name = "lzma",
 	.default_level = LZMA_PRESET_DEFAULT,
 	.best_level = LZMA_PRESET_EXTREME,

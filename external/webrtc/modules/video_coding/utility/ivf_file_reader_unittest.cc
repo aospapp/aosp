@@ -83,7 +83,7 @@ class IvfFileReaderTest : public ::testing::Test {
                      bool use_capture_tims_ms,
                      int spatial_layers_count) {
     ASSERT_TRUE(frame);
-    EXPECT_EQ(frame->SpatialIndex(), spatial_layers_count);
+    EXPECT_EQ(frame->SpatialIndex(), spatial_layers_count - 1);
     if (use_capture_tims_ms) {
       EXPECT_EQ(frame->capture_time_ms_, static_cast<int64_t>(frame_index));
       EXPECT_EQ(frame->Timestamp(), static_cast<int64_t>(90 * frame_index));
@@ -145,6 +145,16 @@ TEST_F(IvfFileReaderTest, BasicVP9FileMsTimestamp) {
   ValidateContent(kVideoCodecVP9, true, 1);
 }
 
+TEST_F(IvfFileReaderTest, BasicAv1FileNtpTimestamp) {
+  CreateTestFile(kVideoCodecAV1, false, 1);
+  ValidateContent(kVideoCodecAV1, false, 1);
+}
+
+TEST_F(IvfFileReaderTest, BasicAv1FileMsTimestamp) {
+  CreateTestFile(kVideoCodecAV1, true, 1);
+  ValidateContent(kVideoCodecAV1, true, 1);
+}
+
 TEST_F(IvfFileReaderTest, BasicH264FileNtpTimestamp) {
   CreateTestFile(kVideoCodecH264, false, 1);
   ValidateContent(kVideoCodecH264, false, 1);
@@ -163,6 +173,11 @@ TEST_F(IvfFileReaderTest, MultilayerVp8FileNtpTimestamp) {
 TEST_F(IvfFileReaderTest, MultilayerVP9FileNtpTimestamp) {
   CreateTestFile(kVideoCodecVP9, false, 3);
   ValidateContent(kVideoCodecVP9, false, 3);
+}
+
+TEST_F(IvfFileReaderTest, MultilayerAv1FileNtpTimestamp) {
+  CreateTestFile(kVideoCodecAV1, false, 3);
+  ValidateContent(kVideoCodecAV1, false, 3);
 }
 
 TEST_F(IvfFileReaderTest, MultilayerH264FileNtpTimestamp) {

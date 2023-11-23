@@ -87,24 +87,24 @@ public class ProfileInterfaceTest {
     assertThat(compilation)
         .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType")
         .contentsAsUtf8String()
-        .contains("ProfileNotesType_SingleSender current()");
+        .contains("NotesType_SingleSender current()");
     assertThat(compilation)
         .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType")
         .contentsAsUtf8String()
-        .contains("ProfileNotesType_SingleSenderCanThrow other()");
+        .contains("NotesType_SingleSenderCanThrow other()");
     assertThat(compilation)
         .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType")
         .contentsAsUtf8String()
         // We ignore the "profile" argument as it gets moved onto another line by the processor
-        .contains("ProfileNotesType_SingleSenderCanThrow profile(");
+        .contains("NotesType_SingleSenderCanThrow profile(");
     assertThat(compilation)
         .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType")
         .contentsAsUtf8String()
-        .contains("ProfileNotesType_MultipleSender both()");
+        .contains("NotesType_MultipleSender both()");
     assertThat(compilation)
         .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType")
         .contentsAsUtf8String()
-        .contains("ProfileNotesType_MultipleSender profiles(");
+        .contains("NotesType_MultipleSender profiles(");
   }
 
   @Test
@@ -179,15 +179,15 @@ public class ProfileInterfaceTest {
     assertThat(compilation)
         .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType")
         .contentsAsUtf8String()
-        .contains("ProfileNotesType_SingleSenderCanThrow primary()");
+        .contains("NotesType_SingleSenderCanThrow primary()");
     assertThat(compilation)
         .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType")
         .contentsAsUtf8String()
-        .contains("ProfileNotesType_SingleSenderCanThrow secondary()");
+        .contains("NotesType_SingleSenderCanThrow secondary()");
     assertThat(compilation)
         .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType")
         .contentsAsUtf8String()
-        .contains("ProfileNotesType_MultipleSender suppliers()");
+        .contains("NotesType_MultipleSender suppliers()");
   }
 
   @Test
@@ -212,14 +212,14 @@ public class ProfileInterfaceTest {
     assertThat(compilation)
         .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType")
         .contentsAsUtf8String()
-        .contains("ProfileNotesType_SingleSenderCanThrow primary()");
+        .contains("NotesType_SingleSenderCanThrow primary()");
     assertThat(compilation)
         .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType")
         .contentsAsUtf8String()
-        .contains("ProfileNotesType_SingleSenderCanThrow secondary()");
+        .contains("NotesType_SingleSenderCanThrow secondary()");
     assertThat(compilation)
         .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType")
         .contentsAsUtf8String()
-        .contains("ProfileNotesType_MultipleSender suppliers()");
+        .contains("NotesType_MultipleSender suppliers()");
   }
 }

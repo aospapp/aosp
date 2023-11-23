@@ -15,37 +15,40 @@
 #include "pw_metric/metric_service_nanopb.h"
 
 #include <cstring>
-#include <span>
 
 #include "pw_assert/check.h"
 #include "pw_containers/vector.h"
 #include "pw_metric/metric.h"
+#include "pw_metric_private/metric_walker.h"
 #include "pw_preprocessor/util.h"
+#include "pw_span/span.h"
 
 namespace pw::metric {
 namespace {
 
-class MetricWriter {
+class NanopbMetricWriter : public virtual internal::MetricWriter {
  public:
-  MetricWriter(
-      MetricService::ServerWriter<pw_metric_MetricResponse>& response_writer)
-      : response_(pw_metric_MetricResponse_init_zero),
+  NanopbMetricWriter(
+      MetricService::ServerWriter<pw_metric_proto_MetricResponse>&
+          response_writer)
+      : response_(pw_metric_proto_MetricResponse_init_zero),
         response_writer_(response_writer) {}
 
   // TODO(keir): Figure out a pw_rpc mechanism to fill a streaming packet based
   // on transport MTU, rather than having this as a static knob. For example,
   // some transports may be able to fit 30 metrics; others, only 5.
-  void Write(const Metric& metric, const Vector<Token>& path) {
+  Status Write(const Metric& metric, const Vector<Token>& path) override {
     // Nanopb doesn't offer an easy way to do bounds checking, so use span's
     // type deduction magic to figure out the max size.
-    std::span<pw_metric_Metric> metrics(response_.metrics);
+    span<pw_metric_proto_Metric> metrics(response_.metrics);
     PW_CHECK_INT_LT(response_.metrics_count, metrics.size());
 
     // Grab the next available Metric slot to write to in the response.
-    pw_metric_Metric& proto_metric = response_.metrics[response_.metrics_count];
+    pw_metric_proto_Metric& proto_metric =
+        response_.metrics[response_.metrics_count];
 
     // Copy the path.
-    std::span<Token> proto_path(proto_metric.token_path);
+    span<Token> proto_path(proto_metric.token_path);
     PW_CHECK_INT_LE(path.size(), proto_path.size());
     std::copy(path.begin(), path.end(), proto_path.begin());
     proto_metric.token_path_count = path.size();
@@ -53,10 +56,10 @@ class MetricWriter {
     // Copy the metric value.
     if (metric.is_float()) {
       proto_metric.value.as_float = metric.as_float();
-      proto_metric.which_value = pw_metric_Metric_as_float_tag;
+      proto_metric.which_value = pw_metric_proto_Metric_as_float_tag;
     } else {
       proto_metric.value.as_int = metric.as_int();
-      proto_metric.which_value = pw_metric_Metric_as_int_tag;
+      proto_metric.which_value = pw_metric_proto_Metric_as_int_tag;
     }
 
     // Move write head to the next slot.
@@ -67,73 +70,32 @@ class MetricWriter {
     if (response_.metrics_count == metrics.size()) {
       Flush();
     }
+
+    return OkStatus();
   }
 
   void Flush() {
     if (response_.metrics_count) {
       response_writer_.Write(response_)
-          .IgnoreError();  // TODO(pwbug/387): Handle Status properly
-      response_ = pw_metric_MetricResponse_init_zero;
+          .IgnoreError();  // TODO(b/242598609): Handle Status properly
+      response_ = pw_metric_proto_MetricResponse_init_zero;
     }
   }
 
  private:
-  pw_metric_MetricResponse response_;
+  pw_metric_proto_MetricResponse response_;
   // This RPC stream writer handle must be valid for the metric writer lifetime.
-  MetricService::ServerWriter<pw_metric_MetricResponse>& response_writer_;
-};
-
-// Walk a metric tree recursively; passing metrics with their path (names) to a
-// metric writer which can consume them.
-//
-// TODO(keir): Generalize this to support a generic visitor.
-class MetricWalker {
- public:
-  MetricWalker(MetricWriter& writer) : writer_(writer) {}
-
-  void Walk(const IntrusiveList<Metric>& metrics) {
-    for (const auto& m : metrics) {
-      ScopedName scoped_name(m.name(), *this);
-      writer_.Write(m, path_);
-    }
-  }
-
-  void Walk(const IntrusiveList<Group>& groups) {
-    for (const auto& g : groups) {
-      Walk(g);
-    }
-  }
-
-  void Walk(const Group& group) {
-    ScopedName scoped_name(group.name(), *this);
-    Walk(group.children());
-    Walk(group.metrics());
-  }
-
- private:
-  // Exists to safely push/pop parent groups from the explicit stack.
-  struct ScopedName {
-    ScopedName(Token name, MetricWalker& rhs) : walker(rhs) {
-      PW_CHECK_INT_LT(walker.path_.size(),
-                      walker.path_.capacity(),
-                      "Metrics are too deep; bump path_ capacity");
-      walker.path_.push_back(name);
-    }
-    ~ScopedName() { walker.path_.pop_back(); }
-    MetricWalker& walker;
-  };
-
-  Vector<Token, 4 /* max depth */> path_;
-  MetricWriter& writer_;
+  MetricService::ServerWriter<pw_metric_proto_MetricResponse>& response_writer_;
 };
 
 }  // namespace
 
-void MetricService::Get(const pw_metric_MetricRequest& /* request */,
-                        ServerWriter<pw_metric_MetricResponse>& response) {
+void MetricService::Get(
+    const pw_metric_proto_MetricRequest& /* request */,
+    ServerWriter<pw_metric_proto_MetricResponse>& response) {
   // For now, ignore the request and just stream all the metrics back.
-  MetricWriter writer(response);
-  MetricWalker walker(writer);
+  NanopbMetricWriter writer(response);
+  internal::MetricWalker walker(writer);
 
   // This will stream all the metrics in the span of this Get() method call.
   // This will have the effect of blocking the RPC thread until all the metrics
@@ -142,8 +104,8 @@ void MetricService::Get(const pw_metric_MetricRequest& /* request */,
   //
   // In the future, this should be replaced with an optional async solution
   // that puts the application in control of when the response batches are sent.
-  walker.Walk(metrics_);
-  walker.Walk(groups_);
+  walker.Walk(metrics_).IgnoreError();
+  walker.Walk(groups_).IgnoreError();
   writer.Flush();
 }
 

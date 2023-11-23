@@ -16,7 +16,6 @@
 
 package com.tonicsystems.jarjar;
 
-import org.objectweb.asm.*;
 import org.objectweb.asm.commons.*;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -28,7 +27,7 @@ class PackageRemapper extends Remapper
     private static final Pattern ARRAY_FOR_NAME_PATTERN
         = Pattern.compile("\\[L[\\p{javaJavaIdentifierPart}\\.]+?;");
 
-    private final List<Wildcard> wildcards;
+    private final WildcardTrie wildcards;
     private final Map<String, String> typeCache = new HashMap<String, String>();
     private final Map<String, String> pathCache = new HashMap<String, String>();
     private final Map<Object, String> valueCache = new HashMap<Object, String>();
@@ -36,7 +35,7 @@ class PackageRemapper extends Remapper
 
     public PackageRemapper(List<Rule> ruleList, boolean verbose) {
         this.verbose = verbose;
-        wildcards = PatternElement.createWildcards(ruleList);
+        wildcards = new WildcardTrie(PatternElement.createWildcards(ruleList));
     }
 
     // also used by KeepProcessor
@@ -118,7 +117,7 @@ class PackageRemapper extends Remapper
     }
 
     private String replaceHelper(String value) {
-        for (Wildcard wildcard : wildcards) {
+        for (Wildcard wildcard : wildcards.getPossibleMatches(value)) {
             String test = wildcard.replace(value);
             if (test != null)
                 return test;

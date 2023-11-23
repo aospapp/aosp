@@ -16,15 +16,19 @@
 
 package dagger.internal.codegen.binding;
 
+import static dagger.internal.codegen.xprocessing.XElements.getSimpleName;
+
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import dagger.internal.codegen.base.ComponentAnnotation;
+import dagger.internal.codegen.base.ComponentCreatorAnnotation;
+import dagger.internal.codegen.base.ComponentKind;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
 
 /** The collection of error messages to be reported back to users. */
 public final class ErrorMessages {
@@ -199,18 +203,18 @@ public final class ErrorMessages {
     }
 
     public final String factoryMethodReturnsSupertypeWithMissingMethods(
-        TypeElement component,
-        TypeElement componentBuilder,
-        TypeMirror returnType,
-        ExecutableElement buildMethod,
-        Set<ExecutableElement> additionalMethods) {
+        XTypeElement component,
+        XTypeElement componentBuilder,
+        XType returnType,
+        XMethodElement buildMethod,
+        Set<XMethodElement> additionalMethods) {
       return String.format(
           "%1$s.%2$s() returns %3$s, but %4$s declares additional component method(s): %5$s. In "
               + "order to provide type-safe access to these methods, override %2$s() to return "
               + "%4$s",
           componentBuilder.getQualifiedName(),
-          buildMethod.getSimpleName(),
-          returnType,
+          getSimpleName(buildMethod),
+          returnType.getTypeName(),
           component.getQualifiedName(),
           Joiner.on(", ").join(additionalMethods));
     }

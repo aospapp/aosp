@@ -8,6 +8,8 @@
 
 #include "vkr_common.h"
 
+#include "vkr_context.h"
+
 struct vkr_command_pool {
    struct vkr_object base;
 
@@ -27,5 +29,11 @@ vkr_context_init_command_pool_dispatch(struct vkr_context *ctx);
 
 void
 vkr_context_init_command_buffer_dispatch(struct vkr_context *ctx);
+
+static inline void
+vkr_command_pool_release(struct vkr_context *ctx, struct vkr_command_pool *pool)
+{
+   vkr_context_remove_objects(ctx, &pool->command_buffers);
+}
 
 #endif /* VKR_COMMAND_BUFFER_H */

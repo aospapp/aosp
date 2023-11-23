@@ -15,12 +15,14 @@
 #include <string_view>
 
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
 #include "icing/portable/platform.h"
 #include "icing/testing/common-matchers.h"
 #include "icing/testing/icu-data-file-helper.h"
 #include "icing/testing/jni-test-helpers.h"
 #include "icing/testing/test-data.h"
 #include "icing/tokenization/language-segmenter-factory.h"
+#include "icing/tokenization/token.h"
 #include "icing/tokenization/tokenizer-factory.h"
 #include "icing/util/character-iterator.h"
 #include "unicode/uloc.h"
@@ -85,7 +87,7 @@ TEST_F(VerbatimTokenizerTest, Punctuation) {
                   EqualsToken(Token::Type::VERBATIM, "Hello, world!"))));
 }
 
-TEST_F(VerbatimTokenizerTest, InvalidTokenBeforeAdvancing) {
+TEST_F(VerbatimTokenizerTest, NoTokensBeforeAdvancing) {
   ICING_ASSERT_OK_AND_ASSIGN(std::unique_ptr<Tokenizer> verbatim_tokenizer,
                              tokenizer_factory::CreateIndexingTokenizer(
                                  StringIndexingConfig::TokenizerType::VERBATIM,
@@ -94,9 +96,8 @@ TEST_F(VerbatimTokenizerTest, InvalidTokenBeforeAdvancing) {
   constexpr std::string_view kText = "Hello, world!";
   auto token_iterator = verbatim_tokenizer->Tokenize(kText).ValueOrDie();
 
-  // We should get an invalid token if we get the token before advancing.
-  EXPECT_THAT(token_iterator->GetToken(),
-              EqualsToken(Token::Type::INVALID, ""));
+  // We should get no tokens if we get the token before advancing.
+  EXPECT_THAT(token_iterator->GetTokens(), IsEmpty());
 }
 
 TEST_F(VerbatimTokenizerTest, ResetToTokenEndingBefore) {
@@ -111,14 +112,14 @@ TEST_F(VerbatimTokenizerTest, ResetToTokenEndingBefore) {
   // Reset to beginning of verbatim of token. We provide an offset of 13 as it
   // is larger than the final index (12) of the verbatim token.
   EXPECT_TRUE(token_iterator->ResetToTokenEndingBefore(13));
-  EXPECT_THAT(token_iterator->GetToken(),
-              EqualsToken(Token::Type::VERBATIM, "Hello, world!"));
+  EXPECT_THAT(token_iterator->GetTokens(),
+              ElementsAre(EqualsToken(Token::Type::VERBATIM, "Hello, world!")));
 
   // Ensure our cached character iterator propertly maintains the end of the
   // verbatim token.
   EXPECT_TRUE(token_iterator->ResetToTokenEndingBefore(13));
-  EXPECT_THAT(token_iterator->GetToken(),
-              EqualsToken(Token::Type::VERBATIM, "Hello, world!"));
+  EXPECT_THAT(token_iterator->GetTokens(),
+              ElementsAre(EqualsToken(Token::Type::VERBATIM, "Hello, world!")));
 
   // We should not be able to reset with an offset before or within
   // the verbatim token's utf-32 length.
@@ -137,8 +138,8 @@ TEST_F(VerbatimTokenizerTest, ResetToTokenStartingAfter) {
 
   // Get token without resetting
   EXPECT_TRUE(token_iterator->Advance());
-  EXPECT_THAT(token_iterator->GetToken(),
-              EqualsToken(Token::Type::VERBATIM, "Hello, world!"));
+  EXPECT_THAT(token_iterator->GetTokens(),
+              ElementsAre(EqualsToken(Token::Type::VERBATIM, "Hello, world!")));
 
   // We expect a sole verbatim token, so it's not possible to reset after the
   // start of the token.
@@ -147,8 +148,8 @@ TEST_F(VerbatimTokenizerTest, ResetToTokenStartingAfter) {
   // We expect to be reset to the sole verbatim token when the offset is
   // negative.
   EXPECT_TRUE(token_iterator->ResetToTokenStartingAfter(-1));
-  EXPECT_THAT(token_iterator->GetToken(),
-              EqualsToken(Token::Type::VERBATIM, "Hello, world!"));
+  EXPECT_THAT(token_iterator->GetTokens(),
+              ElementsAre(EqualsToken(Token::Type::VERBATIM, "Hello, world!")));
 }
 
 TEST_F(VerbatimTokenizerTest, ResetToStart) {
@@ -162,13 +163,13 @@ TEST_F(VerbatimTokenizerTest, ResetToStart) {
 
   // Get token without resetting
   EXPECT_TRUE(token_iterator->Advance());
-  EXPECT_THAT(token_iterator->GetToken(),
-              EqualsToken(Token::Type::VERBATIM, "Hello, world!"));
+  EXPECT_THAT(token_iterator->GetTokens(),
+              ElementsAre(EqualsToken(Token::Type::VERBATIM, "Hello, world!")));
 
   // Retrieve token again after resetting to start
   EXPECT_TRUE(token_iterator->ResetToStart());
-  EXPECT_THAT(token_iterator->GetToken(),
-              EqualsToken(Token::Type::VERBATIM, "Hello, world!"));
+  EXPECT_THAT(token_iterator->GetTokens(),
+              ElementsAre(EqualsToken(Token::Type::VERBATIM, "Hello, world!")));
 }
 
 TEST_F(VerbatimTokenizerTest, CalculateTokenStart) {

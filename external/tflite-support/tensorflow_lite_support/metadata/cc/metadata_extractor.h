@@ -1,4 +1,4 @@
-/* Copyright 2020 The TensorFlow Authors. All Rights Reserved.
+/* Copyright 2022 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #ifndef TENSORFLOW_LITE_SUPPORT_METADATA_CC_METADATA_EXTRACTOR_H_
 #define TENSORFLOW_LITE_SUPPORT_METADATA_CC_METADATA_EXTRACTOR_H_
+
+#include <string>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
@@ -77,6 +79,10 @@ class ModelMetadataExtractor {
   // file.
   tflite::support::StatusOr<absl::string_view> GetAssociatedFile(
       const std::string& filename) const;
+
+  // Gets the model version from the model metadata.  An error is returned if
+  // either the metadata does not exist or no model version is present in it.
+  tflite::support::StatusOr<std::string> GetModelVersion() const;
 
   // Note: all methods below retrieves metadata of the *first* subgraph as
   // default.
@@ -146,9 +152,9 @@ class ModelMetadataExtractor {
   // Pointer to the extracted ModelMetadata, if any.
   const tflite::ModelMetadata* model_metadata_{nullptr};
   // The files associated with the ModelMetadata, as a map with the filename
-  // (corresponding to a basename, e.g. "labels.txt") as key and the file
-  // contents as value.
-  absl::flat_hash_map<std::string, std::string> associated_files_;
+  // (corresponding to a basename, e.g. "labels.txt") as key and a pointer to
+  // the file contents as value.
+  absl::flat_hash_map<std::string, absl::string_view> associated_files_;
 };
 
 }  // namespace metadata

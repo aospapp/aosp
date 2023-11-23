@@ -95,6 +95,8 @@ test_task::run_abidw(const string& extargs)
 {
   string abidw = string(get_build_dir()) + "/tools/abidw";
   string drop_private_types;
+  set_in_abi_path();
+
   if (!in_public_headers_path.empty())
     drop_private_types += "--headers-dir " + in_public_headers_path +
       " --drop-private-types";
@@ -103,7 +105,7 @@ test_task::run_abidw(const string& extargs)
   if (system(cmd.c_str()))
     {
       error_message = string("ABIs differ:\n")
-        + in_elf_path
+        + in_abi_path
         + "\nand:\n"
         + out_abi_path
         + "\n";

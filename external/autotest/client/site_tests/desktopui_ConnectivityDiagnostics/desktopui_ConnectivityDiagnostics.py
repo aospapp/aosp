@@ -8,7 +8,7 @@ from autotest_lib.client.common_lib.cros import chrome
 
 
 class desktopui_ConnectivityDiagnostics(test.test):
-    """Basic sanity check of connectivity diagnostics in Chrome."""
+    """Basic confidence check of connectivity diagnostics in Chrome."""
     version = 1
 
 

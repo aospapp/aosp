@@ -124,6 +124,9 @@ struct eap_config {
 	 * callback context.
 	 */
 	void *eap_sim_db_priv;
+
+	struct crypto_rsa_key *imsi_privacy_key;
+
 	bool backend_auth;
 	int eap_server;
 
@@ -206,6 +209,7 @@ struct eap_config {
 		EAP_TEAP_ID_REQUEST_MACHINE_ACCEPT_USER = 4,
 		EAP_TEAP_ID_REQUIRE_USER_AND_MACHINE = 5,
 	} eap_teap_id;
+	int eap_teap_method_sequence;
 
 	/**
 	 * eap_sim_aka_result_ind - EAP-SIM/AKA protected success indication
@@ -258,6 +262,10 @@ struct eap_config {
 
 	unsigned int max_auth_rounds;
 	unsigned int max_auth_rounds_short;
+
+#ifdef CONFIG_TESTING_OPTIONS
+	bool skip_prot_success;
+#endif /* CONFIG_TESTING_OPTIONS */
 };
 
 struct eap_session_data {

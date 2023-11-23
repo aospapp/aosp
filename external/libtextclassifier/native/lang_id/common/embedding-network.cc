@@ -153,7 +153,7 @@ void EmbeddingNetwork::ConcatEmbeddings(
   concat->resize(concat_layer_size_);
 
   // "es_index" stands for "embedding space index".
-  for (int es_index = 0; es_index < feature_vectors.size(); ++es_index) {
+  for (size_t es_index = 0; es_index < feature_vectors.size(); ++es_index) {
     const int concat_offset = concat_offset_[es_index];
 
     const EmbeddingNetworkParams::Matrix &embedding_matrix =
@@ -167,7 +167,8 @@ void EmbeddingNetwork::ConcatEmbeddings(
     for (int fi = 0; fi < num_features; ++fi) {
       const FeatureType *feature_type = feature_vector.type(fi);
       int feature_offset = concat_offset + feature_type->base() * embedding_dim;
-      SAFTM_CHECK_LE(feature_offset + embedding_dim, concat->size());
+      SAFTM_CHECK_LE(feature_offset + embedding_dim,
+                     static_cast<int>(concat->size()));
 
       // Weighted embeddings will be added starting from this address.
       float *concat_ptr = concat->data() + feature_offset;
@@ -257,7 +258,7 @@ void EmbeddingNetwork::ComputeFinalScores(
   ConcatEmbeddings(features, &input);
   if (!extra_inputs.empty()) {
     input.reserve(input.size() + extra_inputs.size());
-    for (int i = 0; i < extra_inputs.size(); i++) {
+    for (size_t i = 0; i < extra_inputs.size(); i++) {
       input.push_back(extra_inputs[i]);
     }
   }
@@ -281,8 +282,8 @@ void EmbeddingNetwork::ComputeFinalScores(
       v_out = &(storage[i % 2]);
     }
     const bool apply_relu = i > 0;
-    SparseReluProductPlusBias(
-        apply_relu, layer_weights_[i], layer_bias_[i], *v_in, v_out);
+    SparseReluProductPlusBias(apply_relu, layer_weights_[i], layer_bias_[i],
+                              *v_in, v_out);
     v_in = v_out;
   }
 }

@@ -142,7 +142,7 @@ struct DiagFunctor<CPUDevice, T> {
     auto worker_threads = *(context->device()->tensorflow_cpu_worker_threads());
     Shard(worker_threads.num_threads, worker_threads.workers, size, 5 * size,
           subDiag);
-    return Status::OK();
+    return OkStatus();
   }
 };
 
@@ -163,7 +163,7 @@ struct DiagPartFunctor<CPUDevice, T> {
     auto worker_threads = *(context->device()->tensorflow_cpu_worker_threads());
     Shard(worker_threads.num_threads, worker_threads.workers, size, 5,
           subDiagPart);
-    return Status::OK();
+    return OkStatus();
   }
 };
 }  // namespace functor
@@ -203,7 +203,7 @@ namespace functor {
 extern template struct DiagFunctor<GPUDevice, double>;
 extern template struct DiagFunctor<GPUDevice, float>;
 extern template struct DiagFunctor<GPUDevice, int32>;
-extern template struct DiagFunctor<GPUDevice, int64>;
+extern template struct DiagFunctor<GPUDevice, int64_t>;
 extern template struct DiagFunctor<GPUDevice, complex64>;
 extern template struct DiagFunctor<GPUDevice, complex128>;
 }  // namespace functor
@@ -226,7 +226,7 @@ namespace functor {
 extern template struct DiagPartFunctor<GPUDevice, double>;
 extern template struct DiagPartFunctor<GPUDevice, float>;
 extern template struct DiagPartFunctor<GPUDevice, int32>;
-extern template struct DiagPartFunctor<GPUDevice, int64>;
+extern template struct DiagPartFunctor<GPUDevice, int64_t>;
 extern template struct DiagPartFunctor<GPUDevice, complex64>;
 extern template struct DiagPartFunctor<GPUDevice, complex128>;
 extern template struct DiagPartFunctor<GPUDevice, Eigen::half>;

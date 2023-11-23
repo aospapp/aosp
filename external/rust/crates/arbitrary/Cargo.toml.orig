@@ -1,6 +1,6 @@
 [package]
 name = "arbitrary"
-version = "1.1.0" # Make sure this matches the derive crate version
+version = "1.2.3" # Make sure this matches the derive crate version (not including the patch version)
 authors = [
     "The Rust-Fuzz Project Developers",
     "Nick Fitzgerald <fitzgen@gmail.com>",
@@ -17,11 +17,10 @@ description = "The trait for generating structured data from unstructured data"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rust-fuzz/arbitrary/"
 documentation = "https://docs.rs/arbitrary/"
+rust-version = "1.63.0"
 
 [dependencies]
-derive_arbitrary = { version = "1.0.0", path = "./derive", optional = true }
-
-[dev-dependencies]
+derive_arbitrary = { version = "1.2.3", path = "./derive", optional = true }
 
 [features]
 # Turn this feature on to enable support for `#[derive(Arbitrary)]`.
@@ -37,3 +36,4 @@ path = "./tests/derive.rs"
 required-features = ["derive"]
 
 [workspace]
+members = ["./fuzz"]

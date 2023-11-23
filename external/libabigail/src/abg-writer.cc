@@ -107,24 +107,15 @@ public:
   }
 };
 
-/// A hashing functor that should be as fast as possible.
-struct type_hasher
-{
-  size_t
-  operator()(const type_base* t) const
-  {return hash_type(t);}
-}; // end struct type_hasher
-
 /// A convenience typedef for a map that associates a pointer to type
-/// to a string.  The pointer to type is hashed as fast as possible.
-typedef unordered_map<type_base*,
-		      interned_string> type_ptr_map;
+/// to a string.
+typedef unordered_map<type_base*, interned_string> type_ptr_map;
 
 // A convenience typedef for a set of type_base*.
-typedef unordered_set<const type_base*> type_ptr_set_type;
+typedef std::unordered_set<const type_base*> type_ptr_set_type;
 
 /// A convenience typedef for a set of function type*.
-typedef unordered_set<function_type*> fn_type_ptr_set_type;
+typedef std::unordered_set<function_type*> fn_type_ptr_set_type;
 
 typedef unordered_map<shared_ptr<function_tdecl>,
 		      string,
@@ -2773,8 +2764,8 @@ write_array_type_def(const array_type_def_sptr&	decl,
 /// @return true upon successful completion, false otherwise.
 static bool
 write_enum_type_decl(const enum_type_decl_sptr& d,
-		     write_context&		ctxt,
-		     unsigned			indent)
+		     write_context& ctxt,
+		     unsigned indent)
 {
   if (!d)
     return false;
@@ -2884,10 +2875,13 @@ write_elf_symbol(const elf_symbol_sptr&	sym,
   if (sym->is_common_symbol())
     o << " is-common='yes'";
 
-  if (sym->get_crc() != 0)
+  if (sym->get_crc().has_value())
     o << " crc='"
-      << std::hex << std::showbase << sym->get_crc() << "'"
-      << std::dec << std::noshowbase;
+      << std::hex << std::showbase << sym->get_crc().value()
+      << std::dec << std::noshowbase << "'";
+
+  if (sym->get_namespace().has_value())
+    o << " namespace='" << sym->get_namespace().value() << "'";
 
   o << "/>\n";
 
@@ -4460,7 +4454,7 @@ write_type_record(xml_writer::write_context&	ctxt,
   //       <c>0x25f9ba8</c>
   //     </type>
 
-  string id = ctxt.get_id_for_type (type);
+  string id = ctxt.get_id_for_type (const_cast<type_base*>(type));
   o << "  <type>\n"
     << "    <id>" << id << "</id>\n"
     << "    <c>"

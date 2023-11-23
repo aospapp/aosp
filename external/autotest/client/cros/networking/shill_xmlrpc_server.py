@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -8,8 +8,10 @@ import dbus
 import logging
 import logging.handlers
 import multiprocessing
+import six
 
 import common
+
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.client.cros import xmlrpc_server
@@ -112,8 +114,12 @@ class ShillXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         """
         while True:
             active_profile = self._wifi_proxy.get_active_profile()
+            if six.PY2:
+                profile_props = active_profile.GetProperties(utf8_strings=True)
+            else:
+                profile_props = active_profile.GetProperties()
             profile_name = self._wifi_proxy.dbus2primitive(
-                    active_profile.GetProperties(utf8_strings=True)['Name'])
+                    profile_props['Name'])
             if profile_name == 'default':
                 return True
             self._wifi_proxy.manager.PopProfile(profile_name)
@@ -214,8 +220,11 @@ class ShillXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         """
         shill = self._wifi_proxy
         for profile in shill.get_profiles():
-            profile_properties = shill.dbus2primitive(
-                    profile.GetProperties(utf8_strings=True))
+            if six.PY2:
+                profile_properties = profile.GetProperties(utf8_strings=True)
+            else:
+                profile_properties = profile.GetProperties()
+            profile_properties = shill.dbus2primitive(profile_properties)
             entry_ids = profile_properties[shill.PROFILE_PROPERTY_ENTRIES]
             for entry_id in entry_ids:
                 entry = profile.GetEntry(entry_id)
@@ -252,8 +261,11 @@ class ShillXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         ret = []
         devices = self._wifi_proxy.get_devices()
         for device in devices:
-            properties = self._wifi_proxy.dbus2primitive(
-                    device.GetProperties(utf8_strings=True))
+            if six.PY2:
+                properties = device.GetProperties(utf8_strings=True)
+            else:
+                properties = device.GetProperties()
+            properties = self._wifi_proxy.dbus2primitive(properties)
             if properties[self._wifi_proxy.DEVICE_PROPERTY_TYPE] != 'wifi':
                 continue
             ret.append(properties[self._wifi_proxy.DEVICE_PROPERTY_NAME])
@@ -322,7 +334,7 @@ class ShillXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         """Get a dict of properties for a service.
 
         @param ssid string service to get properties for.
-        @return dict of Python friendly native types or None on failures.
+        @return dict of Python friendly built-in types or None on failures.
 
         """
         discovery_params = {self._wifi_proxy.SERVICE_PROPERTY_TYPE: 'wifi',
@@ -331,14 +343,21 @@ class ShillXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
                 discovery_params)
         service_object = self._wifi_proxy.get_dbus_object(
                 self._wifi_proxy.DBUS_TYPE_SERVICE, service_path)
-        service_properties = service_object.GetProperties(
-                utf8_strings=True)
+        if six.PY2:
+            service_properties = service_object.GetProperties(
+                    utf8_strings=True)
+        else:
+            service_properties = service_object.GetProperties()
         return self._wifi_proxy.dbus2primitive(service_properties)
 
 
     @xmlrpc_server.dbus_safe(None)
     def get_manager_properties(self):
-        manager_props = self._wifi_proxy.manager.GetProperties(utf8_strings=True)
+        if six.PY2:
+            manager_props = self._wifi_proxy.manager.GetProperties(
+                    utf8_strings=True)
+        else:
+            manager_props = self._wifi_proxy.manager.GetProperties()
         return self._wifi_proxy.dbus2primitive(manager_props)
 
 

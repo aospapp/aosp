@@ -4,6 +4,8 @@
  *
  * See http://pubs.opengroup.org/onlinepubs/9699919799/utilities/sed.html
  *
+ * xform See https://www.gnu.org/software/tar/manual/html_section/transform.html
+ *
  * TODO: lines > 2G could wrap signed int length counters. Not just getline()
  * but N and s///
  * TODO: make y// handle unicode, unicode delimiters
@@ -12,12 +14,15 @@
  * test '//q' with no previous regex, also repeat previous regex?
  *
  * Deviations from POSIX: allow extended regular expressions with -r,
- * editing in place with -i, separate with -s, NUL-separated input with -z,
+ * editing in place with -i, separate with -s, NUL-delimited strings with -z,
  * printf escapes in text, line continuations, semicolons after all commands,
  * 2-address anywhere an address is allowed, "T" command, multiline
  * continuations for [abc], \; to end [abc] argument before end of line.
+ * Explicit violations of stuff posix says NOT to do: N at EOF does default
+ * print, l escapes \n
+ * Added --tarxform mode to support tar --xform
 
-USE_SED(NEWTOY(sed, "(help)(version)e*f*i:;nErz(null-data)s[+Er]", TOYFLAG_BIN|TOYFLAG_LOCALE|TOYFLAG_NOHELP))
+USE_SED(NEWTOY(sed, "(help)(version)(tarxform)e*f*i:;nErz(null-data)s[+Er]", TOYFLAG_BIN|TOYFLAG_LOCALE|TOYFLAG_NOHELP))
 
 config SED
   bool "sed"
@@ -74,8 +79,8 @@ config SED
       G  Get remembered line (appending to current line)
       h  Remember this line (overwriting remembered line)
       H  Remember this line (appending to remembered line, if any)
-      l  Print line escaping \abfrtv (but not \n), octal escape other nonprintng
-         chars, wrap lines to terminal width with \, append $ to end of line.
+      l  Print line escaping \abfrtvn, octal escape other nonprintng chars,
+         wrap lines to terminal width with \, append $ to end of line.
       n  Print default output and read next line over current line (quit at EOF)
       N  Append \n and next line of input to this line. Quit at EOF without
          default output. Advances line counter for ADDRESS and "=".
@@ -126,12 +131,12 @@ GLOBALS(
   // processed pattern list
   struct double_list *pattern;
 
-  char *nextline, *remember;
+  char *nextline, *remember, *tarxform;
   void *restart, *lastregex;
   long nextlen, rememberlen, count;
   int fdout, noeol;
-  unsigned xx;
-  char delim;
+  unsigned xx, tarxlen, xflags;
+  char delim, xftype;
 )
 
 // Linked list of parsed sed commands. Offset fields indicate location where
@@ -147,21 +152,38 @@ struct sedcmd {
   int rmatch[2];  // offset of regex struct for prefix matches (/abc/,/def/p)
   int arg1, arg2, w; // offset of two arguments per command, plus s//w filename
   unsigned not, hit;
-  unsigned sflags; // s///flag bits: i=1, g=2, p=4, x=8
+  unsigned sflags; // s///flag bits, see SFLAG macros below
   char c; // action
 };
+
+#define SFLAG_i 1
+#define SFLAG_g 2
+#define SFLAG_p 4
+#define SFLAG_x 8
+#define SFLAG_slash 16
+#define SFLAG_R 32
+#define SFLAG_S 64
+#define SFLAG_H 128
 
 // Write out line with potential embedded NUL, handling eol/noeol
 static int emit(char *line, long len, int eol)
 {
-  int l, old = line[len];
+  int l = len, old = line[len];
 
-  if (TT.noeol && !writeall(TT.fdout, "\n", 1)) return 1;
+  if (FLAG(tarxform)) {
+    TT.tarxform = xrealloc(TT.tarxform, TT.tarxlen+len+TT.noeol+eol);
+    if (TT.noeol) TT.tarxform[TT.tarxlen++] = TT.delim;
+    memcpy(TT.tarxform+TT.tarxlen, line, len);
+    TT.tarxlen += len;
+    if (eol) TT.tarxform[TT.tarxlen++] = TT.delim;
+  } else {
+    if (TT.noeol && !writeall(TT.fdout, &TT.delim, 1)) return 1;
+    if (eol) line[len++] = TT.delim;
+    if (!len) return 0;
+    l = writeall(TT.fdout, line, len);
+    if (eol) line[len-1] = old;
+  }
   TT.noeol = !eol;
-  if (eol) line[len++] = '\n';
-  if (!len) return 0;
-  l = writeall(TT.fdout, line, len);
-  if (eol) line[len-1] = old;
   if (l != len) {
     if (TT.fdout != 1) perror_msg("short write");
 
@@ -180,7 +202,7 @@ static char *extend_string(char **old, char *new, int oldlen, int newlen)
 
   if (newline) newlen = -newlen;
   s = *old = xrealloc(*old, oldlen+newlen+newline+1);
-  if (newline) s[oldlen++] = '\n';
+  if (newline) s[oldlen++] = TT.delim;
   memcpy(s+oldlen, new, newlen);
   s[oldlen+newlen] = 0;
 
@@ -206,32 +228,52 @@ static void sed_line(char **pline, long plen)
     int file;
     char *str;
   } *append = 0;
-  char *line = TT.nextline;
-  long len = TT.nextlen;
+  char *line;
+  long len;
   struct sedcmd *command;
   int eol = 0, tea = 0;
 
-  // Ignore EOF for all files before last unless -i
-  if (!pline && !FLAG(i) && !FLAG(s)) return;
+  if (FLAG(tarxform)) {
+    if (!pline) return;
 
-  // Grab next line for deferred processing (EOF detection: we get a NULL
-  // pline at EOF to flush last line). Note that only end of _last_ input
-  // file matches $ (unless we're doing -i).
-  TT.nextline = 0;
-  TT.nextlen = 0;
-  if (pline) {
-    TT.nextline = *pline;
-    TT.nextlen = plen;
+    line = *pline;
+    len = plen;
     *pline = 0;
+    pline = 0;
+  } else {
+    line = TT.nextline;
+    len = TT.nextlen;
+
+    // Ignore EOF for all files before last unless -i or -s
+    if (!pline && !FLAG(i) && !FLAG(s)) return;
+
+    // Grab next line for deferred processing (EOF detection: we get a NULL
+    // pline at EOF to flush last line). Note that only end of _last_ input
+    // file matches $ (unless we're doing -i).
+    TT.nextline = 0;
+    TT.nextlen = 0;
+    if (pline) {
+      TT.nextline = *pline;
+      TT.nextlen = plen;
+      *pline = 0;
+    }
   }
 
   if (!line || !len) return;
-  if (line[len-1] == '\n') line[--len] = eol++;
+  if (line[len-1] == TT.delim) line[--len] = eol++;
+  if (FLAG(tarxform) && len) {
+    TT.xftype = line[--len];
+    line[len] = 0;
+  }
   TT.count++;
 
-  // The restart-1 is because we added one to make sure it wasn't NULL,
-  // otherwise N as last command would restart script
-  command = TT.restart ? ((struct sedcmd *)TT.restart)-1 : (void *)TT.pattern;
+  // To prevent N as last command from restarting script, we added 1 to restart
+  // so we'd use it here even when NULL. Alas, compilers that think C has
+  // references instead of pointers assume ptr-1 can never be NULL (demonstrably
+  // untrue) and inappropriately dead code eliminate, so use LP64 math until
+  // we get a -fpointers-are-not-references compiler option.
+  command = (void *)(TT.restart ? ((unsigned long)TT.restart)-1
+    : (unsigned long)TT.pattern);
   TT.restart = 0;
 
   while (command) {
@@ -328,7 +370,7 @@ static void sed_line(char **pline, long plen)
     } else if (c=='D') {
       // Delete up to \n or end of buffer
       str = line;
-      while ((str-line)<len) if (*(str++) == '\n') break;
+      while ((str-line)<len) if (*(str++) == TT.delim) break;
       len -= str - line;
       memmove(line, str, len);
 
@@ -344,11 +386,11 @@ static void sed_line(char **pline, long plen)
       continue;
     } else if (c=='g') {
       free(line);
-      line = xstrdup(TT.remember);
+      line = xmemdup(TT.remember, TT.rememberlen+1);
       len = TT.rememberlen;
     } else if (c=='G') {
       line = xrealloc(line, len+TT.rememberlen+2);
-      line[len++] = '\n';
+      line[len++] = TT.delim;
       memcpy(line+len, TT.remember, TT.rememberlen);
       line[len += TT.rememberlen] = 0;
     } else if (c=='h') {
@@ -357,7 +399,7 @@ static void sed_line(char **pline, long plen)
       TT.rememberlen = len;
     } else if (c=='H') {
       TT.remember = xrealloc(TT.remember, TT.rememberlen+len+2);
-      TT.remember[TT.rememberlen++] = '\n';
+      TT.remember[TT.rememberlen++] = TT.delim;
       memcpy(TT.remember+TT.rememberlen, line, len);
       TT.remember[TT.rememberlen += len] = 0;
     } else if (c=='i') {
@@ -379,24 +421,26 @@ static void sed_line(char **pline, long plen)
           emit(toybuf, off, 1);
           off = 0;
         }
-        x = stridx("\\\a\b\f\r\t\v", line[i]);
+        x = stridx("\\\a\b\f\r\t\v\n", line[i]);
         if (x != -1) {
           toybuf[off++] = '\\';
-          toybuf[off++] = "\\abfrtv"[x];
+          toybuf[off++] = "\\abfrtvn"[x];
         } else if (line[i] >= ' ') toybuf[off++] = line[i];
         else off += sprintf(toybuf+off, "\\%03o", line[i]);
       }
       toybuf[off++] = '$';
       emit(toybuf, off, 1);
     } else if (c=='n') {
-      TT.restart = command->next+1;
+      // The +1 forces restart processing even when next is null
+      TT.restart = (void *)(((unsigned long)command->next)+1);
 
       break;
     } else if (c=='N') {
       // Can't just grab next line because we could have multiple N and
       // we need to actually read ahead to get N;$p EOF detection right.
       if (pline) {
-        TT.restart = command->next+1;
+        // The +1 forces restart processing even when  next is null
+        TT.restart = (void *)(((unsigned long)command->next)+1);
         extend_string(&line, TT.nextline, len, -TT.nextlen);
         free(TT.nextline);
         TT.nextline = line;
@@ -407,7 +451,7 @@ static void sed_line(char **pline, long plen)
       // Pending append goes out right after N
       goto done; 
     } else if (c=='p' || c=='P') {
-      char *l = (c=='P') ? strchr(line, '\n') : 0;
+      char *l = (c=='P') ? strchr(line, TT.delim) : 0;
 
       if (emit(line, l ? l-line : len, eol)) break;
     } else if (c=='q' || c=='Q') {
@@ -425,23 +469,33 @@ static void sed_line(char **pline, long plen)
       regmatch_t *match = (void *)toybuf;
       regex_t *reg = get_regex(command, command->arg1);
       int mflags = 0, count = 0, l2used = 0, zmatch = 1, l2l = len, l2old = 0,
-        mlen, off, newlen;
+        bonk = 0, mlen, off, newlen;
+
+      // Skip suppressed --tarxform types
+      if (TT.xftype && (command->sflags & (SFLAG_R<<stridx("rsh", TT.xftype))));
 
       // Loop finding match in remaining line (up to remaining len)
-      while (!regexec0(reg, rline, len-(rline-line), 10, match, mflags)) {
+      else while (!regexec0(reg, rline, len-(rline-line), 10, match, mflags)) {
+        mlen = match[0].rm_eo-match[0].rm_so;
+
+        // xform matches ending in / aren't allowed to match entire line
+        if ((command->sflags & SFLAG_slash) && mlen==len) {
+          while (len && ++bonk && line[--len]=='/');
+          continue;
+        }
+
         mflags = REG_NOTBOL;
 
         // Zero length matches don't count immediately after a previous match
-        mlen = match[0].rm_eo-match[0].rm_so;
         if (!mlen && !zmatch) {
           if (rline-line == len) break;
-          l2[l2used++] = *rline++;
+          if (l2) l2[l2used++] = *rline++;
           zmatch++;
           continue;
         } else zmatch = 0;
 
         // If we're replacing only a specific match, skip if this isn't it
-        off = command->sflags>>4;
+        off = command->sflags>>8;
         if (off && off != ++count) {
           if (l2) memcpy(l2+l2used, rline, match[0].rm_eo);
           l2used += match[0].rm_eo;
@@ -470,7 +524,11 @@ static void sed_line(char **pline, long plen)
 
         // Adjust allocation size of new string, copy data we know we'll keep
         l2l += newlen-mlen;
-        if ((l2l|0xfff) > l2old) l2 = xrealloc(l2, l2old = (l2l|0xfff)+1);
+        if ((mlen = l2l|0xfff) > l2old) {
+          l2 = xrealloc(l2, ++mlen);
+          if (l2used && !l2old) memcpy(l2, rline-l2used, l2used);
+          l2old = mlen;
+        }
         if (match[0].rm_so) {
           memcpy(l2+l2used, rline, match[0].rm_so);
           l2used += match[0].rm_so;
@@ -503,9 +561,9 @@ static void sed_line(char **pline, long plen)
         l2used += newlen;
         rline += match[0].rm_eo;
 
-        // Stop after first substitution unless we have flag g
-        if (!(command->sflags & 2)) break;
+        if (!(command->sflags & SFLAG_g)) break;
       }
+      len += bonk;
 
       // If we made any changes, finish off l2 and swap it for line
       if (l2) {
@@ -518,8 +576,7 @@ static void sed_line(char **pline, long plen)
       }
 
       if (mflags) {
-        // flag p
-        if (command->sflags & 4) emit(line, len, eol);
+        if (command->sflags & SFLAG_p) emit(line, len, eol);
 
         tea = 1;
         if (command->w) goto writenow;
@@ -529,6 +586,8 @@ static void sed_line(char **pline, long plen)
       char *name;
 
 writenow:
+      if (FLAG(tarxform)) error_exit("tilt");
+
       // Swap out emit() context
       fd = TT.fdout;
       noeol = TT.noeol;
@@ -572,9 +631,10 @@ writenow:
     command = command->next;
   }
 
+done:
   if (line && !FLAG(n)) emit(line, len, eol);
 
-done:
+  // TODO: should "sed -z ax" use \n instead of NUL?
   if (dlist_terminate(append)) while (append) {
     struct append *a = append->next;
 
@@ -583,7 +643,7 @@ done:
 
       // Force newline if noeol pending
       if (fd != -1) {
-        if (TT.noeol) xwrite(TT.fdout, "\n", 1);
+        if (TT.noeol) xwrite(TT.fdout, &TT.delim, 1);
         TT.noeol = 0;
         xsendfile(fd, TT.fdout);
         close(fd);
@@ -594,6 +654,12 @@ done:
     append = a;
   }
   free(line);
+
+  if (TT.tarxlen) {
+    dprintf(TT.fdout, "%08x", --TT.tarxlen);
+    writeall(TT.fdout, TT.tarxform, TT.tarxlen);
+    TT.tarxlen = 0;
+  }
 }
 
 // Callback called on each input file
@@ -736,6 +802,16 @@ static void parse_pattern(char **pline, long len)
     }
     if (!*line) return;
 
+    if (FLAG(tarxform) && strstart(&line, "flags=")) {
+      TT.xflags = 7;
+      while (0<=(i = stridx("rRsShH", *line))) {
+        if (i&1) TT.xflags |= 1<<(i>>1);
+        else TT.xflags &= ~(1<<(i>>1));
+        line++;
+      }
+      continue;
+    }
+
     // Start by writing data into toybuf.
 
     errstart = line;
@@ -761,7 +837,7 @@ static void parse_pattern(char **pline, long len)
         if (!(s = unescape_delimited_string(&line, 0))) goto error;
         if (!*s) command->rmatch[i] = 0;
         else {
-          xregcomp((void *)reg, s, REG_EXTENDED*!!FLAG(r));
+          xregcomp((void *)reg, s, REG_EXTENDED*FLAG(r));
           command->rmatch[i] = reg-toybuf;
           reg += sizeof(regex_t);
         }
@@ -839,27 +915,36 @@ resume_s:
       i = command->arg1;
       command->arg1 = command->arg2;
       command->arg2 = i;
+      command->sflags = TT.xflags*SFLAG_R;
 
       // get flags
       for (line++; *line; line++) {
         long l;
 
         if (isspace(*line) && *line != '\n') continue;
-
         if (0 <= (l = stridx("igpx", *line))) command->sflags |= 1<<l;
         else if (*line == 'I') command->sflags |= 1<<0;
-        else if (!(command->sflags>>4) && 0<(l = strtol(line, &line, 10))) {
-          command->sflags |= l << 4;
+        else if (FLAG(tarxform) && 0 <= (l = stridx("RSH", *line)))
+          command->sflags |= SFLAG_R<<l;
+        // Given that the default is rsh all enabled... why do these exist?
+        else if (FLAG(tarxform) && 0 <= (l = stridx("rsh", *line)))
+          command->sflags &= ~(SFLAG_R<<l);
+        else if (!(command->sflags>>8) && 0<(l = strtol(line, &line, 10))) {
+          command->sflags |= l << 8;
           line--;
         } else break;
       }
-      flags = (FLAG(r) || (command->sflags&8)) ? REG_EXTENDED : 0;
-      if (command->sflags&1) flags |= REG_ICASE;
+      flags = (FLAG(r) || (command->sflags & SFLAG_x)) ? REG_EXTENDED : 0;
+      if (command->sflags & SFLAG_i) flags |= REG_ICASE;
 
       // We deferred actually parsing the regex until we had the s///i flag
       // allocating the space was done by extend_string() above
       if (!*TT.remember) command->arg1 = 0;
-      else xregcomp((void *)(command->arg1+(char *)command),TT.remember,flags);
+      else {
+        xregcomp((void *)(command->arg1+(char *)command), TT.remember, flags);
+        if (FLAG(tarxform) && TT.remember[strlen(TT.remember)-1]=='/')
+          command->sflags |= SFLAG_slash;
+      }
       free(TT.remember);
       TT.remember = 0;
       if (*line == 'w') {
@@ -980,11 +1065,17 @@ error:
   error_exit("bad pattern '%s'@%ld (%c)", errstart, line-errstart+1L, *line);
 }
 
+// Is the pointer "find" within the string "range".
+static int instr(char *find, char *range)
+{
+  return find>=range && range+strlen(range)>=find;
+}
+
 void sed_main(void)
 {
-  struct arg_list *al;
-  char **args = toys.optargs;
+  char **args = toys.optargs, **aa;
 
+  if (FLAG(tarxform)) toys.optflags |= FLAG_z;
   if (!FLAG(z)) TT.delim = '\n';
 
   // Lie to autoconf when it asks stupid questions, so configure regexes
@@ -1006,13 +1097,18 @@ void sed_main(void)
     (TT.e = xzalloc(sizeof(struct arg_list)))->arg = *(args++);
   }
 
-  // Option parsing infrastructure can't interlace "-e blah -f blah -e blah"
-  // so handle all -e, then all -f. (At least the behavior's consistent.)
-
-  for (al = TT.e; al; al = al->next) parse_pattern(&al->arg, strlen(al->arg));
+  // -e and -f care about order, so use argv[] to recreate original order
+  for (aa = toys.argv+1; *aa; aa++) {
+    if (TT.e && instr(TT.e->arg, *aa)) {
+      parse_pattern(&TT.e->arg, strlen(TT.e->arg));
+      free(llist_pop(&TT.e));
+    }
+    if (TT.f && instr(TT.f->arg, *aa)) {
+      do_lines(xopenro(TT.f->arg), TT.delim, parse_pattern);
+      free(llist_pop(&TT.f));
+    }
+  }
   parse_pattern(0, 0);
-  for (al = TT.f; al; al = al->next)
-    do_lines(xopenro(al->arg), TT.delim, parse_pattern);
   dlist_terminate(TT.pattern);
   if (TT.nextlen) error_exit("no }");  
 
@@ -1028,5 +1124,5 @@ void sed_main(void)
     sed_line(0, 0);
   }
 
-  // todo: need to close fd when done for TOYBOX_FREE?
+  // TODO: need to close fd when done for TOYBOX_FREE?
 }

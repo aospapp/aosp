@@ -12,6 +12,7 @@ TIME = "LONG"
 TEST_CATEGORY = "General"
 TEST_CLASS = "desktopui"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test logs in and waits forever (or until the exit flag is seen).

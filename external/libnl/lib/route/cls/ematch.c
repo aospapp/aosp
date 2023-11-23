@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/cls/ematch.c	Extended Matches
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2008-2013 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -699,14 +693,14 @@ int rtnl_ematch_parse_expr(const char *expr, char **errp,
 	if (!(tree = rtnl_ematch_tree_alloc(RTNL_EMATCH_PROGID)))
 		return -NLE_FAILURE;
 
-	if ((err = ematch_lex_init(&scanner)) < 0) {
+	if (ematch_lex_init(&scanner) < 0) {
 		err = -NLE_FAILURE;
 		goto errout;
 	}
 
 	buf = ematch__scan_string(expr, scanner);
 
-	if ((err = ematch_parse(scanner, errp, &tree->et_list)) != 0) {
+	if (ematch_parse(scanner, errp, &tree->et_list) != 0) {
 		ematch__delete_buffer(buf, scanner);
 		err = -NLE_PARSE_ERR;
 		goto errout;

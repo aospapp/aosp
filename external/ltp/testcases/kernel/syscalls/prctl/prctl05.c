@@ -2,23 +2,30 @@
 /*
  * Copyright (c) 2019 FUJITSU LIMITED. All rights reserved.
  * Author: Yang Xu <xuyang2018.jy@cn.fujitsu.com>
+ */
+
+/*\
+ * [Description]
  *
  * Test PR_GET_NAME and PR_SET_NAME of prctl(2).
- * 1)Set the name of the calling thread, the name can be up to 16 bytes
+ *
+ * - Set the name of the calling thread, the name can be up to 16 bytes
  *   long, including the terminating null byte. If exceeds 16 bytes, the
  *   string is silently truncated.
- * 2)Return the name of the calling thread, the buffer should allow space
+ *
+ * - Return the name of the calling thread, the buffer should allow space
  *   for up to 16 bytes, the returned string will be null-terminated.
- * 3)Check /proc/self/task/[tid]/comm and /proc/self/comm name whether
+ *
+ * - Check /proc/self/task/[tid]/comm and /proc/self/comm name whether
  *   matches the thread name.
  */
 
 #include <sys/prctl.h>
 #include <string.h>
 #include <stdio.h>
+#include "tst_test.h"
 #include "lapi/syscalls.h"
 #include "lapi/prctl.h"
-#include "tst_test.h"
 
 static struct tcase {
 	char setname[20];
@@ -50,8 +57,8 @@ static void verify_prctl(unsigned int n)
 
 	if (strncmp(tc->expname, buf, sizeof(buf))) {
 		tst_res(TFAIL,
-		        "prctl(PR_GET_NAME) failed, expected %s, got %s",
-		        tc->expname, buf);
+			"prctl(PR_GET_NAME) failed, expected %s, got %s",
+			tc->expname, buf);
 		return;
 	}
 	tst_res(TPASS, "prctl(PR_GET_NAME) succeeded, thread name is %s", buf);

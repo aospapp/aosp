@@ -1,13 +1,14 @@
-#!/usr/bin/env python2
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+"""Unit tests for client/common_lib/decorators.py."""
+
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import mox
 from six.moves import range
 import threading
 import time
@@ -17,7 +18,7 @@ import common
 from autotest_lib.client.common_lib import decorators
 
 
-class InContextTest(mox.MoxTestBase):
+class InContextTest(unittest.TestCase):
     """ Unit tests for the in_context decorator. """
 
     @decorators.in_context('lock')
@@ -29,15 +30,15 @@ class InContextTest(mox.MoxTestBase):
 
 
     def testDecorator(self):
-        """ Test that the decorator works by using it with a lock. """
+        """ Test that the decorator works by using it with a lock."""
         self.count = 0
         self.lock = threading.RLock()
         iters = 100
         num_threads = 20
-        # Note that it is important for us to go through all this bother to call
-        # a method in_context N times rather than call a method in_context that
-        # does something N times, because by doing the former, we acquire the
-        # context N times (1 time for the latter).
+        # Note that it is important for us to go through all this bother to
+        # call a method in_context N times rather than call a method in_context
+        # that does something N times, because by doing the former, we acquire
+        # the context N times (1 time for the latter).
         thread_body = lambda f, n: [f() for i in range(n)]
         threads = [threading.Thread(target=thread_body,
                                     args=(self.inc_count, iters))
@@ -50,8 +51,10 @@ class InContextTest(mox.MoxTestBase):
 
 
 class CachedPropertyTest(unittest.TestCase):
+    """Unit tests for the cached property decorator."""
+
     def testIt(self):
-        """cached_property"""
+        """cached_property."""
         class Example(object):
             def __init__(self, v=0):
                 self.val = v

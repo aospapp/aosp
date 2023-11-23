@@ -56,10 +56,10 @@ class WrapperDataset : public DatasetBase {
   string DebugString() const override { return "WrapperDataset"; }
 
   Status InputDatasets(std::vector<const DatasetBase*>* inputs) const override {
-    return Status::OK();
+    return OkStatus();
   }
 
-  Status CheckExternalState() const override { return Status::OK(); }
+  Status CheckExternalState() const override { return OkStatus(); }
 
  protected:
   Status AsGraphDefInternal(SerializationContext* ctx,
@@ -75,7 +75,7 @@ class WrapperDataset : public DatasetBase {
     // error only at iterator initialization time.
     bool error = iterator_created_;
     iterator_created_ = true;
-    return absl::make_unique<WrapperIterator>(
+    return std::make_unique<WrapperIterator>(
         WrapperIterator::Params{this, strings::StrCat(prefix, "::Wrapper")},
         error);
   }
@@ -93,7 +93,7 @@ class WrapperDataset : public DatasetBase {
             "Make sure the branches to ChooseFastestDataset do not expect the "
             "input to repeat.");
       }
-      return Status::OK();
+      return OkStatus();
     }
 
     Status GetNextInternal(IteratorContext* ctx,
@@ -111,12 +111,12 @@ class WrapperDataset : public DatasetBase {
 
     Status SaveInternal(SerializationContext* ctx,
                         IteratorStateWriter* writer) override {
-      return Status::OK();
+      return OkStatus();
     }
 
     Status RestoreInternal(IteratorContext* ctx,
                            IteratorStateReader* reader) override {
-      return Status::OK();
+      return OkStatus();
     }
 
    private:
@@ -161,10 +161,10 @@ class ChooseFastestBranchDatasetOp : public UnaryDatasetOpKernel {
 
   void MakeDataset(OpKernelContext* ctx, DatasetBase* input,
                    DatasetBase** output) override {
-    OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, "ratio_numerator",
-                                                   &ratio_numerator_));
-    OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, "ratio_denominator",
-                                                   &ratio_denominator_));
+    OP_REQUIRES_OK(ctx, ParseScalarArgument<int64_t>(ctx, "ratio_numerator",
+                                                     &ratio_numerator_));
+    OP_REQUIRES_OK(ctx, ParseScalarArgument<int64_t>(ctx, "ratio_denominator",
+                                                     &ratio_denominator_));
     OP_REQUIRES(ctx, ratio_numerator_ > 0,
                 errors::InvalidArgument(
                     "`ratio_numerator` must be greater than zero."));
@@ -222,7 +222,7 @@ class ChooseFastestBranchDatasetOp : public UnaryDatasetOpKernel {
 
     std::unique_ptr<IteratorBase> MakeIteratorInternal(
         const string& prefix) const override {
-      return absl::make_unique<ChooseFastestIterator>(
+      return std::make_unique<ChooseFastestIterator>(
           ChooseFastestIterator::Params{
               this, strings::StrCat(prefix, "::ChooseFastestBranch")});
     }
@@ -239,7 +239,7 @@ class ChooseFastestBranchDatasetOp : public UnaryDatasetOpKernel {
       return "ChooseFastestBranchDatasetOp::Dataset";
     }
 
-    int64 Cardinality() const override {
+    int64_t CardinalityInternal() const override {
       int64_t n = input_->Cardinality();
       if (n == kInfiniteCardinality || n == kUnknownCardinality) {
         return n;
@@ -252,7 +252,7 @@ class ChooseFastestBranchDatasetOp : public UnaryDatasetOpKernel {
     Status InputDatasets(
         std::vector<const DatasetBase*>* inputs) const override {
       inputs->push_back(input_);
-      return Status::OK();
+      return OkStatus();
     }
 
     Status CheckExternalState() const override {
@@ -351,7 +351,7 @@ class ChooseFastestBranchDatasetOp : public UnaryDatasetOpKernel {
               ctx, &instantiated_captured_funcs_[i]));
         }
 
-        return Status::OK();
+        return OkStatus();
       }
 
       // The first num_elements_per_branch * num_branches iterations, we run
@@ -422,7 +422,7 @@ class ChooseFastestBranchDatasetOp : public UnaryDatasetOpKernel {
           TF_RETURN_IF_ERROR(
               writer->WriteScalar(full_name("input_impl_empty"), ""));
         }
-        return Status::OK();
+        return OkStatus();
       }
 
       Status RestoreInternal(IteratorContext* ctx,
@@ -449,7 +449,7 @@ class ChooseFastestBranchDatasetOp : public UnaryDatasetOpKernel {
           }
           TF_RETURN_IF_ERROR(RestoreInput(ctx, reader, current_iterator_));
         }
-        return Status::OK();
+        return OkStatus();
       }
 
      private:
@@ -504,7 +504,7 @@ class ChooseFastestBranchDatasetOp : public UnaryDatasetOpKernel {
         // `StoreDatasetInVariantTensor` transfers ownership of the dataset
         // to the tensor, so the tensor must persist between iterations.
         wrapper_dataset_tensor_ =
-            absl::make_unique<Tensor>(DT_VARIANT, TensorShape({}));
+            std::make_unique<Tensor>(DT_VARIANT, TensorShape({}));
 
         DatasetContext::Params params;
         params.type_string = "ChooseFastestBranch_Wrapper";
@@ -545,7 +545,7 @@ class ChooseFastestBranchDatasetOp : public UnaryDatasetOpKernel {
               &current_iterator_, /*node=*/nullptr));
         }
 
-        return Status::OK();
+        return OkStatus();
       }
 
       mutex mu_;
@@ -555,27 +555,27 @@ class ChooseFastestBranchDatasetOp : public UnaryDatasetOpKernel {
 
       // For tracking the time taken for each input's iterations.
       std::vector<histogram::Histogram> histograms_ TF_GUARDED_BY(mu_);
-      int64 fastest_index_ = -1;
+      int64_t fastest_index_ = -1;
       std::unique_ptr<Tensor> wrapper_dataset_tensor_;
       std::unique_ptr<IteratorBase> current_iterator_;
 
       // Keeps track of which (branch, experiment) the next iteration is on.
-      int64 branch_index_ TF_GUARDED_BY(mu_) = 0;
-      int64 experiment_counter_ TF_GUARDED_BY(mu_) = 0;
+      int64_t branch_index_ TF_GUARDED_BY(mu_) = 0;
+      int64_t experiment_counter_ TF_GUARDED_BY(mu_) = 0;
     };  // class Iterator
 
     const DatasetBase* const input_;
     const std::vector<std::unique_ptr<CapturedFunction>> captured_funcs_;
     const DataTypeVector output_types_;
     const std::vector<PartialTensorShape> output_shapes_;
-    const int64 num_elements_per_branch_;
-    const int64 ratio_numerator_;
-    const int64 ratio_denominator_;
+    const int64_t num_elements_per_branch_;
+    const int64_t ratio_numerator_;
+    const int64_t ratio_denominator_;
   };  // class Dataset
 
-  int64 ratio_numerator_;
-  int64 ratio_denominator_;
-  int64 num_elements_per_branch_;
+  int64_t ratio_numerator_;
+  int64_t ratio_denominator_;
+  int64_t num_elements_per_branch_;
   std::vector<std::shared_ptr<FunctionMetadata>> func_metadatas_;
   DataTypeVector output_types_;
   std::vector<PartialTensorShape> output_shapes_;

@@ -60,6 +60,7 @@ cc_library_headers {
         "//apex_available:platform",
     ],
     sdk_version: "current",
+    min_sdk_version: "apex_inherit",
 }
 
 subdirs = ["eight_bit_int_gemm"]

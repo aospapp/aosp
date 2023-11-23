@@ -22,6 +22,7 @@ use futures_task::{FutureObj, LocalFutureObj, LocalSpawn, Spawn, SpawnError};
 mod abort;
 
 mod iter;
+#[allow(unreachable_pub)] // https://github.com/rust-lang/rust/issues/102352
 pub use self::iter::{IntoIter, Iter, IterMut, IterPinMut, IterPinRef};
 
 mod task;
@@ -31,6 +32,9 @@ mod ready_to_run_queue;
 use self::ready_to_run_queue::{Dequeue, ReadyToRunQueue};
 
 /// A set of futures which may complete in any order.
+///
+/// See [`FuturesOrdered`](crate::stream::FuturesOrdered) for a version of this
+/// type that preserves a FIFO order.
 ///
 /// This structure is optimized to manage a large number of futures.
 /// Futures managed by [`FuturesUnordered`] will only be polled when they

@@ -148,6 +148,13 @@
     "glClearTexSubImage": {
         "texture": "TextureID"
     },
+    "glClientWaitSync": {
+        "sync": "SyncID"
+    },
+    "glClipControl": {
+        "origin": "ClipOrigin",
+        "depth": "ClipDepthMode"
+    },
     "glColorPointer": {
         "type": "VertexAttribType"
     },
@@ -308,6 +315,9 @@
     "glDeleteShader": {
         "shader": "ShaderProgramID"
     },
+    "glDeleteSync": {
+        "sync": "SyncID"
+    },
     "glDeleteTextures": {
         "textures": "const TextureID *"
     },
@@ -359,6 +369,10 @@
         "mode": "PrimitiveMode",
         "type": "DrawElementsType"
     },
+    "glDrawElementsInstancedBaseInstance": {
+        "mode": "PrimitiveMode",
+        "type": "DrawElementsType"
+    },
     "glDrawElementsInstancedBaseVertexBaseInstance": {
         "mode": "PrimitiveMode",
         "type": "DrawElementsType"
@@ -383,8 +397,18 @@
     "glDrawTransformFeedbackStreamInstanced": {
         "id": "TransformFeedbackID"
     },
+    "glEGLImageTargetRenderbufferStorage": {
+        "image": "egl::ImageID"
+    },
     "glEGLImageTargetTexture2D": {
-        "target": "TextureType"
+        "target": "TextureType",
+        "image": "egl::ImageID"
+    },
+    "glEGLImageTargetTexStorage": {
+        "image": "egl::ImageID"
+    },
+    "glEGLImageTargetTextureStorage": {
+        "image": "egl::ImageID"
     },
     "glEnableClientState": {
         "array": "ClientVertexArrayType"
@@ -438,6 +462,9 @@
     },
     "glFramebufferTextureMultiview": {
         "texture": "TextureID"
+    },
+    "glFramebufferTexturePixelLocalStorage": {
+        "backingtexture": "TextureID"
     },
     "glGenBuffers": {
         "buffers": "BufferID *"
@@ -778,6 +805,9 @@
     "glGetSubroutineUniformLocation": {
         "program": "ShaderProgramID"
     },
+    "glGetSynciv": {
+        "sync": "SyncID"
+    },
     "glGetTexEnvfv": {
         "pname": "TextureEnvParameter",
         "target": "TextureEnvTarget"
@@ -976,6 +1006,9 @@
     "glIsProgramPipeline": {
         "pipeline": "ProgramPipelineID"
     },
+    "glIsSync": {
+        "sync": "SyncID"
+    },
     "glIsQuery": {
         "id": "QueryID"
     },
@@ -1016,6 +1049,9 @@
         "program": "ShaderProgramID"
     },
     "glLogicOp": {
+        "opcode": "LogicalOperation"
+    },
+    "glLogicOpANGLE": {
         "opcode": "LogicalOperation"
     },
     "glLoseContext": {
@@ -1400,6 +1436,7 @@
         "location": "UniformLocation"
     },
     "glProvokingVertex": {
+        "provokeMode": "ProvokingVertexConvention",
         "mode": "ProvokingVertexConvention"
     },
     "glQueryCounter": {
@@ -1912,5 +1949,8 @@
         "buffers": "const BufferID *",
         "semaphore": "SemaphoreID",
         "textures": "const TextureID *"
+    },
+    "glWaitSync": {
+        "sync": "SyncID"
     }
 }

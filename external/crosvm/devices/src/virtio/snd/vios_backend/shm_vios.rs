@@ -1,30 +1,51 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::fs::File;
+use std::io::Error as IOError;
+use std::io::ErrorKind as IOErrorKind;
+use std::io::IoSliceMut;
+use std::io::Seek;
+use std::io::SeekFrom;
+use std::os::unix::io::RawFd;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::mpsc::channel;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::RecvError;
+use std::sync::mpsc::Sender;
+use std::sync::Arc;
+
+use base::error;
+use base::AsRawDescriptor;
+use base::Error as BaseError;
+use base::Event;
+use base::EventToken;
+use base::FromRawDescriptor;
+use base::IntoRawDescriptor;
+use base::MemoryMapping;
+use base::MemoryMappingBuilder;
+use base::MmapError;
+use base::RawDescriptor;
+use base::SafeDescriptor;
+use base::ScmSocket;
+use base::UnixSeqpacket;
+use base::WaitContext;
+use base::WorkerThread;
+use data_model::VolatileMemory;
+use data_model::VolatileMemoryError;
+use data_model::VolatileSlice;
+use remain::sorted;
+use sync::Mutex;
+use thiserror::Error as ThisError;
+use zerocopy::AsBytes;
+use zerocopy::FromBytes;
+
 use crate::virtio::snd::constants::*;
 use crate::virtio::snd::layout::*;
-
-use base::{
-    error, AsRawDescriptor, Error as BaseError, Event, FromRawDescriptor, IntoRawDescriptor,
-    MemoryMapping, MemoryMappingBuilder, MmapError, PollToken, SafeDescriptor, ScmSocket,
-    UnixSeqpacket, WaitContext,
-};
-use data_model::{DataInit, VolatileMemory, VolatileMemoryError, VolatileSlice};
-
-use std::collections::{HashMap, VecDeque};
-use std::fs::File;
-use std::io::{Error as IOError, ErrorKind as IOErrorKind, IoSliceMut, Seek, SeekFrom};
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
-use std::path::Path;
-use std::sync::mpsc::{channel, Receiver, RecvError, Sender};
-use std::sync::Arc;
-use std::thread::JoinHandle;
-
-use sync::Mutex;
-
-use remain::sorted;
-use thiserror::Error as ThisError;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -63,8 +84,8 @@ pub enum Error {
     PlatformNotSupported,
     #[error("{0}")]
     ProtocolError(ProtocolErrorKind),
-    #[error("Failed to connect to VioS server: {0:?}")]
-    ServerConnectionError(IOError),
+    #[error("Failed to connect to VioS server {1}: {0:?}")]
+    ServerConnectionError(IOError, PathBuf),
     #[error("Failed to communicate with VioS server: {0:?}")]
     ServerError(BaseError),
     #[error("Failed to communicate with VioS server: {0:?}")]
@@ -124,20 +145,20 @@ pub struct VioSClient {
     tx_subscribers: Arc<Mutex<HashMap<usize, Sender<BufferReleaseMsg>>>>,
     rx_subscribers: Arc<Mutex<HashMap<usize, Sender<BufferReleaseMsg>>>>,
     recv_thread_state: Arc<Mutex<ThreadFlags>>,
-    recv_event: Event,
-    recv_thread: Mutex<Option<JoinHandle<Result<()>>>>,
+    recv_thread: Mutex<Option<WorkerThread<Result<()>>>>,
 }
 
 impl VioSClient {
     /// Create a new client given the path to the audio server's socket.
     pub fn try_new<P: AsRef<Path>>(server: P) -> Result<VioSClient> {
-        let client_socket = UnixSeqpacket::connect(server).map_err(Error::ServerConnectionError)?;
+        let client_socket = UnixSeqpacket::connect(server.as_ref())
+            .map_err(|e| Error::ServerConnectionError(e, server.as_ref().into()))?;
         let mut config: VioSConfig = Default::default();
         let mut fds: Vec<RawFd> = Vec::new();
         const NUM_FDS: usize = 5;
         fds.resize(NUM_FDS, 0);
         let (recv_size, fd_count) = client_socket
-            .recv_with_fds(IoSliceMut::new(config.as_mut_slice()), &mut fds)
+            .recv_with_fds(IoSliceMut::new(config.as_bytes_mut()), &mut fds)
             .map_err(Error::ServerError)?;
 
         // Resize the vector to the actual number of file descriptors received and wrap them in
@@ -163,14 +184,14 @@ impl VioSClient {
             )));
         }
 
-        fn pop<T: FromRawFd>(
+        fn pop<T: FromRawDescriptor>(
             safe_fds: &mut Vec<SafeDescriptor>,
             expected: usize,
             received: usize,
         ) -> Result<T> {
             unsafe {
                 // Safe because we transfer ownership from the SafeDescriptor to T
-                Ok(T::from_raw_fd(
+                Ok(T::from_raw_descriptor(
                     safe_fds
                         .pop()
                         .ok_or(Error::ProtocolError(
@@ -200,10 +221,8 @@ impl VioSClient {
         let rx_subscribers: Arc<Mutex<HashMap<usize, Sender<BufferReleaseMsg>>>> =
             Arc::new(Mutex::new(HashMap::new()));
         let recv_thread_state = Arc::new(Mutex::new(ThreadFlags {
-            running: true,
             reporting_events: false,
         }));
-        let recv_event = Event::new().map_err(Error::EventCreateError)?;
 
         let mut client = VioSClient {
             config,
@@ -219,7 +238,6 @@ impl VioSClient {
             tx_subscribers,
             rx_subscribers,
             recv_thread_state,
-            recv_event,
             recv_thread: Mutex::new(None),
         };
         client.request_and_cache_info()?;
@@ -264,7 +282,6 @@ impl VioSClient {
         if self.recv_thread.lock().is_some() {
             return Ok(());
         }
-        let recv_event = self.recv_event.try_clone().map_err(Error::EventDupError)?;
         let tx_socket = self.tx.try_clone_socket()?;
         let rx_socket = self.rx.try_clone_socket()?;
         let event_socket = self
@@ -282,7 +299,6 @@ impl VioSClient {
                     .try_clone()
                     .map_err(Error::EventDupError)?,
                 self.events.clone(),
-                recv_event,
                 self.recv_thread_state.clone(),
                 tx_socket,
                 rx_socket,
@@ -294,21 +310,8 @@ impl VioSClient {
 
     /// Stops the background thread.
     pub fn stop_bg_thread(&self) -> Result<()> {
-        if self.recv_thread.lock().is_none() {
-            return Ok(());
-        }
-        self.recv_thread_state.lock().running = false;
-        self.recv_event
-            .write(1u64)
-            .map_err(Error::EventWriteError)?;
-        if let Some(handle) = self.recv_thread.lock().take() {
-            return match handle.join() {
-                Ok(r) => r,
-                Err(e) => {
-                    error!("Recv thread panicked: {:?}", e);
-                    Ok(())
-                }
-            };
+        if let Some(recv_thread) = self.recv_thread.lock().take() {
+            recv_thread.stop()?;
         }
         Ok(())
     }
@@ -345,7 +348,7 @@ impl VioSClient {
             sequence: sequence.into(),
         };
         let control_socket_lock = self.control_socket.lock();
-        send_cmd(&*control_socket_lock, msg)
+        send_cmd(&control_socket_lock, msg)
     }
 
     /// Configures a stream with the given parameters.
@@ -355,7 +358,7 @@ impl VioSClient {
             .ok_or(Error::InvalidStreamId(stream_id))?;
         let raw_params: virtio_snd_pcm_set_params = (stream_id, params).into();
         let control_socket_lock = self.control_socket.lock();
-        send_cmd(&*control_socket_lock, raw_params)
+        send_cmd(&control_socket_lock, raw_params)
     }
 
     /// Configures a stream with the given parameters.
@@ -365,7 +368,7 @@ impl VioSClient {
             .get(stream_id as usize)
             .ok_or(Error::InvalidStreamId(stream_id))?;
         let control_socket_lock = self.control_socket.lock();
-        send_cmd(&*control_socket_lock, raw_params)
+        send_cmd(&control_socket_lock, raw_params)
     }
 
     /// Send the PREPARE_STREAM command to the server.
@@ -447,14 +450,13 @@ impl VioSClient {
     }
 
     /// Get a list of file descriptors used by the implementation.
-    pub fn keep_fds(&self) -> Vec<RawFd> {
-        let control_fd = self.control_socket.lock().as_raw_fd();
-        let event_fd = self.event_socket.as_raw_fd();
-        let recv_event = self.recv_event.as_raw_descriptor();
+    pub fn keep_rds(&self) -> Vec<RawDescriptor> {
+        let control_desc = self.control_socket.lock().as_raw_descriptor();
+        let event_desc = self.event_socket.as_raw_descriptor();
         let event_notifier = self.event_notifier.as_raw_descriptor();
-        let mut ret = vec![control_fd, event_fd, recv_event, event_notifier];
-        ret.append(&mut self.tx.keep_fds());
-        ret.append(&mut self.rx.keep_fds());
+        let mut ret = vec![control_desc, event_desc, event_notifier];
+        ret.append(&mut self.tx.keep_rds());
+        ret.append(&mut self.rx.keep_rds());
         ret
     }
 
@@ -467,7 +469,7 @@ impl VioSClient {
             stream_id: stream_id.into(),
         };
         let control_socket_lock = self.control_socket.lock();
-        send_cmd(&*control_socket_lock, msg)
+        send_cmd(&control_socket_lock, msg)
     }
 
     fn request_and_cache_info(&mut self) -> Result<()> {
@@ -477,7 +479,7 @@ impl VioSClient {
         Ok(())
     }
 
-    fn request_info<T: DataInit + Default + Copy + Clone>(
+    fn request_info<T: AsBytes + FromBytes + Default + Copy + Clone>(
         &self,
         req_code: u32,
         count: usize,
@@ -493,13 +495,13 @@ impl VioSClient {
             size: (std::mem::size_of::<virtio_snd_query_info>() as u32).into(),
         };
         let control_socket_lock = self.control_socket.lock();
-        seq_socket_send(&*control_socket_lock, req)?;
+        seq_socket_send(&control_socket_lock, req)?;
         let reply = control_socket_lock
             .recv_as_vec()
             .map_err(Error::ServerIOError)?;
         let mut status: virtio_snd_hdr = Default::default();
         status
-            .as_mut_slice()
+            .as_bytes_mut()
             .copy_from_slice(&reply[0..status_size]);
         if status.code.to_native() != VIRTIO_SND_S_OK {
             return Err(Error::CommandFailed(status.code.to_native()));
@@ -511,13 +513,7 @@ impl VioSClient {
         }
         Ok(reply[status_size..]
             .chunks(info_size)
-            .map(|info_buffer| {
-                let mut info: T = Default::default();
-                // Need to use copy_from_slice instead of T::from_slice because the info_buffer may
-                // not be aligned correctly
-                info.as_mut_slice().copy_from_slice(info_buffer);
-                info
-            })
+            .map(|info_buffer| T::read_from(info_buffer).unwrap())
             .collect())
     }
 
@@ -549,21 +545,12 @@ impl VioSClient {
     }
 }
 
-impl Drop for VioSClient {
-    fn drop(&mut self) {
-        if let Err(e) = self.stop_bg_thread() {
-            error!("Error stopping Recv thread: {}", e);
-        }
-    }
-}
-
 #[derive(Clone, Copy)]
 struct ThreadFlags {
-    running: bool,
     reporting_events: bool,
 }
 
-#[derive(PollToken)]
+#[derive(EventToken)]
 enum Token {
     Notification,
     TxBufferMsg,
@@ -577,7 +564,7 @@ fn recv_buffer_status_msg(
 ) -> Result<()> {
     let mut msg: IoStatusMsg = Default::default();
     let size = socket
-        .recv(msg.as_mut_slice())
+        .recv(msg.as_bytes_mut())
         .map_err(Error::ServerIOError)?;
     if size != std::mem::size_of::<IoStatusMsg>() {
         return Err(Error::ProtocolError(
@@ -615,7 +602,7 @@ fn recv_buffer_status_msg(
 fn recv_event(socket: &UnixSeqpacket) -> Result<virtio_snd_event> {
     let mut msg: virtio_snd_event = Default::default();
     let size = socket
-        .recv(msg.as_mut_slice())
+        .recv(msg.as_bytes_mut())
         .map_err(Error::ServerIOError)?;
     if size != std::mem::size_of::<virtio_snd_event>() {
         return Err(Error::ProtocolError(
@@ -630,13 +617,12 @@ fn spawn_recv_thread(
     rx_subscribers: Arc<Mutex<HashMap<usize, Sender<BufferReleaseMsg>>>>,
     event_notifier: Event,
     event_queue: Arc<Mutex<VecDeque<virtio_snd_event>>>,
-    event: Event,
     state: Arc<Mutex<ThreadFlags>>,
     tx_socket: UnixSeqpacket,
     rx_socket: UnixSeqpacket,
     event_socket: UnixSeqpacket,
-) -> JoinHandle<Result<()>> {
-    std::thread::spawn(move || {
+) -> WorkerThread<Result<()>> {
+    WorkerThread::start("shm_vios", move |event| {
         let wait_ctx: WaitContext<Token> = WaitContext::build_with(&[
             (&tx_socket, Token::TxBufferMsg),
             (&rx_socket, Token::RxBufferMsg),
@@ -644,11 +630,8 @@ fn spawn_recv_thread(
             (&event, Token::Notification),
         ])
         .map_err(Error::WaitContextCreateError)?;
-        loop {
-            let state_cpy = *state.lock();
-            if !state_cpy.running {
-                break;
-            }
+        let mut running = true;
+        while running {
             let events = wait_ctx.wait().map_err(Error::WaitError)?;
             for evt in events {
                 match evt.token {
@@ -659,15 +642,16 @@ fn spawn_recv_thread(
                         let state_cpy = *state.lock();
                         if state_cpy.reporting_events {
                             event_queue.lock().push_back(evt);
-                            event_notifier.write(1).map_err(Error::EventWriteError)?;
+                            event_notifier.signal().map_err(Error::EventWriteError)?;
                         } // else just drop the events
                     }
                     Token::Notification => {
                         // Just consume the notification and check for termination on the next
                         // iteration
-                        if let Err(e) = event.read() {
+                        if let Err(e) = event.wait() {
                             error!("Failed to consume notification from recv thread: {:?}", e);
                         }
+                        running = false;
                     }
                 }
             }
@@ -747,8 +731,11 @@ impl IoBufferQueue {
         seq_socket_send(&self.socket, msg)
     }
 
-    fn keep_fds(&self) -> Vec<RawFd> {
-        vec![self.file.as_raw_fd(), self.socket.as_raw_fd()]
+    fn keep_rds(&self) -> Vec<RawDescriptor> {
+        vec![
+            self.file.as_raw_descriptor(),
+            self.socket.as_raw_descriptor(),
+        ]
     }
 }
 
@@ -782,7 +769,7 @@ impl From<(u32, VioSStreamParams)> for virtio_snd_pcm_set_params {
     }
 }
 
-fn send_cmd<T: DataInit>(control_socket: &UnixSeqpacket, data: T) -> Result<()> {
+fn send_cmd<T: AsBytes>(control_socket: &UnixSeqpacket, data: T) -> Result<()> {
     seq_socket_send(control_socket, data)?;
     recv_cmd_status(control_socket)
 }
@@ -790,7 +777,7 @@ fn send_cmd<T: DataInit>(control_socket: &UnixSeqpacket, data: T) -> Result<()> 
 fn recv_cmd_status(control_socket: &UnixSeqpacket) -> Result<()> {
     let mut status: virtio_snd_hdr = Default::default();
     control_socket
-        .recv(status.as_mut_slice())
+        .recv(status.as_bytes_mut())
         .map_err(Error::ServerIOError)?;
     if status.code.to_native() == VIRTIO_SND_S_OK {
         Ok(())
@@ -799,9 +786,9 @@ fn recv_cmd_status(control_socket: &UnixSeqpacket) -> Result<()> {
     }
 }
 
-fn seq_socket_send<T: DataInit>(socket: &UnixSeqpacket, data: T) -> Result<()> {
+fn seq_socket_send<T: AsBytes>(socket: &UnixSeqpacket, data: T) -> Result<()> {
     loop {
-        let send_res = socket.send(data.as_slice());
+        let send_res = socket.send(data.as_bytes());
         if let Err(e) = send_res {
             match e.kind() {
                 // Retry if interrupted
@@ -818,15 +805,13 @@ fn seq_socket_send<T: DataInit>(socket: &UnixSeqpacket, data: T) -> Result<()> {
 const VIOS_VERSION: u32 = 2;
 
 #[repr(C)]
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, AsBytes, FromBytes)]
 struct VioSConfig {
     version: u32,
     jacks: u32,
     streams: u32,
     chmaps: u32,
 }
-// Safe because it only has data and has no implicit padding.
-unsafe impl DataInit for VioSConfig {}
 
 struct BufferReleaseMsg {
     status: u32,
@@ -835,14 +820,12 @@ struct BufferReleaseMsg {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, AsBytes, FromBytes)]
 struct IoTransferMsg {
     io_xfer: virtio_snd_pcm_xfer,
     buffer_offset: u32,
     buffer_len: u32,
 }
-// Safe because it only has data and has no implicit padding.
-unsafe impl DataInit for IoTransferMsg {}
 
 impl IoTransferMsg {
     fn new(stream_id: u32, buffer_offset: usize, buffer_len: usize) -> IoTransferMsg {
@@ -857,11 +840,9 @@ impl IoTransferMsg {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, AsBytes, FromBytes)]
 struct IoStatusMsg {
     status: virtio_snd_pcm_status,
     buffer_offset: u32,
     consumed_len: u32,
 }
-// Safe because it only has data and has no implicit padding.
-unsafe impl DataInit for IoStatusMsg {}

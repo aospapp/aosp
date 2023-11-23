@@ -314,7 +314,7 @@ public class CrossProfileProviderClassTest {
         javac().withProcessors(new Processor()).compile(notesProvider, staticType);
 
     assertThat(compilation)
-        .generatedSourceFile("com.google.android.enterprise.notes.ProfileStaticType_Bundler")
+        .generatedSourceFile("com.google.android.enterprise.notes.StaticType_Bundler")
         .contentsAsUtf8String()
         .contains("parcel.writeString(");
   }

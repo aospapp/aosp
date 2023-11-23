@@ -39,8 +39,6 @@ cc_defaults {
         "-Wno-unused-parameter",
         "-Wno-unused-variable",
     ],
-    c_std: "c11",
-    cpp_std: "c++11",
     shared_libs: [
         "libicu_cts_stub",
         "libicuuc_cts_stub",

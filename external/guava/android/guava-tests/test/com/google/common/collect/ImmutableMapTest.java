@@ -57,6 +57,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -68,6 +70,7 @@ import junit.framework.TestSuite;
  * @author Jesse Wilson
  */
 @GwtCompatible(emulated = true)
+@SuppressWarnings("AlwaysThrows")
 public class ImmutableMapTest extends TestCase {
 
   @GwtIncompatible // suite
@@ -178,7 +181,7 @@ public class ImmutableMapTest extends TestCase {
       throw new UnsupportedOperationException();
     }
 
-    private static final Joiner joiner = Joiner.on(", ");
+    private static final Joiner JOINER = Joiner.on(", ");
 
     @Override
     protected void assertMoreInvariants(Map<K, V> map) {
@@ -187,10 +190,10 @@ public class ImmutableMapTest extends TestCase {
         assertEquals(entry.getKey() + "=" + entry.getValue(), entry.toString());
       }
 
-      assertEquals("{" + joiner.join(map.entrySet()) + "}", map.toString());
-      assertEquals("[" + joiner.join(map.entrySet()) + "]", map.entrySet().toString());
-      assertEquals("[" + joiner.join(map.keySet()) + "]", map.keySet().toString());
-      assertEquals("[" + joiner.join(map.values()) + "]", map.values().toString());
+      assertEquals("{" + JOINER.join(map.entrySet()) + "}", map.toString());
+      assertEquals("[" + JOINER.join(map.entrySet()) + "]", map.entrySet().toString());
+      assertEquals("[" + JOINER.join(map.keySet()) + "]", map.keySet().toString());
+      assertEquals("[" + JOINER.join(map.values()) + "]", map.values().toString());
 
       assertEquals(MinimalSet.from(map.entrySet()), map.entrySet());
       assertEquals(Sets.newHashSet(map.keySet()), map.keySet());
@@ -318,12 +321,13 @@ public class ImmutableMapTest extends TestCase {
 
   public static class CreationTests extends TestCase {
     public void testEmptyBuilder() {
-      ImmutableMap<String, Integer> map = new Builder<String, Integer>().build();
+      ImmutableMap<String, Integer> map = new Builder<String, Integer>().buildOrThrow();
       assertEquals(Collections.<String, Integer>emptyMap(), map);
     }
 
     public void testSingletonBuilder() {
-      ImmutableMap<String, Integer> map = new Builder<String, Integer>().put("one", 1).build();
+      ImmutableMap<String, Integer> map =
+          new Builder<String, Integer>().put("one", 1).buildOrThrow();
       assertMapEquals(map, "one", 1);
     }
 
@@ -335,7 +339,7 @@ public class ImmutableMapTest extends TestCase {
               .put("three", 3)
               .put("four", 4)
               .put("five", 5)
-              .build();
+              .buildOrThrow();
       assertMapEquals(map, "one", 1, "two", 2, "three", 3, "four", 4, "five", 5);
     }
 
@@ -348,7 +352,7 @@ public class ImmutableMapTest extends TestCase {
       }
       Object[] builderArrayAfterPuts = builder.alternatingKeysAndValues;
       RegularImmutableMap<Integer, Integer> map =
-          (RegularImmutableMap<Integer, Integer>) builder.build();
+          (RegularImmutableMap<Integer, Integer>) builder.buildOrThrow();
       Object[] mapInternalArray = map.alternatingKeysAndValues;
       assertSame(builderArray, builderArrayAfterPuts);
       assertSame(builderArray, mapInternalArray);
@@ -363,16 +367,16 @@ public class ImmutableMapTest extends TestCase {
               .put("five", 5)
               .put("four", 4)
               .put("two", 2)
-              .build();
+              .buildOrThrow();
       assertMapEquals(map, "one", 1, "two", 2, "three", 3, "four", 4, "five", 5);
     }
 
     public void testBuilder_orderEntriesByValueAfterExactSizeBuild() {
       Builder<String, Integer> builder =
           new Builder<String, Integer>(2).put("four", 4).put("one", 1);
-      ImmutableMap<String, Integer> keyOrdered = builder.build();
+      ImmutableMap<String, Integer> keyOrdered = builder.buildOrThrow();
       ImmutableMap<String, Integer> valueOrdered =
-          builder.orderEntriesByValue(Ordering.natural()).build();
+          builder.orderEntriesByValue(Ordering.natural()).buildOrThrow();
       assertMapEquals(keyOrdered, "four", 4, "one", 1);
       assertMapEquals(valueOrdered, "one", 1, "four", 4);
     }
@@ -387,9 +391,45 @@ public class ImmutableMapTest extends TestCase {
       }
     }
 
+    @GwtIncompatible // we haven't implemented this
+    public void testBuilder_orderEntriesByValue_keepingLast() {
+      ImmutableMap.Builder<String, Integer> builder =
+          new Builder<String, Integer>()
+              .orderEntriesByValue(Ordering.natural())
+              .put("three", 3)
+              .put("one", 1)
+              .put("five", 5)
+              .put("four", 3)
+              .put("four", 5)
+              .put("four", 4) // this should win because it's last
+              .put("two", 2);
+      assertMapEquals(
+          builder.buildKeepingLast(), "one", 1, "two", 2, "three", 3, "four", 4, "five", 5);
+      try {
+        builder.buildOrThrow();
+        fail("Expected exception from duplicate keys");
+      } catch (IllegalArgumentException expected) {
+      }
+    }
+
+    @GwtIncompatible // we haven't implemented this
+    public void testBuilder_orderEntriesByValue_keepingLast_builderSizeFieldPreserved() {
+      ImmutableMap.Builder<String, Integer> builder =
+          new Builder<String, Integer>()
+              .orderEntriesByValue(Ordering.natural())
+              .put("one", 1)
+              .put("one", 1);
+      assertMapEquals(builder.buildKeepingLast(), "one", 1);
+      try {
+        builder.buildOrThrow();
+        fail("Expected exception from duplicate keys");
+      } catch (IllegalArgumentException expected) {
+      }
+    }
+
     public void testBuilder_withImmutableEntry() {
       ImmutableMap<String, Integer> map =
-          new Builder<String, Integer>().put(Maps.immutableEntry("one", 1)).build();
+          new Builder<String, Integer>().put(Maps.immutableEntry("one", 1)).buildOrThrow();
       assertMapEquals(map, "one", 1);
     }
 
@@ -430,12 +470,14 @@ public class ImmutableMapTest extends TestCase {
 
       builder.put(entry);
       holder.string = "two";
-      assertMapEquals(builder.build(), "one", 1);
+      assertMapEquals(builder.buildOrThrow(), "one", 1);
     }
 
     public void testBuilderPutAllWithEmptyMap() {
       ImmutableMap<String, Integer> map =
-          new Builder<String, Integer>().putAll(Collections.<String, Integer>emptyMap()).build();
+          new Builder<String, Integer>()
+              .putAll(Collections.<String, Integer>emptyMap())
+              .buildOrThrow();
       assertEquals(Collections.<String, Integer>emptyMap(), map);
     }
 
@@ -449,14 +491,14 @@ public class ImmutableMapTest extends TestCase {
       moreToPut.put("five", 5);
 
       ImmutableMap<String, Integer> map =
-          new Builder<String, Integer>().putAll(toPut).putAll(moreToPut).build();
+          new Builder<String, Integer>().putAll(toPut).putAll(moreToPut).buildOrThrow();
       assertMapEquals(map, "one", 1, "two", 2, "three", 3, "four", 4, "five", 5);
     }
 
     public void testBuilderReuse() {
       Builder<String, Integer> builder = new Builder<>();
-      ImmutableMap<String, Integer> mapOne = builder.put("one", 1).put("two", 2).build();
-      ImmutableMap<String, Integer> mapTwo = builder.put("three", 3).put("four", 4).build();
+      ImmutableMap<String, Integer> mapOne = builder.put("one", 1).put("two", 2).buildOrThrow();
+      ImmutableMap<String, Integer> mapTwo = builder.put("three", 3).put("four", 4).buildOrThrow();
 
       assertMapEquals(mapOne, "one", 1, "two", 2);
       assertMapEquals(mapTwo, "one", 1, "two", 2, "three", 3, "four", 4);
@@ -470,7 +512,7 @@ public class ImmutableMapTest extends TestCase {
       } catch (NullPointerException expected) {
       }
       builder.put("foo", 2);
-      assertMapEquals(builder.build(), "foo", 2);
+      assertMapEquals(builder.buildOrThrow(), "foo", 2);
     }
 
     public void testBuilderPutImmutableEntryWithNullKeyFailsAtomically() {
@@ -481,7 +523,7 @@ public class ImmutableMapTest extends TestCase {
       } catch (NullPointerException expected) {
       }
       builder.put("foo", 2);
-      assertMapEquals(builder.build(), "foo", 2);
+      assertMapEquals(builder.buildOrThrow(), "foo", 2);
     }
 
     // for GWT compatibility
@@ -513,7 +555,7 @@ public class ImmutableMapTest extends TestCase {
       } catch (NullPointerException expected) {
       }
       builder.put("foo", 2);
-      assertMapEquals(builder.build(), "foo", 2);
+      assertMapEquals(builder.buildOrThrow(), "foo", 2);
     }
 
     public void testBuilderPutNullKey() {
@@ -556,12 +598,105 @@ public class ImmutableMapTest extends TestCase {
       Builder<String, Integer> builder =
           new Builder<String, Integer>()
               .put("one", 1)
-              .put("one", 1); // throwing on this line would be even better
+              .put("one", 1); // throwing on this line might be better but it's too late to change
 
       try {
-        builder.build();
+        builder.buildOrThrow();
         fail();
       } catch (IllegalArgumentException expected) {
+      }
+    }
+
+    public void testBuildKeepingLast_allowsOverwrite() {
+      Builder<Integer, String> builder =
+          new Builder<Integer, String>()
+              .put(1, "un")
+              .put(2, "deux")
+              .put(70, "soixante-dix")
+              .put(70, "septante")
+              .put(70, "seventy")
+              .put(1, "one")
+              .put(2, "two");
+      ImmutableMap<Integer, String> map = builder.buildKeepingLast();
+      assertMapEquals(map, 1, "one", 2, "two", 70, "seventy");
+    }
+
+    public void testBuildKeepingLast_smallTableSameHash() {
+      String key1 = "QED";
+      String key2 = "R&D";
+      assertThat(key1.hashCode()).isEqualTo(key2.hashCode());
+      ImmutableMap<String, Integer> map =
+          ImmutableMap.<String, Integer>builder()
+              .put(key1, 1)
+              .put(key2, 2)
+              .put(key1, 3)
+              .put(key2, 4)
+              .buildKeepingLast();
+      assertMapEquals(map, key1, 3, key2, 4);
+    }
+
+    // The java7 branch has different code depending on whether the entry indexes fit in a byte,
+    // short, or int. The small table in testBuildKeepingLast_allowsOverwrite will test the byte
+    // case. This method tests the short case.
+    public void testBuildKeepingLast_shortTable() {
+      Builder<Integer, String> builder = ImmutableMap.builder();
+      Map<Integer, String> expected = new LinkedHashMap<>();
+      for (int i = 0; i < 1000; i++) {
+        // Truncate to even key, so we have put(0, "0") then put(0, "1"). Half the entries are
+        // duplicates.
+        Integer key = i & ~1;
+        String value = String.valueOf(i);
+        builder.put(key, value);
+        expected.put(key, value);
+      }
+      ImmutableMap<Integer, String> map = builder.buildKeepingLast();
+      assertThat(map).hasSize(500);
+      assertThat(map).containsExactlyEntriesIn(expected).inOrder();
+    }
+
+    // This method tests the int case.
+    public void testBuildKeepingLast_bigTable() {
+      Builder<Integer, String> builder = ImmutableMap.builder();
+      Map<Integer, String> expected = new LinkedHashMap<>();
+      for (int i = 0; i < 200_000; i++) {
+        // Truncate to even key, so we have put(0, "0") then put(0, "1"). Half the entries are
+        // duplicates.
+        Integer key = i & ~1;
+        String value = String.valueOf(i);
+        builder.put(key, value);
+        expected.put(key, value);
+      }
+      ImmutableMap<Integer, String> map = builder.buildKeepingLast();
+      assertThat(map).hasSize(100_000);
+      assertThat(map).containsExactlyEntriesIn(expected).inOrder();
+    }
+
+    @GwtIncompatible // Pattern, Matcher
+    public void testBuilder_keepingLast_thenOrThrow() {
+      ImmutableMap.Builder<String, Integer> builder =
+          new Builder<String, Integer>()
+              .put("three", 3)
+              .put("one", 1)
+              .put("five", 5)
+              .put("four", 3)
+              .put("four", 5)
+              .put("four", 4) // this should win because it's last
+              .put("two", 2);
+      assertMapEquals(
+          builder.buildKeepingLast(), "three", 3, "one", 1, "five", 5, "four", 4, "two", 2);
+      try {
+        builder.buildOrThrow();
+        fail("Expected exception from duplicate keys");
+      } catch (IllegalArgumentException expected) {
+        // We don't really care which values the exception message contains, but they should be
+        // different from each other. If buildKeepingLast() collapsed duplicates, that might end up
+        // not being true.
+        Pattern pattern =
+            Pattern.compile("Multiple entries with same key: four=(.*) and four=(.*)");
+        assertThat(expected).hasMessageThat().matches(pattern);
+        Matcher matcher = pattern.matcher(expected.getMessage());
+        assertThat(matcher.matches()).isTrue();
+        assertThat(matcher.group(1)).isNotEqualTo(matcher.group(2));
       }
     }
 
@@ -877,12 +1012,11 @@ public class ImmutableMapTest extends TestCase {
   }
 
   private static <K, V> void assertMapEquals(Map<K, V> map, Object... alternatingKeysAndValues) {
-    assertEquals(map.size(), alternatingKeysAndValues.length / 2);
-    int i = 0;
-    for (Entry<K, V> entry : map.entrySet()) {
-      assertEquals(alternatingKeysAndValues[i++], entry.getKey());
-      assertEquals(alternatingKeysAndValues[i++], entry.getValue());
+    Map<Object, Object> expected = new LinkedHashMap<>();
+    for (int i = 0; i < alternatingKeysAndValues.length; i += 2) {
+      expected.put(alternatingKeysAndValues[i], alternatingKeysAndValues[i + 1]);
     }
+    assertThat(map).containsExactlyEntriesIn(expected).inOrder();
   }
 
   private static class IntHolder implements Serializable {
@@ -982,50 +1116,53 @@ public class ImmutableMapTest extends TestCase {
   public void testEquals() {
     new EqualsTester()
         .addEqualityGroup(
-            ImmutableMap.of(), ImmutableMap.builder().build(), ImmutableMap.ofEntries(), map())
+            ImmutableMap.of(),
+            ImmutableMap.builder().buildOrThrow(),
+            ImmutableMap.ofEntries(),
+            map())
         .addEqualityGroup(
             ImmutableMap.of(1, 1),
-            ImmutableMap.builder().put(1, 1).build(),
+            ImmutableMap.builder().put(1, 1).buildOrThrow(),
             ImmutableMap.ofEntries(entry(1, 1)),
             map(1, 1))
         .addEqualityGroup(
             ImmutableMap.of(1, 1, 2, 2),
-            ImmutableMap.builder().put(1, 1).put(2, 2).build(),
+            ImmutableMap.builder().put(1, 1).put(2, 2).buildOrThrow(),
             ImmutableMap.ofEntries(entry(1, 1), entry(2, 2)),
             map(1, 1, 2, 2))
         .addEqualityGroup(
             ImmutableMap.of(1, 1, 2, 2, 3, 3),
-            ImmutableMap.builder().put(1, 1).put(2, 2).put(3, 3).build(),
+            ImmutableMap.builder().put(1, 1).put(2, 2).put(3, 3).buildOrThrow(),
             ImmutableMap.ofEntries(entry(1, 1), entry(2, 2), entry(3, 3)),
             map(1, 1, 2, 2, 3, 3))
         .addEqualityGroup(
             ImmutableMap.of(1, 4, 2, 2, 3, 3),
-            ImmutableMap.builder().put(1, 4).put(2, 2).put(3, 3).build(),
+            ImmutableMap.builder().put(1, 4).put(2, 2).put(3, 3).buildOrThrow(),
             ImmutableMap.ofEntries(entry(1, 4), entry(2, 2), entry(3, 3)),
             map(1, 4, 2, 2, 3, 3))
         .addEqualityGroup(
             ImmutableMap.of(1, 1, 2, 4, 3, 3),
-            ImmutableMap.builder().put(1, 1).put(2, 4).put(3, 3).build(),
+            ImmutableMap.builder().put(1, 1).put(2, 4).put(3, 3).buildOrThrow(),
             ImmutableMap.ofEntries(entry(1, 1), entry(2, 4), entry(3, 3)),
             map(1, 1, 2, 4, 3, 3))
         .addEqualityGroup(
             ImmutableMap.of(1, 1, 2, 2, 3, 4),
-            ImmutableMap.builder().put(1, 1).put(2, 2).put(3, 4).build(),
+            ImmutableMap.builder().put(1, 1).put(2, 2).put(3, 4).buildOrThrow(),
             ImmutableMap.ofEntries(entry(1, 1), entry(2, 2), entry(3, 4)),
             map(1, 1, 2, 2, 3, 4))
         .addEqualityGroup(
             ImmutableMap.of(1, 2, 2, 3, 3, 1),
-            ImmutableMap.builder().put(1, 2).put(2, 3).put(3, 1).build(),
+            ImmutableMap.builder().put(1, 2).put(2, 3).put(3, 1).buildOrThrow(),
             ImmutableMap.ofEntries(entry(1, 2), entry(2, 3), entry(3, 1)),
             map(1, 2, 2, 3, 3, 1))
         .addEqualityGroup(
             ImmutableMap.of(1, 1, 2, 2, 3, 3, 4, 4),
-            ImmutableMap.builder().put(1, 1).put(2, 2).put(3, 3).put(4, 4).build(),
+            ImmutableMap.builder().put(1, 1).put(2, 2).put(3, 3).put(4, 4).buildOrThrow(),
             ImmutableMap.ofEntries(entry(1, 1), entry(2, 2), entry(3, 3), entry(4, 4)),
             map(1, 1, 2, 2, 3, 3, 4, 4))
         .addEqualityGroup(
             ImmutableMap.of(1, 1, 2, 2, 3, 3, 4, 4, 5, 5),
-            ImmutableMap.builder().put(1, 1).put(2, 2).put(3, 3).put(4, 4).put(5, 5).build(),
+            ImmutableMap.builder().put(1, 1).put(2, 2).put(3, 3).put(4, 4).put(5, 5).buildOrThrow(),
             ImmutableMap.ofEntries(entry(1, 1), entry(2, 2), entry(3, 3), entry(4, 4), entry(5, 5)),
             map(1, 1, 2, 2, 3, 3, 4, 4, 5, 5))
         .testEquals();

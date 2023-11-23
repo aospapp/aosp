@@ -2,13 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_FWupdateThenSleep.wp"
 ATTRIBUTES = "suite:faft_bios_ro_qual, suite:faft_bios_rw_qual"
+DEPENDENCIES = "servo_state:WORKING"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 RW firmware update using chromeos-firmwareupdate --mode=recovery --wp=1, then

@@ -18,6 +18,8 @@ VM. Broken down into rough steps:
 1. `Arch::build_vm` will itself invoke the provided `create_devices` function from `linux/mod.rs`
 1. `create_devices` creates every PCI device, including the virtio devices, that were configured in
    `Config`, along with matching [minijail] configs for each.
+1. `Arch::assign_pci_addresses` assigns an address to each PCI device, prioritizing devices that
+   report a preferred slot by implementing the `PciDevice` trait's `preferred_address` function.
 1. `Arch::generate_pci_root`, using a list of every PCI device with optional `Minijail`, will
    finally jail the PCI devices and construct a `PciRoot` that communicates with them.
 1. Once the VM has been built, it's contained within a `RunnableLinuxVm` object that is used by the
@@ -35,12 +37,12 @@ invalid.
 
 ## Sandboxing Policy
 
-Every sandbox is made with [minijail] and starts with `create_base_minijail` in
-`linux/jail_helpers.rs` which set some very restrictive settings. Linux namespaces and seccomp
-filters are used extensively. Each seccomp policy can be found under
-`seccomp/{arch}/{device}.policy` and should start by `@include`-ing the `common_device.policy`. With
-the exception of architecture specific devices (such as `Pl030` on ARM or `I8042` on x86_64), every
-device will need a different policy for each supported architecture.
+Every sandbox is made with [minijail] and starts with `create_sandbox_minijail` in `jail` crate
+which set some very restrictive settings. Linux namespaces and seccomp filters are used for
+sandboxing. Each seccomp policy can be found under `jail/seccomp/{arch}/{device}.policy` and should
+start by `@include`-ing the `common_device.policy`. With the exception of architecture specific
+devices (such as `Pl030` on ARM or `I8042` on x86_64), every device will need a different policy for
+each supported architecture.
 
 ## The VM Control Sockets
 
@@ -67,9 +69,9 @@ one to use in what place using some guidelines
 
 - `GuestMemory` is for sending around references to all of the guest memory. It can be cloned
   freely, but the underlying guest memory is always the same. Internally, it's implemented using
-  `MemoryMapping` and `SharedMemory`. Note that `GuestMemory` is mapped into the host address space,
-  but it is non-contiguous. Device memory, such as mapped DMA-Bufs, are not present in
-  `GuestMemory`.
+  `MemoryMapping` and `SharedMemory`. Note that `GuestMemory` is mapped into the host address space
+  (for non-protected VMs), but it is non-contiguous. Device memory, such as mapped DMA-Bufs, are not
+  present in `GuestMemory`.
 - `SharedMemory` wraps a `memfd` and can be mapped using `MemoryMapping` to access its data.
   `SharedMemory` can't be cloned.
 - `VolatileMemory` is a trait that exposes generic access to non-contiguous memory. `GuestMemory`
@@ -85,6 +87,9 @@ one to use in what place using some guidelines
   munmap after use. Access via Rust references is forbidden, but indirect reading and writing is
   available via `VolatileSlice` and several convenience functions. This type is most useful for
   mapping memory unrelated to `GuestMemory`.
+
+See [memory layout](https://crosvm.dev/book/appendix/memory_layout.html) for details how crosvm
+arranges the guest address space.
 
 ### Device Model
 
@@ -163,25 +168,29 @@ The common ones are shared memory pages, unix sockets, anonymous pipes, and vari
 descriptor variants (DMA-buf, eventfd, etc.). Standard methods (`read`/`write`) of using these
 primitives may be used, but crosvm has developed some helpers which should be used where applicable.
 
-### `PollContext`/`EpollContext`
+### `WaitContext`
 
-Most threads in crosvm will have a wait loop using a `PollContext`, which is a wrapper around
-Linux's `epoll` primitive for selecting over file descriptors. `EpollContext` is very similar but
-has slightly fewer features, but is usable by multiple threads at once. In either case, each FD is
+Most threads in crosvm will have a wait loop using a [`WaitContext`], which is a wrapper around a
+`epoll` on Linux and `WaitForMultipleObjects` on Windows. In either case, waitable objects can be
 added to the context along with an associated token, whose type is the type parameter of
-`PollContext`. This token must be convertible to and from a `u64`, which is a limitation imposed by
-how `epoll` works. There is a custom derive `#[derive(PollToken)]` which can be applied to an `enum`
-declaration that makes it easy to use your own enum in a `PollContext`.
+`WaitContext`. A call to the `wait` function will block until at least one of the waitable objects
+has become signaled and will return a collection of the tokens associated with those objects. The
+tokens used with `WaitContext` must be convertible to and from a `u64`. There is a custom derive
+`#[derive(EventToken)]` which can be applied to an `enum` declaration that makes it easy to use your
+own enum in a `WaitContext`.
 
-Note that the limitations of `PollContext` are the same as the limitations of `epoll`. The same FD
+#### Linux Platform Limitations
+
+The limitations of `WaitContext` on Linux are the same as the limitations of `epoll`. The same FD
 can not be inserted more than once, and the FD will be automatically removed if the process runs out
 of references to that FD. A `dup`/`fork` call will increment that reference count, so closing the
-original FD will not actually remove it from the `PollContext`. It is possible to receive tokens
-from `PollContext` for an FD that was closed because of a race condition in which an event was
-registered in the background before the `close` happened. Best practice is to remove an FD before
-closing it so that events associated with it can be reliably eliminated.
+original FD will not actually remove it from the `WaitContext`. It is possible to receive tokens
+from `WaitContext` for an FD that was closed because of a race condition in which an event was
+registered in the background before the `close` happened. Best practice is to keep an FD open and
+remove it from the `WaitContext` before closing it so that events associated with it can be reliably
+eliminated.
 
-### `serde` with Descriptors.
+### `serde` with Descriptors
 
 Using raw sockets and pipes to communicate is very inconvenient for rich data types. To help make
 this easier and less error prone, crosvm uses the `serde` crate. To allow transmitting types with
@@ -194,8 +203,7 @@ Source code is organized into crates, each with their own unit tests.
 
 - `./src/` - The top-level binary front-end for using crosvm.
 - `aarch64` - Support code specific to 64 bit ARM architectures.
-- `base` - Safe wrappers for small system facilities which provides cross-platform-compatible
-  interfaces. For Linux, this is basically a thin wrapper of `sys_util`.
+- `base` - Safe wrappers for system facilities which provides cross-platform-compatible interfaces.
 - `bin` - Scripts for code health such as wrappers of `rustfmt` and `clippy`.
 - `ci` - Scripts for continuous integration.
 - `cros_async` - Runtime for async/await programming. This crate provides a `Future` executor based
@@ -204,11 +212,11 @@ Source code is organized into crates, each with their own unit tests.
 - `disk` - Library to create and manipulate several types of disks such as raw disk, [qcow], etc.
 - `hypervisor` - Abstract layer to interact with hypervisors. For Linux, this crate is a wrapper of
   `kvm`.
-- `integration_tests` - End-to-end tests that run a crosvm VM.
+- `e2e_tests` - End-to-end tests that run a crosvm VM.
 - `kernel_loader` - Loads elf64 kernel files to a slice of memory.
 - `kvm_sys` - Low-level (mostly) auto-generated structures and constants for using KVM.
 - `kvm` - Unsafe, low-level wrapper code for using `kvm_sys`.
-- `media/libvda` - Safe wrapper of [libvda], a Chrome OS HW-accelerated video decoding/encoding
+- `media/libvda` - Safe wrapper of [libvda], a ChromeOS HW-accelerated video decoding/encoding
   library.
 - `net_sys` - Low-level (mostly) auto-generated structures and constants for creating TUN/TAP
   devices.
@@ -217,8 +225,7 @@ Source code is organized into crates, each with their own unit tests.
 - `seccomp` - Contains minijail seccomp policy files for each sandboxed device. Because some
   syscalls vary by architecture, the seccomp policies are split by architecture.
 - `sync` - Our version of `std::sync::Mutex` and `std::sync::Condvar`.
-- `sys_util` - Mostly safe wrappers for small system facilities such as `eventfd` or `syslog`.
-- `third_party` - Third-party libraries which we are maintaining on the Chrome OS tree or the AOSP
+- `third_party` - Third-party libraries which we are maintaining on the ChromeOS tree or the AOSP
   tree.
 - `vfio_sys` - Low-level (mostly) auto-generated structures, constants and ioctls for [VFIO].
 - `vhost` - Wrappers for creating vhost based devices.
@@ -232,3 +239,4 @@ Source code is organized into crates, each with their own unit tests.
 [minijail]: https://android.googlesource.com/platform/external/minijail
 [qcow]: https://en.wikipedia.org/wiki/Qcow
 [vfio]: https://www.kernel.org/doc/html/latest/driver-api/vfio.html
+[`waitcontext`]: https://crosvm.dev/doc/base/struct.WaitContext.html

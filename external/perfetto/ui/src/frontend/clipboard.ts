@@ -29,7 +29,6 @@ export function onClickCopy(url: string) {
 export async function copyToClipboard(text: string): Promise<void> {
   try {
     // TODO(hjd): Fix typescript type for navigator.
-    // tslint:disable-next-line no-any
     await(navigator as any).clipboard.writeText(text);
   } catch (err) {
     console.error(`Failed to copy "${text}" to clipboard: ${err}`);
@@ -48,7 +47,7 @@ export async function queryResponseToClipboard(resp: QueryResponse):
     }
     lines.push(line);
   }
-  copyToClipboard(lines.map(line => line.join('\t')).join('\n'));
+  copyToClipboard(lines.map((line) => line.join('\t')).join('\n'));
 }
 
 export function download(file: File, name?: string): void {

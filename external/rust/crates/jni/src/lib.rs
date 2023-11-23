@@ -1,4 +1,7 @@
 #![warn(missing_docs)]
+#![allow(clippy::upper_case_acronyms)]
+// TODO: https://github.com/jni-rs/jni-rs/issues/348
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 //! # Safe JNI Bindings in Rust
 //!
@@ -46,7 +49,7 @@
 //!
 //! To do that, first we need the name and type signature that our Rust function
 //! needs to adhere to. Luckily, the Java compiler can generate that for you!
-//! Run `javac -h . HelloWorld` and you'll get a `HelloWorld.h` output to your
+//! Run `javac -h . HelloWorld.java` and you'll get a `HelloWorld.h` output to your
 //! directory. It should look something like this:
 //!
 //! ```c
@@ -82,7 +85,7 @@
 //! `mylib` that has everything needed to build an basic crate with `cargo`. We
 //! need to make a couple of changes to `Cargo.toml` before we do anything else.
 //!
-//! * Under `[dependencies]`, add `jni = "0.19.0"`
+//! * Under `[dependencies]`, add `jni = "0.20.0"`
 //! * Add a new `[lib]` section and under it, `crate_type = ["cdylib"]`.
 //!
 //! Now, if you run `cargo build` from inside the crate directory, you should

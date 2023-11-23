@@ -15,6 +15,8 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.append;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.transformClassName;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CONTEXT_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.EXCEPTION_CALLBACK_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.UNAVAILABLE_PROFILE_EXCEPTION_CLASSNAME;
@@ -25,7 +27,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileMethodInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTypeInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.GeneratorContext;
-import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -97,19 +98,6 @@ final class CurrentProfileGenerator {
             classBuilder, method, crossProfileType);
       }
     }
-
-    classBuilder.addMethod(
-        MethodSpec.methodBuilder("timeout")
-            .addAnnotation(Override.class)
-            .addAnnotation(
-                AnnotationSpec.builder(SuppressWarnings.class)
-                    .addMember("value", "$S", "GoodTime")
-                    .build())
-            .addModifiers(Modifier.PUBLIC)
-            .returns(className)
-            .addParameter(long.class, "timeout")
-            .addStatement("return this")
-            .build());
 
     ClassName ifAvailableClass =
         IfAvailableGenerator.getIfAvailableClassName(generatorContext, crossProfileType);
@@ -213,7 +201,6 @@ final class CurrentProfileGenerator {
 
   static ClassName getCurrentProfileClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    return GeneratorUtilities.appendToClassName(
-        crossProfileType.profileClassName(), "_CurrentProfile");
+    return transformClassName(crossProfileType.generatedClassName(), append("_CurrentProfile"));
   }
 }

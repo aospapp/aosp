@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -74,7 +75,7 @@ class FAFTCheckers(object):
         got_dict = self._parse_crossystem_output(lines)
         for key in expected_dict:
             if key not in got_dict:
-                logging.warn('Expected key %r not in crossystem result', key)
+                logging.warning('Expected key %r not in crossystem result', key)
                 succeed = False
                 continue
             if isinstance(expected_dict[key], str):
@@ -96,7 +97,7 @@ class FAFTCheckers(object):
                     message = ('Expected %r values %r == real value %r' % (
                                key, expected_dict[key], got_dict[key]))
             else:
-                logging.warn('The expected value of %r is neither a str nor a '
+                logging.warning('The expected value of %r is neither a str nor a '
                              'dict: %r', key, expected_dict[key])
                 succeed = False
                 continue
@@ -105,27 +106,17 @@ class FAFTCheckers(object):
         return succeed
 
     def mode_checker(self, mode):
-        """Check the current system in the given mode.
+        """Check whether the DUT is in the given firmware boot mode.
 
-        @param mode: A string of mode, one of 'normal', 'dev', or 'rec'.
+        @param mode: A string of the expected boot mode: normal, rec, or dev.
         @return: True if the system in the given mode; otherwise, False.
+        @raise ValueError: If the expected boot mode is not one of normal, rec,
+                           or dev.
         """
-        if mode == 'normal':
-            return self.crossystem_checker(
-                    {'devsw_boot': '0',
-                     'mainfw_type': 'normal'},
-                    suppress_logging=True)
-        elif mode == 'dev':
-            return self.crossystem_checker(
-                    {'devsw_boot': '1',
-                     'mainfw_type': 'developer'},
-                    suppress_logging=True)
-        elif mode == 'rec':
-            return self.crossystem_checker(
-                    {'mainfw_type': 'recovery'},
-                    suppress_logging=True)
-        else:
-            raise NotImplementedError('The given mode %s not supported' % mode)
+        if mode not in ('normal', 'rec', 'dev'):
+            raise ValueError(
+                    'Unexpected boot mode %s: want normal, rec, or dev' % mode)
+        return self.faft_client.system.get_boot_mode() == mode
 
     def fw_tries_checker(self,
                          expected_mainfw_act,
@@ -226,3 +217,20 @@ class FAFTCheckers(object):
                     return False
         logging.info("Wrong output format of '%s':\n%s", cmd, '\n'.join(lines))
         return False
+
+    def minios_checker(self):
+        """Check the current boot is a success MiniOS boot via SSH.
+
+        The DUT with test image should allow SSH connection, and we will use the
+        raw command, host.run_output(), to check since autotest client libraries
+        cannot be installed in MiniOS.
+
+        @return True if DUT booted to MiniOS; otherwise, False.
+        @raise TestError if DUT does not enable MiniOS.
+        """
+
+        if not self.faft_config.minios_enabled:
+            raise error.TestError('MiniOS is not enabled for this board')
+
+        cmdline = self.faft_client.host.run_output('cat /proc/cmdline')
+        return 'cros_minios' in cmdline.split()

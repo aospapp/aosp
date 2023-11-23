@@ -6,7 +6,6 @@
     is incremented. Otherwise the computation for the canonical list
     of test cases is confused. See b/151779432.
   -->
-  <Entry include="CtsCameraTestCases android.hardware.camera2.cts.CaptureRequestTest#testFlashControl" />
-  <Entry include="CtsGraphicsTestCases android.graphics.cts.BitmapTest#testHardwareBitmapNotLeaking" />
-  <Entry include="CtsGraphicsTestCases android.graphics.cts.BitmapTest#testDrawingHardwareBitmapNotLeaking" />
+  <Entry include="CtsBionicTestCases unistd#exec_argv0_null" />
+  <Entry include="CtsBionicTestCases unistd_nofortify#exec_argv0_null" />
 </SubPlan>

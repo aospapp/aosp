@@ -48,6 +48,7 @@ the end of the following contributors list.
 CONTRIBUTORS:
 
 YYYY/MM/DD, github id, Full name, email
+2014/05/15, robstoll, Robert Stoll, rstoll@tutteli.ch
 2013/04/17, ibre5041, Ivan Brezina, ibre5041@ibrezina.net
 2013/02/19, murrayju, Justin Murray, murrayju@addpcs.com
 2012/07/12, parrt, Terence Parr, parrt@antlr.org
@@ -57,3 +58,4 @@ YYYY/MM/DD, github id, Full name, email
 2012/09/17, ksgokul, Gokulakannan Somasundaram, gokul007@gmail.com
 2012/11/22, sharwell, Sam Harwell, sam@tunnelvisionlabs.com
 2012/09/24, mike-lischke, Mike Lischke, mike@lischke-online.de
+2022/04/04, jcking, Justin King, jcking@google.com

@@ -1,36 +1,46 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 
-use anyhow::{anyhow, Context};
-use base::{error, warn, AsRawDescriptor, IntoRawDescriptor};
-use libvda::encode::{EncodeCapabilities, VeaImplType, VeaInstance};
+use anyhow::anyhow;
+use anyhow::Context;
+use base::error;
+use base::warn;
+use base::AsRawDescriptor;
+use base::IntoRawDescriptor;
+use libvda::encode::EncodeCapabilities;
+use libvda::encode::VeaImplType;
+use libvda::encode::VeaInstance;
 
 use super::*;
-use crate::virtio::video::format::{
-    Bitrate, Format, FormatDesc, FormatRange, FrameFormat, Level, Profile,
-};
-use crate::virtio::video::{
-    encoder::encoder::*,
-    error::{VideoError, VideoResult},
-    resource::{GuestResource, GuestResourceHandle},
-};
+use crate::virtio::video::encoder::encoder::*;
+use crate::virtio::video::error::VideoError;
+use crate::virtio::video::error::VideoResult;
+use crate::virtio::video::format::Bitrate;
+use crate::virtio::video::format::Format;
+use crate::virtio::video::format::FormatDesc;
+use crate::virtio::video::format::FormatRange;
+use crate::virtio::video::format::FrameFormat;
+use crate::virtio::video::format::Level;
+use crate::virtio::video::format::Profile;
+use crate::virtio::video::resource::GuestResource;
+use crate::virtio::video::resource::GuestResourceHandle;
 
 impl From<Bitrate> for libvda::encode::Bitrate {
     fn from(bitrate: Bitrate) -> Self {
         libvda::encode::Bitrate {
             mode: match bitrate {
-                Bitrate::VBR { .. } => libvda::encode::BitrateMode::VBR,
-                Bitrate::CBR { .. } => libvda::encode::BitrateMode::CBR,
+                Bitrate::Vbr { .. } => libvda::encode::BitrateMode::VBR,
+                Bitrate::Cbr { .. } => libvda::encode::BitrateMode::CBR,
             },
             target: bitrate.target(),
             peak: match &bitrate {
                 // No need to specify peak if mode is CBR.
-                Bitrate::CBR { .. } => 0,
-                Bitrate::VBR { peak, .. } => *peak,
+                Bitrate::Cbr { .. } => 0,
+                Bitrate::Vbr { peak, .. } => *peak,
             },
         }
     }
@@ -89,6 +99,7 @@ impl LibvdaEncoder {
                             step: 1,
                         }],
                     }],
+                    plane_align: 1,
                 }
             })
             .collect();
@@ -175,6 +186,7 @@ impl LibvdaEncoder {
                         step: 1,
                     }],
                 }],
+                plane_align: 1,
             });
 
             profiles.sort_unstable();

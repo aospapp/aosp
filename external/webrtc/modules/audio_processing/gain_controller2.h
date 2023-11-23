@@ -11,46 +11,81 @@
 #ifndef MODULES_AUDIO_PROCESSING_GAIN_CONTROLLER2_H_
 #define MODULES_AUDIO_PROCESSING_GAIN_CONTROLLER2_H_
 
+#include <atomic>
 #include <memory>
 #include <string>
 
-#include "modules/audio_processing/agc2/adaptive_agc.h"
+#include "modules/audio_processing/agc2/adaptive_digital_gain_controller.h"
+#include "modules/audio_processing/agc2/cpu_features.h"
 #include "modules/audio_processing/agc2/gain_applier.h"
+#include "modules/audio_processing/agc2/input_volume_controller.h"
 #include "modules/audio_processing/agc2/limiter.h"
+#include "modules/audio_processing/agc2/vad_wrapper.h"
 #include "modules/audio_processing/include/audio_processing.h"
-#include "rtc_base/constructor_magic.h"
+#include "modules/audio_processing/logging/apm_data_dumper.h"
 
 namespace webrtc {
 
-class ApmDataDumper;
 class AudioBuffer;
 
 // Gain Controller 2 aims to automatically adjust levels by acting on the
 // microphone gain and/or applying digital gain.
 class GainController2 {
  public:
-  GainController2();
+  // Ctor. If `use_internal_vad` is true, an internal voice activity
+  // detector is used for digital adaptive gain.
+  GainController2(
+      const AudioProcessing::Config::GainController2& config,
+      const InputVolumeController::Config& input_volume_controller_config,
+      int sample_rate_hz,
+      int num_channels,
+      bool use_internal_vad);
+  GainController2(const GainController2&) = delete;
+  GainController2& operator=(const GainController2&) = delete;
   ~GainController2();
 
-  void Initialize(int sample_rate_hz);
-  void Process(AudioBuffer* audio);
-  void NotifyAnalogLevel(int level);
+  // Sets the fixed digital gain.
+  void SetFixedGainDb(float gain_db);
 
-  void ApplyConfig(const AudioProcessing::Config::GainController2& config);
+  // Updates the input volume controller about whether the capture output is
+  // used or not.
+  void SetCaptureOutputUsed(bool capture_output_used);
+
+  // Analyzes `audio_buffer` before `Process()` is called so that the analysis
+  // can be performed before digital processing operations take place (e.g.,
+  // echo cancellation). The analysis consists of input clipping detection and
+  // prediction (if enabled). The value of `applied_input_volume` is limited to
+  // [0, 255].
+  void Analyze(int applied_input_volume, const AudioBuffer& audio_buffer);
+
+  // Applies fixed and adaptive digital gains to `audio` and runs a limiter.
+  // If the internal VAD is used, `speech_probability` is ignored. Otherwise
+  // `speech_probability` is used for digital adaptive gain if it's available
+  // (limited to values [0.0, 1.0]). Handles input volume changes; if the caller
+  // cannot determine whether an input volume change occurred, set
+  // `input_volume_changed` to false.
+  void Process(absl::optional<float> speech_probability,
+               bool input_volume_changed,
+               AudioBuffer* audio);
+
   static bool Validate(const AudioProcessing::Config::GainController2& config);
-  static std::string ToString(
-      const AudioProcessing::Config::GainController2& config);
+
+  AvailableCpuFeatures GetCpuFeatures() const { return cpu_features_; }
+
+  // Returns the recommended input volume if input volume controller is enabled
+  // and if a volume recommendation is available.
+  absl::optional<int> GetRecommendedInputVolume() const;
 
  private:
-  static int instance_count_;
-  std::unique_ptr<ApmDataDumper> data_dumper_;
-  AudioProcessing::Config::GainController2 config_;
-  GainApplier gain_applier_;
-  std::unique_ptr<AdaptiveAgc> adaptive_agc_;
+  static std::atomic<int> instance_count_;
+  const AvailableCpuFeatures cpu_features_;
+  ApmDataDumper data_dumper_;
+  GainApplier fixed_gain_applier_;
+  std::unique_ptr<VoiceActivityDetectorWrapper> vad_;
+  std::unique_ptr<AdaptiveDigitalGainController> adaptive_digital_controller_;
+  std::unique_ptr<InputVolumeController> input_volume_controller_;
   Limiter limiter_;
-  int analog_level_ = -1;
-
-  RTC_DISALLOW_COPY_AND_ASSIGN(GainController2);
+  int calls_since_last_limiter_log_;
 };
 
 }  // namespace webrtc

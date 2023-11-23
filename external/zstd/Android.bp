@@ -43,6 +43,7 @@ license {
 
 cc_library {
     name: "libzstd",
+    min_sdk_version: "apex_inherit",
     apex_available: [
         "//apex_available:platform",
         "com.android.adbd",
@@ -52,10 +53,16 @@ cc_library {
         "//external/squashfs-tools/squashfs-tools:__subpackages__",
         "//packages/modules/adb:__subpackages__",
         "//system/logging/logd:__subpackages__",
+        "//system/update_engine:__subpackages__",
+        "//system/core/fs_mgr/libsnapshot:__subpackages__",
+        "//system/core/init:__subpackages__",
+        "//system/core/fastboot:__subpackages__",
     ],
     recovery_available: true,
     vendor_available: true,
     host_supported: true,
+    ramdisk_available: true,
+    vendor_ramdisk_available: true,
     target: {
         windows: {
             enabled: true,

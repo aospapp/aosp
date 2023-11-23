@@ -1,26 +1,28 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (c) 2019 Federico Bonfiglio fedebonfi95@gmail.com
+ * Copyright (c) 2019 Federico Bonfiglio <fedebonfi95@gmail.com>
+ * Copyright (c) Linux Test Project, 2019-2022
  */
 
-/*
+/*\
+ * [Description]
+ *
  * Test ioctl_ns with NS_GET_USERNS request.
  *
  * After the call to clone with the CLONE_NEWUSER flag,
  * child is created in a new user namespace. That's checked by
  * comparing its /proc/self/ns/user symlink and the parent's one,
  * which should be different.
- *
  */
+
 #define _GNU_SOURCE
 
 #include <errno.h>
 #include <stdio.h>
-#include <sched.h>
 #include <stdlib.h>
 #include "tst_test.h"
 #include "lapi/ioctl_ns.h"
-#include "lapi/namespaces_constants.h"
+#include "lapi/sched.h"
 
 #define STACK_SIZE (1024 * 1024)
 
@@ -51,14 +53,14 @@ static int child(void *arg LTP_ATTRIBUTE_UNUSED)
 
 static void run(void)
 {
-	char child_namespace[20];
+	char child_namespace[30];
 
 	pid_t pid = ltp_clone(CLONE_NEWUSER | SIGCHLD, &child, 0,
 		STACK_SIZE, child_stack);
 	if (pid == -1)
 		tst_brk(TBROK | TERRNO, "ltp_clone failed");
 
-	sprintf(child_namespace, "/proc/%i/ns/user", pid);
+	snprintf(child_namespace, sizeof(child_namespace), "/proc/%i/ns/user", pid);
 	int my_fd, child_fd, parent_fd;
 
 	my_fd = SAFE_OPEN("/proc/self/ns/user", O_RDONLY);

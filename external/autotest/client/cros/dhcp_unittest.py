@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -23,8 +23,8 @@ from autotest_lib.client.cros import dhcp_test_server
 TEST_DATA_PATH_PREFIX = "client/cros/dhcp_test_data/"
 
 TEST_CLASSLESS_STATIC_ROUTE_DATA = \
-        "\x12\x0a\x09\xc0\xac\x1f\x9b\x0a" \
-        "\x00\xc0\xa8\x00\xfe"
+        b"\x12\x0a\x09\xc0\xac\x1f\x9b\x0a" \
+        b"\x00\xc0\xa8\x00\xfe"
 
 TEST_CLASSLESS_STATIC_ROUTE_LIST_PARSED = [
         (18, "10.9.192.0", "172.31.155.10"),
@@ -32,20 +32,21 @@ TEST_CLASSLESS_STATIC_ROUTE_LIST_PARSED = [
         ]
 
 TEST_DOMAIN_SEARCH_LIST_COMPRESSED = \
-        "\x03eng\x06google\x03com\x00\x09marketing\xC0\x04"
+        b"\x03eng\x06google\x03com\x00\x09marketing\xC0\x04"
 
 TEST_DOMAIN_SEARCH_LIST_PARSED = ("eng.google.com", "marketing.google.com")
 
 # At this time, we don't support the compression allowed in the RFC.
 # This is correct and sufficient for our purposes.
 TEST_DOMAIN_SEARCH_LIST_EXPECTED = \
-        "\x03eng\x06google\x03com\x00\x09marketing\x06google\x03com\x00"
+        b"\x03eng\x06google\x03com\x00\x09marketing\x06google\x03com\x00"
 
 TEST_DOMAIN_SEARCH_LIST1 = \
-        "w\x10\x03eng\x06google\x03com\x00"
+        b"w\x10\x03eng\x06google\x03com\x00"
 
 TEST_DOMAIN_SEARCH_LIST2 = \
-        "w\x16\x09marketing\x06google\x03com\x00"
+        b"w\x16\x09marketing\x06google\x03com\x00"
+
 
 def bin2hex(byte_str, justification=20):
     """
@@ -128,7 +129,7 @@ def test_domain_search_list_serialization():
     return True
 
 def test_broken_domain_search_list_parsing():
-    byte_string = '\x00' * 240 + TEST_DOMAIN_SEARCH_LIST1 + TEST_DOMAIN_SEARCH_LIST2 + '\xff'
+    byte_string = b'\x00' * 240 + TEST_DOMAIN_SEARCH_LIST1 + TEST_DOMAIN_SEARCH_LIST2 + b'\xff'
     packet = dhcp_packet.DhcpPacket(byte_str=byte_string)
     if len(packet._options) != 1:
         print("Expected domain list of length 1")
@@ -167,7 +168,7 @@ def test_simple_server_exchange(server):
     server_ip = "127.0.0.1"
     lease_time_seconds = 60
     test_timeout = 3.0
-    mac_addr = "\x01\x02\x03\x04\x05\x06"
+    mac_addr = b"\x01\x02\x03\x04\x05\x06"
     # Build up our packets and have them request some default option values,
     # like the IP we're being assigned and the address of the server assigning
     # it.

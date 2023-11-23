@@ -132,7 +132,9 @@ std::string Image2DHLSLGroupSuffix(Image2DHLSLGroup group)
     return "<unknown group type>";
 }
 
-std::string Image2DHLSLTextureString(Image2DHLSLGroup group, gl::TextureType type)
+std::string Image2DHLSLTextureString(Image2DHLSLGroup group,
+                                     gl::TextureType type,
+                                     bool rasterOrdered)
 {
     std::string textureString;
     switch (group)
@@ -148,7 +150,7 @@ std::string Image2DHLSLTextureString(Image2DHLSLGroup group, gl::TextureType typ
         case IMAGE2D_W_SNORM:
         case IMAGE2D_W_UINT4:
         case IMAGE2D_W_INT4:
-            textureString += "RW";
+            textureString += rasterOrdered ? "RasterizerOrdered" : "RW";
             break;
         default:
             UNREACHABLE();
@@ -692,6 +694,7 @@ void OutputHLSLImage2DUniformGroup(ProgramD3D &programD3D,
                                    const Image2DHLSLGroup textureGroup,
                                    const std::vector<sh::ShaderVariable> &group,
                                    const gl::ImageUnitTextureTypeMap &image2DBindLayout,
+                                   unsigned int baseUAVRegister,
                                    unsigned int *groupTextureRegisterIndex,
                                    unsigned int *groupRWTextureRegisterIndex,
                                    unsigned int *image2DTexture3D,
@@ -704,6 +707,8 @@ void OutputHLSLImage2DUniformGroup(ProgramD3D &programD3D,
     }
 
     unsigned int texture2DCount = 0, texture3DCount = 0, texture2DArrayCount = 0;
+    bool texture2DRasterOrdered = false, texture3DRasterOrdered = false,
+         texture2DArrayRasterOrdered = false;
     for (const sh::ShaderVariable &uniform : group)
     {
         if (!programD3D.hasNamedUniform(uniform.name))
@@ -716,13 +721,16 @@ void OutputHLSLImage2DUniformGroup(ProgramD3D &programD3D,
             {
                 case gl::TextureType::_2D:
                     texture2DCount++;
+                    texture2DRasterOrdered |= uniform.rasterOrdered;
                     break;
                 case gl::TextureType::_3D:
                     texture3DCount++;
+                    texture3DRasterOrdered |= uniform.rasterOrdered;
                     break;
                 case gl::TextureType::_2DArray:
                 case gl::TextureType::CubeMap:
                     texture2DArrayCount++;
+                    texture2DArrayRasterOrdered |= uniform.rasterOrdered;
                     break;
                 default:
                     UNREACHABLE();
@@ -746,24 +754,29 @@ void OutputHLSLImage2DUniformGroup(ProgramD3D &programD3D,
     if (texture2DCount > 0)
     {
         out << "static const uint " << offsetStr << "2D = " << texture2DRegisterIndex << ";\n";
-        out << "uniform " << Image2DHLSLTextureString(textureGroup, gl::TextureType::_2D) << " "
-            << declarationStr << "2D[" << texture2DCount << "]"
-            << " : register(" << registerStr << texture2DRegisterIndex << ");\n";
+        out << "uniform "
+            << Image2DHLSLTextureString(textureGroup, gl::TextureType::_2D, texture2DRasterOrdered)
+            << " " << declarationStr << "2D[" << texture2DCount << "]"
+            << " : register(" << registerStr << baseUAVRegister + texture2DRegisterIndex << ");\n";
     }
     if (texture3DCount > 0)
     {
         out << "static const uint " << offsetStr << "3D = " << texture3DRegisterIndex << ";\n";
-        out << "uniform " << Image2DHLSLTextureString(textureGroup, gl::TextureType::_3D) << " "
-            << declarationStr << "3D[" << texture3DCount << "]"
-            << " : register(" << registerStr << texture3DRegisterIndex << ");\n";
+        out << "uniform "
+            << Image2DHLSLTextureString(textureGroup, gl::TextureType::_3D, texture3DRasterOrdered)
+            << " " << declarationStr << "3D[" << texture3DCount << "]"
+            << " : register(" << registerStr << baseUAVRegister + texture3DRegisterIndex << ");\n";
     }
     if (texture2DArrayCount > 0)
     {
         out << "static const uint " << offsetStr << "2DArray = " << texture2DArrayRegisterIndex
             << ";\n";
-        out << "uniform " << Image2DHLSLTextureString(textureGroup, gl::TextureType::_2DArray)
+        out << "uniform "
+            << Image2DHLSLTextureString(textureGroup, gl::TextureType::_2DArray,
+                                        texture2DArrayRasterOrdered)
             << " " << declarationStr << "2DArray[" << texture2DArrayCount << "]"
-            << " : register(" << registerStr << texture2DArrayRegisterIndex << ");\n";
+            << " : register(" << registerStr << baseUAVRegister + texture2DArrayRegisterIndex
+            << ");\n";
     }
     for (const sh::ShaderVariable &uniform : group)
     {
@@ -839,12 +852,13 @@ constexpr const char kImage2DFunctionString[] = "// @@ IMAGE2D DECLARATION FUNCT
 }  // anonymous namespace
 
 std::string GenerateShaderForImage2DBindSignature(
-    const d3d::Context *context,
     ProgramD3D &programD3D,
     const gl::ProgramState &programData,
     gl::ShaderType shaderType,
+    const std::string &shaderHLSL,
     std::vector<sh::ShaderVariable> &image2DUniforms,
-    const gl::ImageUnitTextureTypeMap &image2DBindLayout)
+    const gl::ImageUnitTextureTypeMap &image2DBindLayout,
+    unsigned int baseUAVRegister)
 {
     std::vector<std::vector<sh::ShaderVariable>> groupedImage2DUniforms(IMAGE2D_MAX + 1);
     unsigned int image2DTexture3DCount = 0, image2DTexture2DArrayCount = 0;
@@ -888,18 +902,18 @@ std::string GenerateShaderForImage2DBindSignature(
 
     for (int groupId = IMAGE2D_MIN; groupId < IMAGE2D_MAX; ++groupId)
     {
-        OutputHLSLImage2DUniformGroup(programD3D, programData, shaderType, out,
-                                      Image2DHLSLGroup(groupId), groupedImage2DUniforms[groupId],
-                                      image2DBindLayout, &groupTextureRegisterIndex,
-                                      &groupRWTextureRegisterIndex, &image2DTexture3DIndex,
-                                      &image2DTexture2DArrayIndex, &image2DTexture2DIndex);
+        OutputHLSLImage2DUniformGroup(
+            programD3D, programData, shaderType, out, Image2DHLSLGroup(groupId),
+            groupedImage2DUniforms[groupId], image2DBindLayout, baseUAVRegister,
+            &groupTextureRegisterIndex, &groupRWTextureRegisterIndex, &image2DTexture3DIndex,
+            &image2DTexture2DArrayIndex, &image2DTexture2DIndex);
     }
 
-    std::string shaderHLSL(programData.getAttachedShader(shaderType)->getTranslatedSource());
-    bool success = angle::ReplaceSubstring(&shaderHLSL, kImage2DFunctionString, out.str());
+    std::string result = shaderHLSL;
+    bool success       = angle::ReplaceSubstring(&result, kImage2DFunctionString, out.str());
     ASSERT(success);
 
-    return shaderHLSL;
+    return result;
 }
 
 }  // namespace rx

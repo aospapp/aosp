@@ -1,7 +1,9 @@
 #if defined(__linux__)
+#define HAVE_BLK_ZONE_REP_V2 1
 #define HAVE_BYTESWAP_H 1
 #define HAVE_FCNTL_H 1
 #define HAVE_FALLOC_H 1
+#define HAVE_FSYNC 1
 #define HAVE_LINUX_HDREG_H 1
 #define HAVE_LINUX_LIMITS_H 1
 #define HAVE_POSIX_ACL_H 1
@@ -19,6 +21,9 @@
 #define HAVE_SYS_SYSMACROS_H 1
 #define HAVE_SYS_XATTR_H 1
 #define HAVE_UNISTD_H 1
+#define HAVE_UUID_UUID_H 1
+#define HAVE_CLOCK_GETTIME 1
+#define HAVE_CLOCK_BOOTTIME 1
 
 #define HAVE_FALLOCATE 1
 #define HAVE_FSETXATTR 1
@@ -28,12 +33,20 @@
 #define HAVE_LLSEEK 1
 #define HAVE_LSEEK64 1
 #define HAVE_MEMSET 1
+#define HAVE_SELINUX_ANDROID_H 1
 #define HAVE_SETMNTENT 1
+#define HAVE_SPARSE_SPARSE_H 1
 #define HAVE_LIBLZ4 1
+#define HAVE_LIBUUID 1
 
 #ifdef WITH_SLOAD
 #define HAVE_LIBSELINUX 1
 #endif
+
+#if defined(__BIONIC__)
+#define HAVE_LINUX_BLKZONED_H 1
+#endif
+
 #endif
 
 #if defined(__APPLE__)
@@ -56,6 +69,7 @@
 #define HAVE_GETMNTENT 1
 #define HAVE_LLSEEK 1
 #define HAVE_MEMSET 1
+#define HAVE_SPARSE_SPARSE_H 1
 #define HAVE_LIBLZ4 1
 
 #ifdef WITH_SLOAD
@@ -65,4 +79,5 @@
 
 #if defined(_WIN32)
 #define HAVE_LSEEK64
+#define HAVE_SPARSE_SPARSE_H 1
 #endif

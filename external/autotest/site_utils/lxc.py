@@ -29,9 +29,11 @@ def parse_options():
     parser.add_argument('-s', '--setup', action='store_true',
                         default=False,
                         help='Set up base container.')
-    parser.add_argument('-p', '--path', type=str,
+    parser.add_argument('-p',
+                        '--path',
+                        type=str,
                         help='Directory to store the container.',
-                        default=lxc.DEFAULT_CONTAINER_PATH)
+                        default=lxc.DEFAULT_BASE_CONTAINER_PATH)
     parser.add_argument('-f', '--force_delete', action='store_true',
                         default=False,
                         help=('Force to delete existing containers and rebuild '
@@ -53,7 +55,7 @@ def main():
     # TODO(dshi): crbug.com/459344 Set remove this enforcement when test
     # container can be unprivileged container.
     if utils.sudo_require_password():
-        logging.warn('SSP requires root privilege to run commands, please '
+        logging.warning('SSP requires root privilege to run commands, please '
                      'grant root access to this process.')
         utils.run('sudo true')
 

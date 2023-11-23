@@ -228,8 +228,8 @@ spv_result_t ValidateTypeArray(ValidationState_t& _, const Instruction* inst) {
   if (spvIsVulkanEnv(_.context()->target_env) &&
       element_type->opcode() == SpvOpTypeRuntimeArray) {
     return _.diag(SPV_ERROR_INVALID_ID, inst)
-           << "OpTypeArray Element Type <id> '" << _.getIdName(element_type_id)
-           << "' is not valid in "
+           << _.VkErrorID(4680) << "OpTypeArray Element Type <id> '"
+           << _.getIdName(element_type_id) << "' is not valid in "
            << spvLogStringForEnv(_.context()->target_env) << " environments.";
   }
 
@@ -298,41 +298,12 @@ spv_result_t ValidateTypeRuntimeArray(ValidationState_t& _,
   if (spvIsVulkanEnv(_.context()->target_env) &&
       element_type->opcode() == SpvOpTypeRuntimeArray) {
     return _.diag(SPV_ERROR_INVALID_ID, inst)
-           << "OpTypeRuntimeArray Element Type <id> '"
+           << _.VkErrorID(4680) << "OpTypeRuntimeArray Element Type <id> '"
            << _.getIdName(element_id) << "' is not valid in "
            << spvLogStringForEnv(_.context()->target_env) << " environments.";
   }
 
   return SPV_SUCCESS;
-}
-
-bool ContainsOpaqueType(ValidationState_t& _, const Instruction* str) {
-  const size_t elem_type_index = 1;
-  uint32_t elem_type_id;
-  Instruction* elem_type;
-
-  if (spvOpcodeIsBaseOpaqueType(str->opcode())) {
-    return true;
-  }
-
-  switch (str->opcode()) {
-    case SpvOpTypeArray:
-    case SpvOpTypeRuntimeArray:
-      elem_type_id = str->GetOperandAs<uint32_t>(elem_type_index);
-      elem_type = _.FindDef(elem_type_id);
-      return ContainsOpaqueType(_, elem_type);
-    case SpvOpTypeStruct:
-      for (size_t member_type_index = 1;
-           member_type_index < str->operands().size(); ++member_type_index) {
-        auto member_type_id = str->GetOperandAs<uint32_t>(member_type_index);
-        auto member_type = _.FindDef(member_type_id);
-        if (ContainsOpaqueType(_, member_type)) return true;
-      }
-      break;
-    default:
-      break;
-  }
-  return false;
 }
 
 spv_result_t ValidateTypeStruct(ValidationState_t& _, const Instruction* inst) {
@@ -373,7 +344,8 @@ spv_result_t ValidateTypeStruct(ValidationState_t& _, const Instruction* inst) {
           member_type_index == inst->operands().size() - 1;
       if (!is_last_member) {
         return _.diag(SPV_ERROR_INVALID_ID, inst)
-               << "In " << spvLogStringForEnv(_.context()->target_env)
+               << _.VkErrorID(4680) << "In "
+               << spvLogStringForEnv(_.context()->target_env)
                << ", OpTypeRuntimeArray must only be used for the last member "
                   "of an OpTypeStruct";
       }
@@ -424,8 +396,21 @@ spv_result_t ValidateTypeStruct(ValidationState_t& _, const Instruction* inst) {
     _.RegisterStructTypeWithBuiltInMember(struct_id);
   }
 
+  const auto isOpaqueType = [&_](const Instruction* opaque_inst) {
+    auto opcode = opaque_inst->opcode();
+    if (_.HasCapability(SpvCapabilityBindlessTextureNV) &&
+        (opcode == SpvOpTypeImage || opcode == SpvOpTypeSampler ||
+         opcode == SpvOpTypeSampledImage)) {
+      return false;
+    } else if (spvOpcodeIsBaseOpaqueType(opcode)) {
+      return true;
+    }
+    return false;
+  };
+
   if (spvIsVulkanEnv(_.context()->target_env) &&
-      !_.options()->before_hlsl_legalization && ContainsOpaqueType(_, inst)) {
+      !_.options()->before_hlsl_legalization &&
+      _.ContainsType(inst->id(), isOpaqueType)) {
     return _.diag(SPV_ERROR_INVALID_ID, inst)
            << _.VkErrorID(4667) << "In "
            << spvLogStringForEnv(_.context()->target_env)

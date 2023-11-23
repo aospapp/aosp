@@ -77,15 +77,18 @@ class firmware_PDPowerSwap(FirmwareTest):
             port = self.dut_port
         # Send power swap request
         self._send_power_swap_get_reply(port)
-        time.sleep(self.PD_CONNECT_DELAY)
-        # Get PDTester power role
-        pdtester_pr = self.pdtester_port.get_pd_state()
-        if self.dut_port.is_src(dut_pr) and self.pdtester_port.is_src(pdtester_pr):
-            return True
-        elif self.dut_port.is_snk(dut_pr) and self.pdtester_port.is_snk(pdtester_pr):
-            return True
-        else:
-            return False
+        for _ in range(self.PD_CONNECT_DELAY):
+            time.sleep(1)
+            # Get PDTester power role
+            pdtester_pr = self.pdtester_port.get_pd_state()
+            if self.dut_port.is_src(dut_pr) and self.pdtester_port.is_src(
+                    pdtester_pr):
+                return True
+            elif self.dut_port.is_snk(dut_pr) and self.pdtester_port.is_snk(
+                    pdtester_pr):
+                return True
+
+        return False
 
     def _test_power_swap_reject(self):
         """Verify that a power swap request is rejected
@@ -115,7 +118,7 @@ class firmware_PDPowerSwap(FirmwareTest):
         Set the DUT power role to source and then suspend the DUT.
         Verify SRC-to-SNK power role request from the PD tester works,
         while SNK-to-SRC power role request fails. Note that this is
-        Chrome OS policy decision, not part of the PD spec.
+        ChromeOS policy decision, not part of the PD spec.
 
         When DUT doesn't provide power in suspend, set DUT power role
         to sink, supend DUT and check if SNK-to-SRC power role request fails.
@@ -247,7 +250,7 @@ class firmware_PDPowerSwap(FirmwareTest):
             # DUT is dualrole in dual role mode. Test power role swap
             # operation intiated both by the DUT and PDTester.
             success = 0
-            for attempt in xrange(self.POWER_SWAP_ITERATIONS):
+            for attempt in range(self.POWER_SWAP_ITERATIONS):
                 if attempt & 1:
                     direction = 'rx'
                 else:

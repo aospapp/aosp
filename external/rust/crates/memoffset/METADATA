@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/memoffset
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "memoffset"
 description: "offset_of functionality for Rust structs."
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/memoffset/memoffset-0.6.5.crate"
+    value: "https://static.crates.io/crates/memoffset/memoffset-0.8.0.crate"
   }
-  version: "0.6.5"
+  version: "0.8.0"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2022
-    month: 3
-    day: 1
+    year: 2023
+    month: 2
+    day: 3
   }
 }

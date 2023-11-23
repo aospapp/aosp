@@ -37,7 +37,12 @@ static int get_kernel_bits_from_uname(struct utsname *buf)
 int tst_kernel_bits(void)
 {
 	struct utsname buf;
-	int kernel_bits = get_kernel_bits_from_uname(&buf);
+	static int kernel_bits;
+
+	if (kernel_bits)
+		return kernel_bits;
+
+	kernel_bits = get_kernel_bits_from_uname(&buf);
 
 	if (kernel_bits == -1)
 		return -1;
@@ -110,6 +115,11 @@ static int tst_search_driver(const char *driver, const char *file)
 		tst_resm(TWARN, "file %s cannot be read", path);
 		return -1;
 	}
+
+	/* always search for x86_64 */
+	char *fix = strstr(driver, "x86-64");
+	if (fix)
+		fix[3] = '_';
 
 	SAFE_ASPRINTF(NULL, &search, "/%s.ko", driver);
 

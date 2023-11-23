@@ -1,15 +1,17 @@
-#!/usr/bin/python2
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Interact with a SCPI device, checking for errors each time."""
 
-import cellular_system_error
 import logging
-import prologix_scpi_driver
-import scpi
 import sys
+
+from autotest_lib.client.cros.cellular import cellular_system_error
+from autotest_lib.client.cros.cellular import prologix_scpi_driver
+from autotest_lib.client.cros.cellular import scpi
+
 
 try:
     [target] = sys.argv[1:]

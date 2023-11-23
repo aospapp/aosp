@@ -22,6 +22,12 @@
     <!-- Button for going to the previous screen or step [CHAR LIMIT=20] -->
     <string name="sud_back_button_label">Back</string>
 
+    <!-- Button for skipping the action on the current screen [CHAR LIMIT=20] -->
+    <string name="sud_skip_button_label">Skip</string>
+
     <!-- Button for scrolling down to reveal more content on the screen [CHAR LIMIT=20] -->
     <string name="sud_more_button_label">More</string>
+
+    <!-- The default device name when other resources get the device name are not available [CHAR LIMIT=20] -->
+    <string name="sud_default_device_name">device</string>
 </resources>

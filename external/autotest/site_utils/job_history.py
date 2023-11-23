@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,6 +6,10 @@
 # This module provides functions for caller to retrieve a job's history,
 # including special tasks executed before and after the job, and each steps
 # start/end time.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import argparse
 import datetime as datetime_base
@@ -411,7 +415,7 @@ def main():
 
     job_info = get_job_info(options.job_id)
 
-    print job_info
+    print(job_info)
 
 
 if __name__ == '__main__':

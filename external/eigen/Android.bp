@@ -13,55 +13,68 @@
 // limitations under the License.
 
 package {
-    default_applicable_licenses: ["external_eigen_license"],
+    default_applicable_licenses: ["eigen_license"],
 }
 
-// Added automatically by a large-scale-change that took the approach of
-// 'apply every license found to every target'. While this makes sure we respect
-// every license restriction, it may not be entirely correct.
-//
-// e.g. GPL in an MIT project might only apply to the contrib/ directory.
-//
-// Please consider splitting the single license below into multiple licenses,
-// taking care not to lose any license_kind information, and overriding the
-// default license using the 'licenses: [...]' property on targets as needed.
-//
-// For unused files, consider creating a 'fileGroup' with "//visibility:private"
-// to attach the license to, and including a comment whether the files may be
-// used in the current project.
-//
-// large-scale-change included anything that looked like it might be a license
-// text as a license_text. e.g. LICENSE, NOTICE, COPYING etc.
-//
-// Please consider removing redundant or irrelevant files from 'license_text:'.
-// See: http://go/android-license-faq
 license {
-    name: "external_eigen_license",
+    name: "eigen_license",
     visibility: [":__subpackages__"],
     license_kinds: [
+        // Apache 2.0 is only used in Eigen/src/Core/arch/Default/BFloat16.h,
+        // which was copied from TensorFlow.
         "SPDX-license-identifier-Apache-2.0",
+        // BSD is used in CMake build scripts, which are not used in Android,
+        // and for code derived from the MINPACK library.
         "SPDX-license-identifier-BSD",
-        "SPDX-license-identifier-BSL-1.0",
-        "SPDX-license-identifier-GPL",
-        "SPDX-license-identifier-GPL-2.0",
-        "SPDX-license-identifier-GPL-3.0",
-        "SPDX-license-identifier-LGPL",
-        "SPDX-license-identifier-LGPL-2.1",
-        "SPDX-license-identifier-LGPL-3.0",
-        "SPDX-license-identifier-MIT",
-        "SPDX-license-identifier-MPL",
+        // Almost all of the actual Eigen code is licensed under MPL 2.0.
         "SPDX-license-identifier-MPL-2.0",
-        "legacy_unencumbered",
     ],
     license_text: [
+        "COPYING.APACHE",
         "COPYING.BSD",
-        "COPYING.GPL",
-        "COPYING.LGPL",
         "COPYING.MINPACK",
         "COPYING.MPL2",
-        "COPYING.README",
         "NOTICE",
     ],
+}
+
+license {
+    name: "eigen_bench_license",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-GPL-2.0+",
+    ],
+    license_text: [
+        "COPYING.APACHE",
+        "COPYING.GPL",
+    ],
+}
+
+license {
+    name: "eigen_restricted_code_license",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        "SPDX-license-identifier-LGPL-2.1",
+    ],
+    license_text: ["COPYING.LGPL"],
+}
+
+filegroup {
+    name: "eigen_bench",
+    srcs: ["bench/**/*"],
+    licenses: ["eigen_bench_license"],
+    visibility: ["//visibility:private"],
+}
+
+filegroup {
+    name: "eigen_restricted_code",
+    srcs: [
+        "unsupported/Eigen/src/IterativeSolvers/ConstrainedConjGrad.h",
+        "unsupported/Eigen/src/IterativeSolvers/IterationController.h",
+    ],
+    licenses: ["eigen_restricted_code_license"],
+    visibility: ["//visibility:private"],
 }
 
 cc_library_headers {
@@ -71,14 +84,16 @@ cc_library_headers {
     // contain actual exported headers. When capturing header files for
     // snapshot, only these two directories will be globbed.
     export_include_dirs: ["."],
+    cflags: ["-DEIGEN_MPL2_ONLY"],
 
     vendor_available: true,
     host_supported: true,
     apex_available: [
         "com.android.neuralnetworks",
         "test_com.android.neuralnetworks",
-	"//apex_available:platform",
+        "//apex_available:platform",
     ],
+    min_sdk_version: "apex_inherit",
     sdk_version: "current",
 }
 

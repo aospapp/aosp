@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0+
+// SPDX-License-Identifier: GPL-2.0+ OR Apache-2.0
 /*
  * erofs-utils/lib/blobchunk.c
  *
@@ -113,7 +113,7 @@ int erofs_blob_write_chunk_indexes(struct erofs_inode *inode,
 
 	if (multidev) {
 		idx.device_id = 1;
-		inode->u.chunkformat |= EROFS_CHUNK_FORMAT_INDEXES;
+		DBG_BUGON(!(inode->u.chunkformat & EROFS_CHUNK_FORMAT_INDEXES));
 	} else {
 		base_blkaddr = remapped_base;
 	}
@@ -171,6 +171,8 @@ int erofs_blob_write_chunked_file(struct erofs_inode *inode)
 	int fd, ret;
 
 	inode->u.chunkformat |= inode->u.chunkbits - LOG_BLOCK_SIZE;
+	if (multidev)
+		inode->u.chunkformat |= EROFS_CHUNK_FORMAT_INDEXES;
 
 	if (inode->u.chunkformat & EROFS_CHUNK_FORMAT_INDEXES)
 		unit = sizeof(struct erofs_inode_chunk_index);
@@ -219,6 +221,8 @@ int erofs_blob_remap(void)
 
 	fflush(blobfile);
 	length = ftell(blobfile);
+	if (length < 0)
+		return -errno;
 	if (multidev) {
 		struct erofs_deviceslot dis = {
 			.blocks = erofs_blknr(length),

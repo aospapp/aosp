@@ -7,28 +7,10 @@
   ],
   "presubmit": [
     {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
       "name": "rusticata-macros_test_src_lib"
     }
   ],
   "presubmit-rust": [
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
     {
       "name": "rusticata-macros_test_src_lib"
     }

@@ -37,55 +37,15 @@ license {
     ],
 }
 
-rust_defaults {
-    name: "base64_test_defaults",
-    crate_name: "base64",
-    cargo_env_compat: true,
-    cargo_pkg_version: "0.13.0",
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    edition: "2018",
-    features: [
-        "default",
-        "std",
-    ],
-    rustlibs: [
-        "libbase64_rust",
-        "libcriterion",
-        "librand",
-        "libstructopt",
-    ],
-}
-
-rust_test {
-    name: "base64_test_tests_decode",
-    defaults: ["base64_test_defaults"],
-    host_supported: true,
-    srcs: ["tests/decode.rs"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
-rust_test {
-    name: "base64_test_tests_encode",
-    defaults: ["base64_test_defaults"],
-    host_supported: true,
-    srcs: ["tests/encode.rs"],
-    test_options: {
-        unit_test: true,
-    },
-}
-
 rust_library {
     name: "libbase64_rust",
     stem: "libbase64",
     host_supported: true,
     crate_name: "base64",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.13.0",
+    cargo_pkg_version: "0.21.0",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
     features: [
         "default",
         "std",
@@ -93,6 +53,9 @@ rust_library {
     apex_available: [
         "//apex_available:platform",
         "com.android.resolv",
+        "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }

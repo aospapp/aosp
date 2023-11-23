@@ -114,9 +114,6 @@ cc_defaults {
     local_include_dirs: [
         "libavb/boringssl",
     ],
-    shared_libs: [
-        "libcrypto",
-    ],
 }
 
 cc_defaults {
@@ -130,40 +127,49 @@ cc_defaults {
     ],
 }
 
+python_library_host {
+    name: "libavbtool",
+    srcs: ["avbtool.py"],
+}
+
 python_binary_host {
     name: "avbtool",
     srcs: ["avbtool.py"],
     main: "avbtool.py",
     required: ["fec"],
     version: {
-        py2: {
-            enabled: false,
-        },
         py3: {
-            enabled: true,
             embedded_launcher: true,
         },
     },
     compile_multilib: "first",
 }
 
-// Build libavb - this is a static library that depends
-// on only libc and libcrypto, but no other dependencies.
-cc_library_static {
-    name: "libavb",
+cc_defaults {
+    name: "libavb_defaults",
     defaults: [
         "avb_defaults",
         "avb_sources",
         "avb_crypto_ops_impl_boringssl",
     ],
-    host_supported: true,
-    ramdisk_available: true,
-    vendor_ramdisk_available: true,
-    recovery_available: true,
     header_libs: [
         "avb_headers",
     ],
     export_header_lib_headers: ["avb_headers"],
+}
+
+// Build libavb - this is a static library that depends
+// on only libc and libcrypto, but no other dependencies.
+cc_library_static {
+    name: "libavb",
+    defaults: ["libavb_defaults"],
+    host_supported: true,
+    ramdisk_available: true,
+    vendor_ramdisk_available: true,
+    recovery_available: true,
+    shared_libs: [
+        "libcrypto",
+    ],
     target: {
         linux: {
             srcs: ["libavb/avb_sysdeps_posix.c"],
@@ -172,6 +178,19 @@ cc_library_static {
             cflags: ["-fno-stack-protector"],
         },
     },
+}
+
+// A variant of the library that can run in baremetal environments.
+//
+// The debug feature isn't enabled, removing verbose logging and assertions.
+cc_library_static {
+    name: "libavb_baremetal",
+    defaults: ["libavb_defaults"],
+    cflags: ["-UAVB_ENABLE_DEBUG"],
+    static_libs: [
+        "libcrypto_baremetal",
+    ],
+    srcs: ["libavb/avb_sysdeps_posix.c"],
 }
 
 // Build libavb_user for the target - in addition to libavb, it
@@ -189,7 +208,10 @@ cc_library_static {
         "avb_headers",
     ],
     export_header_lib_headers: ["avb_headers"],
-    shared_libs: ["libbase"],
+    shared_libs: [
+        "libbase",
+        "libcrypto",
+    ],
     static_libs: ["libfs_mgr"],
     cflags: [
         "-DAVB_AB_I_UNDERSTAND_LIBAVB_AB_IS_DEPRECATED",
@@ -269,7 +291,7 @@ cc_defaults {
     },
     compile_multilib: "first",
     data: [
-        "avbtool",
+        "avbtool.py",
         "test/avbtool_signing_helper_test.py",
         "test/avbtool_signing_helper_with_files_test.py",
         "test/data/*",

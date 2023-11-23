@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/link/ppp.c		PPP Link Module
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2016 Jonas Johansson <jonasj76@gmail.com>
  */
 
@@ -156,12 +150,11 @@ static struct rtnl_link_info_ops ppp_info_ops = {
 struct rtnl_link *rtnl_link_ppp_alloc(void)
 {
 	struct rtnl_link *link;
-	int err;
 
 	if (!(link = rtnl_link_alloc()))
 		return NULL;
 
-	if ((err = rtnl_link_set_type(link, "ppp")) < 0) {
+	if (rtnl_link_set_type(link, "ppp") < 0) {
 		rtnl_link_put(link);
 		return NULL;
 	}

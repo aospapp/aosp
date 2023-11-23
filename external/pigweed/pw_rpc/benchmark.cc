@@ -35,7 +35,7 @@ void BenchmarkService::UnaryEcho(ConstByteSpan request,
                                  RawUnaryResponder& responder) {
   std::byte response[32];
   StatusWithSize result = CopyBuffer(request, response);
-  responder.Finish(std::span(response).first(result.size()), result.status())
+  responder.Finish(span(response).first(result.size()), result.status())
       .IgnoreError();
 }
 
@@ -47,7 +47,7 @@ void BenchmarkService::BidirectionalEcho(
     Status status = reader_writer_.Write(request);
     if (!status.ok()) {
       reader_writer_.Finish(status)
-          .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+          .IgnoreError();  // TODO(b/242598609): Handle Status properly
     }
   });
 }

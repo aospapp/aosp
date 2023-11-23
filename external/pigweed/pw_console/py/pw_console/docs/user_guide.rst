@@ -3,9 +3,10 @@
 User Guide
 ==========
 
-.. seealso::
+.. tip::
 
-   This guide can be viewed online at:
+   This guide can be viewed while running pw_console under the ``[Help]`` menu
+   or online at:
    https://pigweed.dev/pw_console/py/pw_console/docs/user_guide.html
 
 
@@ -16,10 +17,14 @@ in a single-window terminal based interface.
 Starting the Console
 --------------------
 
-::
+Launching the console may be different if you implement your own custom console
+startup script. To launch pw_console in upstream Pigweed you can run in test
+mode with ``pw-console --test-mode``.
 
-  pw rpc -s localhost:33000 --proto-globs pw_rpc/echo.proto
+.. seealso::
 
+   Running pw_console for the :ref:`target-stm32f429i-disc1-stm32cube` and
+   :ref:`target-host-device-simulator` targets.
 
 Exiting
 ~~~~~~~
@@ -578,6 +583,8 @@ loaded later in the startup sequence.
 
    .. code-block:: yaml
 
+      ---
+      config_title: pw_console
       ui_theme: nord
       code_theme: pigweed-code
       swap_light_and_dark: False
@@ -777,6 +784,23 @@ Example Config
      - z t
      log-pane.shift-line-to-center:
      - z z
+
+   # Python Repl Snippets (Project owned)
+   snippets:
+     Count Ten Times: |
+       for i in range(10):
+           print(i)
+     Local Variables: |
+       locals()
+
+   # Python Repl Snippets (User owned)
+   user_snippets:
+     Pretty print format function: |
+       import pprint
+       _pretty_format = pprint.PrettyPrinter(indent=1, width=120).pformat
+     Global variables: |
+       globals()
+
 
 Changing Keyboard Shortcuts
 ---------------------------

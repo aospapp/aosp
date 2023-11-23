@@ -41,7 +41,9 @@ rust_proc_macro {
     name: "libpaste",
     crate_name: "paste",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.0.6",
+    cargo_pkg_version: "1.0.11",
     srcs: ["src/lib.rs"],
     edition: "2018",
+    product_available: true,
+    vendor_available: true,
 }

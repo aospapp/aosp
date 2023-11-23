@@ -308,7 +308,7 @@ tgsi_get_opcode_info( uint opcode )
    if (firsttime) {
       unsigned i;
       firsttime = 0;
-      for (i = 0; i < Elements(opcode_info); i++)
+      for (i = 0; i < ARRAY_SIZE(opcode_info); i++)
          assert(opcode_info[i].opcode == i);
    }
 
@@ -385,6 +385,7 @@ tgsi_opcode_infer_type( uint opcode )
    case TGSI_OPCODE_BREV:
    case TGSI_OPCODE_D2U:
    case TGSI_OPCODE_CLOCK:
+   case TGSI_OPCODE_UADD:
       return TGSI_TYPE_UNSIGNED;
    case TGSI_OPCODE_ARL:
    case TGSI_OPCODE_ARR:
@@ -401,7 +402,6 @@ tgsi_opcode_infer_type( uint opcode )
    case TGSI_OPCODE_ISGE:
    case TGSI_OPCODE_ISHR:
    case TGSI_OPCODE_ISLT:
-   case TGSI_OPCODE_UADD:
    case TGSI_OPCODE_UARL:
    case TGSI_OPCODE_IABS:
    case TGSI_OPCODE_ISSG:

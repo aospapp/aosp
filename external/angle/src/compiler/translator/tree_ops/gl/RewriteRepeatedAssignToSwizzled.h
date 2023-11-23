@@ -17,6 +17,7 @@
 #define COMPILER_TRANSLATOR_TREEOPS_GL_REWRITEREPEATEDASSIGNTOSWIZZLED_H_
 
 #include "common/angleutils.h"
+#include "common/debug.h"
 
 namespace sh
 {
@@ -25,10 +26,10 @@ class TCompiler;
 class TIntermBlock;
 
 #ifdef ANGLE_ENABLE_GLSL
-ANGLE_NO_DISCARD bool RewriteRepeatedAssignToSwizzled(TCompiler *compiler, TIntermBlock *root);
+[[nodiscard]] bool RewriteRepeatedAssignToSwizzled(TCompiler *compiler, TIntermBlock *root);
 #else
-ANGLE_NO_DISCARD ANGLE_INLINE bool RewriteRepeatedAssignToSwizzled(TCompiler *compiler,
-                                                                   TIntermBlock *root)
+[[nodiscard]] ANGLE_INLINE bool RewriteRepeatedAssignToSwizzled(TCompiler *compiler,
+                                                                TIntermBlock *root)
 {
     UNREACHABLE();
     return false;

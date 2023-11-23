@@ -109,7 +109,7 @@ Status CheckSupportedType(const Tensor& t) {
       return errors::Unimplemented(DataTypeString(t.dtype()),
                                    " tensors unsupported on platform");
   }
-  return Status::OK();
+  return OkStatus();
 #undef CASE
 }
 
@@ -165,7 +165,7 @@ class IdAllocator {
     DCHECK(db_ != nullptr);
   }
 
-  Status CreateNewId(int64* id) TF_LOCKS_EXCLUDED(mu_) {
+  Status CreateNewId(int64_t* id) TF_LOCKS_EXCLUDED(mu_) {
     mutex_lock lock(mu_);
     Status s;
     SqliteStatement stmt;
@@ -199,8 +199,8 @@ class IdAllocator {
   }
 
  private:
-  int64 MakeRandomId() TF_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    int64_t id = static_cast<int64>(random::New64() & kIdTiers[tier_]);
+  int64_t MakeRandomId() TF_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    int64_t id = static_cast<int64_t>(random::New64() & kIdTiers[tier_]);
     if (id == kAbsent) ++id;
     return id;
   }
@@ -217,7 +217,7 @@ class GraphWriter {
  public:
   static Status Save(Sqlite* db, SqliteTransaction* txn, IdAllocator* ids,
                      GraphDef* graph, uint64 now, int64_t run_id,
-                     int64* graph_id)
+                     int64_t* graph_id)
       SQLITE_EXCLUSIVE_TRANSACTIONS_REQUIRED(*db) {
     TF_RETURN_IF_ERROR(ids->CreateNewId(graph_id));
     GraphWriter saver{db, txn, graph, now, *graph_id};
@@ -225,7 +225,7 @@ class GraphWriter {
     TF_RETURN_WITH_CONTEXT_IF_ERROR(saver.SaveNodeInputs(), "SaveNodeInputs");
     TF_RETURN_WITH_CONTEXT_IF_ERROR(saver.SaveNodes(), "SaveNodes");
     TF_RETURN_WITH_CONTEXT_IF_ERROR(saver.SaveGraph(run_id), "SaveGraph");
-    return Status::OK();
+    return OkStatus();
   }
 
  private:
@@ -294,7 +294,7 @@ class GraphWriter {
         TF_RETURN_IF_ERROR(MaybeFlush());
       }
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   Status SaveNodes() {
@@ -329,7 +329,7 @@ class GraphWriter {
       TF_RETURN_WITH_CONTEXT_IF_ERROR(insert.StepAndReset(), node->name());
       TF_RETURN_IF_ERROR(MaybeFlush());
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   Status SaveGraph(int64_t run_id) {
@@ -360,7 +360,7 @@ class GraphWriter {
                                       unflushed_bytes_, " bytes");
       unflushed_bytes_ = 0;
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   Sqlite* const db_;
@@ -368,9 +368,9 @@ class GraphWriter {
   uint64 unflushed_bytes_ = 0;
   GraphDef* const graph_;
   const uint64 now_;
-  const int64 graph_id_;
+  const int64_t graph_id_;
   std::vector<string> name_copies_;
-  std::unordered_map<StringPiece, int64, StringPieceHasher> name_to_node_id_;
+  std::unordered_map<StringPiece, int64_t, StringPieceHasher> name_to_node_id_;
 
   TF_DISALLOW_COPY_AND_ASSIGN(GraphWriter);
 };
@@ -397,7 +397,7 @@ class RunMetadata {
   const string& run_name() { return run_name_; }
   const string& user_name() { return user_name_; }
 
-  int64 run_id() TF_LOCKS_EXCLUDED(mu_) {
+  int64_t run_id() TF_LOCKS_EXCLUDED(mu_) {
     mutex_lock lock(mu_);
     return run_id_;
   }
@@ -419,14 +419,14 @@ class RunMetadata {
   }
 
   Status GetTagId(Sqlite* db, uint64 now, double computed_time,
-                  const string& tag_name, int64* tag_id,
+                  const string& tag_name, int64_t* tag_id,
                   const SummaryMetadata& metadata) TF_LOCKS_EXCLUDED(mu_) {
     mutex_lock lock(mu_);
     TF_RETURN_IF_ERROR(InitializeRun(db, now, computed_time));
     auto e = tag_ids_.find(tag_name);
     if (e != tag_ids_.end()) {
       *tag_id = e->second;
-      return Status::OK();
+      return OkStatus();
     }
     TF_RETURN_IF_ERROR(ids_->CreateNewId(tag_id));
     tag_ids_[tag_name] = *tag_id;
@@ -466,7 +466,7 @@ class RunMetadata {
  private:
   Status InitializeUser(Sqlite* db, uint64 now)
       TF_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    if (user_id_ != kAbsent || user_name_.empty()) return Status::OK();
+    if (user_id_ != kAbsent || user_name_.empty()) return OkStatus();
     const char* get_sql = R"sql(
       SELECT user_id FROM Users WHERE user_name = ?
     )sql";
@@ -477,7 +477,7 @@ class RunMetadata {
     TF_RETURN_IF_ERROR(get.Step(&is_done));
     if (!is_done) {
       user_id_ = get.ColumnInt(0);
-      return Status::OK();
+      return OkStatus();
     }
     TF_RETURN_IF_ERROR(ids_->CreateNewId(&user_id_));
     const char* insert_sql = R"sql(
@@ -493,12 +493,12 @@ class RunMetadata {
     insert.BindText(2, user_name_);
     insert.BindDouble(3, DoubleTime(now));
     TF_RETURN_IF_ERROR(insert.StepAndReset());
-    return Status::OK();
+    return OkStatus();
   }
 
   Status InitializeExperiment(Sqlite* db, uint64 now, double computed_time)
       TF_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    if (experiment_name_.empty()) return Status::OK();
+    if (experiment_name_.empty()) return OkStatus();
     if (experiment_id_ == kAbsent) {
       TF_RETURN_IF_ERROR(InitializeUser(db, now));
       const char* get_sql = R"sql(
@@ -560,12 +560,12 @@ class RunMetadata {
       update.BindInt(2, experiment_id_);
       TF_RETURN_IF_ERROR(update.StepAndReset());
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   Status InitializeRun(Sqlite* db, uint64 now, double computed_time)
       TF_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    if (run_name_.empty()) return Status::OK();
+    if (run_name_.empty()) return OkStatus();
     TF_RETURN_IF_ERROR(InitializeExperiment(db, now, computed_time));
     if (run_id_ == kAbsent) {
       TF_RETURN_IF_ERROR(ids_->CreateNewId(&run_id_));
@@ -604,7 +604,7 @@ class RunMetadata {
       update.BindInt(2, run_id_);
       TF_RETURN_IF_ERROR(update.StepAndReset());
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   mutex mu_;
@@ -612,12 +612,12 @@ class RunMetadata {
   const string experiment_name_;
   const string run_name_;
   const string user_name_;
-  int64 experiment_id_ TF_GUARDED_BY(mu_) = kAbsent;
-  int64 run_id_ TF_GUARDED_BY(mu_) = kAbsent;
-  int64 user_id_ TF_GUARDED_BY(mu_) = kAbsent;
+  int64_t experiment_id_ TF_GUARDED_BY(mu_) = kAbsent;
+  int64_t run_id_ TF_GUARDED_BY(mu_) = kAbsent;
+  int64_t user_id_ TF_GUARDED_BY(mu_) = kAbsent;
   double experiment_started_time_ TF_GUARDED_BY(mu_) = 0.0;
   double run_started_time_ TF_GUARDED_BY(mu_) = 0.0;
-  std::unordered_map<string, int64> tag_ids_ TF_GUARDED_BY(mu_);
+  std::unordered_map<string, int64_t> tag_ids_ TF_GUARDED_BY(mu_);
 
   TF_DISALLOW_COPY_AND_ASSIGN(RunMetadata);
 };
@@ -671,7 +671,7 @@ class SeriesWriter {
       TF_RETURN_IF_ERROR(txn.Commit());
       rowids_.clear();
     }
-    return Status::OK();
+    return OkStatus();
   }
 
  private:
@@ -715,7 +715,7 @@ class SeriesWriter {
     stmt.BindBlobUnsafe(5, data);
     stmt.BindInt(6, rowid);
     TF_RETURN_IF_ERROR(stmt.StepAndReset());
-    return Status::OK();
+    return OkStatus();
   }
 
   Status UpdateNdString(Sqlite* db, const Tensor& t, int64_t tensor_rowid)
@@ -745,7 +745,7 @@ class SeriesWriter {
       inserter.BindBlobUnsafe(3, flat(i));
       TF_RETURN_WITH_CONTEXT_IF_ERROR(inserter.StepAndReset(), "i=", i);
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   Status Reserve(Sqlite* db, const Tensor& t) SQLITE_TRANSACTIONS_EXCLUDED(*db)
@@ -768,7 +768,7 @@ class SeriesWriter {
       SQLITE_EXCLUSIVE_TRANSACTIONS_REQUIRED(*db)
           TF_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     int64_t space =
-        static_cast<int64>(static_cast<double>(size) * kReserveMultiplier);
+        static_cast<int64_t>(static_cast<double>(size) * kReserveMultiplier);
     if (space < kReserveMinBytes) space = kReserveMinBytes;
     return ReserveTensors(db, txn, space);
   }
@@ -796,7 +796,7 @@ class SeriesWriter {
       unflushed_bytes_ += reserved_bytes;
       TF_RETURN_IF_ERROR(MaybeFlush(db, txn));
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   Status MaybeFlush(Sqlite* db, SqliteTransaction* txn)
@@ -807,14 +807,14 @@ class SeriesWriter {
                                       unflushed_bytes_, " bytes");
       unflushed_bytes_ = 0;
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   mutex mu_;
-  const int64 series_;
+  const int64_t series_;
   RunMetadata* const meta_;
   uint64 count_ TF_GUARDED_BY(mu_) = 0;
-  std::deque<int64> rowids_ TF_GUARDED_BY(mu_);
+  std::deque<int64_t> rowids_ TF_GUARDED_BY(mu_);
   uint64 unflushed_bytes_ TF_GUARDED_BY(mu_) = 0;
 
   TF_DISALLOW_COPY_AND_ASSIGN(SeriesWriter);
@@ -841,14 +841,14 @@ class RunWriter {
   Status Finish(Sqlite* db) SQLITE_TRANSACTIONS_EXCLUDED(*db)
       TF_LOCKS_EXCLUDED(mu_) {
     mutex_lock lock(mu_);
-    if (series_writers_.empty()) return Status::OK();
+    if (series_writers_.empty()) return OkStatus();
     for (auto i = series_writers_.begin(); i != series_writers_.end(); ++i) {
       if (!i->second) continue;
       TF_RETURN_WITH_CONTEXT_IF_ERROR(i->second->Finish(db),
                                       "finish tag_id=", i->first);
       i->second.reset();
     }
-    return Status::OK();
+    return OkStatus();
   }
 
  private:
@@ -866,7 +866,7 @@ class RunWriter {
 
   mutex mu_;
   RunMetadata* const meta_;
-  std::unordered_map<int64, std::unique_ptr<SeriesWriter>> series_writers_
+  std::unordered_map<int64_t, std::unique_ptr<SeriesWriter>> series_writers_
       TF_GUARDED_BY(mu_);
 
   TF_DISALLOW_COPY_AND_ASSIGN(RunWriter);
@@ -914,7 +914,7 @@ class SummaryDbWriter : public SummaryWriterInterface {
     }
   }
 
-  Status Flush() override { return Status::OK(); }
+  Status Flush() override { return OkStatus(); }
 
   Status WriteTensor(int64_t global_step, Tensor t, const string& tag,
                      const string& serialized_metadata) override {
@@ -990,7 +990,7 @@ class SummaryDbWriter : public SummaryWriterInterface {
         run_.Append(db_, tag_id, step, now, computed_time, t),
         meta_.user_name(), "/", meta_.experiment_name(), "/", meta_.run_name(),
         "/", tag, "@", step);
-    return Status::OK();
+    return OkStatus();
   }
 
   Status MigrateEvent(std::unique_ptr<Event> e) {
@@ -1017,7 +1017,7 @@ class SummaryDbWriter : public SummaryWriterInterface {
         // TODO(@jart): Handle other stuff.
         break;
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   Status MigrateGraph(const Event* e, const string& graph_def) {
@@ -1049,7 +1049,7 @@ class SummaryDbWriter : public SummaryWriterInterface {
       default:
         break;
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   Status MigrateTensor(const Event* e, Summary::Value* s, uint64 now) {
@@ -1146,7 +1146,7 @@ Status CreateSummaryDbWriter(Sqlite* db, const string& experiment_name,
                              const string& run_name, const string& user_name,
                              Env* env, SummaryWriterInterface** result) {
   *result = new SummaryDbWriter(env, db, experiment_name, run_name, user_name);
-  return Status::OK();
+  return OkStatus();
 }
 
 }  // namespace tensorflow

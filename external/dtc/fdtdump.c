@@ -18,10 +18,10 @@
 #include "util.h"
 
 #define FDT_MAGIC_SIZE	4
-#define MAX_VERSION 17
+#define MAX_VERSION 17U
 
 #define ALIGN(x, a)	(((x) + ((a) - 1)) & ~((a) - 1))
-#define PALIGN(p, a)	((void *)(ALIGN((unsigned long)(p), (a))))
+#define PALIGN(p, a)	((void *)(ALIGN((uintptr_t)(p), (a))))
 #define GET_CELL(p)	(p += 4, *((const fdt32_t *)(p-4)))
 
 static const char *tagname(uint32_t tag)
@@ -163,7 +163,7 @@ static const char * const usage_opts_help[] = {
 	USAGE_COMMON_OPTS_HELP
 };
 
-static bool valid_header(char *p, off_t len)
+static bool valid_header(char *p, size_t len)
 {
 	if (len < sizeof(struct fdt_header) ||
 	    fdt_magic(p) != FDT_MAGIC ||
@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 		char *p = buf;
 		char *endp = buf + len;
 
-		fdt_set_magic(smagic, FDT_MAGIC);
+		fdt32_st(smagic, FDT_MAGIC);
 
 		/* poor man's memmem */
 		while ((endp - p) >= FDT_MAGIC_SIZE) {
@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
 			}
 			++p;
 		}
-		if (!p || endp - p < sizeof(struct fdt_header))
+		if (!p || (size_t)(endp - p) < sizeof(struct fdt_header))
 			die("%s: could not locate fdt magic\n", file);
 		printf("%s: found fdt at offset %#tx\n", file, p - buf);
 		buf = p;

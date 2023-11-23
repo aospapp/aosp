@@ -16,16 +16,17 @@
 
 package dagger.internal.codegen.binding;
 
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
 import static dagger.internal.codegen.extension.Optionals.emptiesLast;
 import static java.util.Comparator.comparing;
 
-import dagger.internal.codegen.langmodel.DaggerElements;
-import dagger.model.BindingKind;
-import dagger.model.Key;
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XTypeElement;
+import dagger.internal.codegen.xprocessing.XElements;
+import dagger.spi.model.BindingKind;
+import dagger.spi.model.Key;
 import java.util.Comparator;
 import java.util.Optional;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
 
 /** An object that declares or specifies a binding. */
 public abstract class BindingDeclaration {
@@ -48,18 +49,18 @@ public abstract class BindingDeclaration {
                   declaration.contributingModule().isPresent()
                       ? declaration.contributingModule()
                       : declaration.bindingTypeElement(),
-              emptiesLast(comparing((TypeElement type) -> type.getQualifiedName().toString())))
+              emptiesLast(comparing(XTypeElement::getQualifiedName)))
           .thenComparing(
               (BindingDeclaration declaration) -> declaration.bindingElement(),
               emptiesLast(
-                  comparing((Element element) -> element.getSimpleName().toString())
-                      .thenComparing((Element element) -> element.asType().toString())));
+                  comparing((XElement element) -> toJavac(element).getSimpleName().toString())
+                      .thenComparing((XElement element) -> toJavac(element).asType().toString())));
 
   /** The {@link Key} of this declaration. */
   public abstract Key key();
 
   /**
-   * The {@link Element} that declares this binding. Absent for {@linkplain BindingKind binding
+   * The {@link XElement} that declares this binding. Absent for {@linkplain BindingKind binding
    * kinds} that are not always declared by exactly one element.
    *
    * <p>For example, consider {@link BindingKind#MULTIBOUND_SET}. A component with many
@@ -68,14 +69,14 @@ public abstract class BindingDeclaration {
    * contribute a synthetic binding, but since multiple {@code @Multibinds} methods can coexist in
    * the same component (and contribute to one single binding), it has no binding element.
    */
-  public abstract Optional<Element> bindingElement();
+  public abstract Optional<XElement> bindingElement();
 
   /**
    * The type enclosing the {@link #bindingElement()}, or {@link Optional#empty()} if {@link
    * #bindingElement()} is empty.
    */
-  public final Optional<TypeElement> bindingTypeElement() {
-    return bindingElement().map(DaggerElements::closestEnclosingTypeElement);
+  public final Optional<XTypeElement> bindingTypeElement() {
+    return bindingElement().map(XElements::closestEnclosingTypeElement);
   }
 
   /**
@@ -83,5 +84,5 @@ public abstract class BindingDeclaration {
    * the class that contains {@link #bindingElement()}. Absent if {@link #bindingElement()} is
    * empty.
    */
-  public abstract Optional<TypeElement> contributingModule();
+  public abstract Optional<XTypeElement> contributingModule();
 }

@@ -16,6 +16,7 @@ package {
 // default license using the 'licenses: [...]' property on targets as needed.
 //
 // For unused files, consider creating a 'fileGroup' with "//visibility:private"
+
 // to attach the license to, and including a comment whether the files may be
 // used in the current project.
 //
@@ -42,7 +43,7 @@ rust_library {
     host_supported: true,
     crate_name: "der_parser",
     cargo_env_compat: true,
-    cargo_pkg_version: "6.0.0",
+    cargo_pkg_version: "6.0.1",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -57,4 +58,10 @@ rust_library {
         "librusticata_macros",
     ],
     proc_macros: ["libder_oid_macro"],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+    vendor_available: true,
+    product_available: true,
 }

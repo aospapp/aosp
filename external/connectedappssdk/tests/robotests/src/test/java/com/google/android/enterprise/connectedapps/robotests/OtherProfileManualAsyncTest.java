@@ -82,7 +82,7 @@ public class OtherProfileManualAsyncTest {
   @Test
   public void other_async_manualConnection_isBound_callsMethod() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType
         .other()
@@ -94,7 +94,7 @@ public class OtherProfileManualAsyncTest {
   @Test
   public void other_async_manualConnection_isBound_firesCallback() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType
         .other()
@@ -106,7 +106,7 @@ public class OtherProfileManualAsyncTest {
   @Test
   public void other_async_manualConnection_isBound_unbundlesCorrectly() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType
         .other()
@@ -118,7 +118,7 @@ public class OtherProfileManualAsyncTest {
   @Test // This behaviour is expected right now but will change
   public void other_async_manualConnection_isBound_blockingMethod_blocks() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType
         .other()
@@ -131,7 +131,7 @@ public class OtherProfileManualAsyncTest {
   @Test
   public void other_async_manualConnection_isBound_nonBlockingMethod_doesNotBlock() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType
         .other()
@@ -144,7 +144,7 @@ public class OtherProfileManualAsyncTest {
   @Test
   public void other_async_manualConnection_isBound_nonBlockingMethod_doesCallback() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType
         .other()
@@ -182,7 +182,7 @@ public class OtherProfileManualAsyncTest {
   public void
       other_async_manualConnection_connectionIsDroppedDuringCall_setUnavailableProfileException() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     profileTestCrossProfileType
         .other()
         .asyncMethodWhichNeverCallsBack(stringCallbackListener, exceptionCallbackListener);

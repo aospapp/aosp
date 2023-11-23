@@ -12,6 +12,7 @@ PURPOSE = "Verify WP in G3."
 TIME = "SHORT"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """Verify WP in G3.
 

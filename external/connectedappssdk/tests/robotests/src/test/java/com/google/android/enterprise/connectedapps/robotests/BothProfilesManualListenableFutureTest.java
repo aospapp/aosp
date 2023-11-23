@@ -71,15 +71,15 @@ public class BothProfilesManualListenableFutureTest {
     testUtilities.setRunningOnPersonalProfile();
     testUtilities.setRequestsPermissions(INTERACT_ACROSS_USERS);
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
   }
 
   @Test
   public void both_listenableFuture_manualConnection_isBound_calledOnBothProfiles()
       throws ExecutionException, InterruptedException {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType.both().listenableFutureVoidMethod().get();
 
@@ -90,9 +90,9 @@ public class BothProfilesManualListenableFutureTest {
   @Test
   public void both_listenableFuture_manualConnection_isBound_resultContainsBothProfilesResults()
       throws ExecutionException, InterruptedException {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     Map<Profile, String> results =
         profileTestCrossProfileType.both().listenableFutureIdentityStringMethod(STRING).get();
@@ -103,9 +103,9 @@ public class BothProfilesManualListenableFutureTest {
 
   @Test // This behaviour is expected right now but will change
   public void both_listenableFuture_manualConnection_isBound_blockingMethod_blocks() {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     ListenableFuture<Map<Profile, Void>> future =
         profileTestCrossProfileType
@@ -118,7 +118,7 @@ public class BothProfilesManualListenableFutureTest {
   @Test
   public void both_listenableFuture_manualConnection_isBound_nonblockingMethod_doesNotBlock() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     ListenableFuture<Map<Profile, Void>> future =
         profileTestCrossProfileType
@@ -131,7 +131,7 @@ public class BothProfilesManualListenableFutureTest {
   @Test
   public void both_listenableFuture_manualConnection_isBound_nonblockingMethod_doesCallback() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     ListenableFuture<Map<Profile, Void>> future =
         profileTestCrossProfileType
@@ -145,7 +145,7 @@ public class BothProfilesManualListenableFutureTest {
   @Test
   public void both_listenableFuture_manualConnection_isNotBound_calledOnOnlyCurrentProfile()
       throws ExecutionException, InterruptedException {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     testUtilities.turnOffWorkProfile();
 
     profileTestCrossProfileType.both().listenableFutureVoidMethod().get();
@@ -158,7 +158,7 @@ public class BothProfilesManualListenableFutureTest {
   public void
       both_listenableFuture_manualConnection_isNotBound_resultContainsOnlyCurrentProfilesResult()
           throws ExecutionException, InterruptedException {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     testUtilities.turnOffWorkProfile();
 
     Map<Profile, String> results =
@@ -171,7 +171,7 @@ public class BothProfilesManualListenableFutureTest {
   @Test
   public void both_listenableFuture_manualConnection_isBound_becomesUnbound_calledOnBothProfiles() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     ListenableFuture<Map<Profile, Void>> unusedFuture =
         profileTestCrossProfileType
             .both()
@@ -189,7 +189,7 @@ public class BothProfilesManualListenableFutureTest {
   @Test
   public void both_listenableFuture_manualConnection_isBound_becomesUnbound_callbackFires() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     ListenableFuture<Map<Profile, Void>> future =
         profileTestCrossProfileType
             .both()
@@ -203,7 +203,7 @@ public class BothProfilesManualListenableFutureTest {
   @Test
   public void both_listenableFuture_manualConnection_profilesWithExceptionsAreNotIncludedInResults()
       throws ExecutionException, InterruptedException {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     ListenableFuture<Map<Profile, Void>> future =
         profileTestCrossProfileType
             .both()
@@ -216,7 +216,7 @@ public class BothProfilesManualListenableFutureTest {
   public void
       both_listenableFuture_manualConnection_connectionDropsDuringCall_resultContainsOnlyCurrentProfilesResult()
           throws ExecutionException, InterruptedException {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     ListenableFuture<Map<Profile, String>> future =
         profileTestCrossProfileType
             .both()

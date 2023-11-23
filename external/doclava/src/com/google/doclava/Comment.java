@@ -35,6 +35,8 @@ public class Comment {
           "@since",
           //value is an Android API level (set automatically by metalava)
           "@apiSince",
+          // value is "<Android SDK extension> <api-level>" (set automatically by metalava)
+          "@sdkExtSince",
           "@deprecated",
           //value is an Android API level (set automatically by metalava)
           "@deprecatedSince",
@@ -333,6 +335,11 @@ public class Comment {
       mParamTagsList.add(new ParamTagInfo("@param", "@param", text, mBase, pos));
     } else if (name.equals("@apiSince")) {
       setApiSince(text);
+    } else if (name.equals("@sdkExtSince")) {
+      if (getSdkExtSince() != null) {
+        Errors.error(Errors.MULTIPLE_SDK_EXT_INFO, pos, "API symbol has multiple @sdkExtSince javadoc comments");
+      }
+      setSdkExtSince(text);
     } else if (name.equals("@deprecatedSince")) {
       setDeprecatedSince(text);
     } else if (name.equals("@see")) {
@@ -562,6 +569,17 @@ public class Comment {
     return mApiSince;
   }
 
+  public void setSdkExtSince(String sdkextsince) {
+    if (sdkextsince != null) {
+      sdkextsince = sdkextsince.trim();
+    }
+    mSdkExtSince = sdkextsince;
+  }
+
+  public String getSdkExtSince() {
+    return mSdkExtSince;
+  }
+
   public boolean isDocOnly() {
     if (mDocOnly == null) {
       mDocOnly = (mText != null) && (mText.indexOf("@doconly") >= 0);
@@ -639,6 +657,7 @@ public class Comment {
   Boolean mDeprecated = null;
   String mDeprecatedSince;
   String mApiSince;
+  String mSdkExtSince;
   String mText;
   ContainerInfo mBase;
   SourcePositionInfo mPosition;

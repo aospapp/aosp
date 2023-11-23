@@ -1,9 +1,12 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
+from autotest_lib.client.cros.update_engine import nebraska_wrapper
 from autotest_lib.client.cros.update_engine import update_engine_test
 
 class autoupdate_LoginStartUpdateLogout(update_engine_test.UpdateEngineTest):
@@ -15,14 +18,17 @@ class autoupdate_LoginStartUpdateLogout(update_engine_test.UpdateEngineTest):
     """
     version = 1
 
-    def run_once(self, update_url, progress_to_complete, full_payload=True,
+    def run_once(self,
+                 payload_url,
+                 progress_to_complete,
+                 full_payload=True,
                  interrupt_network=False):
         """
         Login, start an update, and logout. If specified, this test will also
         disconnect the internet upon reaching a target update progress,
         wait a while, and reconnect the internet before logging out.
 
-        @param update_url: The omaha url to call.
+        @param payload_url: Payload url to pass to Nebraska.
         @param progress_to_complete: If interrupt_network is
                                      True, the internet will be disconnected
                                      when the update reaches this progress.
@@ -35,21 +41,39 @@ class autoupdate_LoginStartUpdateLogout(update_engine_test.UpdateEngineTest):
 
         """
         # Login as regular user. Start an update. Then Logout
-        with chrome.Chrome(logged_in=True):
-            self._check_for_update(update_url, critical_update=True,
-                                   full_payload=full_payload)
-            if interrupt_network:
-                self._wait_for_progress(progress_to_complete)
-                completed = self._get_update_progress()
-                self._disconnect_reconnect_network_test(update_url)
 
-                if self._is_update_engine_idle():
-                    raise error.TestFail(
-                        'The update was IDLE after interrupt.')
-                if not self._update_continued_where_it_left_off(completed):
-                    raise error.TestFail('The update did not continue where '
-                                         'it left off after interruption.')
+        with nebraska_wrapper.NebraskaWrapper(
+                log_dir=self.resultsdir,
+                payload_url=payload_url,
+                persist_metadata=True) as nebraska:
 
-        # Log in and out with a new user during the update.
-        with chrome.Chrome(logged_in=True, dont_override_profile=False):
-            pass
+            config = {'critical_update': True, 'full_payload': full_payload}
+            nebraska.update_config(**config)
+            update_url = nebraska.get_update_url()
+            # Create a nebraska config, which causes nebraska to start up
+            # before update_engine. This will allow nebraska to be up right
+            # after system startup so it can be used in the reboot
+            # interruption test.
+            nebraska.create_startup_config(**config)
+
+            with chrome.Chrome(logged_in=True):
+                self._check_for_update(update_url)
+                # Wait for the update to start.
+                utils.poll_for_condition(self._is_update_started, timeout=30)
+
+                if interrupt_network:
+                    self._wait_for_progress(progress_to_complete)
+                    completed = self._get_update_progress()
+                    self._disconnect_reconnect_network_test()
+
+                    if self._is_update_engine_idle():
+                        raise error.TestFail(
+                                'The update was IDLE after interrupt.')
+                    if not self._update_continued_where_it_left_off(completed):
+                        raise error.TestFail(
+                                'The update did not continue where '
+                                'it left off after interruption.')
+
+            # Log in and out with a new user during the update.
+            with chrome.Chrome(logged_in=True, dont_override_profile=False):
+                pass

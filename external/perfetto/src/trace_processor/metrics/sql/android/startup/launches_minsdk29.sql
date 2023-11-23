@@ -25,12 +25,12 @@ WHERE name = 'MetricsLogger:launchObserverNotifyIntentStarted';
 -- We will refine these progressively in the next steps to only encompass
 -- activity starts.
 DROP TABLE IF EXISTS activity_intent_recv_spans;
-CREATE TABLE activity_intent_recv_spans(id INT, ts BIG INT, dur BIG INT);
+CREATE TABLE activity_intent_recv_spans(id INT, ts BIGINT, dur BIGINT);
 
 INSERT INTO activity_intent_recv_spans
 SELECT
   ROW_NUMBER()
-    OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS id,
+  OVER(ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS id,
   ts,
   LEAD(ts, 1, (SELECT end_ts FROM trace_bounds)) OVER(ORDER BY ts) - ts AS dur
 FROM activity_intent_received
@@ -55,17 +55,18 @@ WHERE name = 'MetricsLogger:launchObserverNotifyActivityLaunchFinished';
 
 -- Use the starting event package name. The finish event package name
 -- is not reliable in the case of failed launches.
-INSERT INTO launches(id, ts, ts_end, dur, package)
+INSERT INTO launches(id, ts, ts_end, dur, package, launch_type)
 SELECT
   lpart.id AS id,
   lpart.ts AS ts,
   launching_events.ts_end AS ts_end,
   launching_events.ts_end - lpart.ts AS dur,
-  package_name AS package
+  package_name AS package,
+  NULL AS launch_type
 FROM launch_partitions AS lpart
 JOIN launching_events ON
-  (launching_events.ts BETWEEN lpart.ts AND lpart.ts + lpart.dur) AND
-  (launching_events.ts_end BETWEEN lpart.ts AND lpart.ts + lpart.dur)
+  (launching_events.ts BETWEEN lpart.ts AND lpart.ts + lpart.dur)
+  AND (launching_events.ts_end BETWEEN lpart.ts AND lpart.ts + lpart.dur)
 WHERE (
   SELECT COUNT(1)
   FROM activity_intent_launch_successful AS successful

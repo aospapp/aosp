@@ -32,7 +32,7 @@ namespace libtextclassifier3 {
 class InstalledAppEngine {
  public:
   explicit InstalledAppEngine(const FeatureProcessor* feature_processor,
-                              const UniLib* unilib) {}
+                              const UniLib* unilib, ModeFlag enabled_modes) {}
 
   bool Initialize(const std::string& serialized_config) {
     TC3_LOG(ERROR) << "No installed app engine to initialize.";
@@ -45,7 +45,7 @@ class InstalledAppEngine {
   }
 
   bool Chunk(const UnicodeText& context_unicode,
-             const std::vector<Token>& tokens,
+             const std::vector<Token>& tokens, ModeFlag mode,
              std::vector<AnnotatedSpan>* result) const {
     return true;
   }

@@ -17,7 +17,7 @@
 */
 
 /**
- * @addtogroup ICU4C
+ * @addtogroup icu4c ICU4C
  * @{
  * \file
  * \brief C API: 8-bit Unicode handling macros

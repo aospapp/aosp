@@ -3,6 +3,10 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+
+#include <cassert>
+
+#include <xnnpack.h>
 #include <xnnpack/aarch32-assembler.h>
 #include <xnnpack/allocator.h>
 #include <xnnpack/igemm.h>
@@ -13,7 +17,7 @@ namespace {
 class Generator : public Assembler {
   using Assembler::Assembler;
  public:
-  void generate(size_t nc, size_t kc, const void* params);
+  void generate(size_t max_mr, size_t nc_mod_nr, size_t kc, const void* params);
 };
 
 
@@ -51,7 +55,12 @@ class Generator : public Assembler {
 // Clamp (r5) d4 d5 d6 d7
 
 // Converted from: src/f32-igemm/4x8-minmax-aarch32-neon-cortex-a55.S
-void Generator::generate(size_t nc, size_t kc, const void* params) {
+void Generator::generate(size_t max_mr, size_t nc_mod_nr, size_t kc, const void* params)
+{
+  assert(nc_mod_nr < 8);
+  assert(kc != 0);
+  assert(kc % sizeof(float) == 0);
+
   Label l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10;
 
   // Push 104 bytes
@@ -391,12 +400,12 @@ void Generator::generate(size_t nc, size_t kc, const void* params) {
   vmla_f32(q14, q6, d3[1]);
   vmla_f32(q15, q7, d3[1]);
 
-  // Is there a remainder?- 1 floats of A (4 bytes)
+  // Is there a remainder?- 1 float of A (4 bytes)
   tst(r5, 4);
   beq(l4);
 
   bind(l6);
-  // Remainder- 1 floats of A (4 bytes)
+  // Remainder- 1 float of A (4 bytes)
   vldm(mem[r3]++, {s0}); // A0
   vldm(mem[r9]++, {d8-d11}); // B0
   vldm(mem[r12]++, {s2}); // A1
@@ -454,10 +463,11 @@ void Generator::generate(size_t nc, size_t kc, const void* params) {
 }  // aarch32
 }  // xnnpack
 
-xnn_status xnn_generate_f32_igemm_ukernel_4x8__aarch32_neon_cortex_a55(xnn_code_buffer* code, size_t nc, size_t kc, size_t ks, const void* params) {
+xnn_status_t xnn_generate_f32_igemm_ukernel_4x8__aarch32_neon_cortex_a55(xnn_code_buffer* code, size_t max_mr, size_t nc_mod_nr, size_t kc, size_t ks, const void* params) {
   using namespace xnnpack::aarch32;
   Generator g(code);
-  g.generate(nc, kc, nullptr);
+  assert(params != nullptr);
+  g.generate(max_mr, nc_mod_nr, kc, nullptr);
   g.finalize();
   if (g.error() != xnnpack::Error::kNoError) {
     return xnn_status_invalid_state;

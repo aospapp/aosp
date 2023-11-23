@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/pin-project-lite
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "pin-project-lite"
 description: "A lightweight version of pin-project written with declarative macros."
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/pin-project-lite/pin-project-lite-0.2.8.crate"
+    value: "https://static.crates.io/crates/pin-project-lite/pin-project-lite-0.2.9.crate"
   }
-  version: "0.2.8"
+  version: "0.2.9"
   license_type: NOTICE
   last_upgrade_date {
     year: 2022
-    month: 3
-    day: 1
+    month: 12
+    day: 13
   }
 }

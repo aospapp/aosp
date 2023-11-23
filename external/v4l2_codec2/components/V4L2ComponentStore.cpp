@@ -37,6 +37,9 @@ std::string getMediaTypeFromComponentName(const std::string& name) {
         name == V4L2ComponentName::kVP9Encoder) {
         return MEDIA_MIMETYPE_VIDEO_VP9;
     }
+    if (name == V4L2ComponentName::kHEVCDecoder || name == V4L2ComponentName::kHEVCSecureDecoder) {
+        return MEDIA_MIMETYPE_VIDEO_HEVC;
+    }
     return "";
 }
 
@@ -118,6 +121,8 @@ std::vector<std::shared_ptr<const C2Component::Traits>> V4L2ComponentStore::list
     ret.push_back(GetTraits(V4L2ComponentName::kVP9Encoder));
     ret.push_back(GetTraits(V4L2ComponentName::kVP9Decoder));
     ret.push_back(GetTraits(V4L2ComponentName::kVP9SecureDecoder));
+    ret.push_back(GetTraits(V4L2ComponentName::kHEVCDecoder));
+    ret.push_back(GetTraits(V4L2ComponentName::kHEVCSecureDecoder));
     return ret;
 }
 

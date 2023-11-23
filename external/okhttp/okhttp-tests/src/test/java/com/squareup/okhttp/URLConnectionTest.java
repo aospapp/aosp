@@ -28,6 +28,7 @@ import com.squareup.okhttp.mockwebserver.MockResponse;
 import com.squareup.okhttp.mockwebserver.MockWebServer;
 import com.squareup.okhttp.mockwebserver.RecordedRequest;
 import com.squareup.okhttp.mockwebserver.SocketPolicy;
+import com.squareup.okhttp.mockwebserver.SocketShutdownListener;
 import com.squareup.okhttp.testing.RecordingHostnameVerifier;
 import java.io.IOException;
 import java.io.InputStream;
@@ -409,8 +410,10 @@ public final class URLConnectionTest {
   }
 
   private void testServerClosesOutput(SocketPolicy socketPolicy) throws Exception {
+    SocketShutdownListener shutdownListener = new SocketShutdownListener();
     server.enqueue(new MockResponse().setBody("This connection won't pool properly")
-        .setSocketPolicy(socketPolicy));
+        .setSocketPolicy(socketPolicy)
+        .setSocketShutdownListener(shutdownListener));
     MockResponse responseAfter = new MockResponse().setBody("This comes after a busted connection");
     server.enqueue(responseAfter);
     server.enqueue(responseAfter); // Enqueue 2x because the broken connection may be reused.
@@ -420,9 +423,7 @@ public final class URLConnectionTest {
     assertContent("This connection won't pool properly", connection1);
     assertEquals(0, server.takeRequest().getSequenceNumber());
 
-    // Give the server time to enact the socket policy if it's one that could happen after the
-    // client has received the response.
-    Thread.sleep(500);
+    shutdownListener.waitForSocketShutdown();
 
     HttpURLConnection connection2 = client.open(server.getUrl("/b"));
     connection2.setReadTimeout(100);
@@ -641,10 +642,12 @@ public final class URLConnectionTest {
    * https://github.com/square/okhttp/issues/515
    */
   @Test public void sslFallbackNotUsedWhenRecycledConnectionFails() throws Exception {
+    SocketShutdownListener shutdownListener = new SocketShutdownListener();
     server.useHttps(sslContext.getSocketFactory(), false);
     server.enqueue(new MockResponse()
         .setBody("abc")
-        .setSocketPolicy(SocketPolicy.DISCONNECT_AT_END));
+        .setSocketPolicy(SocketPolicy.DISCONNECT_AT_END)
+        .setSocketShutdownListener(shutdownListener));
     server.enqueue(new MockResponse().setBody("def"));
 
     suppressTlsFallbackScsv(client.client());
@@ -652,8 +655,7 @@ public final class URLConnectionTest {
 
     assertContent("abc", client.open(server.getUrl("/")));
 
-    // Give the server time to disconnect.
-    Thread.sleep(500);
+    shutdownListener.waitForSocketShutdown();
 
     assertContent("def", client.open(server.getUrl("/")));
 
@@ -1273,9 +1275,11 @@ public final class URLConnectionTest {
   }
 
   @Test public void transparentGzipWorksAfterExceptionRecovery() throws Exception {
+    SocketShutdownListener shutdownListener = new SocketShutdownListener();
     server.enqueue(new MockResponse()
         .setBody("a")
-        .setSocketPolicy(SHUTDOWN_INPUT_AT_END));
+        .setSocketPolicy(SHUTDOWN_INPUT_AT_END)
+        .setSocketShutdownListener(shutdownListener));
     server.enqueue(new MockResponse()
         .addHeader("Content-Encoding: gzip")
         .setBody(gzip("b")));
@@ -1283,8 +1287,7 @@ public final class URLConnectionTest {
     // Seed the pool with a bad connection.
     assertContent("a", client.open(server.getUrl("/")));
 
-    // Give the server time to disconnect.
-    Thread.sleep(500);
+    shutdownListener.waitForSocketShutdown();
 
     // This connection will need to be recovered. When it is, transparent gzip should still work!
     assertContent("b", client.open(server.getUrl("/")));
@@ -2674,14 +2677,16 @@ public final class URLConnectionTest {
 
   private void reusedConnectionFailsWithPost(TransferKind transferKind, int requestSize)
       throws Exception {
-    server.enqueue(new MockResponse().setBody("A").setSocketPolicy(DISCONNECT_AT_END));
+    SocketShutdownListener shutdownListener = new SocketShutdownListener();
+    server.enqueue(new MockResponse().setBody("A")
+            .setSocketPolicy(DISCONNECT_AT_END)
+            .setSocketShutdownListener(shutdownListener));
     server.enqueue(new MockResponse().setBody("B"));
     server.enqueue(new MockResponse().setBody("C"));
 
     assertContent("A", client.open(server.getUrl("/a")));
 
-    // Give the server time to disconnect.
-    Thread.sleep(500);
+    shutdownListener.waitForSocketShutdown();
 
     // If the request body is larger than OkHttp's replay buffer, the failure may still occur.
     byte[] requestBody = new byte[requestSize];

@@ -79,6 +79,9 @@ public class ScopingValidationTest {
             message(
                 "MyComponent (unscoped) may not reference scoped bindings:",
                 "    @Singleton class ScopedType",
+                "    ScopedType is requested at",
+                "        MyComponent.string()",
+                "",
                 "    @Provides @Singleton String ScopedModule.string()"));
   }
 
@@ -236,7 +239,11 @@ public class ScopingValidationTest {
                 "MyComponent scoped with @Singleton "
                     + "may not reference bindings with different scopes:",
                 "    @PerTest class ScopedType",
+                "    ScopedType is requested at",
+                "        MyComponent.string()",
+                "",
                 "    @Provides @PerTest String ScopedModule.string()",
+                "",
                 "    @Provides @Per(MyComponent.class) boolean "
                     + "ScopedModule.bool()"))
         .inFile(componentFile)
@@ -251,7 +258,9 @@ public class ScopingValidationTest {
             message(
                 "ScopedModule contains bindings with different scopes:",
                 "    @Provides @PerTest String ScopedModule.string()",
+                "",
                 "    @Provides @Singleton float ScopedModule.floatingPoint()",
+                "",
                 "    @Provides @Per(MyComponent.class) boolean "
                     + "ScopedModule.bool()"))
         .inFile(moduleFile)

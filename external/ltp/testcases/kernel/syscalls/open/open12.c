@@ -24,7 +24,6 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/mount.h>
 #include <unistd.h>
 #include <mntent.h>
 #include <errno.h>
@@ -90,14 +89,6 @@ static void setup(void)
 	if (tst_path_has_mnt_flags(cleanup, NULL, mount_flags)) {
 		const char *fs_type;
 
-		if ((tst_kvercmp(2, 6, 30)) < 0) {
-			tst_resm(TCONF,
-				"MS_STRICTATIME flags for mount(2) needs kernel 2.6.30 "
-				"or higher");
-			skip_noatime = 1;
-			return;
-		}
-
 		fs_type = tst_dev_fs_type();
 		device = tst_acquire_device(cleanup);
 
@@ -129,7 +120,8 @@ static void test_append(void)
 	}
 
 	len1 = SAFE_LSEEK(cleanup, TEST_RETURN, 0, SEEK_CUR);
-	SAFE_WRITE(cleanup, 1, TEST_RETURN, TEST_FILE, sizeof(TEST_FILE));
+	SAFE_WRITE(cleanup, SAFE_WRITE_ALL, TEST_RETURN, TEST_FILE,
+		sizeof(TEST_FILE));
 	len2 = SAFE_LSEEK(cleanup, TEST_RETURN, 0, SEEK_CUR);
 	SAFE_CLOSE(cleanup, TEST_RETURN);
 
@@ -143,13 +135,6 @@ static void test_noatime(void)
 {
 	char read_buf;
 	struct stat old_stat, new_stat;
-
-	if ((tst_kvercmp(2, 6, 8)) < 0) {
-		tst_resm(TCONF,
-			 "O_NOATIME flags test for open(2) needs kernel 2.6.8 "
-			 "or higher");
-		return;
-	}
 
 	if (skip_noatime) {
 		tst_resm(TCONF,
@@ -183,13 +168,6 @@ static void test_cloexec(void)
 	pid_t pid;
 	int status;
 	char buf[20];
-
-	if ((tst_kvercmp(2, 6, 23)) < 0) {
-		tst_resm(TCONF,
-			 "O_CLOEXEC flags test for open(2) needs kernel 2.6.23 "
-			 "or higher");
-		return;
-	}
 
 	TEST(open(TEST_FILE, O_RDWR | O_APPEND | O_CLOEXEC, 0777));
 
@@ -234,16 +212,17 @@ static void test_cloexec(void)
 static void test_largefile(void)
 {
 	int fd;
-	off64_t offset;
+	off_t offset;
 
 	fd = SAFE_OPEN(cleanup, LARGE_FILE,
 				O_LARGEFILE | O_RDWR | O_CREAT, 0777);
 
-	offset = lseek64(fd, 4.1*1024*1024*1024, SEEK_SET);
+	offset = lseek(fd, 4.1*1024*1024*1024, SEEK_SET);
 	if (offset == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "lseek64 failed");
+		tst_brkm(TBROK | TERRNO, cleanup, "lseek failed");
 
-	SAFE_WRITE(cleanup, 1, fd, LARGE_FILE, sizeof(LARGE_FILE));
+	SAFE_WRITE(cleanup, SAFE_WRITE_ALL, fd, LARGE_FILE,
+		sizeof(LARGE_FILE));
 
 	SAFE_CLOSE(cleanup, fd);
 

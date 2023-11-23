@@ -1,29 +1,31 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::{mem, result};
+use std::mem;
+use std::result;
 
-use base::{self, warn};
-use hypervisor::{Fpu, Register, Regs, Sregs, VcpuX86_64, Vm};
+use base::warn;
+use hypervisor::Register;
+use hypervisor::Sregs;
+use hypervisor::VcpuX86_64;
+use hypervisor::Vm;
 use remain::sorted;
 use thiserror::Error;
-use vm_memory::{GuestAddress, GuestMemory};
+use vm_memory::GuestAddress;
+use vm_memory::GuestMemory;
 
 use crate::gdt;
 
 #[sorted]
 #[derive(Error, Debug)]
 pub enum Error {
-    /// Failed to configure the FPU.
-    #[error("failed to configure the FPU: {0}")]
-    FpuIoctlFailed(base::Error),
     /// Failed to get sregs for this cpu.
     #[error("failed to get sregs for this cpu: {0}")]
     GetSRegsIoctlFailed(base::Error),
-    /// Setting up msrs failed.
-    #[error("setting up msrs failed: {0}")]
-    MsrIoctlFailed(base::Error),
+    /// Failed to get base registers for this cpu.
+    #[error("failed to get base registers for this cpu: {0}")]
+    GettingRegistersIoctl(base::Error),
     /// Failed to set sregs for this cpu.
     #[error("failed to set sregs for this cpu: {0}")]
     SetSRegsIoctlFailed(base::Error),
@@ -93,34 +95,45 @@ fn get_mtrr_pairs(base: u64, len: u64) -> Vec<(u64, u64)> {
     vecs
 }
 
-fn append_mtrr_entries(
-    vm: &dyn Vm,
-    vpu: &dyn VcpuX86_64,
-    pci_start: u64,
-    entries: &mut Vec<Register>,
-) {
+/// Returns the number of variable MTRR entries supported by `vcpu`.
+pub fn vcpu_supported_variable_mtrrs(vcpu: &dyn VcpuX86_64) -> usize {
     // Get VAR MTRR num from MSR_MTRRcap
     let mut msrs = vec![Register {
         id: crate::msr_index::MSR_MTRRcap,
         ..Default::default()
     }];
-    if vpu.get_msrs(&mut msrs).is_err() {
+    if vcpu.get_msrs(&mut msrs).is_err() {
         warn!("get msrs fail, guest with pass through device may be very slow");
-        return;
+        0
+    } else {
+        (msrs[0].value & VAR_MTRR_NUM_MASK) as usize
     }
-    let var_num = msrs[0].value & VAR_MTRR_NUM_MASK;
+}
 
+/// Returns `true` if the given MSR `id` is a MTRR entry.
+pub fn is_mtrr_msr(id: u32) -> bool {
+    // Variable MTRR MSRs are pairs starting at 0x200 (MTRR_PHYS_BASE_MSR) / 0x201
+    // (MTRR_PHYS_MASK_MSR) and extending up to 0xFF pairs at most.
+    (id >= MTRR_PHYS_BASE_MSR && id <= MTRR_PHYS_BASE_MSR + 2 * VAR_MTRR_NUM_MASK as u32)
+        || id == crate::msr_index::MSR_MTRRdefType
+}
+
+/// Returns the count of variable MTRR entries specified by the list of `msrs`.
+pub fn count_variable_mtrrs(msrs: &[Register]) -> usize {
+    // Each variable MTRR takes up two MSRs (base + mask), so divide by 2. This will also count the
+    // MTRRdefType entry, but that is only one extra and the division truncates, so it won't affect
+    // the final count.
+    msrs.iter().filter(|msr| is_mtrr_msr(msr.id)).count() / 2
+}
+
+/// Returns a set of MSRs containing the MTRR configuration.
+pub fn mtrr_msrs(vm: &dyn Vm, pci_start: u64) -> Vec<Register> {
     // Set pci_start .. 4G as UC
     // all others are set to default WB
     let pci_len = (1 << 32) - pci_start;
     let vecs = get_mtrr_pairs(pci_start, pci_len);
-    if vecs.len() as u64 > var_num {
-        warn!(
-            "mtrr fail for pci mmio, please check pci_start addr,
-              guest with pass through device may be very slow"
-        );
-        return;
-    }
+
+    let mut entries = Vec::new();
 
     let phys_mask: u64 = (1 << vm.get_guest_phys_addr_bits()) - 1;
     for (idx, (base, len)) in vecs.iter().enumerate() {
@@ -140,10 +153,28 @@ fn append_mtrr_entries(
         id: crate::msr_index::MSR_MTRRdefType,
         value: MTRR_ENABLE | MTRR_MEMTYPE_WB as u64,
     });
+    entries
 }
 
-fn create_msr_entries(vm: &dyn Vm, vcpu: &dyn VcpuX86_64, pci_start: u64) -> Vec<Register> {
-    let mut entries = vec![
+/// Returns the default value of MSRs at reset.
+///
+/// Currently only sets IA32_TSC to 0.
+pub fn default_msrs() -> Vec<Register> {
+    vec![
+        Register {
+            id: crate::msr_index::MSR_IA32_TSC,
+            value: 0x0,
+        },
+        Register {
+            id: crate::msr_index::MSR_IA32_MISC_ENABLE,
+            value: crate::msr_index::MSR_IA32_MISC_ENABLE_FAST_STRING as u64,
+        },
+    ]
+}
+
+/// Configure Model specific registers for long (64-bit) mode.
+pub fn long_mode_msrs() -> Vec<Register> {
+    vec![
         Register {
             id: crate::msr_index::MSR_IA32_SYSENTER_CS,
             value: 0x0,
@@ -186,55 +217,7 @@ fn create_msr_entries(vm: &dyn Vm, vcpu: &dyn VcpuX86_64, pci_start: u64) -> Vec
             id: crate::msr_index::MSR_IA32_MISC_ENABLE,
             value: crate::msr_index::MSR_IA32_MISC_ENABLE_FAST_STRING as u64,
         },
-    ];
-    append_mtrr_entries(vm, vcpu, pci_start, &mut entries);
-    entries
-}
-
-/// Configure Model specific registers for x86
-///
-/// # Arguments
-///
-/// * `vcpu` - Structure for the vcpu that holds the vcpu fd.
-pub fn setup_msrs(vm: &dyn Vm, vcpu: &dyn VcpuX86_64, pci_start: u64) -> Result<()> {
-    let msrs = create_msr_entries(vm, vcpu, pci_start);
-    vcpu.set_msrs(&msrs).map_err(Error::MsrIoctlFailed)
-}
-
-/// Configure FPU registers for x86
-///
-/// # Arguments
-///
-/// * `vcpu` - Structure for the vcpu that holds the vcpu fd.
-pub fn setup_fpu(vcpu: &dyn VcpuX86_64) -> Result<()> {
-    let fpu = Fpu {
-        fcw: 0x37f,
-        mxcsr: 0x1f80,
-        ..Default::default()
-    };
-
-    vcpu.set_fpu(&fpu).map_err(Error::FpuIoctlFailed)
-}
-
-/// Configure base registers for x86
-///
-/// # Arguments
-///
-/// * `vcpu` - Structure for the vcpu that holds the vcpu fd.
-/// * `boot_ip` - Starting instruction pointer.
-/// * `boot_sp` - Starting stack pointer.
-/// * `boot_si` - Must point to zero page address per Linux ABI.
-pub fn setup_regs(vcpu: &dyn VcpuX86_64, boot_ip: u64, boot_sp: u64, boot_si: u64) -> Result<()> {
-    let regs = Regs {
-        rflags: 0x0000000000000002u64,
-        rip: boot_ip,
-        rsp: boot_sp,
-        rbp: boot_sp,
-        rsi: boot_si,
-        ..Default::default()
-    };
-
-    vcpu.set_regs(&regs).map_err(Error::SettingRegistersIoctl)
+    ]
 }
 
 const X86_CR0_PE: u64 = 0x1;
@@ -252,9 +235,13 @@ const BOOT_GDT_MAX: usize = 4;
 fn write_gdt_table(table: &[u64], guest_mem: &GuestMemory) -> Result<()> {
     let boot_gdt_addr = GuestAddress(BOOT_GDT_OFFSET);
     for (index, entry) in table.iter().enumerate() {
-        let addr = guest_mem
-            .checked_offset(boot_gdt_addr, (index * mem::size_of::<u64>()) as u64)
+        let addr = boot_gdt_addr
+            .checked_add((index * mem::size_of::<u64>()) as u64)
             .ok_or(Error::WriteGDTFailure)?;
+        if !guest_mem.is_valid_range(addr, mem::size_of::<u64>() as u64) {
+            return Err(Error::WriteGDTFailure);
+        }
+
         guest_mem
             .write_obj_at_addr(*entry, addr)
             .map_err(|_| Error::WriteGDTFailure)?;
@@ -269,7 +256,8 @@ fn write_idt_value(val: u64, guest_mem: &GuestMemory) -> Result<()> {
         .map_err(|_| Error::WriteIDTFailure)
 }
 
-fn configure_segments_and_sregs(mem: &GuestMemory, sregs: &mut Sregs) -> Result<()> {
+/// Configures the GDT, IDT, and segment registers for long mode.
+pub fn configure_segments_and_sregs(mem: &GuestMemory, sregs: &mut Sregs) -> Result<()> {
     let gdt_table: [u64; BOOT_GDT_MAX as usize] = [
         gdt::gdt_entry(0, 0, 0),            // NULL
         gdt::gdt_entry(0xa09b, 0, 0xfffff), // CODE
@@ -305,7 +293,8 @@ fn configure_segments_and_sregs(mem: &GuestMemory, sregs: &mut Sregs) -> Result<
     Ok(())
 }
 
-fn setup_page_tables(mem: &GuestMemory, sregs: &mut Sregs) -> Result<()> {
+/// Configures the system page tables and control registers for long mode with paging.
+pub fn setup_page_tables(mem: &GuestMemory, sregs: &mut Sregs) -> Result<()> {
     // Puts PML4 right after zero page but aligned to 4k.
     let boot_pml4_addr = GuestAddress(0x9000);
     let boot_pdpte_addr = GuestAddress(0xa000);
@@ -332,27 +321,12 @@ fn setup_page_tables(mem: &GuestMemory, sregs: &mut Sregs) -> Result<()> {
     Ok(())
 }
 
-/// Configures the segment registers and system page tables for a given CPU.
-///
-/// # Arguments
-///
-/// * `mem` - The memory that will be passed to the guest.
-/// * `vcpu` - The VCPU to configure registers on.
-pub fn setup_sregs(mem: &GuestMemory, vcpu: &dyn VcpuX86_64) -> Result<()> {
-    let mut sregs = vcpu.get_sregs().map_err(Error::GetSRegsIoctlFailed)?;
-
-    configure_segments_and_sregs(mem, &mut sregs)?;
-    setup_page_tables(mem, &mut sregs)?; // TODO(dgreid) - Can this be done once per system instead?
-
-    vcpu.set_sregs(&sregs).map_err(Error::SetSRegsIoctlFailed)?;
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
+    use vm_memory::GuestAddress;
+    use vm_memory::GuestMemory;
+
     use super::*;
-    use vm_memory::{GuestAddress, GuestMemory};
 
     fn create_guest_mem() -> GuestMemory {
         GuestMemory::new(&[(GuestAddress(0), 0x10000)]).unwrap()
@@ -384,7 +358,7 @@ mod tests {
         assert_eq!(0, sregs.tr.base);
         assert_eq!(0xfffff, sregs.tr.limit);
         assert_eq!(0, sregs.tr.avl);
-        assert_eq!(X86_CR0_PE, sregs.cr0);
+        assert_eq!(X86_CR0_PE, sregs.cr0 & X86_CR0_PE);
         assert_eq!(EFER_LME, sregs.efer);
     }
 
@@ -402,6 +376,6 @@ mod tests {
 
         assert_eq!(0x9000, sregs.cr3);
         assert_eq!(X86_CR4_PAE, sregs.cr4);
-        assert_eq!(X86_CR0_PG, sregs.cr0);
+        assert_eq!(X86_CR0_PG, sregs.cr0 & X86_CR0_PG);
     }
 }

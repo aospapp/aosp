@@ -1,20 +1,20 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import unittest
-import mock
+from unittest import mock
 
 import common
 
 from autotest_lib.server import utils
-from autotest_lib.server.hosts import cros_label
 from autotest_lib.server.hosts.cros_label import BrandCodeLabel
 from autotest_lib.server.hosts.cros_label import Cr50Label
 from autotest_lib.server.hosts.cros_label import Cr50ROKeyidLabel
 from autotest_lib.server.hosts.cros_label import Cr50RWKeyidLabel
 from autotest_lib.server.hosts.cros_label import DeviceSkuLabel
+from autotest_lib.server.hosts.cros_label import AudioConfigLabel
 from autotest_lib.server.hosts.cros_label import AudioLoopbackDongleLabel
 from autotest_lib.server.hosts.cros_label import ChameleonConnectionLabel
 from autotest_lib.server.hosts.cros_label import ChameleonLabel
@@ -243,33 +243,72 @@ class Cr50ROKeyidTests(unittest.TestCase):
         self.assertEqual(Cr50ROKeyidLabel().get(host), [])
 
 
-class HWIDLabelTests(unittest.TestCase):
-    def test_merge_hwid_label_lists_empty(self):
-        self.assertEqual(cros_label.HWIDLabel._merge_hwid_label_lists([], []), [])
+class AudioConfigLabelTests(unittest.TestCase):
+    """Unit tests for AudioConfigLabel"""
 
-    def test_merge_hwid_label_lists_singleton(self):
-        self.assertEqual(cros_label.HWIDLabel._merge_hwid_label_lists([], ["4"]),
-                         ["4"])
-        self.assertEqual(cros_label.HWIDLabel._merge_hwid_label_lists(["7"], []),
-                         ["7"])
+    HAS_NC_BOARD_INI_OUTPUT = """
+    [hotword]
+    pause_at_suspend=1
+    [processing]
+    nc_supported=1
+    hw_echo_ref_disabled=1
+    """
 
-    def test_merge_hwid_label_lists_override(self):
-        self.assertEqual(
-            cros_label.HWIDLabel._merge_hwid_label_lists(old=["7:a"], new=["7:b"]),
-            ["7:b"])
+    NO_NC_BOARD_INI_OUTPUT = """
+    [hotword]
+    pause_at_suspend=1
+    [processing]
+    hw_echo_ref_disabled=1
+    """
 
-    def test_merge_hwid_label_lists_no_override(self):
-        self.assertEqual(
-            cros_label.HWIDLabel._merge_hwid_label_lists(old=["7a"], new=["7b"]),
-            ["7a", "7b"])
+    DISABLED_NC_BOARD_INI_OUTPUT = """
+    [hotword]
+    pause_at_suspend=1
+    [processing]
+    hw_echo_ref_disabled=1
+    nc_supported=0
+    """
 
-    def test_hwid_label_names(self):
-        class HWIDLabelTester(cros_label.HWIDLabel):
-            def get_all_labels(self):
-                return [], []
+    def test_has_noise_cancellation_label_enabled(self):
+        cros_config_cmd = 'cros_config / name'
+        cras_config_cmd = 'cat /etc/cras/HAS_NC/board.ini'
+        host = MockHost([], MockCmd(cros_config_cmd, 0, 'HAS_NC\n'),
+                        MockCmd(cras_config_cmd, 0,
+                                self.HAS_NC_BOARD_INI_OUTPUT))
+        self.assertEqual(AudioConfigLabel().get(host),
+                         ['audio:has_noise_cancellation'])
 
-        item = HWIDLabelTester()
-        self.assertEqual(item._hwid_label_names(), cros_label.HWID_LABELS_FALLBACK)
+    def test_has_noise_cancellation_label_not_exists(self):
+        cros_config_cmd = 'cros_config / name'
+        cras_config_cmd = 'cat /etc/cras/NO_NC/board.ini'
+        host = MockHost([], MockCmd(cros_config_cmd, 0, 'NO_NC\n'),
+                        MockCmd(cras_config_cmd, 0,
+                                self.NO_NC_BOARD_INI_OUTPUT))
+        self.assertEqual(AudioConfigLabel().get(host), [])
+
+    def test_has_noise_cancellation_label_disabled(self):
+        cros_config_cmd = 'cros_config / name'
+        cras_config_cmd = 'cat /etc/cras/DISABLED_NC/board.ini'
+        host = MockHost([], MockCmd(cros_config_cmd, 0, 'DISABLED_NC\n'),
+                        MockCmd(cras_config_cmd, 0,
+                                self.DISABLED_NC_BOARD_INI_OUTPUT))
+        self.assertEqual(AudioConfigLabel().get(host), [])
+
+    def test_has_noise_cancellation_label_fails_cros_config(self):
+        cros_config_cmd = 'cros_config / name'
+        cras_config_cmd = 'cat /etc/cras/HAS_NC/board.ini'
+        host = MockHost([], MockCmd(cros_config_cmd, 1, 'HAS_NC\n'),
+                        MockCmd(cras_config_cmd, 0,
+                                self.HAS_NC_BOARD_INI_OUTPUT))
+        self.assertEqual(AudioConfigLabel().get(host), [])
+
+    def test_has_noise_cancellation_label_fails_cras_config(self):
+        cros_config_cmd = 'cros_config / name'
+        cras_config_cmd = 'cat /etc/cras/HAS_NC/board.ini'
+        host = MockHost([], MockCmd(cros_config_cmd, 0, 'HAS_NC\n'),
+                        MockCmd(cras_config_cmd, 1,
+                                self.HAS_NC_BOARD_INI_OUTPUT))
+        self.assertEqual(AudioConfigLabel().get(host), [])
 
 
 class AudioLoopbackDongleLabelTests(unittest.TestCase):

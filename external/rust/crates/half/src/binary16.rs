@@ -1,17 +1,23 @@
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "bytemuck")]
 use bytemuck::{Pod, Zeroable};
-
 use core::{
     cmp::Ordering,
+    iter::{Product, Sum},
+    num::FpCategory,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
+};
+#[cfg(not(target_arch = "spirv"))]
+use core::{
     fmt::{
         Binary, Debug, Display, Error, Formatter, LowerExp, LowerHex, Octal, UpperExp, UpperHex,
     },
-    num::{FpCategory, ParseFloatError},
+    num::ParseFloatError,
     str::FromStr,
 };
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "zerocopy")]
+use zerocopy::{AsBytes, FromBytes};
 
 pub(crate) mod convert;
 
@@ -21,320 +27,22 @@ pub(crate) mod convert;
 /// This 16-bit floating point type is intended for efficient storage where the full range and
 /// precision of a larger floating point value is not required. Because [`f16`] is primarily for
 /// efficient storage, floating point operations such as addition, multiplication, etc. are not
-/// implemented. Operations should be performed with `f32` or higher-precision types and converted
+/// implemented. Operations should be performed with [`f32`] or higher-precision types and converted
 /// to/from [`f16`] as necessary.
 ///
-/// [`f16`]: struct.f16.html
 /// [`binary16`]: https://en.wikipedia.org/wiki/Half-precision_floating-point_format
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, Default)]
 #[repr(transparent)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "bytemuck", derive(Zeroable, Pod))]
+#[cfg_attr(feature = "zerocopy", derive(AsBytes, FromBytes))]
 pub struct f16(u16);
-
-#[cfg(feature = "num-traits")]
-mod impl_num_traits {
-    use super::f16;
-    use num_traits::{FromPrimitive, ToPrimitive};
-
-    impl ToPrimitive for f16 {
-        fn to_i64(&self) -> Option<i64> {
-            Self::to_f32(*self).to_i64()
-        }
-        fn to_u64(&self) -> Option<u64> {
-            Self::to_f32(*self).to_u64()
-        }
-        fn to_i8(&self) -> Option<i8> {
-            Self::to_f32(*self).to_i8()
-        }
-        fn to_u8(&self) -> Option<u8> {
-            Self::to_f32(*self).to_u8()
-        }
-        fn to_i16(&self) -> Option<i16> {
-            Self::to_f32(*self).to_i16()
-        }
-        fn to_u16(&self) -> Option<u16> {
-            Self::to_f32(*self).to_u16()
-        }
-        fn to_i32(&self) -> Option<i32> {
-            Self::to_f32(*self).to_i32()
-        }
-        fn to_u32(&self) -> Option<u32> {
-            Self::to_f32(*self).to_u32()
-        }
-        fn to_f32(&self) -> Option<f32> {
-            Some(Self::to_f32(*self))
-        }
-        fn to_f64(&self) -> Option<f64> {
-            Some(Self::to_f64(*self))
-        }
-    }
-
-    impl FromPrimitive for f16 {
-        fn from_i64(n: i64) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_u64(n: u64) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_i8(n: i8) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_u8(n: u8) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_i16(n: i16) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_u16(n: u16) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_i32(n: i32) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_u32(n: u32) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_f32(n: f32) -> Option<Self> {
-            n.to_f32().map(|x| Self::from_f32(x))
-        }
-        fn from_f64(n: f64) -> Option<Self> {
-            n.to_f64().map(|x| Self::from_f64(x))
-        }
-    }
-}
-
-#[deprecated(
-    since = "1.4.0",
-    note = "all constants moved to associated constants of [`f16`](../struct.f16.html)"
-)]
-pub mod consts {
-    //! Useful `f16` constants.
-
-    use super::f16;
-
-    /// Approximate number of [`f16`](../struct.f16.html) significant digits in base 10.
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::DIGITS`](../struct.f16.html#associatedconstant.DIGITS)"
-    )]
-    pub const DIGITS: u32 = f16::DIGITS;
-    /// [`f16`](../struct.f16.html)
-    /// [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon) value.
-    ///
-    /// This is the difference between 1.0 and the next largest representable number.
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::EPSILON`](../struct.f16.html#associatedconstant.EPSILON)"
-    )]
-    pub const EPSILON: f16 = f16::EPSILON;
-    /// [`f16`](../struct.f16.html) positive Infinity (+∞).
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::INFINITY`](../struct.f16.html#associatedconstant.INFINITY)"
-    )]
-    pub const INFINITY: f16 = f16::INFINITY;
-    /// Number of [`f16`](../struct.f16.html) significant digits in base 2.
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::MANTISSA_DIGITS`](../struct.f16.html#associatedconstant.MANTISSA_DIGITS)"
-    )]
-    pub const MANTISSA_DIGITS: u32 = f16::MANTISSA_DIGITS;
-    /// Largest finite [`f16`](../struct.f16.html) value.
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::MAX`](../struct.f16.html#associatedconstant.MAX)"
-    )]
-    pub const MAX: f16 = f16::MAX;
-    /// Maximum possible [`f16`](../struct.f16.html) power of 10 exponent.
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::MAX_10_EXP`](../struct.f16.html#associatedconstant.MAX_10_EXP)"
-    )]
-    pub const MAX_10_EXP: i32 = f16::MAX_10_EXP;
-    /// Maximum possible [`f16`](../struct.f16.html) power of 2 exponent.
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::MAX_EXP`](../struct.f16.html#associatedconstant.MAX_EXP)"
-    )]
-    pub const MAX_EXP: i32 = f16::MAX_EXP;
-    /// Smallest finite [`f16`](../struct.f16.html) value.
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::MIN`](../struct.f16.html#associatedconstant.MIN)"
-    )]
-    pub const MIN: f16 = f16::MIN;
-    /// Minimum possible normal [`f16`](../struct.f16.html) power of 10 exponent.
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::MIN_10_EXP`](../struct.f16.html#associatedconstant.MIN_10_EXP)"
-    )]
-    pub const MIN_10_EXP: i32 = f16::MIN_10_EXP;
-    /// One greater than the minimum possible normal [`f16`](../struct.f16.html) power of 2 exponent.
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::MIN_EXP`](../struct.f16.html#associatedconstant.MIN_EXP)"
-    )]
-    pub const MIN_EXP: i32 = f16::MIN_EXP;
-    /// Smallest positive normal [`f16`](../struct.f16.html) value.
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::MIN_POSITIVE`](../struct.f16.html#associatedconstant.MIN_POSITIVE)"
-    )]
-    pub const MIN_POSITIVE: f16 = f16::MIN_POSITIVE;
-    /// [`f16`](../struct.f16.html) Not a Number (NaN).
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::NAN`](../struct.f16.html#associatedconstant.NAN)"
-    )]
-    pub const NAN: f16 = f16::NAN;
-    /// [`f16`](../struct.f16.html) negative infinity (-∞).
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::NEG_INFINITY`](../struct.f16.html#associatedconstant.NEG_INFINITY)"
-    )]
-    pub const NEG_INFINITY: f16 = f16::NEG_INFINITY;
-    /// The radix or base of the internal representation of [`f16`](../struct.f16.html).
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::RADIX`](../struct.f16.html#associatedconstant.RADIX)"
-    )]
-    pub const RADIX: u32 = f16::RADIX;
-
-    /// Minimum positive subnormal [`f16`](../struct.f16.html) value.
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::MIN_POSITIVE_SUBNORMAL`](../struct.f16.html#associatedconstant.MIN_POSITIVE_SUBNORMAL)"
-    )]
-    pub const MIN_POSITIVE_SUBNORMAL: f16 = f16::MIN_POSITIVE_SUBNORMAL;
-    /// Maximum subnormal [`f16`](../struct.f16.html) value.
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::MAX_SUBNORMAL`](../struct.f16.html#associatedconstant.MAX_SUBNORMAL)"
-    )]
-    pub const MAX_SUBNORMAL: f16 = f16::MAX_SUBNORMAL;
-
-    /// [`f16`](../struct.f16.html) 1
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::ONE`](../struct.f16.html#associatedconstant.ONE)"
-    )]
-    pub const ONE: f16 = f16::ONE;
-    /// [`f16`](../struct.f16.html) 0
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::ZERO`](../struct.f16.html#associatedconstant.ZERO)"
-    )]
-    pub const ZERO: f16 = f16::ZERO;
-    /// [`f16`](../struct.f16.html) -0
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::NEG_ZERO`](../struct.f16.html#associatedconstant.NEG_ZERO)"
-    )]
-    pub const NEG_ZERO: f16 = f16::NEG_ZERO;
-
-    /// [`f16`](../struct.f16.html) Euler's number (ℯ).
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::E`](../struct.f16.html#associatedconstant.E)"
-    )]
-    pub const E: f16 = f16::E;
-    /// [`f16`](../struct.f16.html) Archimedes' constant (π).
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::PI`](../struct.f16.html#associatedconstant.PI)"
-    )]
-    pub const PI: f16 = f16::PI;
-    /// [`f16`](../struct.f16.html) 1/π
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::FRAC_1_PI`](../struct.f16.html#associatedconstant.FRAC_1_PI)"
-    )]
-    pub const FRAC_1_PI: f16 = f16::FRAC_1_PI;
-    /// [`f16`](../struct.f16.html) 1/√2
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::FRAC_1_SQRT_2`](../struct.f16.html#associatedconstant.FRAC_1_SQRT_2)"
-    )]
-    pub const FRAC_1_SQRT_2: f16 = f16::FRAC_1_SQRT_2;
-    /// [`f16`](../struct.f16.html) 2/π
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::FRAC_2_PI`](../struct.f16.html#associatedconstant.FRAC_2_PI)"
-    )]
-    pub const FRAC_2_PI: f16 = f16::FRAC_2_PI;
-    /// [`f16`](../struct.f16.html) 2/√π
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::FRAC_2_SQRT_PI`](../struct.f16.html#associatedconstant.FRAC_2_SQRT_PI)"
-    )]
-    pub const FRAC_2_SQRT_PI: f16 = f16::FRAC_2_SQRT_PI;
-    /// [`f16`](../struct.f16.html) π/2
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::FRAC_PI_2`](../struct.f16.html#associatedconstant.FRAC_PI_2)"
-    )]
-    pub const FRAC_PI_2: f16 = f16::FRAC_PI_2;
-    /// [`f16`](../struct.f16.html) π/3
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::FRAC_PI_3`](../struct.f16.html#associatedconstant.FRAC_PI_3)"
-    )]
-    pub const FRAC_PI_3: f16 = f16::FRAC_PI_3;
-    /// [`f16`](../struct.f16.html) π/4
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::FRAC_PI_4`](../struct.f16.html#associatedconstant.FRAC_PI_4)"
-    )]
-    pub const FRAC_PI_4: f16 = f16::FRAC_PI_4;
-    /// [`f16`](../struct.f16.html) π/6
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::FRAC_PI_6`](../struct.f16.html#associatedconstant.FRAC_PI_6)"
-    )]
-    pub const FRAC_PI_6: f16 = f16::FRAC_PI_6;
-    /// [`f16`](../struct.f16.html) π/8
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::FRAC_PI_8`](../struct.f16.html#associatedconstant.FRAC_PI_8)"
-    )]
-    pub const FRAC_PI_8: f16 = f16::FRAC_PI_8;
-    /// [`f16`](../struct.f16.html) 𝗅𝗇 10
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::LN_10`](../struct.f16.html#associatedconstant.LN_10)"
-    )]
-    pub const LN_10: f16 = f16::LN_10;
-    /// [`f16`](../struct.f16.html) 𝗅𝗇 2
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::LN_2`](../struct.f16.html#associatedconstant.LN_2)"
-    )]
-    pub const LN_2: f16 = f16::LN_2;
-    /// [`f16`](../struct.f16.html) 𝗅𝗈𝗀₁₀ℯ
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::LOG10_E`](../struct.f16.html#associatedconstant.LOG10_E)"
-    )]
-    pub const LOG10_E: f16 = f16::LOG10_E;
-    /// [`f16`](../struct.f16.html) 𝗅𝗈𝗀₂ℯ
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::LOG2_E`](../struct.f16.html#associatedconstant.LOG2_E)"
-    )]
-    pub const LOG2_E: f16 = f16::LOG2_E;
-    /// [`f16`](../struct.f16.html) √2
-    #[deprecated(
-        since = "1.4.0",
-        note = "moved to [`f16::SQRT_2`](../struct.f16.html#associatedconstant.SQRT_2)"
-    )]
-    pub const SQRT_2: f16 = f16::SQRT_2;
-}
 
 impl f16 {
     /// Constructs a 16-bit floating point value from the raw bits.
     #[inline]
+    #[must_use]
     pub const fn from_bits(bits: u16) -> f16 {
         f16(bits)
     }
@@ -347,8 +55,26 @@ impl f16 {
     /// or ±0. All other values are truncated and rounded to the nearest representable 16-bit
     /// value.
     #[inline]
+    #[must_use]
     pub fn from_f32(value: f32) -> f16 {
         f16(convert::f32_to_f16(value))
+    }
+
+    /// Constructs a 16-bit floating point value from a 32-bit floating point value.
+    ///
+    /// This function is identical to [`from_f32`][Self::from_f32] except it never uses hardware
+    /// intrinsics, which allows it to be `const`. [`from_f32`][Self::from_f32] should be preferred
+    /// in any non-`const` context.
+    ///
+    /// If the 32-bit value is to large to fit in 16-bits, ±∞ will result. NaN values are
+    /// preserved. 32-bit subnormal values are too tiny to be represented in 16-bits and result in
+    /// ±0. Exponents that underflow the minimum 16-bit exponent will result in 16-bit subnormals
+    /// or ±0. All other values are truncated and rounded to the nearest representable 16-bit
+    /// value.
+    #[inline]
+    #[must_use]
+    pub const fn from_f32_const(value: f32) -> f16 {
+        f16(convert::f32_to_f16_fallback(value))
     }
 
     /// Constructs a 16-bit floating point value from a 64-bit floating point value.
@@ -359,17 +85,36 @@ impl f16 {
     /// or ±0. All other values are truncated and rounded to the nearest representable 16-bit
     /// value.
     #[inline]
+    #[must_use]
     pub fn from_f64(value: f64) -> f16 {
         f16(convert::f64_to_f16(value))
     }
 
-    /// Converts a [`f16`](struct.f16.html) into the underlying bit representation.
+    /// Constructs a 16-bit floating point value from a 64-bit floating point value.
+    ///
+    /// This function is identical to [`from_f64`][Self::from_f64] except it never uses hardware
+    /// intrinsics, which allows it to be `const`. [`from_f64`][Self::from_f64] should be preferred
+    /// in any non-`const` context.
+    ///
+    /// If the 64-bit value is to large to fit in 16-bits, ±∞ will result. NaN values are
+    /// preserved. 64-bit subnormal values are too tiny to be represented in 16-bits and result in
+    /// ±0. Exponents that underflow the minimum 16-bit exponent will result in 16-bit subnormals
+    /// or ±0. All other values are truncated and rounded to the nearest representable 16-bit
+    /// value.
     #[inline]
+    #[must_use]
+    pub const fn from_f64_const(value: f64) -> f16 {
+        f16(convert::f64_to_f16_fallback(value))
+    }
+
+    /// Converts a [`f16`] into the underlying bit representation.
+    #[inline]
+    #[must_use]
     pub const fn to_bits(self) -> u16 {
         self.0
     }
 
-    /// Return the memory representation of the underlying bit representation as a byte array in
+    /// Returns the memory representation of the underlying bit representation as a byte array in
     /// little-endian byte order.
     ///
     /// # Examples
@@ -380,11 +125,12 @@ impl f16 {
     /// assert_eq!(bytes, [0x40, 0x4A]);
     /// ```
     #[inline]
-    pub fn to_le_bytes(self) -> [u8; 2] {
+    #[must_use]
+    pub const fn to_le_bytes(self) -> [u8; 2] {
         self.0.to_le_bytes()
     }
 
-    /// Return the memory representation of the underlying bit representation as a byte array in
+    /// Returns the memory representation of the underlying bit representation as a byte array in
     /// big-endian (network) byte order.
     ///
     /// # Examples
@@ -395,15 +141,17 @@ impl f16 {
     /// assert_eq!(bytes, [0x4A, 0x40]);
     /// ```
     #[inline]
-    pub fn to_be_bytes(self) -> [u8; 2] {
+    #[must_use]
+    pub const fn to_be_bytes(self) -> [u8; 2] {
         self.0.to_be_bytes()
     }
 
-    /// Return the memory representation of the underlying bit representation as a byte array in
+    /// Returns the memory representation of the underlying bit representation as a byte array in
     /// native byte order.
     ///
-    /// As the target platform's native endianness is used, portable code should use `to_be_bytes`
-    /// or `to_le_bytes`, as appropriate, instead.
+    /// As the target platform's native endianness is used, portable code should use
+    /// [`to_be_bytes`][Self::to_be_bytes] or [`to_le_bytes`][Self::to_le_bytes], as appropriate,
+    /// instead.
     ///
     /// # Examples
     ///
@@ -417,11 +165,12 @@ impl f16 {
     /// });
     /// ```
     #[inline]
-    pub fn to_ne_bytes(self) -> [u8; 2] {
+    #[must_use]
+    pub const fn to_ne_bytes(self) -> [u8; 2] {
         self.0.to_ne_bytes()
     }
 
-    /// Create a floating point value from its representation as a byte array in little endian.
+    /// Creates a floating point value from its representation as a byte array in little endian.
     ///
     /// # Examples
     ///
@@ -431,11 +180,12 @@ impl f16 {
     /// assert_eq!(value, f16::from_f32(12.5));
     /// ```
     #[inline]
-    pub fn from_le_bytes(bytes: [u8; 2]) -> f16 {
+    #[must_use]
+    pub const fn from_le_bytes(bytes: [u8; 2]) -> f16 {
         f16::from_bits(u16::from_le_bytes(bytes))
     }
 
-    /// Create a floating point value from its representation as a byte array in big endian.
+    /// Creates a floating point value from its representation as a byte array in big endian.
     ///
     /// # Examples
     ///
@@ -445,14 +195,16 @@ impl f16 {
     /// assert_eq!(value, f16::from_f32(12.5));
     /// ```
     #[inline]
-    pub fn from_be_bytes(bytes: [u8; 2]) -> f16 {
+    #[must_use]
+    pub const fn from_be_bytes(bytes: [u8; 2]) -> f16 {
         f16::from_bits(u16::from_be_bytes(bytes))
     }
 
-    /// Create a floating point value from its representation as a byte array in native endian.
+    /// Creates a floating point value from its representation as a byte array in native endian.
     ///
     /// As the target platform's native endianness is used, portable code likely wants to use
-    /// `from_be_bytes` or `from_le_bytes`, as appropriate instead.
+    /// [`from_be_bytes`][Self::from_be_bytes] or [`from_le_bytes`][Self::from_le_bytes], as
+    /// appropriate instead.
     ///
     /// # Examples
     ///
@@ -466,33 +218,57 @@ impl f16 {
     /// assert_eq!(value, f16::from_f32(12.5));
     /// ```
     #[inline]
-    pub fn from_ne_bytes(bytes: [u8; 2]) -> f16 {
+    #[must_use]
+    pub const fn from_ne_bytes(bytes: [u8; 2]) -> f16 {
         f16::from_bits(u16::from_ne_bytes(bytes))
     }
 
-    /// Converts a [`f16`](struct.f16.html) into the underlying bit representation.
-    #[deprecated(since = "1.2.0", note = "renamed to [`to_bits`](#method.to_bits)")]
-    #[inline]
-    pub fn as_bits(self) -> u16 {
-        self.to_bits()
-    }
-
-    /// Converts a [`f16`](struct.f16.html) value into a `f32` value.
+    /// Converts a [`f16`] value into a `f32` value.
     ///
     /// This conversion is lossless as all 16-bit floating point values can be represented exactly
     /// in 32-bit floating point.
     #[inline]
+    #[must_use]
     pub fn to_f32(self) -> f32 {
         convert::f16_to_f32(self.0)
     }
 
-    /// Converts a [`f16`](struct.f16.html) value into a `f64` value.
+    /// Converts a [`f16`] value into a `f32` value.
+    ///
+    /// This function is identical to [`to_f32`][Self::to_f32] except it never uses hardware
+    /// intrinsics, which allows it to be `const`. [`to_f32`][Self::to_f32] should be preferred
+    /// in any non-`const` context.
+    ///
+    /// This conversion is lossless as all 16-bit floating point values can be represented exactly
+    /// in 32-bit floating point.
+    #[inline]
+    #[must_use]
+    pub const fn to_f32_const(self) -> f32 {
+        convert::f16_to_f32_fallback(self.0)
+    }
+
+    /// Converts a [`f16`] value into a `f64` value.
     ///
     /// This conversion is lossless as all 16-bit floating point values can be represented exactly
     /// in 64-bit floating point.
     #[inline]
+    #[must_use]
     pub fn to_f64(self) -> f64 {
         convert::f16_to_f64(self.0)
+    }
+
+    /// Converts a [`f16`] value into a `f64` value.
+    ///
+    /// This function is identical to [`to_f64`][Self::to_f64] except it never uses hardware
+    /// intrinsics, which allows it to be `const`. [`to_f64`][Self::to_f64] should be preferred
+    /// in any non-`const` context.
+    ///
+    /// This conversion is lossless as all 16-bit floating point values can be represented exactly
+    /// in 64-bit floating point.
+    #[inline]
+    #[must_use]
+    pub const fn to_f64_const(self) -> f64 {
+        convert::f16_to_f64_fallback(self.0)
     }
 
     /// Returns `true` if this value is `NaN` and `false` otherwise.
@@ -509,11 +285,12 @@ impl f16 {
     /// assert!(!f.is_nan());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_nan(self) -> bool {
         self.0 & 0x7FFFu16 > 0x7C00u16
     }
 
-    /// Returns `true` if this value is ±∞ and `false`
+    /// Returns `true` if this value is ±∞ and `false`.
     /// otherwise.
     ///
     /// # Examples
@@ -533,6 +310,7 @@ impl f16 {
     /// assert!(neg_inf.is_infinite());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_infinite(self) -> bool {
         self.0 & 0x7FFFu16 == 0x7C00u16
     }
@@ -556,6 +334,7 @@ impl f16 {
     /// assert!(!neg_inf.is_finite());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_finite(self) -> bool {
         self.0 & 0x7C00u16 != 0x7C00u16
     }
@@ -582,7 +361,8 @@ impl f16 {
     /// assert!(!lower_than_min.is_normal());
     /// ```
     #[inline]
-    pub fn is_normal(self) -> bool {
+    #[must_use]
+    pub const fn is_normal(self) -> bool {
         let exp = self.0 & 0x7C00u16;
         exp != 0x7C00u16 && exp != 0
     }
@@ -604,7 +384,8 @@ impl f16 {
     /// assert_eq!(num.classify(), FpCategory::Normal);
     /// assert_eq!(inf.classify(), FpCategory::Infinite);
     /// ```
-    pub fn classify(self) -> FpCategory {
+    #[must_use]
+    pub const fn classify(self) -> FpCategory {
         let exp = self.0 & 0x7C00u16;
         let man = self.0 & 0x03FFu16;
         match (exp, man) {
@@ -618,9 +399,9 @@ impl f16 {
 
     /// Returns a number that represents the sign of `self`.
     ///
-    /// * `1.0` if the number is positive, `+0.0` or `INFINITY`
-    /// * `-1.0` if the number is negative, `-0.0` or `NEG_INFINITY`
-    /// * `NAN` if the number is `NAN`
+    /// * `1.0` if the number is positive, `+0.0` or [`INFINITY`][f16::INFINITY]
+    /// * `-1.0` if the number is negative, `-0.0` or [`NEG_INFINITY`][f16::NEG_INFINITY]
+    /// * [`NAN`][f16::NAN] if the number is `NaN`
     ///
     /// # Examples
     ///
@@ -634,13 +415,14 @@ impl f16 {
     ///
     /// assert!(f16::NAN.signum().is_nan());
     /// ```
-    pub fn signum(self) -> f16 {
+    #[must_use]
+    pub const fn signum(self) -> f16 {
         if self.is_nan() {
             self
         } else if self.0 & 0x8000u16 != 0 {
-            f16::from_f32(-1.0)
+            Self::NEG_ONE
         } else {
-            f16::from_f32(1.0)
+            Self::ONE
         }
     }
 
@@ -662,6 +444,7 @@ impl f16 {
     /// assert!(nan.is_sign_positive() != nan.is_sign_negative());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_sign_positive(self) -> bool {
         self.0 & 0x8000u16 == 0
     }
@@ -684,89 +467,326 @@ impl f16 {
     /// assert!(nan.is_sign_positive() != nan.is_sign_negative());
     /// ```
     #[inline]
+    #[must_use]
     pub const fn is_sign_negative(self) -> bool {
         self.0 & 0x8000u16 != 0
     }
 
-    /// Approximate number of [`f16`](struct.f16.html) significant digits in base 10.
+    /// Returns a number composed of the magnitude of `self` and the sign of `sign`.
+    ///
+    /// Equal to `self` if the sign of `self` and `sign` are the same, otherwise equal to `-self`.
+    /// If `self` is NaN, then NaN with the sign of `sign` is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use half::prelude::*;
+    /// let f = f16::from_f32(3.5);
+    ///
+    /// assert_eq!(f.copysign(f16::from_f32(0.42)), f16::from_f32(3.5));
+    /// assert_eq!(f.copysign(f16::from_f32(-0.42)), f16::from_f32(-3.5));
+    /// assert_eq!((-f).copysign(f16::from_f32(0.42)), f16::from_f32(3.5));
+    /// assert_eq!((-f).copysign(f16::from_f32(-0.42)), f16::from_f32(-3.5));
+    ///
+    /// assert!(f16::NAN.copysign(f16::from_f32(1.0)).is_nan());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn copysign(self, sign: f16) -> f16 {
+        f16((sign.0 & 0x8000u16) | (self.0 & 0x7FFFu16))
+    }
+
+    /// Returns the maximum of the two numbers.
+    ///
+    /// If one of the arguments is NaN, then the other argument is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use half::prelude::*;
+    /// let x = f16::from_f32(1.0);
+    /// let y = f16::from_f32(2.0);
+    ///
+    /// assert_eq!(x.max(y), y);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn max(self, other: f16) -> f16 {
+        if other > self && !other.is_nan() {
+            other
+        } else {
+            self
+        }
+    }
+
+    /// Returns the minimum of the two numbers.
+    ///
+    /// If one of the arguments is NaN, then the other argument is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use half::prelude::*;
+    /// let x = f16::from_f32(1.0);
+    /// let y = f16::from_f32(2.0);
+    ///
+    /// assert_eq!(x.min(y), x);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn min(self, other: f16) -> f16 {
+        if other < self && !other.is_nan() {
+            other
+        } else {
+            self
+        }
+    }
+
+    /// Restrict a value to a certain interval unless it is NaN.
+    ///
+    /// Returns `max` if `self` is greater than `max`, and `min` if `self` is less than `min`.
+    /// Otherwise this returns `self`.
+    ///
+    /// Note that this function returns NaN if the initial value was NaN as well.
+    ///
+    /// # Panics
+    /// Panics if `min > max`, `min` is NaN, or `max` is NaN.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use half::prelude::*;
+    /// assert!(f16::from_f32(-3.0).clamp(f16::from_f32(-2.0), f16::from_f32(1.0)) == f16::from_f32(-2.0));
+    /// assert!(f16::from_f32(0.0).clamp(f16::from_f32(-2.0), f16::from_f32(1.0)) == f16::from_f32(0.0));
+    /// assert!(f16::from_f32(2.0).clamp(f16::from_f32(-2.0), f16::from_f32(1.0)) == f16::from_f32(1.0));
+    /// assert!(f16::NAN.clamp(f16::from_f32(-2.0), f16::from_f32(1.0)).is_nan());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn clamp(self, min: f16, max: f16) -> f16 {
+        assert!(min <= max);
+        let mut x = self;
+        if x < min {
+            x = min;
+        }
+        if x > max {
+            x = max;
+        }
+        x
+    }
+
+    /// Returns the ordering between `self` and `other`.
+    ///
+    /// Unlike the standard partial comparison between floating point numbers,
+    /// this comparison always produces an ordering in accordance to
+    /// the `totalOrder` predicate as defined in the IEEE 754 (2008 revision)
+    /// floating point standard. The values are ordered in the following sequence:
+    ///
+    /// - negative quiet NaN
+    /// - negative signaling NaN
+    /// - negative infinity
+    /// - negative numbers
+    /// - negative subnormal numbers
+    /// - negative zero
+    /// - positive zero
+    /// - positive subnormal numbers
+    /// - positive numbers
+    /// - positive infinity
+    /// - positive signaling NaN
+    /// - positive quiet NaN.
+    ///
+    /// The ordering established by this function does not always agree with the
+    /// [`PartialOrd`] and [`PartialEq`] implementations of `f16`. For example,
+    /// they consider negative and positive zero equal, while `total_cmp`
+    /// doesn't.
+    ///
+    /// The interpretation of the signaling NaN bit follows the definition in
+    /// the IEEE 754 standard, which may not match the interpretation by some of
+    /// the older, non-conformant (e.g. MIPS) hardware implementations.
+    ///
+    /// # Examples
+    /// ```
+    /// # use half::f16;
+    /// let mut v: Vec<f16> = vec![];
+    /// v.push(f16::ONE);
+    /// v.push(f16::INFINITY);
+    /// v.push(f16::NEG_INFINITY);
+    /// v.push(f16::NAN);
+    /// v.push(f16::MAX_SUBNORMAL);
+    /// v.push(-f16::MAX_SUBNORMAL);
+    /// v.push(f16::ZERO);
+    /// v.push(f16::NEG_ZERO);
+    /// v.push(f16::NEG_ONE);
+    /// v.push(f16::MIN_POSITIVE);
+    ///
+    /// v.sort_by(|a, b| a.total_cmp(&b));
+    ///
+    /// assert!(v
+    ///     .into_iter()
+    ///     .zip(
+    ///         [
+    ///             f16::NEG_INFINITY,
+    ///             f16::NEG_ONE,
+    ///             -f16::MAX_SUBNORMAL,
+    ///             f16::NEG_ZERO,
+    ///             f16::ZERO,
+    ///             f16::MAX_SUBNORMAL,
+    ///             f16::MIN_POSITIVE,
+    ///             f16::ONE,
+    ///             f16::INFINITY,
+    ///             f16::NAN
+    ///         ]
+    ///         .iter()
+    ///     )
+    ///     .all(|(a, b)| a.to_bits() == b.to_bits()));
+    /// ```
+    // Implementation based on: https://doc.rust-lang.org/std/primitive.f32.html#method.total_cmp
+    #[inline]
+    #[must_use]
+    pub fn total_cmp(&self, other: &Self) -> Ordering {
+        let mut left = self.to_bits() as i16;
+        let mut right = other.to_bits() as i16;
+        left ^= (((left >> 15) as u16) >> 1) as i16;
+        right ^= (((right >> 15) as u16) >> 1) as i16;
+        left.cmp(&right)
+    }
+
+    /// Alternate serialize adapter for serializing as a float.
+    ///
+    /// By default, [`f16`] serializes as a newtype of [`u16`]. This is an alternate serialize
+    /// implementation that serializes as an [`f32`] value. It is designed for use with
+    /// `serialize_with` serde attributes. Deserialization from `f32` values is already supported by
+    /// the default deserialize implementation.
+    ///
+    /// # Examples
+    ///
+    /// A demonstration on how to use this adapater:
+    ///
+    /// ```
+    /// use serde::{Serialize, Deserialize};
+    /// use half::f16;
+    ///
+    /// #[derive(Serialize, Deserialize)]
+    /// struct MyStruct {
+    ///     #[serde(serialize_with = "f16::serialize_as_f32")]
+    ///     value: f16 // Will be serialized as f32 instead of u16
+    /// }
+    /// ```
+    #[cfg(feature = "serde")]
+    pub fn serialize_as_f32<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_f32(self.to_f32())
+    }
+
+    /// Alternate serialize adapter for serializing as a string.
+    ///
+    /// By default, [`f16`] serializes as a newtype of [`u16`]. This is an alternate serialize
+    /// implementation that serializes as a string value. It is designed for use with
+    /// `serialize_with` serde attributes. Deserialization from string values is already supported
+    /// by the default deserialize implementation.
+    ///
+    /// # Examples
+    ///
+    /// A demonstration on how to use this adapater:
+    ///
+    /// ```
+    /// use serde::{Serialize, Deserialize};
+    /// use half::f16;
+    ///
+    /// #[derive(Serialize, Deserialize)]
+    /// struct MyStruct {
+    ///     #[serde(serialize_with = "f16::serialize_as_string")]
+    ///     value: f16 // Will be serialized as a string instead of u16
+    /// }
+    /// ```
+    #[cfg(feature = "serde")]
+    pub fn serialize_as_string<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_string())
+    }
+
+    /// Approximate number of [`f16`] significant digits in base 10
     pub const DIGITS: u32 = 3;
-    /// [`f16`](struct.f16.html)
-    /// [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon) value.
+    /// [`f16`]
+    /// [machine epsilon](https://en.wikipedia.org/wiki/Machine_epsilon) value
     ///
     /// This is the difference between 1.0 and the next largest representable number.
     pub const EPSILON: f16 = f16(0x1400u16);
-    /// [`f16`](struct.f16.html) positive Infinity (+∞).
+    /// [`f16`] positive Infinity (+∞)
     pub const INFINITY: f16 = f16(0x7C00u16);
-    /// Number of [`f16`](struct.f16.html) significant digits in base 2.
+    /// Number of [`f16`] significant digits in base 2
     pub const MANTISSA_DIGITS: u32 = 11;
-    /// Largest finite [`f16`](struct.f16.html) value.
+    /// Largest finite [`f16`] value
     pub const MAX: f16 = f16(0x7BFF);
-    /// Maximum possible [`f16`](struct.f16.html) power of 10 exponent.
+    /// Maximum possible [`f16`] power of 10 exponent
     pub const MAX_10_EXP: i32 = 4;
-    /// Maximum possible [`f16`](struct.f16.html) power of 2 exponent.
+    /// Maximum possible [`f16`] power of 2 exponent
     pub const MAX_EXP: i32 = 16;
-    /// Smallest finite [`f16`](struct.f16.html) value.
+    /// Smallest finite [`f16`] value
     pub const MIN: f16 = f16(0xFBFF);
-    /// Minimum possible normal [`f16`](struct.f16.html) power of 10 exponent.
+    /// Minimum possible normal [`f16`] power of 10 exponent
     pub const MIN_10_EXP: i32 = -4;
-    /// One greater than the minimum possible normal [`f16`](struct.f16.html) power of 2 exponent.
+    /// One greater than the minimum possible normal [`f16`] power of 2 exponent
     pub const MIN_EXP: i32 = -13;
-    /// Smallest positive normal [`f16`](struct.f16.html) value.
+    /// Smallest positive normal [`f16`] value
     pub const MIN_POSITIVE: f16 = f16(0x0400u16);
-    /// [`f16`](struct.f16.html) Not a Number (NaN).
+    /// [`f16`] Not a Number (NaN)
     pub const NAN: f16 = f16(0x7E00u16);
-    /// [`f16`](struct.f16.html) negative infinity (-∞).
+    /// [`f16`] negative infinity (-∞)
     pub const NEG_INFINITY: f16 = f16(0xFC00u16);
-    /// The radix or base of the internal representation of [`f16`](struct.f16.html).
+    /// The radix or base of the internal representation of [`f16`]
     pub const RADIX: u32 = 2;
 
-    /// Minimum positive subnormal [`f16`](struct.f16.html) value.
+    /// Minimum positive subnormal [`f16`] value
     pub const MIN_POSITIVE_SUBNORMAL: f16 = f16(0x0001u16);
-    /// Maximum subnormal [`f16`](struct.f16.html) value.
+    /// Maximum subnormal [`f16`] value
     pub const MAX_SUBNORMAL: f16 = f16(0x03FFu16);
 
-    /// [`f16`](struct.f16.html) 1
+    /// [`f16`] 1
     pub const ONE: f16 = f16(0x3C00u16);
-    /// [`f16`](struct.f16.html) 0
+    /// [`f16`] 0
     pub const ZERO: f16 = f16(0x0000u16);
-    /// [`f16`](struct.f16.html) -0
+    /// [`f16`] -0
     pub const NEG_ZERO: f16 = f16(0x8000u16);
+    /// [`f16`] -1
+    pub const NEG_ONE: f16 = f16(0xBC00u16);
 
-    /// [`f16`](struct.f16.html) Euler's number (ℯ).
+    /// [`f16`] Euler's number (ℯ)
     pub const E: f16 = f16(0x4170u16);
-    /// [`f16`](struct.f16.html) Archimedes' constant (π).
+    /// [`f16`] Archimedes' constant (π)
     pub const PI: f16 = f16(0x4248u16);
-    /// [`f16`](struct.f16.html) 1/π
+    /// [`f16`] 1/π
     pub const FRAC_1_PI: f16 = f16(0x3518u16);
-    /// [`f16`](struct.f16.html) 1/√2
+    /// [`f16`] 1/√2
     pub const FRAC_1_SQRT_2: f16 = f16(0x39A8u16);
-    /// [`f16`](struct.f16.html) 2/π
+    /// [`f16`] 2/π
     pub const FRAC_2_PI: f16 = f16(0x3918u16);
-    /// [`f16`](struct.f16.html) 2/√π
+    /// [`f16`] 2/√π
     pub const FRAC_2_SQRT_PI: f16 = f16(0x3C83u16);
-    /// [`f16`](struct.f16.html) π/2
+    /// [`f16`] π/2
     pub const FRAC_PI_2: f16 = f16(0x3E48u16);
-    /// [`f16`](struct.f16.html) π/3
+    /// [`f16`] π/3
     pub const FRAC_PI_3: f16 = f16(0x3C30u16);
-    /// [`f16`](struct.f16.html) π/4
+    /// [`f16`] π/4
     pub const FRAC_PI_4: f16 = f16(0x3A48u16);
-    /// [`f16`](struct.f16.html) π/6
+    /// [`f16`] π/6
     pub const FRAC_PI_6: f16 = f16(0x3830u16);
-    /// [`f16`](struct.f16.html) π/8
+    /// [`f16`] π/8
     pub const FRAC_PI_8: f16 = f16(0x3648u16);
-    /// [`f16`](struct.f16.html) 𝗅𝗇 10
+    /// [`f16`] 𝗅𝗇 10
     pub const LN_10: f16 = f16(0x409Bu16);
-    /// [`f16`](struct.f16.html) 𝗅𝗇 2
+    /// [`f16`] 𝗅𝗇 2
     pub const LN_2: f16 = f16(0x398Cu16);
-    /// [`f16`](struct.f16.html) 𝗅𝗈𝗀₁₀ℯ
+    /// [`f16`] 𝗅𝗈𝗀₁₀ℯ
     pub const LOG10_E: f16 = f16(0x36F3u16);
-    /// [`f16`](struct.f16.html) 𝗅𝗈𝗀₁₀2
+    /// [`f16`] 𝗅𝗈𝗀₁₀2
     pub const LOG10_2: f16 = f16(0x34D1u16);
-    /// [`f16`](struct.f16.html) 𝗅𝗈𝗀₂ℯ
+    /// [`f16`] 𝗅𝗈𝗀₂ℯ
     pub const LOG2_E: f16 = f16(0x3DC5u16);
-    /// [`f16`](struct.f16.html) 𝗅𝗈𝗀₂10
+    /// [`f16`] 𝗅𝗈𝗀₂10
     pub const LOG2_10: f16 = f16(0x42A5u16);
-    /// [`f16`](struct.f16.html) √2
+    /// [`f16`] √2
     pub const SQRT_2: f16 = f16(0x3DA8u16);
 }
 
@@ -899,6 +919,7 @@ impl PartialOrd for f16 {
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl FromStr for f16 {
     type Err = ParseFloatError;
     fn from_str(src: &str) -> Result<f16, ParseFloatError> {
@@ -906,51 +927,407 @@ impl FromStr for f16 {
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl Debug for f16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:?}", self.to_f32())
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl Display for f16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{}", self.to_f32())
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl LowerExp for f16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:e}", self.to_f32())
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl UpperExp for f16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:E}", self.to_f32())
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl Binary for f16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:b}", self.0)
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl Octal for f16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:o}", self.0)
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl LowerHex for f16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:x}", self.0)
     }
 }
 
+#[cfg(not(target_arch = "spirv"))]
 impl UpperHex for f16 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{:X}", self.0)
+    }
+}
+
+impl Neg for f16 {
+    type Output = Self;
+
+    #[inline]
+    fn neg(self) -> Self::Output {
+        Self(self.0 ^ 0x8000)
+    }
+}
+
+impl Neg for &f16 {
+    type Output = <f16 as Neg>::Output;
+
+    #[inline]
+    fn neg(self) -> Self::Output {
+        Neg::neg(*self)
+    }
+}
+
+impl Add for f16 {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::from_f32(Self::to_f32(self) + Self::to_f32(rhs))
+    }
+}
+
+impl Add<&f16> for f16 {
+    type Output = <f16 as Add<f16>>::Output;
+
+    #[inline]
+    fn add(self, rhs: &f16) -> Self::Output {
+        self.add(*rhs)
+    }
+}
+
+impl Add<&f16> for &f16 {
+    type Output = <f16 as Add<f16>>::Output;
+
+    #[inline]
+    fn add(self, rhs: &f16) -> Self::Output {
+        (*self).add(*rhs)
+    }
+}
+
+impl Add<f16> for &f16 {
+    type Output = <f16 as Add<f16>>::Output;
+
+    #[inline]
+    fn add(self, rhs: f16) -> Self::Output {
+        (*self).add(rhs)
+    }
+}
+
+impl AddAssign for f16 {
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        *self = (*self).add(rhs);
+    }
+}
+
+impl AddAssign<&f16> for f16 {
+    #[inline]
+    fn add_assign(&mut self, rhs: &f16) {
+        *self = (*self).add(rhs);
+    }
+}
+
+impl Sub for f16 {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::from_f32(Self::to_f32(self) - Self::to_f32(rhs))
+    }
+}
+
+impl Sub<&f16> for f16 {
+    type Output = <f16 as Sub<f16>>::Output;
+
+    #[inline]
+    fn sub(self, rhs: &f16) -> Self::Output {
+        self.sub(*rhs)
+    }
+}
+
+impl Sub<&f16> for &f16 {
+    type Output = <f16 as Sub<f16>>::Output;
+
+    #[inline]
+    fn sub(self, rhs: &f16) -> Self::Output {
+        (*self).sub(*rhs)
+    }
+}
+
+impl Sub<f16> for &f16 {
+    type Output = <f16 as Sub<f16>>::Output;
+
+    #[inline]
+    fn sub(self, rhs: f16) -> Self::Output {
+        (*self).sub(rhs)
+    }
+}
+
+impl SubAssign for f16 {
+    #[inline]
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = (*self).sub(rhs);
+    }
+}
+
+impl SubAssign<&f16> for f16 {
+    #[inline]
+    fn sub_assign(&mut self, rhs: &f16) {
+        *self = (*self).sub(rhs);
+    }
+}
+
+impl Mul for f16 {
+    type Output = Self;
+
+    #[inline]
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self::from_f32(Self::to_f32(self) * Self::to_f32(rhs))
+    }
+}
+
+impl Mul<&f16> for f16 {
+    type Output = <f16 as Mul<f16>>::Output;
+
+    #[inline]
+    fn mul(self, rhs: &f16) -> Self::Output {
+        self.mul(*rhs)
+    }
+}
+
+impl Mul<&f16> for &f16 {
+    type Output = <f16 as Mul<f16>>::Output;
+
+    #[inline]
+    fn mul(self, rhs: &f16) -> Self::Output {
+        (*self).mul(*rhs)
+    }
+}
+
+impl Mul<f16> for &f16 {
+    type Output = <f16 as Mul<f16>>::Output;
+
+    #[inline]
+    fn mul(self, rhs: f16) -> Self::Output {
+        (*self).mul(rhs)
+    }
+}
+
+impl MulAssign for f16 {
+    #[inline]
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = (*self).mul(rhs);
+    }
+}
+
+impl MulAssign<&f16> for f16 {
+    #[inline]
+    fn mul_assign(&mut self, rhs: &f16) {
+        *self = (*self).mul(rhs);
+    }
+}
+
+impl Div for f16 {
+    type Output = Self;
+
+    #[inline]
+    fn div(self, rhs: Self) -> Self::Output {
+        Self::from_f32(Self::to_f32(self) / Self::to_f32(rhs))
+    }
+}
+
+impl Div<&f16> for f16 {
+    type Output = <f16 as Div<f16>>::Output;
+
+    #[inline]
+    fn div(self, rhs: &f16) -> Self::Output {
+        self.div(*rhs)
+    }
+}
+
+impl Div<&f16> for &f16 {
+    type Output = <f16 as Div<f16>>::Output;
+
+    #[inline]
+    fn div(self, rhs: &f16) -> Self::Output {
+        (*self).div(*rhs)
+    }
+}
+
+impl Div<f16> for &f16 {
+    type Output = <f16 as Div<f16>>::Output;
+
+    #[inline]
+    fn div(self, rhs: f16) -> Self::Output {
+        (*self).div(rhs)
+    }
+}
+
+impl DivAssign for f16 {
+    #[inline]
+    fn div_assign(&mut self, rhs: Self) {
+        *self = (*self).div(rhs);
+    }
+}
+
+impl DivAssign<&f16> for f16 {
+    #[inline]
+    fn div_assign(&mut self, rhs: &f16) {
+        *self = (*self).div(rhs);
+    }
+}
+
+impl Rem for f16 {
+    type Output = Self;
+
+    #[inline]
+    fn rem(self, rhs: Self) -> Self::Output {
+        Self::from_f32(Self::to_f32(self) % Self::to_f32(rhs))
+    }
+}
+
+impl Rem<&f16> for f16 {
+    type Output = <f16 as Rem<f16>>::Output;
+
+    #[inline]
+    fn rem(self, rhs: &f16) -> Self::Output {
+        self.rem(*rhs)
+    }
+}
+
+impl Rem<&f16> for &f16 {
+    type Output = <f16 as Rem<f16>>::Output;
+
+    #[inline]
+    fn rem(self, rhs: &f16) -> Self::Output {
+        (*self).rem(*rhs)
+    }
+}
+
+impl Rem<f16> for &f16 {
+    type Output = <f16 as Rem<f16>>::Output;
+
+    #[inline]
+    fn rem(self, rhs: f16) -> Self::Output {
+        (*self).rem(rhs)
+    }
+}
+
+impl RemAssign for f16 {
+    #[inline]
+    fn rem_assign(&mut self, rhs: Self) {
+        *self = (*self).rem(rhs);
+    }
+}
+
+impl RemAssign<&f16> for f16 {
+    #[inline]
+    fn rem_assign(&mut self, rhs: &f16) {
+        *self = (*self).rem(rhs);
+    }
+}
+
+impl Product for f16 {
+    #[inline]
+    fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
+        f16::from_f32(iter.map(|f| f.to_f32()).product())
+    }
+}
+
+impl<'a> Product<&'a f16> for f16 {
+    #[inline]
+    fn product<I: Iterator<Item = &'a f16>>(iter: I) -> Self {
+        f16::from_f32(iter.map(|f| f.to_f32()).product())
+    }
+}
+
+impl Sum for f16 {
+    #[inline]
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        f16::from_f32(iter.map(|f| f.to_f32()).sum())
+    }
+}
+
+impl<'a> Sum<&'a f16> for f16 {
+    #[inline]
+    fn sum<I: Iterator<Item = &'a f16>>(iter: I) -> Self {
+        f16::from_f32(iter.map(|f| f.to_f32()).product())
+    }
+}
+
+#[cfg(feature = "serde")]
+struct Visitor;
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for f16 {
+    fn deserialize<D>(deserializer: D) -> Result<f16, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        deserializer.deserialize_newtype_struct("f16", Visitor)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::de::Visitor<'de> for Visitor {
+    type Value = f16;
+
+    fn expecting(&self, formatter: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
+        write!(formatter, "tuple struct f16")
+    }
+
+    fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(f16(<u16 as Deserialize>::deserialize(deserializer)?))
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        v.parse().map_err(|_| {
+            serde::de::Error::invalid_value(serde::de::Unexpected::Str(v), &"a float string")
+        })
+    }
+
+    fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(f16::from_f32(v))
+    }
+
+    fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(f16::from_f64(v))
     }
 }
 
@@ -962,9 +1339,42 @@ impl UpperHex for f16 {
 #[cfg(test)]
 mod test {
     use super::*;
-    use core;
     use core::cmp::Ordering;
+    #[cfg(feature = "num-traits")]
+    use num_traits::{AsPrimitive, FromPrimitive, ToPrimitive};
     use quickcheck_macros::quickcheck;
+
+    #[cfg(feature = "num-traits")]
+    #[test]
+    fn as_primitive() {
+        let two = f16::from_f32(2.0);
+        assert_eq!(<i32 as AsPrimitive<f16>>::as_(2), two);
+        assert_eq!(<f16 as AsPrimitive<i32>>::as_(two), 2);
+
+        assert_eq!(<f32 as AsPrimitive<f16>>::as_(2.0), two);
+        assert_eq!(<f16 as AsPrimitive<f32>>::as_(two), 2.0);
+
+        assert_eq!(<f64 as AsPrimitive<f16>>::as_(2.0), two);
+        assert_eq!(<f16 as AsPrimitive<f64>>::as_(two), 2.0);
+    }
+
+    #[cfg(feature = "num-traits")]
+    #[test]
+    fn to_primitive() {
+        let two = f16::from_f32(2.0);
+        assert_eq!(ToPrimitive::to_i32(&two).unwrap(), 2i32);
+        assert_eq!(ToPrimitive::to_f32(&two).unwrap(), 2.0f32);
+        assert_eq!(ToPrimitive::to_f64(&two).unwrap(), 2.0f64);
+    }
+
+    #[cfg(feature = "num-traits")]
+    #[test]
+    fn from_primitive() {
+        let two = f16::from_f32(2.0);
+        assert_eq!(<f16 as FromPrimitive>::from_i32(2).unwrap(), two);
+        assert_eq!(<f16 as FromPrimitive>::from_f32(2.0).unwrap(), two);
+        assert_eq!(<f16 as FromPrimitive>::from_f64(2.0).unwrap(), two);
+    }
 
     #[test]
     fn test_f16_consts() {
@@ -1021,6 +1431,7 @@ mod test {
         let one = f16::from_f32(1.0);
         let zero = f16::from_f32(0.0);
         let neg_zero = f16::from_f32(-0.0);
+        let neg_one = f16::from_f32(-1.0);
         let inf = f16::from_f32(core::f32::INFINITY);
         let neg_inf = f16::from_f32(core::f32::NEG_INFINITY);
         let nan = f16::from_f32(core::f32::NAN);
@@ -1030,6 +1441,8 @@ mod test {
         assert!(zero.is_sign_positive());
         assert_eq!(f16::NEG_ZERO, neg_zero);
         assert!(neg_zero.is_sign_negative());
+        assert_eq!(f16::NEG_ONE, neg_one);
+        assert!(neg_one.is_sign_negative());
         assert_eq!(f16::INFINITY, inf);
         assert_eq!(f16::NEG_INFINITY, neg_inf);
         assert!(nan.is_nan());
@@ -1472,9 +1885,8 @@ mod test {
     }
 
     impl quickcheck::Arbitrary for f16 {
-        fn arbitrary<G: quickcheck::Gen>(g: &mut G) -> Self {
-            use rand::Rng;
-            f16(g.gen())
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            f16(u16::arbitrary(g))
         }
     }
 

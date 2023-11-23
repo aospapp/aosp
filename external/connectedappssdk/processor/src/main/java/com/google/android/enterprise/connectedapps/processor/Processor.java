@@ -30,9 +30,11 @@ import com.google.android.enterprise.connectedapps.annotations.CustomProfileConn
 import com.google.android.enterprise.connectedapps.annotations.CustomUserConnector;
 import com.google.android.enterprise.connectedapps.annotations.GeneratedProfileConnector;
 import com.google.android.enterprise.connectedapps.annotations.GeneratedUserConnector;
+import com.google.android.enterprise.connectedapps.processor.containers.Context;
 import com.google.android.enterprise.connectedapps.processor.containers.FutureWrapper;
 import com.google.android.enterprise.connectedapps.processor.containers.GeneratorContext;
 import com.google.android.enterprise.connectedapps.processor.containers.ParcelableWrapper;
+import com.google.android.enterprise.connectedapps.processor.containers.PreValidatorContext;
 import com.google.android.enterprise.connectedapps.processor.containers.ProfileConnectorInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.UserConnectorInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.ValidatorContext;
@@ -47,7 +49,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.lang.model.SourceVersion;
@@ -55,11 +56,10 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 /** Processor for generation of cross-profile code. */
 @SupportedAnnotationTypes({
+  "com.google.android.enterprise.connectedapps.annotations.Cacheable",
   "com.google.android.enterprise.connectedapps.annotations.CrossProfile",
   "com.google.android.enterprise.connectedapps.annotations.CrossProfileCallback",
   "com.google.android.enterprise.connectedapps.annotations.CrossProfileConfiguration",
@@ -82,8 +82,6 @@ import javax.lang.model.util.Types;
 @AutoService(javax.annotation.processing.Processor.class)
 public final class Processor extends AbstractProcessor {
 
-  private Types types;
-
   @Override
   public SourceVersion getSupportedSourceVersion() {
     return SourceVersion.latest();
@@ -91,27 +89,26 @@ public final class Processor extends AbstractProcessor {
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    Elements elements = processingEnv.getElementUtils();
-    types = processingEnv.getTypeUtils();
+    PreValidatorContext preValidatorContext = new PreValidatorContext(processingEnv);
 
     Collection<ValidatorCrossProfileTestInfo> newCrossProfileTests =
-        findNewCrossProfileTests(roundEnv);
+        findNewCrossProfileTests(preValidatorContext, roundEnv);
     // Only new configurations need code generating - but we need to support types used by methods
     // included in configurations under test
     Collection<ValidatorCrossProfileConfigurationInfo> newConfigurations =
-        findNewConfigurations(roundEnv);
+        findNewConfigurations(preValidatorContext, roundEnv);
     Collection<ValidatorCrossProfileConfigurationInfo> allConfigurations =
-        findAllConfigurations(newConfigurations, newCrossProfileTests);
+        findAllConfigurations(preValidatorContext, newConfigurations, newCrossProfileTests);
 
-    Collection<ValidatorProviderClassInfo> newProviderClasses = findNewProviderClasses(roundEnv);
+    Collection<ValidatorProviderClassInfo> newProviderClasses =
+        findNewProviderClasses(preValidatorContext, roundEnv);
     Collection<ExecutableElement> newProviderMethods = findNewProviderMethods(roundEnv);
     Collection<TypeElement> newGeneratedConnectors = findNewGeneratedConnectors(roundEnv);
     Collection<TypeElement> newGeneratedUserConnectors = findNewGeneratedUserConnectors(roundEnv);
     Collection<ExecutableElement> newCrossProfileMethods = findNewCrossProfileMethods(roundEnv);
     Collection<ExecutableElement> allCrossProfileMethods =
         findAllCrossProfileMethods(
-            processingEnv,
-            elements,
+            preValidatorContext,
             newCrossProfileMethods,
             allConfigurations,
             newProviderMethods,
@@ -132,26 +129,23 @@ public final class Processor extends AbstractProcessor {
     Collection<TypeElement> newCustomFutureWrappers = findNewFutureWrappers(roundEnv);
 
     Collection<FutureWrapper> globalFutureWrappers =
-        FutureWrapper.createGlobalFutureWrappers(elements);
+        FutureWrapper.createGlobalFutureWrappers(preValidatorContext);
     Collection<ParcelableWrapper> globalParcelableWrappers =
-        ParcelableWrapper.createGlobalParcelableWrappers(types, elements, methods);
+        ParcelableWrapper.createGlobalParcelableWrappers(preValidatorContext, methods);
 
     SupportedTypes globalSupportedTypes =
         SupportedTypes.createFromMethods(
-            types, elements, globalParcelableWrappers, globalFutureWrappers, methods);
+            preValidatorContext, globalParcelableWrappers, globalFutureWrappers, methods);
 
     Collection<ValidatorCrossProfileTypeInfo> newCrossProfileTypes =
-        findNewCrossProfileTypes(roundEnv, globalSupportedTypes);
+        findNewCrossProfileTypes(preValidatorContext, roundEnv, globalSupportedTypes);
     Collection<ProfileConnectorInfo> newProfileConnectorInterfaces =
-        findNewProfileConnectorInterfaces(roundEnv, globalSupportedTypes);
+        findNewProfileConnectorInterfaces(preValidatorContext, roundEnv, globalSupportedTypes);
     Collection<UserConnectorInfo> newUserConnectorInterfaces =
-        findNewUserConnectorInterfaces(roundEnv, globalSupportedTypes);
+        findNewUserConnectorInterfaces(preValidatorContext, roundEnv, globalSupportedTypes);
 
     ValidatorContext validatorContext =
-        ValidatorContext.builder()
-            .setProcessingEnv(processingEnv)
-            .setElements(elements)
-            .setTypes(types)
+        ValidatorContext.builderFromPreValidatorContext(preValidatorContext)
             .setGlobalSupportedTypes(globalSupportedTypes)
             .setNewProfileConnectorInterfaces(newProfileConnectorInterfaces)
             .setNewUserConnectorInterfaces(newUserConnectorInterfaces)
@@ -189,27 +183,28 @@ public final class Processor extends AbstractProcessor {
   }
 
   private Collection<ValidatorCrossProfileConfigurationInfo> findNewConfigurations(
-      RoundEnvironment roundEnv) {
+      Context context, RoundEnvironment roundEnv) {
     Set<ValidatorCrossProfileConfigurationInfo> annotations = new HashSet<>();
 
     elementsAnnotatedWithCrossProfileConfiguration(roundEnv)
         .map(
             element ->
                 ValidatorCrossProfileConfigurationInfo.createFromElement(
-                    processingEnv, (TypeElement) element))
+                    context, (TypeElement) element))
         .forEach(annotations::add);
 
     elementsAnnotatedWithCrossProfileConfigurations(roundEnv)
         .map(
             element ->
                 ValidatorCrossProfileConfigurationInfo.createMultipleFromElement(
-                    processingEnv, (TypeElement) element))
+                    context, (TypeElement) element))
         .forEach(annotations::addAll);
 
     return annotations;
   }
 
   private Collection<ValidatorCrossProfileConfigurationInfo> findAllConfigurations(
+      Context context,
       Collection<ValidatorCrossProfileConfigurationInfo> newConfigurations,
       Collection<ValidatorCrossProfileTestInfo> crossProfileTests) {
     Set<ValidatorCrossProfileConfigurationInfo> allConfigurations = new HashSet<>();
@@ -219,18 +214,19 @@ public final class Processor extends AbstractProcessor {
             .flatMap(
                 t ->
                     ValidatorCrossProfileConfigurationInfo.createMultipleFromElement(
-                        processingEnv, t.configurationElement())
+                        context, t.configurationElement())
                         .stream())
             .collect(toSet()));
     return allConfigurations;
   }
 
-  private Collection<ValidatorProviderClassInfo> findNewProviderClasses(RoundEnvironment roundEnv) {
+  private Collection<ValidatorProviderClassInfo> findNewProviderClasses(
+      Context context, RoundEnvironment roundEnv) {
     Set<ValidatorProviderClassInfo> annotatedClasses =
         elementsAnnotatedWithCrossProfileProvider(roundEnv)
             .filter(m -> m instanceof TypeElement)
             .map(m -> (TypeElement) m)
-            .map(m -> ValidatorProviderClassInfo.create(processingEnv, m))
+            .map(m -> ValidatorProviderClassInfo.create(context, m))
             .collect(toSet());
 
     Set<ValidatorProviderClassInfo> unannotatedClasses =
@@ -240,7 +236,7 @@ public final class Processor extends AbstractProcessor {
             .map(Element::getEnclosingElement)
             .map(m -> (TypeElement) m)
             .filter(m -> !hasCrossProfileProviderAnnotation(m))
-            .map(m -> ValidatorProviderClassInfo.create(processingEnv, m))
+            .map(m -> ValidatorProviderClassInfo.create(context, m))
             .collect(toSet());
 
     Collection<ValidatorProviderClassInfo> allProviders = new HashSet<>();
@@ -257,12 +253,12 @@ public final class Processor extends AbstractProcessor {
   }
 
   private Collection<ValidatorCrossProfileTypeInfo> findNewCrossProfileTypes(
-      RoundEnvironment roundEnv, SupportedTypes globalSupportedTypes) {
+      Context context, RoundEnvironment roundEnv, SupportedTypes globalSupportedTypes) {
     Collection<ValidatorCrossProfileTypeInfo> annotatedTypes =
         elementsAnnotatedWithCrossProfile(roundEnv)
             .filter(m -> m instanceof TypeElement)
             .map(m -> (TypeElement) m)
-            .map(m -> ValidatorCrossProfileTypeInfo.create(processingEnv, m, globalSupportedTypes))
+            .map(m -> ValidatorCrossProfileTypeInfo.create(context, m, globalSupportedTypes))
             .collect(toSet());
 
     Collection<ValidatorCrossProfileTypeInfo> unannotatedTypes =
@@ -272,7 +268,7 @@ public final class Processor extends AbstractProcessor {
             .map(ExecutableElement::getEnclosingElement)
             .filter(m -> m instanceof TypeElement)
             .map(m -> (TypeElement) m)
-            .map(m -> ValidatorCrossProfileTypeInfo.create(processingEnv, m, globalSupportedTypes))
+            .map(m -> ValidatorCrossProfileTypeInfo.create(context, m, globalSupportedTypes))
             .collect(toSet());
 
     Collection<ValidatorCrossProfileTypeInfo> allTypes = new HashSet<>();
@@ -289,7 +285,7 @@ public final class Processor extends AbstractProcessor {
   }
 
   private Collection<ProfileConnectorInfo> findNewProfileConnectorInterfaces(
-      RoundEnvironment roundEnv, SupportedTypes globalSupportedTypes) {
+      Context context, RoundEnvironment roundEnv, SupportedTypes globalSupportedTypes) {
     Collection<TypeElement> connectorInterfaces =
         roundEnv.getElementsAnnotatedWith(CustomProfileConnector.class).stream()
             .map(m -> (TypeElement) m)
@@ -302,12 +298,12 @@ public final class Processor extends AbstractProcessor {
             .getTypeElement("com.google.android.enterprise.connectedapps.CrossProfileConnector"));
 
     return connectorInterfaces.stream()
-        .map(t -> ProfileConnectorInfo.create(processingEnv, t, globalSupportedTypes))
+        .map(t -> ProfileConnectorInfo.create(context, t, globalSupportedTypes))
         .collect(Collectors.toSet());
   }
 
   private Collection<UserConnectorInfo> findNewUserConnectorInterfaces(
-      RoundEnvironment roundEnv, SupportedTypes globalSupportedTypes) {
+      Context context, RoundEnvironment roundEnv, SupportedTypes globalSupportedTypes) {
     Collection<TypeElement> connectorInterfaces =
         roundEnv.getElementsAnnotatedWith(CustomUserConnector.class).stream()
             .map(m -> (TypeElement) m)
@@ -320,7 +316,7 @@ public final class Processor extends AbstractProcessor {
             .getTypeElement("com.google.android.enterprise.connectedapps.CrossUserConnector"));
 
     return connectorInterfaces.stream()
-        .map(t -> UserConnectorInfo.create(processingEnv, t, globalSupportedTypes))
+        .map(t -> UserConnectorInfo.create(context, t, globalSupportedTypes))
         .collect(Collectors.toSet());
   }
 
@@ -343,8 +339,7 @@ public final class Processor extends AbstractProcessor {
   }
 
   private static Collection<ExecutableElement> findAllCrossProfileMethods(
-      ProcessingEnvironment processingEnvironment,
-      Elements elements,
+      Context context,
       Collection<ExecutableElement> newCrossProfileMethods,
       Collection<ValidatorCrossProfileConfigurationInfo> configurations,
       Collection<ExecutableElement> newProviderMethods,
@@ -354,7 +349,7 @@ public final class Processor extends AbstractProcessor {
     Collection<ValidatorProviderClassInfo> foundProviderClasses =
         configurations.stream()
             .flatMap(a -> a.providerClassElements().stream())
-            .map(m -> ValidatorProviderClassInfo.create(processingEnvironment, m))
+            .map(m -> ValidatorProviderClassInfo.create(context, m))
             .collect(toSet());
 
     Collection<ExecutableElement> providerMethods =
@@ -370,7 +365,7 @@ public final class Processor extends AbstractProcessor {
 
     Collection<TypeElement> crossProfileTypes =
         providerMethods.stream()
-            .map(e -> elements.getTypeElement(e.getReturnType().toString()))
+            .map(e -> context.elements().getTypeElement(e.getReturnType().toString()))
             .filter(Objects::nonNull)
             .collect(toSet());
     crossProfileTypes.addAll(
@@ -388,10 +383,10 @@ public final class Processor extends AbstractProcessor {
   }
 
   private Collection<ValidatorCrossProfileTestInfo> findNewCrossProfileTests(
-      RoundEnvironment roundEnv) {
+      Context context, RoundEnvironment roundEnv) {
     return elementsAnnotatedWithCrossProfileTest(roundEnv)
         .map(e -> (TypeElement) e)
-        .map(e -> ValidatorCrossProfileTestInfo.create(processingEnv, e))
+        .map(e -> ValidatorCrossProfileTestInfo.create(context, e))
         .collect(toSet());
   }
 

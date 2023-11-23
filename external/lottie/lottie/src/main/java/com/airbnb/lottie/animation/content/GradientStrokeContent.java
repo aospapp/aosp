@@ -7,6 +7,7 @@ import android.graphics.PointF;
 import android.graphics.RadialGradient;
 import android.graphics.RectF;
 import android.graphics.Shader;
+
 import androidx.annotation.Nullable;
 import androidx.collection.LongSparseArray;
 
@@ -164,10 +165,11 @@ public class GradientStrokeContent extends BaseStrokeContent {
   public <T> void addValueCallback(T property, @Nullable LottieValueCallback<T> callback) {
     super.addValueCallback(property, callback);
     if (property == LottieProperty.GRADIENT_COLOR) {
+      if (colorCallbackAnimation != null) {
+        layer.removeAnimation(colorCallbackAnimation);
+      }
+
       if (callback == null) {
-        if (colorCallbackAnimation != null) {
-          layer.removeAnimation(colorCallbackAnimation);
-        }
         colorCallbackAnimation = null;
       } else {
         colorCallbackAnimation = new ValueCallbackKeyframeAnimation<>(callback);

@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as fs from 'fs';
-import * as net from 'net';
-import * as libpng from 'node-libpng';
-import * as path from 'path';
-import * as pixelmatch from 'pixelmatch';
-import * as puppeteer from 'puppeteer';
+import fs from 'fs';
+import net from 'net';
+import path from 'path';
+import pixelmatch from 'pixelmatch';
+import {PNG} from 'pngjs';
+import {Page} from 'puppeteer';
 
 // These constants have been hand selected by comparing the diffs of screenshots
 // between Linux on Mac. Unfortunately font-rendering is platform-specific.
@@ -31,8 +31,7 @@ const DIFF_MAX_PIXELS = 50;
 // - Check that the omnibox is not showing a message.
 // - Check that no redraws are pending in our RAF scheduler.
 // - Check that all the above is satisfied for |minIdleMs| consecutive ms.
-export async function waitForPerfettoIdle(
-    page: puppeteer.Page, minIdleMs?: number) {
+export async function waitForPerfettoIdle(page: Page, minIdleMs?: number) {
   minIdleMs = minIdleMs || 3000;
   const tickMs = 250;
   const timeoutMs = 60000;
@@ -41,13 +40,13 @@ export async function waitForPerfettoIdle(
   let consecutiveIdleTicks = 0;
   let reasons: string[] = [];
   for (let ticks = 0; ticks < timeoutTicks; ticks++) {
-    await new Promise(r => setTimeout(r, tickMs));
+    await new Promise((r) => setTimeout(r, tickMs));
     const isShowingMsg = !!(await page.$('.omnibox.message-mode'));
     const isShowingAnim = !!(await page.$('.progress.progress-anim'));
     const hasPendingRedraws =
         await (
             await page.evaluateHandle('globals.rafScheduler.hasPendingRedraws'))
-            .jsonValue<number>();
+            .jsonValue();
 
     if (isShowingAnim || isShowingMsg || hasPendingRedraws) {
       consecutiveIdleTicks = 0;
@@ -82,24 +81,27 @@ export function getTestTracePath(fname: string): string {
 }
 
 export async function compareScreenshots(
-    actualFilename: string, expectedFilename: string) {
+    reportPath: string, actualFilename: string, expectedFilename: string) {
   if (!fs.existsSync(expectedFilename)) {
     throw new Error(
         `Could not find ${expectedFilename}. Run wih REBASELINE=1.`);
   }
-  const actualImg = await libpng.readPngFile(actualFilename);
-  const expectedImg = await libpng.readPngFile(expectedFilename);
+  const actualImg = PNG.sync.read(fs.readFileSync(actualFilename));
+  const expectedImg = PNG.sync.read(fs.readFileSync(expectedFilename));
   const {width, height} = actualImg;
   expect(width).toEqual(expectedImg.width);
   expect(height).toEqual(expectedImg.height);
-  const diffBuff = Buffer.alloc(actualImg.data.byteLength);
+  const diffPng = new PNG({width, height});
   const diff = await pixelmatch(
-      actualImg.data, expectedImg.data, diffBuff, width, height, {
-        threshold: DIFF_PER_PIXEL_THRESHOLD
+      actualImg.data, expectedImg.data, diffPng.data, width, height, {
+        threshold: DIFF_PER_PIXEL_THRESHOLD,
       });
   if (diff > DIFF_MAX_PIXELS) {
     const diffFilename = actualFilename.replace('.png', '-diff.png');
-    libpng.writePngFile(diffFilename, diffBuff, {width, height});
+    fs.writeFileSync(diffFilename, PNG.sync.write(diffPng));
+    fs.appendFileSync(
+        reportPath,
+        `${path.basename(actualFilename)};${path.basename(diffFilename)}\n`);
     fail(`Diff test failed on ${diffFilename}, delta: ${diff} pixels`);
   }
   return diff;

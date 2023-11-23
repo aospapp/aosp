@@ -23,6 +23,12 @@
       "path": "external/rust/crates/crossbeam-utils"
     },
     {
+      "path": "external/rust/crates/flate2"
+    },
+    {
+      "path": "external/rust/crates/hashbrown"
+    },
+    {
       "path": "external/rust/crates/mio"
     },
     {
@@ -36,58 +42,42 @@
     },
     {
       "path": "external/rust/crates/tokio"
-    }
-  ],
-  "presubmit": [
-    {
-      "name": "ZipFuseTest"
     },
     {
-      "name": "apkdmverity.test"
+      "path": "external/rust/crates/zerocopy"
     },
     {
-      "name": "authfs_device_test_src_lib"
+      "path": "external/uwb/src"
     },
     {
-      "name": "keystore2_test"
+      "path": "packages/modules/Virtualization/apkdmverity"
     },
     {
-      "name": "keystore2_test_utils_test"
+      "path": "packages/modules/Virtualization/authfs"
     },
     {
-      "name": "legacykeystore_test"
+      "path": "packages/modules/Virtualization/avmd"
     },
     {
-      "name": "microdroid_manager_test"
+      "path": "packages/modules/Virtualization/libs/devicemapper"
     },
     {
-      "name": "virtualizationservice_device_test"
-    }
-  ],
-  "presubmit-rust": [
-    {
-      "name": "ZipFuseTest"
+      "path": "packages/modules/Virtualization/microdroid_manager"
     },
     {
-      "name": "apkdmverity.test"
+      "path": "packages/modules/Virtualization/virtualizationmanager"
     },
     {
-      "name": "authfs_device_test_src_lib"
+      "path": "packages/modules/Virtualization/vm"
     },
     {
-      "name": "keystore2_test"
+      "path": "packages/modules/Virtualization/zipfuse"
     },
     {
-      "name": "keystore2_test_utils_test"
+      "path": "system/security/keystore2"
     },
     {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "virtualizationservice_device_test"
+      "path": "system/security/keystore2/legacykeystore"
     }
   ]
 }

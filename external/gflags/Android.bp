@@ -21,8 +21,8 @@ license {
     ],
 }
 
-cc_library {
-    name: "libgflags",
+cc_defaults {
+    name: "gflags_defaults",
     host_supported: true,
     vendor_available: true,
     product_available: true,
@@ -47,10 +47,26 @@ cc_library {
     export_include_dirs: [
         "android",
     ],
+}
+
+cc_library {
+    name: "libgflags",
     static: {
         apex_available: [
             "com.android.gki.*",
             "com.android.virt",
         ],
     },
+    defaults: ["gflags_defaults"],
+}
+
+cc_library_host_static {
+    name: "libgflags_cuttlefish",
+    target: {
+        windows: {
+            enabled: true,
+        },
+    },
+    defaults: ["gflags_defaults"],
+    visibility: ["//device/google/cuttlefish:__subpackages__"],
 }

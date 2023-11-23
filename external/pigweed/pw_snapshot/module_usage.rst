@@ -44,9 +44,9 @@ write a few fields in a snapshot, you can do so with minimal memory overhead.
           snapshot_encoder.GetMetadataEncoder();
       metadata_encoder.WriteReason(EncodeReasonLog(crash_info));
       metadata_encoder.WriteFatal(true);
-      metadata_encoder.WriteProjectName(std::as_bytes(std::span("smart-shoe")));
+      metadata_encoder.WriteProjectName(pw::as_bytes(pw::span("smart-shoe")));
       metadata_encoder.WriteDeviceName(
-          std::as_bytes(std::span("smart-shoe-p1")));
+          pw::as_bytes(pw::span("smart-shoe-p1")));
     }
     return proto_encoder.status();
   }
@@ -135,6 +135,9 @@ optionally be passed to the tool to detokenize applicable fields.
   Stack info
     Stack used:   0x2001b000 - 0x2001ae20 (480 bytes)
     Stack limits: 0x2001b000 - 0x???????? (size unknown)
+  Raw Stack
+  00caadde
+
 
   Thread (RUNNING): Idle
   Est CPU usage: unknown

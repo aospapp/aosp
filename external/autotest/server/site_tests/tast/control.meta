@@ -8,6 +8,7 @@ TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:dev_drone_image_test'
 MAX_RESULT_SIZE_KB = 256 * 1024
+PY_VERSION = 3
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True

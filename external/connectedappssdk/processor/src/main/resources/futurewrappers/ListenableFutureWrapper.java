@@ -75,7 +75,7 @@ public final class ListenableFutureWrapper<E> extends FutureWrapper<E> {
             directExecutor());
   }
 
-  private static class MergerFutureCallback<E> implements FutureCallback<E> {
+  private static final class MergerFutureCallback<E> implements FutureCallback<E> {
 
     private final Profile profileId;
     private final CrossProfileCallbackMultiMerger<E> merger;

@@ -86,7 +86,7 @@ class VgaChameleonScreenCapturer(object):
 
 
 class CrosExternalScreenCapturer(object):
-    """A class to capture the external screen on Chrome OS.
+    """A class to capture the external screen on ChromeOS.
 
     Calling its member method capture() captures the screen.
 
@@ -108,7 +108,7 @@ class CrosExternalScreenCapturer(object):
 
 
 class CrosInternalScreenCapturer(object):
-    """A class to capture the internal screen on Chrome OS.
+    """A class to capture the internal screen on ChromeOS.
 
     Calling its member method capture() captures the screen.
 
@@ -130,7 +130,7 @@ class CrosInternalScreenCapturer(object):
 
 
 class CrosCalibrationImageCapturer(object):
-    """A class to capture the calibration image on Chrome OS.
+    """A class to capture the calibration image on ChromeOS.
 
     Calling its member method capture() captures the image.
 

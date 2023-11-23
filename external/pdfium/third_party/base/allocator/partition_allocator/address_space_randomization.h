@@ -100,6 +100,12 @@ constexpr uintptr_t AslrMask(uintptr_t bits) {
 
       #endif
 
+    #elif defined(ARCH_CPU_RISCV64)
+
+      // RISCV64 on Linux has 39-bit user space.
+      constexpr uintptr_t kASLRMask = AslrMask(38);
+      constexpr uintptr_t kASLROffset = AslrAddress(0x1000000000ULL);
+
     #elif defined(ARCH_CPU_PPC64)
 
       #if defined(OS_AIX)

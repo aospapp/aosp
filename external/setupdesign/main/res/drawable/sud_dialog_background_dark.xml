@@ -19,10 +19,6 @@
      copy from abc_dialog_material_background.xml of
      Base.V7.Theme.AppCompat.Light.Dialog. -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android">
-    android:insetLeft="16dp"
-    android:insetTop="16dp"
-    android:insetRight="16dp"
-    android:insetBottom="16dp">
     <shape android:shape="rectangle">
         <corners android:radius="?attr/dialogCornerRadius" />
         <solid android:color="@color/sud_glif_window_bg_dark_color" />

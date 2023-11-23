@@ -7,7 +7,7 @@ var URLS = new Array();
 
 var ViewGDoc = ('https://docs.google.com/document/d/');
 
-var BBC_AUDIO_URL = 'https://www.bbc.co.uk/radio/player/bbc_world_service';
+var RADIO_AUDIO_URL = 'https://storage.googleapis.com/chromiumos-test-assets-public/power_LoadTest/long_rain.mp3'
 
 var PLAY_MUSIC_URL = 'https://play.google.com/music/listen?u=0#/wst/st/a2be2d85-0ac9-3a7a-b038-e221bb63ef71';
 
@@ -29,7 +29,8 @@ var tasks = [
      'https://news.google.com',
      'https://www.reddit.com',
      'https://www.amazon.com',
-     'https://www.facebook.com/facebook'
+     // b/215156393 Facebook consumes extra cpu power recently, switch to Instgram
+     'https://www.instagram.com/instagram'
     ]
   },
   {
@@ -67,10 +68,7 @@ var tasks = [
     delay: minutes(12),
     timeout: seconds(30),
     focus: false,
-    // Google Play Music requires MP3 decoder for playing music.
-    // Fall back to BBC if the browser does not have MP3 decoder bundle.
-    urls: isMP3DecoderPresent() ? [BBC_AUDIO_URL, BBC_AUDIO_URL] :
-                                  [BBC_AUDIO_URL, BBC_AUDIO_URL]
+    urls: [RADIO_AUDIO_URL, RADIO_AUDIO_URL],
   },
   {
     // After 48 minutes, play with Google Docs for 6 minutes

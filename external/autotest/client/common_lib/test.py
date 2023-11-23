@@ -44,7 +44,7 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils as client_utils
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = client_utils.metrics_mock
 
@@ -88,6 +88,8 @@ class base_test(object):
         # Flag to indicate if the test has succeeded or failed.
         self.success = False
 
+        # Flag to indicate if test results should be gathered when pass.
+        self.collect_full_logs = False
 
     def configure_crash_handler(self):
         pass
@@ -895,10 +897,12 @@ def runtest(job,
 
     try:
         mytest = global_namespace['mytest']
+        if hasattr(job, 'force_full_log_collection'):
+            mytest.force_full_log_collection = job.force_full_log_collection
         if override_test_in_prog_file:
             mytest.test_in_prog_file = override_test_in_prog_file
         mytest.success = False
-        if not job.fast and before_test_hook:
+        if before_test_hook:
             logging.info('Starting before_hook for %s', mytest.tagged_testname)
             with metrics.SecondsTimer(
                     'chromeos/autotest/job/before_hook_duration'):
@@ -915,7 +919,7 @@ def runtest(job,
         mytest.success = True
     finally:
         os.chdir(pwd)
-        if after_test_hook and (not mytest.success or not job.fast):
+        if after_test_hook:
             logging.info('Starting after_hook for %s', mytest.tagged_testname)
             with metrics.SecondsTimer(
                     'chromeos/autotest/job/after_hook_duration'):

@@ -6,59 +6,59 @@ Secure Partition Manager
 Acronyms
 ========
 
-+--------+-----------------------------------+
-| CoT    | Chain of Trust                    |
-+--------+-----------------------------------+
-| DMA    | Direct Memory Access              |
-+--------+-----------------------------------+
-| DTB    | Device Tree Blob                  |
-+--------+-----------------------------------+
-| DTS    | Device Tree Source                |
-+--------+-----------------------------------+
-| EC     | Execution Context                 |
-+--------+-----------------------------------+
-| FIP    | Firmware Image Package            |
-+--------+-----------------------------------+
-| FF-A   | Firmware Framework for Armv8-A    |
-+--------+-----------------------------------+
-| IPA    | Intermediate Physical Address     |
-+--------+-----------------------------------+
-| NWd    | Normal World                      |
-+--------+-----------------------------------+
-| ODM    | Original Design Manufacturer      |
-+--------+-----------------------------------+
-| OEM    | Original Equipment Manufacturer   |
-+--------+-----------------------------------+
-| PA     | Physical Address                  |
-+--------+-----------------------------------+
-| PE     | Processing Element                |
-+--------+-----------------------------------+
-| PM     | Power Management                  |
-+--------+-----------------------------------+
-| PVM    | Primary VM                        |
-+--------+-----------------------------------+
-| SMMU   | System Memory Management Unit     |
-+--------+-----------------------------------+
-| SP     | Secure Partition                  |
-+--------+-----------------------------------+
-| SPD    | Secure Payload Dispatcher         |
-+--------+-----------------------------------+
-| SPM    | Secure Partition Manager          |
-+--------+-----------------------------------+
-| SPMC   | SPM Core                          |
-+--------+-----------------------------------+
-| SPMD   | SPM Dispatcher                    |
-+--------+-----------------------------------+
-| SiP    | Silicon Provider                  |
-+--------+-----------------------------------+
-| SWd    | Secure World                      |
-+--------+-----------------------------------+
-| TLV    | Tag-Length-Value                  |
-+--------+-----------------------------------+
-| TOS    | Trusted Operating System          |
-+--------+-----------------------------------+
-| VM     | Virtual Machine                   |
-+--------+-----------------------------------+
++--------+--------------------------------------+
+| CoT    | Chain of Trust                       |
++--------+--------------------------------------+
+| DMA    | Direct Memory Access                 |
++--------+--------------------------------------+
+| DTB    | Device Tree Blob                     |
++--------+--------------------------------------+
+| DTS    | Device Tree Source                   |
++--------+--------------------------------------+
+| EC     | Execution Context                    |
++--------+--------------------------------------+
+| FIP    | Firmware Image Package               |
++--------+--------------------------------------+
+| FF-A   | Firmware Framework for Arm A-profile |
++--------+--------------------------------------+
+| IPA    | Intermediate Physical Address        |
++--------+--------------------------------------+
+| NWd    | Normal World                         |
++--------+--------------------------------------+
+| ODM    | Original Design Manufacturer         |
++--------+--------------------------------------+
+| OEM    | Original Equipment Manufacturer      |
++--------+--------------------------------------+
+| PA     | Physical Address                     |
++--------+--------------------------------------+
+| PE     | Processing Element                   |
++--------+--------------------------------------+
+| PM     | Power Management                     |
++--------+--------------------------------------+
+| PVM    | Primary VM                           |
++--------+--------------------------------------+
+| SMMU   | System Memory Management Unit        |
++--------+--------------------------------------+
+| SP     | Secure Partition                     |
++--------+--------------------------------------+
+| SPD    | Secure Payload Dispatcher            |
++--------+--------------------------------------+
+| SPM    | Secure Partition Manager             |
++--------+--------------------------------------+
+| SPMC   | SPM Core                             |
++--------+--------------------------------------+
+| SPMD   | SPM Dispatcher                       |
++--------+--------------------------------------+
+| SiP    | Silicon Provider                     |
++--------+--------------------------------------+
+| SWd    | Secure World                         |
++--------+--------------------------------------+
+| TLV    | Tag-Length-Value                     |
++--------+--------------------------------------+
+| TOS    | Trusted Operating System             |
++--------+--------------------------------------+
+| VM     | Virtual Machine                      |
++--------+--------------------------------------+
 
 Foreword
 ========
@@ -414,13 +414,17 @@ SPMC boot
 
 The SPMC is loaded by BL2 as the BL32 image.
 
-The SPMC manifest is loaded by BL2 as the ``TOS_FW_CONFIG`` image.
+The SPMC manifest is loaded by BL2 as the ``TOS_FW_CONFIG`` image `[9]`_.
 
 BL2 passes the SPMC manifest address to BL31 through a register.
 
 At boot time, the SPMD in BL31 runs from the primary core, initializes the core
-contexts and launches the SPMC (BL32) passing the SPMC manifest address through
-a register.
+contexts and launches the SPMC (BL32) passing the following information through
+registers:
+
+- X0 holds the ``TOS_FW_CONFIG`` physical address (or SPMC manifest blob).
+- X1 holds the ``HW_CONFIG`` physical address.
+- X4 holds the currently running core linear id.
 
 Loading of SPs
 ~~~~~~~~~~~~~~
@@ -543,9 +547,8 @@ Primary core boot-up
 Upon boot-up, BL31 hands over to the SPMC (BL32) on the primary boot physical
 core. The SPMC performs its platform initializations and registers the SPMC
 secondary physical core entry point physical address by the use of the
-FFA_SECONDARY_EP_REGISTER interface (SMC invocation from the SPMC to the SPMD
-at secure physical FF-A instance). This interface is implementation-defined in
-context of FF-A v1.0.
+`FFA_SECONDARY_EP_REGISTER`_ interface (SMC invocation from the SPMC to the SPMD
+at secure physical FF-A instance).
 
 The SPMC then creates secure partitions based on SP packages and manifests. Each
 secure partition is launched in sequence (`SP Boot order`_) on their "primary"
@@ -589,6 +592,67 @@ a NWd FF-A driver has been loaded:
 
 Refer to `Power management`_ for further details.
 
+Notifications
+-------------
+
+The FF-A v1.1 specification `[1]`_ defines notifications as an asynchronous
+communication mechanism with non-blocking semantics. It allows for one FF-A
+endpoint to signal another for service provision, without hindering its current
+progress.
+
+Hafnium currently supports 64 notifications. The IDs of each notification define
+a position in a 64-bit bitmap.
+
+The signaling of notifications can interchangeably happen between NWd and SWd
+FF-A endpoints.
+
+The SPMC is in charge of managing notifications from SPs to SPs, from SPs to
+VMs, and from VMs to SPs. An hypervisor component would only manage
+notifications from VMs to VMs. Given the SPMC has no visibility of the endpoints
+deployed in NWd, the Hypervisor or OS kernel must invoke the interface
+FFA_NOTIFICATION_BITMAP_CREATE to allocate the notifications bitmap per FF-A
+endpoint in the NWd that supports it.
+
+A sender can signal notifications once the receiver has provided it with
+permissions. Permissions are provided by invoking the interface
+FFA_NOTIFICATION_BIND.
+
+Notifications are signaled by invoking FFA_NOTIFICATION_SET. Henceforth
+they are considered to be in a pending sate. The receiver can retrieve its
+pending notifications invoking FFA_NOTIFICATION_GET, which, from that moment,
+are considered to be handled.
+
+Per the FF-A v1.1 spec, each FF-A endpoint must be associated with a scheduler
+that is in charge of donating CPU cycles for notifications handling. The
+FF-A driver calls FFA_NOTIFICATION_INFO_GET to retrieve the information about
+which FF-A endpoints have pending notifications. The receiver scheduler is
+called and informed by the FF-A driver, and it should allocate CPU cycles to the
+receiver.
+
+There are two types of notifications supported:
+- Global, which are targeted to a FF-A endpoint and can be handled within any of
+its execution contexts, as determined by the scheduler of the system.
+- Per-vCPU, which are targeted to a FF-A endpoint and to be handled within a
+a specific execution context, as determined by the sender.
+
+The type of a notification is set when invoking FFA_NOTIFICATION_BIND to give
+permissions to the sender.
+
+Notification signaling resorts to two interrupts:
+- Schedule Receiver Interrupt: Non-secure physical interrupt to be handled by
+the FF-A 'transport' driver within the receiver scheduler. At initialization
+the SPMC (as suggested by the spec) configures a secure SGI, as non-secure, and
+triggers it when there are pending notifications, and the respective receivers
+need CPU cycles to handle them.
+- Notifications Pending Interrupt: Virtual Interrupt to be handled by the
+receiver of the notification. Set when there are pending notifications. For
+per-vCPU the NPI is pended at the handling of FFA_NOTIFICATION_SET interface.
+
+The notifications receipt support is enabled in the partition FF-A manifest.
+
+The subsequent section provides more details about the each one of the
+FF-A interfaces for notifications support.
+
 Mandatory interfaces
 --------------------
 
@@ -598,7 +662,7 @@ The following interfaces are exposed to SPs:
 -  ``FFA_FEATURES``
 -  ``FFA_RX_RELEASE``
 -  ``FFA_RXTX_MAP``
--  ``FFA_RXTX_UNMAP`` (not implemented)
+-  ``FFA_RXTX_UNMAP``
 -  ``FFA_PARTITION_INFO_GET``
 -  ``FFA_ID_GET``
 -  ``FFA_MSG_WAIT``
@@ -611,7 +675,18 @@ The following interfaces are exposed to SPs:
 -  ``FFA_MEM_RETRIEVE_RESP``
 -  ``FFA_MEM_RELINQUISH``
 -  ``FFA_MEM_RECLAIM``
--  ``FFA_SECONDARY_EP_REGISTER``
+
+As part of the support of FF-A v1.1, the following interfaces were added:
+
+ - ``FFA_NOTIFICATION_BITMAP_CREATE``
+ - ``FFA_NOTIFICATION_BITMAP_DESTROY``
+ - ``FFA_NOTIFICATION_BIND``
+ - ``FFA_NOTIFICATION_UNBIND``
+ - ``FFA_NOTIFICATION_SET``
+ - ``FFA_NOTIFICATION_GET``
+ - ``FFA_NOTIFICATION_INFO_GET``
+ - ``FFA_SPM_ID_GET``
+ - ``FFA_SECONDARY_EP_REGISTER``
 
 FFA_VERSION
 ~~~~~~~~~~~
@@ -647,9 +722,9 @@ When invoked from the Hypervisor or OS kernel, the buffers are mapped into the
 SPMC EL2 Stage-1 translation regime and marked as NS buffers in the MMU
 descriptors.
 
-Note:
-
-- FFA_RXTX_UNMAP is not implemented.
+The FFA_RXTX_UNMAP unmaps the RX/TX pair from the translation regime of the
+caller, either it being the Hypervisor or OS kernel, as well as a secure
+partition.
 
 FFA_PARTITION_INFO_GET
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -715,6 +790,81 @@ and responses with the following rules:
 - An Hypervisor or OS kernel can send a direct request to an SP.
 - An SP can send a direct response to an Hypervisor or OS kernel.
 
+FFA_NOTIFICATION_BITMAP_CREATE/FFA_NOTIFICATION_BITMAP_DESTROY
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The secure partitions notifications bitmap are statically allocated by the SPMC.
+Hence, this interface is not to be issued by secure partitions.
+
+At initialization, the SPMC is not aware of VMs/partitions deployed in the
+normal world. Hence, the Hypervisor or OS kernel must use both ABIs for SPMC
+to be prepared to handle notifications for the provided VM ID.
+
+FFA_NOTIFICATION_BIND/FFA_NOTIFICATION_UNBIND
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Pair of interfaces to manage permissions to signal notifications. Prior to
+handling notifications, an FF-A endpoint must allow a given sender to signal a
+bitmap of notifications.
+
+If the receiver doesn't have notification support enabled in its FF-A manifest,
+it won't be able to bind notifications, hence forbidding it to receive any
+notifications.
+
+FFA_NOTIFICATION_SET/FFA_NOTIFICATION_GET
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the notifications set are per-vCPU, the NPI interrupt is set as pending
+for a given receiver partition.
+
+The FFA_NOTIFICATION_GET will retrieve all pending global notifications and all
+pending per-vCPU notifications targeted to the current vCPU.
+
+Hafnium keeps the global counting of the pending notifications, which is
+incremented and decremented at the handling of FFA_NOTIFICATION_SET and
+FFA_NOTIFICATION_GET, respectively. If the counter reaches zero, prior to SPMC
+triggering the SRI, it won't be triggered.
+
+FFA_NOTIFICATION_INFO_GET
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Hafnium keeps the global counting of pending notifications whose info has been
+retrieved by this interface. The counting is incremented and decremented at the
+handling of FFA_NOTIFICATION_INFO_GET and FFA_NOTIFICATION_GET, respectively.
+It also tracks the notifications whose info has been retrieved individually,
+such that it avoids duplicating returned information for subsequent calls to
+FFA_NOTIFICATION_INFO_GET. For each notification, this state information is
+reset when receiver called FFA_NOTIFICATION_GET to retrieve them.
+
+FFA_SPM_ID_GET
+~~~~~~~~~~~~~~
+
+Returns the FF-A ID allocated to the SPM component (which includes SPMC + SPMD).
+At initialization, the SPMC queries the SPMD for the SPM ID, using this
+same interface, and saves it.
+
+The call emitted at NS and secure physical FF-A instances returns the SPM ID
+specified in the SPMC manifest.
+
+Secure partitions call this interface at the virtual instance, to which the SPMC
+shall return the priorly retrieved SPM ID.
+
+The Hypervisor or OS kernel can issue an FFA_SPM_ID_GET call handled by the
+SPMD, which returns the SPM ID.
+
+FFA_SECONDARY_EP_REGISTER
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When the SPMC boots, all secure partitions are initialized on their primary
+Execution Context.
+
+The interface FFA_SECONDARY_EP_REGISTER is to be used by a secure partitions
+from its first execution context, to provide the entry point address for
+secondary execution contexts.
+
+A secondary EC is first resumed either upon invocation of PSCI_CPU_ON from
+the NWd or by invocation of FFA_RUN.
+
 SPMC-SPMD direct requests/responses
 -----------------------------------
 
@@ -772,11 +922,155 @@ by the SPMC:
 .. image:: ../resources/diagrams/ffa-ns-interrupt-handling-sp-preemption.png
 
 Secure interrupt handling
-~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------
 
-The current implementation does not support handling of secure interrupts
-trapped by the SPMC at S-EL2. This is work in progress planned for future
-releases.
+This section documents the support implemented for secure interrupt handling in
+SPMC as per the guidance provided by FF-A v1.1 Beta0 specification.
+The following assumptions are made about the system configuration:
+
+  - In the current implementation, S-EL1 SPs are expected to use the para
+    virtualized ABIs for interrupt management rather than accessing virtual GIC
+    interface.
+  - Unless explicitly stated otherwise, this support is applicable only for
+    S-EL1 SPs managed by SPMC.
+  - Secure interrupts are configured as G1S or G0 interrupts.
+  - All physical interrupts are routed to SPMC when running a secure partition
+    execution context.
+
+A physical secure interrupt could preempt normal world execution. Moreover, when
+the execution is in secure world, it is highly likely that the target of a
+secure interrupt is not the currently running execution context of an SP. It
+could be targeted to another FF-A component. Consequently, secure interrupt
+management depends on the state of the target execution context of the SP that
+is responsible for handling the interrupt. Hence, the spec provides guidance on
+how to signal start and completion of secure interrupt handling as discussed in
+further sections.
+
+Secure interrupt signaling mechanisms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Signaling refers to the mechanisms used by SPMC to indicate to the SP execution
+context that it has a pending virtual interrupt and to further run the SP
+execution context, such that it can handle the virtual interrupt. SPMC uses
+either the FFA_INTERRUPT interface with ERET conduit or vIRQ signal for signaling
+to S-EL1 SPs. When normal world execution is preempted by a secure interrupt,
+the SPMD uses the FFA_INTERRUPT ABI with ERET conduit to signal interrupt to SPMC
+running in S-EL2.
+
++-----------+---------+---------------+---------------------------------------+
+| SP State  | Conduit | Interface and | Description                           |
+|           |         | parameters    |                                       |
++-----------+---------+---------------+---------------------------------------+
+| WAITING   | ERET,   | FFA_INTERRUPT,| SPMC signals to SP the ID of pending  |
+|           | vIRQ    | Interrupt ID  | interrupt. It pends vIRQ signal and   |
+|           |         |               | resumes execution context of SP       |
+|           |         |               | through ERET.                         |
++-----------+---------+---------------+---------------------------------------+
+| BLOCKED   | ERET,   | FFA_INTERRUPT | SPMC signals to SP that an interrupt  |
+|           | vIRQ    |               | is pending. It pends vIRQ signal and  |
+|           |         |               | resumes execution context of SP       |
+|           |         |               | through ERET.                         |
++-----------+---------+---------------+---------------------------------------+
+| PREEMPTED | vIRQ    | NA            | SPMC pends the vIRQ signal but does   |
+|           |         |               | not resume execution context of SP.   |
++-----------+---------+---------------+---------------------------------------+
+| RUNNING   | ERET,   | NA            | SPMC pends the vIRQ signal and resumes|
+|           | vIRQ    |               | execution context of SP through ERET. |
++-----------+---------+---------------+---------------------------------------+
+
+Secure interrupt completion mechanisms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A SP signals secure interrupt handling completion to the SPMC through the
+following mechanisms:
+
+  - ``FFA_MSG_WAIT`` ABI if it was in WAITING state.
+  - ``FFA_RUN`` ABI if its was in BLOCKED state.
+
+In the current implementation, S-EL1 SPs use para-virtualized HVC interface
+implemented by SPMC to perform priority drop and interrupt deactivation (we
+assume EOImode = 0, i.e. priority drop and deactivation are done together).
+
+If normal world execution was preempted by secure interrupt, SPMC uses
+FFA_NORMAL_WORLD_RESUME ABI to indicate completion of secure interrupt handling
+and further return execution to normal world. If the current SP execution
+context was preempted by a secure interrupt to be handled by execution context
+of target SP, SPMC resumes current SP after signal completion by target SP
+execution context.
+
+An action is broadly a set of steps taken by the SPMC in response to a physical
+interrupt. In order to simplify the design, the current version of secure
+interrupt management support in SPMC (Hafnium) does not fully implement the
+Scheduling models and Partition runtime models. However, the current
+implementation loosely maps to the following actions that are legally allowed
+by the specification. Please refer to the Table 8.4 in the spec for further
+description of actions. The action specified for a type of interrupt when the
+SP is in the message processing running state cannot be less permissive than the
+action specified for the same type of interrupt when the SP is in the interrupt
+handling running state.
+
++--------------------+--------------------+------------+-------------+
+| Runtime Model      | NS-Int             | Self S-Int | Other S-Int |
++--------------------+--------------------+------------+-------------+
+| Message Processing | Signalable with ME | Signalable | Signalable  |
++--------------------+--------------------+------------+-------------+
+| Interrupt Handling | Queued             | Queued     | Queued      |
++--------------------+--------------------+------------+-------------+
+
+Abbreviations:
+
+  - NS-Int: A Non-secure physical interrupt. It requires a switch to the Normal
+    world to be handled.
+  - Other S-Int: A secure physical interrupt targeted to an SP different from
+    the one that is currently running.
+  - Self S-Int: A secure physical interrupt targeted to the SP that is currently
+    running.
+
+The following figure describes interrupt handling flow when secure interrupt
+triggers while in normal world:
+
+.. image:: ../resources/diagrams/ffa-secure-interrupt-handling-nwd.png
+
+A brief description of the events:
+
+  - 1) Secure interrupt triggers while normal world is running.
+  - 2) FIQ gets trapped to EL3.
+  - 3) SPMD signals secure interrupt to SPMC at S-EL2 using FFA_INTERRUPT ABI.
+  - 4) SPMC identifies target vCPU of SP and injects virtual interrupt (pends
+       vIRQ).
+  - 5) Since SP1 vCPU is in WAITING state, SPMC signals using FFA_INTERRUPT with
+       interrupt id as argument and resume it using ERET.
+  - 6) Execution traps to vIRQ handler in SP1 provided that interrupt is not
+       masked i.e., PSTATE.I = 0
+  - 7) SP1 services the interrupt and invokes the de-activation HVC call.
+  - 8) SPMC does internal state management and further de-activates the physical
+       interrupt and resumes SP vCPU.
+  - 9) SP performs secure interrupt completion through FFA_MSG_WAIT ABI.
+  - 10) SPMC returns control to EL3 using FFA_NORMAL_WORLD_RESUME.
+  - 11) EL3 resumes normal world execution.
+
+The following figure describes interrupt handling flow when secure interrupt
+triggers while in secure world:
+
+.. image:: ../resources/diagrams/ffa-secure-interrupt-handling-swd.png
+
+A brief description of the events:
+
+  - 1) Secure interrupt triggers while SP2 is running and SP1 is blocked.
+  - 2) Gets trapped to SPMC as IRQ.
+  - 3) SPMC finds the target vCPU of secure partition responsible for handling
+       this secure interrupt. In this scenario, it is SP1.
+  - 4) SPMC pends vIRQ for SP1 and signals through FFA_INTERRUPT interface.
+       SPMC further resumes SP1 through ERET conduit.
+  - 5) Execution traps to vIRQ handler in SP1 provided that interrupt is not
+       masked i.e., PSTATE.I = 0
+  - 6) SP1 services the secure interrupt and invokes the de-activation HVC call.
+  - 7) SPMC does internal state management, de-activates the physical interrupt
+       and resumes SP1 vCPU.
+  - 8) Assuming SP1 is in BLOCKED state, SP1 performs secure interrupt completion
+       through FFA_RUN ABI.
+  - 9) SPMC resumes the pre-empted vCPU of SP2.
+
 
 Power management
 ----------------
@@ -915,12 +1209,42 @@ streams.
    Fault handling, Performance Monitor Extensions, Event Handling, MPAM.
 -  No support for independent peripheral devices.
 
+S-EL0 Partition support
+=========================
+The SPMC (Hafnium) has limited capability to run S-EL0 FF-A partitions using
+FEAT_VHE (mandatory with ARMv8.1 in non-secure state, and in secure world
+with ARMv8.4 and FEAT_SEL2).
+
+S-EL0 partitions are useful for simple partitions that don't require full
+Trusted OS functionality. It is also useful to reduce jitter and cycle
+stealing from normal world since they are more lightweight than VMs.
+
+S-EL0 partitions are presented, loaded and initialized the same as S-EL1 VMs by
+the SPMC. They are differentiated primarily by the 'exception-level' property
+and the 'execution-ctx-count' property in the SP manifest. They are host apps
+under the single EL2&0 Stage-1 translation regime controlled by the SPMC and
+call into the SPMC through SVCs as opposed to HVCs and SMCs. These partitions
+can use FF-A defined services (FFA_MEM_PERM_*) to update or change permissions
+for memory regions.
+
+S-EL0 partitions are required by the FF-A specification to be UP endpoints,
+capable of migrating, and the SPMC enforces this requirement. The SPMC allows
+a S-EL0 partition to accept a direct message from secure world and normal world,
+and generate direct responses to them.
+
+Memory sharing between and with S-EL0 partitions is supported.
+Indirect messaging, Interrupt handling and Notifications are not supported with
+S-EL0 partitions and is work in progress, planned for future releases.
+All S-EL0 partitions must use AArch64. AArch32 S-EL0 partitions are not
+supported.
+
+
 References
 ==========
 
 .. _[1]:
 
-[1] `Arm Firmware Framework for Armv8-A <https://developer.arm.com/docs/den0077/latest>`__
+[1] `Arm Firmware Framework for Arm A-profile <https://developer.arm.com/docs/den0077/latest>`__
 
 .. _[2]:
 
@@ -950,6 +1274,10 @@ Client <https://developer.arm.com/documentation/den0006/d/>`__
 .. _[8]:
 
 [8] https://lists.trustedfirmware.org/pipermail/tf-a/2020-February/000296.html
+
+.. _[9]:
+
+[9] https://trustedfirmware-a.readthedocs.io/en/latest/design/firmware-design.html#dynamic-configuration-during-cold-boot
 
 --------------
 

@@ -19,6 +19,7 @@ package dagger.internal.codegen.compileroption;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static dagger.internal.codegen.compileroption.FeatureStatus.DISABLED;
 import static dagger.internal.codegen.compileroption.FeatureStatus.ENABLED;
@@ -29,8 +30,10 @@ import static dagger.internal.codegen.compileroption.ProcessingEnvironmentCompil
 import static dagger.internal.codegen.compileroption.ProcessingEnvironmentCompilerOptions.Feature.FLOATING_BINDS_METHODS;
 import static dagger.internal.codegen.compileroption.ProcessingEnvironmentCompilerOptions.Feature.FORMAT_GENERATED_SOURCE;
 import static dagger.internal.codegen.compileroption.ProcessingEnvironmentCompilerOptions.Feature.IGNORE_PRIVATE_AND_STATIC_INJECTION_FOR_COMPONENT;
+import static dagger.internal.codegen.compileroption.ProcessingEnvironmentCompilerOptions.Feature.INCLUDE_STACKTRACE_WITH_DEFERRED_ERROR_MESSAGES;
 import static dagger.internal.codegen.compileroption.ProcessingEnvironmentCompilerOptions.Feature.PLUGINS_VISIT_FULL_BINDING_GRAPHS;
 import static dagger.internal.codegen.compileroption.ProcessingEnvironmentCompilerOptions.Feature.STRICT_MULTIBINDING_VALIDATION;
+import static dagger.internal.codegen.compileroption.ProcessingEnvironmentCompilerOptions.Feature.STRICT_SUPERFICIAL_VALIDATION;
 import static dagger.internal.codegen.compileroption.ProcessingEnvironmentCompilerOptions.Feature.VALIDATE_TRANSITIVE_COMPONENT_DEPENDENCIES;
 import static dagger.internal.codegen.compileroption.ProcessingEnvironmentCompilerOptions.Feature.WARN_IF_INJECTION_FACTORY_NOT_GENERATED_UPSTREAM;
 import static dagger.internal.codegen.compileroption.ProcessingEnvironmentCompilerOptions.Feature.WRITE_PRODUCER_NAME_IN_TOKEN;
@@ -50,13 +53,14 @@ import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Stream.concat;
 
-import com.google.auto.common.MoreElements;
+import androidx.room.compiler.processing.XMessager;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.langmodel.DaggerElements;
-import dagger.producers.Produces;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -64,34 +68,33 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.inject.Inject;
-import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 
-/** {@link CompilerOptions} for the given {@link ProcessingEnvironment}. */
+/** {@link CompilerOptions} for the given processor. */
 public final class ProcessingEnvironmentCompilerOptions extends CompilerOptions {
   // EnumOption<T> doesn't support integer inputs so just doing this as a 1-off for now.
   private static final String KEYS_PER_COMPONENT_SHARD = "dagger.keysPerComponentShard";
 
-  private final ProcessingEnvironment processingEnvironment;
-  private final DaggerElements daggerElements;
+  private final XMessager messager;
+  private final Map<String, String> options;
+  private final DaggerElements elements;
   private final Map<EnumOption<?>, Object> enumOptions = new HashMap<>();
   private final Map<EnumOption<?>, ImmutableMap<String, ? extends Enum<?>>> allCommandLineOptions =
       new HashMap<>();
 
   @Inject
   ProcessingEnvironmentCompilerOptions(
-      ProcessingEnvironment processingEnvironment, DaggerElements daggerElements) {
-    this.processingEnvironment = processingEnvironment;
-    this.daggerElements = daggerElements;
+      XMessager messager, @ProcessingOptions Map<String, String> options, DaggerElements elements) {
+    this.messager = messager;
+    this.options = options;
+    this.elements = elements;
     checkValid();
   }
 
   @Override
   public boolean usesProducers() {
-    return processingEnvironment.getElementUtils().getTypeElement(Produces.class.getCanonicalName())
-        != null;
+    return elements.getTypeElement(TypeNames.PRODUCES) != null;
   }
 
   @Override
@@ -100,8 +103,35 @@ public final class ProcessingEnvironmentCompilerOptions extends CompilerOptions 
   }
 
   @Override
-  public boolean fastInit(TypeElement component) {
+  public boolean experimentalMergedMode(XTypeElement component) {
+    boolean isExperimental = experimentalMergedModeInternal();
+    if (isExperimental) {
+      checkState(
+          !fastInitInternal(component),
+          "Both fast init and experimental merged mode were turned on, please specify exactly one"
+              + " compilation mode.");
+    }
+    return isExperimental;
+  }
+
+  @Override
+  public boolean fastInit(XTypeElement component) {
+    boolean isFastInit = fastInitInternal(component);
+    if (isFastInit) {
+      checkState(
+          !experimentalMergedModeInternal(),
+          "Both fast init and experimental merged mode were turned on, please specify exactly one"
+              + " compilation mode.");
+    }
+    return isFastInit;
+  }
+
+  private boolean fastInitInternal(XTypeElement component) {
     return isEnabled(FAST_INIT);
+  }
+
+  private boolean experimentalMergedModeInternal() {
+    return false;
   }
 
   @Override
@@ -130,6 +160,11 @@ public final class ProcessingEnvironmentCompilerOptions extends CompilerOptions 
   }
 
   @Override
+  public boolean includeStacktraceWithDeferredErrorMessages() {
+    return isEnabled(INCLUDE_STACKTRACE_WITH_DEFERRED_ERROR_MESSAGES);
+  }
+
+  @Override
   public boolean ignorePrivateAndStaticInjectionForComponent() {
     return isEnabled(IGNORE_PRIVATE_AND_STATIC_INJECTION_FOR_COMPONENT);
   }
@@ -155,7 +190,7 @@ public final class ProcessingEnvironmentCompilerOptions extends CompilerOptions 
   }
 
   @Override
-  public boolean pluginsVisitFullBindingGraphs(TypeElement component) {
+  public boolean pluginsVisitFullBindingGraphs(XTypeElement component) {
     return isEnabled(PLUGINS_VISIT_FULL_BINDING_GRAPHS);
   }
 
@@ -180,20 +215,23 @@ public final class ProcessingEnvironmentCompilerOptions extends CompilerOptions 
   }
 
   @Override
-  public int keysPerComponentShard(TypeElement component) {
-    if (processingEnvironment.getOptions().containsKey(KEYS_PER_COMPONENT_SHARD)) {
+  public boolean strictSuperficialValidation() {
+    return isEnabled(STRICT_SUPERFICIAL_VALIDATION);
+  }
+
+  @Override
+  public int keysPerComponentShard(XTypeElement component) {
+    if (options.containsKey(KEYS_PER_COMPONENT_SHARD)) {
       checkArgument(
-          "dagger.internal.codegen".contentEquals(
-              MoreElements.getPackage(component).getQualifiedName()),
+          component.getClassName().packageName().startsWith("dagger."),
           "Cannot set %s. It is only meant for internal testing.", KEYS_PER_COMPONENT_SHARD);
-      return Integer.parseInt(
-          processingEnvironment.getOptions().get(KEYS_PER_COMPONENT_SHARD));
+      return Integer.parseInt(options.get(KEYS_PER_COMPONENT_SHARD));
     }
     return super.keysPerComponentShard(component);
   }
 
   private boolean isEnabled(KeyOnlyOption keyOnlyOption) {
-    return processingEnvironment.getOptions().containsKey(keyOnlyOption.toString());
+    return options.containsKey(keyOnlyOption.toString());
   }
 
   private boolean isEnabled(Feature feature) {
@@ -206,9 +244,6 @@ public final class ProcessingEnvironmentCompilerOptions extends CompilerOptions 
 
   @SuppressWarnings("CheckReturnValue")
   private ProcessingEnvironmentCompilerOptions checkValid() {
-    for (KeyOnlyOption keyOnlyOption : KeyOnlyOption.values()) {
-      isEnabled(keyOnlyOption);
-    }
     for (Feature feature : Feature.values()) {
       parseOption(feature);
     }
@@ -223,11 +258,9 @@ public final class ProcessingEnvironmentCompilerOptions extends CompilerOptions 
   }
 
   private void noLongerRecognized(CommandLineOption commandLineOption) {
-    if (processingEnvironment.getOptions().containsKey(commandLineOption.toString())) {
-      processingEnvironment
-          .getMessager()
-          .printMessage(
-              Diagnostic.Kind.WARNING, commandLineOption + " is no longer recognized by Dagger");
+    if (options.containsKey(commandLineOption.toString())) {
+      messager.printMessage(
+          Diagnostic.Kind.WARNING, commandLineOption + " is no longer recognized by Dagger");
     }
   }
 
@@ -290,6 +323,8 @@ public final class ProcessingEnvironmentCompilerOptions extends CompilerOptions 
 
     WARN_IF_INJECTION_FACTORY_NOT_GENERATED_UPSTREAM,
 
+    INCLUDE_STACKTRACE_WITH_DEFERRED_ERROR_MESSAGES,
+
     IGNORE_PRIVATE_AND_STATIC_INJECTION_FOR_COMPONENT,
 
     EXPERIMENTAL_AHEAD_OF_TIME_SUBCOMPONENTS,
@@ -305,6 +340,8 @@ public final class ProcessingEnvironmentCompilerOptions extends CompilerOptions 
     EXPERIMENTAL_DAGGER_ERROR_MESSAGES,
 
     STRICT_MULTIBINDING_VALIDATION,
+
+    STRICT_SUPERFICIAL_VALIDATION(ENABLED),
 
     VALIDATE_TRANSITIVE_COMPONENT_DEPENDENCIES(ENABLED)
     ;
@@ -458,13 +495,11 @@ public final class ProcessingEnvironmentCompilerOptions extends CompilerOptions 
 
   private void reportUseOfDifferentNamesForOption(
       Diagnostic.Kind diagnosticKind, EnumOption<?> option, ImmutableSet<String> usedNames) {
-    processingEnvironment
-        .getMessager()
-        .printMessage(
-            diagnosticKind,
-            String.format(
-                "Only one of the equivalent options (%s) should be used; prefer -A%s",
-                usedNames.stream().map(name -> "-A" + name).collect(joining(", ")), option));
+    messager.printMessage(
+        diagnosticKind,
+        String.format(
+            "Only one of the equivalent options (%s) should be used; prefer -A%s",
+            usedNames.stream().map(name -> "-A" + name).collect(joining(", ")), option));
   }
 
   private <T extends Enum<T>> ImmutableMap<String, T> parseOptionWithAllNames(
@@ -486,12 +521,10 @@ public final class ProcessingEnvironmentCompilerOptions extends CompilerOptions 
   }
 
   private <T extends Enum<T>> Optional<T> parseOptionWithName(EnumOption<T> option, String key) {
-    checkArgument(processingEnvironment.getOptions().containsKey(key), "key %s not found", key);
-    String stringValue = processingEnvironment.getOptions().get(key);
+    checkArgument(options.containsKey(key), "key %s not found", key);
+    String stringValue = options.get(key);
     if (stringValue == null) {
-      processingEnvironment
-          .getMessager()
-          .printMessage(Diagnostic.Kind.ERROR, "Processor option -A" + key + " needs a value");
+      messager.printMessage(Diagnostic.Kind.ERROR, "Processor option -A" + key + " needs a value");
     } else {
       try {
         T value =
@@ -502,19 +535,16 @@ public final class ProcessingEnvironmentCompilerOptions extends CompilerOptions 
       } catch (IllegalArgumentException e) {
         // handled below
       }
-      processingEnvironment
-          .getMessager()
-          .printMessage(
-              Diagnostic.Kind.ERROR,
-              String.format(
-                  "Processor option -A%s may only have the values %s "
-                      + "(case insensitive), found: %s",
-                  key, option.validValues(), stringValue));
+      messager.printMessage(
+          Diagnostic.Kind.ERROR,
+          String.format(
+              "Processor option -A%s may only have the values %s (case insensitive), found: %s",
+              key, option.validValues(), stringValue));
     }
     return Optional.empty();
   }
 
   private Stream<String> getUsedNames(CommandLineOption option) {
-    return option.allNames().filter(name -> processingEnvironment.getOptions().containsKey(name));
+    return option.allNames().filter(options::containsKey);
   }
 }

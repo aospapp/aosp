@@ -8,9 +8,10 @@
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text	
-.extern	GFp_ia32cap_P
-.hidden GFp_ia32cap_P
+.extern	OPENSSL_ia32cap_P
+.hidden OPENSSL_ia32cap_P
 
 chacha20_poly1305_constants:
 
@@ -219,11 +220,11 @@ poly_hash_ad_internal:
 .cfi_endproc	
 .size	poly_hash_ad_internal, .-poly_hash_ad_internal
 
-.globl	GFp_chacha20_poly1305_open
-.hidden GFp_chacha20_poly1305_open
-.type	GFp_chacha20_poly1305_open,@function
+.globl	chacha20_poly1305_open
+.hidden chacha20_poly1305_open
+.type	chacha20_poly1305_open,@function
 .align	64
-GFp_chacha20_poly1305_open:
+chacha20_poly1305_open:
 .cfi_startproc	
 	pushq	%rbp
 .cfi_adjust_cfa_offset	8
@@ -258,7 +259,7 @@ GFp_chacha20_poly1305_open:
 	movq	%r8,0+0+32(%rbp)
 	movq	%rbx,8+0+32(%rbp)
 
-	movl	GFp_ia32cap_P+8(%rip),%eax
+	movl	OPENSSL_ia32cap_P+8(%rip),%eax
 	andl	$288,%eax
 	xorl	$288,%eax
 	jz	chacha20_poly1305_open_avx2
@@ -2095,7 +2096,7 @@ GFp_chacha20_poly1305_open:
 	movdqa	%xmm10,%xmm6
 	movdqa	%xmm14,%xmm10
 	jmp	.Lopen_sse_128_xor_hash
-.size	GFp_chacha20_poly1305_open, .-GFp_chacha20_poly1305_open
+.size	chacha20_poly1305_open, .-chacha20_poly1305_open
 .cfi_endproc	
 
 
@@ -2103,11 +2104,12 @@ GFp_chacha20_poly1305_open:
 
 
 
-.globl	GFp_chacha20_poly1305_seal
-.hidden GFp_chacha20_poly1305_seal
-.type	GFp_chacha20_poly1305_seal,@function
+
+.globl	chacha20_poly1305_seal
+.hidden chacha20_poly1305_seal
+.type	chacha20_poly1305_seal,@function
 .align	64
-GFp_chacha20_poly1305_seal:
+chacha20_poly1305_seal:
 .cfi_startproc	
 	pushq	%rbp
 .cfi_adjust_cfa_offset	8
@@ -2143,7 +2145,7 @@ GFp_chacha20_poly1305_seal:
 	movq	%rbx,8+0+32(%rbp)
 	movq	%rdx,%rbx
 
-	movl	GFp_ia32cap_P+8(%rip),%eax
+	movl	OPENSSL_ia32cap_P+8(%rip),%eax
 	andl	$288,%eax
 	xorl	$288,%eax
 	jz	chacha20_poly1305_seal_avx2
@@ -4099,7 +4101,7 @@ process_extra_in_trailer:
 	movq	%r8,%r8
 	call	poly_hash_ad_internal
 	jmp	.Lseal_sse_128_tail_xor
-.size	GFp_chacha20_poly1305_seal, .-GFp_chacha20_poly1305_seal
+.size	chacha20_poly1305_seal, .-chacha20_poly1305_seal
 .cfi_endproc	
 
 

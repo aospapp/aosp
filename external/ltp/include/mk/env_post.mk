@@ -32,6 +32,7 @@ ENV_POST_LOADED = 1
 # poor software design if you need more than one search directory, and
 # would suggest creating a general purpose static library to that end.
 vpath %.c $(abs_srcdir)
+vpath %.S $(abs_srcdir)
 
 # For config.h, et all.
 CPPFLAGS			+= -I$(top_srcdir)/include -I$(top_builddir)/include -I$(top_srcdir)/include/old/
@@ -87,6 +88,18 @@ $(foreach make_target,$(MAKE_TARGETS),$(eval $(call generate_install_rule,$(make
 else  # else ! $(filter-out install,$(MAKECMDGOALS)),$(MAKECMDGOALS)
 $(error You must define $$(prefix) before executing install)
 endif # END $(filter-out install,$(MAKECMDGOALS)),$(MAKECMDGOALS)
+endif
+
+CHECK_TARGETS			?= $(addprefix check-,$(notdir $(patsubst %.c,%,$(sort $(wildcard $(abs_srcdir)/*.c)))))
+CHECK_TARGETS			:= $(filter-out $(addprefix check-, $(FILTER_OUT_MAKE_TARGETS)), $(CHECK_TARGETS))
+CHECK_HEADER_TARGETS		?= $(addprefix check-,$(notdir $(sort $(wildcard $(abs_srcdir)/*.h))))
+CHECK				?= $(abs_top_srcdir)/tools/sparse/sparse-ltp
+CHECK_NOFLAGS			?= $(abs_top_srcdir)/scripts/checkpatch.pl -f --no-tree --terse --no-summary --ignore CONST_STRUCT,VOLATILE,SPLIT_STRING
+SHELL_CHECK			?= $(abs_top_srcdir)/scripts/checkbashisms.pl --force --extra
+SHELL_CHECK_TARGETS		?= $(addprefix check-,$(notdir $(sort $(wildcard $(abs_srcdir)/*.sh))))
+
+ifeq ($(CHECK),$(abs_top_srcdir)/tools/sparse/sparse-ltp)
+CHECK_DEPS			+= $(CHECK)
 endif
 
 include $(top_srcdir)/include/mk/rules.mk

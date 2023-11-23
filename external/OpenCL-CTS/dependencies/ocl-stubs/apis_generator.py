@@ -80,7 +80,7 @@ def process_type(raw):
 def parse_api(api_signature):
   m = None
 
-  api_signature = re.sub('extern', '', api_signature)
+  api_signature = re.sub(r'\bextern\b', '', api_signature)
   api_signature = re.sub('CL_\w+', '', api_signature)
 
   m = re.match(r'\s*(.*)\s+(\w+)\((.*)\)\s*;', api_signature)

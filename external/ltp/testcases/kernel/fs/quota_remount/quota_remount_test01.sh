@@ -14,8 +14,6 @@ TST_CLEANUP=do_clean
 TST_TESTFUNC=do_test
 TST_MIN_KVER="2.6.26"
 
-. tst_test.sh
-
 do_setup()
 {
 	if [ ! -d /proc/sys/fs/quota ]; then
@@ -32,7 +30,7 @@ do_setup()
 do_clean()
 {
 	[ "$mounted" ] || return
-	tst_umount $MNTDIR
+	tst_umount "$PWD/$MNTDIR"
 	mounted=
 }
 
@@ -77,4 +75,5 @@ do_test()
 	do_clean
 }
 
+. tst_test.sh
 tst_run

@@ -42,6 +42,7 @@ class ShaderConstants11 : angle::NonCopyable
     void setMultiviewWriteToViewportIndex(GLfloat index);
     void onViewportChange(const gl::Rectangle &glViewport,
                           const D3D11_VIEWPORT &dxViewport,
+                          const gl::Offset &glFragCoordOffset,
                           bool is9_3,
                           bool presentPathFast);
     bool onFirstVertexChange(GLint firstVertex);
@@ -50,10 +51,11 @@ class ShaderConstants11 : angle::NonCopyable
                          unsigned int samplerIndex,
                          const gl::Texture &texture,
                          const gl::SamplerState &samplerState);
-    void onImageChange(gl::ShaderType shaderType,
+    bool onImageChange(gl::ShaderType shaderType,
                        unsigned int imageIndex,
                        const gl::ImageUnit &imageUnit);
     void onClipControlChange(bool lowerLeft, bool zeroToOne);
+    bool onClipDistancesEnabledChange(const uint32_t value);
 
     angle::Result updateBuffer(const gl::Context *context,
                                Renderer11 *renderer,
@@ -73,7 +75,8 @@ class ShaderConstants11 : angle::NonCopyable
               clipControlOrigin{-1.0f},
               clipControlZeroToOne{.0f},
               firstVertex{0},
-              padding{.0f, .0f}
+              clipDistancesEnabled{0},
+              padding{.0f}
         {}
 
         float depthRange[4];
@@ -93,8 +96,10 @@ class ShaderConstants11 : angle::NonCopyable
 
         uint32_t firstVertex;
 
+        uint32_t clipDistancesEnabled;
+
         // Added here to manually pad the struct to 16 byte boundary
-        float padding[2];
+        float padding[1];
     };
     static_assert(sizeof(Vertex) % 16u == 0,
                   "D3D11 constant buffers must be multiples of 16 bytes");
@@ -105,6 +110,7 @@ class ShaderConstants11 : angle::NonCopyable
             : depthRange{.0f},
               viewCoords{.0f},
               depthFront{.0f},
+              fragCoordOffset{.0f},
               viewScale{.0f},
               multiviewWriteToViewportIndex{.0f},
               padding{.0f}
@@ -113,6 +119,7 @@ class ShaderConstants11 : angle::NonCopyable
         float depthRange[4];
         float viewCoords[4];
         float depthFront[4];
+        float fragCoordOffset[2];
         float viewScale[2];
         // multiviewWriteToViewportIndex is used to select either the side-by-side or layered
         // code-path in the GS. It's value, if set, is either 0.0f or 1.0f. The value is updated
@@ -120,7 +127,7 @@ class ShaderConstants11 : angle::NonCopyable
         float multiviewWriteToViewportIndex;
 
         // Added here to manually pad the struct.
-        float padding;
+        float padding[3];
     };
     static_assert(sizeof(Pixel) % 16u == 0, "D3D11 constant buffers must be multiples of 16 bytes");
 
@@ -133,14 +140,11 @@ class ShaderConstants11 : angle::NonCopyable
 
     struct SamplerMetadata
     {
-        SamplerMetadata()
-            : baseLevel(0), internalFormatBits(0), wrapModes(0), padding(0), intBorderColor{0}
-        {}
+        SamplerMetadata() : baseLevel(0), wrapModes(0), padding{0}, intBorderColor{0} {}
 
         int baseLevel;
-        int internalFormatBits;
         int wrapModes;
-        int padding;  // This just pads the struct to 32 bytes
+        int padding[2];  // This just pads the struct to 32 bytes
         int intBorderColor[4];
     };
 
@@ -191,6 +195,7 @@ class StateManager11 final : angle::NonCopyable
 
     void syncState(const gl::Context *context,
                    const gl::State::DirtyBits &dirtyBits,
+                   const gl::State::ExtendedDirtyBits &extendedDirtyBits,
                    gl::Command command);
 
     angle::Result updateStateForCompute(const gl::Context *context,
@@ -312,10 +317,16 @@ class StateManager11 final : angle::NonCopyable
     void setShaderResourceInternal(gl::ShaderType shaderType,
                                    UINT resourceSlot,
                                    const SRVType *srv);
+
+    struct UAVList
+    {
+        UAVList(size_t size) : data(size) {}
+        std::vector<ID3D11UnorderedAccessView *> data;
+        int highestUsed = -1;
+    };
+
     template <typename UAVType>
-    void setUnorderedAccessViewInternal(gl::ShaderType shaderType,
-                                        UINT resourceSlot,
-                                        const UAVType *uav);
+    void setUnorderedAccessViewInternal(UINT resourceSlot, const UAVType *uav, UAVList *uavList);
 
     void unsetConflictingView(gl::PipelineType pipeline, ID3D11View *view, bool isRenderTarget);
     void unsetConflictingSRVs(gl::PipelineType pipeline,
@@ -375,8 +386,15 @@ class StateManager11 final : angle::NonCopyable
     angle::Result setTextureForImage(const gl::Context *context,
                                      gl::ShaderType type,
                                      int index,
-                                     bool readonly,
                                      const gl::ImageUnit &imageUnit);
+    angle::Result getUAVsForRWImages(const gl::Context *context,
+                                     gl::ShaderType shaderType,
+                                     UAVList *uavList);
+    angle::Result getUAVForRWImage(const gl::Context *context,
+                                   gl::ShaderType type,
+                                   int index,
+                                   const gl::ImageUnit &imageUnit,
+                                   UAVList *uavList);
 
     void handleMultiviewDrawFramebufferChange(const gl::Context *context);
 
@@ -394,16 +412,21 @@ class StateManager11 final : angle::NonCopyable
     angle::Result applyUniforms(const gl::Context *context);
     angle::Result applyUniformsForShader(const gl::Context *context, gl::ShaderType shaderType);
 
-    angle::Result syncShaderStorageBuffersForShader(const gl::Context *context,
-                                                    gl::ShaderType shaderType);
+    angle::Result getUAVsForShaderStorageBuffers(const gl::Context *context,
+                                                 gl::ShaderType shaderType,
+                                                 UAVList *uavList);
 
     angle::Result syncUniformBuffers(const gl::Context *context);
     angle::Result syncUniformBuffersForShader(const gl::Context *context,
                                               gl::ShaderType shaderType);
-    angle::Result syncAtomicCounterBuffers(const gl::Context *context);
-    angle::Result syncAtomicCounterBuffersForShader(const gl::Context *context,
-                                                    gl::ShaderType shaderType);
-    angle::Result syncShaderStorageBuffers(const gl::Context *context);
+    angle::Result getUAVsForAtomicCounterBuffers(const gl::Context *context,
+                                                 gl::ShaderType shaderType,
+                                                 UAVList *uavList);
+    angle::Result getUAVsForShader(const gl::Context *context,
+                                   gl::ShaderType shaderType,
+                                   UAVList *uavList);
+    angle::Result syncUAVsForGraphics(const gl::Context *context);
+    angle::Result syncUAVsForCompute(const gl::Context *context);
     angle::Result syncTransformFeedbackBuffers(const gl::Context *context);
 
     // These are currently only called internally.
@@ -412,6 +435,7 @@ class StateManager11 final : angle::NonCopyable
     void invalidateConstantBuffer(unsigned int slot);
     void invalidateProgramAtomicCounterBuffers();
     void invalidateProgramShaderStorageBuffers();
+    void invalidateImageBindings();
 
     // Called by the Framebuffer11 directly.
     void processFramebufferInvalidation(const gl::Context *context);
@@ -456,16 +480,16 @@ class StateManager11 final : angle::NonCopyable
         // DIRTY_BIT_SHADERS and DIRTY_BIT_TEXTURE_AND_SAMPLER_STATE should be dealt before
         // DIRTY_BIT_PROGRAM_UNIFORM_BUFFERS for update image layers.
         DIRTY_BIT_SHADERS,
-        // DIRTY_BIT_GRAPHICS_SRVUAV_STATE and DIRTY_BIT_COMPUTE_SRVUAV_STATE should be lower
+        // DIRTY_BIT_GRAPHICS_SRV_STATE and DIRTY_BIT_COMPUTE_SRV_STATE should be lower
         // bits than DIRTY_BIT_TEXTURE_AND_SAMPLER_STATE.
-        DIRTY_BIT_GRAPHICS_SRVUAV_STATE,
-        DIRTY_BIT_COMPUTE_SRVUAV_STATE,
+        DIRTY_BIT_GRAPHICS_SRV_STATE,
+        DIRTY_BIT_GRAPHICS_UAV_STATE,
+        DIRTY_BIT_COMPUTE_SRV_STATE,
+        DIRTY_BIT_COMPUTE_UAV_STATE,
         DIRTY_BIT_TEXTURE_AND_SAMPLER_STATE,
         DIRTY_BIT_PROGRAM_UNIFORMS,
         DIRTY_BIT_DRIVER_UNIFORMS,
         DIRTY_BIT_PROGRAM_UNIFORM_BUFFERS,
-        DIRTY_BIT_PROGRAM_ATOMIC_COUNTER_BUFFERS,
-        DIRTY_BIT_PROGRAM_SHADER_STORAGE_BUFFERS,
         DIRTY_BIT_CURRENT_VALUE_ATTRIBS,
         DIRTY_BIT_TRANSFORM_FEEDBACK,
         DIRTY_BIT_VERTEX_BUFFERS_AND_INPUT_LAYOUT,
@@ -656,9 +680,9 @@ class StateManager11 final : angle::NonCopyable
     ComputeConstantBufferArray<GLsizeiptr> mCurrentConstantBufferCSSize;
 
     // Currently applied transform feedback buffers
-    Serial mAppliedTFSerial;
+    UniqueSerial mAppliedTFSerial;
 
-    Serial mEmptySerial;
+    UniqueSerial mEmptySerial;
 
     // These objects are cached to avoid having to query the impls.
     ProgramD3D *mProgramD3D;

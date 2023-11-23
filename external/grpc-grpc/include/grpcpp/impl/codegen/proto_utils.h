@@ -83,7 +83,7 @@ Status GenericDeserialize(ByteBuffer* buffer, grpc::protobuf::Message* msg) {
       return reader.status();
     }
     ::grpc::protobuf::io::CodedInputStream decoder(&reader);
-    decoder.SetTotalBytesLimit(INT_MAX, INT_MAX);
+    decoder.SetTotalBytesLimit(INT_MAX);
     if (!msg->ParseFromCodedStream(&decoder)) {
       result = Status(StatusCode::INTERNAL, msg->InitializationErrorString());
     }

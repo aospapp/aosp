@@ -22,6 +22,7 @@
 
 #include "gtest/gtest.h"
 #include "pw_status/status.h"
+#include "pw_string/internal/config.h"
 #include "pw_string/type_to_string.h"
 
 namespace pw {
@@ -32,14 +33,14 @@ struct CustomType {
 
   static constexpr const char* kToString = "This is a CustomType";
 
-  CustomType() = default;
+  CustomType() : a(0), b(0) {}
 
   // Non-copyable to verify that ToString doesn't copy it.
   CustomType(const CustomType&) = delete;
   CustomType& operator=(const CustomType&) = delete;
 };
 
-StatusWithSize ToString(const CustomType&, std::span<char> buffer) {
+StatusWithSize ToString(const CustomType&, span<char> buffer) {
   int result =
       std::snprintf(buffer.data(), buffer.size(), CustomType::kToString);
   if (result < 0) {
@@ -106,25 +107,36 @@ TEST(ToString, ScopedEnum) {
 }
 
 TEST(ToString, Integer_EmptyBuffer_WritesNothing) {
-  auto result = ToString(-1234, std::span(buffer, 0));
+  auto result = ToString(-1234, span(buffer, 0));
   EXPECT_EQ(0u, result.size());
   EXPECT_EQ(Status::ResourceExhausted(), result.status());
 }
 
 TEST(ToString, Integer_BufferTooSmall_WritesNullTerminator) {
-  auto result = ToString(-1234, std::span(buffer, 5));
+  auto result = ToString(-1234, span(buffer, 5));
   EXPECT_EQ(0u, result.size());
   EXPECT_FALSE(result.ok());
   EXPECT_STREQ("", buffer);
 }
 
 TEST(ToString, Float) {
-  EXPECT_EQ(1u, ToString(0.0f, buffer).size());
-  EXPECT_STREQ("0", buffer);
-  EXPECT_EQ(3u, ToString(INFINITY, buffer).size());
-  EXPECT_STREQ("inf", buffer);
-  EXPECT_EQ(4u, ToString(-NAN, buffer).size());
-  EXPECT_STREQ("-NaN", buffer);
+  if (string::internal::config::kEnableDecimalFloatExpansion) {
+    EXPECT_EQ(5u, ToString(0.0f, buffer).size());
+    EXPECT_STREQ("0.000", buffer);
+    EXPECT_EQ(6u, ToString(33.444, buffer).size());
+    EXPECT_STREQ("33.444", buffer);
+    EXPECT_EQ(3u, ToString(INFINITY, buffer).size());
+    EXPECT_STREQ("inf", buffer);
+    EXPECT_EQ(3u, ToString(NAN, buffer).size());
+    EXPECT_STREQ("nan", buffer);
+  } else {
+    EXPECT_EQ(1u, ToString(0.0f, buffer).size());
+    EXPECT_STREQ("0", buffer);
+    EXPECT_EQ(3u, ToString(INFINITY, buffer).size());
+    EXPECT_STREQ("inf", buffer);
+    EXPECT_EQ(4u, ToString(-NAN, buffer).size());
+    EXPECT_STREQ("-NaN", buffer);
+  }
 }
 
 TEST(ToString, Pointer_NonNull_WritesValue) {
@@ -241,7 +253,7 @@ TEST(ToString, StringView) {
 
 TEST(ToString, StringView_TooSmall_Truncates) {
   std::string_view view = "kale!";
-  EXPECT_EQ(3u, ToString(view, std::span(buffer, 4)).size());
+  EXPECT_EQ(3u, ToString(view, span(buffer, 4)).size());
   EXPECT_STREQ("kal", buffer);
 }
 
@@ -250,9 +262,8 @@ TEST(ToString, StringView_EmptyBuffer_WritesNothing) {
   char test_buffer[sizeof(kOriginal)];
   std::memcpy(test_buffer, kOriginal, sizeof(kOriginal));
 
-  EXPECT_EQ(
-      0u,
-      ToString(std::string_view("Hello!"), std::span(test_buffer, 0)).size());
+  EXPECT_EQ(0u,
+            ToString(std::string_view("Hello!"), span(test_buffer, 0)).size());
   ASSERT_EQ(0, std::memcmp(kOriginal, test_buffer, sizeof(kOriginal)));
 }
 

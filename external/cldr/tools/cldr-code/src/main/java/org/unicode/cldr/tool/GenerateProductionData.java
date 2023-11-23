@@ -17,6 +17,10 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.unicode.cldr.tool.Option.Options;
+import org.unicode.cldr.tool.Option.Params;
+import org.unicode.cldr.util.*;
+
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
@@ -24,22 +28,6 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.TreeMultimap;
 import com.google.common.io.Files;
 import com.ibm.icu.util.Output;
-
-import org.unicode.cldr.tool.Option.Options;
-import org.unicode.cldr.tool.Option.Params;
-import org.unicode.cldr.util.CLDRConfig;
-import org.unicode.cldr.util.CLDRFile;
-import org.unicode.cldr.util.CLDRPaths;
-import org.unicode.cldr.util.CldrUtility;
-import org.unicode.cldr.util.DtdType;
-import org.unicode.cldr.util.Factory;
-import org.unicode.cldr.util.Level;
-import org.unicode.cldr.util.LocaleIDParser;
-import org.unicode.cldr.util.LogicalGrouping;
-import org.unicode.cldr.util.Pair;
-import org.unicode.cldr.util.SupplementalDataInfo;
-import org.unicode.cldr.util.XMLSource;
-import org.unicode.cldr.util.XPathParts;
 
 public class GenerateProductionData {
     static boolean DEBUG = false;
@@ -150,7 +138,8 @@ public class GenerateProductionData {
 
         // get directories
 
-        Arrays.asList(DtdType.values()).parallelStream()
+        Arrays.asList(DtdType.values())
+            .parallelStream()
             .unordered()
             .forEach(type -> {
             boolean isLdmlDtdType = type == DtdType.ldml;
@@ -165,8 +154,10 @@ public class GenerateProductionData {
                 copyFilesAndReturnIsEmpty(sourceDir, destinationDir, null, isLdmlDtdType, stats);
             }
         });
+        // should be called from the main thread. Synchronizing to document.
         if (!localeToSubdivisionsToMigrate.isEmpty()) {
-            System.err.println("WARNING: Subdivision files not written");
+            System.err.println("WARNING: Subdivision files not written, " + localeToSubdivisionsToMigrate.size() + " entries\n" +
+                    "For locales: " + localeToSubdivisionsToMigrate.keySet());
             for (Entry<String, Pair<String, String>> entry : localeToSubdivisionsToMigrate.entries()) {
                 System.err.println(entry.getKey() + " \t" + entry.getValue());
             }
@@ -232,6 +223,7 @@ public class GenerateProductionData {
             }
             boolean isMainDir = factory != null && sourceFile.getName().contentEquals("main");
             boolean isRbnfDir = factory != null && sourceFile.getName().contentEquals("rbnf");
+            boolean isAnnotationsDir = factory != null && sourceFile.getName().startsWith("annotations");
 
             Set<String> emptyLocales = new HashSet<>();
             final Stats stats2 = new Stats();
@@ -263,8 +255,8 @@ public class GenerateProductionData {
             stats2.showNonZero("\tTOTAL:\t");
             // if there are empty ldml files, AND we aren't in /main/,
             // then remove any without children
-            if (!emptyLocales.isEmpty() && !sourceFile.getName().equals("main")) {
-                Set<String> childless = getChildless(emptyLocales, factory.getAvailable());
+            if (!emptyLocales.isEmpty() && !isMainDir) {
+                Set<String> childless = getChildless(emptyLocales, factory.getAvailable(), isAnnotationsDir);
                 if (!childless.isEmpty()) {
                     if (VERBOSE) System.out.println("\t" + destinationFile + "\tRemoving empty locales:" + childless);
                     childless.stream().forEach(locale -> new File(destinationFile, locale + ".xml").delete());
@@ -316,7 +308,7 @@ public class GenerateProductionData {
                 // special-case the root values that are only for Survey Tool use
 
                 if (isRoot) {
-                    if (xpath.startsWith("//ldml/annotations/annotation")) {
+                    if (AnnotationUtil.pathIsAnnotation(xpath)) {
                         toRemove.add(xpath);
                         continue;
                     }
@@ -329,7 +321,7 @@ public class GenerateProductionData {
 
                 // remove items that are the same as their bailey values. This also catches Inheritance Marker
 
-                String bailey = cldrFileResolved.getConstructedBaileyValue(xpath, pathWhereFound, localeWhereFound);
+                String bailey = cldrFileResolved.getBaileyValue(xpath, pathWhereFound, localeWhereFound);
                 if (value.equals(bailey)
                     && (!ADD_SIDEWAYS
                         || pathEqualsOrIsAltVariantOf(xpath, pathWhereFound.value))
@@ -342,7 +334,9 @@ public class GenerateProductionData {
 
                 // Move subdivisions elsewhere
                 if (!isSubdivisionDirectory && xpath.startsWith("//ldml/localeDisplayNames/subdivisions/subdivision")) {
-                    localeToSubdivisionsToMigrate.put(localeId, Pair.of(xpath, value));
+                    synchronized(localeToSubdivisionsToMigrate) {
+                        localeToSubdivisionsToMigrate.put(localeId, Pair.of(xpath, value));
+                    }
                     toRemove.add(xpath);
                     continue;
                 }
@@ -386,12 +380,14 @@ public class GenerateProductionData {
             try (PrintWriter pw = new PrintWriter(destinationFile)) {
                 CLDRFile outCldrFile = cldrFileUnresolved.cloneAsThawed();
                 if (isSubdivisionDirectory) {
-                    Collection<Pair<String, String>> path_values = localeToSubdivisionsToMigrate.get(localeId);
-                    if (path_values != null) {
-                        for (Pair<String, String>path_value : path_values) {
-                            outCldrFile.add(path_value.getFirst(), path_value.getSecond());
+                    synchronized (localeToSubdivisionsToMigrate) {
+                        Collection<Pair<String, String>> path_values = localeToSubdivisionsToMigrate.get(localeId);
+                        if (path_values != null) {
+                            for (Pair<String, String>path_value : path_values) {
+                                outCldrFile.add(path_value.getFirst(), path_value.getSecond());
+                            }
+                            localeToSubdivisionsToMigrate.removeAll(localeId);
                         }
-                        localeToSubdivisionsToMigrate.removeAll(localeId);
                     }
                 }
 
@@ -504,9 +500,9 @@ public class GenerateProductionData {
         if (desiredPath.contains("type=\"en_GB\"") && desiredPath.contains("alt=")) {
             int debug = 0;
         }
-        if (foundPath == null) {
-            // We can do this, because the bailey value has already been checked
-            // Since it isn't null, a null indicates a constructed alt value
+        if (foundPath == null || foundPath.equals(GlossonymConstructor.PSEUDO_PATH)) {
+            // We can do this, because the bailey value has already been checked.
+            // Since it isn't null, a null or PSEUDO_PATH indicates a constructed alt value.
             return true;
         }
         XPathParts desiredPathParts = XPathParts.getFrozenInstance(desiredPath);
@@ -561,13 +557,19 @@ public class GenerateProductionData {
         return result;
     }
 
-    private static Set<String> getChildless(Set<String> emptyLocales, Set<String> available) {
+    private static Set<String> getChildless(Set<String> emptyLocales, Set<String> available, boolean isAnnotationsDir) {
         // first build the parent2child map
         Multimap<String,String> parent2child = HashMultimap.create();
         for (String locale : available) {
             String parent = LocaleIDParser.getParent(locale);
             if (parent != null) {
                 parent2child.put(parent, locale);
+            }
+            if (isAnnotationsDir) {
+                String simpleParent = LocaleIDParser.getParent(locale, true);
+                if (simpleParent != null && (parent == null || simpleParent != parent)) {
+                    parent2child.put(simpleParent, locale);
+                }
             }
         }
 

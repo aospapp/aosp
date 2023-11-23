@@ -29,17 +29,17 @@ SELECT CREATE_FUNCTION(
   -- Function : function takes scroll ids of frames to verify it's from
   -- the same scroll, and makes sure the frame ts occured within the scroll
   -- timestamp of the neighbour and computes whether the frame was janky or not.
-  'IsJankyFrame(cur_id LONG,next_id LONG,neighbour_ts LONG,' ||
-  'cur_begin_ts LONG,cur_gesture_end LONG,cur_frame_exact FLOAT,' ||
-  'neighbour_frame_exact FLOAT)',
+  'IsJankyFrame(cur_gesture_id LONG,neighbour_gesture_id LONG,neighbour_ts LONG,'
+  || 'cur_gesture_begin_ts LONG,cur_gesture_end_ts LONG,cur_frame_exact FLOAT,'
+  || 'neighbour_frame_exact FLOAT)',
   -- Returns true if the frame was janky, false otherwise
   'BOOL',
   'SELECT
     CASE WHEN
-      $cur_id != $next_id OR
+      $cur_gesture_id != $neighbour_gesture_id OR
       $neighbour_ts IS NULL OR
-      $neighbour_ts < $cur_begin_ts OR
-      $neighbour_ts > $cur_gesture_end THEN
+      $neighbour_ts < $cur_gesture_begin_ts OR
+      $neighbour_ts > $cur_gesture_end_ts THEN
         FALSE ELSE
         $cur_frame_exact > $neighbour_frame_exact + 0.5 + 1e-9
     END'
@@ -52,8 +52,8 @@ SELECT CREATE_FUNCTION(
   --
   -- JankBudget is the minimum amount of frames/time we need to reduce the frame
   -- duration by for it to be no longer considered janky.
-  'JankBudget(cur_frame_exact FLOAT, prev_frame_exact FLOAT, ' ||
-  ' next_frame_exact FLOAT)',
+  'JankBudget(cur_frame_exact FLOAT, prev_frame_exact FLOAT, '
+  || ' next_frame_exact FLOAT)',
   -- Returns the jank budget in percentage (i.e. 0.75) of vsync interval
   -- percentage.
   --
@@ -80,4 +80,26 @@ SELECT CREATE_FUNCTION(
       ($cur_frame_exact - $next_frame_exact)
       -- Otherwise return null
     ) - 0.5 - 1e-9'
+);
+
+-- Extract mojo information for the long-task-tracking scenario for specific
+-- names. For example, LongTaskTracker slices may have associated IPC
+-- metadata, or InterestingTask slices for input may have associated IPC to
+-- determine whether the task is fling/etc.
+SELECT CREATE_VIEW_FUNCTION(
+  'SELECT_LONG_TASK_SLICES(name STRING)',
+  'interface_name STRING, ipc_hash INT, message_type STRING, id INT',
+  'SELECT
+      EXTRACT_ARG(s.arg_set_id, "chrome_mojo_event_info.mojo_interface_tag") AS interface_name,
+      EXTRACT_ARG(arg_set_id, "chrome_mojo_event_info.ipc_hash") AS ipc_hash,
+      CASE
+        WHEN EXTRACT_ARG(arg_set_id, "chrome_mojo_event_info.is_reply") THEN "reply"
+        ELSE "message"
+      END AS message_type,
+      s.id
+    FROM slice s
+    WHERE
+      category GLOB "*scheduler.long_tasks*"
+      AND name = $name
+  '
 );

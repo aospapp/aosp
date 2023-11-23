@@ -86,15 +86,19 @@ struct wpa_state_machine {
 	unsigned int pending_deinit:1;
 	unsigned int started:1;
 	unsigned int mgmt_frame_prot:1;
+	unsigned int mfpr:1;
 	unsigned int rx_eapol_key_secure:1;
 	unsigned int update_snonce:1;
 	unsigned int alt_snonce_valid:1;
+	unsigned int waiting_radius_psk:1;
 #ifdef CONFIG_IEEE80211R_AP
 	unsigned int ft_completed:1;
 	unsigned int pmk_r1_name_valid:1;
 #endif /* CONFIG_IEEE80211R_AP */
 	unsigned int is_wnmsleep:1;
 	unsigned int pmkid_set:1;
+
+	unsigned int ptkstart_without_success;
 
 #ifdef CONFIG_OCV
 	int ocv_enabled;
@@ -149,6 +153,7 @@ struct wpa_state_machine {
 
 #ifdef CONFIG_P2P
 	u8 ip_addr[4];
+	unsigned int ip_addr_bit;
 #endif /* CONFIG_P2P */
 
 #ifdef CONFIG_FILS
@@ -291,15 +296,23 @@ int wpa_auth_for_each_sta(struct wpa_authenticator *wpa_auth,
 int wpa_auth_for_each_auth(struct wpa_authenticator *wpa_auth,
 			   int (*cb)(struct wpa_authenticator *a, void *ctx),
 			   void *cb_ctx);
+void wpa_auth_store_ptksa(struct wpa_authenticator *wpa_auth,
+			  const u8 *addr, int cipher,
+			  u32 life_time, const struct wpa_ptk *ptk);
 
 #ifdef CONFIG_IEEE80211R_AP
 int wpa_write_mdie(struct wpa_auth_config *conf, u8 *buf, size_t len);
-int wpa_write_ftie(struct wpa_auth_config *conf, int use_sha384,
+int wpa_write_ftie(struct wpa_auth_config *conf, int key_mgmt, size_t key_len,
 		   const u8 *r0kh_id, size_t r0kh_id_len,
 		   const u8 *anonce, const u8 *snonce,
 		   u8 *buf, size_t len, const u8 *subelem,
 		   size_t subelem_len, int rsnxe_used);
-int wpa_auth_derive_ptk_ft(struct wpa_state_machine *sm, struct wpa_ptk *ptk);
+int wpa_auth_derive_ptk_ft(struct wpa_state_machine *sm, struct wpa_ptk *ptk,
+			   u8 *pmk_r0, u8 *pmk_r1, u8 *pmk_r0_name,
+			   size_t *key_len, size_t kdk_len);
+void wpa_auth_ft_store_keys(struct wpa_state_machine *sm, const u8 *pmk_r0,
+			    const u8 *pmk_r1, const u8 *pmk_r0_name,
+			    size_t key_len);
 struct wpa_ft_pmk_cache * wpa_ft_pmk_cache_init(void);
 void wpa_ft_pmk_cache_deinit(struct wpa_ft_pmk_cache *cache);
 void wpa_ft_install_ptk(struct wpa_state_machine *sm, int retry);

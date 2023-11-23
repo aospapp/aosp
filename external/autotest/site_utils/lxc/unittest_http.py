@@ -8,8 +8,8 @@ import multiprocessing
 import os
 import shutil
 import tempfile
-import SocketServer
-import SimpleHTTPServer
+import six.moves.socketserver
+import six.moves.SimpleHTTPServer
 
 import common
 from autotest_lib.client.bin import utils
@@ -35,8 +35,8 @@ def serve_locally(file_path):
         tmpdir = tempfile.mkdtemp()
         shutil.copy(file_path, tmpdir)
 
-        httpd = SocketServer.TCPServer(
-                ('', 0), SimpleHTTPServer.SimpleHTTPRequestHandler)
+        httpd = six.moves.socketserver.TCPServer(
+                ('', 0), six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler)
         port = httpd.socket.getsockname()[1]
 
         # Start the http daemon in the tmpdir to serve the file.

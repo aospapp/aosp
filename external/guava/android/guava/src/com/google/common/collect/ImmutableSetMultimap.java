@@ -47,7 +47,7 @@ import javax.annotation.CheckForNull;
  * Undefined behavior and bugs will result.
  *
  * <p>See the Guava User Guide article on <a href=
- * "https://github.com/google/guava/wiki/ImmutableCollectionsExplained"> immutable collections</a>.
+ * "https://github.com/google/guava/wiki/ImmutableCollectionsExplained">immutable collections</a>.
  *
  * @author Mike Ward
  * @since 2.0
@@ -343,7 +343,7 @@ public class ImmutableSetMultimap<K, V> extends ImmutableMultimap<K, V>
       }
     }
 
-    return new ImmutableSetMultimap<>(builder.build(), size, valueComparator);
+    return new ImmutableSetMultimap<>(builder.buildOrThrow(), size, valueComparator);
   }
 
   /**
@@ -549,7 +549,7 @@ public class ImmutableSetMultimap<K, V> extends ImmutableMultimap<K, V>
 
     ImmutableMap<Object, ImmutableSet<Object>> tmpMap;
     try {
-      tmpMap = builder.build();
+      tmpMap = builder.buildOrThrow();
     } catch (IllegalArgumentException e) {
       throw (InvalidObjectException) new InvalidObjectException(e.getMessage()).initCause(e);
     }

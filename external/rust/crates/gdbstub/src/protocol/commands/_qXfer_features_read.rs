@@ -1,29 +1,17 @@
-use super::prelude::*;
+// use super::prelude::*; // unused
+
+use crate::protocol::common::qxfer::{ParseAnnex, QXferReadBase};
+
+pub type qXferFeaturesRead<'a> = QXferReadBase<'a, FeaturesAnnex<'a>>;
 
 #[derive(Debug)]
-pub struct qXferFeaturesRead {
-    pub offset: usize,
-    pub len: usize,
+pub struct FeaturesAnnex<'a> {
+    pub name: &'a [u8],
 }
 
-impl<'a> ParseCommand<'a> for qXferFeaturesRead {
-    fn from_packet(buf: PacketBuf<'a>) -> Option<Self> {
-        let body = buf.into_body();
-
-        if body.is_empty() {
-            return None;
-        }
-
-        let mut body = body.split(|b| *b == b':').skip(1);
-        let annex = body.next()?;
-        if annex != b"target.xml" {
-            return None;
-        }
-
-        let mut body = body.next()?.split(|b| *b == b',');
-        let offset = decode_hex(body.next()?).ok()?;
-        let len = decode_hex(body.next()?).ok()?;
-
-        Some(qXferFeaturesRead { offset, len })
+impl<'a> ParseAnnex<'a> for FeaturesAnnex<'a> {
+    #[inline(always)]
+    fn from_buf(buf: &'a [u8]) -> Option<Self> {
+        Some(FeaturesAnnex { name: buf })
     }
 }

@@ -1,12 +1,14 @@
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_VideoPlayback"
 PURPOSE = "Measure video playback power usage."
+
 CRITERIA = "This test is a benchmark."
-TIME = "MEDIUM"
+TIME = "LENGTHY"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
-ATTRIBUTES = "suite:power_sanity, suite:power_daily, suite:power_monitoring"
+ATTRIBUTES = "suite:power_check, suite:power_monitoring"
+PY_VERSION = 3
 
 DOC = """
 This test records power related statistics while play back video file in various

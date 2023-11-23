@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,6 +7,8 @@ import collections
 import logging
 import re
 import time
+
+import six
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
@@ -35,16 +38,19 @@ class WpaCliProxy(object):
     CROS_CMD_FORMAT = ('su wpa -s /bin/bash '
                        '-c "/usr/bin/wpa_cli -i {0[ifname]} {0[cmd]}"')
     CAST_CMD_FORMAT = '/system/bin/wpa_cli -i {0[ifname]} {0[cmd]}'
+    RPI_CMD_FORMAT = '/sbin/wpa_cli -i {0[ifname]} {0[cmd]}'
 
 
-    def __init__(self, host, wifi_if):
+    def __init__(self, host, wifi_if, RPi=False):
         self._host = host
         self._wifi_if = wifi_if
         self._created_networks = {}
+        if RPi:
+            self._wpa_cli_cmd_format = self.RPI_CMD_FORMAT
         # TODO(wiley) Hardcoding this IFNAME prefix makes some big assumptions.
         #             we'll need to discover this parameter as it becomes more
         #             generally useful.
-        if host.get_os_type() == 'android':
+        elif host.get_os_type() == 'android':
             self._wpa_cli_cmd_format = self.ANDROID_CMD_FORMAT
         elif host.get_os_type() == 'brillo':
             self._wpa_cli_cmd_format = self.BRILLO_CMD_FORMAT
@@ -71,7 +77,7 @@ class WpaCliProxy(object):
         return network_id
 
 
-    def run_wpa_cli_cmd(self, command, check_result=True):
+    def run_wpa_cli_cmd(self, command, if_name=None, check_result=True):
         """
         Run a wpa_cli command and optionally check the result.
 
@@ -80,13 +86,18 @@ class WpaCliProxy(object):
 
         @param command string: suffix of a command to be prefixed with
                 an appropriate wpa_cli for this host.
+        @param if_name string: interface name. The wifi interface (self._wifi_if)
+                would be used, if the if_name was not specified.
         @param check_result bool: True iff we want to check that the
                 command comes back with an 'OK' response.
         @return result object returned by host.run.
 
         """
-        cmd = self._wpa_cli_cmd_format.format(
-                {'ifname' : self._wifi_if, 'cmd' : command})
+        iface = if_name if if_name else self._wifi_if
+        cmd = self._wpa_cli_cmd_format.format({
+                'ifname': iface,
+                'cmd': command
+        })
         result = self._host.run(cmd)
         if check_result and not result.stdout.strip().endswith('OK'):
             raise error.TestFail('wpa_cli command failed: %s' % command)
@@ -244,7 +255,7 @@ class WpaCliProxy(object):
                                  (network_id, 'scan_ssid', '1'))
 
         sec_config = assoc_params.security_config
-        for field, value in sec_config.get_wpa_cli_properties().iteritems():
+        for field, value in six.iteritems(sec_config.get_wpa_cli_properties()):
             self.run_wpa_cli_cmd('set_network %d %s %s' %
                                  (network_id, field, value))
         self.run_wpa_cli_cmd('select_network %d' % network_id)

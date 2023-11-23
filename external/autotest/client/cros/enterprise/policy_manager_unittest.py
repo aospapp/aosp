@@ -2,9 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 import json
-from mock import patch
 import unittest
-
+from unittest.mock import patch
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.enterprise import policy_group

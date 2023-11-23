@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -12,7 +13,7 @@ class autoupdate_InstallAndUpdateDLC(update_engine_test.UpdateEngineTest):
     """Tests installing DLCs and updating them along with the OS. """
     version = 1
 
-    def run_once(self, payload_urls, full_payload=True):
+    def run_once(self, payload_urls, interactive=True):
         """
         Install DLC and perform an update, using nebraska.
 
@@ -23,7 +24,7 @@ class autoupdate_InstallAndUpdateDLC(update_engine_test.UpdateEngineTest):
                              install the DLC. In case of a delta update, both
                              full and delta DLC payloads should be included in
                              payload_urls.
-        @param full_payload: True for a full payload, False for delta.
+        @param interactive: Whether the update should be interactive.
 
         """
         with nebraska_wrapper.NebraskaWrapper(
@@ -34,7 +35,9 @@ class autoupdate_InstallAndUpdateDLC(update_engine_test.UpdateEngineTest):
             self._dlc_util.install(self._dlc_util._SAMPLE_DLC_ID, nebraska_url)
 
             if not self._dlc_util.is_installed(self._dlc_util._SAMPLE_DLC_ID):
-                raise error.TestFail('Dummy DLC was not installed.')
+                raise error.TestFail('Test DLC was not installed.')
 
             logging.debug('Updating OS and DLC')
-            self._check_for_update(nebraska_url, wait_for_completion=True)
+            self._check_for_update(nebraska_url,
+                                   wait_for_completion=True,
+                                   interactive=interactive)

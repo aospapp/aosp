@@ -11,7 +11,7 @@ from autotest_lib.server import utils
 from autotest_lib.server.hosts import servo_constants
 from autotest_lib.server.hosts import cros_constants
 
-from chromite.lib import timeout_util
+from autotest_lib.utils.frozen_chromite.lib import timeout_util
 
 
 def require_servo(host, ignore_state=False):
@@ -91,7 +91,9 @@ class PingVerifier(hosts.Verifier):
             raise hosts.AutoservVerifyError(msg)
         if not ip_address:
             msg = 'Hostname: %s not present in DNS' % host.hostname
-            raise hosts.AutoservVerifyError(msg)
+        else:
+            msg = 'Hostname: %s not pingable' % host.hostname
+        raise hosts.AutoservVerifyError(msg)
 
     @property
     def description(self):

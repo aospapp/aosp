@@ -8,6 +8,7 @@
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text	
 
 
@@ -573,11 +574,11 @@ _vpaes_schedule_mangle:
 
 
 
-.globl	GFp_vpaes_set_encrypt_key
-.hidden GFp_vpaes_set_encrypt_key
-.type	GFp_vpaes_set_encrypt_key,@function
+.globl	vpaes_set_encrypt_key
+.hidden vpaes_set_encrypt_key
+.type	vpaes_set_encrypt_key,@function
 .align	16
-GFp_vpaes_set_encrypt_key:
+vpaes_set_encrypt_key:
 .cfi_startproc	
 #ifdef BORINGSSL_DISPATCH_TEST
 .extern	BORINGSSL_function_hit
@@ -596,13 +597,13 @@ GFp_vpaes_set_encrypt_key:
 	xorl	%eax,%eax
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_vpaes_set_encrypt_key,.-GFp_vpaes_set_encrypt_key
+.size	vpaes_set_encrypt_key,.-vpaes_set_encrypt_key
 
-.globl	GFp_vpaes_encrypt
-.hidden GFp_vpaes_encrypt
-.type	GFp_vpaes_encrypt,@function
+.globl	vpaes_encrypt
+.hidden vpaes_encrypt
+.type	vpaes_encrypt,@function
 .align	16
-GFp_vpaes_encrypt:
+vpaes_encrypt:
 .cfi_startproc	
 	movdqu	(%rdi),%xmm0
 	call	_vpaes_preheat
@@ -610,12 +611,12 @@ GFp_vpaes_encrypt:
 	movdqu	%xmm0,(%rsi)
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_vpaes_encrypt,.-GFp_vpaes_encrypt
-.globl	GFp_vpaes_ctr32_encrypt_blocks
-.hidden GFp_vpaes_ctr32_encrypt_blocks
-.type	GFp_vpaes_ctr32_encrypt_blocks,@function
+.size	vpaes_encrypt,.-vpaes_encrypt
+.globl	vpaes_ctr32_encrypt_blocks
+.hidden vpaes_ctr32_encrypt_blocks
+.type	vpaes_ctr32_encrypt_blocks,@function
 .align	16
-GFp_vpaes_ctr32_encrypt_blocks:
+vpaes_ctr32_encrypt_blocks:
 .cfi_startproc	
 
 	xchgq	%rcx,%rdx
@@ -673,7 +674,7 @@ GFp_vpaes_ctr32_encrypt_blocks:
 .Lctr32_abort:
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_vpaes_ctr32_encrypt_blocks,.-GFp_vpaes_ctr32_encrypt_blocks
+.size	vpaes_ctr32_encrypt_blocks,.-vpaes_ctr32_encrypt_blocks
 
 
 

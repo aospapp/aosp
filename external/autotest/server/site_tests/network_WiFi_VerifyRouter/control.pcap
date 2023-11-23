@@ -7,7 +7,8 @@ NAME = 'network_WiFi_VerifyRouter.pcap'
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'wificell'
-ATTRIBUTES = 'suite:wifi_update_router'
+ATTRIBUTES = 'suite:bluetooth_wifi_testbed_update, suite:wificell_dut_validation'
+PY_VERSION = 3
 
 DOC = """
 This test checks that a dual radio router is working correctly.

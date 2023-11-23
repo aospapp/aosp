@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -19,9 +19,8 @@ from autotest_lib.server import frontend
 # import needed to setup host_attributes
 # pylint: disable=unused-import
 from autotest_lib.server import site_host_attributes
-from autotest_lib.site_utils import server_manager_utils
-from chromite.lib import metrics
-from chromite.lib import ts_mon_config
+from autotest_lib.utils.frozen_chromite.lib import metrics
+from autotest_lib.utils.frozen_chromite.lib import ts_mon_config
 
 METRIC_ROOT = 'chromeos/autotest/blackbox/afe_rpc'
 METRIC_RPC_CALL_DURATIONS = METRIC_ROOT + '/rpc_call_durations'
@@ -58,7 +57,9 @@ def update_shards(shards, shards_lock, period=600, stop_event=None):
         start_time = time.time()
 
         logging.debug('Updating Shards')
-        new_shards = set(server_manager_utils.get_shards())
+
+        # server_manager_utils.get_shards() is deprecated.
+        new_shards = set()
 
         with shards_lock:
             current_shards = set(shards)

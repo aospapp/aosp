@@ -14,6 +14,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 Uses a mouse description file to emulate a USB mouse.  Plays back a single

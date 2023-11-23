@@ -10,5 +10,10 @@ echo done
 
 echo Hello, World
 cd /root
-./quicktest.sh
-sh -i
+if [ -f ./interactive ]; then
+    ./quicktest.sh
+    sh -i
+else
+    ./quicktest.sh || ./exit 1
+fi
+./exit

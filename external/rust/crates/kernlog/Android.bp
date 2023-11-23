@@ -31,4 +31,10 @@ rust_library {
         "liblibc",
         "liblog_rust",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

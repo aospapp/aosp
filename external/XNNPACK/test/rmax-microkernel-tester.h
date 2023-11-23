@@ -14,12 +14,14 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
-#include <functional>
 #include <limits>
 #include <random>
 #include <vector>
 
-#include <xnnpack/params.h>
+#include <fp16.h>
+
+#include <xnnpack.h>
+#include <xnnpack/microfnptr.h>
 
 
 class RMaxMicrokernelTester {
@@ -43,41 +45,42 @@ class RMaxMicrokernelTester {
     return this->iterations_;
   }
 
-  void Test(xnn_u8_rmax_ukernel_function rmax) const {
+  void Test(xnn_f16_rmax_ukernel_function rmax) const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto u8rng = std::bind(std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), rng);
+    std::uniform_real_distribution<float> f32dist;
 
-    std::vector<uint8_t> x(n());
+    std::vector<uint16_t> x(n() + XNN_EXTRA_BYTES / sizeof(uint16_t));
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(x.begin(), x.end(), std::ref(u8rng));
+      std::generate(x.begin(), x.end(), [&]() { return fp16_ieee_from_fp32_value(f32dist(rng)); });
 
       // Compute reference results.
-      uint8_t y_ref = 0;
+      float y_ref = -std::numeric_limits<float>::infinity();
       for (size_t i = 0; i < n(); i++) {
-        y_ref = std::max(y_ref, x[i]);
+        y_ref = std::max(y_ref, fp16_ieee_to_fp32_value(x[i]));
       }
 
       // Call optimized micro-kernel.
-      uint8_t y = u8rng();
-      rmax(n() * sizeof(uint8_t), x.data(), &y);
+      uint16_t y = UINT16_C(0x7E00) /* NaN */;
+      rmax(n() * sizeof(uint16_t), x.data(), &y);
 
       // Verify results.
-      ASSERT_EQ(y_ref, y) << "n = " << n();
+      ASSERT_EQ(fp16_ieee_to_fp32_value(y), y_ref)
+        << "batch " << n() << " y = " << y;
     }
   }
 
   void Test(xnn_f32_rmax_ukernel_function rmax) const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(), rng);
+    std::uniform_real_distribution<float> f32dist;
 
     std::vector<float> x(n());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(x.begin(), x.end(), std::ref(f32rng));
+      std::generate(x.begin(), x.end(), [&]() { return f32dist(rng); });
 
       // Compute reference results.
-      float y_ref = 0;
+      float y_ref = -std::numeric_limits<float>::infinity();
       for (size_t i = 0; i < n(); i++) {
         y_ref = std::max(y_ref, x[i]);
       }
@@ -87,7 +90,34 @@ class RMaxMicrokernelTester {
       rmax(n() * sizeof(float), x.data(), &y);
 
       // Verify results.
-      ASSERT_EQ(y_ref, y) << "n = " << n();
+      ASSERT_EQ(y_ref, y)
+        << "batch " << n();
+    }
+  }
+
+  void Test(xnn_u8_rmax_ukernel_function rmax) const {
+    std::random_device random_device;
+    auto rng = std::mt19937(random_device());
+    std::uniform_int_distribution<int32_t> u8dist(
+      std::numeric_limits<uint8_t>::min(), std::numeric_limits<uint8_t>::max());
+
+    std::vector<uint8_t> x(n());
+    for (size_t iteration = 0; iteration < iterations(); iteration++) {
+      std::generate(x.begin(), x.end(), [&]() { return u8dist(rng); });
+
+      // Compute reference results.
+      uint8_t y_ref = 0;
+      for (size_t i = 0; i < n(); i++) {
+        y_ref = std::max(y_ref, x[i]);
+      }
+
+      // Call optimized micro-kernel.
+      uint8_t y = u8dist(rng);
+      rmax(n() * sizeof(uint8_t), x.data(), &y);
+
+      // Verify results.
+      ASSERT_EQ(int32_t(y_ref), int32_t(y))
+        << "batch " << n();
     }
   }
 

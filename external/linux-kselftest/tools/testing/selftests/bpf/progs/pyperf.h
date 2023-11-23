@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <linux/bpf.h>
-#include "bpf_helpers.h"
+#include <bpf/bpf_helpers.h>
 
 #define FUNCTION_NAME_LEN 64
 #define FILE_NAME_LEN 128
@@ -67,7 +67,12 @@ typedef struct {
 	void* co_name; // PyCodeObject.co_name
 } FrameData;
 
-static __always_inline void *get_thread_state(void *tls_base, PidData *pidData)
+#ifdef SUBPROGS
+__noinline
+#else
+__always_inline
+#endif
+static void *get_thread_state(void *tls_base, PidData *pidData)
 {
 	void* thread_state;
 	int key;
@@ -154,7 +159,67 @@ struct {
 	__uint(value_size, sizeof(long long) * 127);
 } stackmap SEC(".maps");
 
-static __always_inline int __on_event(struct pt_regs *ctx)
+#ifdef USE_BPF_LOOP
+struct process_frame_ctx {
+	int cur_cpu;
+	int32_t *symbol_counter;
+	void *frame_ptr;
+	FrameData *frame;
+	PidData *pidData;
+	Symbol *sym;
+	Event *event;
+	bool done;
+};
+
+#define barrier_var(var) asm volatile("" : "=r"(var) : "0"(var))
+
+static int process_frame_callback(__u32 i, struct process_frame_ctx *ctx)
+{
+	int zero = 0;
+	void *frame_ptr = ctx->frame_ptr;
+	PidData *pidData = ctx->pidData;
+	FrameData *frame = ctx->frame;
+	int32_t *symbol_counter = ctx->symbol_counter;
+	int cur_cpu = ctx->cur_cpu;
+	Event *event = ctx->event;
+	Symbol *sym = ctx->sym;
+
+	if (frame_ptr && get_frame_data(frame_ptr, pidData, frame, sym)) {
+		int32_t new_symbol_id = *symbol_counter * 64 + cur_cpu;
+		int32_t *symbol_id = bpf_map_lookup_elem(&symbolmap, sym);
+
+		if (!symbol_id) {
+			bpf_map_update_elem(&symbolmap, sym, &zero, 0);
+			symbol_id = bpf_map_lookup_elem(&symbolmap, sym);
+			if (!symbol_id) {
+				ctx->done = true;
+				return 1;
+			}
+		}
+		if (*symbol_id == new_symbol_id)
+			(*symbol_counter)++;
+
+		barrier_var(i);
+		if (i >= STACK_MAX_LEN)
+			return 1;
+
+		event->stack[i] = *symbol_id;
+
+		event->stack_len = i + 1;
+		frame_ptr = frame->f_back;
+	}
+	return 0;
+}
+#endif /* USE_BPF_LOOP */
+
+#ifdef GLOBAL_FUNC
+__noinline
+#elif defined(SUBPROGS)
+static __noinline
+#else
+static __always_inline
+#endif
+int __on_event(struct bpf_raw_tracepoint_args *ctx)
 {
 	uint64_t pid_tgid = bpf_get_current_pid_tgid();
 	pid_t pid = (pid_t)(pid_tgid >> 32);
@@ -216,11 +281,26 @@ static __always_inline int __on_event(struct pt_regs *ctx)
 		int32_t* symbol_counter = bpf_map_lookup_elem(&symbolmap, &sym);
 		if (symbol_counter == NULL)
 			return 0;
+#ifdef USE_BPF_LOOP
+	struct process_frame_ctx ctx = {
+		.cur_cpu = cur_cpu,
+		.symbol_counter = symbol_counter,
+		.frame_ptr = frame_ptr,
+		.frame = &frame,
+		.pidData = pidData,
+		.sym = &sym,
+		.event = event,
+	};
+
+	bpf_loop(STACK_MAX_LEN, process_frame_callback, &ctx, 0);
+	if (ctx.done)
+		return 0;
+#else
 #ifdef NO_UNROLL
 #pragma clang loop unroll(disable)
 #else
 #pragma clang loop unroll(full)
-#endif
+#endif /* NO_UNROLL */
 		/* Unwind python stack */
 		for (int i = 0; i < STACK_MAX_LEN; ++i) {
 			if (frame_ptr && get_frame_data(frame_ptr, pidData, &frame, &sym)) {
@@ -239,6 +319,7 @@ static __always_inline int __on_event(struct pt_regs *ctx)
 				frame_ptr = frame.f_back;
 			}
 		}
+#endif /* USE_BPF_LOOP */
 		event->stack_complete = frame_ptr == NULL;
 	} else {
 		event->stack_complete = 1;
@@ -254,7 +335,7 @@ static __always_inline int __on_event(struct pt_regs *ctx)
 }
 
 SEC("raw_tracepoint/kfree_skb")
-int on_event(struct pt_regs* ctx)
+int on_event(struct bpf_raw_tracepoint_args* ctx)
 {
 	int i, ret = 0;
 	ret |= __on_event(ctx);

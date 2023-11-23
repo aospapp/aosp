@@ -1,14 +1,18 @@
+c: Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+SPDX-License-Identifier: curl
 Long: request
 Short: X
-Arg: <command>
-Help: Specify request command to use
+Arg: <method>
+Help: Specify request method to use
 Category: connection
 Example: -X "DELETE" $URL
 Example: -X NLST ftp://example.com/
 Added: 6.0
+See-also: request-target
+Multi: single
 ---
 (HTTP) Specifies a custom request method to use when communicating with the
-HTTP server.  The specified request method will be used instead of the method
+HTTP server. The specified request method will be used instead of the method
 otherwise used (which defaults to GET). Read the HTTP 1.1 specification for
 details and explanations. Common additional HTTP requests include PUT and
 DELETE, but related technologies like WebDAV offers PROPFIND, COPY, MOVE and
@@ -39,5 +43,3 @@ Specifies a custom IMAP command to use instead of LIST. (Added in 7.30.0)
 
 (SMTP)
 Specifies a custom SMTP command to use instead of HELP or VRFY. (Added in 7.34.0)
-
-If this option is used several times, the last one will be used.

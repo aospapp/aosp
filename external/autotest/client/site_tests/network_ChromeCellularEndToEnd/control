@@ -3,10 +3,10 @@
 # found in the LICENSE file.
 
 AUTHOR = 'harpreet'
-NAME = 'network_ChromeCelluarEndToEnd'
+NAME = 'network_ChromeCellularEndToEnd'
 TIME = 'FAST'
 TEST_TYPE = 'client'
-
+PY_VERSION = 3
 DOC = """
   Client side of the end to end Cellular test which is called by the
   cellular_ChromeEndToEnd server test that cold reboots the DUT before

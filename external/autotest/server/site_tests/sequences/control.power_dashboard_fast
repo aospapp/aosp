@@ -8,6 +8,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "suite"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 Sequence to make sure that power_Dashboard tests work fine.

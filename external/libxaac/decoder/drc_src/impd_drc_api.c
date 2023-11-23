@@ -19,7 +19,6 @@
 */
 #include <string.h>
 #include <stdlib.h>
-
 #include "impd_type_def.h"
 #include "impd_error_standards.h"
 #include "impd_apicmd_standards.h"
@@ -108,6 +107,8 @@ IA_ERRORCODE ia_drc_dec_api(pVOID p_ia_drc_dec_obj, WORD32 i_cmd, WORD32 i_idx,
   pUWORD32 pus_value = pv_value;
   pWORD8 pb_value = pv_value;
   SIZE_T *ps_value = pv_value;
+  pWORD32 pi_value = pv_value;
+  float *pf_value = pv_value;
 
   switch (i_cmd) {
     case IA_API_CMD_GET_MEM_INFO_SIZE:
@@ -221,32 +222,26 @@ IA_ERRORCODE ia_drc_dec_api(pVOID p_ia_drc_dec_obj, WORD32 i_cmd, WORD32 i_idx,
           break;
         }
         case IA_CMD_TYPE_INIT_CPY_IC_BSF_BUFF: {
-          memcpy(p_obj_drc->str_bit_handler.bitstream_drc_config +
-                     p_obj_drc->str_bit_handler.num_bytes_bs_drc_config,
+          memcpy(p_obj_drc->str_bit_handler.bitstream_drc_config,
                  p_obj_drc->pp_mem[2],
                  p_obj_drc->str_bit_handler.num_byts_cur_ic);
           p_obj_drc->str_bit_handler.num_bytes_bs_drc_config =
-              p_obj_drc->str_bit_handler.num_bytes_bs_drc_config +
               p_obj_drc->str_bit_handler.num_byts_cur_ic;
           break;
         }
         case IA_CMD_TYPE_INIT_CPY_IL_BSF_BUFF: {
-          memcpy(p_obj_drc->str_bit_handler.bitstream_loudness_info +
-                     p_obj_drc->str_bit_handler.num_bytes_bs_loudness_info,
+          memcpy(p_obj_drc->str_bit_handler.bitstream_loudness_info,
                  p_obj_drc->pp_mem[2],
                  p_obj_drc->str_bit_handler.num_byts_cur_il);
           p_obj_drc->str_bit_handler.num_bytes_bs_loudness_info =
-              p_obj_drc->str_bit_handler.num_bytes_bs_loudness_info +
               p_obj_drc->str_bit_handler.num_byts_cur_il;
           break;
         }
         case IA_CMD_TYPE_INIT_CPY_IN_BSF_BUFF: {
-          memcpy(p_obj_drc->str_bit_handler.bitstream_unidrc_interface +
-                     p_obj_drc->str_bit_handler.num_bytes_bs_unidrc_interface,
+          memcpy(p_obj_drc->str_bit_handler.bitstream_unidrc_interface,
                  p_obj_drc->pp_mem[2],
                  p_obj_drc->str_bit_handler.num_byts_cur_in);
           p_obj_drc->str_bit_handler.num_bytes_bs_unidrc_interface =
-              p_obj_drc->str_bit_handler.num_bytes_bs_unidrc_interface +
               p_obj_drc->str_bit_handler.num_byts_cur_in;
           break;
         }
@@ -269,6 +264,15 @@ IA_ERRORCODE ia_drc_dec_api(pVOID p_ia_drc_dec_obj, WORD32 i_cmd, WORD32 i_idx,
           *ps_value = (SIZE_T)p_obj_drc->str_payload.pstr_drc_sel_proc_output;
           break;
         }
+        case IA_DRC_DEC_CONFIG_DRC_TARGET_LOUDNESS: {
+          *pi_value = (WORD32)p_obj_drc->str_payload.pstr_loudness_info->loudness_info
+                          ->loudness_measure->method_val;
+          if (*pi_value < -1)
+            *pi_value = *pi_value * -4;
+          else
+            *pi_value = -1;
+          break;
+        }
       }
       break;
     }
@@ -279,6 +283,14 @@ IA_ERRORCODE ia_drc_dec_api(pVOID p_ia_drc_dec_obj, WORD32 i_cmd, WORD32 i_idx,
             return IA_DRC_DEC_CONFIG_NON_FATAL_INVALID_SAMP_FREQ;
           }
           p_obj_drc->str_config.sampling_rate = *pus_value;
+          break;
+        }
+        case IA_DRC_DEC_CONFIG_PARAM_APPLY_CROSSFADE: {
+          p_obj_drc->str_config.apply_crossfade = *pus_value;
+          break;
+        }
+        case IA_DRC_DEC_CONFIG_PARAM_CONFIG_CHANGED: {
+          p_obj_drc->str_config.is_config_changed = *pus_value;
           break;
         }
         case IA_DRC_DEC_CONFIG_PARAM_NUM_CHANNELS: {
@@ -335,7 +347,20 @@ IA_ERRORCODE ia_drc_dec_api(pVOID p_ia_drc_dec_obj, WORD32 i_cmd, WORD32 i_idx,
           p_obj_drc->str_config.loud_norm_flag = *pus_value;
           break;
         }
-
+        case IA_DRC_DEC_CONFIG_DRC_ALBUM_MODE: {
+          p_obj_drc->str_config.album_mode = *pus_value;
+          break;
+        }
+        case IA_DRC_DEC_CONFIG_DRC_BOOST: {
+          p_obj_drc->str_config.boost = (*pf_value);
+          p_obj_drc->str_config.boost_set = 1;
+          break;
+        }
+        case IA_DRC_DEC_CONFIG_DRC_COMPRESS: {
+          p_obj_drc->str_config.compress = (*pf_value);
+          p_obj_drc->str_config.compress_set = 1;
+          break;
+        }
         default: { return -1; }
       }
       break;

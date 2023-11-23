@@ -145,7 +145,7 @@ public class LoggerRuntime extends AbstractRuntime {
 
 		mv.visitInsn(Opcodes.ICONST_0);
 		mv.visitInsn(Opcodes.AALOAD);
-		mv.visitTypeInsn(Opcodes.CHECKCAST, InstrSupport.DATAFIELD_DESC);
+		mv.visitTypeInsn(Opcodes.CHECKCAST, InstrSupport.DATAFIELD_DESC_UNQUALIFIED);
 
 		// Stack[0]: [Z
 

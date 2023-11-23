@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,33 +8,49 @@
 pub mod backend;
 mod encoder;
 
-use base::{error, info, warn, Tube, WaitContext};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+
+use backend::*;
+use base::debug;
+use base::error;
+use base::info;
+use base::warn;
+use base::Tube;
+use base::WaitContext;
 use vm_memory::GuestMemory;
 
 use crate::virtio::video::async_cmd_desc_map::AsyncCmdDescMap;
-use crate::virtio::video::command::{QueueType, VideoCmd};
+use crate::virtio::video::command::QueueType;
+use crate::virtio::video::command::VideoCmd;
 use crate::virtio::video::control::*;
+use crate::virtio::video::device::AsyncCmdResponse;
+use crate::virtio::video::device::AsyncCmdTag;
+use crate::virtio::video::device::Device;
+use crate::virtio::video::device::Token;
 use crate::virtio::video::device::VideoCmdResponseType;
-use crate::virtio::video::device::{
-    AsyncCmdResponse, AsyncCmdTag, Device, Token, VideoEvtResponseType,
-};
-use crate::virtio::video::encoder::encoder::{
-    EncoderEvent, InputBufferId, OutputBufferId, SessionConfig,
-};
+use crate::virtio::video::device::VideoEvtResponseType;
+use crate::virtio::video::encoder::encoder::EncoderEvent;
+use crate::virtio::video::encoder::encoder::InputBufferId;
+use crate::virtio::video::encoder::encoder::OutputBufferId;
+use crate::virtio::video::encoder::encoder::SessionConfig;
 use crate::virtio::video::error::*;
-use crate::virtio::video::event::{EvtType, VideoEvt};
-use crate::virtio::video::format::{Bitrate, BitrateMode, Format, Level, PlaneFormat, Profile};
+use crate::virtio::video::event::EvtType;
+use crate::virtio::video::event::VideoEvt;
+use crate::virtio::video::format::Bitrate;
+use crate::virtio::video::format::BitrateMode;
+use crate::virtio::video::format::Format;
+use crate::virtio::video::format::Level;
+use crate::virtio::video::format::PlaneFormat;
+use crate::virtio::video::format::Profile;
 use crate::virtio::video::params::Params;
 use crate::virtio::video::protocol;
 use crate::virtio::video::resource::*;
 use crate::virtio::video::response::CmdResponse;
 use crate::virtio::video::EosBufferManager;
-use backend::*;
 
 #[derive(Debug)]
 struct QueuedInputResourceParams {
-    encoder_id: InputBufferId,
     timestamp: u64,
     in_queue: bool,
 }
@@ -46,8 +62,6 @@ struct InputResource {
 
 #[derive(Debug)]
 struct QueuedOutputResourceParams {
-    encoder_id: OutputBufferId,
-    timestamp: u64,
     in_queue: bool,
 }
 
@@ -104,7 +118,7 @@ impl<T: EncoderSession> Stream<T> {
         const DEFAULT_HEIGHT: u32 = 480;
         const DEFAULT_BITRATE_TARGET: u32 = 6000;
         const DEFAULT_BITRATE_PEAK: u32 = DEFAULT_BITRATE_TARGET * 2;
-        const DEFAULT_BITRATE: Bitrate = Bitrate::VBR {
+        const DEFAULT_BITRATE: Bitrate = Bitrate::Vbr {
             target: DEFAULT_BITRATE_TARGET,
             peak: DEFAULT_BITRATE_PEAK,
         };
@@ -644,7 +658,7 @@ impl<T: Encoder> EncoderDevice<T> {
                 }
 
                 if stream.src_resources.contains_key(&resource_id) {
-                    warn!("Replacing source resource with id {}", resource_id);
+                    debug!("Replacing source resource with id {}", resource_id);
                 }
 
                 let resource = match stream.src_params.resource_type {
@@ -659,6 +673,7 @@ impl<T: Encoder> EncoderDevice<T> {
                             // exactly one element.
                             unsafe { entries.get(0).unwrap().object },
                             &self.resource_bridge,
+                            &stream.src_params,
                         )
                         .map_err(|_| VideoError::InvalidArgument)?
                     }
@@ -671,7 +686,7 @@ impl<T: Encoder> EncoderDevice<T> {
                             )
                         },
                         &self.mem,
-                        &stream.src_params.plane_formats,
+                        &stream.src_params,
                     )
                     .map_err(|_| VideoError::InvalidArgument)?,
                 };
@@ -691,7 +706,7 @@ impl<T: Encoder> EncoderDevice<T> {
                 }
 
                 if stream.dst_resources.contains_key(&resource_id) {
-                    warn!("Replacing dest resource with id {}", resource_id);
+                    debug!("Replacing dest resource with id {}", resource_id);
                 }
 
                 let resource = match stream.dst_params.resource_type {
@@ -706,6 +721,7 @@ impl<T: Encoder> EncoderDevice<T> {
                             // exactly one element.
                             unsafe { entries.get(0).unwrap().object },
                             &self.resource_bridge,
+                            &stream.dst_params,
                         )
                         .map_err(|_| VideoError::InvalidArgument)?
                     }
@@ -718,7 +734,7 @@ impl<T: Encoder> EncoderDevice<T> {
                             )
                         },
                         &self.mem,
-                        &stream.dst_params.plane_formats,
+                        &stream.dst_params,
                     )
                     .map_err(|_| VideoError::InvalidArgument)?,
                 };
@@ -799,7 +815,6 @@ impl<T: Encoder> EncoderDevice<T> {
                             return Err(VideoError::InvalidOperation);
                         }
                         let queue_params = QueuedInputResourceParams {
-                            encoder_id: input_buffer_id,
                             timestamp,
                             in_queue: true,
                         };
@@ -840,17 +855,10 @@ impl<T: Encoder> EncoderDevice<T> {
                     },
                 )?;
 
-                let mut buffer_size = data_sizes[0];
-
-                // It seems that data_sizes[0] is 0 here. For now, take the stride
-                // from resource_info instead because we're always allocating <size> x 1
-                // blobs..
-                // TODO(alexlau): Figure out how to fix this.
-                if buffer_size == 0 {
-                    buffer_size = (dst_resource.resource.planes[0].offset
-                        + dst_resource.resource.planes[0].stride)
-                        as u32;
-                }
+                // data_sizes is always 0 for output buffers. We should fetch them from the
+                // negotiated parameters, although right now the VirtioObject backend uses the
+                // buffer's metadata instead.
+                let buffer_size = dst_resource.resource.planes[0].size as u32;
 
                 // Stores an output buffer to notify EOS.
                 // This is necessary because libvda is unable to indicate EOS along with returned buffers.
@@ -883,11 +891,7 @@ impl<T: Encoder> EncoderDevice<T> {
                                 output_buffer_id, last_resource_id
                             );
                         }
-                        let queue_params = QueuedOutputResourceParams {
-                            encoder_id: output_buffer_id,
-                            timestamp,
-                            in_queue: true,
-                        };
+                        let queue_params = QueuedOutputResourceParams { in_queue: true };
                         if let Some(last_queue_params) =
                             dst_resource.queue_params.replace(queue_params)
                         {
@@ -1020,7 +1024,7 @@ impl<T: Encoder> EncoderDevice<T> {
         frame_height: u32,
         frame_rate: u32,
         plane_formats: Vec<PlaneFormat>,
-        _is_ext: bool,
+        resource_type: Option<ResourceType>,
     ) -> VideoResult<VideoCmdResponseType> {
         let stream = self
             .streams
@@ -1028,7 +1032,10 @@ impl<T: Encoder> EncoderDevice<T> {
             .ok_or(VideoError::InvalidStreamId(stream_id))?;
 
         let mut create_session = stream.encoder_session.is_none();
-        let resources_queued = stream.src_resources.len() > 0 || stream.dst_resources.len() > 0;
+        // TODO(ishitatsuyuki): We should additionally check that no resources are *attached* while
+        //                      a params is being set.
+        let src_resources_queued = stream.src_resources.len() > 0;
+        let dst_resources_queued = stream.dst_resources.len() > 0;
 
         // Dynamic framerate changes are allowed. The framerate can be set on either the input or
         // output queue. Changing the framerate can influence the selected H.264 level, as the
@@ -1041,7 +1048,7 @@ impl<T: Encoder> EncoderDevice<T> {
             stream.src_params.frame_rate = frame_rate;
             stream.dst_params.frame_rate = frame_rate;
             if let Some(ref mut encoder_session) = stream.encoder_session {
-                if !resources_queued {
+                if !(src_resources_queued || dst_resources_queued) {
                     create_session = true;
                 } else if let Err(e) = encoder_session.request_encoding_params_change(
                     stream.dst_bitrate,
@@ -1059,15 +1066,13 @@ impl<T: Encoder> EncoderDevice<T> {
                     || stream.src_params.frame_height != frame_height
                     || stream.src_params.format != format
                     || stream.src_params.plane_formats != plane_formats
+                    || resource_type
+                        .map(|resource_type| stream.src_params.resource_type != resource_type)
+                        .unwrap_or(false)
                 {
-                    if resources_queued {
+                    if src_resources_queued {
                         // Buffers have already been queued and encoding has already started.
                         return Err(VideoError::InvalidOperation);
-                    }
-
-                    // There should be at least a single plane.
-                    if plane_formats.is_empty() {
-                        return Err(VideoError::InvalidArgument);
                     }
 
                     let desired_format =
@@ -1077,11 +1082,15 @@ impl<T: Encoder> EncoderDevice<T> {
                         desired_format,
                         frame_width,
                         frame_height,
-                        plane_formats[0].stride,
+                        plane_formats.get(0).map(|fmt| fmt.stride).unwrap_or(0),
                     )?;
 
                     stream.dst_params.frame_width = frame_width;
                     stream.dst_params.frame_height = frame_height;
+
+                    if let Some(resource_type) = resource_type {
+                        stream.src_params.resource_type = resource_type;
+                    }
 
                     create_session = true
                 }
@@ -1089,8 +1098,11 @@ impl<T: Encoder> EncoderDevice<T> {
             QueueType::Output => {
                 if stream.dst_params.format != format
                     || stream.dst_params.plane_formats != plane_formats
+                    || resource_type
+                        .map(|resource_type| stream.dst_params.resource_type != resource_type)
+                        .unwrap_or(false)
                 {
-                    if resources_queued {
+                    if dst_resources_queued {
                         // Buffers have already been queued and encoding has already started.
                         return Err(VideoError::InvalidOperation);
                     }
@@ -1126,6 +1138,10 @@ impl<T: Encoder> EncoderDevice<T> {
                         stream.dst_h264_level = Some(Level::H264_1_0);
                     } else {
                         stream.dst_h264_level = None;
+                    }
+
+                    if let Some(resource_type) = resource_type {
+                        stream.dst_params.resource_type = resource_type;
                     }
 
                     create_session = true;
@@ -1214,9 +1230,9 @@ impl<T: Encoder> EncoderDevice<T> {
             CtrlType::BitrateMode => CtrlVal::BitrateMode(stream.dst_bitrate.mode()),
             CtrlType::Bitrate => CtrlVal::Bitrate(stream.dst_bitrate.target()),
             CtrlType::BitratePeak => CtrlVal::BitratePeak(match stream.dst_bitrate {
-                Bitrate::VBR { peak, .. } => peak,
+                Bitrate::Vbr { peak, .. } => peak,
                 // For CBR there is no peak, so return the target (which is technically correct).
-                Bitrate::CBR { target } => target,
+                Bitrate::Cbr { target } => target,
             }),
             CtrlType::Profile => CtrlVal::Profile(stream.dst_profile),
             CtrlType::Level => {
@@ -1266,10 +1282,10 @@ impl<T: Encoder> EncoderDevice<T> {
                         return Err(VideoError::InvalidOperation);
                     }
                     stream.dst_bitrate = match bitrate_mode {
-                        BitrateMode::CBR => Bitrate::CBR {
+                        BitrateMode::Cbr => Bitrate::Cbr {
                             target: stream.dst_bitrate.target(),
                         },
-                        BitrateMode::VBR => Bitrate::VBR {
+                        BitrateMode::Vbr => Bitrate::Vbr {
                             target: stream.dst_bitrate.target(),
                             peak: stream.dst_bitrate.target(),
                         },
@@ -1281,7 +1297,7 @@ impl<T: Encoder> EncoderDevice<T> {
                 if stream.dst_bitrate.target() != bitrate {
                     let mut new_bitrate = stream.dst_bitrate;
                     match &mut new_bitrate {
-                        Bitrate::CBR { target } | Bitrate::VBR { target, .. } => *target = bitrate,
+                        Bitrate::Cbr { target } | Bitrate::Vbr { target, .. } => *target = bitrate,
                     }
                     if let Some(ref mut encoder_session) = stream.encoder_session {
                         if let Err(e) = encoder_session.request_encoding_params_change(
@@ -1297,9 +1313,9 @@ impl<T: Encoder> EncoderDevice<T> {
             }
             CtrlVal::BitratePeak(bitrate) => {
                 match stream.dst_bitrate {
-                    Bitrate::VBR { peak, .. } => {
+                    Bitrate::Vbr { peak, .. } => {
                         if peak != bitrate {
-                            let new_bitrate = Bitrate::VBR {
+                            let new_bitrate = Bitrate::Vbr {
                                 target: stream.dst_bitrate.target(),
                                 peak: bitrate,
                             };
@@ -1320,7 +1336,7 @@ impl<T: Encoder> EncoderDevice<T> {
                     }
                     // Trying to set the peak bitrate while in constant mode. This is not
                     // an error, just ignored.
-                    Bitrate::CBR { .. } => {}
+                    Bitrate::Cbr { .. } => {}
                 }
             }
             CtrlVal::Profile(profile) => {
@@ -1497,6 +1513,7 @@ impl<T: Encoder> Device for EncoderDevice<T> {
                         frame_height,
                         frame_rate,
                         plane_formats,
+                        resource_type,
                         ..
                     },
                 is_ext,
@@ -1509,7 +1526,7 @@ impl<T: Encoder> Device for EncoderDevice<T> {
                 frame_height,
                 frame_rate,
                 plane_formats,
-                is_ext,
+                if is_ext { Some(resource_type) } else { None },
             ),
             VideoCmd::QueryControl { query_ctrl_type } => self.query_control(query_ctrl_type),
             VideoCmd::GetControl {

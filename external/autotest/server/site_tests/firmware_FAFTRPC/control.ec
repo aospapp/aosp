@@ -4,16 +4,17 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "gredelston, kmshelton, waihong"
+AUTHOR = "kmshelton, waihong"
 NAME = "firmware_FAFTRPC.ec"
 PURPOSE = "Verify that the RPC system, and all EC RPCs, work as expected."
 CRITERIA = "This test will fail if the EC system is not set up correctly."
 ATTRIBUTES = "suite:faft_smoke"
+DEPENDENCIES = "servo_state:WORKING"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
-JOB_RETRIES = 2
+PY_VERSION = 3
 
 DOC = """
 This test checks that all RPC functions on the EC subsystem are connected,

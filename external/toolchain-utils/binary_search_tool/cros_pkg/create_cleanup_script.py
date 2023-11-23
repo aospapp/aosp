@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Copyright 2020 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -13,20 +13,19 @@ undo the changes made by setup.sh, returning everything to its
 original state.
 """
 
-from __future__ import print_function
 
 import argparse
 import sys
 
 
 def Usage(parser, msg):
-  print('ERROR: ' + msg)
-  parser.print_help()
-  sys.exit(1)
+    print("ERROR: " + msg)
+    parser.print_help()
+    sys.exit(1)
 
 
 def Main(argv):
-  """Generate a script to undo changes done by setup.sh
+    """Generate a script to undo changes done by setup.sh
 
     The script setup.sh makes a change that needs to be
     undone, namely it creates a soft link making /build/${board} point
@@ -40,80 +39,91 @@ def Main(argv):
 
     This function takes arguments that tell it exactly what setup.sh
     actually did, then generates a script to undo those exact changes.
-  """
+    """
 
-  parser = argparse.ArgumentParser()
-  parser.add_argument(
-      '--board',
-      dest='board',
-      required=True,
-      help='Chromeos board for packages/image.')
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--board",
+        dest="board",
+        required=True,
+        help="Chromeos board for packages/image.",
+    )
 
-  parser.add_argument(
-      '--old_tree_missing',
-      dest='tree_existed',
-      action='store_false',
-      help='Did /build/${BOARD} exist.',
-      default=True)
+    parser.add_argument(
+        "--old_tree_missing",
+        dest="tree_existed",
+        action="store_false",
+        help="Did /build/${BOARD} exist.",
+        default=True,
+    )
 
-  parser.add_argument(
-      '--renamed_tree',
-      dest='renamed_tree',
-      action='store_true',
-      help='Was /build/${BOARD} saved & renamed.',
-      default=False)
+    parser.add_argument(
+        "--renamed_tree",
+        dest="renamed_tree",
+        action="store_true",
+        help="Was /build/${BOARD} saved & renamed.",
+        default=False,
+    )
 
-  parser.add_argument(
-      '--old_link',
-      dest='old_link',
-      help=('The original build tree soft link.'))
+    parser.add_argument(
+        "--old_link",
+        dest="old_link",
+        help=("The original build tree soft link."),
+    )
 
-  options = parser.parse_args(argv[1:])
+    options = parser.parse_args(argv[1:])
 
-  if options.old_link or options.renamed_tree:
-    if not options.tree_existed:
-      Usage(
-          parser, 'If --tree_existed is False, cannot have '
-          '--renamed_tree or --old_link')
+    if options.old_link or options.renamed_tree:
+        if not options.tree_existed:
+            Usage(
+                parser,
+                "If --tree_existed is False, cannot have "
+                "--renamed_tree or --old_link",
+            )
 
-  if options.old_link and options.renamed_tree:
-    Usage(parser, '--old_link and --renamed_tree are incompatible options.')
+    if options.old_link and options.renamed_tree:
+        Usage(parser, "--old_link and --renamed_tree are incompatible options.")
 
-  if options.tree_existed:
-    if not options.old_link and not options.renamed_tree:
-      Usage(
-          parser, 'If --tree_existed is True, then must have either '
-          '--old_link or --renamed_tree')
-
-  out_filename = 'cros_pkg/' + options.board + '_cleanup.sh'
-
-  with open(out_filename, 'w', encoding='utf-8') as out_file:
-    out_file.write('#!/bin/bash\n\n')
-    # First, remove the 'new' soft link.
-    out_file.write('sudo rm /build/%s\n' % options.board)
     if options.tree_existed:
-      if options.renamed_tree:
-        # Old build tree existed and was a real tree, so it got
-        # renamed.  Move the renamed tree back to the original tree.
-        out_file.write('sudo mv /build/%s.save /build/%s\n' % (options.board,
-                                                               options.board))
-      else:
-        # Old tree existed and was already a soft link.  Re-create the
-        # original soft link.
-        original_link = options.old_link
-        if original_link[0] == "'":
-          original_link = original_link[1:]
-        if original_link[-1] == "'":
-          original_link = original_link[:-1]
-        out_file.write(
-            'sudo ln -s %s /build/%s\n' % (original_link, options.board))
-    out_file.write('\n')
-    # Remove common.sh file
-    out_file.write('rm common/common.sh\n')
+        if not options.old_link and not options.renamed_tree:
+            Usage(
+                parser,
+                "If --tree_existed is True, then must have either "
+                "--old_link or --renamed_tree",
+            )
 
-  return 0
+    out_filename = "cros_pkg/" + options.board + "_cleanup.sh"
+
+    with open(out_filename, "w", encoding="utf-8") as out_file:
+        out_file.write("#!/bin/bash\n\n")
+        # First, remove the 'new' soft link.
+        out_file.write("sudo rm /build/%s\n" % options.board)
+        if options.tree_existed:
+            if options.renamed_tree:
+                # Old build tree existed and was a real tree, so it got
+                # renamed.  Move the renamed tree back to the original tree.
+                out_file.write(
+                    "sudo mv /build/%s.save /build/%s\n"
+                    % (options.board, options.board)
+                )
+            else:
+                # Old tree existed and was already a soft link.  Re-create the
+                # original soft link.
+                original_link = options.old_link
+                if original_link[0] == "'":
+                    original_link = original_link[1:]
+                if original_link[-1] == "'":
+                    original_link = original_link[:-1]
+                out_file.write(
+                    "sudo ln -s %s /build/%s\n" % (original_link, options.board)
+                )
+        out_file.write("\n")
+        # Remove common.sh file
+        out_file.write("rm common/common.sh\n")
+
+    return 0
 
 
-if __name__ == '__main__':
-  retval = Main(sys.argv)
-  sys.exit(retval)
+if __name__ == "__main__":
+    retval = Main(sys.argv)
+    sys.exit(retval)

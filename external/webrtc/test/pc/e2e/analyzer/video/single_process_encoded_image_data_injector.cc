@@ -28,8 +28,7 @@ SingleProcessEncodedImageDataInjector::
 EncodedImage SingleProcessEncodedImageDataInjector::InjectData(
     uint16_t id,
     bool discard,
-    const EncodedImage& source,
-    int coding_entity_id) {
+    const EncodedImage& source) {
   RTC_CHECK(source.size() >= ExtractionInfo::kUsedBufferSize);
 
   ExtractionInfo info;
@@ -45,22 +44,46 @@ EncodedImage SingleProcessEncodedImageDataInjector::InjectData(
     ev.infos[info.sub_id] = info;
   }
 
+  auto buffer = EncodedImageBuffer::Create(source.data(), source.size());
+  buffer->data()[insertion_pos] = id & 0x00ff;
+  buffer->data()[insertion_pos + 1] = (id & 0xff00) >> 8;
+  buffer->data()[insertion_pos + 2] = info.sub_id;
+
   EncodedImage out = source;
-  out.data()[insertion_pos] = id & 0x00ff;
-  out.data()[insertion_pos + 1] = (id & 0xff00) >> 8;
-  out.data()[insertion_pos + 2] = info.sub_id;
+  out.SetEncodedData(buffer);
   return out;
 }
 
-EncodedImageExtractionResult SingleProcessEncodedImageDataInjector::ExtractData(
-    const EncodedImage& source,
-    int coding_entity_id) {
-  EncodedImage out = source;
+void SingleProcessEncodedImageDataInjector::AddParticipantInCall() {
+  MutexLock crit(&lock_);
+  expected_receivers_count_++;
+}
 
-  // Both |source| and |out| image will share the same buffer for payload or
-  // out will have a copy for it, so we can operate on the |out| buffer only.
-  uint8_t* buffer = out.data();
-  size_t size = out.size();
+void SingleProcessEncodedImageDataInjector::RemoveParticipantInCall() {
+  MutexLock crit(&lock_);
+  expected_receivers_count_--;
+  // Now we need go over `extraction_cache_` and removed frames which have been
+  // received by `expected_receivers_count_`.
+  for (auto& [frame_id, extraction_infos] : extraction_cache_) {
+    for (auto it = extraction_infos.infos.begin();
+         it != extraction_infos.infos.end();) {
+      // Frame is received if `received_count` equals to
+      // `expected_receivers_count_`.
+      if (it->second.received_count == expected_receivers_count_) {
+        it = extraction_infos.infos.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
+}
+
+EncodedImageExtractionResult SingleProcessEncodedImageDataInjector::ExtractData(
+    const EncodedImage& source) {
+  size_t size = source.size();
+  auto buffer = EncodedImageBuffer::Create(source.data(), source.size());
+  EncodedImage out = source;
+  out.SetEncodedData(buffer);
 
   std::vector<size_t> frame_sizes;
   std::vector<size_t> frame_sl_index;
@@ -84,9 +107,10 @@ EncodedImageExtractionResult SingleProcessEncodedImageDataInjector::ExtractData(
     size_t insertion_pos =
         prev_frames_size + frame_size - ExtractionInfo::kUsedBufferSize;
     // Extract frame id from first 2 bytes starting from insertion pos.
-    uint16_t next_id = buffer[insertion_pos] + (buffer[insertion_pos + 1] << 8);
+    uint16_t next_id = buffer->data()[insertion_pos] +
+                       (buffer->data()[insertion_pos + 1] << 8);
     // Extract frame sub id from second 3 byte starting from insertion pos.
-    uint8_t sub_id = buffer[insertion_pos + 2];
+    uint8_t sub_id = buffer->data()[insertion_pos + 2];
     RTC_CHECK(!id || *id == next_id)
         << "Different frames encoded into single encoded image: " << *id
         << " vs " << next_id;
@@ -95,16 +119,17 @@ EncodedImageExtractionResult SingleProcessEncodedImageDataInjector::ExtractData(
     {
       MutexLock lock(&lock_);
       auto ext_vector_it = extraction_cache_.find(next_id);
-      // TODO(titovartem) add support for receiving single frame multiple times
-      // when in simulcast key frame for another spatial stream can be received.
       RTC_CHECK(ext_vector_it != extraction_cache_.end())
           << "Unknown frame_id=" << next_id;
 
       auto info_it = ext_vector_it->second.infos.find(sub_id);
       RTC_CHECK(info_it != ext_vector_it->second.infos.end())
           << "Unknown sub_id=" << sub_id << " for frame_id=" << next_id;
+      info_it->second.received_count++;
       info = info_it->second;
-      ext_vector_it->second.infos.erase(info_it);
+      if (info.received_count == expected_receivers_count_) {
+        ext_vector_it->second.infos.erase(info_it);
+      }
     }
     // We need to discard encoded image only if all concatenated encoded images
     // have to be discarded.
@@ -134,15 +159,17 @@ EncodedImageExtractionResult SingleProcessEncodedImageDataInjector::ExtractData(
     if (info.discard) {
       // If this encoded image is marked to be discarded - erase it's payload
       // from the buffer.
-      memmove(&buffer[pos], &buffer[pos + frame_size], size - pos - frame_size);
+      memmove(&buffer->data()[pos], &buffer->data()[pos + frame_size],
+              size - pos - frame_size);
       RTC_CHECK_LT(frame_index, frame_sl_index.size())
           << "codec doesn't support discard option or the image, that was "
              "supposed to be discarded, is lost";
       out.SetSpatialLayerFrameSize(frame_sl_index[frame_index], 0);
       size -= frame_size;
     } else {
-      memcpy(&buffer[pos + frame_size - ExtractionInfo::kUsedBufferSize],
-             info.origin_data, ExtractionInfo::kUsedBufferSize);
+      memcpy(
+          &buffer->data()[pos + frame_size - ExtractionInfo::kUsedBufferSize],
+          info.origin_data, ExtractionInfo::kUsedBufferSize);
       pos += frame_size;
     }
   }

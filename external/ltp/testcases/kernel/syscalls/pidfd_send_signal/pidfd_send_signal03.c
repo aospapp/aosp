@@ -3,13 +3,18 @@
  * Copyright (c) 2019 SUSE LLC
  * Author: Christian Amann <camann@suse.com>
  */
-/*
+
+/*\
+ * [Description]
+ *
  * This test checks if the pidfd_send_signal syscall wrongfully sends
  * a signal to a new process which inherited the PID of the actual
  * target process.
+ *
  * In order to do so it is necessary to start a process with a pre-
  * determined PID. This is accomplished by writing to the
  * /proc/sys/kernel/ns_last_pid file.
+ *
  * By utilizing this, this test forks two children with the same PID.
  * It is then checked, if the syscall will send a signal to the second
  * child using the pidfd of the first one.
@@ -19,7 +24,8 @@
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "lapi/pidfd_send_signal.h"
+#include "tst_test.h"
+#include "lapi/pidfd.h"
 #include "tst_safe_pthread.h"
 
 #define PIDTRIES	3

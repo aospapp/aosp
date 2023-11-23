@@ -28,7 +28,7 @@ import org.tensorflow.lite.task.core.TaskJniUtils.MultipleBuffersHandleProvider;
 
 /** Task API for BertQA models. */
 public class BertQuestionAnswerer extends BaseTaskApi implements QuestionAnswerer {
-  private static final String BERT_QUESTION_ANSWERER_NATIVE_LIBNAME = "task_text_jni";
+  private static final String BERT_QUESTION_ANSWERER_NATIVE_LIBNAME = "tflite_support_classifiers_native";
 
   private BertQuestionAnswerer(long nativeHandle) {
     super(nativeHandle);

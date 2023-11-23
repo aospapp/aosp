@@ -11,6 +11,7 @@ hjd@google.com
 
 # Trace Processor, metrics, infra.
 lalitm@google.com
+mayzner@google.com
 
 # Callstack / memory profilers, traced_probes & Linux internals.
 ddiproietto@google.com
@@ -20,6 +21,9 @@ rsavitski@google.com
 eseckler@google.com
 nuskos@google.com
 oysteine@google.com
+
+# UI, Chromium-related metrics and simpler trace processor changes.
+altimin@google.com
 
 # Most Android-related metrics.
 ilkos@google.com

@@ -1,0 +1,21 @@
+ARG fedora_version=latest
+# ARG fedora_version=35
+FROM fedora:${fedora_version} as builder
+
+# docker build -f docker/Dockerfile.fedora-base -t ghcr.io/woodard/libabigail-fedora-base .
+
+RUN dnf install -y \
+    autoconf \
+    automake \
+    cpio \
+    elfutils-devel \
+    gcc-c++ \
+    lbzip2 \
+    libtool \
+    libxml2-devel \
+    python3-koji \
+    python3-mock \
+    python3-pyxdg \
+    shared-mime-info \
+    six \
+    wget

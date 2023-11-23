@@ -44,7 +44,9 @@
 #include "ixheaacd_drc_data_struct.h"
 
 #include "ixheaacd_lt_predict.h"
-
+#include "ixheaacd_cnst.h"
+#include "ixheaacd_ec_defines.h"
+#include "ixheaacd_ec_struct_def.h"
 #include "ixheaacd_channelinfo.h"
 #include "ixheaacd_drc_dec.h"
 #include "ixheaacd_sbrdecoder.h"
@@ -71,7 +73,12 @@
 
 #include "ixheaacd_aacdec.h"
 #include "ixheaacd_config.h"
+#include "ixheaacd_qmf_dec.h"
 #include "ixheaacd_mps_polyphase.h"
+#include "ixheaacd_mps_macro_def.h"
+#include "ixheaacd_mps_struct_def.h"
+#include "ixheaacd_mps_res_rom.h"
+#include "ixheaacd_mps_aac_struct.h"
 #include "ixheaacd_mps_dec.h"
 #include "ixheaacd_struct_def.h"
 
@@ -113,7 +120,7 @@ WORD32 ixheaacd_latm_payload_length_info(struct ia_bit_buf_struct *it_bit_buff,
             layer_info->frame_len_bits =
                 ixheaacd_latm_au_chunk_length_info(it_bit_buff);
             if (layer_info->frame_len_bits % 8 != 0) {
-              error_code = IA_ENHAACPLUS_DEC_EXE_FATAL_INVALID_LOAS_HEADER;
+              error_code = IA_XHEAAC_DEC_EXE_FATAL_INVALID_LOAS_HEADER;
               return error_code;
             }
 
@@ -123,13 +130,13 @@ WORD32 ixheaacd_latm_payload_length_info(struct ia_bit_buf_struct *it_bit_buff,
             break;
 
           default:
-            error_code = IA_ENHAACPLUS_DEC_EXE_FATAL_INVALID_LOAS_HEADER;
+            error_code = IA_XHEAAC_DEC_EXE_FATAL_INVALID_LOAS_HEADER;
             return error_code;
         }
       }
     }
   } else {
-    error_code = IA_ENHAACPLUS_DEC_EXE_FATAL_INVALID_LOAS_HEADER;
+    error_code = IA_XHEAAC_DEC_EXE_FATAL_INVALID_LOAS_HEADER;
     return error_code;
   }
 
@@ -144,8 +151,8 @@ static UWORD32 ixheaacd_latm_get_value(ia_bit_buf_struct *it_bit_buff) {
   if (bytes_read <= 3)
     return ixheaacd_read_bits_buf(it_bit_buff, 8 * bytes_read);
   else
-    return (ixheaacd_read_bits_buf(it_bit_buff, 24) << 8) +
-           ixheaacd_read_bits_buf(it_bit_buff, 8);
+    return ixheaacd_add32_sat(ixheaacd_shl32_sat(ixheaacd_read_bits_buf(it_bit_buff, 24), 8),
+                              ixheaacd_read_bits_buf(it_bit_buff, 8));
 }
 
 IA_ERRORCODE ixheaacd_latm_stream_mux_config(
@@ -156,7 +163,6 @@ IA_ERRORCODE ixheaacd_latm_stream_mux_config(
   UWORD32 lay;
   WORD32 bytes_consumed;
   WORD32 audio_mux_version_a;
-  UWORD32 tara_buf_fullness;
   IA_ERRORCODE error_code = AAC_DEC_OK;
   ixheaacd_latm_layer_info *layer_info = 0;
 
@@ -169,7 +175,7 @@ IA_ERRORCODE ixheaacd_latm_stream_mux_config(
 
   if (audio_mux_version_a == 0) {
     if (latm_element->audio_mux_version == 1) {
-      tara_buf_fullness = ixheaacd_latm_get_value(it_bit_buff);
+      ixheaacd_latm_get_value(it_bit_buff);/*tara_buf_fullness*/
     }
     latm_element->all_streams_same_time_framing =
         ixheaacd_read_bits_buf(it_bit_buff, 1);
@@ -177,7 +183,7 @@ IA_ERRORCODE ixheaacd_latm_stream_mux_config(
     latm_element->num_sub_frames = ixheaacd_read_bits_buf(it_bit_buff, 6) + 1;
 
     if (latm_element->num_sub_frames != 1)
-      return IA_ENHAACPLUS_DEC_EXE_FATAL_INVALID_LOAS_HEADER;
+      return IA_XHEAAC_DEC_EXE_FATAL_INVALID_LOAS_HEADER;
 
     latm_element->num_program = ixheaacd_read_bits_buf(it_bit_buff, 4) + 1;
 
@@ -202,7 +208,7 @@ IA_ERRORCODE ixheaacd_latm_stream_mux_config(
 
           if (asc_len > it_bit_buff->size - 106 || asc_len > 2592 ||
               asc_len < 0) {
-            return IA_ENHAACPLUS_DEC_INIT_FATAL_DEC_INIT_FAIL;
+            return IA_XHEAAC_DEC_INIT_FATAL_DEC_INIT_FAIL;
           }
 
           if ((error_code = ixheaacd_ga_hdr_dec(
@@ -248,7 +254,7 @@ IA_ERRORCODE ixheaacd_latm_stream_mux_config(
             break;
 
           default:
-            return IA_ENHAACPLUS_DEC_EXE_FATAL_INVALID_LOAS_HEADER;
+            return IA_XHEAAC_DEC_EXE_FATAL_INVALID_LOAS_HEADER;
         }
       }
     }
@@ -278,7 +284,7 @@ IA_ERRORCODE ixheaacd_latm_stream_mux_config(
       latm_element->crc_check_sum = ixheaacd_read_bits_buf(it_bit_buff, 8);
     }
   } else {
-    error_code = IA_ENHAACPLUS_DEC_EXE_FATAL_INVALID_LOAS_HEADER;
+    error_code = IA_XHEAAC_DEC_EXE_FATAL_INVALID_LOAS_HEADER;
   }
   return (error_code);
 }

@@ -288,7 +288,7 @@ public class IntlTestDecimalFormatAPIC extends TestFmwk {
             pat.setRoundingIncrement(java.math.BigDecimal.ONE);
             resultStr = pat.format(Roundingnumber);
             message = "round(" + Roundingnumber
-                    + "," + mode + ",FALSE) with RoundingIncrement=1.0==>";
+                    + "," + mode + ",false) with RoundingIncrement=1.0==>";
             verify(message, resultStr, result[i++]);
             message = "";
             resultStr = "";
@@ -296,7 +296,7 @@ public class IntlTestDecimalFormatAPIC extends TestFmwk {
             //for -2.55 with RoundingIncrement=1.0
             resultStr = pat.format(Roundingnumber1);
             message = "round(" + Roundingnumber1
-                    + "," + mode + ",FALSE) with RoundingIncrement=1.0==>";
+                    + "," + mode + ",false) with RoundingIncrement=1.0==>";
             verify(message, resultStr, result[i++]);
             message = "";
             resultStr = "";

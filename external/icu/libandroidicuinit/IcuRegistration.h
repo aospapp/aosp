@@ -127,11 +127,9 @@ class IcuRegistration final {
   IcuRegistration();
 
   static bool pathExists(const std::string& path);
-  static std::string getDataTimeZonePath();
   static std::string getTimeZoneModulePath();
   static std::string getI18nModulePath();
 
-  std::unique_ptr<impl::IcuDataMap> icu_datamap_from_data_;
   std::unique_ptr<impl::IcuDataMap> icu_datamap_from_tz_module_;
   std::unique_ptr<impl::IcuDataMap> icu_datamap_from_i18n_module_;
 

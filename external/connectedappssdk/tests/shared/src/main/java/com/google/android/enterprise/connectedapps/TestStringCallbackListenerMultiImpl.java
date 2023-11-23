@@ -19,11 +19,13 @@ import com.google.android.enterprise.connectedapps.testapp.TestStringCallbackLis
 import java.util.Map;
 
 public class TestStringCallbackListenerMultiImpl implements TestStringCallbackListener_Multi {
+  public int numberOfCallbacks = 0;
   public int numberOfResults = 0;
   public Map<Profile, String> stringCallbackValues;
 
   @Override
   public void stringCallback(Map<Profile, String> s) {
+    numberOfCallbacks++;
     numberOfResults = s.size();
     stringCallbackValues = s;
   }

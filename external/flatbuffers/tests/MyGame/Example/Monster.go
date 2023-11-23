@@ -10,51 +10,56 @@ import (
 
 /// an example documentation comment: "monster object"
 type MonsterT struct {
-	Pos *Vec3T
-	Mana int16
-	Hp int16
-	Name string
-	Inventory []byte
-	Color Color
-	Test *AnyT
-	Test4 []*TestT
-	Testarrayofstring []string
-	Testarrayoftables []*MonsterT
-	Enemy *MonsterT
-	Testnestedflatbuffer []byte
-	Testempty *StatT
-	Testbool bool
-	Testhashs32Fnv1 int32
-	Testhashu32Fnv1 uint32
-	Testhashs64Fnv1 int64
-	Testhashu64Fnv1 uint64
-	Testhashs32Fnv1a int32
-	Testhashu32Fnv1a uint32
-	Testhashs64Fnv1a int64
-	Testhashu64Fnv1a uint64
-	Testarrayofbools []bool
-	Testf float32
-	Testf2 float32
-	Testf3 float32
-	Testarrayofstring2 []string
-	Testarrayofsortedstruct []*AbilityT
-	Flex []byte
-	Test5 []*TestT
-	VectorOfLongs []int64
-	VectorOfDoubles []float64
-	ParentNamespaceTest *MyGame.InParentNamespaceT
-	VectorOfReferrables []*ReferrableT
-	SingleWeakReference uint64
-	VectorOfWeakReferences []uint64
-	VectorOfStrongReferrables []*ReferrableT
-	CoOwningReference uint64
-	VectorOfCoOwningReferences []uint64
-	NonOwningReference uint64
-	VectorOfNonOwningReferences []uint64
-	AnyUnique *AnyUniqueAliasesT
-	AnyAmbiguous *AnyAmbiguousAliasesT
-	VectorOfEnums []Color
-	SignedEnum Race
+	Pos *Vec3T `json:"pos"`
+	Mana int16 `json:"mana"`
+	Hp int16 `json:"hp"`
+	Name string `json:"name"`
+	Inventory []byte `json:"inventory"`
+	Color Color `json:"color"`
+	Test *AnyT `json:"test"`
+	Test4 []*TestT `json:"test4"`
+	Testarrayofstring []string `json:"testarrayofstring"`
+	Testarrayoftables []*MonsterT `json:"testarrayoftables"`
+	Enemy *MonsterT `json:"enemy"`
+	Testnestedflatbuffer []byte `json:"testnestedflatbuffer"`
+	Testempty *StatT `json:"testempty"`
+	Testbool bool `json:"testbool"`
+	Testhashs32Fnv1 int32 `json:"testhashs32_fnv1"`
+	Testhashu32Fnv1 uint32 `json:"testhashu32_fnv1"`
+	Testhashs64Fnv1 int64 `json:"testhashs64_fnv1"`
+	Testhashu64Fnv1 uint64 `json:"testhashu64_fnv1"`
+	Testhashs32Fnv1a int32 `json:"testhashs32_fnv1a"`
+	Testhashu32Fnv1a uint32 `json:"testhashu32_fnv1a"`
+	Testhashs64Fnv1a int64 `json:"testhashs64_fnv1a"`
+	Testhashu64Fnv1a uint64 `json:"testhashu64_fnv1a"`
+	Testarrayofbools []bool `json:"testarrayofbools"`
+	Testf float32 `json:"testf"`
+	Testf2 float32 `json:"testf2"`
+	Testf3 float32 `json:"testf3"`
+	Testarrayofstring2 []string `json:"testarrayofstring2"`
+	Testarrayofsortedstruct []*AbilityT `json:"testarrayofsortedstruct"`
+	Flex []byte `json:"flex"`
+	Test5 []*TestT `json:"test5"`
+	VectorOfLongs []int64 `json:"vector_of_longs"`
+	VectorOfDoubles []float64 `json:"vector_of_doubles"`
+	ParentNamespaceTest *MyGame.InParentNamespaceT `json:"parent_namespace_test"`
+	VectorOfReferrables []*ReferrableT `json:"vector_of_referrables"`
+	SingleWeakReference uint64 `json:"single_weak_reference"`
+	VectorOfWeakReferences []uint64 `json:"vector_of_weak_references"`
+	VectorOfStrongReferrables []*ReferrableT `json:"vector_of_strong_referrables"`
+	CoOwningReference uint64 `json:"co_owning_reference"`
+	VectorOfCoOwningReferences []uint64 `json:"vector_of_co_owning_references"`
+	NonOwningReference uint64 `json:"non_owning_reference"`
+	VectorOfNonOwningReferences []uint64 `json:"vector_of_non_owning_references"`
+	AnyUnique *AnyUniqueAliasesT `json:"any_unique"`
+	AnyAmbiguous *AnyAmbiguousAliasesT `json:"any_ambiguous"`
+	VectorOfEnums []Color `json:"vector_of_enums"`
+	SignedEnum Race `json:"signed_enum"`
+	Testrequirednestedflatbuffer []byte `json:"testrequirednestedflatbuffer"`
+	ScalarKeySortedTables []*StatT `json:"scalar_key_sorted_tables"`
+	NativeInline *TestT `json:"native_inline"`
+	LongEnumNonEnumDefault LongEnum `json:"long_enum_non_enum_default"`
+	LongEnumNormalDefault LongEnum `json:"long_enum_normal_default"`
 }
 
 func (t *MonsterT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -236,6 +241,23 @@ func (t *MonsterT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 		}
 		vectorOfEnumsOffset = builder.EndVector(vectorOfEnumsLength)
 	}
+	testrequirednestedflatbufferOffset := flatbuffers.UOffsetT(0)
+	if t.Testrequirednestedflatbuffer != nil {
+		testrequirednestedflatbufferOffset = builder.CreateByteString(t.Testrequirednestedflatbuffer)
+	}
+	scalarKeySortedTablesOffset := flatbuffers.UOffsetT(0)
+	if t.ScalarKeySortedTables != nil {
+		scalarKeySortedTablesLength := len(t.ScalarKeySortedTables)
+		scalarKeySortedTablesOffsets := make([]flatbuffers.UOffsetT, scalarKeySortedTablesLength)
+		for j := 0; j < scalarKeySortedTablesLength; j++ {
+			scalarKeySortedTablesOffsets[j] = t.ScalarKeySortedTables[j].Pack(builder)
+		}
+		MonsterStartScalarKeySortedTablesVector(builder, scalarKeySortedTablesLength)
+		for j := scalarKeySortedTablesLength - 1; j >= 0; j-- {
+			builder.PrependUOffsetT(scalarKeySortedTablesOffsets[j])
+		}
+		scalarKeySortedTablesOffset = builder.EndVector(scalarKeySortedTablesLength)
+	}
 	MonsterStart(builder)
 	posOffset := t.Pos.Pack(builder)
 	MonsterAddPos(builder, posOffset)
@@ -292,6 +314,12 @@ func (t *MonsterT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	MonsterAddAnyAmbiguous(builder, anyAmbiguousOffset)
 	MonsterAddVectorOfEnums(builder, vectorOfEnumsOffset)
 	MonsterAddSignedEnum(builder, t.SignedEnum)
+	MonsterAddTestrequirednestedflatbuffer(builder, testrequirednestedflatbufferOffset)
+	MonsterAddScalarKeySortedTables(builder, scalarKeySortedTablesOffset)
+	nativeInlineOffset := t.NativeInline.Pack(builder)
+	MonsterAddNativeInline(builder, nativeInlineOffset)
+	MonsterAddLongEnumNonEnumDefault(builder, t.LongEnumNonEnumDefault)
+	MonsterAddLongEnumNormalDefault(builder, t.LongEnumNormalDefault)
 	return MonsterEnd(builder)
 }
 
@@ -422,6 +450,17 @@ func (rcv *Monster) UnPackTo(t *MonsterT) {
 		t.VectorOfEnums[j] = rcv.VectorOfEnums(j)
 	}
 	t.SignedEnum = rcv.SignedEnum()
+	t.Testrequirednestedflatbuffer = rcv.TestrequirednestedflatbufferBytes()
+	scalarKeySortedTablesLength := rcv.ScalarKeySortedTablesLength()
+	t.ScalarKeySortedTables = make([]*StatT, scalarKeySortedTablesLength)
+	for j := 0; j < scalarKeySortedTablesLength; j++ {
+		x := Stat{}
+		rcv.ScalarKeySortedTables(&x, j)
+		t.ScalarKeySortedTables[j] = x.UnPack()
+	}
+	t.NativeInline = rcv.NativeInline(nil).UnPack()
+	t.LongEnumNonEnumDefault = rcv.LongEnumNonEnumDefault()
+	t.LongEnumNormalDefault = rcv.LongEnumNormalDefault()
 }
 
 func (rcv *Monster) UnPack() *MonsterT {
@@ -439,6 +478,13 @@ func GetRootAsMonster(buf []byte, offset flatbuffers.UOffsetT) *Monster {
 	n := flatbuffers.GetUOffsetT(buf[offset:])
 	x := &Monster{}
 	x.Init(buf, n+offset)
+	return x
+}
+
+func GetSizePrefixedRootAsMonster(buf []byte, offset flatbuffers.UOffsetT) *Monster {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &Monster{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
 	return x
 }
 
@@ -1249,8 +1295,99 @@ func (rcv *Monster) MutateSignedEnum(n Race) bool {
 	return rcv._tab.MutateInt8Slot(100, int8(n))
 }
 
+func (rcv *Monster) Testrequirednestedflatbuffer(j int) byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(102))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.GetByte(a + flatbuffers.UOffsetT(j*1))
+	}
+	return 0
+}
+
+func (rcv *Monster) TestrequirednestedflatbufferLength() int {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(102))
+	if o != 0 {
+		return rcv._tab.VectorLen(o)
+	}
+	return 0
+}
+
+func (rcv *Monster) TestrequirednestedflatbufferBytes() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(102))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *Monster) MutateTestrequirednestedflatbuffer(j int, n byte) bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(102))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.MutateByte(a+flatbuffers.UOffsetT(j*1), n)
+	}
+	return false
+}
+
+func (rcv *Monster) ScalarKeySortedTables(obj *Stat, j int) bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(104))
+	if o != 0 {
+		x := rcv._tab.Vector(o)
+		x += flatbuffers.UOffsetT(j) * 4
+		x = rcv._tab.Indirect(x)
+		obj.Init(rcv._tab.Bytes, x)
+		return true
+	}
+	return false
+}
+
+func (rcv *Monster) ScalarKeySortedTablesLength() int {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(104))
+	if o != 0 {
+		return rcv._tab.VectorLen(o)
+	}
+	return 0
+}
+
+func (rcv *Monster) NativeInline(obj *Test) *Test {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(106))
+	if o != 0 {
+		x := o + rcv._tab.Pos
+		if obj == nil {
+			obj = new(Test)
+		}
+		obj.Init(rcv._tab.Bytes, x)
+		return obj
+	}
+	return nil
+}
+
+func (rcv *Monster) LongEnumNonEnumDefault() LongEnum {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(108))
+	if o != 0 {
+		return LongEnum(rcv._tab.GetUint64(o + rcv._tab.Pos))
+	}
+	return 0
+}
+
+func (rcv *Monster) MutateLongEnumNonEnumDefault(n LongEnum) bool {
+	return rcv._tab.MutateUint64Slot(108, uint64(n))
+}
+
+func (rcv *Monster) LongEnumNormalDefault() LongEnum {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(110))
+	if o != 0 {
+		return LongEnum(rcv._tab.GetUint64(o + rcv._tab.Pos))
+	}
+	return 2
+}
+
+func (rcv *Monster) MutateLongEnumNormalDefault(n LongEnum) bool {
+	return rcv._tab.MutateUint64Slot(110, uint64(n))
+}
+
 func MonsterStart(builder *flatbuffers.Builder) {
-	builder.StartObject(49)
+	builder.StartObject(54)
 }
 func MonsterAddPos(builder *flatbuffers.Builder, pos flatbuffers.UOffsetT) {
 	builder.PrependStructSlot(0, flatbuffers.UOffsetT(pos), 0)
@@ -1449,6 +1586,27 @@ func MonsterStartVectorOfEnumsVector(builder *flatbuffers.Builder, numElems int)
 }
 func MonsterAddSignedEnum(builder *flatbuffers.Builder, signedEnum Race) {
 	builder.PrependInt8Slot(48, int8(signedEnum), -1)
+}
+func MonsterAddTestrequirednestedflatbuffer(builder *flatbuffers.Builder, testrequirednestedflatbuffer flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(49, flatbuffers.UOffsetT(testrequirednestedflatbuffer), 0)
+}
+func MonsterStartTestrequirednestedflatbufferVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
+	return builder.StartVector(1, numElems, 1)
+}
+func MonsterAddScalarKeySortedTables(builder *flatbuffers.Builder, scalarKeySortedTables flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(50, flatbuffers.UOffsetT(scalarKeySortedTables), 0)
+}
+func MonsterStartScalarKeySortedTablesVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
+	return builder.StartVector(4, numElems, 4)
+}
+func MonsterAddNativeInline(builder *flatbuffers.Builder, nativeInline flatbuffers.UOffsetT) {
+	builder.PrependStructSlot(51, flatbuffers.UOffsetT(nativeInline), 0)
+}
+func MonsterAddLongEnumNonEnumDefault(builder *flatbuffers.Builder, longEnumNonEnumDefault LongEnum) {
+	builder.PrependUint64Slot(52, uint64(longEnumNonEnumDefault), 0)
+}
+func MonsterAddLongEnumNormalDefault(builder *flatbuffers.Builder, longEnumNormalDefault LongEnum) {
+	builder.PrependUint64Slot(53, uint64(longEnumNormalDefault), 2)
 }
 func MonsterEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

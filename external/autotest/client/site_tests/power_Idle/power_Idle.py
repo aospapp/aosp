@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -32,10 +33,11 @@ class power_Idle(power_test.power_Test):
     first_test_warmup_secs = 60
 
     def initialize(self, pdash_note='', seconds_period=10.,
-                   force_discharge=False):
+                   force_discharge=False, run_arc=True):
         super(power_Idle, self).initialize(seconds_period=seconds_period,
                                            pdash_note=pdash_note,
-                                           force_discharge=force_discharge)
+                                           force_discharge=force_discharge,
+                                           run_arc=run_arc)
 
     def run_once(self, warmup_secs=20, idle_secs=120, default_only=False):
         """Collect power stats for idle tests."""
@@ -56,7 +58,13 @@ class power_Idle(power_test.power_Test):
         bt_device = bluetooth_device_xmlrpc_server \
             .BluetoothDeviceXmlRpcDelegate()
 
-        with chrome.Chrome() as self.cr:
+        # --disable-sync disables test account info sync, eg. Wi-Fi credentials,
+        # so that each test run does not remember info from last test run.
+        extra_browser_args = ['--disable-sync']
+        # b/228256145 to avoid powerd restart
+        extra_browser_args.append('--disable-features=FirmwareUpdaterApp')
+        with chrome.Chrome(extra_browser_args=extra_browser_args,
+                           arc_mode=self._arc_mode) as self.cr:
             self.is_first_test = True
 
             # Measure power in full-screen blank tab
@@ -66,6 +74,9 @@ class power_Idle(power_test.power_Test):
             if not fullscreen:
                 with keyboard.Keyboard() as keys:
                     keys.press_key('f4')
+
+            # Stop services again as Chrome might have restarted them.
+            self._services.stop_services()
 
             if default_only:
                 self.start_measurements()

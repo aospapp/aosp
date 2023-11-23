@@ -4,8 +4,9 @@
 
 import os
 import sys
-import urllib2
 from multiprocessing import Process
+
+from six.moves import urllib
 
 from autotest_lib.client.bin import utils
 
@@ -17,19 +18,14 @@ class FakeDMServer(object):
 
     def __init__(self):
         """
-        Import the DM testserver from chrome source.
+        Import the DM testserver from chromeos-base/policy-testserver.
 
         """
         self.server_url = None
-        telemetry_src = '/usr/local/telemetry/src'
-        # TODO(976424): Remove 'chrome/browser/policy/test' when CL:1660660 is
-        # available in chrome in Chromium OS.
-        for path in ['chrome/browser/policy/test',
-                     'components/policy/test_support',
-                     'net/tools/testserver',
-                     'third_party/protobuf/python/google',
-                     'third_party/tlslite']:
-            sys.path.append(os.path.join(telemetry_src, path))
+        sys.path.append('/usr/local/share/policy_testserver')
+        sys.path.append('/usr/local/share/policy_testserver/proto_bindings')
+        sys.path.append('/usr/local/share/policy_testserver/testserver')
+        sys.path.append('/usr/local/share/policy_testserver/tlslite')
         global policy_testserver
         import policy_testserver
 
@@ -61,8 +57,8 @@ class FakeDMServer(object):
 
     def stop(self):
         """Terminate the fake DM server instance."""
-        if urllib2.urlopen('%stest/ping' % self.server_url).getcode() == 200:
-            urllib2.urlopen('%sconfiguration/test/exit' % self.server_url)
+        if urllib.request.urlopen('%stest/ping' % self.server_url).getcode() == 200:
+            urllib.request.urlopen('%sconfiguration/test/exit' % self.server_url)
         if self.process.is_alive():
             self.process.join()
 

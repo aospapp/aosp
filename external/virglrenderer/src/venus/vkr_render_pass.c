@@ -20,6 +20,7 @@ vkr_dispatch_vkCreateRenderPass2(struct vn_dispatch_context *dispatch,
 {
    struct vkr_context *ctx = dispatch->data;
    struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
 
    struct vkr_render_pass *pass = vkr_context_alloc_object(
       ctx, sizeof(*pass), VK_OBJECT_TYPE_RENDER_PASS, args->pRenderPass);
@@ -29,8 +30,8 @@ vkr_dispatch_vkCreateRenderPass2(struct vn_dispatch_context *dispatch,
    }
 
    vn_replace_vkCreateRenderPass2_args_handle(args);
-   args->ret = dev->CreateRenderPass2(args->device, args->pCreateInfo, NULL,
-                                      &pass->base.handle.render_pass);
+   args->ret = vk->CreateRenderPass2(args->device, args->pCreateInfo, NULL,
+                                     &pass->base.handle.render_pass);
    if (args->ret != VK_SUCCESS) {
       free(pass);
       return;
@@ -50,8 +51,11 @@ static void
 vkr_dispatch_vkGetRenderAreaGranularity(UNUSED struct vn_dispatch_context *dispatch,
                                         struct vn_command_vkGetRenderAreaGranularity *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkGetRenderAreaGranularity_args_handle(args);
-   vkGetRenderAreaGranularity(args->device, args->renderPass, args->pGranularity);
+   vk->GetRenderAreaGranularity(args->device, args->renderPass, args->pGranularity);
 }
 
 static void

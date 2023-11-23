@@ -1,22 +1,37 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+//! Bindings for the Linux KVM (Kernel Virtual Machine) API.
+
+#![cfg(unix)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use base::{ioctl_io_nr, ioctl_ior_nr, ioctl_iow_nr, ioctl_iowr_nr};
-use data_model::{flexible_array_impl, FlexibleArray};
+use base::ioctl_io_nr;
+use base::ioctl_ior_nr;
+use base::ioctl_iow_nr;
+use base::ioctl_iowr_nr;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+use data_model::flexible_array_impl;
 // Each of the below modules defines ioctls specific to their platform.
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub const KVM_MSR_FILTER_RANGE_MAX_BITS: usize = 0x2000;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub const KVM_MSR_FILTER_RANGE_MAX_BYTES: usize = KVM_MSR_FILTER_RANGE_MAX_BITS / 8;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub mod x86 {
     // generated with bindgen /usr/include/linux/kvm.h --no-unstable-rust --constified-enum '*' --with-derive-default
     #[allow(clippy::all)]
     pub mod bindings;
+    use base::ioctl_ior_nr;
+    use base::ioctl_iow_nr;
+    use base::ioctl_iowr_nr;
+
     pub use crate::bindings::*;
-    use base::{ioctl_ior_nr, ioctl_iow_nr, ioctl_iowr_nr};
 
     ioctl_iowr_nr!(KVM_GET_MSR_INDEX_LIST, KVMIO, 0x02, kvm_msr_list);
     ioctl_iowr_nr!(KVM_GET_SUPPORTED_CPUID, KVMIO, 0x05, kvm_cpuid2);
@@ -44,13 +59,15 @@ pub mod x86 {
     ioctl_ior_nr!(KVM_GET_XCRS, KVMIO, 0xa6, kvm_xcrs);
     ioctl_iow_nr!(KVM_SET_XCRS, KVMIO, 0xa7, kvm_xcrs);
     ioctl_iowr_nr!(KVM_GET_SUPPORTED_HV_CPUID, KVMIO, 0xc1, kvm_cpuid2);
+    ioctl_ior_nr!(KVM_GET_XSAVE2, KVMIO, 0xcf, kvm_xsave);
 }
 
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub mod aarch64 {
     // generated with bindgen <arm sysroot>/usr/include/linux/kvm.h --no-unstable-rust --constified-enum '*' --with-derive-default -- -I<arm sysroot>/usr/include
     pub mod bindings;
-    use base::{ioctl_ior_nr, ioctl_iow_nr};
+    use base::ioctl_ior_nr;
+    use base::ioctl_iow_nr;
     pub use bindings::*;
 
     ioctl_iow_nr!(KVM_ARM_SET_DEVICE_ADDR, KVMIO, 0xab, kvm_arm_device_addr);
@@ -148,6 +165,8 @@ ioctl_iow_nr!(KVM_SET_ONE_REG, KVMIO, 0xac, kvm_one_reg);
 ioctl_io_nr!(KVM_KVMCLOCK_CTRL, KVMIO, 0xad);
 ioctl_iowr_nr!(KVM_GET_REG_LIST, KVMIO, 0xb0, kvm_reg_list);
 ioctl_io_nr!(KVM_SMI, KVMIO, 0xb7);
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+ioctl_iow_nr!(KVM_X86_SET_MSR_FILTER, KVMIO, 0xc6, kvm_msr_filter);
 
 // Along with the common ioctls, we reexport the ioctls of the current
 // platform.

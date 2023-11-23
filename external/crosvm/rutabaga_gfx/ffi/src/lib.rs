@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -8,16 +8,19 @@ extern crate rutabaga_gfx;
 use std::convert::TryInto;
 use std::ffi::CStr;
 use std::os::raw::c_char;
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::panic::catch_unwind;
+use std::panic::AssertUnwindSafe;
 use std::path::PathBuf;
-use std::ptr::{copy_nonoverlapping, null_mut};
-use std::slice::{from_raw_parts, from_raw_parts_mut};
+use std::ptr::copy_nonoverlapping;
+use std::ptr::null_mut;
+use std::slice::from_raw_parts;
+use std::slice::from_raw_parts_mut;
 
-use base::{error, FromRawDescriptor, IntoRawDescriptor, SafeDescriptor};
 use data_model::VolatileSlice;
-
-use libc::{iovec, EINVAL, ESRCH};
-
+use libc::iovec;
+use libc::EINVAL;
+use libc::ESRCH;
+use log::error;
 use rutabaga_gfx::*;
 
 const NO_ERROR: i32 = 0;
@@ -42,11 +45,6 @@ macro_rules! return_on_error {
         }
     };
 }
-
-const RUTABAGA_COMPONENT_2D: u32 = 1;
-const RUTABAGA_COMPONENT_VIRGL_RENDERER: u32 = 2;
-const RUTABAGA_COMPONENT_GFXSTREAM: u32 = 3;
-const RUTABAGA_COMPONENT_CROSS_DOMAIN: u32 = 4;
 
 #[allow(non_camel_case_types)]
 type rutabaga = Rutabaga;
@@ -78,6 +76,12 @@ pub struct rutabaga_handle {
 }
 
 #[repr(C)]
+pub struct rutabaga_mapping {
+    pub ptr: u64,
+    pub size: u64,
+}
+
+#[repr(C)]
 pub struct rutabaga_channel {
     pub channel_name: *const c_char,
     pub channel_type: u32,
@@ -95,7 +99,7 @@ pub type write_fence_cb = extern "C" fn(user_data: u64, fence_data: rutabaga_fen
 #[repr(C)]
 pub struct rutabaga_builder<'a> {
     pub user_data: u64,
-    pub default_component: u32,
+    pub capset_mask: u64,
     pub fence_cb: write_fence_cb,
     pub channels: Option<&'a rutabaga_channels>,
 }
@@ -112,29 +116,6 @@ fn create_ffi_fence_handler(user_data: u64, fence_cb: write_fence_cb) -> Rutabag
 pub unsafe extern "C" fn rutabaga_init(builder: &rutabaga_builder, ptr: &mut *mut rutabaga) -> i32 {
     catch_unwind(AssertUnwindSafe(|| {
         let fence_handler = create_ffi_fence_handler((*builder).user_data, (*builder).fence_cb);
-
-        let component = match (*builder).default_component {
-            RUTABAGA_COMPONENT_2D => RutabagaComponentType::Rutabaga2D,
-            RUTABAGA_COMPONENT_VIRGL_RENDERER => RutabagaComponentType::VirglRenderer,
-            RUTABAGA_COMPONENT_GFXSTREAM => RutabagaComponentType::Gfxstream,
-            RUTABAGA_COMPONENT_CROSS_DOMAIN => RutabagaComponentType::CrossDomain,
-            _ => {
-                error!("unknown component type");
-                return -EINVAL;
-            }
-        };
-
-        let virglrenderer_flags = VirglRendererFlags::new()
-            .use_egl(true)
-            .use_surfaceless(true)
-            .use_external_blob(true);
-
-        let gfxstream_flags = GfxstreamFlags::new()
-            .use_egl(true)
-            .use_surfaceless(true)
-            .use_guest_angle(true)
-            .use_syncfd(true)
-            .use_vulkan(true);
 
         let mut rutabaga_channels_opt = None;
         if let Some(channels) = (*builder).channels {
@@ -156,9 +137,18 @@ pub unsafe extern "C" fn rutabaga_init(builder: &rutabaga_builder, ptr: &mut *mu
 
             rutabaga_channels_opt = Some(rutabaga_channels);
         }
-        let result = RutabagaBuilder::new(component)
-            .set_virglrenderer_flags(virglrenderer_flags)
-            .set_gfxstream_flags(gfxstream_flags)
+
+        let mut component_type = RutabagaComponentType::CrossDomain;
+        if (*builder).capset_mask == 0 {
+            component_type = RutabagaComponentType::Rutabaga2D;
+        }
+
+        let result = RutabagaBuilder::new(component_type, (*builder).capset_mask)
+            .set_use_egl(true)
+            .set_use_surfaceless(true)
+            .set_use_guest_angle(false)
+            .set_use_vulkan(true)
+            .set_use_external_blob(false)
             .set_rutabaga_channels(rutabaga_channels_opt)
             .build(fence_handler, None);
 
@@ -182,25 +172,12 @@ pub extern "C" fn rutabaga_finish(ptr: &mut *mut rutabaga) -> i32 {
 }
 
 #[no_mangle]
-pub extern "C" fn rutabaga_get_num_capsets() -> u32 {
-    let mut num_capsets = 0;
-
-    // Cross-domain (like virtio_wl with llvmpipe) is always available.
-    num_capsets += 1;
-
-    // Three capsets for virgl_renderer
-    #[cfg(feature = "virgl_renderer")]
-    {
-        num_capsets += 3;
-    }
-
-    // One capset for gfxstream
-    #[cfg(feature = "gfxstream")]
-    {
-        num_capsets += 1;
-    }
-
-    num_capsets
+pub extern "C" fn rutabaga_get_num_capsets(ptr: &mut rutabaga, num_capsets: &mut u32) -> i32 {
+    catch_unwind(AssertUnwindSafe(|| {
+        *num_capsets = ptr.get_num_capsets();
+        NO_ERROR
+    }))
+    .unwrap_or(-ESRCH)
 }
 
 #[no_mangle]
@@ -247,9 +224,23 @@ pub extern "C" fn rutabaga_context_create(
     ptr: &mut rutabaga,
     ctx_id: u32,
     context_init: u32,
+    context_name: *const c_char,
+    context_name_len: u32,
 ) -> i32 {
+    let mut name: Option<&str> = None;
+    if !context_name.is_null() && context_name_len > 0 {
+        // Safe because context_name is not NULL and len is a positive integer, so the caller
+        // is expected to provide a valid pointer to an array of bytes at least as long as the
+        // passed length. If the provided byte array doesn't contain valid utf-8, name will be
+        // None.
+        let view = unsafe {
+            std::slice::from_raw_parts(context_name as *const u8, context_name_len as usize)
+        };
+        name = std::str::from_utf8(view).ok();
+    }
+
     catch_unwind(AssertUnwindSafe(|| {
-        let result = ptr.create_context(ctx_id, context_init);
+        let result = ptr.create_context(ctx_id, context_init, name);
         return_result(result)
     }))
     .unwrap_or(-ESRCH)
@@ -413,7 +404,7 @@ pub unsafe extern "C" fn rutabaga_resource_create_blob(
         let mut handle_opt: Option<RutabagaHandle> = None;
         if let Some(hnd) = handle {
             handle_opt = Some(RutabagaHandle {
-                os_handle: SafeDescriptor::from_raw_descriptor((*hnd).os_handle),
+                os_handle: RutabagaDescriptor::from_raw_descriptor((*hnd).os_handle),
                 handle_type: (*hnd).handle_type,
             });
         }
@@ -450,6 +441,31 @@ pub extern "C" fn rutabaga_resource_export_blob(
         (*handle).handle_type = hnd.handle_type;
         (*handle).os_handle = hnd.os_handle.into_raw_descriptor();
         NO_ERROR
+    }))
+    .unwrap_or(-ESRCH)
+}
+
+#[no_mangle]
+pub extern "C" fn rutabaga_resource_map(
+    ptr: &mut rutabaga,
+    resource_id: u32,
+    mapping: &mut rutabaga_mapping,
+) -> i32 {
+    catch_unwind(AssertUnwindSafe(|| {
+        let result = ptr.map(resource_id);
+        let internal_map = return_on_error!(result);
+        (*mapping).ptr = internal_map.ptr;
+        (*mapping).size = internal_map.size;
+        NO_ERROR
+    }))
+    .unwrap_or(-ESRCH)
+}
+
+#[no_mangle]
+pub extern "C" fn rutabaga_resource_unmap(ptr: &mut rutabaga, resource_id: u32) -> i32 {
+    catch_unwind(AssertUnwindSafe(|| {
+        let result = ptr.unmap(resource_id);
+        return_result(result)
     }))
     .unwrap_or(-ESRCH)
 }

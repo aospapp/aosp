@@ -20,7 +20,7 @@
 export LC_ALL=C
 cd $(dirname $0)
 BASE_DIR=$(pwd)
-LIBVPX_SRC_DIR="libvpx"
+LIBVPX_SRC_DIR="."
 LIBVPX_CONFIG_DIR="config"
 
 # Clean files from previous make.
@@ -146,13 +146,13 @@ function gen_source_list {
 # Extract a list of C sources from a libvpx_srcs.txt file
 # $1 - path to libvpx_srcs.txt
 function libvpx_srcs_txt_to_c_srcs {
-    grep ".c$" $1 | grep -v "^vpx_config.c$" | awk '$0="\"libvpx/"$0"\","' | sort
+    grep ".c$" $1 | grep -v "^vpx_config.c$" | awk '$0="\""$0"\","' | sort
 }
 
 # Extract a list of ASM sources from a libvpx_srcs.txt file
 # $1 - path to libvpx_srcs.txt
 function libvpx_srcs_txt_to_asm_srcs {
-    grep ".asm$" $1 | awk '$0="\"libvpx/"$0"\","' | sort
+    grep ".asm$" $1 | awk '$0="\""$0"\","' | sort
 }
 
 # Extract a list of converted ASM sources from a libvpx_srcs.txt file
@@ -197,7 +197,7 @@ function convert_arm_asm {
 }
 
 echo "Create temporary directory."
-TEMP_DIR="$LIBVPX_SRC_DIR.temp"
+TEMP_DIR="../libvpx.temp"
 rm -rf $TEMP_DIR
 cp -R $LIBVPX_SRC_DIR $TEMP_DIR
 cd $TEMP_DIR
@@ -225,7 +225,7 @@ lint_config arm64
 lint_config generic
 
 echo "Create temporary directory."
-TEMP_DIR="$LIBVPX_SRC_DIR.temp"
+TEMP_DIR="../libvpx.temp"
 rm -rf $TEMP_DIR
 cp -R $LIBVPX_SRC_DIR $TEMP_DIR
 cd $TEMP_DIR
@@ -265,7 +265,9 @@ rm -f $BASE_DIR/Android.bp
   cat config_*.bp
   cat $BASE_DIR/Android.bp.in
 ) > $BASE_DIR/Android.bp
-bpfmt -w $BASE_DIR/Android.bp
+bpfmt -s -w "${BASE_DIR}/Android.bp" \
+  || echo "bpfmt not found. Run 'm bpfmt' followed by" \
+          "'bpfmt -s -w ${BASE_DIR}/Android.bp'."
 
 echo "Remove temporary directory."
 cd $BASE_DIR

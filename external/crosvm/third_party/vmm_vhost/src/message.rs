@@ -13,8 +13,11 @@ use std::convert::TryInto;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
+use base::Protection;
 use bitflags::bitflags;
 use data_model::DataInit;
+use zerocopy::AsBytes;
+use zerocopy::FromBytes;
 
 use crate::VringConfigData;
 
@@ -143,8 +146,10 @@ pub enum MasterReq {
     /// Query the backend for its device status as defined in the VIRTIO
     /// specification.
     GET_STATUS = 40,
+    /// Get a list of the device's shared memory regions.
+    GET_SHARED_MEMORY_REGIONS = 41,
     /// Upper bound of valid commands.
-    MAX_CMD = 41,
+    MAX_CMD = 42,
 }
 
 impl From<MasterReq> for u32 {
@@ -175,16 +180,22 @@ pub enum SlaveReq {
     VRING_CALL = 4,
     /// Indicate that an error occurred on the specific vring.
     VRING_ERR = 5,
+    /// Indicates a request to map a fd into a shared memory region.
+    SHMEM_MAP = 6,
+    /// Indicates a request to unmap part of a shared memory region.
+    SHMEM_UNMAP = 7,
     /// Virtio-fs draft: map file content into the window.
-    FS_MAP = 6,
+    FS_MAP = 8,
     /// Virtio-fs draft: unmap file content from the window.
-    FS_UNMAP = 7,
+    FS_UNMAP = 9,
     /// Virtio-fs draft: sync file content.
-    FS_SYNC = 8,
+    FS_SYNC = 10,
     /// Virtio-fs draft: perform a read/write from an fd directly to GPA.
-    FS_IO = 9,
+    FS_IO = 11,
+    /// Indicates a request to map GPU memory into a shared memory region.
+    GPU_MAP = 12,
     /// Upper bound of valid commands.
-    MAX_CMD = 10,
+    MAX_CMD = 13,
 }
 
 impl From<SlaveReq> for u32 {
@@ -230,7 +241,7 @@ bitflags! {
 /// A vhost-user message consists of 3 header fields and an optional payload. All numbers are in the
 /// machine native byte order.
 #[repr(packed)]
-#[derive(Copy)]
+#[derive(Copy, FromBytes)]
 pub struct VhostUserMsgHeader<R: Req> {
     request: u32,
     flags: u32,
@@ -428,6 +439,8 @@ bitflags! {
         const CONFIGURE_MEM_SLOTS = 0x0000_8000;
         /// Support reporting status.
         const STATUS = 0x0001_0000;
+        /// Support shared memory regions.
+        const SHARED_MEMORY_REGIONS = 0x0002_0000;
     }
 }
 
@@ -449,6 +462,15 @@ impl VhostUserU64 {
 }
 
 impl VhostUserMsgValidator for VhostUserU64 {}
+
+/// A generic message for empty message.
+#[derive(Default, Clone, Copy)]
+pub struct VhostUserEmptyMessage;
+
+// Safe because it has no data
+unsafe impl DataInit for VhostUserEmptyMessage {}
+
+impl VhostUserMsgValidator for VhostUserEmptyMessage {}
 
 /// Memory region descriptor for the SET_MEM_TABLE request.
 #[repr(packed)]
@@ -647,7 +669,6 @@ impl VhostUserVringAddr {
     }
 
     /// Create a new instance from `VringConfigData`.
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::identity_conversion))]
     pub fn from_config_data(index: u32, config_data: &VringConfigData) -> Self {
         let log_addr = config_data.log_addr.unwrap_or(0);
         VhostUserVringAddr {
@@ -844,6 +865,174 @@ impl VhostUserMsgValidator for VhostUserFSSlaveMsg {
     }
 }
 
+bitflags! {
+    #[derive(Default)]
+    /// Flags for SHMEM_MAP messages.
+    pub struct VhostUserShmemMapMsgFlags: u8 {
+        /// Empty permission.
+        const EMPTY = 0x0;
+        /// Read permission.
+        const MAP_R = 0x1;
+        /// Write permission.
+        const MAP_W = 0x2;
+    }
+}
+
+impl From<Protection> for VhostUserShmemMapMsgFlags {
+    fn from(prot: Protection) -> Self {
+        let mut flags = Self::EMPTY;
+        flags.set(Self::MAP_R, prot.allows(&Protection::read()));
+        flags.set(Self::MAP_W, prot.allows(&Protection::write()));
+        flags
+    }
+}
+
+impl From<VhostUserShmemMapMsgFlags> for Protection {
+    fn from(flags: VhostUserShmemMapMsgFlags) -> Self {
+        let mut prot = Protection::from(0);
+        if flags.contains(VhostUserShmemMapMsgFlags::MAP_R) {
+            prot = prot.set_read();
+        }
+        if flags.contains(VhostUserShmemMapMsgFlags::MAP_W) {
+            prot = prot.set_write();
+        }
+        prot
+    }
+}
+
+/// Slave request message to map a file into a shared memory region.
+#[repr(C, packed)]
+#[derive(Default, Copy, Clone)]
+pub struct VhostUserShmemMapMsg {
+    /// Flags for the mmap operation
+    pub flags: VhostUserShmemMapMsgFlags,
+    /// Shared memory region id.
+    pub shmid: u8,
+    padding: [u8; 6],
+    /// Offset into the shared memory region.
+    pub shm_offset: u64,
+    /// File offset.
+    pub fd_offset: u64,
+    /// Size of region to map.
+    pub len: u64,
+}
+// Safe because it only has data and has no implicit padding.
+unsafe impl DataInit for VhostUserShmemMapMsg {}
+
+impl VhostUserMsgValidator for VhostUserShmemMapMsg {
+    fn is_valid(&self) -> bool {
+        (self.flags.bits() & !VhostUserFSSlaveMsgFlags::all().bits() as u8) == 0
+            && self.fd_offset.checked_add(self.len).is_some()
+            && self.shm_offset.checked_add(self.len).is_some()
+    }
+}
+
+impl VhostUserShmemMapMsg {
+    /// New instance of VhostUserShmemMapMsg struct
+    pub fn new(
+        shmid: u8,
+        shm_offset: u64,
+        fd_offset: u64,
+        len: u64,
+        flags: VhostUserShmemMapMsgFlags,
+    ) -> Self {
+        Self {
+            flags,
+            shmid,
+            padding: [0; 6],
+            shm_offset,
+            fd_offset,
+            len,
+        }
+    }
+}
+
+/// Slave request message to map GPU memory into a shared memory region.
+#[repr(C, packed)]
+#[derive(Default, Copy, Clone)]
+pub struct VhostUserGpuMapMsg {
+    /// Shared memory region id.
+    pub shmid: u8,
+    padding: [u8; 7],
+    /// Offset into the shared memory region.
+    pub shm_offset: u64,
+    /// Size of region to map.
+    pub len: u64,
+    /// Index of the memory type.
+    pub memory_idx: u32,
+    /// Type of share handle.
+    pub handle_type: u32,
+    /// Device UUID
+    pub device_uuid: [u8; 16],
+    /// Driver UUID
+    pub driver_uuid: [u8; 16],
+}
+// Safe because it only has data and has no implicit padding.
+unsafe impl DataInit for VhostUserGpuMapMsg {}
+
+impl VhostUserMsgValidator for VhostUserGpuMapMsg {
+    fn is_valid(&self) -> bool {
+        self.len > 0
+    }
+}
+
+impl VhostUserGpuMapMsg {
+    /// New instance of VhostUserGpuMapMsg struct
+    pub fn new(
+        shmid: u8,
+        shm_offset: u64,
+        len: u64,
+        memory_idx: u32,
+        handle_type: u32,
+        device_uuid: [u8; 16],
+        driver_uuid: [u8; 16],
+    ) -> Self {
+        Self {
+            shmid,
+            padding: [0; 7],
+            shm_offset,
+            len,
+            memory_idx,
+            handle_type,
+            device_uuid,
+            driver_uuid,
+        }
+    }
+}
+
+/// Slave request message to unmap part of a shared memory region.
+#[repr(C, packed)]
+#[derive(Default, Copy, Clone)]
+pub struct VhostUserShmemUnmapMsg {
+    /// Shared memory region id.
+    pub shmid: u8,
+    padding: [u8; 7],
+    /// Offset into the shared memory region.
+    pub shm_offset: u64,
+    /// Size of region to unmap.
+    pub len: u64,
+}
+// Safe because it only has data and has no implicit padding.
+unsafe impl DataInit for VhostUserShmemUnmapMsg {}
+
+impl VhostUserMsgValidator for VhostUserShmemUnmapMsg {
+    fn is_valid(&self) -> bool {
+        self.shm_offset.checked_add(self.len).is_some()
+    }
+}
+
+impl VhostUserShmemUnmapMsg {
+    /// New instance of VhostUserShmemUnmapMsg struct
+    pub fn new(shmid: u8, shm_offset: u64, len: u64) -> Self {
+        Self {
+            shmid,
+            padding: [0; 7],
+            shm_offset,
+            len,
+        }
+    }
+}
+
 /// Inflight I/O descriptor state for split virtqueues
 #[repr(packed)]
 #[derive(Clone, Copy, Default)]
@@ -975,10 +1164,34 @@ impl QueueRegionPacked {
     }
 }
 
+/// Virtio shared memory descriptor.
+#[repr(packed)]
+#[derive(Default, Copy, Clone, FromBytes, AsBytes)]
+pub struct VhostSharedMemoryRegion {
+    /// The shared memory region's shmid.
+    pub id: u8,
+    /// Padding
+    padding: [u8; 7],
+    /// The length of the shared memory region.
+    pub length: u64,
+}
+
+impl VhostSharedMemoryRegion {
+    /// New instance of VhostSharedMemoryRegion struct
+    pub fn new(id: u8, length: u64) -> Self {
+        VhostSharedMemoryRegion {
+            id,
+            padding: [0; 7],
+            length,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::mem;
+
+    use super::*;
 
     #[test]
     fn check_master_request_code() {

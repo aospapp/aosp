@@ -5,6 +5,11 @@
  * it.
  */
 
+#define _DEFAULT_SOURCE
+
+#include <unistd.h>
+#include <sys/types.h>
+
 #include "./pam_cap.c"
 
 const char *test_groups[] = {
@@ -121,11 +126,105 @@ static void load_vectors(unsigned long int bits[3]) {
     cap_free(prev);
 }
 
+struct vargs {
+    struct pam_cap_s cs;
+    const char *args[5];
+};
+
+static int test_arg_parsing(void) {
+    static struct vargs vs[] = {
+	{
+	    { 1, 0, 0, NULL, NULL, NULL },
+	    { "debug", NULL }
+	},
+	{
+	    { 0, 1, 0, NULL, NULL, NULL },
+	    { "keepcaps", NULL }
+	},
+	{
+	    { 0, 0, 1, NULL, NULL, NULL },
+	    { "autoauth", NULL }
+	},
+	{
+	    { 1, 0, 1, NULL, NULL, NULL },
+	    { "autoauth", "debug", NULL }
+	},
+	{
+	    { 0, 0, 0, NULL, "/over/there", NULL },
+	    { "config=/over/there", NULL }
+	},
+	{
+	    { 0, 0, 0, NULL, NULL, "^cap_setfcap" },
+	    { "default=^cap_setfcap", NULL }
+	},
+	{
+	    { 0, 0, 0, NULL, NULL, NULL },
+	    { NULL }
+	}
+    };
+    int i;
+
+    for (i=0; ; i++) {
+	int argc;
+	const char **argv;
+	struct vargs *v;
+
+	v = &vs[i];
+	argv = v->args;
+
+	for (argc = 0; argv[argc] != NULL; argc++);
+
+	struct pam_cap_s cs;
+	parse_args(argc, argv, &cs);
+
+	if (cs.debug != v->cs.debug) {
+	    printf("test_arg_parsing[%d]: debug=%d, wanted debug=%d\n",
+		   i, cs.debug, v->cs.debug);
+	    return 1;
+	}
+	if (cs.keepcaps != v->cs.keepcaps) {
+	    printf("test_arg_parsing[%d]: keepcaps=%d, wanted keepcaps=%d\n",
+		   i, cs.keepcaps, v->cs.keepcaps);
+	    return 1;
+	}
+	if (cs.autoauth != v->cs.autoauth) {
+	    printf("test_arg_parsing[%d]: autoauth=%d, wanted autoauth=%d\n",
+		   i, cs.autoauth, v->cs.autoauth);
+	    return 1;
+	}
+	if (cs.conf_filename != v->cs.conf_filename &&
+	    strcmp(cs.conf_filename, v->cs.conf_filename)) {
+	    printf("test_arg_parsing[%d]: conf_filename=[%s], wanted=[%s]\n",
+		   i, cs.conf_filename, v->cs.conf_filename);
+	    return 1;
+	}
+	if (cs.fallback != v->cs.fallback &&
+	    strcmp(cs.fallback, v->cs.fallback)) {
+	    printf("test_arg_parsing[%d]: fallback=[%s], wanted=[%s]\n",
+		   i, cs.fallback, v->cs.fallback);
+	    return 1;
+	}
+
+	if (argc == 0) {
+	    break;
+	}
+    }
+    return 0;
+}
+
 /*
  * args: user a b i config-args...
  */
 int main(int argc, char *argv[]) {
     unsigned long int before[3], change[3], after[3];
+
+    if (test_arg_parsing()) {
+	printf("failed to parse arguments\n");
+	exit(1);
+    }
+    if (read_capabilities_for_user("morgan", "/dev/null") != NULL) {
+	printf("/dev/null is not a valid config file\n");
+    }
 
     /*
      * Start out with a cleared inheritable set.
@@ -133,6 +232,12 @@ int main(int argc, char *argv[]) {
     cap_t orig = cap_get_proc();
     cap_clear_flag(orig, CAP_INHERITABLE);
     cap_set_proc(orig);
+
+    if (getuid() != 0) {
+	cap_free(orig);
+	printf("test_pam_cap: OK! (Skipping privileged tests (uid!=0))\n");
+	exit(0);
+    }
 
     change[A] = strtoul(argv[2], NULL, 0);
     change[B] = strtoul(argv[3], NULL, 0);

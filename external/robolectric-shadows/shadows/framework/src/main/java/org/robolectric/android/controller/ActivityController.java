@@ -16,6 +16,7 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.ViewRootImpl;
 import org.robolectric.RuntimeEnvironment;
@@ -160,9 +161,14 @@ public class ActivityController<T extends Activity> extends ComponentController<
       callDispatchResized(root);
     }
 
-    ReflectionHelpers.callInstanceMethod(root, "windowFocusChanged",
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      ReflectionHelpers.callInstanceMethod(root, "windowFocusChanged",
+        from(boolean.class, hasFocus));
+    } else {
+      ReflectionHelpers.callInstanceMethod(root, "windowFocusChanged",
         from(boolean.class, hasFocus), /* hasFocus */
         from(boolean.class, false) /* inTouchMode */);
+    }
     return this;
   }
 

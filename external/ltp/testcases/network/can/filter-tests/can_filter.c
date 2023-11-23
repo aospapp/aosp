@@ -102,16 +102,16 @@ static void run(unsigned int n)
 	frame.data[0] = testcase;
 
 	frame.can_id = ID;
-	SAFE_WRITE(1, s, &frame, sizeof(frame));
+	SAFE_WRITE(SAFE_WRITE_ALL, s, &frame, sizeof(frame));
 
 	frame.can_id = (ID | CAN_RTR_FLAG);
-	SAFE_WRITE(1, s, &frame, sizeof(frame));
+	SAFE_WRITE(SAFE_WRITE_ALL, s, &frame, sizeof(frame));
 
 	frame.can_id = (ID | CAN_EFF_FLAG);
-	SAFE_WRITE(1, s, &frame, sizeof(frame));
+	SAFE_WRITE(SAFE_WRITE_ALL, s, &frame, sizeof(frame));
 
 	frame.can_id = (ID | CAN_EFF_FLAG | CAN_RTR_FLAG);
-	SAFE_WRITE(1, s, &frame, sizeof(frame));
+	SAFE_WRITE(SAFE_WRITE_ALL, s, &frame, sizeof(frame));
 
 	tst_res(TPASS, "testcase %2d Sent patterns", testcase);
 
@@ -172,7 +172,7 @@ static void run(unsigned int n)
 static struct tst_test test = {
 	.tcnt = TC,
 	.options = (struct tst_option[]) {
-		{"D:", &can_dev_name, "-D <device>   CAN device name"},
+		{"D:", &can_dev_name, "CAN device name"},
 		{}
 	},
 	.setup = setup,

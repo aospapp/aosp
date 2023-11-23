@@ -1,12 +1,12 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("//stardoc:stardoc.bzl", "stardoc")
+load("@rules_java//java:defs.bzl", "java_binary", "java_import")
+
 licenses(["notice"])  # Apache 2.0
 
 package(default_visibility = ["//visibility:public"])
 
 exports_files(glob(["templates/**"]))
-
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("//stardoc:stardoc.bzl", "stardoc")
-load("@rules_java//java:defs.bzl", "java_binary", "java_import")
 
 filegroup(
     name = "test_deps",
@@ -20,10 +20,19 @@ filegroup(
 bzl_library(
     name = "stardoc_lib",
     srcs = ["stardoc.bzl"],
+    visibility = ["//visibility:public"],
     deps = [
         "@bazel_skylib//:bzl_library",
     ],
+)
+
+bzl_library(
+    name = "html_tables_stardoc",
+    srcs = ["html_tables_stardoc.bzl"],
     visibility = ["//visibility:public"],
+    deps = [
+        ":stardoc_lib",
+    ],
 )
 
 stardoc(
@@ -78,4 +87,24 @@ java_import(
     name = "prebuilt_renderer_binary",
     jars = ["renderer_binary.jar"],
     visibility = ["//visibility:private"],
+)
+
+# Sources needed for release tarball.
+filegroup(
+    name = "distro_srcs",
+    srcs = [
+        "BUILD",
+    ] + glob([
+        "*.bzl",
+        "*.jar",
+        "templates/**",
+    ]),
+    visibility = ["//:__pkg__"],
+)
+
+# Binaries needed for release tarball.
+filegroup(
+    name = "distro_bins",
+    srcs = glob(["*.jar"]),
+    visibility = ["//:__pkg__"],
 )

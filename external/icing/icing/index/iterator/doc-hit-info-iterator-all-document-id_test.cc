@@ -32,6 +32,7 @@ namespace {
 
 using ::testing::ElementsAreArray;
 using ::testing::Eq;
+using ::testing::IsNull;
 using ::testing::Not;
 
 TEST(DocHitInfoIteratorAllDocumentIdTest, Initialize) {
@@ -106,6 +107,16 @@ TEST(DocHitInfoIteratorAllDocumentIdTest, Advance) {
     EXPECT_THAT(GetDocumentIds(&all_it),
                 ElementsAreArray(expected_document_ids));
   }
+}
+
+TEST(DocHitInfoIteratorAllDocumentIdTest, TrimAllDocumentIdIterator) {
+  DocHitInfoIteratorAllDocumentId all_it(100);
+  ICING_ASSERT_OK_AND_ASSIGN(DocHitInfoIterator::TrimmedNode trimmed_node,
+                             std::move(all_it).TrimRightMostNode());
+  // The whole iterator is trimmed
+  EXPECT_THAT(trimmed_node.term_, testing::IsEmpty());
+  EXPECT_THAT(trimmed_node.term_start_index_, 0);
+  EXPECT_THAT(trimmed_node.iterator_, IsNull());
 }
 
 }  // namespace

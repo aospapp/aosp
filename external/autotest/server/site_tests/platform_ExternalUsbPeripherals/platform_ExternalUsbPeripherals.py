@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -14,6 +15,12 @@ _LOWER_USB_PORT = 'usb_mux_sel3'
 _SUSPEND_TIME = 30
 _UPPER_USB_PORT = 'usb_mux_sel1'
 _WAIT_DELAY = 15
+_WAIT_OPENLID_DELAY = 30
+_WAIT_LONG_DELAY = 60
+
+# servo v4.1 controls
+_AUX_USB_PORT = 'aux_usbkey_mux'
+_IMAGE_USB_PORT = 'image_usbkey_mux'
 
 
 class platform_ExternalUsbPeripherals(test.test):
@@ -189,7 +196,7 @@ class platform_ExternalUsbPeripherals(test.test):
             # Check for mandatory USb devices passed by usb_list flag
             for usb_name in self.usb_list:
                 found = self.wait_for_cmd_output(
-                    'lsusb | grep -E ', usb_name, _WAIT_DELAY * 4,
+                    'lsusb | grep -E ', usb_name, _WAIT_LONG_DELAY,
                     'Not detecting %s' % usb_name)
                 result = result and found
         time.sleep(_WAIT_DELAY)
@@ -224,12 +231,8 @@ class platform_ExternalUsbPeripherals(test.test):
             board = self.host.get_board().split(':')[1].lower()
             # Run the usb check command
             for out_match in out_match_list:
-                # Skip running media_v4l2_test on hana boards
-                # crbug.com/820500
-                if 'media_v4l2_test' in cmd and board in ["hana"]:
-                    continue
                 match_result = self.wait_for_cmd_output(
-                    cmd, out_match, _WAIT_DELAY * 4,
+                    cmd, out_match, _WAIT_LONG_DELAY,
                     'USB CHECKS DETAILS failed at %s %s:' % (cmd, out_match))
                 usb_check_result = usb_check_result and match_result
         return usb_check_result
@@ -280,7 +283,7 @@ class platform_ExternalUsbPeripherals(test.test):
 
         # Collect USB peripherals when plugged
         self.plug_peripherals(True)
-        time.sleep(_WAIT_DELAY * 2)
+        time.sleep(_WAIT_LONG_DELAY)
         on_list = self.getPluggedUsbDevices()
 
         self.diff_list = set(on_list).difference(set(off_list))
@@ -292,22 +295,18 @@ class platform_ExternalUsbPeripherals(test.test):
         logging.debug('Connected devices list: %s', self.diff_list)
 
 
-    def prep_servo_for_test(self, stress_rack):
+    def prep_servo_for_test(self):
         """Connects servo to DUT  and sets servo ports
-
-        @param stress_rack: either to prep servo for stress tests, where
-        usb_mux_1 port should be on. For usb peripherals on usb_mux_3,
-        the port is on, and the oe2,oe4 poers are off.
 
         @returns port as string to plug/unplug the specific port
         """
-        port = _LOWER_USB_PORT
-        self.host.servo.switch_usbkey('dut')
-        self.host.servo.set('dut_hub1_rst1','off')
-        if stress_rack:
-            port = _UPPER_USB_PORT
-            self.host.servo.set(port, 'dut_sees_usbkey')
+        if 'servo_v4p1' in self.servo_type:
+            port = _AUX_USB_PORT
+            self.host.servo.set(_IMAGE_USB_PORT, 'servo_sees_usbkey')
         else:
+            port = _LOWER_USB_PORT
+            self.host.servo.switch_usbkey('dut')
+            self.host.servo.set('dut_hub1_rst1','off')
             self.host.servo.set(_UPPER_USB_PORT, 'servo_sees_usbkey')
             self.host.servo.set('usb_mux_oe2', 'off')
             self.host.servo.set('usb_mux_oe4', 'off')
@@ -319,14 +318,15 @@ class platform_ExternalUsbPeripherals(test.test):
         """Disconnect servo hub"""
         self.plug_peripherals(False)
         self.action_logout()
-        self.host.servo.set('dut_hub1_rst1','on')
+        if 'servo_v4p1' not in self.servo_type:
+            self.host.servo.set('dut_hub1_rst1','on')
         self.host.run('reboot now', ignore_status=True)
         self.host.test_wait_for_boot()
 
 
     def run_once(self, host, client_autotest, action_sequence, repeat,
                  usb_list=None, usb_checks=None,
-                 crash_check=False, stress_rack=False):
+                 crash_check=False):
         self.client_autotest = client_autotest
         self.host = host
         self.autotest_client = autotest.Autotest(self.host)
@@ -339,7 +339,9 @@ class platform_ExternalUsbPeripherals(test.test):
         self.fail_reasons = list()
         self.action_step = None
 
-        self.plug_port = self.prep_servo_for_test(stress_rack)
+        self.servo_type = self.host.servo.get_servo_type()
+
+        self.plug_port = self.prep_servo_for_test()
 
         # Unplug, plug, compare usb peripherals, and leave plugged.
         self.check_connected_peripherals()
@@ -354,11 +356,7 @@ class platform_ExternalUsbPeripherals(test.test):
         self.detect_crash = crash_detector.CrashDetector(self.host)
         self.detect_crash.remove_crash_files()
 
-        # Run camera client test to gather media_V4L2_test binary.
-        if 'media_v4l2_test' in str(self.usb_checks):
-            self.autotest_client.run_test("camera_V4L2")
-
-        for iteration in xrange(1, repeat + 1):
+        for iteration in range(1, repeat + 1):
             step = 0
             for action in actions:
                 step += 1
@@ -371,7 +369,7 @@ class platform_ExternalUsbPeripherals(test.test):
                     time.sleep(_WAIT_DELAY)
                 elif action == 'OPENLID':
                     self.open_lid(boot_id)
-                    time.sleep(_WAIT_DELAY)
+                    time.sleep(_WAIT_OPENLID_DELAY)
                 elif action == 'UNPLUG':
                     self.plug_peripherals(False)
                 elif action == 'PLUG':
@@ -392,7 +390,7 @@ class platform_ExternalUsbPeripherals(test.test):
                             logging.debug('Skipping logout. Not logged in.')
                     elif action == 'REBOOT':
                         self.host.reboot()
-                        time.sleep(_WAIT_DELAY * 3)
+                        time.sleep(_WAIT_LONG_DELAY)
                         self.login_status = False
                     elif action == 'SUSPEND':
                         boot_id = self.action_suspend()

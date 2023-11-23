@@ -55,6 +55,7 @@
 
 #if USES_NETLINK
 #include <asm/types.h>
+#include <linux/if_arp.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #else // USES_NETLINK
@@ -1102,14 +1103,14 @@ mDNSlocal void		PrintNetLinkMsg(const struct nlmsghdr *pNLMsg)
 	}
 #endif
 
-mDNSlocal mDNSu32		ProcessRoutingNotification(int sd)
+mDNSlocal mDNSBool		ProcessRoutingNotification(int sd)
 // Read through the messages on sd and if any indicate that any interface records should
 // be torn down and rebuilt, return affected indices as a bitmask. Otherwise return 0.
 	{
 	ssize_t					readCount;
 	char					buff[4096];	
 	struct nlmsghdr			*pNLMsg = (struct nlmsghdr*) buff;
-	mDNSu32				result = 0;
+	mDNSBool				result = mDNSfalse;
 	
 	// The structure here is more complex than it really ought to be because,
 	// unfortunately, there's no good way to size a buffer in advance large
@@ -1144,10 +1145,18 @@ mDNSlocal mDNSu32		ProcessRoutingNotification(int sd)
 #endif
 
 		// Process the NetLink message
-		if (pNLMsg->nlmsg_type == RTM_GETLINK || pNLMsg->nlmsg_type == RTM_NEWLINK)
-			result |= 1 << ((struct ifinfomsg*) NLMSG_DATA(pNLMsg))->ifi_index;
-		else if (pNLMsg->nlmsg_type == RTM_DELADDR || pNLMsg->nlmsg_type == RTM_NEWADDR)
-			result |= 1 << ((struct ifaddrmsg*) NLMSG_DATA(pNLMsg))->ifa_index;
+		if (pNLMsg->nlmsg_type == RTM_GETLINK || pNLMsg->nlmsg_type == RTM_DELADDR ||
+				pNLMsg->nlmsg_type == RTM_NEWADDR)
+			{
+			result = mDNStrue;
+			}
+		else if (pNLMsg->nlmsg_type == RTM_NEWLINK)
+			{
+			// Fix for UWB start/stop causing mdns drop. See b/265207453
+			struct ifinfomsg *pIfInfo = (struct ifinfomsg*) NLMSG_DATA(pNLMsg);
+			if (pIfInfo->ifi_family != AF_UNSPEC || pIfInfo->ifi_type != ARPHRD_IEEE802154)
+				result = mDNStrue;
+			}
 
 		// Advance pNLMsg to the next message in the buffer
 		if ((pNLMsg->nlmsg_flags & NLM_F_MULTI) != 0 && pNLMsg->nlmsg_type != NLMSG_DONE)
@@ -1191,14 +1200,14 @@ mDNSlocal void		PrintRoutingSocketMsg(const struct ifa_msghdr *pRSMsg)
 	}
 #endif
 
-mDNSlocal mDNSu32		ProcessRoutingNotification(int sd)
+mDNSlocal mDNSBool		ProcessRoutingNotification(int sd)
 // Read through the messages on sd and if any indicate that any interface records should
 // be torn down and rebuilt, return affected indices as a bitmask. Otherwise return 0.
 	{
 	ssize_t					readCount;
 	char					buff[4096];	
 	struct ifa_msghdr		*pRSMsg = (struct ifa_msghdr*) buff;
-	mDNSu32				result = 0;
+	mDNSBool				result = mDNSfalse;
 
 	readCount = read(sd, buff, sizeof buff);
 	if (readCount < (ssize_t) sizeof(struct ifa_msghdr))
@@ -1212,10 +1221,7 @@ mDNSlocal mDNSu32		ProcessRoutingNotification(int sd)
 	if (pRSMsg->ifam_type == RTM_NEWADDR || pRSMsg->ifam_type == RTM_DELADDR ||
 		 pRSMsg->ifam_type == RTM_IFINFO)
 		{
-		if (pRSMsg->ifam_type == RTM_IFINFO)
-			result |= 1 << ((struct if_msghdr*) pRSMsg)->ifm_index;
-		else
-			result |= 1 << pRSMsg->ifam_index;
+		result = mDNStrue;
 		}
 
 	return result;
@@ -1228,7 +1234,7 @@ mDNSlocal void InterfaceChangeCallback(int fd, short filter, void *context)
 	{
 	IfChangeRec		*pChgRec = (IfChangeRec*) context;
 	fd_set			readFDs;
-	mDNSu32		changedInterfaces = 0;
+	mDNSBool		changedInterfaces = mDNSfalse;
 	struct timeval	zeroTimeout = { 0, 0 };
 
 	(void)fd; // Unused

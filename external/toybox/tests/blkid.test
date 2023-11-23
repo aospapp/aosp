@@ -28,6 +28,9 @@ testing "ext4" "BLKID ext4" \
 testing "f2fs" "BLKID f2fs" \
   'temp.img: LABEL="myf2fs" UUID="b53d3619-c204-4c0b-8504-36363578491c" TYPE="f2fs"\n' \
   "" ""
+testing "iso" "BLKID iso" \
+  'temp.img: LABEL="CDROM" UUID="2023-02-08-04-47-27-00" TYPE="iso9660"\n' \
+  "" ""
 testing "msdos" "BLKID msdos" \
   'temp.img: SEC_TYPE="msdos" LABEL="mymsdos" UUID="6E1E-0851" TYPE="vfat"\n' \
   "" ""
@@ -53,3 +56,8 @@ toyonly testing "stdin" "bzcat $FILES/blkid/squashfs.bz2 | blkid -" \
 #testing "minix" 'bzcat "$BDIR"/minix.bz2 | blkid -'
 #adfs bfs btrfs cramfs jfs nilfs romfs
 #vfat  // fat32 fat12 fat16
+
+bzcat $FILES/blkid/ext3.bz2 > temp.img
+testcmd "-o value -s" "-o value -s TYPE temp.img" 'ext3\n' "" ""
+testcmd "-o export" "-o export temp.img" 'DEVNAME=temp.img\nLABEL=myext3\nUUID=79d1c877-1a0f-4e7d-b21d-fc32ae3ef101\nSEC_TYPE=ext2\nTYPE=ext3\n' "" ""
+rm temp.img

@@ -36,7 +36,9 @@ EOF
 do_clean()
 {
 	pid_is_valid ${SAR_PID} && kill_pid ${SAR_PID}
-	online_cpu "$CPU_TO_TEST"
+	if ! online_cpu ${CPU_TO_TEST}; then
+		tst_brkm TBROK "CPU${CPU_TO_TEST} cannot be onlined"
+	fi
 }
 
 get_field()
@@ -60,6 +62,10 @@ done
 LOOP_COUNT=1
 
 tst_require_cmds sar
+
+if tst_virt_hyperv; then
+	tst_brkm TCONF "Microsoft Hyper-V detected, no support for CPU hotplug"
+fi
 
 if [ $(get_present_cpus_num) -lt 2 ]; then
 	tst_brkm TCONF "system doesn't have required CPU hotplug support"
@@ -145,7 +151,10 @@ until [ $LOOP_COUNT -gt $HOTPLUG05_LOOPS ]; do
 		tst_exit
 	fi
 
-	offline_cpu ${CPU_TO_TEST}
+	if ! offline_cpu ${CPU_TO_TEST}; then
+		tst_brkm TBROK "CPU${CPU_TO_TEST} cannot be offlined"
+	fi
+
 	kill_pid ${SAR_PID}
 
 	LOOP_COUNT=$((LOOP_COUNT+1))

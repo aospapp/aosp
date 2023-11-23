@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -18,22 +19,25 @@ class power_LW(test.test):
     SERVO_V4_ETH_VENDOR = '0bda'
     SERVO_V4_ETH_PRODUCT = '8153'
     WIFI_SSID = 'powertest_ap'
+    WIFI_PASSWORD = 'chromeos'
 
     def _get_wlan_ip(self, host):
         """Connect to wifi and return wlan ip address."""
         wlan_ip = host.get_wlan_ip()
+        logging.info('wlan_ip=%s', wlan_ip)
         if wlan_ip:
             return wlan_ip
 
-        if not host.connect_to_wifi(self.WIFI_SSID):
+        if not host.connect_to_wifi(self.WIFI_SSID, self.WIFI_PASSWORD):
             logging.info('Script to connect to wifi is probably missing.'
-                         'Run dummy_Pass as a workaround to install it.')
+                         'Run stub_Pass as a workaround to install it.')
             autotest_client = autotest.Autotest(host)
-            autotest_client.run_test('dummy_Pass')
-            if not host.connect_to_wifi(self.WIFI_SSID):
+            autotest_client.run_test('stub_Pass')
+            if not host.connect_to_wifi(self.WIFI_SSID, self.WIFI_PASSWORD):
                 raise error.TestError('Can not connect to wifi.')
 
         wlan_ip = host.get_wlan_ip()
+        logging.info('After connected to wifi wlan_ip=%s', wlan_ip)
         if not wlan_ip:
             raise error.TestError('Can not find wlan ip.')
         return wlan_ip
@@ -54,7 +58,11 @@ class power_LW(test.test):
     def _stop_ethernet(self, host):
         """Find and unbind servo v4 usb ethernet."""
         # Stop check_ethernet.hook to reconnect the usb device
-        host.run('stop recover_duts')
+        try:
+            host.run('stop recover_duts')
+        except:
+            logging.warning("Continue if stop recover_duts failed.")
+
         eth_usb = host.find_usb_devices(
             self.SERVO_V4_ETH_VENDOR, self.SERVO_V4_ETH_PRODUCT)
         if len(eth_usb) == 1 and eth_usb[0] and host.get_wlan_ip():

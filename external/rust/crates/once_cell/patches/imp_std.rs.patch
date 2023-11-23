@@ -1,8 +1,8 @@
 diff --git a/src/imp_std.rs b/src/imp_std.rs
-index d7dda96..f461c3d 100644
+index 5761f01..d727851 100644
 --- a/src/imp_std.rs
 +++ b/src/imp_std.rs
-@@ -299,6 +299,7 @@ mod tests {
+@@ -358,6 +358,7 @@ mod tests {
      }
  
      #[test]
@@ -10,7 +10,7 @@ index d7dda96..f461c3d 100644
      fn poison_bad() {
          static O: OnceCell<()> = OnceCell::new();
  
-@@ -320,6 +321,7 @@ mod tests {
+@@ -379,6 +380,7 @@ mod tests {
      }
  
      #[test]

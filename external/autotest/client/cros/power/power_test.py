@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,12 +7,14 @@ import re
 import time
 
 from autotest_lib.client.bin import test
+from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib.cros import arc_common
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.client.common_lib.cros.network import interface
-from autotest_lib.client.cros import ec
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.camera import camera_utils
+from autotest_lib.client.cros.power import force_discharge_utils
 from autotest_lib.client.cros.power import power_dashboard
 from autotest_lib.client.cros.power import power_status
 from autotest_lib.client.cros.power import power_telemetry_utils
@@ -26,15 +29,24 @@ class power_Test(test.test):
     histogram_re = 'Histogram: %s recorded (\d+) samples, mean = (\d+\.\d+)'
     hist_percentile_re = '^(\d+).+\{(\d+)\.\d+\%\}'
 
-    def initialize(self, seconds_period=20., pdash_note='',
-                   force_discharge=False,
-                   check_network=False):
+    def initialize(self,
+                   seconds_period=20.,
+                   pdash_note='',
+                   force_discharge='false',
+                   check_network=False,
+                   run_arc=True):
         """Perform necessary initialization prior to power test run.
 
         @param seconds_period: float of probing interval in seconds.
         @param pdash_note: note of the current run to send to power dashboard.
-        @param force_discharge: force battery to discharge during the test.
+        @param force_discharge: string of whether to tell ec to discharge
+                battery even when the charger is plugged in. 'false' means no
+                forcing discharge; 'true' means forcing discharge and raising an
+                error when it fails; 'optional' means forcing discharge when
+                possible but not raising an error when it fails, which is more
+                friendly to devices without a battery.
         @param check_network: check that Ethernet interface is not running.
+        @param run_arc: bool, whether to run with ARC (if available)
 
         @var backlight: power_utils.Backlight object.
         @var keyvals: dictionary of result keyvals.
@@ -49,24 +61,17 @@ class power_Test(test.test):
         @var _meas_logs: list of power_status.MeasurementLoggers
         """
         super(power_Test, self).initialize()
-        self.backlight = power_utils.Backlight()
-        self.backlight.set_default()
         self.keyvals = dict()
         self.status = power_status.get_status()
 
         self._checkpoint_logger = power_status.CheckpointLogger()
         self._seconds_period = seconds_period
 
-        self._force_discharge = force_discharge
-        if force_discharge:
-            if not self.status.battery:
-                raise error.TestNAError('DUT does not have battery. '
-                                        'Could not force discharge.')
-            if not ec.has_cros_ec():
-                raise error.TestNAError('DUT does not have CrOS EC. '
-                                        'Could not force discharge.')
-            if not power_utils.charge_control_by_ectool(False):
-                raise error.TestError('Could not run battery force discharge.')
+        self._force_discharge_success = force_discharge_utils.process(
+                force_discharge, self.status)
+        self.backlight = power_utils.Backlight(
+                force_battery=self._force_discharge_success)
+        self.backlight.set_default()
 
         ifaces = [iface for iface in interface.get_interfaces()
                 if (not iface.is_wifi_device() and
@@ -91,6 +96,12 @@ class power_Test(test.test):
             logging.debug('%s: %s', type(log).__name__, ", ".join(log.domains))
 
         self._pdash_note = pdash_note
+        self._failure_messages = []
+
+        self._arc_mode = arc_common.ARC_MODE_DISABLED
+        if run_arc and utils.is_arc_available():
+            self._arc_mode = arc_common.ARC_MODE_ENABLED
+        self.keyvals['arc_mode'] = self._arc_mode
 
     def get_extra_browser_args_for_camera_test(self):
         """Return Chrome args for camera power test."""
@@ -101,6 +112,12 @@ class power_Test(test.test):
                 '--force-tablet-mode=clamshell',
                 # Prefer using constant frame rate for camera streaming.
                 '--enable-features=PreferConstantFrameRate',
+                # Bypass HID detection for Chromebox / Chromebase.
+                '--disable-hid-detection-on-oobe',
+                # Disable test account info sync, eg. Wi-Fi credentials,
+                # so that each test run does not remember info from last test
+                # run.
+                '--disable-sync'
         ]
 
         # Use fake camera for DUT without camera, e.g. chromebox.
@@ -127,6 +144,7 @@ class power_Test(test.test):
         self._start_time = time.time()
         if self.status.battery:
             self._start_energy = self.status.battery.energy
+        self._keyvallogger = power_dashboard.KeyvalLogger(self._start_time)
         power_telemetry_utils.start_measurement()
 
     def loop_sleep(self, loop, sleep_secs):
@@ -160,7 +178,6 @@ class power_Test(test.test):
 
         keypress_histogram_end = histogram_verifier.get_histogram(
             cr, self.keypress_histogram)
-        logger = power_dashboard.KeyvalLogger(self._start_time, time.time())
         matches = re.search((self.histogram_re % self.keypress_histogram),
                             keypress_histogram_end)
 
@@ -175,9 +192,10 @@ class power_Test(test.test):
             self.output_perf_value(description='keypress_latency_us_avg',
                                    value=mean_latency,
                                    higher_is_better=False)
-            logger.add_item('keypress_cnt', count, 'point', 'keypress')
-            logger.add_item('keypress_latency_us_avg', mean_latency, 'point',
-                            'keypress')
+            self._keyvallogger.add_item('keypress_cnt', count, 'point',
+                                        'keypress')
+            self._keyvallogger.add_item('keypress_latency_us_avg',
+                                        mean_latency, 'point', 'keypress')
 
         # Capture the first bucket >= 90th percentile
         for s in keypress_histogram_end.splitlines():
@@ -194,13 +212,11 @@ class power_Test(test.test):
                     self.output_perf_value(
                         description='keypress_high_percentile', value=perc,
                         higher_is_better=False)
-                    logger.add_item('keypress_latency_us_high', lat, 'point',
-                                    'keypress')
-                    logger.add_item('keypress_high_percentile', perc, 'point',
-                                    'keypress')
+                    self._keyvallogger.add_item('keypress_latency_us_high',
+                                                lat, 'point', 'keypress')
+                    self._keyvallogger.add_item('keypress_high_percentile',
+                                                perc, 'point', 'keypress')
                     break
-
-        self._meas_logs.append(logger)
 
     def publish_keyvals(self):
         """Publish power result keyvals."""
@@ -208,11 +224,14 @@ class power_Test(test.test):
         keyvals['level_backlight_max'] = self.backlight.get_max_level()
         keyvals['level_backlight_current'] = self.backlight.get_level()
 
-        # record battery stats if not on AC
-        if not self._force_discharge and self.status.on_ac():
-            keyvals['b_on_ac'] = 1
-        else:
-            keyvals['b_on_ac'] = 0
+        # record battery stats if battery exists
+        keyvals['b_on_ac'] = int(not self._force_discharge_success
+                                 and self.status.on_ac())
+        keyvals['force_discharge'] = int(self._force_discharge_success)
+        for key in [
+                'b_on_ac', 'force_discharge', 'percent_usb_suspended_time'
+        ]:
+            self._keyvallogger.add_item(key, keyvals[key], 'point', 'perf')
 
         if self.status.battery:
             keyvals['ah_charge_full'] = self.status.battery.charge_full
@@ -230,18 +249,30 @@ class power_Test(test.test):
             runtime_minutes = (time.time() - self._start_time) / 60.
             keyvals['wh_energy_used'] = energy_used
             keyvals['minutes_tested'] = runtime_minutes
+            self._keyvallogger.add_item('minutes_tested',
+                                        keyvals['minutes_tested'], 'point',
+                                        'perf')
 
             low_batt = power_utils.get_low_battery_shutdown_percent()
             keyvals['percent_sys_low_battery'] = low_batt
 
             if energy_used > 0 and runtime_minutes > 1:
                 keyvals['w_energy_rate'] = energy_used * 60. / runtime_minutes
+                self._keyvallogger.add_item('w_energy_rate',
+                                            keyvals['w_energy_rate'], 'point',
+                                            'perf')
                 energy_avail = self.status.battery.energy_full_design * \
                     ((100. - low_batt) / 100.)
                 keyvals['minutes_battery_life'] = energy_avail / energy_used * \
                     runtime_minutes
+                self._keyvallogger.add_item('minutes_battery_life',
+                                            keyvals['minutes_battery_life'],
+                                            'point', 'perf')
                 keyvals['hours_battery_life'] = \
                     keyvals['minutes_battery_life'] / 60.
+                self._keyvallogger.add_item('hours_battery_life',
+                                            keyvals['hours_battery_life'],
+                                            'point', 'perf')
 
             keyvals['v_voltage_min_design'] = \
                                 self.status.battery.voltage_min_design
@@ -262,22 +293,25 @@ class power_Test(test.test):
         self.publish_keyvals()
 
         # publish power values
-        for key, values in self.keyvals.iteritems():
+        for key, values in self.keyvals.items():
             if key.endswith('pwr_avg'):
                 self.output_perf_value(description=key, value=values, units='W',
                         higher_is_better=False, graph='power')
 
         # publish temperature values
-        for key, values in self.keyvals.iteritems():
+        for key, values in self.keyvals.items():
             if key.endswith('temp_avg'):
                 self.output_perf_value(description=key, value=values, units='C',
                         higher_is_better=False, graph='temperature')
 
         # publish fps values
-        for key, values in self.keyvals.iteritems():
+        for key, values in self.keyvals.items():
             if key.endswith('fps_avg'):
                 self.output_perf_value(description=key, value=values,
                         units='fps', higher_is_better=True, graph='fps')
+
+        # include KeyvalLogger in dashboard
+        self._meas_logs.append(self._keyvallogger)
 
         # publish to power dashboard
         dashboard_factory = power_dashboard.get_dashboard_factory()
@@ -301,12 +335,14 @@ class power_Test(test.test):
         super(power_Test, self).postprocess_iteration()
         self.publish_dashboard()
         self._save_results()
+        power_dashboard.generate_parallax_report(self.outputdir)
+        if self._failure_messages:
+            raise error.TestFail('Test has failed with messages: %s' %
+                                 self._failure_messages)
 
     def cleanup(self):
         """Reverse setting change in initialization."""
-        if self._force_discharge:
-            if not power_utils.charge_control_by_ectool(True):
-                logging.warn('Can not restore from force discharge.')
+        force_discharge_utils.restore(self._force_discharge_success)
         if self.backlight:
             self.backlight.restore()
         self._services.restore_services()

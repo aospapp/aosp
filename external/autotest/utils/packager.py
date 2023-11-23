@@ -1,9 +1,12 @@
-#!/usr/bin/python2 -u
+#!/usr/bin/python3 -u
 
 """
 Utility to upload or remove the packages from the packages repository.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import logging, optparse, os, shutil, sys, tempfile
 import common
 from autotest_lib.client.common_lib import utils as client_utils
@@ -25,7 +28,7 @@ def get_exclude_string(client_dir):
     For profilers we need to exclude everything except the __init__.py
     file so that the profilers can be imported.
     '''
-    exclude_string = ('--exclude="deps/*" --exclude="tests/*" '
+    exclude_string = ('--exclude="deps/*" --exclude="tests/*" --exclude=.git '
                       '--exclude="site_tests/*" --exclude="**.pyc"')
 
     # Get the profilers directory
@@ -98,7 +101,7 @@ def get_build_dir(name, dest_dir, pkg_type):
         # --action=tar_only send in clients in the command line. Please
         # confirm the behaviour is expected before this type is enabled for
         # "tar_only" actions.
-        print ('Tar action not supported for pkg_type= %s, name = %s' %
+        print('Tar action not supported for pkg_type= %s, name = %s' %
                 pkg_type, name)
         return None
     # For all packages, the work-dir should have 'client' appended to it.
@@ -122,7 +125,7 @@ def process_packages(pkgmgr, pkg_type, pkg_names, src_dir,
     exclude_string = ' .'
     names = [p.strip() for p in pkg_names.split(',')]
     for name in names:
-        print "process_packages: Processing %s ... " % name
+        print("process_packages: Processing %s ... " % name)
         if pkg_type == 'client':
             pkg_dir = src_dir
             exclude_string = get_exclude_string(pkg_dir)
@@ -164,7 +167,7 @@ def process_packages(pkgmgr, pkg_type, pkg_names, src_dir,
             try:
                 try:
                     packages.check_diskspace(temp_dir)
-                except error.RepoDiskFullError, e:
+                except error.RepoDiskFullError as e:
                     msg = ("Temporary directory for packages %s does not have "
                            "enough space available: %s" % (temp_dir, e))
                     raise error.RepoDiskFullError(msg)
@@ -191,7 +194,7 @@ def process_packages(pkgmgr, pkg_type, pkg_names, src_dir,
                 shutil.rmtree(temp_dir)
         elif action == ACTION_REMOVE:
             pkgmgr.remove_pkg(pkg_name, remove_checksum=True)
-        print "Done."
+        print("Done.")
 
 
 def tar_packages(pkgmgr, pkg_type, pkg_names, src_dir, temp_dir):
@@ -200,7 +203,7 @@ def tar_packages(pkgmgr, pkg_type, pkg_names, src_dir, temp_dir):
     exclude_string = ' .'
     names = [p.strip() for p in pkg_names.split(',')]
     for name in names:
-        print "tar_packages: Processing %s ... " % name
+        print("tar_packages: Processing %s ... " % name)
         if pkg_type == 'client':
             pkg_dir = src_dir
             exclude_string = get_exclude_string(pkg_dir)
@@ -221,9 +224,9 @@ def tar_packages(pkgmgr, pkg_type, pkg_names, src_dir, temp_dir):
             (pkg_name, pkg_name)) + exclude_string)
         # Check if tarball already exists. If it does, don't duplicate
         # the effort.
-        tarball_path = os.path.join(pkg_dir, pkg_name);
+        tarball_path = os.path.join(pkg_dir, pkg_name)
         if os.path.exists(tarball_path):
-          print("tar_packages: Tarball %s already exists" % tarball_path);
+          print("tar_packages: Tarball %s already exists" % tarball_path)
         else:
             tarball_path = pkgmgr.tar_package(pkg_name, pkg_dir,
                                               temp_dir, exclude_string_tar)
@@ -239,8 +242,8 @@ def process_all_packages(pkgmgr, client_dir, action):
     temp_dir = tempfile.mkdtemp()
     try:
         packages.check_diskspace(temp_dir)
-    except error.RepoDiskFullError, e:
-        print ("Temp destination for packages is full %s, aborting upload: %s"
+    except error.RepoDiskFullError as e:
+        print("Temp destination for packages is full %s, aborting upload: %s"
                % (temp_dir, e))
         os.rmdir(temp_dir)
         sys.exit(1)
@@ -304,7 +307,7 @@ def get_test_dir(name, client_dir):
     elif name in names_site_test:
         src_dir = os.path.join(client_dir, 'site_tests')
     else:
-        print "Test %s not found" % name
+        print("Test %s not found" % name)
         sys.exit(0)
     return src_dir
 

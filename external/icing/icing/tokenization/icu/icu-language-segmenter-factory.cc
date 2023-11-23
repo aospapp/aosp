@@ -47,7 +47,7 @@ libtextclassifier3::StatusOr<std::unique_ptr<LanguageSegmenter>> Create(
                        << " not supported. Converting to locale " << ULOC_US;
     options.locale = ULOC_US;
   }
-  return std::make_unique<IcuLanguageSegmenter>(std::move(options.locale));
+  return IcuLanguageSegmenter::Create(std::move(options.locale));
 }
 
 }  // namespace language_segmenter_factory

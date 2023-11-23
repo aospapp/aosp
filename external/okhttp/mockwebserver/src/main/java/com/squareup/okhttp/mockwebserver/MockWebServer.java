@@ -554,11 +554,14 @@ public final class MockWebServer implements TestRule {
         // See warnings associated with these socket policies in SocketPolicy.
         if (response.getSocketPolicy() == SocketPolicy.DISCONNECT_AT_END) {
           socket.close();
+          response.notifyShutdown(SocketPolicy.DISCONNECT_AT_END);
           return false;
         } else if (response.getSocketPolicy() == SocketPolicy.SHUTDOWN_INPUT_AT_END) {
           socket.shutdownInput();
+          response.notifyShutdown(SocketPolicy.SHUTDOWN_INPUT_AT_END);
         } else if (response.getSocketPolicy() == SocketPolicy.SHUTDOWN_OUTPUT_AT_END) {
           socket.shutdownOutput();
+          response.notifyShutdown(SocketPolicy.SHUTDOWN_OUTPUT_AT_END);
         }
 
         sequenceNumber++;

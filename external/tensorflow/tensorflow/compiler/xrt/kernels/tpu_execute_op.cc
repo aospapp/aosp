@@ -68,7 +68,7 @@ Status GetComputationCacheEntry(
                                 &proto_lookup));
   core::ScopedUnref lookup_unref(proto_lookup);
   TF_RETURN_IF_ERROR(proto_lookup->Lookup(key, core_index_in_replica, entry));
-  return Status::OK();
+  return OkStatus();
 }
 
 std::vector<bool> GetDynamicInputInfo(
@@ -294,7 +294,7 @@ Status XRTExecuteOp::DoWork(OpKernelContext* context) {
 
   const Tensor& execution_input = context->input(0);
   TF_RET_CHECK(TensorShapeUtils::IsScalar(execution_input.shape()));
-  int64_t compilation_handle = execution_input.scalar<int64>()();
+  int64_t compilation_handle = execution_input.scalar<int64_t>()();
 
   const Tensor& execution_config = context->input(1);
   TF_RET_CHECK(TensorShapeUtils::IsScalar(execution_config.shape()));
@@ -367,7 +367,7 @@ Status XRTExecuteOp::DoWork(OpKernelContext* context) {
       context, memory_manager.get(), node_context.get(), stream, config_proto,
       executable, input_tuples, input_output_alias, output.ConsumeResult(),
       device_ordinal));
-  return Status::OK();
+  return OkStatus();
 }
 
 class XRTExecuteChainedOp : public AsyncOpKernel {

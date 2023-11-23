@@ -56,34 +56,27 @@ java_library_static {
     visibility: [
         "//cts/tests/tests/keystore",
     ],
-    srcs: ["keystore-cts/java/**/*.java"],
-    exclude_srcs: [
-        "keystore-cts/java/com/google/security/wycheproof/testcases/CipherInputStreamTest.java",
-        "keystore-cts/java/com/google/security/wycheproof/testcases/CipherOutputStreamTest.java",
-        "keystore-cts/java/com/google/security/wycheproof/testcases/EcdhTest.java",
-        "keystore-cts/java/com/google/security/wycheproof/testcases/EcdsaTest.java",
-        "keystore-cts/java/com/google/security/wycheproof/testcases/JsonCipherTest.java",
-        "keystore-cts/java/com/google/security/wycheproof/testcases/JsonEcdhTest.java",
-        "keystore-cts/java/com/google/security/wycheproof/testcases/JsonMacTest.java",
-        "keystore-cts/java/com/google/security/wycheproof/testcases/JsonSignatureTest.java",
-        "keystore-cts/java/com/google/security/wycheproof/testcases/MacTest.java",
-        "keystore-cts/java/com/google/security/wycheproof/testcases/RsaEncryptionTest.java",
-        "keystore-cts/java/com/google/security/wycheproof/testcases/RsaOaepTest.java",
-        "keystore-cts/java/com/google/security/wycheproof/testcases/RsaPssTest.java",
-        "keystore-cts/java/com/google/security/wycheproof/testcases/RsaSignatureTest.java",
+    srcs: [
+        "keystore-cts/java/**/*.java",
+        "keystore-cts/android/**/*.java",
     ],
     java_resource_dirs: ["keystore-cts/testvectors"],
-    sdk_version: "current",
     libs: [
         "bouncycastle-bcpkix-unbundled",
         "bouncycastle-unbundled",
         "junit",
         "wycheproof-gson",
+        "cts-core-test-runner-axt",
+        "cts-keystore-test-util",
     ],
+    platform_apis: true,
 }
 
 java_import {
     name: "wycheproof-gson",
-    visibility: ["//cts/tests/tests/keystore"],
+    visibility: [
+        "//cts/tests/tests/keystore",
+        "//external/android-key-attestation",
+    ],
     jars: ["keystore-cts/libs/gson-2.9.0.jar"],
 }

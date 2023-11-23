@@ -22,6 +22,8 @@ ifeq (${SPM_MM},1)
   endif
 endif
 
+include lib/extensions/amu/amu.mk
+include lib/mpmm/mpmm.mk
 include lib/psci/psci_lib.mk
 
 BL31_SOURCES		+=	bl31/bl31_main.c				\
@@ -78,16 +80,36 @@ BL31_SOURCES		+=	lib/extensions/spe/spe.c
 endif
 
 ifeq (${ENABLE_AMU},1)
-BL31_SOURCES		+=	lib/extensions/amu/aarch64/amu.c		\
-				lib/extensions/amu/aarch64/amu_helpers.S
+BL31_SOURCES		+=	${AMU_SOURCES}
 endif
 
+ifeq (${ENABLE_MPMM},1)
+BL31_SOURCES		+=	${MPMM_SOURCES}
+endif
+
+ifeq (${ENABLE_SME_FOR_NS},1)
+BL31_SOURCES		+=	lib/extensions/sme/sme.c
+BL31_SOURCES		+=	lib/extensions/sve/sve.c
+else
 ifeq (${ENABLE_SVE_FOR_NS},1)
 BL31_SOURCES		+=	lib/extensions/sve/sve.c
+endif
 endif
 
 ifeq (${ENABLE_MPAM_FOR_LOWER_ELS},1)
 BL31_SOURCES		+=	lib/extensions/mpam/mpam.c
+endif
+
+ifeq (${ENABLE_TRBE_FOR_NS},1)
+BL31_SOURCES		+=	lib/extensions/trbe/trbe.c
+endif
+
+ifeq (${ENABLE_SYS_REG_TRACE_FOR_NS},1)
+BL31_SOURCES		+=      lib/extensions/sys_reg_trace/aarch64/sys_reg_trace.c
+endif
+
+ifeq (${ENABLE_TRF_FOR_NS},1)
+BL31_SOURCES		+=	lib/extensions/trf/aarch64/trf.c
 endif
 
 ifeq (${WORKAROUND_CVE_2017_5715},1)
@@ -97,6 +119,13 @@ endif
 
 ifeq ($(SMC_PCI_SUPPORT),1)
 BL31_SOURCES		+=	services/std_svc/pci_svc.c
+endif
+
+ifeq (${ENABLE_RME},1)
+include lib/gpt_rme/gpt_rme.mk
+
+BL31_SOURCES		+=	${GPT_LIB_SRCS}					\
+				${RMMD_SOURCES}
 endif
 
 BL31_LINKERFILE		:=	bl31/bl31.ld.S

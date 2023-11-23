@@ -17,16 +17,11 @@ TST_NEEDS_ROOT=1
 TST_SETUP=setup
 TST_CLEANUP=cleanup
 
-. tst_test.sh
-
-
 DEBUGFS_WAS_MOUNTED=0
 DEBUGFS_PATH=""
 DEBUGFS_CONTROL=""
 DYNDEBUG_STATEMENTS="./debug_statements"
-EMPTY_FLAG="-"
-NEW_INTERFACE=0
-
+EMPTY_FLAG="=_"
 
 mount_debugfs()
 {
@@ -38,7 +33,7 @@ mount_debugfs()
 		if ! grep -q debugfs /proc/filesystems ; then
 			tst_res TCONF "debugfs not supported"
 		fi
-		DEBUGFS_PATH="./tst_debug"
+		DEBUGFS_PATH="$PWD/tst_debug"
 		mkdir "$DEBUGFS_PATH"
 		if mount -t debugfs xxx "$DEBUGFS_PATH" ; then
 			tst_res TINFO "debugfs mounted at $DEBUGFS_PATH"
@@ -50,10 +45,6 @@ mount_debugfs()
 
 setup()
 {
-	if tst_kvcmp -lt 2.6.30 ; then
-		tst_brk TCONF "Dynamic debug is available since version 2.6.30"
-	fi
-
 	mount_debugfs
 	if [ ! -d "$DEBUGFS_PATH/dynamic_debug" ] ; then
 		tst_brk TBROK "Unable to find $DEBUGFS_PATH/dynamic_debug"
@@ -61,12 +52,6 @@ setup()
 	DEBUGFS_CONTROL="$DEBUGFS_PATH/dynamic_debug/control"
 	if [ ! -e "$DEBUGFS_CONTROL" ] ; then
 		tst_brk TBROK "Unable to find $DEBUGFS_CONTROL"
-	fi
-
-	# Both patches with changes were backported to RHEL6 kernel 2.6.32-547
-	if tst_kvcmp -ge '3.4 RHEL6:2.6.32-547' ; then
-		NEW_INTERFACE=1
-		EMPTY_FLAG="=_"
 	fi
 
 	grep -v "^#" "$DEBUGFS_CONTROL" > "$DYNDEBUG_STATEMENTS"
@@ -92,10 +77,8 @@ do_all_flags()
 
 	for INPUT_LINE in $ALL_INPUTS; do
 		do_flag "+p" "$OPTION" "$INPUT_LINE"
-		if tst_kvcmp -ge 3.2 || [ $NEW_INTERFACE -eq 1 ] ; then
-			do_flag "+flmt" "$OPTION" "$INPUT_LINE"
-			do_flag "-flmt" "$OPTION" "$INPUT_LINE"
-		fi
+		do_flag "+flmt" "$OPTION" "$INPUT_LINE"
+		do_flag "-flmt" "$OPTION" "$INPUT_LINE"
 		do_flag "-p" "$OPTION" "$INPUT_LINE"
 	done
 
@@ -140,10 +123,9 @@ cleanup()
 		FLAGS_SET=$(awk -v emp="$EMPTY_FLAG" '$3 != emp' $DYNDEBUG_STATEMENTS)
 	fi
 	if [ "$FLAGS_SET" ] ; then
-		FLAG_PREFIX=$([ $NEW_INTERFACE -eq 1 ] && echo "" || echo "+")
 		/bin/echo "$FLAGS_SET" | while read -r FLAG_LINE ; do
 			/bin/echo -n "$FLAG_LINE" \
-				| awk -v prf="$FLAG_PREFIX" -F " |:" \
+				| awk -v prf= -F " |:" \
 				'{print "file "$1" line "$2" "prf $4}' \
 				> "$DEBUGFS_CONTROL"
 		done
@@ -153,4 +135,5 @@ cleanup()
 	fi
 }
 
+. tst_test.sh
 tst_run

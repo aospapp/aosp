@@ -26,10 +26,9 @@ namespace protozero {
 
 namespace {
 
-
 bool LoadBytecode(FilterBytecodeParser* parser,
                   std::initializer_list<uint32_t> bytecode) {
-  perfetto::base::Hash hasher;
+  perfetto::base::Hasher hasher;
   protozero::PackedVarInt words;
   for (uint32_t w : bytecode) {
     words.Append(w);
@@ -37,6 +36,17 @@ bool LoadBytecode(FilterBytecodeParser* parser,
   }
   words.Append(static_cast<uint32_t>(hasher.digest()));
   return parser->Load(words.data(), words.size());
+}
+
+TEST(FilterBytecodeParserTest, EomHandling) {
+  FilterBytecodeParser parser;
+
+  // EOM not being correctly at the end should cause a parse failure.
+  EXPECT_FALSE(LoadBytecode(&parser, {kFilterOpcode_SimpleField | 1}));
+  EXPECT_FALSE(LoadBytecode(&parser, {kFilterOpcode_SimpleFieldRange | 1,
+                                      kFilterOpcode_EndOfMessage}));
+  EXPECT_FALSE(LoadBytecode(&parser, {kFilterOpcode_NestedField | (4u << 3),
+                                      kFilterOpcode_EndOfMessage}));
 }
 
 TEST(FilterBytecodeParserTest, ParserSimpleFields) {

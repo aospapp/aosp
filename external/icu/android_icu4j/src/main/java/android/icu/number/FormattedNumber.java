@@ -11,6 +11,7 @@ import android.icu.impl.FormattedValueStringBuilderImpl;
 import android.icu.impl.Utility;
 import android.icu.impl.number.DecimalQuantity;
 import android.icu.text.ConstrainedFieldPosition;
+import android.icu.text.DisplayOptions;
 import android.icu.text.FormattedValue;
 import android.icu.text.PluralRules.IFixedDecimal;
 import android.icu.util.MeasureUnit;
@@ -118,6 +119,17 @@ public class FormattedNumber implements FormattedValue {
      */
     public MeasureUnit getOutputUnit() {
         return this.outputUnit;
+    }
+
+    /**
+     * Gets the noun class of the formatted output. Returns `UNDEFINED` when the noun class is not
+     * supported yet.
+     *
+     * @return NounClass
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public DisplayOptions.NounClass getNounClass() {
+        return DisplayOptions.NounClass.fromIdentifier(this.gender);
     }
 
     /**

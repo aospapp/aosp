@@ -7,21 +7,34 @@ const HLE_RETURN_ADDR: u32 = 0x12345678;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Event {
+    DoneStep,
     Halted,
     Break,
     WatchWrite(u32),
     WatchRead(u32),
 }
 
+pub enum ExecMode {
+    Step,
+    Continue,
+    RangeStep(u32, u32),
+}
+
 /// incredibly barebones armv4t-based emulator
 pub struct Emu {
     start_addr: u32,
+
+    // example custom register. only read/written to from the GDB client
+    pub(crate) custom_reg: u32,
+
+    pub(crate) exec_mode: ExecMode,
 
     pub(crate) cpu: Cpu,
     pub(crate) mem: ExampleMem,
 
     pub(crate) watchpoints: Vec<u32>,
     pub(crate) breakpoints: Vec<u32>,
+    pub(crate) files: Vec<Option<std::fs::File>>,
 }
 
 impl Emu {
@@ -42,12 +55,12 @@ impl Emu {
         for h in sections {
             eprintln!(
                 "loading section {:?} into memory from [{:#010x?}..{:#010x?}]",
-                elf_header.shdr_strtab.get(h.sh_name).unwrap().unwrap(),
+                elf_header.shdr_strtab.get_at(h.sh_name).unwrap(),
                 h.sh_addr,
                 h.sh_addr + h.sh_size,
             );
 
-            for (i, b) in program_elf[h.file_range()].iter().enumerate() {
+            for (i, b) in program_elf[h.file_range().unwrap()].iter().enumerate() {
                 mem.w8(h.sh_addr as u32 + i as u32, *b);
             }
         }
@@ -61,11 +74,17 @@ impl Emu {
 
         Ok(Emu {
             start_addr: elf_header.entry as u32,
+
+            custom_reg: 0x12345678,
+
+            exec_mode: ExecMode::Continue,
+
             cpu,
             mem,
 
             watchpoints: Vec::new(),
             breakpoints: Vec::new(),
+            files: Vec::new(),
         })
     }
 
@@ -76,6 +95,7 @@ impl Emu {
         self.cpu.reg_set(Mode::User, reg::CPSR, 0x10);
     }
 
+    /// single-step the interpreter
     pub fn step(&mut self) -> Option<Event> {
         let mut hit_watchpoint = None;
 
@@ -106,4 +126,57 @@ impl Emu {
 
         None
     }
+
+    /// run the emulator in accordance with the currently set `ExecutionMode`.
+    ///
+    /// since the emulator runs in the same thread as the GDB loop, the emulator
+    /// will use the provided callback to poll the connection for incoming data
+    /// every 1024 steps.
+    pub fn run(&mut self, mut poll_incoming_data: impl FnMut() -> bool) -> RunEvent {
+        match self.exec_mode {
+            ExecMode::Step => RunEvent::Event(self.step().unwrap_or(Event::DoneStep)),
+            ExecMode::Continue => {
+                let mut cycles = 0;
+                loop {
+                    if cycles % 1024 == 0 {
+                        // poll for incoming data
+                        if poll_incoming_data() {
+                            break RunEvent::IncomingData;
+                        }
+                    }
+                    cycles += 1;
+
+                    if let Some(event) = self.step() {
+                        break RunEvent::Event(event);
+                    };
+                }
+            }
+            // just continue, but with an extra PC check
+            ExecMode::RangeStep(start, end) => {
+                let mut cycles = 0;
+                loop {
+                    if cycles % 1024 == 0 {
+                        // poll for incoming data
+                        if poll_incoming_data() {
+                            break RunEvent::IncomingData;
+                        }
+                    }
+                    cycles += 1;
+
+                    if let Some(event) = self.step() {
+                        break RunEvent::Event(event);
+                    };
+
+                    if !(start..end).contains(&self.cpu.reg_get(self.cpu.mode(), reg::PC)) {
+                        break RunEvent::Event(Event::DoneStep);
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub enum RunEvent {
+    IncomingData,
+    Event(Event),
 }

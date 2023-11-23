@@ -194,7 +194,7 @@ static IV_STATUS_T api_check_input_dimensions(codec_t *ps_codec,
             break;
         case IV_YUV_420SP_UV:
         case IV_YUV_420SP_VU:
-            if ((ps_inp_buf->au4_wd[0] / 2) != ps_inp_buf->au4_wd[1])
+            if (ps_inp_buf->au4_wd[0] != ps_inp_buf->au4_wd[1])
             {
                 ps_op->s_ive_op.u4_error_code |= 1 << IVE_UNSUPPORTEDPARAM;
                 ps_op->s_ive_op.u4_error_code |= IH264E_WIDTH_NOT_SUPPORTED;
@@ -2138,6 +2138,59 @@ static IV_STATUS_T api_check_struct_sanity(iv_obj_t *ps_handle,
                     break;
                 }
 
+                case IVE_CMD_CTL_SET_SEI_SII_PARAMS:
+                {
+                    ih264e_ctl_set_sei_sii_params_ip_t *ps_ip = pv_api_ip;
+                    ih264e_ctl_set_sei_sii_params_op_t *ps_op = pv_api_op;
+
+                    if(ps_ip->u4_size != sizeof(ih264e_ctl_set_sei_sii_params_ip_t))
+                    {
+                        ps_op->u4_error_code |= 1 << IVE_UNSUPPORTEDPARAM;
+                        ps_op->u4_error_code |= IVE_ERR_IP_CTL_SET_SEI_SII_STRUCT_SIZE_INCORRECT;
+                        return IV_FAIL;
+                    }
+
+                    if(ps_op->u4_size != sizeof(ih264e_ctl_set_sei_sii_params_op_t))
+                    {
+                        ps_op->u4_error_code |= 1 << IVE_UNSUPPORTEDPARAM;
+                        ps_op->u4_error_code |= IVE_ERR_OP_CTL_SET_SEI_SII_STRUCT_SIZE_INCORRECT;
+                        return IV_FAIL;
+                    }
+
+                    /* The below error check is based on H264 spec docs SII syntax */
+                    if(0 != ps_ip->u4_sii_sub_layer_idx)
+                    {
+                        ps_op->u4_error_code |= 1 << IVE_UNSUPPORTEDPARAM;
+                        ps_op->u4_error_code |= IH264E_INVALID_SEI_SII_PARAMS;
+                        return IV_FAIL;
+                    }
+
+                    if(ps_ip->u1_sii_max_sub_layers_minus1 > 7)
+                    {
+                        ps_op->u4_error_code |= 1 << IVE_UNSUPPORTEDPARAM;
+                        ps_op->u4_error_code |= IH264E_INVALID_SEI_SII_PARAMS;
+                        return IV_FAIL;
+                    }
+
+                    if((ps_ip->u4_sii_sub_layer_idx > 0) &&
+                       (ps_ip->u1_fixed_shutter_interval_within_cvs_flag == 1))
+                    {
+                        ps_op->u4_error_code |= 1 << IVE_UNSUPPORTEDPARAM;
+                        ps_op->u4_error_code |= IH264E_SEI_SII_FAILED_TO_MATCH_SPEC_COND;
+                        return IV_FAIL;
+                    }
+
+                    if((ps_ip->u4_sii_sub_layer_idx > ps_ip->u1_sii_max_sub_layers_minus1) &&
+                       (ps_ip->u1_fixed_shutter_interval_within_cvs_flag == 0))
+                    {
+                        ps_op->u4_error_code |= 1 << IVE_UNSUPPORTEDPARAM;
+                        ps_op->u4_error_code |= IH264E_SEI_SII_FAILED_TO_MATCH_SPEC_COND;
+                        return IV_FAIL;
+                    }
+
+                    break;
+                }
+
                 case IVE_CMD_CTL_SET_ENC_MODE:
                 {
                     ih264e_ctl_set_enc_mode_ip_t *ps_ip = pv_api_ip;
@@ -2768,6 +2821,12 @@ IH264E_ERROR_T ih264e_codec_update_config(codec_t *ps_codec,
                                                 ps_cfg->s_sei.u1_sei_ccv_params_present_flag;
         ps_codec->s_cfg.s_sei.s_sei_ccv_params = ps_cfg->s_sei.s_sei_ccv_params;
     }
+    else if(ps_cfg->e_cmd == IVE_CMD_CTL_SET_SEI_SII_PARAMS)
+    {
+        ps_codec->s_cfg.s_sei.u1_sei_sii_params_present_flag =
+            ps_cfg->s_sei.u1_sei_sii_params_present_flag;
+        ps_codec->s_cfg.s_sei.s_sei_sii_params = ps_cfg->s_sei.s_sei_sii_params;
+    }
 
     /* reset RC model */
     if (u4_init_rc)
@@ -2873,6 +2932,7 @@ static WORD32 ih264e_set_default_params(cfg_params_t *ps_cfg)
     ps_cfg->u4_max_level = DEFAULT_MAX_LEVEL;
     ps_cfg->e_inp_color_fmt = IV_YUV_420SP_UV;
     ps_cfg->u4_enable_recon = DEFAULT_RECON_ENABLE;
+    ps_cfg->u4_enable_quality_metrics = DEFAULT_QUALITY_METRICS_ENABLE;
     ps_cfg->e_recon_color_fmt = IV_YUV_420P;
     ps_cfg->u4_enc_speed_preset = IVE_FASTEST;
     ps_cfg->e_rc_mode = DEFAULT_RC;
@@ -2938,8 +2998,8 @@ static WORD32 ih264e_set_default_params(cfg_params_t *ps_cfg)
     ps_cfg->u4_constrained_intra_pred = 0;
     ps_cfg->u4_pic_info_type = 0;
     ps_cfg->u4_mb_info_type = 0;
-    ps_cfg->s_vui.u1_video_signal_type_present_flag = 1;
-    ps_cfg->s_vui.u1_colour_description_present_flag = 1;
+    ps_cfg->s_vui.u1_video_signal_type_present_flag = 0;
+    ps_cfg->s_vui.u1_colour_description_present_flag = 0;
 
     return ret;
 }
@@ -3044,6 +3104,8 @@ static WORD32 ih264e_init(codec_t *ps_codec)
 
     /* Process thread created status */
     memset(ps_codec->ai4_process_thread_created, 0, MAX_PROCESS_THREADS);
+
+    memset(&ps_codec->s_global_quality_stats, 0, sizeof(ps_codec->s_global_quality_stats));
 
     /* Number of MBs processed together */
     ps_codec->i4_proc_nmb = 8;
@@ -5871,6 +5933,9 @@ static WORD32 ih264e_set_vui_params(void *pv_api_ip,
     ps_vui->u1_num_reorder_frames = ps_ip->u1_num_reorder_frames;
     ps_vui->u1_max_dec_frame_buffering = ps_ip->u1_max_dec_frame_buffering;
 
+    ps_cfg->u4_timestamp_high = -1;
+    ps_cfg->u4_timestamp_low = -1;
+
     return IV_SUCCESS;
 }
 
@@ -6088,6 +6153,78 @@ static WORD32 ih264e_set_sei_ccv_params(void *pv_api_ip,
     ps_sei->s_sei_ccv_params.u4_ccv_min_luminance_value = ps_ip->u4_ccv_min_luminance_value;
     ps_sei->s_sei_ccv_params.u4_ccv_max_luminance_value = ps_ip->u4_ccv_max_luminance_value;
     ps_sei->s_sei_ccv_params.u4_ccv_avg_luminance_value = ps_ip->u4_ccv_avg_luminance_value;
+
+    ps_cfg->u4_timestamp_high = ps_ip->u4_timestamp_high;
+    ps_cfg->u4_timestamp_low = ps_ip->u4_timestamp_low;
+
+    return IV_SUCCESS;
+}
+
+/**
+*******************************************************************************
+*
+* @brief
+ *  Sets shutter interval info sei params
+ *
+ * @par Description:
+ *  Supplemental enhancement information
+ *
+ * @param[in] pv_api_ip
+ *  Pointer to input argument structure
+ *
+ * @param[out] pv_api_op
+ *  Pointer to output argument structure
+ *
+ * @param[out] ps_cfg
+ *  Pointer to config structure to be updated
+ *
+ * @return error status
+ *
+ * @remarks none
+ *
+ *******************************************************************************
+ */
+static WORD32 ih264e_set_sei_sii_params(void *pv_api_ip, void *pv_api_op, cfg_params_t *ps_cfg)
+{
+    /* ctrl call I/O structures */
+    ih264e_ctl_set_sei_sii_params_ip_t *ps_ip = pv_api_ip;
+    ih264e_ctl_set_sei_sii_params_op_t *ps_op = pv_api_op;
+    sei_params_t *ps_sei = &ps_cfg->s_sei;
+
+    ps_op->u4_error_code = 0;
+    ps_sei->u1_sei_sii_params_present_flag = ps_ip->u1_shutter_interval_info_present_flag;
+    ps_sei->s_sei_sii_params.u4_sii_sub_layer_idx = ps_ip->u4_sii_sub_layer_idx;
+
+    if(0 == ps_sei->s_sei_sii_params.u4_sii_sub_layer_idx)
+    {
+        ps_sei->s_sei_sii_params.u1_shutter_interval_info_present_flag =
+            ps_ip->u1_shutter_interval_info_present_flag;
+
+        if(1 == ps_sei->s_sei_sii_params.u1_shutter_interval_info_present_flag)
+        {
+            ps_sei->s_sei_sii_params.u4_sii_time_scale = ps_ip->u4_sii_time_scale;
+            ps_sei->s_sei_sii_params.u1_fixed_shutter_interval_within_cvs_flag =
+                ps_ip->u1_fixed_shutter_interval_within_cvs_flag;
+
+            if(1 == ps_sei->s_sei_sii_params.u1_fixed_shutter_interval_within_cvs_flag)
+            {
+                ps_sei->s_sei_sii_params.u4_sii_num_units_in_shutter_interval =
+                    ps_ip->u4_sii_num_units_in_shutter_interval;
+            }
+            else
+            {
+                int i;
+                ps_sei->s_sei_sii_params.u1_sii_max_sub_layers_minus1 =
+                    ps_ip->u1_sii_max_sub_layers_minus1;
+
+                for(i = 0; i <= ps_ip->u1_sii_max_sub_layers_minus1; i++)
+                {
+                    ps_sei->s_sei_sii_params.au4_sub_layer_num_units_in_shutter_interval[i] =
+                        ps_ip->au4_sub_layer_num_units_in_shutter_interval[i];
+                }
+            }
+        }
+    }
 
     ps_cfg->u4_timestamp_high = ps_ip->u4_timestamp_high;
     ps_cfg->u4_timestamp_low = ps_ip->u4_timestamp_low;
@@ -6336,6 +6473,10 @@ static WORD32 ih264e_ctl(iv_obj_t *ps_codec_obj,
 
         case IVE_CMD_CTL_SET_SEI_CCV_PARAMS:
             ret = ih264e_set_sei_ccv_params(pv_api_ip, pv_api_op, ps_cfg);
+            break;
+
+        case IVE_CMD_CTL_SET_SEI_SII_PARAMS:
+            ret = ih264e_set_sei_sii_params(pv_api_ip, pv_api_op, ps_cfg);
             break;
 
         case IVE_CMD_CTL_RESET:

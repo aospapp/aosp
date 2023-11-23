@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -13,6 +13,7 @@ HW_STATE_UNKNOWN = 'UNKNOWN'
 # Labels for hardware parts
 DUT_STORAGE_STATE_PREFIX = 'storage_state'
 SERVO_USB_STATE_PREFIX = 'servo_usb_state'
+BATTERY_STATE_PREFIX = 'battery_state'
 
 # RPM states
 RPM_STATE_LABEL_PREFIX = 'rpm_state'

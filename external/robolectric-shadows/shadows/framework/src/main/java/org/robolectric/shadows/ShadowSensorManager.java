@@ -53,6 +53,12 @@ public class ShadowSensorManager {
     return sensorMap.get(type);
   }
 
+  @Implementation
+  protected Sensor getDefaultSensor(int type, boolean wakeUp) {
+    Sensor typedSensor = sensorMap.get(type);
+    return (typedSensor != null && typedSensor.isWakeUpSensor() == wakeUp) ? typedSensor : null;
+  }
+
   /** @param handler is ignored. */
   @Implementation
   protected boolean registerListener(

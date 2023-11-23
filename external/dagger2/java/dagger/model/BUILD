@@ -32,13 +32,10 @@ package(
     ],
 )
 
-INTERNAL_PROXIES = ["BindingGraphProxies.java"]
-
 filegroup(
     name = "model-srcs",
     srcs = glob(
         ["*.java"],
-        exclude = INTERNAL_PROXIES,
     ),
 )
 
@@ -49,27 +46,14 @@ java_library(
     deps = [
         "//java/dagger:core",
         "//java/dagger/internal/codegen/extension",
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
-        "//java/dagger/internal/guava:graph",
         "//java/dagger/producers",
-        "@google_bazel_common//third_party/java/auto:value",
-        "@google_bazel_common//third_party/java/error_prone:annotations",
-        "@google_bazel_common//third_party/java/javapoet",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@maven//:com_google_auto_auto_common",
-    ],
-)
-
-java_library(
-    name = "internal-proxies",
-    srcs = INTERNAL_PROXIES,
-    tags = ["maven:merged"],
-    visibility = ["//:src"],
-    deps = [
-        ":model",
-        "//java/dagger/internal/guava:collect",
-        "//java/dagger/internal/guava:graph",
-        "@google_bazel_common//third_party/java/auto:value",
+        "//third_party/java/auto:common",
+        "//third_party/java/auto:value",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
+        "//third_party/java/guava/graph",
+        "//third_party/java/javapoet",
+        "//third_party/java/jsr330_inject",
     ],
 )

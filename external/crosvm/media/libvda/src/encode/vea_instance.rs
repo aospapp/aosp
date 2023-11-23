@@ -1,11 +1,13 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::{os::raw::c_void, rc::Rc};
+use std::os::raw::c_void;
+use std::rc::Rc;
 
 use super::bindings;
-use super::format::{Bitrate, OutputProfile};
+use super::format::Bitrate;
+use super::format::OutputProfile;
 use super::session::*;
 use crate::error::*;
 use crate::format::*;
@@ -82,17 +84,9 @@ impl Config {
             output_profile: self.output_profile.to_raw_profile(),
             bitrate: self.bitrate.to_raw_bitrate(),
             initial_framerate: self.initial_framerate.unwrap_or(0),
-            has_initial_framerate: if self.initial_framerate.is_some() {
-                1
-            } else {
-                0
-            },
+            has_initial_framerate: self.initial_framerate.is_some().into(),
             h264_output_level: self.h264_output_level.unwrap_or(0),
-            has_h264_output_level: if self.h264_output_level.is_some() {
-                1
-            } else {
-                0
-            },
+            has_h264_output_level: self.h264_output_level.is_some().into(),
         }
     }
 }

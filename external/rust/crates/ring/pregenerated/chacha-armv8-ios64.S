@@ -9,10 +9,11 @@
 #endif
 
 #if !defined(OPENSSL_NO_ASM)
-#include <GFp/arm_arch.h>
+#include "ring_core_generated/prefix_symbols_asm.h"
+#include <ring-core/arm_arch.h>
 
 
-.private_extern	_GFp_armcap_P
+.private_extern	_OPENSSL_armcap_P
 
 .section	__TEXT,__const
 
@@ -26,21 +27,21 @@ Lone:
 
 .text
 
-.globl	_GFp_ChaCha20_ctr32
-.private_extern	_GFp_ChaCha20_ctr32
+.globl	_ChaCha20_ctr32
+.private_extern	_ChaCha20_ctr32
 
 .align	5
-_GFp_ChaCha20_ctr32:
+_ChaCha20_ctr32:
 	AARCH64_VALID_CALL_TARGET
 	cbz	x2,Labort
 #if __has_feature(hwaddress_sanitizer) && __clang_major__ >= 10
-	adrp	x5,:pg_hi21_nc:_GFp_armcap_P
+	adrp	x5,:pg_hi21_nc:_OPENSSL_armcap_P
 #else
-	adrp	x5,_GFp_armcap_P@PAGE
+	adrp	x5,_OPENSSL_armcap_P@PAGE
 #endif
 	cmp	x2,#192
 	b.lo	Lshort
-	ldr	w17,[x5,_GFp_armcap_P@PAGEOFF]
+	ldr	w17,[x5,_OPENSSL_armcap_P@PAGEOFF]
 	tst	w17,#ARMV7_NEON
 	b.ne	ChaCha20_neon
 

@@ -6,16 +6,17 @@ from autotest_lib.server import utils
 
 AUTHOR = 'chromeos-bluetooth'
 NAME = 'bluetooth_AdapterSRHealth.sr_peer_wake_le_hid_stress'
-PURPOSE = ('Single run of a test')
+PURPOSE = ('50 iterations of sr_peer_wake_le_hid test')
 CRITERIA = 'Pass test'
-ATTRIBUTES = ''
-TIME = 'MEDIUM' # ~8 mins on Hatch
+ATTRIBUTES = 'suite:bluetooth_stress'
+TIME = 'LONG' # 40 Minutes
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1'
+PY_VERSION = 3
 
-DOC = """ Single run of a Suspend-Resume health testcase. """
+DOC = """ 50 iterations of  Suspend-Resume health testcase. """
 
 args_dict = utils.args_to_dict(args)
 

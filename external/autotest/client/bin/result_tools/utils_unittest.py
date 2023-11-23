@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -19,7 +19,6 @@ import unittest
 
 import common
 from autotest_lib.client.bin.result_tools import result_info
-from autotest_lib.client.bin.result_tools import shrink_file_throttler
 from autotest_lib.client.bin.result_tools import throttler_lib
 from autotest_lib.client.bin.result_tools import utils as result_utils
 from autotest_lib.client.bin.result_tools import utils_lib
@@ -294,7 +293,31 @@ class MergeSummaryTest(unittest.TestCase):
         collected_bytes, merged_summary, files = result_utils.merge_summaries(
                 self.test_dir)
 
-        self.assertEqual(EXPECTED_MERGED_SUMMARY, merged_summary)
+        # In python3, the dict --> list conversion isn't guaranteed to be in.
+        # this basically drills down to the lowest level values and verifies
+        # each.
+        def _checker(real, expected):
+            if not isinstance(real, list) and not isinstance(real, dict):
+                self.assertEqual(real, expected)
+                return
+
+            if isinstance(real, list):
+                self.assertEqual(type(expected), list)
+                for item in real:
+                    _search_for_item(item, expected)
+                return
+
+            for k, v in real.items():
+                assert(k in expected)
+                _checker(real[k], expected[k])
+
+        def _search_for_item(item, other):
+            for oth in other:
+                if item.keys() == oth.keys():
+                    self.assertEqual(item, oth)
+                    _checker(item, oth)
+
+        _checker(merged_summary, EXPECTED_MERGED_SUMMARY)
         self.assertEqual(collected_bytes, 12 * SIZE)
         self.assertEqual(len(files), 3)
 
@@ -322,121 +345,162 @@ class MergeSummaryTest(unittest.TestCase):
 
 # Not throttled.
 EXPECTED_THROTTLED_SUMMARY_NO_THROTTLE = {
-  '': {utils_lib.ORIGINAL_SIZE_BYTES: 3 * LARGE_SIZE + 5 * SMALL_SIZE,
-       utils_lib.DIRS: [
-           {'files_to_dedupe': {
-               utils_lib.ORIGINAL_SIZE_BYTES: 5 * SMALL_SIZE,
-               utils_lib.DIRS: [
-                   {'file_0.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
-                   {'file_1.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
-                   {'file_2.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
-                   {'file_3.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
-                   {'file_4.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
+        '': {
+                utils_lib.ORIGINAL_SIZE_BYTES:
+                2 * LARGE_SIZE + 5 * SMALL_SIZE,
+                utils_lib.DIRS: [
+                        {
+                                'files_to_dedupe': {
+                                        utils_lib.ORIGINAL_SIZE_BYTES:
+                                        5 * SMALL_SIZE,
+                                        utils_lib.DIRS: [
+                                                {
+                                                        'file_0.dmp': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                SMALL_SIZE
+                                                        }
+                                                },
+                                                {
+                                                        'file_1.dmp': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                SMALL_SIZE
+                                                        }
+                                                },
+                                                {
+                                                        'file_2.dmp': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                SMALL_SIZE
+                                                        }
+                                                },
+                                                {
+                                                        'file_3.dmp': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                SMALL_SIZE
+                                                        }
+                                                },
+                                                {
+                                                        'file_4.dmp': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                SMALL_SIZE
+                                                        }
+                                                },
+                                        ]
+                                }
+                        },
+                        {
+                                'files_to_delete': {
+                                        utils_lib.ORIGINAL_SIZE_BYTES:
+                                        LARGE_SIZE,
+                                        utils_lib.DIRS: [
+                                                {
+                                                        'file.png': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                LARGE_SIZE
+                                                        }
+                                                },
+                                        ]
+                                }
+                        },
+                        {
+                                'files_to_zip': {
+                                        utils_lib.ORIGINAL_SIZE_BYTES:
+                                        LARGE_SIZE,
+                                        utils_lib.DIRS: [
+                                                {
+                                                        'file.xml': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                LARGE_SIZE
+                                                        }
+                                                },
+                                        ]
+                                }
+                        },
                 ]
-            }},
-           {'files_to_delete': {
-               utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE,
-               utils_lib.DIRS: [
-                   {'file.png': {utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE}},
-                ]
-            }},
-           {'files_to_shink': {
-               utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE,
-               utils_lib.DIRS: [
-                   {'file.txt': {utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE}},
-                ]
-            }},
-           {'files_to_zip': {
-               utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE,
-               utils_lib.DIRS: [
-                   {'file.xml': {utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE}},
-                ]
-            }},
-        ]
-       }
-    }
-
-SHRINK_SIZE = shrink_file_throttler.DEFAULT_FILE_SIZE_LIMIT_BYTE
-EXPECTED_THROTTLED_SUMMARY_WITH_SHRINK = {
-  '': {utils_lib.ORIGINAL_SIZE_BYTES: 3 * LARGE_SIZE + 5 * SMALL_SIZE,
-       utils_lib.TRIMMED_SIZE_BYTES:
-            2 * LARGE_SIZE + 5 * SMALL_SIZE + SHRINK_SIZE,
-       utils_lib.DIRS: [
-           {'files_to_dedupe': {
-               utils_lib.ORIGINAL_SIZE_BYTES: 5 * SMALL_SIZE,
-               utils_lib.DIRS: [
-                   {'file_0.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
-                   {'file_1.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
-                   {'file_2.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
-                   {'file_3.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
-                   {'file_4.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
-                ]
-            }},
-           {'files_to_delete': {
-               utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE,
-               utils_lib.DIRS: [
-                   {'file.png': {utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE}},
-                ]
-            }},
-           {'files_to_shink': {
-               utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE,
-               utils_lib.TRIMMED_SIZE_BYTES: SHRINK_SIZE,
-               utils_lib.DIRS: [
-                   {'file.txt': {utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE,
-                                 utils_lib.TRIMMED_SIZE_BYTES: SHRINK_SIZE}},
-                ]
-            }},
-           {'files_to_zip': {
-               utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE,
-               utils_lib.DIRS: [
-                   {'file.xml': {utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE}},
-                ]
-            }},
-        ]
-       }
-    }
+        }
+}
 
 EXPECTED_THROTTLED_SUMMARY_WITH_DEDUPE = {
-  '': {utils_lib.ORIGINAL_SIZE_BYTES: 3 * LARGE_SIZE + 5 * SMALL_SIZE,
-       utils_lib.TRIMMED_SIZE_BYTES:
-            2 * LARGE_SIZE + 3 * SMALL_SIZE + SHRINK_SIZE,
-       utils_lib.DIRS: [
-           {'files_to_dedupe': {
-               utils_lib.ORIGINAL_SIZE_BYTES: 5 * SMALL_SIZE,
-               utils_lib.TRIMMED_SIZE_BYTES: 3 * SMALL_SIZE,
-               utils_lib.DIRS: [
-                   {'file_0.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
-                   {'file_1.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
-                   {'file_2.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE,
-                                   utils_lib.TRIMMED_SIZE_BYTES: 0}},
-                   {'file_3.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE,
-                                   utils_lib.TRIMMED_SIZE_BYTES: 0}},
-                   {'file_4.dmp': {utils_lib.ORIGINAL_SIZE_BYTES: SMALL_SIZE}},
+        '': {
+                utils_lib.ORIGINAL_SIZE_BYTES:
+                2 * LARGE_SIZE + 5 * SMALL_SIZE,
+                utils_lib.TRIMMED_SIZE_BYTES:
+                2 * LARGE_SIZE + 3 * SMALL_SIZE,
+                utils_lib.DIRS: [
+                        {
+                                'files_to_dedupe': {
+                                        utils_lib.ORIGINAL_SIZE_BYTES:
+                                        5 * SMALL_SIZE,
+                                        utils_lib.TRIMMED_SIZE_BYTES:
+                                        3 * SMALL_SIZE,
+                                        utils_lib.DIRS: [
+                                                {
+                                                        'file_0.dmp': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                SMALL_SIZE
+                                                        }
+                                                },
+                                                {
+                                                        'file_1.dmp': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                SMALL_SIZE
+                                                        }
+                                                },
+                                                {
+                                                        'file_2.dmp': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                SMALL_SIZE,
+                                                                utils_lib.TRIMMED_SIZE_BYTES:
+                                                                0
+                                                        }
+                                                },
+                                                {
+                                                        'file_3.dmp': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                SMALL_SIZE,
+                                                                utils_lib.TRIMMED_SIZE_BYTES:
+                                                                0
+                                                        }
+                                                },
+                                                {
+                                                        'file_4.dmp': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                SMALL_SIZE
+                                                        }
+                                                },
+                                        ]
+                                }
+                        },
+                        {
+                                'files_to_delete': {
+                                        utils_lib.ORIGINAL_SIZE_BYTES:
+                                        LARGE_SIZE,
+                                        utils_lib.DIRS: [
+                                                {
+                                                        'file.png': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                LARGE_SIZE
+                                                        }
+                                                },
+                                        ]
+                                }
+                        },
+                        {
+                                'files_to_zip': {
+                                        utils_lib.ORIGINAL_SIZE_BYTES:
+                                        LARGE_SIZE,
+                                        utils_lib.DIRS: [
+                                                {
+                                                        'file.xml': {
+                                                                utils_lib.ORIGINAL_SIZE_BYTES:
+                                                                LARGE_SIZE
+                                                        }
+                                                },
+                                        ]
+                                }
+                        },
                 ]
-            }},
-           {'files_to_delete': {
-               utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE,
-               utils_lib.DIRS: [
-                   {'file.png': {utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE}},
-                ]
-            }},
-           {'files_to_shink': {
-               utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE,
-               utils_lib.TRIMMED_SIZE_BYTES: SHRINK_SIZE,
-               utils_lib.DIRS: [
-                   {'file.txt': {utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE,
-                                 utils_lib.TRIMMED_SIZE_BYTES: SHRINK_SIZE}},
-                ]
-            }},
-           {'files_to_zip': {
-               utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE,
-               utils_lib.DIRS: [
-                   {'file.xml': {utils_lib.ORIGINAL_SIZE_BYTES: LARGE_SIZE}},
-                ]
-            }},
-        ]
-       }
-    }
+        }
+}
 
 
 class ThrottleTest(unittest.TestCase):
@@ -445,11 +509,6 @@ class ThrottleTest(unittest.TestCase):
     def setUp(self):
         """Setup directory to match the file structure in MERGED_SUMMARY."""
         self.test_dir = tempfile.mkdtemp()
-
-        folder = os.path.join(self.test_dir, 'files_to_shink')
-        os.mkdir(folder)
-        file1 = os.path.join(folder, 'file.txt')
-        unittest_lib.create_file(file1, LARGE_SIZE)
 
         folder = os.path.join(self.test_dir, 'files_to_zip')
         os.mkdir(folder)
@@ -478,9 +537,6 @@ class ThrottleTest(unittest.TestCase):
         result_utils._throttle_results(summary, LARGE_SIZE * 10 // 1024)
         self.assertEqual(EXPECTED_THROTTLED_SUMMARY_NO_THROTTLE, summary)
 
-        result_utils._throttle_results(summary, LARGE_SIZE * 3 // 1024)
-        self.assertEqual(EXPECTED_THROTTLED_SUMMARY_WITH_SHRINK, summary)
-
     def testThrottleResults_Dedupe(self):
         """Test _throttle_results method with dedupe triggered."""
         # Change AUTOTEST_LOG_PATTERN to protect file.xml from being compressed
@@ -490,7 +546,7 @@ class ThrottleTest(unittest.TestCase):
         try:
             summary = result_info.ResultInfo.build_from_path(self.test_dir)
             result_utils._throttle_results(
-                    summary, (2*LARGE_SIZE + 3*SMALL_SIZE + SHRINK_SIZE) // 1024)
+                    summary, (2 * LARGE_SIZE + 3 * SMALL_SIZE) // 1024)
             self.assertEqual(EXPECTED_THROTTLED_SUMMARY_WITH_DEDUPE, summary)
         finally:
             throttler_lib.AUTOTEST_LOG_PATTERN = old_pattern
@@ -499,35 +555,31 @@ class ThrottleTest(unittest.TestCase):
         """Test _throttle_results method with dedupe triggered."""
         summary = result_info.ResultInfo.build_from_path(self.test_dir)
         result_utils._throttle_results(
-                summary, (LARGE_SIZE + 3*SMALL_SIZE + SHRINK_SIZE) // 1024 + 2)
-        self.assertEqual(
-                3 * LARGE_SIZE + 5 * SMALL_SIZE, summary.original_size)
+                summary, (LARGE_SIZE + 3 * SMALL_SIZE) // 1024 + 2)
+        self.assertEqual(2 * LARGE_SIZE + 5 * SMALL_SIZE,
+                         summary.original_size)
 
         entry = summary.get_file('files_to_zip').get_file('file.xml.tgz')
         self.assertEqual(LARGE_SIZE, entry.original_size)
         self.assertTrue(LARGE_SIZE > entry.trimmed_size)
 
         # The compressed file size should be less than 2 KB.
-        self.assertTrue(
-                summary.trimmed_size <
-                (LARGE_SIZE + 3*SMALL_SIZE + SHRINK_SIZE + 2 * 1024))
-        self.assertTrue(
-                summary.trimmed_size >
-                (LARGE_SIZE + 3*SMALL_SIZE + SHRINK_SIZE))
+        self.assertTrue(summary.trimmed_size < (LARGE_SIZE + 3 * SMALL_SIZE +
+                                                2 * 1024))
+        self.assertTrue(summary.trimmed_size > (LARGE_SIZE + 3 * SMALL_SIZE))
 
     def testThrottleResults_Delete(self):
         """Test _throttle_results method with delete triggered."""
         summary = result_info.ResultInfo.build_from_path(self.test_dir)
-        result_utils._throttle_results(
-                summary, (3*SMALL_SIZE + SHRINK_SIZE) // 1024 + 2)
+        result_utils._throttle_results(summary, (3 * SMALL_SIZE) // 1024 + 2)
 
         # Confirm the original size is preserved.
-        self.assertEqual(3 * LARGE_SIZE + 5 * SMALL_SIZE, summary.original_size)
+        self.assertEqual(2 * LARGE_SIZE + 5 * SMALL_SIZE,
+                         summary.original_size)
 
-        # Confirm the deduped, zipped and shrunk files are not deleted.
+        # Confirm the deduped and zipped files are not deleted.
         # The compressed file is at least 512 bytes.
-        self.assertTrue(
-                3 * SMALL_SIZE + SHRINK_SIZE + 512 < summary.original_size)
+        self.assertTrue(3 * SMALL_SIZE + 512 < summary.original_size)
 
         # Confirm the file to be zipped is compressed and not deleted.
         entry = summary.get_file('files_to_zip').get_file('file.xml.tgz')

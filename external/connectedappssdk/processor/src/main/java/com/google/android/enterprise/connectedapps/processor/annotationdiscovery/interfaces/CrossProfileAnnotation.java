@@ -17,13 +17,6 @@ package com.google.android.enterprise.connectedapps.processor.annotationdiscover
 
 /** Elements that can be populated on annotations of type CrossProfile. */
 public interface CrossProfileAnnotation {
-
-  long DEFAULT_TIMEOUT_MILLIS = 10000;
-
-  long TIMEOUT_MILLIS_NOT_SET = -1;
-
-  String profileClassName();
-
   Class<?> connector();
 
   Class<?>[] parcelableWrappers();
@@ -31,6 +24,4 @@ public interface CrossProfileAnnotation {
   Class<?>[] futureWrappers();
 
   boolean isStatic();
-
-  long timeoutMillis();
 }

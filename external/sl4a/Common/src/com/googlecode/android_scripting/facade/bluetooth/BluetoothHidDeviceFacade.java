@@ -151,9 +151,9 @@ public class BluetoothHidDeviceFacade extends RpcReceiver {
 
     // HID mouse movement
     private static final byte[] RIGHT = {0, 1, 0, 0};
-    private static final byte[] DOWN = {0, 0, -1, 0};
+    private static final byte[] DOWN = {0, 0, 1, 0};
     private static final byte[] LEFT = {0, -1, 0, 0};
-    private static final byte[] UP = {0, 0, 1, 0};
+    private static final byte[] UP = {0, 0, -1, 0};
 
     // Default values.
     private static final int QOS_TOKEN_RATE = 800; // 9 bytes * 1000000 us / 11250 us
@@ -430,6 +430,34 @@ public class BluetoothHidDeviceFacade extends RpcReceiver {
     }
 
     /**
+     * Send a bytes array data report to a connected HID host using interrupt channel.
+     * @param deviceID name or MAC address or the HID input host
+     * @param id report Id, as defined in descriptor. Can be 0 in case Report Id are not defined in
+     * descriptor.
+     * @param report byte array to be sent into HID device
+     * @return true if successfully sent the report; otherwise false
+     * @throws Exception error from Bluetooth HidDevService
+     */
+    @Rpc(description = "Send bytes array report to a connected HID host using interrupt channel.")
+    public Boolean bluetoothHidDeviceSendBytesArrayReport(
+            @RpcParameter(name = "deviceID",
+                    description = "Name or MAC address of a bluetooth device.")
+                    String deviceID,
+            @RpcParameter(name = "descriptor",
+                    description = "Descriptor of the report")
+                    Integer id,
+            @RpcParameter(name = "report")
+                    byte[] report) throws Exception {
+        if (sHidDeviceProfile == null) {
+            return false;
+        }
+
+        BluetoothDevice device = BluetoothFacade.getDevice(sHidDeviceProfile.getConnectedDevices(),
+                deviceID);
+        return sHidDeviceProfile.sendReport(device, id, report);
+    }
+
+    /**
      * Send a report to the connected HID host as reply for GET_REPORT request from the HID host.
      * @param deviceID name or MAC address or the HID input host
      * @param type type of the report, as in request
@@ -460,6 +488,39 @@ public class BluetoothHidDeviceFacade extends RpcReceiver {
         byte[] reportByteArray = report.getBytes();
         return sHidDeviceProfile.replyReport(
                 device, (byte) (int) type, (byte) (int) id, reportByteArray);
+    }
+
+    /**
+     * Send a bytes array report to the connected HID host as reply for GET_REPORT request
+     * from the HID host.
+     * @param deviceID name or MAC address or the HID input host
+     * @param type type of the report, as in request
+     * @param id id of the report, as in request
+     * @param report byte array to be sent into HID device
+     * @return true if successfully sent the reply report; otherwise false
+     * @throws Exception error from Bluetooth HidDevService
+     */
+    @Rpc(description = "Send reply bytes array report to a connected HID..")
+    public Boolean bluetoothHidDeviceReplyBytesArrayReport(
+            @RpcParameter(name = "deviceID",
+                    description = "Name or MAC address of a bluetooth device.")
+                    String deviceID,
+            @RpcParameter(name = "type",
+                    description = "Type as in the report.")
+                    Integer type,
+            @RpcParameter(name = "id",
+                    description = "id as in the report.")
+                    Integer id,
+            @RpcParameter(name = "report")
+                    byte[] report) throws Exception {
+        if (sHidDeviceProfile == null) {
+            return false;
+        }
+
+        BluetoothDevice device = BluetoothFacade.getDevice(sHidDeviceProfile.getConnectedDevices(),
+                deviceID);
+        return sHidDeviceProfile.replyReport(
+                device, (byte) (int) type, (byte) (int) id, report);
     }
 
     /**

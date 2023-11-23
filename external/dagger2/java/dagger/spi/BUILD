@@ -30,6 +30,7 @@ filegroup(
     name = "spi-srcs",
     srcs = glob(["*.java"]) + [
         "//java/dagger/model:model-srcs",
+        "//java/dagger/spi/model:model-srcs",
     ],
 )
 
@@ -40,15 +41,13 @@ java_library(
     tags = ["maven_coordinates=com.google.dagger:dagger-spi:" + POM_VERSION],
     exports = [
         "//java/dagger/model",
+        "//java/dagger/spi/model",
     ],
     deps = [
         "//java/dagger:core",
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
         "//java/dagger/model",
-        "@google_bazel_common//third_party/java/auto:value",
-        "@google_bazel_common//third_party/java/error_prone:annotations",
-        "@google_bazel_common//third_party/java/jsr330_inject",
+        "//third_party/java/auto:value",
+        "//third_party/java/error_prone:annotations",
     ],
 )
 
@@ -59,23 +58,33 @@ gen_maven_artifact(
     artifact_target = ":spi",
     artifact_target_libs = [
         "//java/dagger/internal/codegen/extension",
+        "//java/dagger/internal/codegen/xprocessing",
         "//java/dagger/model",
+        "//java/dagger/spi/model",
     ],
     artifact_target_maven_deps = [
         "com.google.auto:auto-common",
         "com.google.code.findbugs:jsr305",
         "com.google.dagger:dagger-producers",
         "com.google.dagger:dagger",
+        "com.google.devtools.ksp:symbol-processing-api",
         "com.google.guava:failureaccess",
         "com.google.guava:guava",
         "com.squareup:javapoet",
         "javax.inject:javax.inject",
+        "org.jetbrains.kotlin:kotlin-stdlib",
+        "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
     ],
     javadoc_root_packages = [
         "dagger.model",
         "dagger.spi",
     ],
     javadoc_srcs = [":spi-srcs"],
-    shaded_deps = ["@maven//:com_google_auto_auto_common"],
-    shaded_rules = ["rule com.google.auto.common.** dagger.spi.shaded.auto.common.@1"],
+    # The shaded deps are added using jarjar, but they won't be shaded until later
+    # due to: https://github.com/google/dagger/issues/2765. For the shaded rules see
+    # util/deploy-dagger.sh
+    shaded_deps = [
+        "//third_party/java/auto:common",
+        "//java/dagger/internal/codegen/xprocessing:xprocessing-jar",
+    ],
 )

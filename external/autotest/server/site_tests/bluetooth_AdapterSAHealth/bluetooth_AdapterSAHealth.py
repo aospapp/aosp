@@ -36,6 +36,10 @@ class bluetooth_AdapterSAHealth(BluetoothAdapterQuickTests,
     test_wrapper = BluetoothAdapterQuickTests.quick_test_test_decorator
     batch_wrapper = BluetoothAdapterQuickTests.quick_test_batch_decorator
 
+    @test_wrapper('Stand Alone noop test', supports_floss=True)
+    def sa_noop(self):
+        """A no-op test to validate Floss"""
+        logging.info("sa_noop ran")
 
     @test_wrapper('Stand Alone basic test')
     def sa_basic_test(self):
@@ -86,7 +90,22 @@ class bluetooth_AdapterSAHealth(BluetoothAdapterQuickTests,
         self.test_pairable()
 
 
-    @test_wrapper('Adapter suspend resume test')
+    # Remove flags=['Quick Health'] when this test is migrated to stable suite.
+    @test_wrapper('Stand Alone power reset test', flags=['Quick Health'])
+    def sa_power_reset(self):
+        """Adapter power reset test
+
+        Repeatedly reset adapter power to expect that bluetoothd is running.
+        Note that the test takes about 2 minutes to complete and is suitable
+        to run in function verification test suite.
+        """
+        for _ in range(20):
+            self.test_reset_on_adapter()
+            self.test_bluetoothd_running()
+
+
+    # TODO(b/182172118) - Winky has suspend test issues
+    @test_wrapper('Adapter suspend resume test', skip_models=['winky'])
     def sa_adapter_suspend_resume_test(self):
         """Test dapter power states is perserved through suspend resume."""
         def adapter_on_SR_test():
@@ -111,7 +130,7 @@ class bluetooth_AdapterSAHealth(BluetoothAdapterQuickTests,
         adapter_off_SR_test()
 
 
-    @test_wrapper('Adapter present test')
+    @test_wrapper('Adapter present test', supports_floss=True)
     def sa_adapter_present_test(self):
         """Verify that the client has a Bluetooth adapter."""
 
@@ -177,7 +196,7 @@ class bluetooth_AdapterSAHealth(BluetoothAdapterQuickTests,
         self.default_state_test()
 
 
-    @test_wrapper('Valid address test')
+    @test_wrapper('Valid address test', supports_floss=True)
     def sa_valid_address_test(self):
         """Verify that the client Bluetooth adapter has a valid address."""
         self.valid_address_test()
@@ -231,6 +250,7 @@ class bluetooth_AdapterSAHealth(BluetoothAdapterQuickTests,
            @param test_name: specifc test to run otherwise None to run the
                              whole batch
         """
+        self.sa_noop()
         self.sa_basic_test()
         self.sa_adapter_suspend_resume_test()
         self.sa_adapter_present_test()
@@ -239,17 +259,26 @@ class bluetooth_AdapterSAHealth(BluetoothAdapterQuickTests,
         self.sa_default_state_test()
         self.sa_valid_address_test()
         self.sa_dbus_api_tests()
+        self.sa_power_reset()
 
 
-    def run_once(self, host, num_iterations=1, test_name=None,
-                 flag='Quick Health'):
+    def run_once(self,
+                 host,
+                 num_iterations=1,
+                 args_dict=None,
+                 test_name=None,
+                 flag='Quick Health',
+                 floss=False):
         """Run the batch of Bluetooth stand health tests
 
         @param host: the DUT, usually a chromebook
         @param num_iterations: the number of rounds to execute the test
         """
         # Initialize and run the test batch or the requested specific test
-        self.quick_test_init(host, use_btpeer=False, flag=flag,
-                             start_browser=False)
+        self.quick_test_init(host,
+                             use_btpeer=False,
+                             flag=flag,
+                             start_browser=False,
+                             floss=floss)
         self.sa_health_batch_run(num_iterations, test_name)
         self.quick_test_cleanup()

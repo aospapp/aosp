@@ -10,16 +10,16 @@
 #include <xnnpack/assembly.h>
 
 # void xnn_f32_gemm_minmax_ukernel_6x8__aarch64_neonfma_prfm_cortex_a75(
-#     size_t mr,                x0
-#     size_t nc,                x1
-#     size_t kc,                x2 / x0
-#     const uint8_t*restrict a, x3
-#     size_t a_stride,          x4
-#     const void*restrict w,    x5
-#     uint8_t*restrict c,       x6
-#     size_t cm_stride,         x7
-#     size_t cn_stride,         [sp] -> (x0)
-#     const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 8] -> x8
+#     size_t mr,                         x0
+#     size_t nc,                         x1
+#     size_t kc,                         x2 / x0
+#     const uint8_t* a,                  x3
+#     size_t a_stride,                   x4
+#     const void* w,                     x5
+#     uint8_t* c,                        x6
+#     size_t cm_stride,                  x7
+#     size_t cn_stride,                  [sp] -> (x0)
+#     const xnn_f32_minmax_params params [sp + 8] -> x8
 
 # d8-d15, x19-x30 need to be preserved if used. x18 is reserved by the OS.
 
@@ -58,12 +58,9 @@
 
 BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_6x8__aarch64_neonfma_prfm_cortex_a75
 
-        # Load params pointer
-        LDR     x8, [sp, 8]
-
         # Clamp A and C pointers / Save d8-d15 on stack
-        STP     d8,  d9, [sp, -64]!
         CMP     x0, 2                   // if mr < 2
+        STP     d8,  d9, [sp, -64]!
         ADD     x9, x3, x4              // a1 = a0 + a_stride
         ADD     x16, x6, x7             // c1 = c0 + cm_stride
         CSEL    x9, x3, x9, LO          //   a1 = a0
@@ -90,6 +87,9 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_6x8__aarch64_neonfma_prfm_cortex_a75
         CSEL    x12, x11, x12, LS       //   a4 = a3
         CSEL    x13, x14, x13, LS       //   c4 = c3
 
+        # Load params pointer
+        LDR     x8, [sp, 72]
+
         CMP     x0, 6                   // if mr < 6
         ADD     x4, x12, x4             // a5 = a4 + a_stride
         ADD     x7, x13, x7             // c5 = c4 + cm_stride
@@ -99,14 +99,17 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_6x8__aarch64_neonfma_prfm_cortex_a75
 0:
         # Load initial bias from w into accumulators
         LDP     q20, q21, [x5], 32
-        MOV     v22.16b, v20.16b
         PRFM    PLDL1KEEP, [x5, 0]      // Prefetch B
-        MOV     v23.16b, v21.16b
+        SUBS    x0, x2, 32              // k = kc - 32
         PRFM    PLDL1KEEP, [x5, 64]
-        MOV     v24.16b, v20.16b
+        MOV     v22.16b, v20.16b
         PRFM    PLDL1KEEP, [x5, 128]
-        MOV     v25.16b, v21.16b
+        MOV     v23.16b, v21.16b
         PRFM    PLDL1KEEP, [x5, 192]
+        MOV     v24.16b, v20.16b
+        PRFM    PLDL1KEEP, [x5, 256]
+        MOV     v25.16b, v21.16b
+        PRFM    PLDL1KEEP, [x5, 320]
         MOV     v26.16b, v20.16b
         PRFM    PLDL1KEEP,  [x3]        // Prefetch A
         MOV     v27.16b, v21.16b
@@ -119,19 +122,16 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_6x8__aarch64_neonfma_prfm_cortex_a75
         PRFM    PLDL1KEEP, [x12]
         MOV     v31.16b, v21.16b
         PRFM    PLDL1KEEP,  [x4]
-
-        # Is there at least 8 floats (32 bytes) for prologue + epilogue?
-        SUBS    x0, x2, 32              // k = kc - 32
         B.LO    4f
 
         # Prologue - loads for main loop of 96 FMA
         LDR     q0,  [x3], 16
+        LDP     q12,  q13, [x5], 32     // Fetch 3 B (4th deferred)
         LDR     q1,  [x9], 16
         LDR     q2, [x10], 16
         LDR     q3, [x11], 16
         LDR     q4, [x12], 16
         LDR     q5,  [x4], 16
-        LDP     q12,  q13, [x5], 32     // Fetch 3 B (4th deferred)
         LDP     q14,  q15, [x5], 32
         LDP     q16,  q17, [x5], 32
 
@@ -141,6 +141,7 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_6x8__aarch64_neonfma_prfm_cortex_a75
 
         # Main loop - 8 floats of A (32 bytes)
         # 96 FMA + 6 LDP A + 8 LDP B
+        # 64 float weights = 256 bytes.  4 cache lines.
 1:
         # First group of 4 A.  48 FMA.
         FMLA    v20.4s, v12.4s,  v0.s[0]
@@ -150,20 +151,21 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_6x8__aarch64_neonfma_prfm_cortex_a75
         FMLA    v26.4s, v12.4s,  v3.s[0]
         FMLA    v28.4s, v12.4s,  v4.s[0]
         FMLA    v30.4s, v12.4s,  v5.s[0]
+        PRFM    PLDL1KEEP, [x5, 256]      // Prefetch B
         FMLA    v21.4s, v13.4s,  v0.s[0]
         FMLA    v23.4s, v13.4s,  v1.s[0]
         FMLA    v25.4s, v13.4s,  v2.s[0]
+        PRFM    PLDL1KEEP, [x5, 320]
         FMLA    v27.4s, v13.4s,  v3.s[0]
         FMLA    v29.4s, v13.4s,  v4.s[0]
-
         FMLA    v31.4s, v13.4s,  v5.s[0]
+        PRFM    PLDL1KEEP, [x5, 384]
         FMLA    v20.4s, v14.4s,  v0.s[1]
-        PRFM    PLDL1KEEP, [x5, 128]      // Prefetch B
         FMLA    v22.4s, v14.4s,  v1.s[1]
         FMLA    v24.4s, v14.4s,  v2.s[1]
+        PRFM    PLDL1KEEP, [x5, 448]
         FMLA    v26.4s, v14.4s,  v3.s[1]
         FMLA    v28.4s, v14.4s,  v4.s[1]
-        PRFM    PLDL1KEEP, [x5, 256]
         FMLA    v30.4s, v14.4s,  v5.s[1]
         FMLA    v21.4s, v15.4s,  v0.s[1]
         FMLA    v23.4s, v15.4s,  v1.s[1]
@@ -255,15 +257,15 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_6x8__aarch64_neonfma_prfm_cortex_a75
         FMLA    v27.4s, v17.4s,  v9.s[2]
         FMLA    v29.4s, v17.4s, v10.s[2]
         FMLA    v31.4s, v17.4s, v11.s[2]
-        LDP     q16,  q17, [x5], 32
 
         FMLA    v20.4s, v18.4s,  v6.s[3]
         FMLA    v22.4s, v18.4s,  v7.s[3]
-        SUBS    x0, x0, 32
+        LDP     q16,  q17, [x5], 32
         FMLA    v24.4s, v18.4s,  v8.s[3]
         FMLA    v26.4s, v18.4s,  v9.s[3]
         FMLA    v28.4s, v18.4s, v10.s[3]
         FMLA    v30.4s, v18.4s, v11.s[3]
+        SUBS    x0, x0, 32
         FMLA    v21.4s, v19.4s,  v6.s[3]
         FMLA    v23.4s, v19.4s,  v7.s[3]
         FMLA    v25.4s, v19.4s,  v8.s[3]
@@ -284,20 +286,21 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_6x8__aarch64_neonfma_prfm_cortex_a75
         FMLA    v26.4s, v12.4s,  v3.s[0]
         FMLA    v28.4s, v12.4s,  v4.s[0]
         FMLA    v30.4s, v12.4s,  v5.s[0]
+        PRFM    PLDL1KEEP, [x5, 256]      // Prefetch B
         FMLA    v21.4s, v13.4s,  v0.s[0]
         FMLA    v23.4s, v13.4s,  v1.s[0]
         FMLA    v25.4s, v13.4s,  v2.s[0]
+        PRFM    PLDL1KEEP, [x5, 320]
         FMLA    v27.4s, v13.4s,  v3.s[0]
         FMLA    v29.4s, v13.4s,  v4.s[0]
-
         FMLA    v31.4s, v13.4s,  v5.s[0]
+        PRFM    PLDL1KEEP, [x5, 384]
         FMLA    v20.4s, v14.4s,  v0.s[1]
-        PRFM    PLDL1KEEP, [x5, 128]      // Prefetch B
         FMLA    v22.4s, v14.4s,  v1.s[1]
         FMLA    v24.4s, v14.4s,  v2.s[1]
+        PRFM    PLDL1KEEP, [x5, 448]
         FMLA    v26.4s, v14.4s,  v3.s[1]
         FMLA    v28.4s, v14.4s,  v4.s[1]
-        PRFM    PLDL1KEEP, [x5, 256]
         FMLA    v30.4s, v14.4s,  v5.s[1]
         FMLA    v21.4s, v15.4s,  v0.s[1]
         FMLA    v23.4s, v15.4s,  v1.s[1]
@@ -388,16 +391,15 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_6x8__aarch64_neonfma_prfm_cortex_a75
         FMLA    v26.4s, v18.4s,  v9.s[3]
         FMLA    v28.4s, v18.4s, v10.s[3]
         FMLA    v30.4s, v18.4s, v11.s[3]
-        FMLA    v21.4s, v19.4s,  v6.s[3]
-        FMLA    v23.4s, v19.4s,  v7.s[3]
 
-        # Load min/max values
-        LD2R    {v6.4s, v7.4s}, [x8]
-
-        FMLA    v25.4s, v19.4s,  v8.s[3]
-        FMLA    v27.4s, v19.4s,  v9.s[3]
         # Is there a remainder?- 4 floats of A (16 bytes) or less
         TST     x0, 31
+
+        FMLA    v21.4s, v19.4s,  v6.s[3]
+        FMLA    v23.4s, v19.4s,  v7.s[3]
+        FMLA    v25.4s, v19.4s,  v8.s[3]
+        LD2R    {v6.4s, v7.4s}, [x8]      // Load min/max values
+        FMLA    v27.4s, v19.4s,  v9.s[3]
         FMLA    v29.4s, v19.4s, v10.s[3]
         FMLA    v31.4s, v19.4s, v11.s[3]
         B.NE    4f
@@ -405,12 +407,11 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_6x8__aarch64_neonfma_prfm_cortex_a75
         # Clamp
 3:
         FMAX    v20.4s, v20.4s, v6.4s
-        # Load cn_stride
-        LDR     x0, [sp, 64]
         FMAX    v21.4s, v21.4s, v6.4s
         FMAX    v22.4s, v22.4s, v6.4s
         FMAX    v23.4s, v23.4s, v6.4s
         FMAX    v24.4s, v24.4s, v6.4s
+        LDR     x0, [sp, 64]            // Load cn_stride
         FMAX    v25.4s, v25.4s, v6.4s
         FMAX    v26.4s, v26.4s, v6.4s
         FMAX    v27.4s, v27.4s, v6.4s

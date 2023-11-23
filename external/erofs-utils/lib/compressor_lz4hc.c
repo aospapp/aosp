@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0+
+// SPDX-License-Identifier: GPL-2.0+ OR Apache-2.0
 /*
  * Copyright (C) 2018-2019 HUAWEI, Inc.
  *             http://www.huawei.com/
@@ -13,8 +13,8 @@
 #define LZ4_DISTANCE_MAX 65535	/* set to maximum value by default */
 #endif
 
-static int lz4hc_compress_destsize(struct erofs_compress *c,
-				   void *src, unsigned int *srcsize,
+static int lz4hc_compress_destsize(const struct erofs_compress *c,
+				   const void *src, unsigned int *srcsize,
 				   void *dst, unsigned int dstsize)
 {
 	int srcSize = (int)*srcsize;
@@ -59,7 +59,7 @@ static int compressor_lz4hc_setlevel(struct erofs_compress *c,
 	return 0;
 }
 
-struct erofs_compressor erofs_compressor_lz4hc = {
+const struct erofs_compressor erofs_compressor_lz4hc = {
 	.name = "lz4hc",
 	.default_level = LZ4HC_CLEVEL_DEFAULT,
 	.best_level = LZ4HC_CLEVEL_MAX,

@@ -22,8 +22,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 /** Information about future wrapper. */
 @AutoValue
@@ -60,18 +58,18 @@ public abstract class FutureWrapper {
         wrappedType, defaultWrapperClassName, wrapperClassName, wrapperType);
   }
 
-  public static Collection<FutureWrapper> createGlobalFutureWrappers(Elements elements) {
+  public static Collection<FutureWrapper> createGlobalFutureWrappers(Context context) {
     Collection<FutureWrapper> wrappers = new ArrayList<>();
 
-    addDefaultFutureWrappers(elements, wrappers);
+    addDefaultFutureWrappers(context, wrappers);
 
     return wrappers;
   }
 
   private static void addDefaultFutureWrappers(
-      Elements elements, Collection<FutureWrapper> wrappers) {
+      Context context, Collection<FutureWrapper> wrappers) {
     tryAddWrapper(
-        elements,
+        context,
         wrappers,
         "com.google.common.util.concurrent.ListenableFuture",
         ClassName.get(FUTURE_WRAPPER_PACKAGE, "ListenableFutureWrapper"),
@@ -79,29 +77,25 @@ public abstract class FutureWrapper {
   }
 
   public static Collection<FutureWrapper> createCustomFutureWrappers(
-      Types types, Elements elements, Collection<TypeElement> customFutureWrappers) {
+      Context context, Collection<TypeElement> customFutureWrappers) {
     Collection<FutureWrapper> wrappers = new ArrayList<>();
 
-    addCustomFutureWrappers(types, elements, wrappers, customFutureWrappers);
+    addCustomFutureWrappers(context, wrappers, customFutureWrappers);
 
     return wrappers;
   }
 
   private static void addCustomFutureWrappers(
-      Types types,
-      Elements elements,
+      Context context,
       Collection<FutureWrapper> wrappers,
       Collection<TypeElement> customFutureWrappers) {
     for (TypeElement customFutureWrapper : customFutureWrappers) {
-      addCustomFutureWrapper(types, elements, wrappers, customFutureWrapper);
+      addCustomFutureWrapper(context, wrappers, customFutureWrapper);
     }
   }
 
   private static void addCustomFutureWrapper(
-      Types types,
-      Elements elements,
-      Collection<FutureWrapper> wrappers,
-      TypeElement customFutureWrapper) {
+      Context context, Collection<FutureWrapper> wrappers, TypeElement customFutureWrapper) {
     CustomFutureWrapper customFutureWrapperAnnotation =
         customFutureWrapper.getAnnotation(CustomFutureWrapper.class);
 
@@ -111,10 +105,10 @@ public abstract class FutureWrapper {
     }
 
     tryAddWrapper(
-        elements,
+        context,
         wrappers,
         FutureWrapperAnnotationInfo.extractFromFutureWrapperAnnotation(
-                types, customFutureWrapperAnnotation)
+                context, customFutureWrapperAnnotation)
             .originalType()
             .toString(),
         ClassName.get(customFutureWrapper),
@@ -122,12 +116,12 @@ public abstract class FutureWrapper {
   }
 
   private static void tryAddWrapper(
-      Elements elements,
+      Context context,
       Collection<FutureWrapper> wrappers,
       String typeQualifiedName,
       ClassName wrapperClassName,
       WrapperType wrapperType) {
-    TypeElement typeElement = elements.getTypeElement(typeQualifiedName);
+    TypeElement typeElement = context.elements().getTypeElement(typeQualifiedName);
 
     if (typeElement == null) {
       // The type isn't supported at compile-time - so won't be included in this app

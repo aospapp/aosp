@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "api/audio/echo_canceller3_config.h"
+#include "modules/audio_processing/aec3/block.h"
 #include "modules/audio_processing/aec3/downsampled_render_buffer.h"
 #include "modules/audio_processing/aec3/render_buffer.h"
 
@@ -41,12 +42,14 @@ class RenderDelayBuffer {
   virtual void Reset() = 0;
 
   // Inserts a block into the buffer.
-  virtual BufferingEvent Insert(
-      const std::vector<std::vector<std::vector<float>>>& block) = 0;
+  virtual BufferingEvent Insert(const Block& block) = 0;
 
   // Updates the buffers one step based on the specified buffer delay. Returns
   // an enum indicating whether there was a special event that occurred.
   virtual BufferingEvent PrepareCaptureProcessing() = 0;
+
+  // Called on capture blocks where PrepareCaptureProcessing is not called.
+  virtual void HandleSkippedCaptureProcessing() = 0;
 
   // Sets the buffer delay and returns a bool indicating whether the delay
   // changed.

@@ -51,9 +51,11 @@ copy_android_all_jar_pairs := \
   $(android_all_source_dir)/android-all-8.0.0_r4-robolectric-r1.jar:$(android_all_target_dir)/android-all-8.0.0_r4-robolectric-r1.jar \
   $(android_all_source_dir)/android-all-8.1.0-robolectric-4611349.jar:$(android_all_target_dir)/android-all-8.1.0-robolectric-4611349.jar \
   $(android_all_source_dir)/android-all-9-robolectric-4913185-2.jar:$(android_all_target_dir)/android-all-9-robolectric-4913185-2.jar \
-  $(android_all_source_dir)/android-all-9plus-robolectric-5616371.jar:$(android_all_target_dir)/android-all-9plus-robolectric-5616371.jar \
-  $(android_all_source_dir)/android-all-R-beta2-robolectric-6625208.jar:$(android_all_target_dir)/android-all-R-beta2-robolectric-6625208.jar \
-  $(android_all_source_dir)/android-all-S-beta3-robolectric-7541949.jar:$(android_all_target_dir)/android-all-S-beta3-robolectric-7541949.jar \
+  $(android_all_source_dir)/android-all-10-robolectric-5803371.jar:$(android_all_target_dir)/android-all-10-robolectric-5803371.jar \
+  $(android_all_source_dir)/android-all-11-robolectric-6757853.jar:$(android_all_target_dir)/android-all-11-robolectric-6757853.jar \
+  $(android_all_source_dir)/android-all-12-robolectric-7732740.jar:$(android_all_target_dir)/android-all-12-robolectric-7732740.jar \
+  $(android_all_source_dir)/android-all-12.1-robolectric-8229987.jar:$(android_all_target_dir)/android-all-12.1-robolectric-8229987.jar \
+  $(android_all_source_dir)/android-all-13-robolectric-9030017.jar:$(android_all_target_dir)/android-all-13-robolectric-9030017.jar \
   $(local_android_all_source_jar):$(android_all_target_dir)/android-all-current-robolectric-r0.jar
 copy_android_all_jars := $(call copy-many-files, $(copy_android_all_jar_pairs))
 
@@ -91,6 +93,9 @@ $(LOCAL_BUILT_MODULE): $(copy_test_resource_files) $(copy_android_all_jars) $(cl
 	  -Drobolectric.resourcesMode=binary \
 	  -Drobolectric-tests.base-dir=$(private_test_base_dir) \
 	  -Drobolectric.dependency.dir=$(private_android_all_dir) \
+	  --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+	  --add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED \
+	  --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
 	  $(private_debug_test_args) \
 	  -cp $(private_host_jdk_tools_jar):$(private_test_base_dir):$(private_classpath_jars) \
 	  org.junit.runner.JUnitCore \

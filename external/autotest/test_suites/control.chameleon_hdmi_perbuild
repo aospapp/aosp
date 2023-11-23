@@ -14,7 +14,7 @@ TEST_TYPE = "Server"
 DOC = """
 Display tests which require Chameleon board connected via HDMI connection.
 The Chameleon board can emulate a monitor such that the test can control
-its behaviors in order to test the Chrome OS graphic stack.
+its behaviors in order to test the ChromeOS graphic stack.
 
 @param build: The name of the image to test.
               Ex: x86-mario-release/R17-1412.33.0-a1-b29

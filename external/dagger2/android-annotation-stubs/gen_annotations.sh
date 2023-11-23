@@ -58,9 +58,14 @@ cat > ${f} <<EOF
  */
 
 package net.ltgt.gradle.incap;
+import java.util.Locale;
 public enum IncrementalAnnotationProcessorType {
   AGGREGATING,
   DYNAMIC,
-  ISOLATING
+  ISOLATING;
+
+  public String getProcessorOption() {
+    return "org.gradle.annotation.processing." + name().toLowerCase(Locale.ROOT);
+  }
 }
 EOF

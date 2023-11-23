@@ -73,10 +73,10 @@ public class LinkSpan extends ClickableSpan {
 
   /* non-static section */
 
-  private final String id;
+  private final String link;
 
-  public LinkSpan(String id) {
-    this.id = id;
+  public LinkSpan(String link) {
+    this.link = link;
   }
 
   @Override
@@ -137,7 +137,7 @@ public class LinkSpan extends ClickableSpan {
     drawState.setUnderlineText(false);
   }
 
-  public String getId() {
-    return id;
+  public String getLink() {
+    return link;
   }
 }

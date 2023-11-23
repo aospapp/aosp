@@ -12,47 +12,58 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {BigintMath} from '../base/bigint_math';
 import {assertExists} from '../base/logging';
 import {Actions, DeferredAction} from '../common/actions';
 import {AggregateData} from '../common/aggregation_data';
 import {Args, ArgsTree} from '../common/arg_types';
 import {
   ConversionJobName,
-  ConversionJobStatus
+  ConversionJobStatus,
 } from '../common/conversion_jobs';
 import {createEmptyState} from '../common/empty_state';
 import {Engine} from '../common/engine';
+import {
+  HighPrecisionTime,
+  HighPrecisionTimeSpan,
+} from '../common/high_precision_time';
 import {MetricResult} from '../common/metric_data';
 import {CurrentSearchResults, SearchSummary} from '../common/search_data';
-import {CallsiteInfo, State} from '../common/state';
-import {fromNs, toNs} from '../common/time';
+import {CallsiteInfo, EngineConfig, ProfileType, State} from '../common/state';
+import {Span, tpTimeFromSeconds} from '../common/time';
+import {
+  TPDuration,
+  TPTime,
+  TPTimeSpan,
+} from '../common/time';
 
 import {Analytics, initAnalytics} from './analytics';
+import {BottomTabList} from './bottom_tab';
 import {FrontendLocalState} from './frontend_local_state';
-import {PivotTableHelper} from './pivot_table_helper';
 import {RafScheduler} from './raf_scheduler';
 import {Router} from './router';
 import {ServiceWorkerController} from './service_worker_controller';
+import {PxSpan, TimeScale} from './time_scale';
 
 type Dispatch = (action: DeferredAction) => void;
 type TrackDataStore = Map<string, {}>;
 type QueryResultsStore = Map<string, {}|undefined>;
-type PivotTableHelperStore = Map<string, PivotTableHelper>;
 type AggregateDataStore = Map<string, AggregateData>;
 type Description = Map<string, string>;
 
 export interface SliceDetails {
-  ts?: number;
-  dur?: number;
-  thread_ts?: number;
-  thread_dur?: number;
+  ts?: TPTime;
+  absTime?: string;
+  dur?: TPDuration;
+  threadTs?: TPTime;
+  threadDur?: TPDuration;
   priority?: number;
-  endState?: string;
+  endState?: string|null;
   cpu?: number;
   id?: number;
   threadStateId?: number;
   utid?: number;
-  wakeupTs?: number;
+  wakeupTs?: TPTime;
   wakerUtid?: number;
   wakerCpu?: number;
   category?: string;
@@ -85,6 +96,11 @@ export interface FlowPoint {
   processName: string;
 
   depth: number;
+
+  // TODO(altimin): Ideally we should have a generic mechanism for allowing to
+  // customise the name here, but for now we are hardcording a few
+  // Chrome-specific bits in the query here.
+  sliceChromeCustomName?: string;
 }
 
 export interface Flow {
@@ -99,28 +115,23 @@ export interface Flow {
 }
 
 export interface CounterDetails {
-  startTime?: number;
+  startTime?: TPTime;
   value?: number;
   delta?: number;
-  duration?: number;
+  duration?: TPDuration;
   name?: string;
 }
 
 export interface ThreadStateDetails {
-  ts?: number;
-  dur?: number;
-  state?: string;
-  utid?: number;
-  cpu?: number;
-  sliceId?: number;
-  blockedFunction?: string;
+  ts?: TPTime;
+  dur?: TPDuration;
 }
 
 export interface FlamegraphDetails {
-  type?: string;
+  type?: ProfileType;
   id?: number;
-  startNs?: number;
-  durNs?: number;
+  start?: TPTime;
+  dur?: TPDuration;
   pids?: number[];
   upids?: number[];
   flamegraph?: CallsiteInfo[];
@@ -143,8 +154,8 @@ export interface CpuProfileDetails {
 }
 
 export interface QuantizedLoad {
-  startSec: number;
-  endSec: number;
+  start: TPTime;
+  end: TPTime;
   load: number;
 }
 type OverviewStore = Map<string, QuantizedLoad[]>;
@@ -158,6 +169,27 @@ export interface ThreadDesc {
   cmdline?: string;
 }
 type ThreadMap = Map<number, ThreadDesc>;
+
+export interface FtraceEvent {
+  id: number;
+  ts: TPTime;
+  name: string;
+  cpu: number;
+  thread: string|null;
+  process: string|null;
+  args: string;
+}
+
+export interface FtracePanelData {
+  events: FtraceEvent[];
+  offset: number;
+  numEvents: number;  // Number of events in the visible window
+}
+
+export interface FtraceStat {
+  name: string;
+  count: number;
+}
 
 function getRoot() {
   // Works out the root directory where the content should be served from
@@ -180,6 +212,8 @@ function getRoot() {
 class Globals {
   readonly root = getRoot();
 
+  bottomTabList?: BottomTabList = undefined;
+
   private _testing = false;
   private _dispatch?: Dispatch = undefined;
   private _state?: State = undefined;
@@ -192,7 +226,6 @@ class Globals {
   // TODO(hjd): Unify trackDataStore, queryResults, overviewStore, threads.
   private _trackDataStore?: TrackDataStore = undefined;
   private _queryResults?: QueryResultsStore = undefined;
-  private _pivotTableHelper?: PivotTableHelperStore = undefined;
   private _overviewStore?: OverviewStore = undefined;
   private _aggregateDataStore?: AggregateDataStore = undefined;
   private _threadMap?: ThreadMap = undefined;
@@ -210,9 +243,12 @@ class Globals {
   private _traceErrors?: number = undefined;
   private _metricError?: string = undefined;
   private _metricResult?: MetricResult = undefined;
-  private _hasFtrace?: boolean = undefined;
   private _jobStatus?: Map<ConversionJobName, ConversionJobStatus> = undefined;
   private _router?: Router = undefined;
+  private _embeddedMode?: boolean = undefined;
+  private _hideSidebar?: boolean = undefined;
+  private _ftraceCounters?: FtraceStat[] = undefined;
+  private _ftracePanelData?: FtracePanelData = undefined;
 
   // TODO(hjd): Remove once we no longer need to update UUID on redraw.
   private _publishRedraw?: () => void = undefined;
@@ -247,7 +283,6 @@ class Globals {
     // TODO(hjd): Unify trackDataStore, queryResults, overviewStore, threads.
     this._trackDataStore = new Map<string, {}>();
     this._queryResults = new Map<string, {}>();
-    this._pivotTableHelper = new Map<string, PivotTableHelper>();
     this._overviewStore = new Map<string, QuantizedLoad[]>();
     this._aggregateDataStore = new Map<string, AggregateData>();
     this._threadMap = new Map<number, ThreadDesc>();
@@ -286,6 +321,13 @@ class Globals {
     return assertExists(this._dispatch);
   }
 
+  dispatchMultiple(actions: DeferredAction[]): void {
+    const dispatch = this.dispatch;
+    for (const action of actions) {
+      dispatch(action);
+    }
+  }
+
   get frontendLocalState() {
     return assertExists(this._frontendLocalState);
   }
@@ -313,10 +355,6 @@ class Globals {
 
   get queryResults(): QueryResultsStore {
     return assertExists(this._queryResults);
-  }
-
-  get pivotTableHelper(): PivotTableHelperStore {
-    return assertExists(this._pivotTableHelper);
   }
 
   get threads() {
@@ -440,11 +478,15 @@ class Globals {
   }
 
   get hasFtrace(): boolean {
-    return !!this._hasFtrace;
+    return Boolean(this._ftraceCounters && this._ftraceCounters.length > 0);
   }
 
-  set hasFtrace(value: boolean) {
-    this._hasFtrace = value;
+  get ftraceCounters(): FtraceStat[]|undefined {
+    return this._ftraceCounters;
+  }
+
+  set ftraceCounters(value: FtraceStat[]|undefined) {
+    this._ftraceCounters = value;
   }
 
   getConversionJobStatus(name: ConversionJobName): ConversionJobStatus {
@@ -467,6 +509,22 @@ class Globals {
     return this._jobStatus;
   }
 
+  get embeddedMode(): boolean {
+    return !!this._embeddedMode;
+  }
+
+  set embeddedMode(value: boolean) {
+    this._embeddedMode = value;
+  }
+
+  get hideSidebar(): boolean {
+    return !!this._hideSidebar;
+  }
+
+  set hideSidebar(value: boolean) {
+    this._hideSidebar = value;
+  }
+
   setBufferUsage(bufferUsage: number) {
     this._bufferUsage = bufferUsage;
   }
@@ -483,7 +541,7 @@ class Globals {
     this.aggregateDataStore.set(kind, data);
   }
 
-  getCurResolution() {
+  getCurResolution(): TPDuration {
     // Truncate the resolution to the closest power of 2 (in nanosecond space).
     // We choose to work in ns space because resolution is consumed be track
     // controllers for quantization and they rely on resolution to be a power
@@ -494,24 +552,30 @@ class Globals {
     // levels. Logic: each zoom level represents a delta of 0.1 * (visible
     // window span). Therefore, zooming out by six levels is 1.1^6 ~= 2.
     // Similarily, zooming in six levels is 0.9^6 ~= 0.5.
-    const pxToSec = this.frontendLocalState.timeScale.deltaPxToDuration(1);
+    const timeScale = this.frontendLocalState.visibleTimeScale;
     // TODO(b/186265930): Remove once fixed:
-    if (!isFinite(pxToSec)) {
-      // Resolution is in pixels per second so 1000 means 1px = 1ms.
-      console.error(`b/186265930: Bad pxToSec suppressed ${pxToSec}`);
-      return fromNs(Math.pow(2, Math.floor(Math.log2(toNs(1000)))));
+    if (timeScale.pxSpan.delta === 0) {
+      console.error(`b/186265930: Bad pxToSec suppressed`);
+      return BigintMath.bitFloor(tpTimeFromSeconds(1000));
     }
-    const pxToNs = Math.max(toNs(pxToSec), 1);
-    const resolution = fromNs(Math.pow(2, Math.floor(Math.log2(pxToNs))));
-    const log2 = Math.log2(toNs(resolution));
-    if (log2 % 1 !== 0) {
-      throw new Error(`Resolution should be a power of two.
-        pxToSec: ${pxToSec},
-        pxToNs: ${pxToNs},
-        resolution: ${resolution},
-        log2: ${Math.log2(toNs(resolution))}`);
-    }
-    return resolution;
+
+    const timePerPx = HighPrecisionTime.max(
+        timeScale.pxDeltaToDuration(1), new HighPrecisionTime(1n));
+
+    const resolutionBig = BigintMath.bitFloor(timePerPx.toTPTime());
+    return resolutionBig;
+  }
+
+  getCurrentEngine(): EngineConfig|undefined {
+    return this.state.engine;
+  }
+
+  get ftracePanelData(): FtracePanelData|undefined {
+    return this._ftracePanelData;
+  }
+
+  set ftracePanelData(data: FtracePanelData|undefined) {
+    this._ftracePanelData = data;
   }
 
   makeSelection(action: DeferredAction<{}>, tabToOpen = 'current_selection') {
@@ -532,7 +596,6 @@ class Globals {
     // TODO(hjd): Unify trackDataStore, queryResults, overviewStore, threads.
     this._trackDataStore = undefined;
     this._queryResults = undefined;
-    this._pivotTableHelper = undefined;
     this._overviewStore = undefined;
     this._threadMap = undefined;
     this._sliceDetails = undefined;
@@ -578,6 +641,30 @@ class Globals {
   // be cleaned up explicitly.
   shutdown() {
     this._rafScheduler!.shutdown();
+  }
+
+  // Get a timescale that covers the entire trace
+  getTraceTimeScale(pxSpan: PxSpan): TimeScale {
+    const {start, end} = this.state.traceTime;
+    const traceTime = HighPrecisionTimeSpan.fromTpTime(start, end);
+    return new TimeScale(traceTime.start, traceTime.duration.nanos, pxSpan);
+  }
+
+  // Get the trace time bounds
+  stateTraceTime(): Span<HighPrecisionTime> {
+    const {start, end} = this.state.traceTime;
+    return HighPrecisionTimeSpan.fromTpTime(start, end);
+  }
+
+  stateTraceTimeTP(): Span<TPTime> {
+    const {start, end} = this.state.traceTime;
+    return new TPTimeSpan(start, end);
+  }
+
+  // Get the state version of the visible time bounds
+  stateVisibleTime(): Span<TPTime> {
+    const {start, end} = this.state.frontendLocalState.visibleState;
+    return new TPTimeSpan(start, end);
   }
 }
 

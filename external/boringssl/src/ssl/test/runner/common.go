@@ -148,12 +148,12 @@ var tls13HelloRetryRequest = []uint8{
 type CurveID uint16
 
 const (
-	CurveP224   CurveID = 21
-	CurveP256   CurveID = 23
-	CurveP384   CurveID = 24
-	CurveP521   CurveID = 25
-	CurveX25519 CurveID = 29
-	CurveCECPQ2 CurveID = 16696
+	CurveP224           CurveID = 21
+	CurveP256           CurveID = 23
+	CurveP384           CurveID = 24
+	CurveP521           CurveID = 25
+	CurveX25519         CurveID = 29
+	CurveX25519Kyber768 CurveID = 0x6399
 )
 
 // TLS Elliptic Curve Point Formats
@@ -211,15 +211,24 @@ const (
 	// EdDSA algorithms
 	signatureEd25519 signatureAlgorithm = 0x0807
 	signatureEd448   signatureAlgorithm = 0x0808
+
+	// signatureRSAPKCS1WithMD5AndSHA1 is the internal value BoringSSL uses to
+	// represent the TLS 1.0/1.1 RSA MD5/SHA1 concatenation. We define the
+	// constant here to test that this doesn't leak into the protocol.
+	signatureRSAPKCS1WithMD5AndSHA1 signatureAlgorithm = 0xff01
 )
 
 // supportedSignatureAlgorithms contains the default supported signature
 // algorithms.
 var supportedSignatureAlgorithms = []signatureAlgorithm{
 	signatureRSAPSSWithSHA256,
+	signatureRSAPSSWithSHA384,
 	signatureRSAPKCS1WithSHA256,
 	signatureECDSAWithP256AndSHA256,
+	signatureECDSAWithP384AndSHA384,
 	signatureRSAPKCS1WithSHA1,
+	signatureRSAPKCS1WithSHA256,
+	signatureRSAPKCS1WithSHA384,
 	signatureECDSAWithSHA1,
 	signatureEd25519,
 }
@@ -638,6 +647,14 @@ type ProtocolBugs struct {
 	// SkipHelloVerifyRequest causes a DTLS server to skip the
 	// HelloVerifyRequest message.
 	SkipHelloVerifyRequest bool
+
+	// HelloVerifyRequestCookieLength, if non-zero, is the length of the cookie
+	// to request in HelloVerifyRequest.
+	HelloVerifyRequestCookieLength int
+
+	// EmptyHelloVerifyRequestCookie, if true, causes a DTLS server to request
+	// an empty cookie in HelloVerifyRequest.
+	EmptyHelloVerifyRequestCookie bool
 
 	// SkipCertificateStatus, if true, causes the server to skip the
 	// CertificateStatus message. This is legal because CertificateStatus is
@@ -1784,10 +1801,15 @@ type ProtocolBugs struct {
 	// reject CertificateRequest with the CertificateAuthorities extension.
 	ExpectNoCertificateAuthoritiesExtension bool
 
-	// UseLegacySigningAlgorithm, if non-zero, is the signature algorithm
+	// SigningAlgorithmForLegacyVersions, if non-zero, is the signature algorithm
 	// to use when signing in TLS 1.1 and earlier where algorithms are not
 	// negotiated.
-	UseLegacySigningAlgorithm signatureAlgorithm
+	SigningAlgorithmForLegacyVersions signatureAlgorithm
+
+	// AlwaysSignAsLegacyVersion, if true, causes all TLS versions to sign as if
+	// they were TLS 1.1 and earlier. This can be paired with
+	// SendSignatureAlgorithm to send a given signature algorithm enum.
+	AlwaysSignAsLegacyVersion bool
 
 	// RejectUnsolicitedKeyUpdate, if true, causes all unsolicited
 	// KeyUpdates from the peer to be rejected.
@@ -1872,9 +1894,9 @@ type ProtocolBugs struct {
 	// hello retry.
 	FailIfHelloRetryRequested bool
 
-	// FailedIfCECPQ2Offered will cause a server to reject a ClientHello if CECPQ2
+	// FailedIfKyberOffered will cause a server to reject a ClientHello if Kyber
 	// is supported.
-	FailIfCECPQ2Offered bool
+	FailIfKyberOffered bool
 
 	// ExpectKeyShares, if not nil, lists (in order) the curves that a ClientHello
 	// should have key shares for.
@@ -1978,7 +2000,7 @@ func (c *Config) maxVersion(isDTLS bool) uint16 {
 	return ret
 }
 
-var defaultCurvePreferences = []CurveID{CurveCECPQ2, CurveX25519, CurveP256, CurveP384, CurveP521}
+var defaultCurvePreferences = []CurveID{CurveX25519, CurveP256, CurveP384, CurveP521}
 
 func (c *Config) curvePreferences() []CurveID {
 	if c == nil || len(c.CurvePreferences) == 0 {

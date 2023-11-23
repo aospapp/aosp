@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+PY_VERSION = 3
 AUTHOR = "chromeos-gfx"
 NAME = "graphics_HwOverlays.video"
 TIME = "FAST"
@@ -22,5 +23,4 @@ video turns into an overlay.
 
 job.run_test('graphics_HwOverlays',
              html_file=HTML_TEST_FILE,
-             data_file_url=DATA_FILE_URL,
-             is_video=True)
+             data_file_url=DATA_FILE_URL)

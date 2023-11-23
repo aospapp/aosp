@@ -125,11 +125,6 @@ int main(int argc, char *argv[])
 	int lc;
 
 	tst_parse_opts(argc, argv, NULL, NULL);
-	if ((tst_kvercmp(2, 6, 27)) < 0) {
-		tst_brkm(TCONF,
-			 NULL,
-			 "This test can only run on kernels that are 2.6.27 and higher");
-	}
 	setup();
 
 	for (lc = 0; TEST_LOOPING(lc); ++lc) {
@@ -137,7 +132,7 @@ int main(int argc, char *argv[])
 		for (testno = 0; testno < TST_TOTAL; ++testno) {
 			sigemptyset(&ss);
 			sigaddset(&ss, SIGUSR1);
-			fd = ltp_syscall(__NR_signalfd4, -1, &ss,
+			fd = tst_syscall(__NR_signalfd4, -1, &ss,
 				SIGSETSIZE, 0);
 			if (fd == -1) {
 				tst_brkm(TFAIL, cleanup,
@@ -154,7 +149,7 @@ int main(int argc, char *argv[])
 			}
 			close(fd);
 
-			fd = ltp_syscall(__NR_signalfd4, -1, &ss, SIGSETSIZE,
+			fd = tst_syscall(__NR_signalfd4, -1, &ss, SIGSETSIZE,
 				     SFD_NONBLOCK);
 			if (fd == -1) {
 				tst_brkm(TFAIL,

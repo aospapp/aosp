@@ -31,6 +31,7 @@ import com.google.android.enterprise.connectedapps.TestBooleanCallbackListenerMu
 import com.google.android.enterprise.connectedapps.TestScheduledExecutorService;
 import com.google.android.enterprise.connectedapps.TestStringCallbackListenerMultiImpl;
 import com.google.android.enterprise.connectedapps.TestVoidCallbackListenerMultiImpl;
+import com.google.android.enterprise.connectedapps.testapp.CustomError;
 import com.google.android.enterprise.connectedapps.testapp.CustomRuntimeException;
 import com.google.android.enterprise.connectedapps.testapp.configuration.TestApplication;
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
@@ -82,7 +83,7 @@ public class BothProfilesAsyncTest {
     testUtilities.setRunningOnPersonalProfile();
     testUtilities.setRequestsPermissions(INTERACT_ACROSS_USERS);
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
-    testProfileConnector.stopManualConnectionManagement();
+    testProfileConnector.clearConnectionHolders();
   }
 
   @Test
@@ -177,40 +178,35 @@ public class BothProfilesAsyncTest {
   }
 
   @Test
-  public void both_async_timeoutSet_doesTimeout() {
+  public void both_async_doesNotTimeout() {
     profileTestCrossProfileType
         .both()
-        .asyncIdentityStringMethodWithNonBlockingDelayWith3SecondTimeout(
-            STRING, stringCallback, /* secondsDelay= */ 5);
-
-    testUtilities.advanceTimeBySeconds(6);
-
-    assertThat(stringCallback.stringCallbackValues.get(currentProfileIdentifier)).isEqualTo(STRING);
-    assertThat(stringCallback.stringCallbackValues).doesNotContainKey(otherProfileIdentifier);
-  }
-
-  @Test
-  public void both_async_timeoutSetByCaller_doesTimeout() {
-    profileTestCrossProfileType
-        .both()
-        .timeout(3000)
         .asyncIdentityStringMethodWithNonBlockingDelay(
-            STRING, stringCallback, /* secondsDelay= */ 5);
+            STRING, stringCallback, /* secondsDelay= */ 100);
 
-    testUtilities.advanceTimeBySeconds(6);
+    testUtilities.advanceTimeBySeconds(99);
 
-    assertThat(stringCallback.stringCallbackValues.get(currentProfileIdentifier)).isEqualTo(STRING);
-    assertThat(stringCallback.stringCallbackValues).doesNotContainKey(otherProfileIdentifier);
+    assertThat(stringCallback.stringCallbackValues).isNull();
   }
 
   @Test
   public void both_async_throwsRuntimeException_exceptionThrownOnCurrentProfileIsThrown() {
     assertThrows(
-        CustomRuntimeException.class,
+        Exception.class,
         () ->
             profileTestCrossProfileType
                 .both()
                 .asyncStringMethodWhichThrowsRuntimeException(stringCallback));
+  }
+
+  @Test
+  public void both_async_throwsError_errorThrownOnCurrentProfileIsThrown() {
+    assertThrows(
+        CustomError.class,
+        () ->
+            profileTestCrossProfileType
+                .both()
+                .asyncStringMethodWhichThrowsError(stringCallback));
   }
 
   @Test
@@ -219,5 +215,15 @@ public class BothProfilesAsyncTest {
 
     assertThat(booleanCallback.booleanCallbackValues.get(currentProfileIdentifier)).isTrue();
     assertThat(booleanCallback.booleanCallbackValues.get(otherProfileIdentifier)).isTrue();
+  }
+
+  @Test
+  public void both_async_passesMultipleValues_onlyReceivesFirstValues() {
+    stringCallback.numberOfCallbacks = 0;
+
+    profileTestCrossProfileType.both()
+        .asyncIdentityStringMethodWhichCallsBackTwice(STRING, stringCallback);
+
+    assertThat(stringCallback.numberOfCallbacks).isEqualTo(1);
   }
 }

@@ -6,11 +6,15 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   msys2:
     runs-on: windows-latest
 
     strategy:
+      fail-fast: false
       matrix:
         include:
           - MSYSTEM: MINGW32
@@ -19,11 +23,16 @@ jobs:
             MSYS2_ARCH: x86_64
     name: ${{ matrix.MSYSTEM }}
 
+    env:
+      # XXX: For some reason enabling jit debugging "fixes" random python crashes
+      # see https://github.com/msys2/MINGW-packages/issues/11864
+      MSYS: "winjitdebug"
+
     defaults:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.MSYSTEM }}

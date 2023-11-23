@@ -145,8 +145,8 @@ class RetryingFileSystem : public FileSystem {
   }
 
   Status DeleteRecursively(const string& dirname, TransactionToken* token,
-                           int64* undeleted_files,
-                           int64* undeleted_dirs) override {
+                           int64_t* undeleted_files,
+                           int64_t* undeleted_dirs) override {
     return RetryingUtils::DeleteWithRetries(
         [this, &dirname, token, undeleted_files, undeleted_dirs]() {
           return base_file_system_->DeleteRecursively(
@@ -224,7 +224,7 @@ class RetryingWritableFile : public WritableFile {
     return RetryingUtils::CallWithRetries(
         [this]() { return base_file_->Sync(); }, retry_config_);
   }
-  Status Tell(int64* position) override {
+  Status Tell(int64_t* position) override {
     return RetryingUtils::CallWithRetries(
         [this, &position]() { return base_file_->Tell(position); },
         retry_config_);
@@ -250,7 +250,7 @@ Status RetryingFileSystem<Underlying>::NewRandomAccessFile(
       retry_config_));
   result->reset(new retrying_internals::RetryingRandomAccessFile(
       std::move(base_file), retry_config_));
-  return Status::OK();
+  return OkStatus();
 }
 
 template <typename Underlying>
@@ -265,7 +265,7 @@ Status RetryingFileSystem<Underlying>::NewWritableFile(
       retry_config_));
   result->reset(new retrying_internals::RetryingWritableFile(
       std::move(base_file), retry_config_));
-  return Status::OK();
+  return OkStatus();
 }
 
 template <typename Underlying>
@@ -281,7 +281,7 @@ Status RetryingFileSystem<Underlying>::NewAppendableFile(
       retry_config_));
   result->reset(new retrying_internals::RetryingWritableFile(
       std::move(base_file), retry_config_));
-  return Status::OK();
+  return OkStatus();
 }
 
 template <typename Underlying>

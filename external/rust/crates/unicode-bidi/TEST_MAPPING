@@ -6,20 +6,17 @@
     },
     {
       "path": "external/rust/crates/url"
+    },
+    {
+      "path": "packages/modules/DnsResolver"
     }
   ],
   "presubmit": [
-    {
-      "name": "doh_unit_test"
-    },
     {
       "name": "unicode-bidi_test_src_lib"
     }
   ],
   "presubmit-rust": [
-    {
-      "name": "doh_unit_test"
-    },
     {
       "name": "unicode-bidi_test_src_lib"
     }

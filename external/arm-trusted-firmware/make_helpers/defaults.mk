@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2016-2021, ARM Limited. All rights reserved.
+# Copyright (c) 2016-2021, Arm Limited. All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 #
@@ -31,6 +31,9 @@ BASE_COMMIT			:= origin/master
 
 # Execute BL2 at EL3
 BL2_AT_EL3			:= 0
+
+# Only use SP packages if SP layout JSON is defined
+BL2_ENABLE_SP_LOAD		:= 0
 
 # BL2 image is stored in XIP memory, for now, this option is only supported
 # when BL2_AT_EL3 is 1.
@@ -93,6 +96,12 @@ DYN_DISABLE_AUTH		:= 0
 # Build option to enable MPAM for lower ELs
 ENABLE_MPAM_FOR_LOWER_ELS	:= 0
 
+# Enable the Maximum Power Mitigation Mechanism on supporting cores.
+ENABLE_MPMM			:= 0
+
+# Enable MPMM configuration via FCONF.
+ENABLE_MPMM_FCONF		:= 0
+
 # Flag to Enable Position Independant support (PIE)
 ENABLE_PIE			:= 0
 
@@ -101,6 +110,9 @@ ENABLE_PMF			:= 0
 
 # Flag to enable PSCI STATs functionality
 ENABLE_PSCI_STAT		:= 0
+
+# Flag to enable Realm Management Extension (FEAT_RME)
+ENABLE_RME			:= 0
 
 # Flag to enable runtime instrumentation using PMF
 ENABLE_RUNTIME_INSTRUMENTATION	:= 0
@@ -120,6 +132,9 @@ ENABLE_BTI			:= 0
 # Internal flag not meant for direct setting.
 # Use BRANCH_PROTECTION to enable PAUTH.
 ENABLE_PAUTH			:= 0
+
+# Flag to enable access to the HCRX_EL2 register by setting SCR_EL3.HXEn.
+ENABLE_FEAT_HCX			:= 0
 
 # By default BL31 encryption disabled
 ENCRYPT_BL31			:= 0
@@ -207,13 +222,13 @@ RESET_TO_BL31			:= 0
 SAVE_KEYS			:= 0
 
 # Software Delegated Exception support
-SDEI_SUPPORT            	:= 0
+SDEI_SUPPORT			:= 0
 
 # True Random Number firmware Interface
-TRNG_SUPPORT            	:= 0
+TRNG_SUPPORT			:= 0
 
 # SMCCC PCI support
-SMC_PCI_SUPPORT            	:= 0
+SMC_PCI_SUPPORT			:= 0
 
 # Whether code and read-only data should be put on separate memory pages. The
 # platform Makefile is free to override this value.
@@ -288,7 +303,7 @@ ENABLE_SPE_FOR_LOWER_ELS	:= 1
 
 # SPE is only supported on AArch64 so disable it on AArch32.
 ifeq (${ARCH},aarch32)
-    override ENABLE_SPE_FOR_LOWER_ELS := 0
+	override ENABLE_SPE_FOR_LOWER_ELS := 0
 endif
 
 # Include Memory Tagging Extension registers in cpu context. This must be set
@@ -297,17 +312,22 @@ endif
 CTX_INCLUDE_MTE_REGS		:= 0
 
 ENABLE_AMU			:= 0
+ENABLE_AMU_AUXILIARY_COUNTERS	:= 0
+ENABLE_AMU_FCONF		:= 0
 AMU_RESTRICT_COUNTERS		:= 0
 
-# By default, enable Scalable Vector Extension if implemented only for Non-secure
-# lower ELs
-# Note SVE is only supported on AArch64 - therefore do not enable in AArch32
-ifneq (${ARCH},aarch32)
-    ENABLE_SVE_FOR_NS		:= 1
-    ENABLE_SVE_FOR_SWD		:= 0
-else
-    override ENABLE_SVE_FOR_NS	:= 0
-    override ENABLE_SVE_FOR_SWD  := 0
+# Enable SVE for non-secure world by default
+ENABLE_SVE_FOR_NS		:= 1
+ENABLE_SVE_FOR_SWD		:= 0
+
+# SME defaults to disabled
+ENABLE_SME_FOR_NS		:= 0
+ENABLE_SME_FOR_SWD		:= 0
+
+# If SME is enabled then force SVE off
+ifeq (${ENABLE_SME_FOR_NS},1)
+	override ENABLE_SVE_FOR_NS	:= 0
+	override ENABLE_SVE_FOR_SWD	:= 0
 endif
 
 SANITIZE_UB := off
@@ -331,7 +351,7 @@ CTX_INCLUDE_EL2_REGS		:= 0
 SUPPORT_STACK_MEMTAG		:= no
 
 # Select workaround for AT speculative behaviour.
-ERRATA_SPECULATIVE_AT           := 0
+ERRATA_SPECULATIVE_AT		:= 0
 
 # Trap RAS error record access from lower EL
 RAS_TRAP_LOWER_EL_ERR_ACCESS	:= 0
@@ -355,3 +375,24 @@ NR_OF_IMAGES_IN_FW_BANK		:= 1
 
 # Disable Firmware update support by default
 PSA_FWU_SUPPORT			:= 0
+
+# By default, disable access of trace buffer control registers from NS
+# lower ELs  i.e. NS-EL2, or NS-EL1 if NS-EL2 implemented but unused
+# if FEAT_TRBE is implemented.
+# Note FEAT_TRBE is only supported on AArch64 - therefore do not enable in
+# AArch32.
+ifneq (${ARCH},aarch32)
+	ENABLE_TRBE_FOR_NS		:= 0
+else
+	override ENABLE_TRBE_FOR_NS	:= 0
+endif
+
+# By default, disable access of trace system registers from NS lower
+# ELs  i.e. NS-EL2, or NS-EL1 if NS-EL2 implemented but unused if
+# system register trace is implemented.
+ENABLE_SYS_REG_TRACE_FOR_NS	:= 0
+
+# By default, disable trace filter control registers access to NS
+# lower ELs, i.e. NS-EL2, or NS-EL1 if NS-EL2 implemented but unused
+# if FEAT_TRF is implemented.
+ENABLE_TRF_FOR_NS		:= 0

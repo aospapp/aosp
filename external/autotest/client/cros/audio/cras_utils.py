@@ -20,6 +20,30 @@ class CrasUtilsError(Exception):
     pass
 
 
+def dump_audio_thread():
+    """Dumps audio thread info.
+
+    @returns: A list of cras audio information.
+    """
+    proc = subprocess.Popen([_CRAS_TEST_CLIENT, '--dump_a'],
+                            stdout=subprocess.PIPE)
+
+    output, err = proc.communicate()
+    if err:
+        raise CrasUtilsError(err)
+    return output.decode().splitlines()
+
+
+def get_audio_thread_summary():
+    """Gets stream summary info.
+
+    @returns: A list of stream summary information.
+    """
+
+    lines = dump_audio_thread()
+    return [l for l in lines if l.startswith('Summary:')]
+
+
 def playback(blocking=True, stdin=None, *args, **kargs):
     """A helper function to execute the playback_cmd.
 
@@ -319,10 +343,11 @@ def node_type_is_plugged(node_type, nodes_info):
 # Cras node types reported from Cras DBus control API.
 CRAS_OUTPUT_NODE_TYPES = ['HEADPHONE', 'INTERNAL_SPEAKER', 'HDMI', 'USB',
                           'BLUETOOTH', 'LINEOUT', 'UNKNOWN', 'ALSA_LOOPBACK']
-CRAS_INPUT_NODE_TYPES = ['MIC', 'INTERNAL_MIC', 'USB', 'BLUETOOTH',
-                         'POST_DSP_LOOPBACK', 'POST_MIX_LOOPBACK', 'UNKNOWN',
-                         'KEYBOARD_MIC', 'HOTWORD', 'FRONT_MIC', 'REAR_MIC',
-                         'ECHO_REFERENCE']
+CRAS_INPUT_NODE_TYPES = [
+        'MIC', 'INTERNAL_MIC', 'USB', 'BLUETOOTH', 'POST_DSP_DELAYED_LOOPBACK',
+        'POST_DSP_LOOPBACK', 'POST_MIX_LOOPBACK', 'UNKNOWN', 'KEYBOARD_MIC',
+        'HOTWORD', 'FRONT_MIC', 'REAR_MIC', 'ECHO_REFERENCE'
+]
 CRAS_NODE_TYPES = CRAS_OUTPUT_NODE_TYPES + CRAS_INPUT_NODE_TYPES
 
 
@@ -677,6 +702,38 @@ def get_active_output_node_max_supported_channels():
     raise CrasUtilsError('Cannot find active output node.')
 
 
+def get_noise_cancellation_supported():
+    """Gets whether the device supports Noise Cancellation.
+
+    @returns: True is supported; False otherwise.
+    """
+    return bool(get_cras_control_interface().IsNoiseCancellationSupported())
+
+
+def set_bypass_block_noise_cancellation(bypass):
+    """Sets CRAS to bypass the blocking logic of Noise Cancellation.
+
+    @param bypass: True for bypass; False for un-bypass.
+    """
+    get_cras_control_interface().SetBypassBlockNoiseCancellation(bypass)
+
+
+def set_noise_cancellation_enabled(enabled):
+    """Sets the state to enable or disable Noise Cancellation.
+
+    @param enabled: True to enable; False to disable.
+    """
+    get_cras_control_interface().SetNoiseCancellationEnabled(enabled)
+
+
+def set_floss_enabled(enabled):
+    """Sets whether CRAS stack expects to use Floss.
+
+    @param enabled: True for Floss, False for Bluez.
+    """
+    get_cras_control_interface().SetFlossEnabled(enabled)
+
+
 class CrasTestClient(object):
     """An object to perform cras_test_client functions."""
 
@@ -745,7 +802,7 @@ class CrasTestClient(object):
                     sleep_interval=0.5,
                     desc='Waiting for subprocess to terminate')
         except Exception:
-            logging.warn('Killing subprocess due to timeout')
+            logging.warning('Killing subprocess due to timeout')
             proc.kill()
             proc.wait()
 
@@ -952,6 +1009,19 @@ class CrasTestClient(object):
         return True
 
 
+    def _encode_length_for_dbus(self, length):
+        """Encode length as Int64 for |SetPlayerMetadata|."""
+        try:
+            import dbus
+        except ImportError as e:
+            logging.exception(
+                    'Can not import dbus: %s. This method should only be '
+                    'called on Cros device.', e)
+            raise
+
+        length_variant = dbus.types.Int64(length, variant_level=1)
+        return dbus.Dictionary({'length': length_variant}, signature='sv')
+
     def set_player_length(self, length):
         """Set metadata length for the registered media player.
 
@@ -960,11 +1030,12 @@ class CrasTestClient(object):
         be int32 by default. Separate it from the metadata function to help
         prepare the data differently.
 
-        @param metadata: DBUS dictionary that contains a variant of int64.
+        @param length: Integer value that will be encoded for dbus.
 
         """
         try:
-            get_cras_control_interface().SetPlayerMetadata(length)
+            length_dbus = self._encode_length_for_dbus(length)
+            get_cras_control_interface().SetPlayerMetadata(length_dbus)
         except Exception as e:
             logging.error('Failed to set player length: %s', e)
             return False

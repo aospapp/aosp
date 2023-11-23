@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,7 +8,7 @@ import time
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros.multimedia import display_facade_native
+from autotest_lib.client.cros.multimedia import display_facade
 from autotest_lib.client.cros.multimedia import facade_resource
 
 
@@ -33,7 +34,7 @@ class display_InternalDisplayRotation(test.test):
         """Test to rotate internal display"""
         facade = facade_resource.FacadeResource()
         facade.start_default_chrome()
-        self.display_facade = display_facade_native.DisplayFacadeNative(facade)
+        self.display_facade = display_facade.DisplayFacadeLocal(facade)
         self.internal_display_id = self.display_facade.get_internal_display_id()
         logging.info("Internal display ID is %s", self.internal_display_id)
         rotation_before_starts = self.display_facade.get_display_rotation(

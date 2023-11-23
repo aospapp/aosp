@@ -1,0 +1,43 @@
+From 395649f94c3d82ce4a736701764b18a10064ea7b Mon Sep 17 00:00:00 2001
+From: Steve Muckle <smuckle@google.com>
+Date: Mon, 23 Oct 2017 17:24:47 -0700
+Subject: [PATCH 08/24] seccomp: disable tests broken on kernels < 4.8
+
+The skip_after_RET_TRACE, kill_after_RET_TRACE, skip_after_ptrace,
+and kill_after_ptrace tests do not work on kernels earlier than 4.8.
+
+(cherry picked from commit 16a09c0d879525707a03d3d7c6d3e659753b1e16)
+Bug: 33027081
+Test: run vts-kernel -m VtsKernelLinuxKselftestStaging
+Signed-off-by: Steve Muckle <smuckle@google.com>
+---
+ tools/testing/selftests/seccomp/seccomp_bpf.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/tools/testing/selftests/seccomp/seccomp_bpf.c b/tools/testing/selftests/seccomp/seccomp_bpf.c
+index 9d126d7fabdb7..9691fdd5ab790 100644
+--- a/tools/testing/selftests/seccomp/seccomp_bpf.c
++++ b/tools/testing/selftests/seccomp/seccomp_bpf.c
+@@ -2230,6 +2230,11 @@ TEST_F_SIGNAL(TRACE_syscall, kill_immediate, SIGSYS)
+ 	EXPECT_EQ(-1, syscall(__NR_mknodat, -1, NULL, 0, 0));
+ }
+ 
++/*
++ * TODO: b/33027081
++ * These tests do not work on kernels prior to 4.8.
++ */
++#ifndef __ANDROID__
+ TEST_F(TRACE_syscall, skip_after)
+ {
+ 	struct sock_filter filter[] = {
+@@ -2277,6 +2282,7 @@ TEST_F_SIGNAL(TRACE_syscall, kill_after, SIGSYS)
+ 	/* Tracer will redirect getpid to getppid, and we should die. */
+ 	EXPECT_NE(self->mypid, syscall(__NR_getpid));
+ }
++#endif
+ 
+ TEST(seccomp_syscall)
+ {
+-- 
+2.36.0.550.gb090851708-goog
+

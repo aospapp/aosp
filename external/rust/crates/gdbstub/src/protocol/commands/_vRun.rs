@@ -1,27 +1,15 @@
 use super::prelude::*;
 
+use crate::protocol::common::lists::ArgListHex;
+
 #[derive(Debug)]
 pub struct vRun<'a> {
     pub filename: Option<&'a [u8]>,
-    pub args: Args<'a>,
-}
-
-#[derive(Debug)]
-pub struct Args<'a>(&'a mut [u8]);
-
-impl<'a> Args<'a> {
-    pub fn into_iter(self) -> impl Iterator<Item = &'a [u8]> + 'a {
-        self.0
-            .split_mut(|b| *b == b';')
-            // the `from_packet` method guarantees that the args are valid hex ascii, so this should
-            // method should never fail.
-            .map(|raw| decode_hex_buf(raw).unwrap_or(&mut []))
-            .map(|s| s as &[u8])
-            .filter(|s| !s.is_empty())
-    }
+    pub args: ArgListHex<'a>,
 }
 
 impl<'a> ParseCommand<'a> for vRun<'a> {
+    #[inline(always)]
     fn from_packet(buf: PacketBuf<'a>) -> Option<Self> {
         let body = buf.into_body();
 
@@ -34,15 +22,9 @@ impl<'a> ParseCommand<'a> for vRun<'a> {
         };
         let args = body.next().unwrap_or(&mut []); // args are optional
 
-        // validate that args have valid hex encoding (with ';' delimiters).
-        // this removes all the error handling from the lazy `Args` iterator.
-        if args.iter().any(|b| !(is_hex(*b) || *b == b';')) {
-            return None;
-        }
-
         Some(vRun {
             filename,
-            args: Args(args),
+            args: ArgListHex::from_packet(args)?,
         })
     }
 }

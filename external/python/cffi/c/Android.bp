@@ -13,14 +13,6 @@ python_library {
     srcs: [
         "_dummy_file_cffi_backend.py",
     ],
-    version: {
-        py2: {
-	    enabled: true,
-	},
-	py3: {
-	    enabled: true,
-	},
-    },
     data: [
         ":py-cffi-backend-files"
     ],
@@ -39,14 +31,6 @@ python_library {
     srcs: [
         "_dummy_file_libffi.py",
     ],
-    version: {
-        py2: {
-	    enabled: true,
-	},
-	py3: {
-	    enabled: true,
-	},
-    },
     data: [
         ":py-cffi-backend-libffi-files"
     ],

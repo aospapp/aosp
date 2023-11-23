@@ -7,6 +7,7 @@ TIME = 'SHORT'
 NAME = 'network_WiFi_ChromeEndToEnd'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 WiFi_ChromeEndToEnd test configures two APs and runs the client side

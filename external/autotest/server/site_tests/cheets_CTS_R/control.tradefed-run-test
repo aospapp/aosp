@@ -33,7 +33,7 @@ cts_module = ''
 cts_retry = 5
 cts_revision = None
 cts_test = ''
-cts_timeout = 600
+cts_timeout = 3600
 
 # Pull parameters either from run_suite or test_that.
 if 'args_dict' in vars():
@@ -64,6 +64,7 @@ uri = ('gs://chromeos-arc-images/cts/bundle/R/android-cts-' + cts_revision +
        '-linux_x86-' + cts_abi + '.zip') if cts_revision else 'LATEST'
 run_template = ['run', 'commandAndExit', 'cts',
                 '--include-filter', cts_module + ' ' + cts_test,
+                '--skip-device-info',
                 '--logcat-on-failure']
 retry_template = ['run', 'commandAndExit', 'retry',
                   '--retry', '{session_id}']
@@ -86,6 +87,7 @@ JOB_RETRIES = 0
 TEST_TYPE = 'server'
 TIME = 'LONG'
 MAX_RESULT_SIZE_KB = 256000
+PY_VERSION = 3
 DOC = 'Run a test of the Android Compatibility Test Suite (CTS) in ARC++'
 
 # And launch.
@@ -95,6 +97,7 @@ def run_TS(machine):
         'cheets_CTS_R',
         hosts=host_list,
         iterations=1,
+        enable_default_apps=True,
         max_retry=cts_retry,
         needs_push_media=True,
         tag=tag,
@@ -106,6 +109,11 @@ def run_TS(machine):
         bundle=cts_abi,
         use_jdk9=True,
         uri=uri,
+        load_waivers=('#' not in cts_test),  # No waivers for single-test runs
+        retry_manual_tests=('#' in cts_test),  # No waivers for single-test runs
+        login_precondition_commands=[
+            'lsblk -do NAME,RM | sed -n s/1$//p | xargs -n1 eject'
+        ],
         timeout=cts_timeout)
 
 parallel_simple(run_TS, machines)

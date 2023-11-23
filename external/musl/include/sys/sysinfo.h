@@ -8,7 +8,7 @@ extern "C" {
 #define SI_LOAD_SHIFT 16
 
 struct sysinfo {
-	long uptime;
+	unsigned long uptime;
 	unsigned long loads[3];
 	unsigned long totalram;
 	unsigned long freeram;

@@ -10,5 +10,7 @@ web
 setid
 gowns
 ok
-pkg
-src
+vendor
+go.sum
+PSXGOPACKAGE
+CAPGOPACKAGE

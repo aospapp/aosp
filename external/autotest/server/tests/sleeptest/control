@@ -4,7 +4,7 @@ TIME = 'SHORT'
 TEST_CLASS = 'Software'
 TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'server'
-
+PY_VERSION = 3
 DOC = """
 runs sleep for one second on the list of machines.
 """

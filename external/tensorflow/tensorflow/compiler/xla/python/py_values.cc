@@ -20,6 +20,7 @@ limitations under the License.
 #include "tensorflow/compiler/xla/primitive_util.h"
 #include "tensorflow/compiler/xla/python/py_buffer.h"
 #include "tensorflow/compiler/xla/python/python_ref_manager.h"
+#include "tensorflow/compiler/xla/python/sharded_device_array.h"
 #include "tensorflow/compiler/xla/python/types.h"
 #include "tensorflow/compiler/xla/xla_data.pb.h"
 #include "tensorflow/core/profiler/lib/traceme.h"
@@ -64,6 +65,9 @@ StatusOr<DevicePutResult> HandlePythonScalar(py::handle obj,
     ptr = &squashed_data;
     type = primitive_util::NativeToPrimitiveType<SquashedT>();
   }
+  // Must release the GIL before BufferFromHostBuffer because backends may
+  // decide to block/sleep for device buffer allocation.
+  py::gil_scoped_release gil_release;
   TF_ASSIGN_OR_RETURN(
       auto buffer,
       to_device->client()->BufferFromHostBuffer(
@@ -82,29 +86,32 @@ StatusOr<DevicePutResult> HandlePythonInt(py::handle obj, PjRtDevice* to_device,
 
   if (options.squash_64bit_types) {
     try {
-      data_int32 = py::cast<int32>(obj);
+      data_int32 = py::cast<int32_t>(obj);
     } catch (const std::exception& e) {
       return InvalidArgument(
           "Unable to convert Python scalar to %s. This most likely means the "
           "value (%s) overflows the range of the type.",
-          PrimitiveType_Name(primitive_util::NativeToPrimitiveType<int32>()),
+          PrimitiveType_Name(primitive_util::NativeToPrimitiveType<int32_t>()),
           py::repr(obj));
     }
     ptr = &data_int32;
     type = S32;
   } else {
     try {
-      data_int64 = py::cast<int64>(obj);
+      data_int64 = py::cast<int64_t>(obj);
     } catch (const std::exception& e) {
       return InvalidArgument(
           "Unable to convert Python scalar to %s. This most likely means the "
           "value (%s) overflows the range of the type.",
-          PrimitiveType_Name(primitive_util::NativeToPrimitiveType<int64>()),
+          PrimitiveType_Name(primitive_util::NativeToPrimitiveType<int64_t>()),
           py::repr(obj));
     }
     ptr = &data_int64;
     type = S64;
   }
+  // Must release the GIL before BufferFromHostBuffer because backends may
+  // decide to block/sleep for device buffer allocation.
+  py::gil_scoped_release gil_release;
   TF_ASSIGN_OR_RETURN(
       auto buffer,
       to_device->client()->BufferFromHostBuffer(
@@ -135,6 +142,9 @@ StatusOr<DevicePutResult> HandleNumpyScalar(py::handle h, PjRtDevice* to_device,
     ptr = &data_squashed;
     type = primitive_util::NativeToPrimitiveType<SquashedT>();
   }
+  // Must release the GIL before BufferFromHostBuffer because backends may
+  // decide to block/sleep for device buffer allocation.
+  py::gil_scoped_release gil_release;
   TF_ASSIGN_OR_RETURN(
       std::unique_ptr<PjRtBuffer> buffer,
       to_device->client()->BufferFromHostBuffer(
@@ -164,8 +174,8 @@ StatusOr<DevicePutResult> HandleNumpyArray(py::handle h, PjRtDevice* to_device,
     squashed_type = type;
   }
 
-  absl::InlinedVector<int64, 4> dims(array.ndim());
-  absl::InlinedVector<int64, 4> byte_strides(array.ndim());
+  absl::InlinedVector<int64_t, 4> dims(array.ndim());
+  absl::InlinedVector<int64_t, 4> byte_strides(array.ndim());
   for (int i = 0; i < array.ndim(); ++i) {
     dims[i] = array.shape(i);
     byte_strides[i] = array.strides(i);
@@ -182,6 +192,9 @@ StatusOr<DevicePutResult> HandleNumpyArray(py::handle h, PjRtDevice* to_device,
             std::move(py_buffer_ref)}]() { /* keeps py_buffer_ref alive */ };
     host_buffer_semantics = PjRtClient::HostBufferSemantics::kZeroCopy;
   }
+  // Must release the GIL before BufferFromHostBuffer because backends may
+  // decide to block/sleep for device buffer allocation.
+  py::gil_scoped_release gil_release;
   TF_ASSIGN_OR_RETURN(
       auto buffer,
       to_device->client()->BufferFromHostBuffer(
@@ -225,28 +238,12 @@ StatusOr<DevicePutResult> HandleDeviceArray(py::handle obj,
     return HandleNumpyArray(obj, to_device, options);
   }
 
-  // Force buffers with a non-trivial lazy expression.
-  py::object forced;
-  if (!py::getattr(obj, "_lazy_expr").is_none()) {
-    if (!options.force_lazy_arrays) {
-      return InvalidArgument("Lazy arrays are not supported by device_put");
-    }
-    static py::function& force = *[]() {
-      const auto xla_module = py::module::import("jax.interpreters.xla");
-      return new py::function(
-          py::cast<py::function>(xla_module.attr("_force")));
-    }();
-    forced = force(obj);
-    buffer = forced.attr("device_buffer");
-    obj = forced;
-  }
-
   return PyBufferHelper(obj, buffer, py::cast<PyBuffer*>(buffer), to_device);
 }
 
 }  // namespace
 
-StatusOr<DevicePutResult> DevicePut(pybind11::handle arg, PjRtDevice* to_device,
+StatusOr<DevicePutResult> DevicePut(py::handle arg, PjRtDevice* to_device,
                                     const DevicePutOptions& options) {
   tensorflow::profiler::TraceMe traceme("DevicePut");
   static const absl::flat_hash_map<PyObject*, DevicePutFunc>* const handlers =
@@ -327,7 +324,7 @@ StatusOr<DevicePutResult> DevicePut(pybind11::handle arg, PjRtDevice* to_device,
 
   auto res = handlers->find(arg.get_type().ptr());
   if (res == handlers->end()) {
-    for (auto base_class : arg.get_type().attr("mro")()) {
+    for (auto base_class : arg.get_type().attr("__mro__")) {
       res = handlers->find(base_class.ptr());
       if (res != handlers->end()) {
         return res->second(arg, to_device, options);
@@ -364,7 +361,7 @@ std::string PyArgSignature::DebugString() const {
 using ToPyArgSignatureHandler =
     std::function<StatusOr<PyArgSignature>(py::handle, bool)>;
 
-StatusOr<PyArgSignature> PyArgSignatureOfValue(pybind11::handle arg,
+StatusOr<PyArgSignature> PyArgSignatureOfValue(py::handle arg,
                                                bool jax_enable_x64) {
   static const absl::flat_hash_map<PyObject*, ToPyArgSignatureHandler>* const
       handlers = [] {
@@ -423,7 +420,7 @@ StatusOr<PyArgSignature> PyArgSignatureOfValue(pybind11::handle arg,
           TF_ASSIGN_OR_RETURN(auto dtype,
                               DtypeToPrimitiveType(aval.attr("dtype")));
           return PyArgSignature(
-              dtype, py::cast<std::vector<int64>>(aval.attr("shape")),
+              dtype, py::cast<std::vector<int64_t>>(aval.attr("shape")),
               py::cast<py::bool_>(aval.attr("weak_type")));
         };
         (*p)[PyBuffer::base_type()] = device_array_handler;
@@ -525,7 +522,6 @@ StatusOr<PyArgSignature> PyArgSignatureOfValue(pybind11::handle arg,
 
   // Fast-path for the most common case of PyBuffer.
   if (arg.get_type().ptr() == PyBuffer::type()) {
-    // PyBuffer necessarily has a trivial LazyExpr, no need to check it.
     TF_ASSIGN_OR_RETURN(PyBuffer * buffer, PyBuffer::AsPyBuffer(arg));
     bool weak_type = buffer->weak_type().has_value()
                          ? *buffer->weak_type()
@@ -535,10 +531,24 @@ StatusOr<PyArgSignature> PyArgSignatureOfValue(pybind11::handle arg,
                           weak_type);
   }
 
+  // Fast-path for ShardedDeviceArray.
+  if (jax::ShardedDeviceArray::IsShardedDeviceArray(arg)) {
+    jax::ShardedDeviceArray* sda =
+        jax::ShardedDeviceArray::AsShardedDeviceArrayUnchecked(arg);
+
+    // TODO(jblespiau): See if we can be faster not accessing the aval attribute
+    // and storing these directly.
+    py::handle aval = arg.attr("aval");
+    TF_ASSIGN_OR_RETURN(auto dtype, DtypeToPrimitiveType(aval.attr("dtype")));
+    return PyArgSignature(dtype,
+                          py::cast<std::vector<int64_t>>(aval.attr("shape")),
+                          sda->weak_type());
+  }
+
   auto res = handlers->find(arg.get_type().ptr());
   if (res == handlers->end()) {
     // We attempt to look at the MRO classes
-    for (auto base_class : arg.get_type().attr("mro")()) {
+    for (auto base_class : arg.get_type().attr("__mro__")) {
       res = handlers->find(base_class.ptr());
       if (res != handlers->end()) {
         return res->second(arg, jax_enable_x64);

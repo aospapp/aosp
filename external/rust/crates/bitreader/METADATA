@@ -1,0 +1,20 @@
+name: "bitreader"
+description: "BitReader helps reading individual bits from a slice of bytes.  You can read \"unusual\" numbers of bits from the byte slice, for example 13 bits at once. The reader internally keeps track of position within the buffer."
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://crates.io/crates/bitreader"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://static.crates.io/crates/bitreader/bitreader-0.3.6.crate"
+  }
+  version: "0.3.6"
+  # Dual-licensed, using the least restrictive per go/thirdpartylicenses#same.
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2022
+    month: 11
+    day: 2
+  }
+}

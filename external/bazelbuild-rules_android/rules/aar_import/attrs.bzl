@@ -15,7 +15,7 @@
 """Attributes."""
 
 load(
-    "@rules_android//rules:attrs.bzl",
+    "//rules:attrs.bzl",
     _attrs = "attrs",
 )
 
@@ -24,15 +24,24 @@ ATTRS = _attrs.add(
         aar = attr.label(
             allow_single_file = [".aar"],
             mandatory = True,
+            doc = "The .aar file to process.",
         ),
-        data = attr.label_list(allow_files = True),
+        data = attr.label_list(
+            allow_files = True,
+            doc = "Files needed by this rule at runtime. May list file or rule " +
+                  "targets. Generally allows any target.",
+        ),
         deps = attr.label_list(
             allow_files = False,
             providers = [JavaInfo],
+            doc = "The list of libraries to link against.",
         ),
         exports = attr.label_list(
             allow_files = False,
-            allow_rules = ["aar_import", "java_import"],
+            allow_rules = ["aar_import", "java_import", "kt_jvm_import"],
+            doc = "The closure of all rules reached via `exports` attributes are considered " +
+                  "direct dependencies of any rule that directly depends on the target with " +
+                  "`exports`. The `exports` are not direct deps of the rule they belong to.",
         ),
         has_lint_jar = attr.bool(
             default = False,
@@ -45,20 +54,20 @@ ATTRS = _attrs.add(
         ),
         srcjar = attr.label(
             allow_single_file = [".srcjar"],
-            doc =
-                "A srcjar file that contains the source code for the JVM " +
-                "artifacts stored within the AAR.",
+            doc = "A srcjar file that contains the source code for the JVM " +
+                  "artifacts stored within the AAR.",
         ),
         _flags = attr.label(
-            default = "@rules_android//rules/flags",
+            default = "//rules/flags",
         ),
         _java_toolchain = attr.label(
             default = Label("//tools/jdk:toolchain_android_only"),
         ),
         _host_javabase = attr.label(
-            cfg = "host",
+            cfg = "exec",
             default = Label("//tools/jdk:current_java_runtime"),
         ),
     ),
     _attrs.DATA_CONTEXT,
+    _attrs.ANDROID_TOOLCHAIN_ATTRS,
 )

@@ -8,11 +8,11 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.ImmutableSet;
-
 import org.unicode.cldr.util.CLDRPaths;
 import org.unicode.cldr.util.CLDRTool;
 import org.unicode.cldr.util.PathUtilities;
+
+import com.google.common.collect.ImmutableSet;
 
 @CLDRTool(alias = "CompareFilesBetweenReleases", description = "Print a report of which files changed since the last release")
 public class CompareFilesBetweenReleases2 {
@@ -58,9 +58,9 @@ public class CompareFilesBetweenReleases2 {
             commonToSeed.forEach((final String f) -> System.out.println(f));
         }
 
-        System.out.println("\nIn master, but not "+ToolConstants.LAST_RELEASE_VERSION+":\n");
+        System.out.println("\nIn main, but not "+ToolConstants.LAST_RELEASE_VERSION+":\n");
         showDiff(staging, lastRelease, seedToCommon);
-        System.out.println("\nIn "+ToolConstants.LAST_RELEASE_VERSION+", but not master:\n");
+        System.out.println("\nIn "+ToolConstants.LAST_RELEASE_VERSION+", but not main:\n");
         showDiff(lastRelease, staging, commonToSeedExclude);
     }
 

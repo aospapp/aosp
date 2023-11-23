@@ -40,8 +40,6 @@ class firmware_Cr50RMAOpen(Cr50Test):
     LIMIT_CLI = '(RMA Auth error 0x504|rma_auth\s+>)'
     LIMIT_AP = 'error 4'
     ERR_DISABLE_AP = 'error 7'
-    DISABLE_WARNING = ('mux_client_request_session: read from master failed: '
-            'Broken pipe')
     # GSCTool exit statuses
     UPDATE_ERROR = 3
     SUCCESS = 0
@@ -75,7 +73,7 @@ class firmware_Cr50RMAOpen(Cr50Test):
         # Disable all capabilities at the start of the test. Go ahead and enable
         # testlab mode if it isn't enabled.
         self.fast_ccd_open(enable_testlab=True)
-        self.cr50.send_command('ccd reset')
+        self.cr50.ccd_reset(servo_en=False)
         self.cr50.set_ccd_level('lock')
         # Make sure all capabilities are set to default.
         try:
@@ -197,7 +195,7 @@ class firmware_Cr50RMAOpen(Cr50Test):
     def fake_rma_open(self):
         """Use individual commands to enter the same state as factory mode"""
         self.cr50.send_command('ccd testlab open')
-        self.cr50.send_command('ccd reset factory')
+        self.cr50.ccd_reset_factory()
         self.cr50.send_command('wp disable atboot')
 
 

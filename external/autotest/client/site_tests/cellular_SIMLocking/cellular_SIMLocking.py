@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -82,7 +83,7 @@ class cellular_SIMLocking(test.test):
 
     def _get_sim_lock_status(self):
         """ Helper method to safely obtain SIM lock status. """
-        properties = self.device.GetProperties(utf8_strings=True)
+        properties = self.device.GetProperties()
         sim_lock_status = properties.get(
                 self.test_env.shill.DEVICE_PROPERTY_SIM_LOCK_STATUS,
                 None)

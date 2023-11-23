@@ -4,67 +4,74 @@ Abbreviation Extension for Python-Markdown
 
 This extension adds abbreviation handling to Python-Markdown.
 
-Simple Usage:
+See <https://Python-Markdown.github.io/extensions/abbreviations>
+for documentation.
 
-    >>> import markdown
-    >>> text = """
-    ... Some text with an ABBR and a REF. Ignore REFERENCE and ref.
-    ...
-    ... *[ABBR]: Abbreviation
-    ... *[REF]: Abbreviation Reference
-    ... """
-    >>> markdown.markdown(text, ['abbr'])
-    u'<p>Some text with an <abbr title="Abbreviation">ABBR</abbr> and a <abbr title="Abbreviation Reference">REF</abbr>. Ignore REFERENCE and ref.</p>'
+Oringinal code Copyright 2007-2008 [Waylan Limberg](http://achinghead.com/) and
+ [Seemant Kulleen](http://www.kulleen.org/)
 
-Copyright 2007-2008
-* [Waylan Limberg](http://achinghead.com/)
-* [Seemant Kulleen](http://www.kulleen.org/)
-	
+All changes Copyright 2008-2014 The Python Markdown Project
+
+License: [BSD](https://opensource.org/licenses/bsd-license.php)
 
 '''
 
-import markdown, re
-from markdown import etree
+from . import Extension
+from ..blockprocessors import BlockProcessor
+from ..inlinepatterns import InlineProcessor
+from ..util import AtomicString
+import re
+import xml.etree.ElementTree as etree
 
-# Global Vars
-ABBR_REF_RE = re.compile(r'[*]\[(?P<abbr>[^\]]*)\][ ]?:\s*(?P<title>.*)')
 
-class AbbrExtension(markdown.Extension):
+class AbbrExtension(Extension):
     """ Abbreviation Extension for Python-Markdown. """
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self, md):
         """ Insert AbbrPreprocessor before ReferencePreprocessor. """
-        md.preprocessors.add('abbr', AbbrPreprocessor(md), '<reference')
-        
-           
-class AbbrPreprocessor(markdown.preprocessors.Preprocessor):
+        md.parser.blockprocessors.register(AbbrPreprocessor(md.parser), 'abbr', 16)
+
+
+class AbbrPreprocessor(BlockProcessor):
     """ Abbreviation Preprocessor - parse text for abbr references. """
 
-    def run(self, lines):
+    RE = re.compile(r'^[*]\[(?P<abbr>[^\]]*)\][ ]?:[ ]*\n?[ ]*(?P<title>.*)$', re.MULTILINE)
+
+    def test(self, parent, block):
+        return True
+
+    def run(self, parent, blocks):
         '''
         Find and remove all Abbreviation references from the text.
         Each reference is set as a new AbbrPattern in the markdown instance.
-        
+
         '''
-        new_text = []
-        for line in lines:
-            m = ABBR_REF_RE.match(line)
-            if m:
-                abbr = m.group('abbr').strip()
-                title = m.group('title').strip()
-                self.markdown.inlinePatterns['abbr-%s'%abbr] = \
-                    AbbrPattern(self._generate_pattern(abbr), title)
-            else:
-                new_text.append(line)
-        return new_text
-    
+        block = blocks.pop(0)
+        m = self.RE.search(block)
+        if m:
+            abbr = m.group('abbr').strip()
+            title = m.group('title').strip()
+            self.parser.md.inlinePatterns.register(
+                AbbrInlineProcessor(self._generate_pattern(abbr), title), 'abbr-%s' % abbr, 2
+            )
+            if block[m.end():].strip():
+                # Add any content after match back to blocks as separate block
+                blocks.insert(0, block[m.end():].lstrip('\n'))
+            if block[:m.start()].strip():
+                # Add any content before match back to blocks as separate block
+                blocks.insert(0, block[:m.start()].rstrip('\n'))
+            return True
+        # No match. Restore block.
+        blocks.insert(0, block)
+        return False
+
     def _generate_pattern(self, text):
         '''
-        Given a string, returns an regex pattern to match that string. 
-        
-        'HTML' -> r'(?P<abbr>[H][T][M][L])' 
-        
-        Note: we force each char as a literal match (in brackets) as we don't 
+        Given a string, returns an regex pattern to match that string.
+
+        'HTML' -> r'(?P<abbr>[H][T][M][L])'
+
+        Note: we force each char as a literal match (in brackets) as we don't
         know what they will be beforehand.
 
         '''
@@ -74,22 +81,19 @@ class AbbrPreprocessor(markdown.preprocessors.Preprocessor):
         return r'(?P<abbr>\b%s\b)' % (r''.join(chars))
 
 
-class AbbrPattern(markdown.inlinepatterns.Pattern):
+class AbbrInlineProcessor(InlineProcessor):
     """ Abbreviation inline pattern. """
 
     def __init__(self, pattern, title):
-        markdown.inlinepatterns.Pattern.__init__(self, pattern)
+        super().__init__(pattern)
         self.title = title
 
-    def handleMatch(self, m):
+    def handleMatch(self, m, data):
         abbr = etree.Element('abbr')
-        abbr.text = m.group('abbr')
+        abbr.text = AtomicString(m.group('abbr'))
         abbr.set('title', self.title)
-        return abbr
+        return abbr, m.start(0), m.end(0)
 
-def makeExtension(configs=None):
-    return AbbrExtension(configs=configs)
 
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
+def makeExtension(**kwargs):  # pragma: no cover
+    return AbbrExtension(**kwargs)

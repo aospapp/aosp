@@ -232,9 +232,10 @@ public final class ModelDownloadWorker extends ListenableWorker {
             downloadManifestAndRegister(modelType, bestLocaleTag, manifestUrl));
       }
       manifestsToDownloadBuilder.put(
-          modelType, ManifestsToDownloadByType.create(localeTagToManifestUrlBuilder.build()));
+          modelType,
+          ManifestsToDownloadByType.create(localeTagToManifestUrlBuilder.buildOrThrow()));
     }
-    manifestsToDownload = manifestsToDownloadBuilder.build();
+    manifestsToDownload = manifestsToDownloadBuilder.buildOrThrow();
 
     return Futures.whenAllComplete(downloadResultFutures)
         .call(

@@ -548,22 +548,23 @@ struct MinimalMockAllocator {
 TEST(AllocatorTraits, FunctionsMinimal) {
   int trace = 0;
   int hint;
-  TestValue x(&trace);
+  alignas(TestValue) char buffer[sizeof(TestValue)];
+  auto* x = reinterpret_cast<TestValue*>(buffer);
   MinimalMockAllocator mock;
   using Traits = absl::allocator_traits<MinimalMockAllocator>;
-  EXPECT_CALL(mock, allocate(7)).WillRepeatedly(Return(&x));
-  EXPECT_CALL(mock, deallocate(&x, 7));
+  EXPECT_CALL(mock, allocate(7)).WillRepeatedly(Return(x));
+  EXPECT_CALL(mock, deallocate(x, 7));
 
-  EXPECT_EQ(&x, Traits::allocate(mock, 7));
+  EXPECT_EQ(x, Traits::allocate(mock, 7));
   static_cast<void>(Traits::allocate(mock, 7, static_cast<const void*>(&hint)));
-  EXPECT_EQ(&x, Traits::allocate(mock, 7, static_cast<const void*>(&hint)));
-  Traits::deallocate(mock, &x, 7);
+  EXPECT_EQ(x, Traits::allocate(mock, 7, static_cast<const void*>(&hint)));
+  Traits::deallocate(mock, x, 7);
 
+  EXPECT_EQ(0, trace);
+  Traits::construct(mock, x, &trace);
   EXPECT_EQ(1, trace);
-  Traits::construct(mock, &x, &trace);
-  EXPECT_EQ(2, trace);
-  Traits::destroy(mock, &x);
-  EXPECT_EQ(1, trace);
+  Traits::destroy(mock, x);
+  EXPECT_EQ(0, trace);
 
   EXPECT_EQ(std::numeric_limits<size_t>::max() / sizeof(TestValue),
             Traits::max_size(mock));
@@ -599,7 +600,7 @@ TEST(AllocatorTraits, FunctionsFull) {
   EXPECT_CALL(mock, allocate(13, &hint)).WillRepeatedly(Return(&y));
   EXPECT_CALL(mock, construct(&x, &trace));
   EXPECT_CALL(mock, destroy(&x));
-  EXPECT_CALL(mock, max_size()).WillRepeatedly(Return(17));
+  EXPECT_CALL(mock, max_size()).WillRepeatedly(Return(17u));
   EXPECT_CALL(mock, select_on_container_copy_construction())
       .WillRepeatedly(Return(FullMockAllocator(23)));
 
@@ -612,7 +613,7 @@ TEST(AllocatorTraits, FunctionsFull) {
   Traits::destroy(mock, &x);
   EXPECT_EQ(1, trace);
 
-  EXPECT_EQ(17, Traits::max_size(mock));
+  EXPECT_EQ(17u, Traits::max_size(mock));
 
   EXPECT_EQ(0, mock.value);
   EXPECT_EQ(23, Traits::select_on_container_copy_construction(mock).value);

@@ -7,10 +7,11 @@ from autotest_lib.server import utils
 AUTHOR = "Cr50 FW team"
 NAME = "firmware_Cr50CCDUartStress"
 PURPOSE = "Uart Stress Test in ccd mode"
-ATTRIBUTES = "suite:faft_cr50_prepvt, suite:faft_cr50_pvt"
+ATTRIBUTES = "suite:faft_ccd, suite:faft_cr50_prepvt, suite:faft_cr50_pvt"
 TIME = "MEDIUM"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 This is a test for Uart-USB bridging qualification.

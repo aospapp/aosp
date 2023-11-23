@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2020 FUJITSU LIMITED. All rights reserved.
+ * Copyright (c) Linux Test Project, 2022
  * Author: Yang Xu <xuyang2018.jy@cn.jujitsu.com>
+ */
+
+/*\
+ * [Description]
  *
- * This is a basic ioctl test about loopdevice.
+ * Tests ioctl() on loopdevice with LOOP_CHANGE_FD flag.
  *
- * It is designed to test LOOP_CHANGE_FD can not succeed (get EINVAL error)
+ * Tests whether LOOP_CHANGE_FD can not succeed (get EINVAL error)
  * when loop_dev is not read only.
  */
 

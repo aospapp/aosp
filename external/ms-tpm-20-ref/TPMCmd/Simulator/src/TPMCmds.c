@@ -45,7 +45,7 @@
 #include <ctype.h>
 #include <string.h>
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #   pragma warning(push, 3)
 #   include <windows.h>
 #   include <winsock.h>

@@ -96,6 +96,7 @@ cc_library {
             host_ldlibs: [
                 "-framework CoreFoundation",
                 "-framework IOKit",
+                "-framework Security",
                 "-lobjc"
             ],
 

@@ -1,8 +1,12 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import json, logging, os, re, tempfile, time, urllib2, zipfile
+import json, logging, os, re, tempfile, time, zipfile
+
+from six.moves import urllib
+
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error, file_utils
 from autotest_lib.client.common_lib.cros import chromedriver
@@ -89,7 +93,7 @@ class network_CastTDLS(test.test):
         @param output_file: The output file of the extension.
         """
         update_check_url = UPDATE_CHECK_URL % EXTENSION_ID_BETA
-        response = urllib2.urlopen(update_check_url).read()
+        response = urllib.request.urlopen(update_check_url).read()
         logging.info('Response: %s', response)
         pattern = r'codebase="(.*crx)"'
         regex = re.compile(pattern)
@@ -174,7 +178,7 @@ class network_CastTDLS(test.test):
         @raises error.TestFail If TDLS status is invalid.
         @raises error.TestFail TDLS is not being used in the mirroring session.
         """
-        response = urllib2.urlopen(GET_LOG_URL % device_ip).read()
+        response = urllib.request.urlopen(GET_LOG_URL % device_ip).read()
         logging.info('Receiver log is under: %s', self.debugdir)
         with open(os.path.join(self.debugdir, RECEIVER_LOG), 'wb') as f:
             f.write(response)

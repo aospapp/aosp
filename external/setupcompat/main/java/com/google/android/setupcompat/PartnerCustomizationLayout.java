@@ -76,6 +76,8 @@ public class PartnerCustomizationLayout extends TemplateLayout {
 
   private Activity activity;
 
+  private PersistableBundle layoutTypeBundle;
+
   @CanIgnoreReturnValue
   public PartnerCustomizationLayout(Context context) {
     this(context, 0, 0);
@@ -92,10 +94,6 @@ public class PartnerCustomizationLayout extends TemplateLayout {
     init(null, R.attr.sucLayoutTheme);
   }
 
-  @VisibleForTesting
-  final ViewTreeObserver.OnWindowFocusChangeListener windowFocusChangeListener =
-      this::onFocusChanged;
-
   @CanIgnoreReturnValue
   public PartnerCustomizationLayout(Context context, AttributeSet attrs) {
     super(context, attrs);
@@ -108,6 +106,10 @@ public class PartnerCustomizationLayout extends TemplateLayout {
     super(context, attrs, defStyleAttr);
     init(attrs, defStyleAttr);
   }
+
+  @VisibleForTesting
+  final ViewTreeObserver.OnWindowFocusChangeListener windowFocusChangeListener =
+      this::onFocusChanged;
 
   private void init(AttributeSet attrs, int defStyleAttr) {
     if (isInEditMode()) {
@@ -242,9 +244,15 @@ public class PartnerCustomizationLayout extends TemplateLayout {
               ? secondaryButton.getMetrics("SecondaryFooterButton")
               : PersistableBundle.EMPTY;
 
+      PersistableBundle layoutTypeMetrics =
+          (layoutTypeBundle != null) ? layoutTypeBundle : PersistableBundle.EMPTY;
+
       PersistableBundle persistableBundle =
           PersistableBundles.mergeBundles(
-              footerBarMixin.getLoggingMetrics(), primaryButtonMetrics, secondaryButtonMetrics);
+              footerBarMixin.getLoggingMetrics(),
+              primaryButtonMetrics,
+              secondaryButtonMetrics,
+              layoutTypeMetrics);
 
       SetupMetricsLogger.logCustomEvent(
           getContext(),
@@ -254,6 +262,20 @@ public class PartnerCustomizationLayout extends TemplateLayout {
     if (VERSION.SDK_INT >= VERSION_CODES.JELLY_BEAN_MR2) {
       getViewTreeObserver().removeOnWindowFocusChangeListener(windowFocusChangeListener);
     }
+  }
+
+  /**
+   * PartnerCustomizationLayout is a template layout for different type of GlifLayout.
+   * This method allows each type of layout to report its "GlifLayoutType".
+   */
+  public void setLayoutTypeMetrics(PersistableBundle bundle) {
+    this.layoutTypeBundle = bundle;
+  }
+
+  /** Returns a {@link PersistableBundle} contains key "GlifLayoutType". */
+  @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
+  public PersistableBundle getLayoutTypeMetrics() {
+    return this.layoutTypeBundle;
   }
 
   public static Activity lookupActivityFromContext(Context context) {

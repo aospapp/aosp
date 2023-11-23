@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "chrome-informational"
 PURPOSE = "Informational tests of chrome"
 
@@ -14,10 +14,10 @@ TEST_TYPE = "Server"
 DOC = """
 This suite contains informational tests that:
 
-* Test Chrome, not Chrome OS
+* Test Chrome, not ChromeOS
 * Require real hardware (for example, to test GPU process init
 or display management)
-* Should not block uprev of Chrome into Chrome OS
+* Should not block uprev of Chrome into ChromeOS
 
 Chrome tests that do not require real hardware should be
 implemented in the Chrome repository as unit_tests or browser_tests.

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2016 Google LLC
 #
 # This script is part of the Android binary search triage process.
 # It should be the last script called by the user, after the user has

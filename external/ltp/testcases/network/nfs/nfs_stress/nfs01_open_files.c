@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright (c) Linux Test Project, 2001-2022
+ */
+
 #include <stdio.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -10,7 +15,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define TEMPLATE "ltpXXXXXX"
+#define TEMPLATE_PREFIX "ltp"
+#define TEMPLATE_PREFIX_LEN (sizeof(TEMPLATE_PREFIX) - 1)
+#define TEMPLATE TEMPLATE_PREFIX "XXXXXX"
+#define MSG "I Love Linux!!!\n"
+#define MSG_LEN (sizeof(MSG) - 1)
 
 int write_something(int);
 void delete_files(void);
@@ -82,7 +91,7 @@ int main(int argc, char *argv[])
 int write_something(int fd)
 {
 	int rc;
-	const char msg[] = "I Love Linux!!!\n";
+	const char msg[] = MSG;
 	int msg_len = strlen(msg);
 
 	rc = write(fd, msg, msg_len);
@@ -101,13 +110,15 @@ void delete_files(void)
 
 	dirp = opendir(".");
 	for (entp = readdir(dirp); entp; entp = readdir(dirp))
-		if (!strncmp(entp->d_name, "apt", 3)) {
+		if (!strncmp(entp->d_name, TEMPLATE_PREFIX, TEMPLATE_PREFIX_LEN)) {
 			if (stat(entp->d_name, &stat_buffer))
 				abortx("stat() failed for \"%s\", errno = %d",
 				       entp->d_name, errno);
-			if (stat_buffer.st_size != 23)
-				abortx("wrong file size for \"%s\"",
-				       entp->d_name);
+
+			if (stat_buffer.st_size != MSG_LEN)
+				abortx("wrong file size for \"%s\": %d",
+				       entp->d_name, stat_buffer.st_size);
+
 			if (unlink(entp->d_name))
 				abortx("unlink failed for \"%s\"",
 				       entp->d_name);

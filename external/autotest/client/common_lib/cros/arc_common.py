@@ -85,7 +85,8 @@ def wait_for_android_boot(timeout=None):
 
     def _is_android_booted():
         output = utils.system_output(
-            'android-sh -c "getprop sys.boot_completed"', ignore_status=True)
+                'android-sh -c "getprop ro.arc.boot_completed"',
+                ignore_status=True)
         return output.strip() == '1'
 
     logging.info('Waiting for Android to boot completely.')

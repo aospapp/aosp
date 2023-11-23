@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -122,15 +122,12 @@ impl VirtioPciCommonConfig {
             0x10 => self.msix_config,
             0x12 => queues.len() as u16, // num_queues
             0x16 => self.queue_select,
-            0x18 => self.with_queue(queues, |q| q.size).unwrap_or(0),
-            0x1a => self.with_queue(queues, |q| q.vector).unwrap_or(0),
-            0x1c => {
-                if self.with_queue(queues, |q| q.ready).unwrap_or(false) {
-                    1
-                } else {
-                    0
-                }
-            }
+            0x18 => self.with_queue(queues, |q| q.size()).unwrap_or(0),
+            0x1a => self.with_queue(queues, |q| q.vector()).unwrap_or(0),
+            0x1c => self
+                .with_queue(queues, |q| q.ready())
+                .unwrap_or(false)
+                .into(),
             0x1e => self.queue_select, // notify_off
             _ => 0,
         }
@@ -140,9 +137,9 @@ impl VirtioPciCommonConfig {
         match offset {
             0x10 => self.msix_config = value,
             0x16 => self.queue_select = value,
-            0x18 => self.with_queue_mut(queues, |q| q.size = value),
-            0x1a => self.with_queue_mut(queues, |q| q.vector = value),
-            0x1c => self.with_queue_mut(queues, |q| q.ready = value == 1),
+            0x18 => self.with_queue_mut(queues, |q| q.set_size(value)),
+            0x1a => self.with_queue_mut(queues, |q| q.set_vector(value)),
+            0x1c => self.with_queue_mut(queues, |q| q.set_ready(value == 1)),
             _ => {
                 warn!("invalid virtio register word write: 0x{:x}", offset);
             }
@@ -173,12 +170,15 @@ impl VirtioPciCommonConfig {
         queues: &mut [Queue],
         device: &mut dyn VirtioDevice,
     ) {
-        fn hi(v: &mut GuestAddress, x: u32) {
-            *v = (*v & 0xffffffff) | ((x as u64) << 32)
+        macro_rules! hi {
+            ($q:expr, $get:ident, $set:ident, $x:expr) => {
+                $q.$set(($q.$get() & 0xffffffff) | (($x as u64) << 32))
+            };
         }
-
-        fn lo(v: &mut GuestAddress, x: u32) {
-            *v = (*v & !0xffffffff) | (x as u64)
+        macro_rules! lo {
+            ($q:expr, $get:ident, $set:ident, $x:expr) => {
+                $q.$set(($q.$get() & !0xffffffff) | ($x as u64))
+            };
         }
 
         match offset {
@@ -198,12 +198,12 @@ impl VirtioPciCommonConfig {
                     );
                 }
             }
-            0x20 => self.with_queue_mut(queues, |q| lo(&mut q.desc_table, value)),
-            0x24 => self.with_queue_mut(queues, |q| hi(&mut q.desc_table, value)),
-            0x28 => self.with_queue_mut(queues, |q| lo(&mut q.avail_ring, value)),
-            0x2c => self.with_queue_mut(queues, |q| hi(&mut q.avail_ring, value)),
-            0x30 => self.with_queue_mut(queues, |q| lo(&mut q.used_ring, value)),
-            0x34 => self.with_queue_mut(queues, |q| hi(&mut q.used_ring, value)),
+            0x20 => self.with_queue_mut(queues, |q| lo!(q, desc_table, set_desc_table, value)),
+            0x24 => self.with_queue_mut(queues, |q| hi!(q, desc_table, set_desc_table, value)),
+            0x28 => self.with_queue_mut(queues, |q| lo!(q, avail_ring, set_avail_ring, value)),
+            0x2c => self.with_queue_mut(queues, |q| hi!(q, avail_ring, set_avail_ring, value)),
+            0x30 => self.with_queue_mut(queues, |q| lo!(q, used_ring, set_used_ring, value)),
+            0x34 => self.with_queue_mut(queues, |q| hi!(q, used_ring, set_used_ring, value)),
             _ => {
                 warn!("invalid virtio register dword write: 0x{:x}", offset);
             }
@@ -216,9 +216,9 @@ impl VirtioPciCommonConfig {
 
     fn write_common_config_qword(&mut self, offset: u64, value: u64, queues: &mut [Queue]) {
         match offset {
-            0x20 => self.with_queue_mut(queues, |q| q.desc_table = GuestAddress(value)),
-            0x28 => self.with_queue_mut(queues, |q| q.avail_ring = GuestAddress(value)),
-            0x30 => self.with_queue_mut(queues, |q| q.used_ring = GuestAddress(value)),
+            0x20 => self.with_queue_mut(queues, |q| q.set_desc_table(GuestAddress(value))),
+            0x28 => self.with_queue_mut(queues, |q| q.set_avail_ring(GuestAddress(value))),
+            0x30 => self.with_queue_mut(queues, |q| q.set_used_ring(GuestAddress(value))),
             _ => {
                 warn!("invalid virtio register qword write: 0x{:x}", offset);
             }
@@ -241,12 +241,14 @@ impl VirtioPciCommonConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use base::{Event, RawDescriptor};
+    use base::Event;
+    use base::RawDescriptor;
     use vm_memory::GuestMemory;
 
-    struct DummyDevice(u32);
+    use super::*;
+    use crate::Suspendable;
+
+    struct DummyDevice(DeviceType);
     const QUEUE_SIZE: u16 = 256;
     const QUEUE_SIZES: &[u16] = &[QUEUE_SIZE];
     const DUMMY_FEATURES: u64 = 0x5555_aaaa;
@@ -254,8 +256,8 @@ mod tests {
         fn keep_rds(&self) -> Vec<RawDescriptor> {
             Vec::new()
         }
-        fn device_type(&self) -> u32 {
-            return self.0;
+        fn device_type(&self) -> DeviceType {
+            self.0
         }
         fn queue_max_sizes(&self) -> &[u16] {
             QUEUE_SIZES
@@ -264,14 +266,16 @@ mod tests {
             &mut self,
             _mem: GuestMemory,
             _interrupt: Interrupt,
-            _queues: Vec<Queue>,
-            _queue_evts: Vec<Event>,
-        ) {
+            _queues: Vec<(Queue, Event)>,
+        ) -> anyhow::Result<()> {
+            Ok(())
         }
         fn features(&self) -> u64 {
             DUMMY_FEATURES
         }
     }
+
+    impl Suspendable for DummyDevice {}
 
     #[test]
     fn write_base_regs() {
@@ -284,7 +288,7 @@ mod tests {
             msix_config: 0x00,
         };
 
-        let dev = &mut DummyDevice(0) as &mut dyn VirtioDevice;
+        let dev = &mut DummyDevice(DeviceType::Rng) as &mut dyn VirtioDevice;
         let mut queues = Vec::new();
 
         // Can set all bits of driver_status.

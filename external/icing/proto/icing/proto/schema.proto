@@ -34,7 +34,7 @@ option objc_class_prefix = "ICNG";
 // TODO(cassiewang) Define a sample proto file that can be used by tests and for
 // documentation.
 //
-// Next tag: 6
+// Next tag: 7
 message SchemaTypeConfigProto {
   // REQUIRED: Named type that uniquely identifies the structured, logical
   // schema being defined.
@@ -59,6 +59,12 @@ message SchemaTypeConfigProto {
   // succeeds. Clients are free to leave the version number unset, in which case
   // it will default to value == 0.
   optional int32 version = 5;
+
+  // An experimental field to make the type as a subtype of parent_types, which
+  // enables parent_types to be interpreted as its subtypes in the context of
+  // the Search APIs, including schema type filters and projections specified in
+  // TypePropertyMask.
+  repeated string parent_types = 6;
 
   reserved 2, 3;
 }
@@ -99,6 +105,33 @@ message StringIndexingConfig {
       // preserving punctuation and capitalization, and not creating separate
       // tokens between the space.
       VERBATIM = 2;
+
+      // Tokenizes text as an email address. This means it will tokenize a
+      // string into multiple emails, and further tokenize those into parts of
+      // an email address. These parts include the local address, host
+      // components, local components, as well as the name and comments. For
+      // example, "User (comment) <user@domain.com>" would be tokenized into a
+      // "User" name token, a "comment" comment token, a "user" local address, a
+      // "user" local component token, a "domain" host component token, a "com"
+      // host component token, a "user@domain.com" address token, and the entire
+      // original string as an rfc822 token.
+      // See more here: https://datatracker.ietf.org/doc/html/rfc822
+      RFC822 = 3;
+
+      // Tokenizes text as an url address. This tokenizes a url string into a
+      // token for each component in the url, as well as any significant
+      // url suffixes. For example,
+      // https://www.google.com/path/subpath?query#ref would be tokenizes into a
+      // scheme token "https“; 3 host tokens "www", "google", "com"; 2 path
+      // tokens "path", "subpath"; a query token "query"; a reference token
+      // "ref"; and 3 suffix tokens
+      // "https://www.google.com/path/subpath?query#ref",
+      // "www.google.com/path/subpath?query#ref",
+      // "google.com/path/subpath?query#ref".
+      // Currently only supports tokenization of one url string at a time
+      // i.e. the input string cannot have spaces in the middle, but can have
+      // leading or trailing spaces.
+      URL = 4;
     }
   }
   optional TokenizerType.Code tokenizer_type = 2;
@@ -116,10 +149,59 @@ message DocumentIndexingConfig {
   optional bool index_nested_properties = 1;
 }
 
+// Describes how a int64 property should be indexed.
+// Next tag: 3
+message IntegerIndexingConfig {
+  // OPTIONAL: Indicates how the int64 contents of this property should be
+  // matched.
+  //
+  // The default value is UNKNOWN.
+  message NumericMatchType {
+    enum Code {
+      // Contents in this property will not be indexed. Useful if the int64
+      // property type is not indexable.
+      UNKNOWN = 0;
+
+      // Contents in this property should only be returned for queries matching
+      // the range.
+      RANGE = 1;
+    }
+  }
+  optional NumericMatchType.Code numeric_match_type = 1;
+}
+
+// Describes how a property can be used to join this document with another
+// document. See JoinSpecProto (in search.proto) for more details.
+// Next tag: 3
+message JoinableConfig {
+  // OPTIONAL: Indicates what joinable type the content value of this property
+  // is.
+  //
+  // The default value is NONE.
+  message ValueType {
+    enum Code {
+      // Value in this property is not joinable.
+      NONE = 0;
+
+      // Value in this property is a joinable (string) qualified id, which is
+      // composed of namespace and uri.
+      // See JoinSpecProto (in search.proto) and DocumentProto (in
+      // document.proto) for more details about qualified id, namespace and uri.
+      QUALIFIED_ID = 1;
+    }
+  }
+  optional ValueType.Code value_type = 1;
+
+  // If the parent document a child document is joined to is deleted, delete the
+  // child document as well. This will only apply to children joined through
+  // QUALIFIED_ID, other (future) joinable value types won't use it.
+  optional bool propagate_delete = 2 [default = false];
+}
+
 // Describes the schema of a single property of Documents that belong to a
 // specific SchemaTypeConfigProto. These can be considered as a rich, structured
 // type for each property of Documents accepted by IcingSearchEngine.
-// Next tag: 7
+// Next tag: 9
 message PropertyConfigProto {
   // REQUIRED: Name that uniquely identifies a property within an Document of
   // a specific SchemaTypeConfigProto.
@@ -196,6 +278,20 @@ message PropertyConfigProto {
 
   // OPTIONAL: Describes how document properties should be indexed.
   optional DocumentIndexingConfig document_indexing_config = 6;
+
+  // OPTIONAL: Describes how int64 properties should be indexed. Int64
+  // properties that do not set the indexing config will not be indexed.
+  optional IntegerIndexingConfig integer_indexing_config = 7;
+
+  // OPTIONAL: Describes how string properties can be used as a document joining
+  // matcher.
+  //
+  // Note: currently we only support STRING single joining, so if a property is
+  // set as joinable (i.e. joinable_config.content_type is not NONE), then:
+  // - DataType should be STRING. Otherwise joinable_config will be ignored.
+  // - The property itself and any upper-level (nested doc) property should
+  //   contain at most one element (i.e. Cardinality is OPTIONAL or REQUIRED).
+  optional JoinableConfig joinable_config = 8;
 }
 
 // List of all supported types constitutes the schema used by Icing.
@@ -205,7 +301,7 @@ message SchemaProto {
 }
 
 // Result of a call to IcingSearchEngine.SetSchema
-// Next tag: 8
+// Next tag: 9
 message SetSchemaResultProto {
   // Status code can be one of:
   //   OK
@@ -244,6 +340,14 @@ message SetSchemaResultProto {
 
   // Overall time used for the function call.
   optional int32 latency_ms = 7;
+
+  // Schema types that were changed in a way that was backwards compatible, but
+  // invalidated the joinable cache.
+  //
+  // For example, a property was set non joinable in the old schema definition,
+  // but changed to joinable in the new definition. In this case, this property
+  // will be considered join incompatible when setting new schema.
+  repeated string join_incompatible_changed_schema_types = 8;
 }
 
 // Result of a call to IcingSearchEngine.GetSchema

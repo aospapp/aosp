@@ -10,6 +10,7 @@ TEST_TYPE = 'Server'
 # metrics, and move this back to suite:wifi_perf.
 ATTRIBUTES = ('suite:wifi_flaky')
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 Tests the time taken to authenticate, associate, and get an IP.

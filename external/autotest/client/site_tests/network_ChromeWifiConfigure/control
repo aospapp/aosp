@@ -14,6 +14,8 @@ TIME = "FAST"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
+PY_VERSION = 3
+
 DOC = """
   Tests that Chrome can do the following using chrome.networkingPrivate:
   * Configure a new wifi network with Security = psk.

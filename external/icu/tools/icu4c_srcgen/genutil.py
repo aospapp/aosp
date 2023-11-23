@@ -88,14 +88,14 @@ def get_clang_path():
 
 def get_clang_lib_path(clang_path):
     """Return the libclang.so path"""
-    base_path = os.path.join(clang_path, 'lib64')
-    files = [f for f in os.listdir(base_path) if f.startswith('libclang.so.')]
+    base_path = os.path.join(clang_path, 'lib')
+    files = [f for f in os.listdir(base_path) if f.startswith('libclang.so')]
     return os.path.join(base_path, files[0])
 
 
 def get_clang_header_dir(clang_path):
     """Return the path to clang header directory"""
-    base_path = os.path.join(clang_path, 'lib64/clang/')
+    base_path = os.path.join(clang_path, 'lib/clang/')
     files = os.listdir(base_path)
     return os.path.join(base_path, files[0], 'include/')
 
@@ -104,7 +104,7 @@ CLANG_PATH = get_clang_path()
 CLANG_LIB_PATH = get_clang_lib_path(CLANG_PATH)
 CLANG_HEADER_PATH = get_clang_header_dir(CLANG_PATH)
 
-site.addsitedir(os.path.join(CLANG_PATH, 'lib64/python3/site-packages/'))
+site.addsitedir(os.path.join(CLANG_PATH, 'lib/python3/site-packages/'))
 import clang.cindex  # pylint: disable=import-error,wrong-import-position
 
 

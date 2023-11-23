@@ -75,10 +75,10 @@
 /* #undef LWS_HAVE_VFORK_H */
 
 /* Define to 1 if `fork' works. */
-/* #undef LWS_HAVE_WORKING_FORK */
+#define LWS_HAVE_WORKING_FORK
 
 /* Define to 1 if `vfork' works. */
-/* #undef LWS_HAVE_WORKING_VFORK */
+#define LWS_HAVE_WORKING_VFORK
 
 /* Define to 1 if execvpe() exists */
 #define LWS_HAVE_EXECVPE
@@ -105,7 +105,7 @@
 /* #undef inline */
 
 /* #undef LWS_WITH_ZLIB */
-/* #undef LWS_HAS_PTHREAD_SETNAME_NP */
+#define LWS_HAS_PTHREAD_SETNAME_NP
 
 /* Defined if you have the <inttypes.h> header file. */
 #define LWS_HAVE_INTTYPES_H

@@ -6,7 +6,6 @@ import logging
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import cr50_utils
-from autotest_lib.server.cros import filesystem_util
 from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
@@ -70,7 +69,7 @@ class firmware_Cr50SetBoardId(Cr50Test):
         if self._bid_flags == self.TEST_MP_FLAGS:
             raise error.TestNAError('cr50-set-board-id cannot be used with '
                                     'test mp images.')
-        filesystem_util.make_rootfs_writable(self.host)
+        self.make_rootfs_writable()
         self.host.run('rm %s' % cr50_utils.CR50_PREPVT, ignore_status=True)
         self.host.run('rm %s' % cr50_utils.CR50_PROD, ignore_status=True)
 
@@ -142,7 +141,7 @@ class firmware_Cr50SetBoardId(Cr50Test):
         self.run_script(self.ERROR_ALREADY_SET, 'dvt', 'TEST')
 
         # Verify each stage sets the right flags
-        for phase, flags in self.PHASE_FLAGS_DICT.iteritems():
+        for phase, flags in self.PHASE_FLAGS_DICT.items():
             self.eraseflashinfo()
 
             expected_response = self.SUCCESS

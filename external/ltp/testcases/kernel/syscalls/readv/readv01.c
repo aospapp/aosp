@@ -93,7 +93,7 @@ static void setup(void)
 	memset(buf, 0x42, sizeof(buf));
 
 	fd = SAFE_OPEN("data_file", O_WRONLY | O_CREAT | O_TRUNC, 0666);
-	SAFE_WRITE(1, fd, buf, sizeof(buf));
+	SAFE_WRITE(SAFE_WRITE_ALL, fd, buf, sizeof(buf));
 	SAFE_CLOSE(fd);
 	fd = SAFE_OPEN("data_file", O_RDONLY);
 }
@@ -110,7 +110,6 @@ static struct tst_test test = {
 	.test = test_readv,
 	.tcnt = ARRAY_SIZE(testcase_list),
 	.needs_tmpdir = 1,
-	.timeout = 15,
 	.tags = (const struct tst_tag[]) {
 		{"linux-git", "19f18459330f"},
 		{}

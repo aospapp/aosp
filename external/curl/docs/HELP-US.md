@@ -4,9 +4,11 @@ We are always in need of more help. If you are new to the project and are
 looking for ways to contribute and help out, this document aims to give a few
 good starting points.
 
-A good idea is to start by subscribing to the [curl-library mailing
+You may subscribe to the [curl-library mailing
 list](https://lists.haxx.se/listinfo/curl-library) to keep track of the
-current discussion topics.
+current discussion topics; or if you are registered on GitHub, you can use the
+[Discussions section](https://github.com/curl/curl/discussions) on the main
+curl repository.
 
 ## Scratch your own itch
 
@@ -28,7 +30,7 @@ even maybe not a terribly experienced developer, here's our advice:
  - Read through this document to get a grasp on a general approach to use
  - Consider adding a test case for something not currently tested (correctly)
  - Consider updating or adding documentation
- - One way to get your feet wet gently in the project, is to participate in an
+ - One way to get started gently in the project, is to participate in an
    existing issue/PR and help out by reproducing the issue, review the code in
    the PR etc.
 
@@ -84,4 +86,4 @@ the specific implementation. Either way is fine.
 We offer [guidelines](https://curl.se/dev/contribute.html) that are
 suitable to be familiar with before you decide to contribute to curl. If
 you are used to open source development, you will probably not find many
-surprises in there.
+surprises there.

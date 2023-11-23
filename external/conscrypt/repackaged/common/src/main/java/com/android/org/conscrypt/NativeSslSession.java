@@ -36,11 +36,10 @@ import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSessionContext;
-import javax.security.cert.X509Certificate;
 
 /**
  * A utility wrapper that abstracts operations on the underlying native SSL_SESSION instance.
- *
+ * <p>
  * This is abstract only to support mocking for tests.
  */
 abstract class NativeSslSession {
@@ -154,10 +153,7 @@ abstract class NativeSslSession {
             NativeRef.SSL_SESSION ref =
                     new NativeRef.SSL_SESSION(NativeCrypto.d2i_SSL_SESSION(sessionData));
             return new Impl(context, ref, host, port, peerCerts, ocspData, tlsSctData);
-        } catch (IOException e) {
-            log(e);
-            return null;
-        } catch (BufferUnderflowException e) {
+        } catch (IOException | BufferUnderflowException e) {
             log(e);
             return null;
         }
@@ -440,7 +436,7 @@ abstract class NativeSslSession {
 
                 @Override
                 @SuppressWarnings("deprecation")
-                public X509Certificate[] getPeerCertificateChain() {
+                public javax.security.cert.X509Certificate[] getPeerCertificateChain() {
                     throw new UnsupportedOperationException();
                 }
 

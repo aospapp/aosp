@@ -67,7 +67,7 @@ class firmware_RecoveryStress(FirmwareTest):
             elif not self.cache_exist():
                 raise error.TestNAError('No RECOVERY_MRC_CACHE was found on DUT.')
 
-        for i in xrange(reboot_iterations):
+        for i in range(reboot_iterations):
             logging.info('======== RUNNING RECOVERY BOOT ITERATION %d/%d '
                     '========', i+1, reboot_iterations)
             self.switcher.reboot_to_mode(to_mode=self.mode)

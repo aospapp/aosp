@@ -1,13 +1,9 @@
 URL: https://chromium.googlesource.com/webm/libwebp
-Version: 1.2.2
+Version: 1.3.0
 License: Google BSD like
 
 Local modifications:
-- Copy public headers from src/webp to include/webp, so path to headers
-  may be appended into CFLAGS without risk for other private headers
-  (e.g. bits.h) to leak into
-- Removed build files necessary for building via autoconf/automake tools
-  These files are not required to build via Android.bp
+- LOCAL_LICENSE_KINDS and related variables added to **/Android.mk
 
 The Android.bp file creates WebP decoder and encoder static libraries which
 can be added to any application by adding libwebp-decode and libwebp-encode to

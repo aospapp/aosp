@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_BatteryCharge.args"
 PURPOSE = "Measure the time required to charge the battery."
 CRITERIA = "This test is a benchmark."
@@ -10,6 +10,7 @@ TIME = "LONG"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 Device should be plugged into an AC outlet.

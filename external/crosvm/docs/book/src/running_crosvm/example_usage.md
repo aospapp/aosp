@@ -5,7 +5,7 @@ a kernel and rootfs by yourself, please see [Building crosvm].
 
 The example code for this guide is available in [tools/examples]
 
-## Run a simple Guest OS (usig virt-builder)
+## Run a simple Guest OS (using virt-builder)
 
 To run a VM with crosvm, we need two things: A kernel binary and a rootfs. You can
 [build those yourself](./custom_kernel_rootfs.md) or use prebuilt cloud/vm images that some linux
@@ -116,6 +116,6 @@ The full source for this example can be executed directly (Note, you may want to
 ./tools/examples/example_desktop
 ```
 
-[building crosvm]: ../building_crosvm/index.md
+[building crosvm]: ../building_crosvm.md
 [tools/examples]: https://source.chromium.org/chromiumos/chromiumos/codesearch/+/main:src/platform/crosvm/tools/examples
 [virt-builder]: https://libguestfs.org/virt-builder.1.html

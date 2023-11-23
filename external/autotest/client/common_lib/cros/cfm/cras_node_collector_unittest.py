@@ -1,5 +1,5 @@
 import unittest
-import mock
+from unittest import mock
 
 from autotest_lib.client.common_lib.cros.cfm import cras_node_collector
 

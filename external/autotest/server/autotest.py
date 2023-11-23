@@ -32,7 +32,7 @@ from six.moves import map
 
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = client_utils.metrics_mock
 
@@ -53,6 +53,11 @@ _FAIL_STATUS_RE = re.compile(
     r'\s*FAIL.*localtime=.*\s*.*\s*[0-9]+:[0-9]+:[0-9]+\s*(?P<fail_msg>.*)')
 
 LOG_BUFFER_SIZE_BYTES = 64
+
+
+def _set_py_version():
+    """As of ~R102 (aka when this merges), DUTs only have Python 3."""
+    return '--py_version=3'
 
 
 class AutodirNotFoundError(Exception):
@@ -345,6 +350,8 @@ class Autotest(installable_object.InstallableObject):
             self.get()
         host.wait_up(timeout=30)
         host.setup()
+        # B/203609358 someting is removing telemetry. Adding this to check the
+        # status of the folder as early as possible.
         logging.info("Installing autotest on %s", host.hostname)
 
         # set up the autotest directory on the remote machine
@@ -647,13 +654,26 @@ class Autotest(installable_object.InstallableObject):
             self._check_client_test_result(host, test_name)
 
 
-    def run_test(self, test_name, results_dir='.', host=None,
-                 parallel_flag=False, background=False,
-                 client_disconnect_timeout=None, *args, **dargs):
-        self.run_timed_test(test_name, results_dir, host, timeout=None,
-                            parallel_flag=parallel_flag, background=background,
-                            client_disconnect_timeout=client_disconnect_timeout,
-                            *args, **dargs)
+    def run_test(self,
+                 test_name,
+                 results_dir='.',
+                 host=None,
+                 parallel_flag=False,
+                 background=False,
+                 client_disconnect_timeout=None,
+                 timeout=None,
+                 *args,
+                 **dargs):
+        self.run_timed_test(
+                test_name,
+                results_dir,
+                host,
+                timeout=timeout,
+                parallel_flag=parallel_flag,
+                background=background,
+                client_disconnect_timeout=client_disconnect_timeout,
+                *args,
+                **dargs)
 
 
     def run_static_method(self, module, method, results_dir='.', host=None,
@@ -735,23 +755,36 @@ class _Run(object):
 
 
     def get_background_cmd(self, section):
-        cmd = ['nohup', os.path.join(self.autodir, 'bin/autotest_client')]
+        cmd = [
+                'nohup',
+                os.path.join(self.autodir, 'bin/autotest_client'),
+                _set_py_version()
+        ]
         cmd += self.get_base_cmd_args(section)
         cmd += ['>/dev/null', '2>/dev/null', '&']
         return ' '.join(cmd)
 
 
     def get_daemon_cmd(self, section, monitor_dir):
-        cmd = ['nohup', os.path.join(self.autodir, 'bin/autotestd'),
-               monitor_dir, '-H autoserv']
+        cmd = [
+                'nohup',
+                os.path.join(self.autodir, 'bin/autotestd'), monitor_dir,
+                '-H autoserv',
+                _set_py_version()
+        ]
         cmd += self.get_base_cmd_args(section)
         cmd += ['>/dev/null', '2>/dev/null', '&']
         return ' '.join(cmd)
 
 
     def get_monitor_cmd(self, monitor_dir, stdout_read, stderr_read):
-        cmd = [os.path.join(self.autodir, 'bin', 'autotestd_monitor'),
-               monitor_dir, str(stdout_read), str(stderr_read)]
+        cmd = [
+                os.path.join(self.autodir, 'bin', 'autotestd_monitor'),
+                monitor_dir,
+                str(stdout_read),
+                str(stderr_read),
+                _set_py_version()
+        ]
         return ' '.join(cmd)
 
 
@@ -968,14 +1001,40 @@ class _Run(object):
 
 
     @staticmethod
-    def _strip_stderr_prologue(stderr):
+    def _strip_stderr_prologue(stderr, monitor_cmd):
         """Strips the 'standard' prologue that get pre-pended to every
         remote command and returns the text that was actually written to
-        stderr by the remote command."""
-        stderr_lines = stderr.split("\n")[1:]
+        stderr by the remote command.
+
+        This will always strip atleast the first line ('standard' prologue),
+        and strip any extra messages prior. The following are common 'extra'
+        messages which could appear.
+
+        1.) Any warnings. For example, on CrOS version R90, any script running
+            in python2 result in the following warning in the stderr:
+            "warning: Python 2.7 is deprecated and will be removed from CrOS by
+            end of 2021. All users must migrate ASAP"
+        2.) The actual command used to launch autotestd_monitor (monitor_cmd)
+
+        Additionally there is a NOTE line that could be present needing also to
+        be stripped.
+        """
+        stderr_lines = stderr.split("\n")
         if not stderr_lines:
             return ""
-        elif stderr_lines[0].startswith("NOTE: autotestd_monitor"):
+
+        # If no warnings/monitor_cmd, strip only the first line
+        skipn = 1
+        for i, line in enumerate(stderr_lines):
+            if monitor_cmd in line:
+                # add *2* (1 for the index, 1 for the 'standard prolouge'
+                # which follows this line).
+                skipn = i + 2
+                break
+
+        stderr_lines = stderr_lines[skipn:]
+
+        if stderr_lines[0].startswith("NOTE: autotestd_monitor"):
             del stderr_lines[0]
         return "\n".join(stderr_lines)
 
@@ -1020,7 +1079,9 @@ class _Run(object):
                         "NETWORK")
 
                 stdout_read += len(result.stdout)
-                stderr_read += len(self._strip_stderr_prologue(result.stderr))
+                stderr_read += len(
+                        self._strip_stderr_prologue(result.stderr,
+                                                    monitor_cmd))
 
                 if result.exit_status is not None:
                     # TODO (crosbug.com/38224)- sbasi: Remove extra logging.
@@ -1178,6 +1239,8 @@ class _Run(object):
                            "client on %s\n") % self.host.hostname
                     raise error.AutotestRunError(msg)
         finally:
+            # B/203609358 someting is removing telemetry. Adding this to check the
+            # status of the folder as late as possible.
             logging.debug('Autotest job finishes running. Below is the '
                           'post-processing operations.')
             logger.close()
@@ -1419,8 +1482,8 @@ class client_logger(object):
             server_package = os.path.join(self.job.pkgmgr.pkgmgr_dir,
                                           'packages', pkg_name)
             if os.path.exists(server_package):
-              self.host.send_file(server_package, remote_dest)
-              return
+                self.host.send_file(server_package, remote_dest)
+                return
 
         except error.AutoservRunError:
             msg = ("Package %s could not be sent from the package cache." %

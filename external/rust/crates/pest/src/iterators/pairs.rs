@@ -7,20 +7,24 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::ptr;
-use std::rc::Rc;
-use std::str;
+use alloc::format;
+use alloc::rc::Rc;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt;
+use core::hash::{Hash, Hasher};
+use core::ptr;
+use core::str;
 
 #[cfg(feature = "pretty-print")]
 use serde::ser::SerializeStruct;
 
 use super::flat_pairs::{self, FlatPairs};
+use super::line_index::LineIndex;
 use super::pair::{self, Pair};
 use super::queueable_token::QueueableToken;
 use super::tokens::{self, Tokens};
-use RuleType;
+use crate::RuleType;
 
 /// An iterator over [`Pair`]s. It is created by [`pest::state`] and [`Pair::into_inner`].
 ///
@@ -33,19 +37,27 @@ pub struct Pairs<'i, R> {
     input: &'i str,
     start: usize,
     end: usize,
+    line_index: Rc<LineIndex>,
 }
 
 pub fn new<R: RuleType>(
     queue: Rc<Vec<QueueableToken<R>>>,
     input: &str,
+    line_index: Option<Rc<LineIndex>>,
     start: usize,
     end: usize,
-) -> Pairs<R> {
+) -> Pairs<'_, R> {
+    let line_index = match line_index {
+        Some(line_index) => line_index,
+        None => Rc::new(LineIndex::new(input)),
+    };
+
     Pairs {
         queue,
         input,
         start,
         end,
+        line_index,
     }
 }
 
@@ -178,7 +190,14 @@ impl<'i, R: RuleType> Pairs<'i, R> {
     #[inline]
     pub fn peek(&self) -> Option<Pair<'i, R>> {
         if self.start < self.end {
-            Some(unsafe { pair::new(Rc::clone(&self.queue), self.input, self.start) })
+            Some(unsafe {
+                pair::new(
+                    Rc::clone(&self.queue),
+                    self.input,
+                    Rc::clone(&self.line_index),
+                    self.start,
+                )
+            })
         } else {
             None
         }
@@ -223,6 +242,7 @@ impl<'i, R: RuleType> Iterator for Pairs<'i, R> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let pair = self.peek()?;
+
         self.start = self.pair() + 1;
         Some(pair)
     }
@@ -236,20 +256,27 @@ impl<'i, R: RuleType> DoubleEndedIterator for Pairs<'i, R> {
 
         self.end = self.pair_from_end();
 
-        let pair = unsafe { pair::new(Rc::clone(&self.queue), self.input, self.end) };
+        let pair = unsafe {
+            pair::new(
+                Rc::clone(&self.queue),
+                self.input,
+                Rc::clone(&self.line_index),
+                self.end,
+            )
+        };
 
         Some(pair)
     }
 }
 
 impl<'i, R: RuleType> fmt::Debug for Pairs<'i, R> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_list().entries(self.clone()).finish()
     }
 }
 
 impl<'i, R: RuleType> fmt::Display for Pairs<'i, R> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "[{}]",
@@ -302,6 +329,10 @@ impl<'i, R: RuleType> ::serde::Serialize for Pairs<'i, R> {
 mod tests {
     use super::super::super::macros::tests::*;
     use super::super::super::Parser;
+    use alloc::borrow::ToOwned;
+    use alloc::format;
+    use alloc::vec;
+    use alloc::vec::Vec;
 
     #[test]
     #[cfg(feature = "pretty-print")]
@@ -415,5 +446,37 @@ mod tests {
             pairs.rev().map(|p| p.as_rule()).collect::<Vec<Rule>>(),
             vec![Rule::c, Rule::a]
         );
+    }
+
+    #[test]
+    fn test_line_col() {
+        let mut pairs = AbcParser::parse(Rule::a, "abc\nefgh").unwrap();
+        let pair = pairs.next().unwrap();
+        assert_eq!(pair.as_str(), "abc");
+        assert_eq!(pair.line_col(), (1, 1));
+
+        let pair = pairs.next().unwrap();
+        assert_eq!(pair.as_str(), "e");
+        assert_eq!(pair.line_col(), (2, 1));
+
+        let pair = pairs.next().unwrap();
+        assert_eq!(pair.as_str(), "fgh");
+        assert_eq!(pair.line_col(), (2, 2));
+    }
+
+    #[test]
+    fn test_rev_iter_line_col() {
+        let mut pairs = AbcParser::parse(Rule::a, "abc\nefgh").unwrap().rev();
+        let pair = pairs.next().unwrap();
+        assert_eq!(pair.as_str(), "fgh");
+        assert_eq!(pair.line_col(), (2, 2));
+
+        let pair = pairs.next().unwrap();
+        assert_eq!(pair.as_str(), "e");
+        assert_eq!(pair.line_col(), (2, 1));
+
+        let pair = pairs.next().unwrap();
+        assert_eq!(pair.as_str(), "abc");
+        assert_eq!(pair.line_col(), (1, 1));
     }
 }

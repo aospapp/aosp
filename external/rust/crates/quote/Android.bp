@@ -41,7 +41,7 @@ rust_library_host {
     name: "libquote",
     crate_name: "quote",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.0.15",
+    cargo_pkg_version: "1.0.23",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -52,4 +52,6 @@ rust_library_host {
         "libproc_macro2",
     ],
     compile_multilib: "first",
+    product_available: true,
+    vendor_available: true,
 }

@@ -88,8 +88,6 @@ package com.android.i18n.timezone {
   }
 
   public final class TimeZoneDataFiles {
-    method public static String getDataTimeZoneFile(String);
-    method public static String getDataTimeZoneRootDir();
     method public static String getTimeZoneModuleTzVersionFile();
     method public static com.android.i18n.timezone.TzDataSetVersion readTimeZoneModuleVersion() throws java.io.IOException, com.android.i18n.timezone.TzDataSetVersion.TzDataSetException;
   }

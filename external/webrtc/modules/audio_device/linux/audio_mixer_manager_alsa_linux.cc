@@ -27,14 +27,14 @@ AudioMixerManagerLinuxALSA::AudioMixerManagerLinuxALSA()
       _inputMixerHandle(NULL),
       _outputMixerElement(NULL),
       _inputMixerElement(NULL) {
-  RTC_LOG(LS_INFO) << __FUNCTION__ << " created";
+  RTC_DLOG(LS_INFO) << __FUNCTION__ << " created";
 
   memset(_outputMixerStr, 0, kAdmMaxDeviceNameSize);
   memset(_inputMixerStr, 0, kAdmMaxDeviceNameSize);
 }
 
 AudioMixerManagerLinuxALSA::~AudioMixerManagerLinuxALSA() {
-  RTC_LOG(LS_INFO) << __FUNCTION__ << " destroyed";
+  RTC_DLOG(LS_INFO) << __FUNCTION__ << " destroyed";
   Close();
 }
 
@@ -43,20 +43,23 @@ AudioMixerManagerLinuxALSA::~AudioMixerManagerLinuxALSA() {
 // ============================================================================
 
 int32_t AudioMixerManagerLinuxALSA::Close() {
-  RTC_LOG(LS_VERBOSE) << __FUNCTION__;
+  RTC_DLOG(LS_VERBOSE) << __FUNCTION__;
 
   MutexLock lock(&mutex_);
 
-  CloseSpeaker();
-  CloseMicrophone();
+  CloseSpeakerLocked();
+  CloseMicrophoneLocked();
 
   return 0;
 }
 
 int32_t AudioMixerManagerLinuxALSA::CloseSpeaker() {
-  RTC_LOG(LS_VERBOSE) << __FUNCTION__;
-
   MutexLock lock(&mutex_);
+  return CloseSpeakerLocked();
+}
+
+int32_t AudioMixerManagerLinuxALSA::CloseSpeakerLocked() {
+  RTC_DLOG(LS_VERBOSE) << __FUNCTION__;
 
   int errVal = 0;
 
@@ -86,9 +89,12 @@ int32_t AudioMixerManagerLinuxALSA::CloseSpeaker() {
 }
 
 int32_t AudioMixerManagerLinuxALSA::CloseMicrophone() {
-  RTC_LOG(LS_VERBOSE) << __FUNCTION__;
-
   MutexLock lock(&mutex_);
+  return CloseMicrophoneLocked();
+}
+
+int32_t AudioMixerManagerLinuxALSA::CloseMicrophoneLocked() {
+  RTC_DLOG(LS_VERBOSE) << __FUNCTION__;
 
   int errVal = 0;
 
@@ -283,13 +289,13 @@ int32_t AudioMixerManagerLinuxALSA::OpenMicrophone(char* deviceName) {
 }
 
 bool AudioMixerManagerLinuxALSA::SpeakerIsInitialized() const {
-  RTC_LOG(LS_INFO) << __FUNCTION__;
+  RTC_DLOG(LS_INFO) << __FUNCTION__;
 
   return (_outputMixerHandle != NULL);
 }
 
 bool AudioMixerManagerLinuxALSA::MicrophoneIsInitialized() const {
-  RTC_LOG(LS_INFO) << __FUNCTION__;
+  RTC_DLOG(LS_INFO) << __FUNCTION__;
 
   return (_inputMixerHandle != NULL);
 }

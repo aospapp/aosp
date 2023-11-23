@@ -14,6 +14,7 @@ TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1'
+PY_VERSION = 3
 
 DOC = """
     A Batch of Bluetooth Bluetooth audio health tests. This test is written
@@ -36,6 +37,16 @@ DOC = """
     - au_hfp_nbs_dut_as_sink_visqol_test
     - au_avrcp_command_test
     - au_avrcp_media_info_test
+    - au_a2dp_playback_and_connect_test
+    - au_a2dp_playback_and_disconnect_test
+    - au_a2dp_playback_back2back_test
+    - au_a2dp_pinned_playback_test
+    - au_hfp_nbs_dut_as_source_back2back_test
+    - au_hfp_wbs_dut_as_source_back2back_test
+    - au_a2dp_to_hfp_nbs_dut_as_source_test
+    - au_a2dp_to_hfp_wbs_dut_as_source_test
+    - au_hfp_nbs_to_a2dp_dut_as_source_test
+    - au_hfp_wbs_to_a2dp_dut_as_source_test
     """
 
 args_dict = utils.args_to_dict(args)

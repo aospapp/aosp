@@ -1,3 +1,7 @@
+# Lint as: python2, python3
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import re
 import reason_qualifier
 
@@ -44,7 +48,7 @@ def color_keys_row():
     ### This function does not require maintenance in case of
     ### color_map augmenting - as long as
     ### color keys for box shading have names that end with 'pct'
-    keys = filter(lambda key: key.endswith('pct'), color_map.keys())
+    keys = [key for key in color_map.keys() if key.endswith('pct')]
     def num_pct(key):
         return int(key.replace('pct',''))
     keys.sort(key=num_pct)
@@ -53,7 +57,7 @@ def color_keys_row():
         html+= "\t\t\t<td bgcolor =%s>&nbsp;&nbsp;&nbsp;</td>\n"\
                         % color_map[key]
         hint = key.replace('pct',' %')
-        if hint[0]<>'0': ## anything but 0 %
+        if hint[0]!='0': ## anything but 0 %
             hint = 'to ' + hint
         html+= "\t\t\t<td> %s </td>\n" % hint
 
@@ -114,7 +118,7 @@ class box:
             self.data = calculate_html(link, data, tooltip,
                                        row_label, column_label)
 
-        if color_map.has_key(color_key):
+        if color_key in color_map:
             self.color = color_map[color_key]
         elif header:
             self.color = color_map['header']
@@ -278,15 +282,15 @@ def print_table(matrix):
     Display the given matrix of data as a table.
     """
 
-    print ('<table bgcolor="%s" cellspacing="1" cellpadding="5" '
+    print(('<table bgcolor="%s" cellspacing="1" cellpadding="5" '
            'style="margin-right: 200px;">') % (
-           color_map['borders'])
+           color_map['borders']))
     for row in matrix:
-        print '<tr>'
+        print('<tr>')
         for element in row:
-            print element.html()
-        print '</tr>'
-    print '</table>'
+            print(element.html())
+        print('</tr>')
+    print('</table>')
 
 
 def print_main_header():
@@ -312,13 +316,13 @@ background-color:#fff; color:#000;
 text-align: left
 }
 """
-    print '<head><style type="text/css">'
-    print 'a { text-decoration: none }'
-    print hover_css
-    print '</style></head>'
-    print '<h2>'
-    print '<a href="compose_query.cgi">Functional</a>'
-    print '&nbsp&nbsp&nbsp'
+    print('<head><style type="text/css">')
+    print('a { text-decoration: none }')
+    print(hover_css)
+    print('</style></head>')
+    print('<h2>')
+    print('<a href="compose_query.cgi">Functional</a>')
+    print('&nbsp&nbsp&nbsp')
 
 
 def group_name(group):

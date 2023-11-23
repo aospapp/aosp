@@ -1556,6 +1556,22 @@ typedef struct
     WORD32 i4_nctb;
 }process_ctxt_t;
 
+/**
+ * Reference mapping from pic_buf_id to pointers to corresponding qp_map and CU_type_map
+ */
+typedef struct
+{
+    /**
+     * qp_map buffer
+     */
+    UWORD8 *pu1_qp_map;
+
+    /**
+     * CU_type buffer
+     */
+    UWORD8 *pu1_cu_type_map;
+}ref_map_t;
+
 typedef void (*pf_inter_pred)(void *,
                               void *,
                               WORD32,
@@ -2004,6 +2020,31 @@ struct _codec_t
      * Timestamp associated with the current display output
      */
     UWORD32 u4_ts;
+
+    /**
+     * Enable CU_info
+     */
+    UWORD8 u1_enable_cu_info;
+
+    /**
+     * Ref mapping from pic_buf_id to corresponding CU_info maps
+     */
+    ref_map_t as_buf_id_info_map[MAX_CU_INFO_BUF_CNT];
+
+    /**
+     * Total no of 8x8 blocks in luma samples
+     */
+    WORD32 u4_num_8x8_blks;
+
+    /**
+     * Pointer to base of qp_map buffer array
+     */
+    UWORD8 *pu1_qp_map_base;
+
+    /**
+     * Pointer to base of CU_type_map buffer array
+     */
+    UWORD8 *pu1_cu_type_map_base;
 
     /**
      * Pointer to base of Video parameter set structure array

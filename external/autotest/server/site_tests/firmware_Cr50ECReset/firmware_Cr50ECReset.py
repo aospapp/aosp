@@ -34,17 +34,35 @@ class firmware_Cr50ECReset(Cr50Test):
             raise error.TestNAError("This DUT has a hardware limitation that "
                                     "prevents cr50 from waking the EC with "
                                     "EC_RST_L.")
+
+        # TODO(b/186535695): EC hibernate puts cr50 into reset, so the test
+        # can't verify cr50 behavior while the EC is hibernate.
+        if 'c2d2' in self.servo.get_servo_type():
+            raise error.TestNAError('Cannot run test with c2d2')
+
         # Don't bother if there is no Chrome EC or if EC hibernate doesn't work.
         if not self.check_ec_capability():
             raise error.TestNAError("Nothing needs to be tested on this device")
-        self.check_ec_hibernate()
+
+        # Verify the EC can wake from hibernate with a power button press. If it
+        # can't, it's a device or servo issue.
+        try:
+            self.check_ec_hibernate()
+        except error.TestError as e:
+            raise error.TestNAError('Unsupported setup: %s' % str(e))
 
 
     def cleanup(self):
         """Make sure the EC is on, if there is a Chrome EC."""
-        if self.check_ec_capability():
-            self.guarantee_ec_is_up()
-        super(firmware_Cr50ECReset, self).cleanup()
+        try:
+            if self.check_ec_capability():
+                self.guarantee_ec_is_up()
+        except Exception as e:
+            logging.info('Issue recovering EC: %r', e)
+            logging.info('Trying power state reset')
+            self.host.servo.get_power_state_controller().reset()
+        finally:
+            super(firmware_Cr50ECReset, self).cleanup()
 
 
     def ec_is_up(self):
@@ -104,7 +122,7 @@ class firmware_Cr50ECReset(Cr50Test):
         time.sleep(self.RELEASE_RESET_DELAY)
         self.wake_ec(self.power_button)
         if not self.ec_is_up():
-            raise error.TestError('Could not recover EC')
+            raise error.TestError('Could not recover EC with power button')
 
 
     def can_wake_ec(self, wake_method):

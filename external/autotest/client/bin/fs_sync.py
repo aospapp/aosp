@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -76,7 +76,7 @@ def _freeze_fs(fs):
     @param fs: the mountpoint path of the filesystem to freeze
     """
     # ioctl: FIFREEZE
-    logging.warn("FREEZING THE FILESYSTEM: %s", fs)
+    logging.warning("FREEZING THE FILESYSTEM: %s", fs)
     run('fsfreeze --freeze %s' % fs)
 
 
@@ -151,24 +151,24 @@ def _do_blocking_sync(device):
         available_ns = list_result.stdout.strip()
 
         if list_result.rc != 0:
-            logging.warn("Listing namespaces failed (rc=%s); assuming default.",
+            logging.warning("Listing namespaces failed (rc=%s); assuming default.",
                          list_result.rc)
             available_ns = ''
 
         elif available_ns.startswith('Usage:'):
-            logging.warn("Listing namespaces failed (just printed --help);"
+            logging.warning("Listing namespaces failed (just printed --help);"
                          " assuming default.")
             available_ns = ''
 
         elif not available_ns:
-            logging.warn("Listing namespaces failed (empty output).")
+            logging.warning("Listing namespaces failed (empty output).")
 
         if not available_ns:
             # -n Defaults to 0xffffffff, indicating flush for all namespaces.
             flush_result = run('nvme flush %s' % device, strip=True)
 
             if flush_result.rc != 0:
-                logging.warn("Flushing %s failed (rc=%s).",
+                logging.warning("Flushing %s failed (rc=%s).",
                              device, flush_result.rc)
 
         for line in available_ns.splitlines():
@@ -178,7 +178,7 @@ def _do_blocking_sync(device):
             flush_result = run('nvme flush %s -n %s' % (device, ns), strip=True)
 
             if flush_result.rc != 0:
-                logging.warn("Flushing %s namespace %s failed (rc=%s).",
+                logging.warning("Flushing %s namespace %s failed (rc=%s).",
                              device, ns, flush_result.rc)
 
     elif 'sd' in device:
@@ -198,7 +198,7 @@ def _do_blocking_sync(device):
         # run('hdparm --verbose -F %s' % device, stderr=subprocess.PIPE)
 
     else:
-        logging.warn("Unhandled device type: %s", device)
+        logging.warning("Unhandled device type: %s", device)
         _flush_blockdev(device, '*')
 
 

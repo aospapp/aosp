@@ -14,9 +14,11 @@ limitations under the License.
 ==============================================================================*/
 #include "tensorflow/lite/toco/tooling_util.h"
 
+#include <algorithm>
 #include <functional>
 #include <iterator>
 #include <set>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -1895,7 +1897,7 @@ std::string CreateInt32Array(Model* model, const std::string& param_name,
 }
 
 bool EstimateArithmeticOpsCount(const Model& model, const Operator& op,
-                                int64* result) {
+                                int64_t* result) {
   switch (op.type) {
     case OperatorType::kFullyConnected:
     case OperatorType::kConv:
@@ -2023,7 +2025,7 @@ bool EstimateArithmeticOpsCount(const Model& model, const Operator& op,
   return true;
 }
 
-bool EstimateArithmeticOpsCount(const Model& model, int64* result) {
+bool EstimateArithmeticOpsCount(const Model& model, int64_t* result) {
   int64_t total = 0;
   for (const auto& op : model.operators) {
     int64_t num_ops;
@@ -2308,6 +2310,8 @@ ArrayDataType ConvertIODataTypeToArrayDataType(IODataType type) {
     case INT16:
     case QUANTIZED_INT16:
       return ArrayDataType::kInt16;
+    case UINT16:
+      return ArrayDataType::kUint16;
     case INT32:
       return ArrayDataType::kInt32;
     case UINT32:

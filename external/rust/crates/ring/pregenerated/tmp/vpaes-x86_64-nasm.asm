@@ -5,6 +5,8 @@ default	rel
 %define XMMWORD
 %define YMMWORD
 %define ZMMWORD
+
+%include "ring_core_generated/prefix_symbols_nasm.inc"
 section	.text code align=64
 
 
@@ -571,14 +573,14 @@ DB	102,15,56,0,217
 
 
 
-global	GFp_vpaes_set_encrypt_key
+global	vpaes_set_encrypt_key
 
 ALIGN	16
-GFp_vpaes_set_encrypt_key:
+vpaes_set_encrypt_key:
 	mov	QWORD[8+rsp],rdi	;WIN64 prologue
 	mov	QWORD[16+rsp],rsi
 	mov	rax,rsp
-$L$SEH_begin_GFp_vpaes_set_encrypt_key:
+$L$SEH_begin_vpaes_set_encrypt_key:
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
@@ -627,16 +629,16 @@ $L$enc_key_epilogue:
 	mov	rsi,QWORD[16+rsp]
 	DB	0F3h,0C3h		;repret
 
-$L$SEH_end_GFp_vpaes_set_encrypt_key:
+$L$SEH_end_vpaes_set_encrypt_key:
 
-global	GFp_vpaes_encrypt
+global	vpaes_encrypt
 
 ALIGN	16
-GFp_vpaes_encrypt:
+vpaes_encrypt:
 	mov	QWORD[8+rsp],rdi	;WIN64 prologue
 	mov	QWORD[16+rsp],rsi
 	mov	rax,rsp
-$L$SEH_begin_GFp_vpaes_encrypt:
+$L$SEH_begin_vpaes_encrypt:
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
@@ -675,15 +677,15 @@ $L$enc_epilogue:
 	mov	rsi,QWORD[16+rsp]
 	DB	0F3h,0C3h		;repret
 
-$L$SEH_end_GFp_vpaes_encrypt:
-global	GFp_vpaes_ctr32_encrypt_blocks
+$L$SEH_end_vpaes_encrypt:
+global	vpaes_ctr32_encrypt_blocks
 
 ALIGN	16
-GFp_vpaes_ctr32_encrypt_blocks:
+vpaes_ctr32_encrypt_blocks:
 	mov	QWORD[8+rsp],rdi	;WIN64 prologue
 	mov	QWORD[16+rsp],rsi
 	mov	rax,rsp
-$L$SEH_begin_GFp_vpaes_ctr32_encrypt_blocks:
+$L$SEH_begin_vpaes_ctr32_encrypt_blocks:
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
@@ -774,7 +776,7 @@ $L$ctr32_abort:
 	mov	rsi,QWORD[16+rsp]
 	DB	0F3h,0C3h		;repret
 
-$L$SEH_end_GFp_vpaes_ctr32_encrypt_blocks:
+$L$SEH_end_vpaes_ctr32_encrypt_blocks:
 
 
 
@@ -955,28 +957,28 @@ $L$in_prologue:
 
 section	.pdata rdata align=4
 ALIGN	4
-	DD	$L$SEH_begin_GFp_vpaes_set_encrypt_key wrt ..imagebase
-	DD	$L$SEH_end_GFp_vpaes_set_encrypt_key wrt ..imagebase
-	DD	$L$SEH_info_GFp_vpaes_set_encrypt_key wrt ..imagebase
+	DD	$L$SEH_begin_vpaes_set_encrypt_key wrt ..imagebase
+	DD	$L$SEH_end_vpaes_set_encrypt_key wrt ..imagebase
+	DD	$L$SEH_info_vpaes_set_encrypt_key wrt ..imagebase
 
-	DD	$L$SEH_begin_GFp_vpaes_encrypt wrt ..imagebase
-	DD	$L$SEH_end_GFp_vpaes_encrypt wrt ..imagebase
-	DD	$L$SEH_info_GFp_vpaes_encrypt wrt ..imagebase
-	DD	$L$SEH_begin_GFp_vpaes_ctr32_encrypt_blocks wrt ..imagebase
-	DD	$L$SEH_end_GFp_vpaes_ctr32_encrypt_blocks wrt ..imagebase
-	DD	$L$SEH_info_GFp_vpaes_ctr32_encrypt_blocks wrt ..imagebase
+	DD	$L$SEH_begin_vpaes_encrypt wrt ..imagebase
+	DD	$L$SEH_end_vpaes_encrypt wrt ..imagebase
+	DD	$L$SEH_info_vpaes_encrypt wrt ..imagebase
+	DD	$L$SEH_begin_vpaes_ctr32_encrypt_blocks wrt ..imagebase
+	DD	$L$SEH_end_vpaes_ctr32_encrypt_blocks wrt ..imagebase
+	DD	$L$SEH_info_vpaes_ctr32_encrypt_blocks wrt ..imagebase
 
 section	.xdata rdata align=8
 ALIGN	8
-$L$SEH_info_GFp_vpaes_set_encrypt_key:
+$L$SEH_info_vpaes_set_encrypt_key:
 DB	9,0,0,0
 	DD	se_handler wrt ..imagebase
 	DD	$L$enc_key_body wrt ..imagebase,$L$enc_key_epilogue wrt ..imagebase
-$L$SEH_info_GFp_vpaes_encrypt:
+$L$SEH_info_vpaes_encrypt:
 DB	9,0,0,0
 	DD	se_handler wrt ..imagebase
 	DD	$L$enc_body wrt ..imagebase,$L$enc_epilogue wrt ..imagebase
-$L$SEH_info_GFp_vpaes_ctr32_encrypt_blocks:
+$L$SEH_info_vpaes_ctr32_encrypt_blocks:
 DB	9,0,0,0
 	DD	se_handler wrt ..imagebase
 	DD	$L$ctr32_body wrt ..imagebase,$L$ctr32_epilogue wrt ..imagebase

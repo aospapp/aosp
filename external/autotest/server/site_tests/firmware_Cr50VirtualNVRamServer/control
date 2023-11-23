@@ -11,7 +11,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:faft_cr50_prepvt"
-JOB_RETRIES = 1
+PY_VERSION = 3
 
 DOC = """
 This test clears the TPM if necessary, the runs a client side test that checks

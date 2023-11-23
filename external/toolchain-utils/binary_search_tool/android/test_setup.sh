@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2016 Google LLC
 #
 # This is the test setup script for generating an Android image based off the
 # current working build tree. make is called to relink the object files and

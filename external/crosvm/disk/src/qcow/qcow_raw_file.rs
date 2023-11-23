@@ -1,12 +1,18 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 use std::fs::File;
-use std::io::{self, BufWriter, Read, Seek, SeekFrom, Write};
+use std::io;
+use std::io::BufWriter;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
+use std::io::Write;
 use std::mem::size_of;
 
-use base::{FileReadWriteAtVolatile, WriteZeroes};
+use base::FileReadWriteAtVolatile;
+use base::WriteZeroesAt;
 use data_model::VolatileSlice;
 
 /// A qcow file. Allows reading/writing clusters and appending clusters.
@@ -142,8 +148,7 @@ impl QcowRawFile {
     /// Zeros out a cluster in the file.
     pub fn zero_cluster(&mut self, address: u64) -> io::Result<()> {
         let cluster_size = self.cluster_size as usize;
-        self.file.seek(SeekFrom::Start(address))?;
-        self.file.write_zeroes_all(cluster_size)?;
+        self.file.write_zeroes_all_at(address, cluster_size)?;
         Ok(())
     }
 

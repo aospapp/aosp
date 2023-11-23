@@ -31,6 +31,8 @@
 #include "ixheaacd_drc_dec.h"
 #include "ixheaacd_sbrdecoder.h"
 #include "ixheaacd_mps_polyphase.h"
+#include "ixheaacd_ec_defines.h"
+#include "ixheaacd_ec_struct_def.h"
 #include "ixheaacd_main.h"
 #include "ixheaacd_arith_dec.h"
 #include "ixheaacd_func_def.h"
@@ -65,7 +67,7 @@ VOID ixheaacd_lsf_weight_2st_flt(FLOAT32 *lsfq, FLOAT32 *w, WORD32 mode) {
 }
 
 static WORD32 ixheaacd_decoding_avq_tool(WORD32 *read_arr, WORD32 *nvecq) {
-  WORD32 i, k, n, qn, nk, kv[8] = {0};
+  WORD32 i, k, qn, kv[8] = {0};
   WORD32 code_book_idx;
   WORD32 *ptr_kv = &kv[0];
 
@@ -73,13 +75,6 @@ static WORD32 ixheaacd_decoding_avq_tool(WORD32 *read_arr, WORD32 *nvecq) {
 
   for (k = 0; k < 2; k++) {
     qn = read_arr[k];
-
-    nk = 0;
-    n = qn;
-    if (qn > 4) {
-      nk = (qn - 3) >> 1;
-      n = qn - nk * 2;
-    }
 
     if (qn > 0) {
       code_book_idx = read_arr[position++];
@@ -104,7 +99,7 @@ static WORD32 ixheaacd_avq_first_approx_abs(FLOAT32 *lsf, WORD32 *indx) {
   extern const FLOAT32 ixheaacd_weight_table_avq[];
   WORD32 position = 0;
   WORD32 avq[ORDER];
-  FLOAT32 d[ORDER + 1], lsf_min;
+  FLOAT32 lsf_min;
   const FLOAT32 *ptr_w;
 
   ptr_w = &ixheaacd_weight_table_avq[(indx[0] * ORDER)];
@@ -117,12 +112,6 @@ static WORD32 ixheaacd_avq_first_approx_abs(FLOAT32 *lsf, WORD32 *indx) {
 
   position += ixheaacd_decoding_avq_tool(&indx[position], avq);
 
-  d[0] = lsf[0];
-  d[ORDER] = FREQ_MAX - lsf[ORDER - 1];
-  for (i = 1; i < ORDER; i++) {
-    d[i] = lsf[i] - lsf[i - 1];
-  }
-
   lsf_min = LSF_GAP;
   for (i = 0; i < ORDER; i++) {
     lsf[i] += (ptr_w[i] * avq[i]);
@@ -130,6 +119,15 @@ static WORD32 ixheaacd_avq_first_approx_abs(FLOAT32 *lsf, WORD32 *indx) {
     if (lsf[i] < lsf_min) lsf[i] = lsf_min;
 
     lsf_min = lsf[i] + LSF_GAP;
+  }
+
+  lsf_min = FREQ_MAX - LSF_GAP;
+  for (i = ORDER - 1; i >= 0; i--) {
+    if (lsf[i] > lsf_min) {
+      lsf[i] = lsf_min;
+    }
+
+    lsf_min = lsf[i] - LSF_GAP;
   }
 
   return position;
@@ -159,14 +157,13 @@ WORD32 ixheaacd_avq_first_approx_rel(FLOAT32 *lsf, WORD32 *indx, WORD32 mode) {
   return position;
 }
 
-VOID ixheaacd_alg_vec_dequant(ia_td_frame_data_struct *pstr_td_frame_data,
-                              WORD32 first_lpd_flag, FLOAT32 *lsf,
-                              WORD32 mod[]) {
+VOID ixheaacd_alg_vec_dequant(ia_td_frame_data_struct *pstr_td_frame_data, WORD32 first_lpd_flag,
+                              FLOAT32 *lsf, WORD32 mod[], WORD32 ec_flag) {
   WORD32 i;
   WORD32 *lpc_index, mode_lpc, pos = 0;
-
+  WORD32 lpc_present[5] = {0, 0, 0, 0, 0};
   lpc_index = pstr_td_frame_data->lpc_first_approx_idx;
-
+  lpc_present[4] = 1;
   pos = ixheaacd_avq_first_approx_abs(&lsf[4 * ORDER], &lpc_index[0]);
 
   lpc_index += pos;
@@ -185,10 +182,12 @@ VOID ixheaacd_alg_vec_dequant(ia_td_frame_data_struct *pstr_td_frame_data,
 
     lpc_index += pos;
   }
+  lpc_present[0] = 1;
 
   if (mod[0] < 3) {
     mode_lpc = lpc_index[0];
     lpc_index++;
+    lpc_present[2] = 1;
 
     if (mode_lpc == 0) {
       pos = ixheaacd_avq_first_approx_abs(&lsf[2 * ORDER], &lpc_index[0]);
@@ -203,6 +202,7 @@ VOID ixheaacd_alg_vec_dequant(ia_td_frame_data_struct *pstr_td_frame_data,
   if (mod[0] < 2) {
     mode_lpc = lpc_index[0];
     lpc_index++;
+    lpc_present[1] = 1;
 
     if (mode_lpc == 1) {
       for (i = 0; i < ORDER; i++)
@@ -222,6 +222,7 @@ VOID ixheaacd_alg_vec_dequant(ia_td_frame_data_struct *pstr_td_frame_data,
   if (mod[2] < 2) {
     mode_lpc = lpc_index[0];
     lpc_index++;
+    lpc_present[3] = 1;
 
     if (mode_lpc == 0) {
       pos = ixheaacd_avq_first_approx_abs(&lsf[3 * ORDER], &lpc_index[0]);
@@ -238,5 +239,41 @@ VOID ixheaacd_alg_vec_dequant(ia_td_frame_data_struct *pstr_td_frame_data,
     }
 
     lpc_index += pos;
+  }
+  if (ec_flag) {
+    WORD32 last, k;
+    WORD32 num_lpc = 0, num_div = 4;
+    FLOAT32 div_fac;
+    FLOAT32 *lsf4 = &lsf[4 * ORDER];
+    for (i = 0; i < ORDER; i++) {
+      pstr_td_frame_data->lpc4_lsf[i] = lsf4[i];
+    }
+    i = num_div;
+    do {
+      num_lpc += lpc_present[i--];
+    } while (i >= 0 && num_lpc < 3);
+
+    last = i;
+
+    switch (num_lpc) {
+      case 3:
+        div_fac = (1.0f / 3.0f);
+        break;
+      case 2:
+        div_fac = (1.0f / 2.0f);
+        break;
+      default:
+        div_fac = (1.0f);
+        break;
+    }
+    for (k = 0; k < ORDER; k++) {
+      FLOAT32 temp = 0;
+      for (i = 4; i > last; i--) {
+        if (lpc_present[i]) {
+          temp = temp + (lsf[i * ORDER + k] * div_fac);
+        }
+      }
+      pstr_td_frame_data->lsf_adaptive_mean_cand[k] = temp;
+    }
   }
 }

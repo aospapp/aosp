@@ -8,6 +8,7 @@ TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:wifi_func_tast'
 MAX_RESULT_SIZE_KB = 1024 * 1024
+PY_VERSION = 3
 
 DOC = '''
 Run the unstable Tast tests which measure WiFi performance.

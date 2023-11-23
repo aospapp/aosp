@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,12 +7,13 @@ use std::mem;
 use std::result;
 use std::slice;
 
+use devices::PciAddress;
+use devices::PciInterruptPin;
 use libc::c_char;
 use remain::sorted;
 use thiserror::Error;
-
-use devices::{PciAddress, PciInterruptPin};
-use vm_memory::{GuestAddress, GuestMemory};
+use vm_memory::GuestAddress;
+use vm_memory::GuestMemory;
 
 use crate::mpspec::*;
 
@@ -230,7 +231,7 @@ pub fn setup_mptable(
     }
     let sci_irq = super::X86_64_SCI_IRQ as u8;
     // Per kvm_setup_default_irq_routing() in kernel
-    for i in 0..sci_irq {
+    for i in (0..sci_irq).chain(std::iter::once(devices::cmos::RTC_IRQ)) {
         let size = mem::size_of::<mpc_intsrc>();
         let mpc_intsrc = mpc_intsrc {
             type_: MP_INTSRC as u8,
@@ -363,8 +364,9 @@ pub fn setup_mptable(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use base::pagesize;
+
+    use super::*;
 
     fn compute_page_aligned_mp_size(num_cpus: u8) -> u64 {
         let mp_size = compute_mp_size(num_cpus);

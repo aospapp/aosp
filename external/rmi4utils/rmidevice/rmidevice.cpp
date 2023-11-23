@@ -62,7 +62,6 @@ int RMIDevice::SetRMIPage(unsigned char page)
 
 	if (m_page == page)
 		return 0;
-
 	m_page = page;
 	rc = Write(RMI_DEVICE_PAGE_SELECT_REGISTER, &page, 1);
 	if (rc < 0 || rc < 1) {
@@ -327,7 +326,7 @@ int RMIDevice::ScanPDT(int endFunc, int endPage)
 	}
 
 	m_numInterruptRegs = (interruptCount + 7) / 8;
-
+	
 	return 0;
 }
 

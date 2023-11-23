@@ -1,3 +1,6 @@
+#ifndef SELINUX_INTERNAL_H_
+#define SELINUX_INTERNAL_H_
+
 #include <selinux/selinux.h>
 #include <pthread.h>
 
@@ -10,6 +13,7 @@ extern int selinux_page_size ;
 #pragma weak pthread_key_create
 #pragma weak pthread_key_delete
 #pragma weak pthread_setspecific
+#pragma weak pthread_getspecific
 
 /* Call handler iff the first call.  */
 #define __selinux_once(ONCE_CONTROL, INIT_FUNCTION)	\
@@ -37,6 +41,9 @@ extern int selinux_page_size ;
 		if (pthread_setspecific != NULL)		\
 			pthread_setspecific(KEY, VALUE);	\
 	} while (0)
+
+#define __selinux_getspecific(KEY)				\
+	(pthread_getspecific != NULL ? pthread_getspecific(KEY) : NULL)
 
 /* selabel_lookup() is only thread safe if we're compiled with pthreads */
 
@@ -90,3 +97,9 @@ extern int selinux_page_size ;
 #define SELINUXCONFIG SELINUXDIR "config"
 
 extern int has_selinux_config ;
+
+#ifndef HAVE_STRLCPY
+size_t strlcpy(char *dest, const char *src, size_t size);
+#endif
+
+#endif /* SELINUX_INTERNAL_H_ */

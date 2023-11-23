@@ -17,6 +17,7 @@
  *****************************************************************************
  * Originally developed and contributed by Ittiam Systems Pvt. Ltd, Bangalore
 */
+#include <stdlib.h>
 #include "ixheaacd_sbr_common.h"
 #include "ixheaacd_type_def.h"
 
@@ -38,6 +39,9 @@
 
 #include "ixheaacd_lt_predict.h"
 
+#include "ixheaacd_cnst.h"
+#include "ixheaacd_ec_defines.h"
+#include "ixheaacd_ec_struct_def.h"
 #include "ixheaacd_channelinfo.h"
 #include "ixheaacd_drc_dec.h"
 
@@ -55,47 +59,11 @@
 
 #include "ixheaacd_aacdec.h"
 
-static PLATFORM_INLINE WORD32 ixheaacd_shr32_drc(WORD32 a, WORD32 b) {
-  WORD32 out_val;
-
-  b = ((UWORD32)(b << 24) >> 24);
-  if (b == 0) {
-    out_val = a;
-  } else if (b >= 31) {
-    if (a < 0)
-      out_val = -1;
-    else
-      out_val = 0;
-  } else {
-    a += (1 << (b - 1));
-    out_val = (WORD32)a >> b;
-  }
-
-  return out_val;
-}
-
-static PLATFORM_INLINE WORD32 ixheaacd_mult32x16in32_drc(WORD32 a, WORD16 b) {
-  WORD32 result;
-  WORD64 temp_result;
-
-  temp_result = (WORD64)a * (WORD64)b;
-
-  if (temp_result < (WORD64)MIN_32)
-    result = MIN_32;
-
-  else if (temp_result > (WORD64)MAX_32)
-    result = MAX_32;
-
-  else
-    result = (WORD32)(temp_result);
-
-  return (result);
-}
-static PLATFORM_INLINE WORD32 ixheaacd_mac32x16in32_drc(WORD32 a, WORD32 b,
+static PLATFORM_INLINE WORD32 ixheaacd_mac32x16in32_sat(WORD32 a, WORD32 b,
                                                         WORD16 c) {
   WORD32 acc;
 
-  acc = ixheaacd_mult32x16in32_drc(b, c);
+  acc = ixheaacd_mult32x16in32_sat(b, c);
 
   acc = ixheaacd_add32_sat(a, acc);
 
@@ -161,7 +129,7 @@ VOID ixheaacd_inverse_quantize(WORD32 *x_invquant, WORD no_band,
 static PLATFORM_INLINE WORD ixheaacd_huffman_dec_word1(
     ia_bit_buf_struct *it_bit_buff, WORD32 *spec_coef, WORD16 *offsets,
     WORD no_bands, WORD group_len, const UWORD16 *code_book_tbl,
-    WORD32 *ixheaacd_pow_table_Q13, const UWORD32 *idx_table) {
+    WORD32 *ixheaacd_pow_table_Q13, const UWORD32 *idx_table, WORD32 maximum_bins_short) {
   WORD32 sp1, sp2;
   WORD32 flush_cw;
   WORD32 i, value, norm_val, off;
@@ -317,12 +285,23 @@ static PLATFORM_INLINE WORD ixheaacd_huffman_dec_word1(
         idx -= 2;
       } while (idx != 0);
 
-      spec_coef += (MAX_BINS_SHORT - offsets[1]);
+      if (maximum_bins_short == 120) {
+        spec_coef += (maximum_bins_short - offsets[1]);
+      } else {
+        spec_coef += (MAX_BINS_SHORT - offsets[1]);
+      }
+
       grp_idx--;
     } while (grp_idx != 0);
 
     offsets++;
-    spec_coef -= (MAX_BINS_SHORT * group_len);
+
+    if (maximum_bins_short == 120) {
+      spec_coef -= (maximum_bins_short * group_len);
+    } else {
+      spec_coef -= (MAX_BINS_SHORT * group_len);
+    }
+
     no_bands--;
   } while (no_bands >= 0);
 
@@ -500,7 +479,8 @@ static PLATFORM_INLINE WORD ixheaacd_huffman_dec_word2_11(
 static PLATFORM_INLINE WORD ixheaacd_huffman_dec_quad(
     ia_bit_buf_struct *it_bit_buff, WORD32 *spec_coef, WORD16 *offsets,
     WORD no_bands, WORD group_len, const UWORD16 *code_book_tbl,
-    WORD32 *ixheaacd_pow_table_Q13, WORD32 tbl_sign, const UWORD32 *idx_table) {
+    WORD32 *ixheaacd_pow_table_Q13, WORD32 tbl_sign, const UWORD32 *idx_table,
+    WORD32 maximum_bins_short) {
   WORD idx, grp_idx;
   WORD idx_len;
   WORD32 *spec_orig;
@@ -623,7 +603,12 @@ static PLATFORM_INLINE WORD ixheaacd_huffman_dec_quad(
         idx -= 4;
       } while (idx != 0);
 
-      spec_coef += (MAX_BINS_SHORT - offsets[1]);
+      if (maximum_bins_short == 120) {
+        spec_coef += (maximum_bins_short - offsets[1]);
+      } else {
+        spec_coef += (MAX_BINS_SHORT - offsets[1]);
+      }
+
       grp_idx--;
     } while (grp_idx != 0);
     offsets++;
@@ -806,9 +791,7 @@ static PLATFORM_INLINE WORD ixheaacd_huffman_dec_pair(
     ia_bit_buf_struct *it_bit_buff, WORD32 *spec_coef, WORD16 *offsets,
     WORD no_bands, WORD group_len, const UWORD16 *code_book_tbl,
     WORD32 *ixheaacd_pow_table_Q13, WORD32 tbl_sign, const UWORD32 *idx_table,
-    WORD32 huff_mode)
-
-{
+    WORD32 huff_mode, WORD32 maximum_bins_short) {
   WORD idx, grp_idx;
   WORD len_idx;
   WORD16 index, length;
@@ -886,7 +869,11 @@ static PLATFORM_INLINE WORD ixheaacd_huffman_dec_pair(
         idx -= 2;
       } while (idx != 0);
 
-      spec_coef += (MAX_BINS_SHORT - offsets[1]);
+      if (maximum_bins_short == 120)
+        spec_coef += (maximum_bins_short - offsets[1]);
+      else
+        spec_coef += (MAX_BINS_SHORT - offsets[1]);
+
       grp_idx--;
     } while (grp_idx != 0);
 
@@ -1011,7 +998,8 @@ static PLATFORM_INLINE WORD ixheaacd_huffman_dec_word2_pair(
 WORD ixheaacd_decode_huffman(ia_bit_buf_struct *it_bit_buff, WORD32 cb_no,
                              WORD32 *spec_coef, WORD16 *sfb_offset, WORD start,
                              WORD sfb, WORD group_len,
-                             ia_aac_dec_tables_struct *ptr_aac_tables) {
+                             ia_aac_dec_tables_struct *ptr_aac_tables,
+                             WORD32 maximum_bins_short) {
   WORD ret_val = 0;
   WORD start_bit_pos = it_bit_buff->bit_pos;
   UWORD8 *start_read_pos = it_bit_buff->ptr_read_next;
@@ -1031,7 +1019,7 @@ WORD ixheaacd_decode_huffman(ia_bit_buf_struct *it_bit_buff, WORD32 cb_no,
 
     ret_val = ixheaacd_huffman_dec_word1(it_bit_buff, spec_coef, band_offset,
                                          no_bands, group_len, cb_table,
-                                         pow_table, idx_table);
+                                         pow_table, idx_table, maximum_bins_short);
 
   } else if (cb_no <= 4) {
     WORD32 tbl_sign = 0;
@@ -1041,7 +1029,7 @@ WORD ixheaacd_decode_huffman(ia_bit_buf_struct *it_bit_buff, WORD32 cb_no,
     }
     ret_val = ixheaacd_huffman_dec_quad(it_bit_buff, spec_coef, band_offset,
                                         no_bands, group_len, cb_table,
-                                        pow_table, tbl_sign, idx_table);
+                                        pow_table, tbl_sign, idx_table, maximum_bins_short);
   }
 
   else if (cb_no <= 10) {
@@ -1056,13 +1044,13 @@ WORD ixheaacd_decode_huffman(ia_bit_buf_struct *it_bit_buff, WORD32 cb_no,
     }
     ret_val = ixheaacd_huffman_dec_pair(
         it_bit_buff, spec_coef, band_offset, no_bands, group_len, cb_table,
-        pow_table, tbl_sign, idx_table, huff_mode);
+        pow_table, tbl_sign, idx_table, huff_mode, maximum_bins_short);
   }
 
   {
     WORD bits_cons;
-    bits_cons = ((it_bit_buff->ptr_read_next - start_read_pos) << 3) +
-                (it_bit_buff->bit_pos - start_bit_pos);
+    bits_cons = (WORD)(((it_bit_buff->ptr_read_next - start_read_pos) << 3) +
+                       (it_bit_buff->bit_pos - start_bit_pos));
     it_bit_buff->cnt_bits -= bits_cons;
   }
   return ret_val;
@@ -1116,24 +1104,42 @@ WORD ixheaacd_huffman_dec_word2(ia_bit_buf_struct *it_bit_buff, WORD32 cb_no,
   {
     WORD bits_cons;
     if (it_bit_buff->bit_pos <= 7) {
-      bits_cons = ((it_bit_buff->ptr_read_next - start_read_pos) << 3) +
-                  (it_bit_buff->bit_pos - start_bit_pos);
+      bits_cons = (WORD)(((it_bit_buff->ptr_read_next - start_read_pos) << 3) +
+                         (it_bit_buff->bit_pos - start_bit_pos));
+      if (bits_cons > cnt_bits)
+      {
+        return IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES;
+      }
       it_bit_buff->cnt_bits = cnt_bits - bits_cons;
     } else {
       it_bit_buff->ptr_read_next += (it_bit_buff->bit_pos) >> 3;
       it_bit_buff->bit_pos = it_bit_buff->bit_pos & 0x7;
+      if ((SIZE_T)(it_bit_buff->ptr_read_next) > (SIZE_T)(it_bit_buff->ptr_bit_buf_end + 1))
+      {
+        it_bit_buff->ptr_read_next = it_bit_buff->ptr_bit_buf_end + 1;
+        return IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES;
+      }
 
-      bits_cons = ((it_bit_buff->ptr_read_next - start_read_pos) << 3) +
-                  ((it_bit_buff->bit_pos - start_bit_pos));
+      bits_cons = (WORD)(((it_bit_buff->ptr_read_next - start_read_pos) << 3) +
+                         (it_bit_buff->bit_pos - start_bit_pos));
       it_bit_buff->cnt_bits = cnt_bits - bits_cons;
     }
   }
   return ret_val;
 }
 
-void ixheaacd_lap1_512_480(WORD32 *coef, WORD32 *prev, WORD16 *out,
+VOID ixheaacd_dec_copy_outsample(WORD32 *out_samples, WORD32 *p_overlap_buffer,
+                                 WORD32 size, WORD16 stride) {
+  WORD32 i;
+
+  for (i = 0; i < size; i++) {
+    out_samples[stride*i] = (ixheaacd_shl16_sat((WORD16)(p_overlap_buffer[i]), 1) << 14);
+  }
+}
+
+VOID ixheaacd_lap1_512_480(WORD32 *coef, WORD32 *prev, VOID *out_tmp,
                            const WORD16 *window, WORD16 q_shift, WORD16 size,
-                           WORD16 stride) {
+                           WORD16 stride , WORD slot_element) {
   WORD32 accu;
   WORD32 i;
   WORD16 rounding_fac = -0x2000;
@@ -1144,6 +1150,8 @@ void ixheaacd_lap1_512_480(WORD32 *coef, WORD32 *prev, WORD16 *out,
 
   WORD32 *pwin1, *pwin2;
   WORD32 *pCoef = &coef[size * 2 - 1 - 0];
+
+  WORD16 * out  = (WORD16*)out_tmp - slot_element;
 
   pwin1 = &window_i[size - 1 - 0];
   pwin2 = &window_i[size + 0];
@@ -1171,7 +1179,7 @@ void ixheaacd_lap1_512_480(WORD32 *coef, WORD32 *prev, WORD16 *out,
 
     accu = ixheaacd_sub32_sat(
         ixheaacd_shl32_dir_sat_limit(
-            ixheaacd_mult32_shl(ixheaacd_negate32(coeff), win2), q_shift),
+            ixheaacd_mult32_shl(ixheaacd_negate32_sat(coeff), win2), q_shift),
         ixheaacd_mac32x16in32_shl(rounding_fac, win1, (WORD16)(prev_data)));
 
     accu = ixheaacd_add32_sat(accu, accu);
@@ -1182,12 +1190,12 @@ void ixheaacd_lap1_512_480(WORD32 *coef, WORD32 *prev, WORD16 *out,
   }
 }
 
-VOID ixheaacd_over_lap_add1_dec(WORD32 *coef, WORD32 *prev, WORD16 *out,
+VOID ixheaacd_over_lap_add1_dec(WORD32 *coef, WORD32 *prev, WORD32 *out,
                                 const WORD16 *window, WORD16 q_shift,
                                 WORD16 size, WORD16 ch_fac) {
   WORD32 accu;
   WORD32 i;
-  WORD16 rounding_fac = -0x2000;
+  WORD16 rounding_fac = 0;
 
   for (i = 0; i < size; i++) {
     WORD16 window1, window2;
@@ -1197,17 +1205,15 @@ VOID ixheaacd_over_lap_add1_dec(WORD32 *coef, WORD32 *prev, WORD16 *out,
     accu = ixheaacd_sub32_sat(
         ixheaacd_shl32_dir_sat_limit(
             ixheaacd_mult32x16in32(coef[size * 2 - 1 - i], window2), q_shift),
-        ixheaacd_mac32x16in32_drc(rounding_fac, prev[i], window1));
-    out[ch_fac * (size - i - 1)] =
-        ixheaacd_shr32(ixheaacd_shl32_dir_sat_limit(accu, 2), 16);
+        ixheaacd_mac32x16in32_sat(rounding_fac, prev[i], window1));
+    out[ch_fac * (size - i - 1)] = accu;
     accu = ixheaacd_sub32_sat(
         ixheaacd_shl32_dir_sat_limit(
-            ixheaacd_mult32x16in32(ixheaacd_negate32(coef[size * 2 - 1 - i]),
+            ixheaacd_mult32x16in32(ixheaacd_negate32_sat(coef[size * 2 - 1 - i]),
                                    window1),
             q_shift),
-        ixheaacd_mac32x16in32_drc(rounding_fac, prev[i], window2));
-    out[ch_fac * (size + i)] =
-        ixheaacd_shr32(ixheaacd_shl32_dir_sat_limit(accu, 2), 16);
+        ixheaacd_mac32x16in32_sat(rounding_fac, prev[i], window2));
+    out[ch_fac * (size + i)] = accu;
   }
 }
 
@@ -1221,7 +1227,7 @@ VOID ixheaacd_over_lap_add2_dec(WORD32 *coef, WORD32 *prev, WORD32 *out,
     accu = ixheaacd_sub32_sat(
         ixheaacd_mult32x16in32(coef[size + i], window[2 * i]),
         ixheaacd_mult32x16in32(prev[size - 1 - i], window[2 * i + 1]));
-    out[ch_fac * i] = ixheaacd_shr32_drc(accu, 16 - (q_shift + 1));
+    out[ch_fac * i] = ixheaacd_shr32_sat(accu, 16 - (q_shift + 1));
   }
 
   for (i = 0; i < size; i++) {
@@ -1229,7 +1235,7 @@ VOID ixheaacd_over_lap_add2_dec(WORD32 *coef, WORD32 *prev, WORD32 *out,
         ixheaacd_mult32x16in32(ixheaacd_negate32_sat(coef[size * 2 - 1 - i]),
                                window[2 * size - 2 * i - 1]),
         ixheaacd_mult32x16in32(prev[i], window[2 * size - 2 * i - 2]));
-    out[ch_fac * (i + size)] = ixheaacd_shr32_drc(accu, 16 - (q_shift + 1));
+    out[ch_fac * (i + size)] = ixheaacd_shr32_sat(accu, 16 - (q_shift + 1));
   }
 }
 
@@ -1337,7 +1343,7 @@ VOID ixheaacd_scale_factor_process_dec(WORD32 *x_invquant, WORD16 *scale_fact,
   }
 }
 
-void ixheaacd_right_shift_block(WORD32 *p_spectrum, WORD32 length,
+VOID ixheaacd_right_shift_block(WORD32 *p_spectrum, WORD32 length,
                                 WORD32 shift_val) {
   WORD32 i;
   WORD32 temp1, temp2;

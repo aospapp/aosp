@@ -11,9 +11,9 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kotlinx-metadata-jvm/0.3.0/kotlinx-metadata-jvm-0.3.0.jar"
+    value: "https://repo1.maven.org/maven2/org/jetbrains/kotlinx/kotlinx-metadata-jvm/0.5.0/kotlinx-metadata-jvm-0.5.0.jar"
   }
-  version: "0.1.0"
-  last_upgrade_date { year: 2020 month: 5 day: 5 }
+  version: "0.5.0"
+  last_upgrade_date { year: 2023 month: 1 day: 12 }
   license_type: NOTICE
 }

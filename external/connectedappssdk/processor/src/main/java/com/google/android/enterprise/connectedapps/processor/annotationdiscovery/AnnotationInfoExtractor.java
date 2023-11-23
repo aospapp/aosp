@@ -18,6 +18,7 @@ package com.google.android.enterprise.connectedapps.processor.annotationdiscover
 import com.google.android.enterprise.connectedapps.annotations.CrossProfileProvider;
 import com.google.android.enterprise.connectedapps.annotations.CrossUserProvider;
 import com.google.android.enterprise.connectedapps.processor.annotationdiscovery.interfaces.CrossProfileProviderAnnotation;
+import com.google.android.enterprise.connectedapps.processor.containers.Context;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Proxy;
 import javax.lang.model.element.Element;
@@ -42,20 +43,19 @@ abstract class AnnotationInfoExtractor<AnnotationInfoT, AnnotationInterfaceT> {
    */
   AnnotationInfoT extractAnnotationInfo(
       Iterable<? extends AnnotationClasses> availableAnnotations,
-      Element annotatedElement,
-      Types types,
-      Elements elements) {
+      Context context,
+      Element annotatedElement) {
     for (AnnotationClasses annotationClasses : availableAnnotations) {
       Annotation annotation =
           annotatedElement.getAnnotation(supportedAnnotationClass(annotationClasses));
 
       if (annotation != null) {
         return annotationInfoFromAnnotation(
-            wrapAnnotationWithInterface(annotationInterfaceClass, annotation), types);
+            wrapAnnotationWithInterface(annotationInterfaceClass, annotation), context.types());
       }
     }
 
-    return emptyAnnotationInfo(elements);
+    return emptyAnnotationInfo(context.elements());
   }
 
   /**

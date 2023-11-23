@@ -383,6 +383,7 @@ cc_library {
     apex_available: [
         "//apex_available:platform", // used by libstagefright_soft_opusdec
         "com.android.media.swcodec",
+        "com.android.btservices",
     ],
     min_sdk_version: "29",
 }

@@ -1,12 +1,16 @@
 [package]
 name = "qcow_utils"
 version = "0.1.0"
-authors = ["The Chromium OS Authors"]
+authors = ["The ChromiumOS Authors"]
 edition = "2021"
 
 [lib]
 path = "src/qcow_utils.rs"
 crate-type = ["cdylib"]
+
+[features]
+default = ["qcow"]
+qcow = []
 
 [dependencies]
 libc = "*"

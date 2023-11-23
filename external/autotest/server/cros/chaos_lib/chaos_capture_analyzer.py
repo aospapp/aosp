@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -331,7 +331,7 @@ class WifiStateMachineAnalyzer(object):
                                           DHCP_ACK_MESSAGE_TYPE },
                                         STATE_END)
     STATE_INFO_END = StateInfo("END", 0, {}, STATE_END)
-    # Master State Table Map of State Infos
+    # State Table Map of State Infos
     STATE_INFO_MAP = {STATE_INIT:         STATE_INFO_INIT,
                       STATE_PROBE_REQ:    STATE_INFO_PROBE_REQ,
                       STATE_PROBE_RESP:   STATE_INFO_PROBE_RESP,
@@ -374,7 +374,7 @@ class WifiStateMachineAnalyzer(object):
                                               WLAN_DISASSOC_REQ_FRAME_TYPE },
                                             [ PACKET_DETAIL_SENDER,
                                               PACKET_DETAIL_REASON_CODE ])
-    # Master State Table Tuple of Error State Infos
+    # State Table Tuple of Error State Infos
     ERROR_STATE_INFO_TUPLE = (ERROR_STATE_INFO_DEAUTH, ERROR_STATE_INFO_DEASSOC)
 
     # These warnings actually match successful states, but since the we
@@ -389,7 +389,7 @@ class WifiStateMachineAnalyzer(object):
             { PACKET_MATCH_WLAN_FRAME_TYPE: WLAN_ASSOC_RESP_FRAME_TYPE },
             [ PACKET_DETAIL_STATUS_CODE ])
 
-    # Master Table Tuple of warning information.
+    # Table Tuple of warning information.
     WARNING_INFO_TUPLE = (WARNING_INFO_AUTH_REJ, WARNING_INFO_ASSOC_REJ)
 
 

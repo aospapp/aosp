@@ -1,6 +1,8 @@
 <!-- Generated with Stardoc: http://skydoc.bazel.build -->
 
-<a name="#my_rule"></a>
+The input file for the providers for attributes test
+
+<a id="my_rule"></a>
 
 ## my_rule
 
@@ -14,17 +16,17 @@ This rule does things.
 
 
 | Name  | Description | Type | Mandatory | Default |
-| :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
-| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
-| fifth |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | optional | None |
-| first |  this is the first attribute.   | <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: Label -> String</a> | optional | {} |
-| fourth |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | optional | None |
-| second |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a> | optional | [] |
-| sixth |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | optional | None |
-| third |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | optional | None |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="my_rule-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="my_rule-fifth"></a>fifth |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | <code>None</code> |
+| <a id="my_rule-first"></a>first |  this is the first attribute.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional | <code>{}</code> |
+| <a id="my_rule-fourth"></a>fourth |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | <code>None</code> |
+| <a id="my_rule-second"></a>second |  -   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>[]</code> |
+| <a id="my_rule-sixth"></a>sixth |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | <code>None</code> |
+| <a id="my_rule-third"></a>third |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | <code>None</code> |
 
 
-<a name="#MyProviderInfo"></a>
+<a id="MyProviderInfo"></a>
 
 ## MyProviderInfo
 
@@ -38,12 +40,12 @@ MyProviderInfo(<a href="#MyProviderInfo-foo">foo</a>, <a href="#MyProviderInfo-b
 
 
 | Name  | Description |
-| :-------------: | :-------------: |
-| foo |  Something foo-related.    |
-| bar |  Something bar-related.    |
+| :------------- | :------------- |
+| <a id="MyProviderInfo-foo"></a>foo |  Something foo-related.    |
+| <a id="MyProviderInfo-bar"></a>bar |  Something bar-related.    |
 
 
-<a name="#OtherProviderInfo"></a>
+<a id="OtherProviderInfo"></a>
 
 ## OtherProviderInfo
 
@@ -57,7 +59,7 @@ OtherProviderInfo()
 
 
 
-<a name="#my_rule_impl"></a>
+<a id="my_rule_impl"></a>
 
 ## my_rule_impl
 
@@ -71,7 +73,7 @@ my_rule_impl(<a href="#my_rule_impl-ctx">ctx</a>)
 
 
 | Name  | Description | Default Value |
-| :-------------: | :-------------: | :-------------: |
-| ctx |  <p align="center"> - </p>   |  none |
+| :------------- | :------------- | :------------- |
+| <a id="my_rule_impl-ctx"></a>ctx |  <p align="center"> - </p>   |  none |
 
 

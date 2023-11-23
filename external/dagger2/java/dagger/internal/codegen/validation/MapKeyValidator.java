@@ -16,20 +16,17 @@
 
 package dagger.internal.codegen.validation;
 
-import static javax.lang.model.util.ElementFilter.methodsIn;
-
+import androidx.room.compiler.processing.XAnnotationKt;
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XTypeElement;
+import androidx.room.compiler.processing.XTypeKt;
 import dagger.MapKey;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.langmodel.DaggerElements;
 import java.util.List;
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeKind;
 
-/**
- * A validator for {@link MapKey} annotations.
- */
+/** A validator for {@link MapKey} annotations. */
 // TODO(dpb,gak): Should unwrapped MapKeys be required to have their single member be named "value"?
 public final class MapKeyValidator {
   private final DaggerElements elements;
@@ -39,22 +36,26 @@ public final class MapKeyValidator {
     this.elements = elements;
   }
 
-  public ValidationReport<Element> validate(Element element) {
-    ValidationReport.Builder<Element> builder = ValidationReport.about(element);
-    List<ExecutableElement> members = methodsIn(((TypeElement) element).getEnclosedElements());
+  public ValidationReport validate(XTypeElement element) {
+    ValidationReport.Builder builder = ValidationReport.about(element);
+    List<XMethodElement> members = element.getDeclaredMethods();
     if (members.isEmpty()) {
       builder.addError("Map key annotations must have members", element);
-    } else if (element.getAnnotation(MapKey.class).unwrapValue()) {
+    } else if (XAnnotationKt.get(
+        element.getAnnotation(TypeNames.MAP_KEY), "unwrapValue", Boolean.class)) {
       if (members.size() > 1) {
         builder.addError(
             "Map key annotations with unwrapped values must have exactly one member", element);
-      } else if (members.get(0).getReturnType().getKind() == TypeKind.ARRAY) {
+      } else if (XTypeKt.isArray(members.get(0).getReturnType())) {
         builder.addError("Map key annotations with unwrapped values cannot use arrays", element);
       }
     } else if (autoAnnotationIsMissing()) {
       builder.addError(
           "@AutoAnnotation is a necessary dependency if @MapKey(unwrapValue = false). Add a "
-              + "dependency on com.google.auto.value:auto-value:<current version>");
+              + "dependency for the annotation, "
+              + "\"com.google.auto.value:auto-value-annotations:<current version>\", "
+              + "and the annotation processor, "
+              + "\"com.google.auto.value:auto-value:<current version>\"");
     }
     return builder.build();
   }

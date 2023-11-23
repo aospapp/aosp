@@ -30,7 +30,7 @@ import six
 # In case cros_host is being ran via SSP on an older Moblab version with an
 # older chromite version.
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
@@ -87,7 +87,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
         @param alive_count_max: SSH AliveCountMax.
         @param connection_attempts: SSH ConnectionAttempts
         """
-        options = " ".join([options, self._master_ssh.ssh_option])
+        options = " ".join([options, self._main_ssh.ssh_option])
         base_cmd = self.make_ssh_command(user=self.user, port=self.port,
                                          opts=options,
                                          hosts_file=self.known_hosts_file,
@@ -127,16 +127,70 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                    % (stack, utils.sh_escape(command), command))
         return command
 
+    def _tls_run(self, original_cmd, timeout, ignore_status, stdout, stderr,
+                 args, ignore_timeout):
+        """Helper function for run(), uses the tls client."""
+        if not self.tls_connection.alive:
+            raise error.TLSConnectionError("TLS not connected.")
+        original_cmd = ' '.join([original_cmd] +
+                                [utils.sh_quote_word(arg) for arg in args])
 
-    def _run(self, command, timeout, ignore_status,
-             stdout, stderr, connect_timeout, env, options, stdin, args,
-             ignore_timeout, ssh_failure_retry_ok):
+        try:
+            result = self.tls_exec_dut_command_client.run_cmd(original_cmd, timeout,
+                                                       stdout, stderr,
+                                                       ignore_timeout)
+        except Exception as e:
+            logging.warning("TLS Client run err %s", e)
+            raise e
+
+        if not ignore_status and result.exit_status > 0:
+            msg = result.stderr.strip()
+            if not msg:
+                msg = result.stdout.strip()
+                if msg:
+                    msg = msg.splitlines()[-1]
+            raise error.AutoservRunError(
+                    "command execution error using TLS (%d): %s" %
+                    (result.exit_status, msg), result)
+
+        return result
+
+    def _run(self, command, timeout, ignore_status, stdout, stderr,
+             connect_timeout, env, options, stdin, args, ignore_timeout,
+             ssh_failure_retry_ok, verbose):
         """Helper function for run()."""
         if connect_timeout > timeout:
             # timeout passed from run() may be smaller than 1, because we
             # subtract the elapsed time from the original timeout supplied.
             connect_timeout = max(int(timeout), 1)
         original_cmd = command
+
+        # If TLS client has been built, and not marked as unstable, use it.
+        # NOTE: if the tls_enabled setting in the config is not True, the
+        # client will not have been built.
+        use_tls = self.tls_exec_dut_command_client and not self.tls_unstable
+
+        if verbose:
+            stack = self._get_server_stack_state(lowest_frames=2,
+                                                 highest_frames=8)
+
+            logging.debug("Running (via %s) '%s' from '%s'",
+                          'TLS' if use_tls else 'SSH', command, stack)
+            command = self._verbose_logger_command(command)
+
+        if use_tls:
+            try:
+                return self._tls_run(command, timeout, ignore_status, stdout,
+                                     stderr, args, ignore_timeout)
+            except (error.AutoservRunError, error.CmdTimeoutError) as e:
+                raise e
+            except Exception as e:
+                # If TLS fails for unknown reason, we will revert to normal ssh.
+                logging.warning(
+                        "Unexpected TLS cmd failed. Reverting to SSH.\n %s", e)
+
+                # Note the TLS as unstable so we do not attempt to re-start it.
+                self.tls_unstable = True
 
         ssh_cmd = self.ssh_command(connect_timeout, options)
         if not env.strip():
@@ -146,17 +200,6 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
         for arg in args:
             command += ' "%s"' % utils.sh_escape(arg)
         full_cmd = '%s "%s %s"' % (ssh_cmd, env, utils.sh_escape(command))
-
-        # TODO(jrbarnette):  crbug.com/484726 - When we're in an SSP
-        # container, sometimes shortly after reboot we will see DNS
-        # resolution errors on ssh commands; the problem never
-        # occurs more than once in a row.  This especially affects
-        # the autoupdate_Rollback test, but other cases have been
-        # affected, too.
-        #
-        # We work around it by detecting the first DNS resolution error
-        # and retrying exactly one time.
-        dns_error_retry_count = 1
 
         def counters_inc(counter_name, failure_name):
             """Helper function to increment metrics counters.
@@ -181,7 +224,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                 run_counter.increment(fields=fields)
 
         # If ssh_failure_retry_ok is True, retry twice on timeouts and generic
-        # error 255: if a simple retry doesn't work, kill the ssh master
+        # error 255: if a simple retry doesn't work, kill the ssh main
         # connection and try again.  (Note that either error could come from
         # the command running in the DUT, in which case the retry may be
         # useless but, in theory, also harmless.)
@@ -234,10 +277,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
             if failure_name:
                 # There was a failure: decide whether to retry.
                 if failure_name == 'dns_failure':
-                    if dns_error_retry_count > 0:
-                        logging.debug('retrying ssh because of DNS failure')
-                        dns_error_retry_count -= 1
-                        continue
+                    raise error.AutoservSshDnsError("DNS Failure: ", result)
                 else:
                     if ssh_failure_retry_count == 2:
                         logging.debug('retrying ssh command after %s',
@@ -245,10 +285,14 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                         ssh_failure_retry_count -= 1
                         continue
                     elif ssh_failure_retry_count == 1:
-                        # After two failures, restart the master connection
+                        # After two failures, restart the main connection
                         # before the final try.
-                        logging.debug('retry 2: restarting master connection')
-                        self.restart_master_ssh()
+                        stack = self._get_server_stack_state(lowest_frames=1,
+                                                             highest_frames=7)
+                        logging.debug(
+                                'retry 2: restarting main connection from \'%s\'',
+                                stack)
+                        self.restart_main_ssh()
                         # Last retry: reinstate timeout behavior.
                         ignore_timeout = original_ignore_timeout
                         ssh_failure_retry_count -= 1
@@ -321,7 +365,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
         @param ssh_failure_retry_ok: True if the command may be retried on
                 probable ssh failure (error 255 or timeout).  When true,
                 the command may be executed up to three times, the second
-                time after restarting the ssh master connection.  Use only for
+                time after restarting the ssh main connection.  Use only for
                 commands that are idempotent, because when a "probable
                 ssh failure" occurs, we cannot tell if the command executed
                 or not.
@@ -337,17 +381,12 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
         if timeout is None:
             timeout = self._default_run_timeout
         start_time = time.time()
-        with metrics.SecondsTimer('chromeos/autotest/ssh/master_ssh_time',
+        with metrics.SecondsTimer('chromeos/autotest/ssh/main_ssh_time',
                                   scale=0.001):
-            if verbose:
-                stack = self._get_server_stack_state(lowest_frames=1,
-                                                     highest_frames=7)
-                logging.debug("Running (ssh) '%s' from '%s'", command, stack)
-                command = self._verbose_logger_command(command)
 
-            self.start_master_ssh(min(
+            self.start_main_ssh(min(
                     timeout,
-                    self.DEFAULT_START_MASTER_SSH_TIMEOUT_S,
+                    self.DEFAULT_START_MAIN_SSH_TIMEOUT_S,
             ))
 
             env = " ".join("=".join(pair) for pair in six.iteritems(self.env))
@@ -356,7 +395,7 @@ class SSHHost(abstract_ssh.AbstractSSHHost):
                 return self._run(command, timeout - elapsed, ignore_status,
                                  stdout_tee, stderr_tee, connect_timeout, env,
                                  options, stdin, args, ignore_timeout,
-                                 ssh_failure_retry_ok)
+                                 ssh_failure_retry_ok, verbose)
             except error.CmdError as cmderr:
                 # We get a CmdError here only if there is timeout of that
                 # command. Catch that and stuff it into AutoservRunError and

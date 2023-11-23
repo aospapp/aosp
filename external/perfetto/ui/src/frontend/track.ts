@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as m from 'mithril';
+import m from 'mithril';
 
 import {assertExists} from '../base/logging';
 import {Engine} from '../common/engine';
@@ -23,19 +23,15 @@ import {checkerboard} from './checkerboard';
 import {globals} from './globals';
 import {TrackButtonAttrs} from './track_panel';
 
-/**
- * Args passed to the track constructors when creating a new track.
- */
+// Args passed to the track constructors when creating a new track.
 export interface NewTrackArgs {
   trackId: string;
   engine: Engine;
 }
 
-/**
- * This interface forces track implementations to have some static properties.
- * Typescript does not have abstract static members, which is why this needs to
- * be in a separate interface.
- */
+// This interface forces track implementations to have some static properties.
+// Typescript does not have abstract static members, which is why this needs to
+// be in a separate interface.
 export interface TrackCreator {
   // Store the kind explicitly as a string as opposed to using class.kind in
   // case we ever minify our code.
@@ -54,9 +50,7 @@ export interface SliceRect {
   visible: boolean;
 }
 
-/**
- * The abstract class that needs to be implemented by all tracks.
- */
+// The abstract class that needs to be implemented by all tracks.
 export abstract class Track<Config = {}, Data extends TrackData = TrackData> {
   // The UI-generated track ID (not to be confused with the SQL track.id).
   protected readonly trackId: string;
@@ -117,12 +111,14 @@ export abstract class Track<Config = {}, Data extends TrackData = TrackData> {
     return [];
   }
 
+  getContextMenu(): m.Vnode<any>|null {
+    return null;
+  }
+
   onMouseMove(_position: {x: number, y: number}) {}
 
-  /**
-   * Returns whether the mouse click has selected something.
-   * Used to prevent further propagation if necessary.
-   */
+  // Returns whether the mouse click has selected something.
+  // Used to prevent further propagation if necessary.
   onMouseClick(_position: {x: number, y: number}): boolean {
     return false;
   }
@@ -134,9 +130,11 @@ export abstract class Track<Config = {}, Data extends TrackData = TrackData> {
   render(ctx: CanvasRenderingContext2D) {
     globals.frontendLocalState.addVisibleTrack(this.trackState.id);
     if (this.data() === undefined && !this.frontendOnly) {
-      const {visibleWindowTime, timeScale} = globals.frontendLocalState;
-      const startPx = Math.floor(timeScale.timeToPx(visibleWindowTime.start));
-      const endPx = Math.ceil(timeScale.timeToPx(visibleWindowTime.end));
+      const {visibleWindowTime, visibleTimeScale} = globals.frontendLocalState;
+      const startPx =
+          Math.floor(visibleTimeScale.hpTimeToPx(visibleWindowTime.start));
+      const endPx =
+          Math.ceil(visibleTimeScale.hpTimeToPx(visibleWindowTime.end));
       checkerboard(ctx, this.getHeight(), startPx, endPx);
     } else {
       this.renderCanvas(ctx);
@@ -179,7 +177,7 @@ export abstract class Track<Config = {}, Data extends TrackData = TrackData> {
     y -= 10;
 
     // Ensure the box is on screen:
-    const endPx = globals.frontendLocalState.timeScale.endPx;
+    const endPx = globals.frontendLocalState.visibleTimeScale.pxSpan.end;
     if (x + width > endPx) {
       x -= x + width - endPx;
     }
@@ -205,12 +203,10 @@ export abstract class Track<Config = {}, Data extends TrackData = TrackData> {
     }
   }
 
-  /**
-   * Returns a place where a given slice should be drawn. Should be implemented
-   * only for track types that support slices e.g. chrome_slice, async_slices
-   * tStart - slice start time in seconds, tEnd - slice end time in seconds,
-   * depth - slice depth
-   */
+  // Returns a place where a given slice should be drawn. Should be implemented
+  // only for track types that support slices e.g. chrome_slice, async_slices
+  // tStart - slice start time in seconds, tEnd - slice end time in seconds,
+  // depth - slice depth
   getSliceRect(_tStart: number, _tEnd: number, _depth: number): SliceRect
       |undefined {
     return undefined;

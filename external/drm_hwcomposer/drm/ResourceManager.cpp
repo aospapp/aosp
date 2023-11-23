@@ -18,7 +18,6 @@
 
 #include "ResourceManager.h"
 
-#include <fcntl.h>
 #include <sys/stat.h>
 
 #include <ctime>
@@ -58,7 +57,10 @@ void ResourceManager::Init() {
   int path_len = property_get("vendor.hwc.drm.device", path_pattern,
                               "/dev/dri/card%");
   if (path_pattern[path_len - 1] != '%') {
-    AddDrmDevice(std::string(path_pattern));
+    auto dev = DrmDevice::CreateInstance(path_pattern, this);
+    if (dev) {
+      drms_.emplace_back(std::move(dev));
+    }
   } else {
     path_pattern[path_len - 1] = '\0';
     for (int idx = 0;; ++idx) {
@@ -69,8 +71,9 @@ void ResourceManager::Init() {
       if (stat(path.str().c_str(), &buf) != 0)
         break;
 
-      if (DrmDevice::IsKMSDev(path.str().c_str())) {
-        AddDrmDevice(path.str());
+      auto dev = DrmDevice::CreateInstance(path.str(), this);
+      if (dev) {
+        drms_.emplace_back(std::move(dev));
       }
     }
   }
@@ -108,13 +111,6 @@ void ResourceManager::DeInit() {
   initialized_ = false;
 }
 
-int ResourceManager::AddDrmDevice(const std::string &path) {
-  auto drm = std::make_unique<DrmDevice>();
-  int ret = drm->Init(path.c_str());
-  drms_.push_back(std::move(drm));
-  return ret;
-}
-
 auto ResourceManager::GetTimeMonotonicNs() -> int64_t {
   struct timespec ts {};
   clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -136,8 +132,10 @@ void ResourceManager::UpdateFrontendDisplays() {
 
       if (connected) {
         auto pipeline = DrmDisplayPipeline::CreatePipeline(*conn);
-        frontend_interface_->BindDisplay(pipeline.get());
-        attached_pipelines_[conn] = std::move(pipeline);
+        if (pipeline) {
+          frontend_interface_->BindDisplay(pipeline.get());
+          attached_pipelines_[conn] = std::move(pipeline);
+        }
       } else {
         auto &pipeline = attached_pipelines_[conn];
         frontend_interface_->UnbindDisplay(pipeline.get());

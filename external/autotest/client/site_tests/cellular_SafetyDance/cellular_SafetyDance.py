@@ -1,17 +1,29 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import dbus
 import logging
 import random
 import time
 
-from autotest_lib.client.bin import test
+from six.moves import range
+
+from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.cros.cellular import mm1_constants
 from autotest_lib.client.cros.networking import cellular_proxy
 from autotest_lib.client.cros.networking import shill_context
 from autotest_lib.client.cros.networking import shill_proxy
+from autotest_lib.client.cros.networking import mm1_proxy
+
+SERVICE_DISABLE_TIMEOUT = 60
+SERVICE_ENABLE_TIMEOUT = 60
 
 
 class cellular_SafetyDance(test.test):
@@ -29,12 +41,34 @@ class cellular_SafetyDance(test.test):
         v = None
         try:
             v = fn()
-        except dbus.exceptions.DBusException, error:
+        except dbus.exceptions.DBusException as error:
             if error.get_dbus_name() in self.okerrors:
                 return v, error.get_dbus_message()
             else:
                 raise error
         return v, ''
+
+    def _ensure_disabled(self):
+        """
+        Ensure modem is disabled.
+
+        Raises:
+            error.TestFail if the states are not consistent.
+        """
+
+        # b/188448918 : QC modems indicate that they are disabled even if they
+        # are enabled. There is no way to know when the disable completed until
+        # b/188448918 is fixed, and MM receives power state indications from the
+        # modem. The sleep can be removed once b/188448918 is fixed.
+        time.sleep(2)
+
+        utils.poll_for_condition(
+                lambda: not self.test_env.modem.IsEnabled(),
+                error.TestFail('Modem failed to enter state Disabled.'))
+        utils.poll_for_condition(
+                lambda: not self.test_env.shill.find_cellular_service_object(),
+                error.TestFail('Service should not be available.'),
+                timeout=SERVICE_DISABLE_TIMEOUT)
 
     def _enable(self):
         logging.info('Enable')
@@ -45,6 +79,7 @@ class cellular_SafetyDance(test.test):
         logging.info('Disable')
         self._filterexns(lambda:
             self.test_env.shill.manager.DisableTechnology('cellular'))
+        self._ensure_disabled()
 
     def _ignoring(self, reason):
         if ('AlreadyConnected' in reason or
@@ -67,6 +102,15 @@ class cellular_SafetyDance(test.test):
                     timeout_seconds=5)
         except shill_proxy.ShillProxyError:
             return
+
+        mm_proxy = mm1_proxy.ModemManager1Proxy.get_proxy()
+        if not mm_proxy:
+            raise error.TestFail('Could not get mm_proxy')
+        modem_proxy = mm_proxy.get_modem()
+        modem_proxy.wait_for_states([
+                mm1_constants.MM_MODEM_STATE_REGISTERED,
+                mm1_constants.MM_MODEM_STATE_CONNECTED
+        ])
 
         success, reason = self._filterexns(lambda:
                 self.test_env.shill.connect_service_synchronous(
@@ -119,7 +163,7 @@ class cellular_SafetyDance(test.test):
         self._disable()
         logging.info('Seed: %d', seed)
         random.seed(seed)
-        for _ in xrange(ops):
+        for _ in range(ops):
             self._op()
 
     def run_once(self, test_env, ops=30, seed=None):

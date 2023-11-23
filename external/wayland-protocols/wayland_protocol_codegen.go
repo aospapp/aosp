@@ -12,354 +12,1026 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// ---------------------------------------------------------------------------
+/*
+Package wayland_protocol defines an plugin module for the Soong build system,
+which makes it easier to generate code from a list of Wayland protocol files.
 
-// Package wayland_protcool defines extension modules for the Soong build system
-// to make it easier to generate code from a list of Wayland protocol files.
-//
-// The primary extension module is "wayland_protocol_codegen", which applies a
-// code generation tool to a list of source protocol files.
-//
-// Note that the code generation done here is similar to what is done by the
-// base Soong "gensrcs" module, but there are two functional differences:
-//
-//     1) The output filenames are computed from the input filenames, rather
-//        than needing to be specified explicitly. An optional prefix as well
-//        as a suffix can be added to the protocol filename (without extension).
-//
-//     2) Code generation is done for each file independently by emitting
-//        multiple Ninja build commands, rather than one build command which
-//        does it all.
-package wayland_protocol
+The primary build module is "wayland_protocol_codegen", which takes a list of
+protocol files, and runs a configurable code-generation tool to generate
+source code for each one. There is also a "wayland_protocol_codegen_defaults"
+for setting common properties.
+
+This package is substantially similar to the base "android/soong/genrule"
+package, which was originally used for inspiration for this one, and has
+been recently restructured so that it can be kept in sync with a tool like
+"vimdiff" to keep things in sync as needed.
+
+However this build system plugin will not be needed in the future, as
+evidenced by some of the other files that have been added as part of the
+last big sync-up. In the future, Android will be built with Bazel, and it
+is much simpler there to define our own local version of "gensrcs" that
+implements the functionality we need See bazel/gensrcs.bzl for it.
+
+Notable differences:
+
+  - This package implements a more powerful template mechanism for specifying
+    what output path/filename should be used for each source filename. The
+    genrule package only allows the extension on each source filename to be
+    replaced.
+
+  - This package drops support for depfiles, after observing comments that
+    they are problematic in the genrule package sources.
+
+  - This package drops "Extra" and "CmdModifier" from the public Module
+    structure, as this module is not expected to be extended.
+
+  - This package drops "rule" from the public Module structure, as it was
+    unused but present in genrule.
+
+# Usage
+
+	wayland_protocol_codegen {
+		// A standard target name.
+		name: "wayland_extension_protocol_sources",
+
+		// A simple template for generating output filenames.
+		output: "$(in).c"
+
+		// The command line template. See "Cmd".
+		cmd: "$(location wayland_scanner) code < $(in) > $(out)",
+
+		// Protocol source files for the expansion.
+		srcs: [":wayland_extension_protocols"],
+
+		// Any buildable binaries to use as tools
+		tools: ["wayland_scanner"],
+
+		// Any source files to be used  (scripts, template files)
+		tools_files: [],
+	}
+*/
+package soong_wayland_protocol_codegen
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/google/blueprint"
+	"github.com/google/blueprint/bootstrap"
 	"github.com/google/blueprint/proptools"
 
 	"android/soong/android"
+	"android/soong/bazel"
+	"android/soong/bazel/cquery"
 	"android/soong/genrule"
+	"path/filepath"
 )
 
 func init() {
-	// Register out extension module type name with Soong.
-	android.RegisterModuleType(
-		"wayland_protocol_codegen", waylandCodegenModuleFactory)
+	registerCodeGenBuildComponents(android.InitRegistrationContext)
+}
+
+func registerCodeGenBuildComponents(ctx android.RegistrationContext) {
+	ctx.RegisterModuleType("wayland_protocol_codegen_defaults", defaultsFactory)
+
+	ctx.RegisterModuleType("wayland_protocol_codegen", codegenFactory)
+
+	ctx.FinalDepsMutators(func(ctx android.RegisterMutatorsContext) {
+		ctx.BottomUp("wayland_protocol_codegen_tool_deps", toolDepsMutator).Parallel()
+	})
 }
 
 var (
-	// Create a context for build rule output from this package
-	pctx = android.NewPackageContext("android/soong/external/wayland-protocol")
+	pctx = android.NewPackageContext("android/soong/external/wayland_protocol_codegen")
+
+	// Used by wayland_protocol_codegen when there is more than 1 shard to merge the outputs
+	// of each shard into a zip file.
+	gensrcsMerge = pctx.AndroidStaticRule("wayland_protocol_codegenMerge", blueprint.RuleParams{
+		Command:        "${soongZip} -o ${tmpZip} @${tmpZip}.rsp && ${zipSync} -d ${genDir} ${tmpZip}",
+		CommandDeps:    []string{"${soongZip}", "${zipSync}"},
+		Rspfile:        "${tmpZip}.rsp",
+		RspfileContent: "${zipArgs}",
+	}, "tmpZip", "genDir", "zipArgs")
 )
+
+func init() {
+	pctx.Import("android/soong/android")
+
+	pctx.HostBinToolVariable("soongZip", "soong_zip")
+	pctx.HostBinToolVariable("zipSync", "zipsync")
+}
 
 type hostToolDependencyTag struct {
 	blueprint.BaseDependencyTag
+	android.LicenseAnnotationToolchainDependencyTag
+	label string
 }
 
-var hostToolDepTag hostToolDependencyTag
+func (t hostToolDependencyTag) AllowDisabledModuleDependency(target android.Module) bool {
+	// Allow depending on a disabled module if it's replaced by a prebuilt
+	// counterpart. We get the prebuilt through android.PrebuiltGetPreferred in
+	// GenerateAndroidBuildActions.
+	return target.IsReplacedByPrebuilt()
+}
 
-// waylandCodegenProperties defines the properties that will be read in from the
-// Android.bp file for each instantiation of the module.
-type waylandCodegenProperties struct {
-	// This string gives the command line template to run on each protocol file
-	// to wayland_protocol_codegen.
+var _ android.AllowDisabledModuleDependency = (*hostToolDependencyTag)(nil)
+
+type generatorProperties struct {
+	// The command to run on one or more input files. Cmd supports
+	// substitution of a few variables (the actual substitution is implemented
+	// in GenerateAndroidBuildActions below)
 	//
-	// The string can contain one or more "$" prefixed variable names for
-	// values that can vary. At a minimum you need to use ${location}, ${out}
-	// and ${in}
+	// Available variables for substitution:
 	//
-	//  $(location): the path to the first entry in tools or tool_files
-	//  $(location <label>): the path to the tool or tool_file with name <label>
-	//  $(in): A protocol file from srcs
-	//  $(out): The constructed output filename from the protocol filename.
-	//  $$: a literal $
+	//	- $(location)
+	//		the path to the first entry in tools or tool_files
+	//	- $(location <label>)
+	//		the path to the tool, tool_file, input or output with name <label>. Use
+	//		$(location) if <label> refers to a rule that outputs exactly one file.
+	//	- $(locations <label>)
+	//		the paths to the tools, tool_files, inputs or outputs with name
+	//		<label>. Use $(locations) if <label> refers to a rule that outputs two
+	//		or more files.
+	//	- $(in)
+	//		one or more input files
+	//	- $(out)
+	//		a single output file
+	//	- $(genDir)
+	//		the sandbox directory for this tool; contains $(out)
+	//	- $$
+	//		a literal '$'
+	//
+	// All files used must be declared as inputs (to ensure proper up-to-date
+	// checks). Use "$(in)" directly in Cmd to ensure that all inputs used are
+	// declared.
 	Cmd *string
 
-	// The string to prepend to every protcol filename to generate the
-	// corresponding output filename. The empty string by default.
-	Prefix *string
-
-	// The suffix to append to every protocol filename to generate the
-	// corresponding output filename. The empty string by default.
-	Suffix *string
-
-	// The list of protocol files to process.
-	Srcs []string `android:"path"`
-
-	// The names of any built host executables to use for code generation. Can
-	// be left empty if a local script is used instead (specified in
-	// tool_files).
+	// name of the modules (if any) that produces the host executable. Leave
+	// empty for prebuilts or scripts that do not need a module to build them.
 	Tools []string
 
-	// Local files that are used for code generation. Can be scripts to run, but
-	// should also include any other files that the code generation step should
-	// depend on that might be used by the code gen tool.
-	Tool_files []string
+	// Local source files that are used as scripts or other input files needed
+	// by a tool.
+	Tool_files []string `android:"path"`
+
+	// List of directories to export generated headers from.
+	Export_include_dirs []string
+
+	// List of input files.
+	Srcs []string `android:"path,arch_variant"`
+
+	// Input files to exclude.
+	Exclude_srcs []string `android:"path,arch_variant"`
 }
 
-// waylandGenModule defines the Soong module for each instance.
-type waylandGenModule struct {
+type Module struct {
 	android.ModuleBase
+	android.DefaultableModuleBase
+	android.BazelModuleBase
+	android.ApexModuleBase
 
-	// Store a copy of the parsed properties for easy reference.
-	properties waylandCodegenProperties
+	android.ImageInterface
 
-	// Each module emits its own blueprint (Ninja) rule. Store a reference
-	// to the one created for this instance.
-	rule blueprint.Rule
+	properties generatorProperties
 
-	// Each module exports one or more include directories. Store the paths here
-	// here for easy retrieval.
+	taskGenerator taskFunc
+
+	rawCommands []string
+
 	exportedIncludeDirs android.Paths
 
-	// Each module has a list of files it outputs, that can be used by other
-	// modules. Store the list of paths here for easy reference.
 	outputFiles android.Paths
+	outputDeps  android.Paths
+
+	subName string
+	subDir  string
+
+	// Collect the module directory for IDE info in java/jdeps.go.
+	modulePaths []string
 }
 
-// For the uninitiated, this is an idiom to check that a given object implements
-// an interface. In this case we want to be sure that waylandGenModule
-// implements genrule.SourceFileGenerator
-var _ genrule.SourceFileGenerator = (*waylandGenModule)(nil)
+// Ensure Module implements the android.MixedBuildBuildable interface.
+var _ android.MixedBuildBuildable = (*Module)(nil)
 
-// Check that we implement android.SourceFileProducer
-var _ android.SourceFileProducer = (*waylandGenModule)(nil)
+type taskFunc func(ctx android.ModuleContext, rawCommand string, srcFiles android.Paths) []generateTask
 
-// GeneratedSourceFiles implements the genrule.SourceFileGenerator
-// GeneratedSourceFiles method to return the list of generated source files.
-func (g *waylandGenModule) GeneratedSourceFiles() android.Paths {
+type generateTask struct {
+	in     android.Paths
+	out    android.WritablePaths
+	copyTo android.WritablePaths
+	genDir android.WritablePath
+	cmd    string
+
+	shard  int
+	shards int
+}
+
+// Part of genrule.SourceFileGenerator.
+// Returns the list of generated source files.
+func (g *Module) GeneratedSourceFiles() android.Paths {
 	return g.outputFiles
 }
 
-// GeneratedHeaderDirs implements the genrule.SourceFileGenerator
-// GeneratedHeaderDirs method to return the list of exported include
-// directories.
-func (g *waylandGenModule) GeneratedHeaderDirs() android.Paths {
+// Part of genrule.SourceFileGenerator.
+// Returns the list of input source files.
+func (g *Module) Srcs() android.Paths {
+	return append(android.Paths{}, g.outputFiles...)
+}
+
+// Part of genrule.SourceFileGenerator.
+// Returns the list of the list of exported include paths.
+func (g *Module) GeneratedHeaderDirs() android.Paths {
 	return g.exportedIncludeDirs
 }
 
-// GeneratedDeps implements the genrule.SourceFileGenerator GeneratedDeps
-// method to return the list of files to be used as dependencies when using
-// GeneratedHeaderDirs.
-func (g *waylandGenModule) GeneratedDeps() android.Paths {
-	return g.outputFiles
+// Part of genrule.SourceFileGenerator.
+// Returns the list of files to be used as dependencies when using
+// GeneratedHeaderDirs
+func (g *Module) GeneratedDeps() android.Paths {
+	return g.outputDeps
 }
 
-// Srcs implements the android.SourceFileProducer Srcs method to return the list
-// of source files.
-func (g *waylandGenModule) Srcs() android.Paths {
-	return g.outputFiles
-}
-
-// DepsMutator implements the android.Module DepsMutator method to apply a
-// mutator context to the build graph.
-func (g *waylandGenModule) DepsMutator(ctx android.BottomUpMutatorContext) {
-	// This implementation duplicates the one from genrule.go, where gensrcs is
-	// defined.
-	if g, ok := ctx.Module().(*waylandGenModule); ok {
-		if len(g.properties.Tools) > 0 {
-			ctx.AddFarVariationDependencies(ctx.Config().BuildOSTarget.Variations(),
-				hostToolDepTag, g.properties.Tools...)
+// Part of android.OutputFileProducer.
+// Returns the list of output files matching a tag, or an error if there is no
+// match.
+func (g *Module) OutputFiles(tag string) (android.Paths, error) {
+	if tag == "" {
+		return append(android.Paths{}, g.outputFiles...), nil
+	}
+	// otherwise, tag should match one of outputs
+	for _, outputFile := range g.outputFiles {
+		if outputFile.Rel() == tag {
+			return android.Paths{outputFile}, nil
 		}
 	}
+	return nil, fmt.Errorf("unsupported module reference tag %q", tag)
 }
 
-// GenerateAndroidBuildActions implements the android.Module
-// GenerateAndroidBuildActions method, which generates all the rules and builds
-// commands used by this module instance.
-func (g *waylandGenModule) GenerateAndroidBuildActions(ctx android.ModuleContext) {
-	if len(g.properties.Tools) == 0 && len(g.properties.Tool_files) == 0 {
-		ctx.ModuleErrorf("at least one `tools` or `tool_files` is required")
-		return
-	}
+// Ensure Module implements the genrule.SourceFileGenerator interface.
+var _ genrule.SourceFileGenerator = (*Module)(nil)
 
-	// Prepare the list of tools that were defined for codegen purposes.
-	tools, implicitDeps := g.prepareTools(ctx)
+// Ensure Module implements the android.SourceFileProducer interface.
+var _ android.SourceFileProducer = (*Module)(nil)
 
-	if ctx.Failed() {
-		return
-	}
+// Ensure Module implements the android.OutputFileProducer interface.
+var _ android.OutputFileProducer = (*Module)(nil)
 
-	// Emit the rule for generating for processing each source file
-	g.emitRule(ctx, tools)
-
-	if ctx.Failed() {
-		return
-	}
-
-	generatedFilenamePrefix := proptools.String(g.properties.Prefix)
-	generatedFilenameSuffix := proptools.String(g.properties.Suffix)
-	for _, src := range android.PathsForModuleSrc(ctx, g.properties.Srcs) {
-		out := g.generateOutputPath(ctx, src, generatedFilenamePrefix, generatedFilenameSuffix)
-		if out == nil {
-			continue
-		}
-
-		g.emitBuild(ctx, src, out, implicitDeps)
-		g.outputFiles = append(g.outputFiles, out)
-	}
-
-	g.exportedIncludeDirs = append(g.exportedIncludeDirs, android.PathForModuleGen(ctx))
-}
-
-// genrateOutputPath takes an source path, a prefix, and a suffix, and use them
-// to generate and return corresponding an output file path.
-func (g *waylandGenModule) generateOutputPath(ctx android.ModuleContext, src android.Path, prefix string, suffix string) android.WritablePath {
-	// Construct a new filename by adding the requested prefix and suffix for this
-	// code generator instance. If the input file name is "wayland.xml", and the
-	// properties specify a prefix of "test-" and a suffix of "-client.cpp", we
-	// will end up with a fulename of "test-wayland-client.cpp"
-	protocolFilename, protocolExt := splitExt(src.Base())
-	if protocolExt != ".xml" {
-		ctx.ModuleErrorf("Source file %q does not end with .xml", src)
-		return nil
-	}
-	return android.PathForModuleGen(ctx, prefix+protocolFilename+suffix)
-}
-
-// emitRule is an internal function to emit each Ninja rule.
-func (g *waylandGenModule) emitRule(ctx android.ModuleContext, tools map[string]android.Path) {
-	// Get the command to run to process each protocol file. Since everything
-	// should be templated, we generate a Ninja rule that uses the command,
-	// and invoke it from each Ninja build command we emit.
-	g.rule = ctx.Rule(pctx, "generator", blueprint.RuleParams{
-		Command: g.expandCmd(ctx, tools),
-	})
-}
-
-// emitBuild is an internal function to emit each Build command.
-func (g *waylandGenModule) emitBuild(ctx android.ModuleContext, src android.Path, out android.WritablePath, implicitDeps android.Paths) android.Path {
-	ctx.Build(pctx, android.BuildParams{
-		Rule:        g.rule,
-		Description: "generate " + out.Base(),
-		Output:      out,
-		Inputs:      android.Paths{src},
-		Implicits:   implicitDeps,
-	})
-
-	return out
-}
-
-// prepareTools is an internal function to prepare a list of tools.
-func (g *waylandGenModule) prepareTools(ctx android.ModuleContext) (tools map[string]android.Path, implicitDeps android.Paths) {
-	tools = map[string]android.Path{}
-
-	// This was extracted and slightly simplifed from equivalent code in
-	// genrule.go.
-
-	// For each entry in "tool", walk the dependency graph to get more
-	// information about it.
-	if len(g.properties.Tools) > 0 {
-		ctx.VisitDirectDepsBlueprint(func(module blueprint.Module) {
-			tag := ctx.OtherModuleDependencyTag(module)
-			if android.IsSourceDepTagWithOutputTag(tag, "") {
-				// Nothing to do
-				return
+func toolDepsMutator(ctx android.BottomUpMutatorContext) {
+	if g, ok := ctx.Module().(*Module); ok {
+		for _, tool := range g.properties.Tools {
+			tag := hostToolDependencyTag{label: tool}
+			if m := android.SrcIsModule(tool); m != "" {
+				tool = m
 			}
-			switch tag {
-			case hostToolDepTag:
-				tool := ctx.OtherModuleName(module)
-				var path android.OptionalPath
+			ctx.AddFarVariationDependencies(ctx.Config().BuildOSTarget.Variations(), tag, tool)
+		}
+	}
+}
 
-				if t, ok := module.(genrule.HostToolProvider); ok {
+// Part of android.MixedBuildBuildable.
+// Allow this module to be a bridge between Bazel and Soong. Fills in Soong
+// properties for the module from the Bazel cquery, so that other Soong
+// modules can depend on the module when it was actually built by Bazel.
+func (g *Module) ProcessBazelQueryResponse(ctx android.ModuleContext) {
+	g.generateCommonBuildActions(ctx)
+
+	// Get the list of output files that Bazel generates for the target.
+	label := g.GetBazelLabel(ctx, g)
+	bazelCtx := ctx.Config().BazelContext
+	filePaths, err := bazelCtx.GetOutputFiles(label, android.GetConfigKey(ctx))
+	if err != nil {
+		ctx.ModuleErrorf(err.Error())
+		return
+	}
+
+	// Convert to android.Paths, and also form the set of include directories
+	// that might be needed for those paths.
+	var bazelOutputFiles android.Paths
+	exportIncludeDirs := map[string]bool{}
+	for _, bazelOutputFile := range filePaths {
+		bazelOutputFiles = append(bazelOutputFiles,
+			android.PathForBazelOutRelative(ctx, ctx.ModuleDir(), bazelOutputFile))
+		exportIncludeDirs[filepath.Dir(bazelOutputFile)] = true
+	}
+
+	// Set the Soong module properties to refer to the Bazel files
+	g.outputFiles = bazelOutputFiles
+	g.outputDeps = bazelOutputFiles
+	for includePath, _ := range exportIncludeDirs {
+		g.exportedIncludeDirs = append(g.exportedIncludeDirs,
+			android.PathForBazelOut(ctx, includePath))
+	}
+}
+
+// Part of android.Module.
+// Generates all the rules and builds commands used by this module instance.
+func (g *Module) generateCommonBuildActions(ctx android.ModuleContext) {
+	g.subName = ctx.ModuleSubDir()
+
+	// Collect the module directory for IDE info in java/jdeps.go.
+	g.modulePaths = append(g.modulePaths, ctx.ModuleDir())
+
+	if len(g.properties.Export_include_dirs) > 0 {
+		for _, dir := range g.properties.Export_include_dirs {
+			g.exportedIncludeDirs = append(g.exportedIncludeDirs,
+				android.PathForModuleGen(ctx, g.subDir, ctx.ModuleDir(), dir))
+		}
+	} else {
+		g.exportedIncludeDirs = append(g.exportedIncludeDirs, android.PathForModuleGen(ctx, g.subDir))
+	}
+
+	locationLabels := map[string]location{}
+	firstLabel := ""
+
+	addLocationLabel := func(label string, loc location) {
+		if firstLabel == "" {
+			firstLabel = label
+		}
+		if _, exists := locationLabels[label]; !exists {
+			locationLabels[label] = loc
+		} else {
+			ctx.ModuleErrorf("multiple locations for label %q: %q and %q (do you have duplicate srcs entries?)",
+				label, locationLabels[label], loc)
+		}
+	}
+
+	var tools android.Paths
+	var packagedTools []android.PackagingSpec
+	if len(g.properties.Tools) > 0 {
+		seenTools := make(map[string]bool)
+
+		ctx.VisitDirectDepsBlueprint(func(module blueprint.Module) {
+			switch tag := ctx.OtherModuleDependencyTag(module).(type) {
+			case hostToolDependencyTag:
+				tool := ctx.OtherModuleName(module)
+				if m, ok := module.(android.Module); ok {
+					// Necessary to retrieve any prebuilt replacement for the tool, since
+					// toolDepsMutator runs too late for the prebuilt mutators to have
+					// replaced the dependency.
+					module = android.PrebuiltGetPreferred(ctx, m)
+				}
+
+				switch t := module.(type) {
+				case android.HostToolProvider:
+					// A HostToolProvider provides the path to a tool, which will be copied
+					// into the sandbox.
 					if !t.(android.Module).Enabled() {
 						if ctx.Config().AllowMissingDependencies() {
 							ctx.AddMissingDependencies([]string{tool})
 						} else {
 							ctx.ModuleErrorf("depends on disabled module %q", tool)
 						}
-						break
+						return
 					}
-					path = t.HostToolPath()
-				} else {
+					path := t.HostToolPath()
+					if !path.Valid() {
+						ctx.ModuleErrorf("host tool %q missing output file", tool)
+						return
+					}
+					if specs := t.TransitivePackagingSpecs(); specs != nil {
+						// If the HostToolProvider has PackgingSpecs, which are definitions of the
+						// required relative locations of the tool and its dependencies, use those
+						// instead.  They will be copied to those relative locations in the sbox
+						// sandbox.
+						packagedTools = append(packagedTools, specs...)
+						// Assume that the first PackagingSpec of the module is the tool.
+						addLocationLabel(tag.label, packagedToolLocation{specs[0]})
+					} else {
+						tools = append(tools, path.Path())
+						addLocationLabel(tag.label, toolLocation{android.Paths{path.Path()}})
+					}
+				case bootstrap.GoBinaryTool:
+					// A GoBinaryTool provides the install path to a tool, which will be copied.
+					p := android.PathForGoBinary(ctx, t)
+					tools = append(tools, p)
+					addLocationLabel(tag.label, toolLocation{android.Paths{p}})
+				default:
 					ctx.ModuleErrorf("%q is not a host tool provider", tool)
-					break
+					return
 				}
 
-				if path.Valid() {
-					implicitDeps = append(implicitDeps, path.Path())
-					if _, exists := tools[tool]; !exists {
-						tools[tool] = path.Path()
+				seenTools[tag.label] = true
+			}
+		})
+
+		// If AllowMissingDependencies is enabled, the build will not have stopped when
+		// AddFarVariationDependencies was called on a missing tool, which will result in nonsensical
+		// "cmd: unknown location label ..." errors later.  Add a placeholder file to the local label.
+		// The command that uses this placeholder file will never be executed because the rule will be
+		// replaced with an android.Error rule reporting the missing dependencies.
+		if ctx.Config().AllowMissingDependencies() {
+			for _, tool := range g.properties.Tools {
+				if !seenTools[tool] {
+					addLocationLabel(tool, errorLocation{"***missing tool " + tool + "***"})
+				}
+			}
+		}
+	}
+
+	if ctx.Failed() {
+		return
+	}
+
+	for _, toolFile := range g.properties.Tool_files {
+		paths := android.PathsForModuleSrc(ctx, []string{toolFile})
+		tools = append(tools, paths...)
+		addLocationLabel(toolFile, toolLocation{paths})
+	}
+
+	includeDirInPaths := ctx.DeviceConfig().BuildBrokenInputDir(g.Name())
+	var srcFiles android.Paths
+	for _, in := range g.properties.Srcs {
+		paths, missingDeps := android.PathsAndMissingDepsRelativeToModuleSourceDir(android.SourceInput{
+			Context: ctx, Paths: []string{in}, ExcludePaths: g.properties.Exclude_srcs, IncludeDirs: includeDirInPaths,
+		})
+		if len(missingDeps) > 0 {
+			if !ctx.Config().AllowMissingDependencies() {
+				panic(fmt.Errorf("should never get here, the missing dependencies %q should have been reported in DepsMutator",
+					missingDeps))
+			}
+
+			// If AllowMissingDependencies is enabled, the build will not have stopped when
+			// the dependency was added on a missing SourceFileProducer module, which will result in nonsensical
+			// "cmd: label ":..." has no files" errors later.  Add a placeholder file to the local label.
+			// The command that uses this placeholder file will never be executed because the rule will be
+			// replaced with an android.Error rule reporting the missing dependencies.
+			ctx.AddMissingDependencies(missingDeps)
+			addLocationLabel(in, errorLocation{"***missing srcs " + in + "***"})
+		} else {
+			srcFiles = append(srcFiles, paths...)
+			addLocationLabel(in, inputLocation{paths})
+		}
+	}
+
+	var copyFrom android.Paths
+	var outputFiles android.WritablePaths
+	var zipArgs strings.Builder
+
+	cmd := proptools.String(g.properties.Cmd)
+
+	tasks := g.taskGenerator(ctx, cmd, srcFiles)
+	if ctx.Failed() {
+		return
+	}
+
+	for _, task := range tasks {
+		if len(task.out) == 0 {
+			ctx.ModuleErrorf("must have at least one output file")
+			return
+		}
+
+		// Pick a unique path outside the task.genDir for the sbox manifest textproto,
+		// a unique rule name, and the user-visible description.
+		manifestName := "wayland_protocol_codegen.sbox.textproto"
+		desc := "generate"
+		name := "generator"
+		if task.shards > 0 {
+			manifestName = "wayland_protocol_codegen_" + strconv.Itoa(task.shard) + ".sbox.textproto"
+			desc += " " + strconv.Itoa(task.shard)
+			name += strconv.Itoa(task.shard)
+		} else if len(task.out) == 1 {
+			desc += " " + task.out[0].Base()
+		}
+
+		manifestPath := android.PathForModuleOut(ctx, manifestName)
+
+		// Use a RuleBuilder to create a rule that runs the command inside an sbox sandbox.
+		rule := android.NewRuleBuilder(pctx, ctx).Sbox(task.genDir, manifestPath).SandboxTools()
+		cmd := rule.Command()
+
+		for _, out := range task.out {
+			addLocationLabel(out.Rel(), outputLocation{out})
+		}
+
+		rawCommand, err := android.Expand(task.cmd, func(name string) (string, error) {
+			// Report the error directly without returning an error to android.Expand to catch multiple errors in a
+			// single run
+			reportError := func(fmt string, args ...interface{}) (string, error) {
+				ctx.PropertyErrorf("cmd", fmt, args...)
+				return "SOONG_ERROR", nil
+			}
+
+			// Apply shell escape to each cases to prevent source file paths containing $ from being evaluated in shell
+			switch name {
+			case "location":
+				if len(g.properties.Tools) == 0 && len(g.properties.Tool_files) == 0 {
+					return reportError("at least one `tools` or `tool_files` is required if $(location) is used")
+				}
+				loc := locationLabels[firstLabel]
+				paths := loc.Paths(cmd)
+				if len(paths) == 0 {
+					return reportError("default label %q has no files", firstLabel)
+				} else if len(paths) > 1 {
+					return reportError("default label %q has multiple files, use $(locations %s) to reference it",
+						firstLabel, firstLabel)
+				}
+				return proptools.ShellEscape(paths[0]), nil
+			case "in":
+				return strings.Join(proptools.ShellEscapeList(cmd.PathsForInputs(srcFiles)), " "), nil
+			case "out":
+				var sandboxOuts []string
+				for _, out := range task.out {
+					sandboxOuts = append(sandboxOuts, cmd.PathForOutput(out))
+				}
+				return strings.Join(proptools.ShellEscapeList(sandboxOuts), " "), nil
+			case "genDir":
+				return proptools.ShellEscape(cmd.PathForOutput(task.genDir)), nil
+			default:
+				if strings.HasPrefix(name, "location ") {
+					label := strings.TrimSpace(strings.TrimPrefix(name, "location "))
+					if loc, ok := locationLabels[label]; ok {
+						paths := loc.Paths(cmd)
+						if len(paths) == 0 {
+							return reportError("label %q has no files", label)
+						} else if len(paths) > 1 {
+							return reportError("label %q has multiple files, use $(locations %s) to reference it",
+								label, label)
+						}
+						return proptools.ShellEscape(paths[0]), nil
 					} else {
-						ctx.ModuleErrorf("multiple tools for %q, %q and %q", tool, tools[tool], path.Path().String())
+						return reportError("unknown location label %q is not in srcs, out, tools or tool_files.", label)
+					}
+				} else if strings.HasPrefix(name, "locations ") {
+					label := strings.TrimSpace(strings.TrimPrefix(name, "locations "))
+					if loc, ok := locationLabels[label]; ok {
+						paths := loc.Paths(cmd)
+						if len(paths) == 0 {
+							return reportError("label %q has no files", label)
+						}
+						return proptools.ShellEscape(strings.Join(paths, " ")), nil
+					} else {
+						return reportError("unknown locations label %q is not in srcs, out, tools or tool_files.", label)
 					}
 				} else {
-					ctx.ModuleErrorf("host tool %q missing output file", tool)
+					return reportError("unknown variable '$(%s)'", name)
 				}
 			}
 		})
-	}
 
-	// Get more information about each entry in "tool_files".
-	for _, tool := range g.properties.Tool_files {
-		toolPath := android.PathForModuleSrc(ctx, tool)
-		implicitDeps = append(implicitDeps, toolPath)
-		if _, exists := tools[tool]; !exists {
-			tools[tool] = toolPath
+		if err != nil {
+			ctx.PropertyErrorf("cmd", "%s", err.Error())
+			return
+		}
+
+		g.rawCommands = append(g.rawCommands, rawCommand)
+
+		cmd.Text(rawCommand)
+		cmd.ImplicitOutputs(task.out)
+		cmd.Implicits(task.in)
+		cmd.ImplicitTools(tools)
+		cmd.ImplicitPackagedTools(packagedTools)
+
+		// Create the rule to run the genrule command inside sbox.
+		rule.Build(name, desc)
+
+		if len(task.copyTo) > 0 {
+			// If copyTo is set, multiple shards need to be copied into a single directory.
+			// task.out contains the per-shard paths, and copyTo contains the corresponding
+			// final path.  The files need to be copied into the final directory by a
+			// single rule so it can remove the directory before it starts to ensure no
+			// old files remain.  zipsync already does this, so build up zipArgs that
+			// zip all the per-shard directories into a single zip.
+			outputFiles = append(outputFiles, task.copyTo...)
+			copyFrom = append(copyFrom, task.out.Paths()...)
+			zipArgs.WriteString(" -C " + task.genDir.String())
+			zipArgs.WriteString(android.JoinWithPrefix(task.out.Strings(), " -f "))
 		} else {
-			ctx.ModuleErrorf("multiple tools for %q, %q and %q", tool, tools[tool], toolPath.String())
+			outputFiles = append(outputFiles, task.out...)
 		}
 	}
-	return
+
+	if len(copyFrom) > 0 {
+		// Create a rule that zips all the per-shard directories into a single zip and then
+		// uses zipsync to unzip it into the final directory.
+		ctx.Build(pctx, android.BuildParams{
+			Rule:        gensrcsMerge,
+			Implicits:   copyFrom,
+			Outputs:     outputFiles,
+			Description: "merge shards",
+			Args: map[string]string{
+				"zipArgs": zipArgs.String(),
+				"tmpZip":  android.PathForModuleGen(ctx, g.subDir+".zip").String(),
+				"genDir":  android.PathForModuleGen(ctx, g.subDir).String(),
+			},
+		})
+	}
+
+	g.outputFiles = outputFiles.Paths()
 }
 
-// expandCmd is an internal function to do some expansion and any additional
-// wrapping of the generator command line. Returns the command line to use and
-// an error value.
-func (g *waylandGenModule) expandCmd(ctx android.ModuleContext, tools map[string]android.Path) (cmd string) {
-	cmd, err := android.Expand(proptools.String(g.properties.Cmd), func(name string) (string, error) {
-		switch name {
-		case "in":
-			return "$in", nil
-		case "out":
-			// We need to use the sandbox out path instead
-			//return "$sandboxOut", nil
-			return "$out", nil
-		case "location":
-			if len(g.properties.Tools) > 0 {
-				return tools[g.properties.Tools[0]].String(), nil
-			} else {
-				return tools[g.properties.Tool_files[0]].String(), nil
+func (g *Module) GenerateAndroidBuildActions(ctx android.ModuleContext) {
+	g.generateCommonBuildActions(ctx)
+
+	// When there are less than six outputs, we directly give those as the
+	// output dependency for this module. However, if there are more outputs,
+	// we inject a phony target. This potentially saves space in the generated
+	// ninja file, as well as simplifying any visualizations of the dependency
+	// graph.
+	if len(g.outputFiles) <= 6 {
+		g.outputDeps = g.outputFiles
+	} else {
+		phonyFile := android.PathForModuleGen(ctx, "genrule-phony")
+		ctx.Build(pctx, android.BuildParams{
+			Rule:   blueprint.Phony,
+			Output: phonyFile,
+			Inputs: g.outputFiles,
+		})
+		g.outputDeps = android.Paths{phonyFile}
+	}
+}
+
+// Part of android.MixedBuildBuildable.
+// Queues up Bazel cquery requests related to this module.
+func (g *Module) QueueBazelCall(ctx android.BaseModuleContext) {
+	bazelCtx := ctx.Config().BazelContext
+	bazelCtx.QueueBazelRequest(g.GetBazelLabel(ctx, g), cquery.GetOutputFiles,
+		android.GetConfigKey(ctx))
+}
+
+// Part of android.MixedBuildBuildable.
+// Returns true if Bazel can and should build this module in a mixed build.
+func (g *Module) IsMixedBuildSupported(ctx android.BaseModuleContext) bool {
+	return true
+}
+
+// Part of android.IDEInfo.
+// Collect information for opening IDE project files in java/jdeps.go.
+func (g *Module) IDEInfo(dpInfo *android.IdeInfo) {
+	dpInfo.Srcs = append(dpInfo.Srcs, g.Srcs().Strings()...)
+	for _, src := range g.properties.Srcs {
+		if strings.HasPrefix(src, ":") {
+			src = strings.Trim(src, ":")
+			dpInfo.Deps = append(dpInfo.Deps, src)
+		}
+	}
+	dpInfo.Paths = append(dpInfo.Paths, g.modulePaths...)
+}
+
+// Ensure Module implements android.ApexModule
+// Note: gensrcs implements it but it's possible we do not actually need to.
+var _ android.ApexModule = (*Module)(nil)
+
+// Part of android.ApexModule.
+func (g *Module) ShouldSupportSdkVersion(ctx android.BaseModuleContext,
+	sdkVersion android.ApiLevel) error {
+	// Because generated outputs are checked by client modules(e.g. cc_library, ...)
+	// we can safely ignore the check here.
+	return nil
+}
+
+func generatorFactory(taskGenerator taskFunc, props ...interface{}) *Module {
+	module := &Module{
+		taskGenerator: taskGenerator,
+	}
+
+	module.AddProperties(props...)
+	module.AddProperties(&module.properties)
+
+	module.ImageInterface = noopImageInterface{}
+
+	return module
+}
+
+type noopImageInterface struct{}
+
+func (x noopImageInterface) ImageMutatorBegin(android.BaseModuleContext)                 {}
+func (x noopImageInterface) CoreVariantNeeded(android.BaseModuleContext) bool            { return false }
+func (x noopImageInterface) RamdiskVariantNeeded(android.BaseModuleContext) bool         { return false }
+func (x noopImageInterface) VendorRamdiskVariantNeeded(android.BaseModuleContext) bool   { return false }
+func (x noopImageInterface) DebugRamdiskVariantNeeded(android.BaseModuleContext) bool    { return false }
+func (x noopImageInterface) RecoveryVariantNeeded(android.BaseModuleContext) bool        { return false }
+func (x noopImageInterface) ExtraImageVariations(ctx android.BaseModuleContext) []string { return nil }
+func (x noopImageInterface) SetImageVariation(ctx android.BaseModuleContext, variation string, module android.Module) {
+}
+
+// Constructs a Module for handling the code generation.
+func newCodegen() *Module {
+	properties := &codegenProperties{}
+
+	// finalSubDir is the name of the subdirectory that output files will be generated into.
+	// It is used so that per-shard directories can be placed alongside it an then finally
+	// merged into it.
+	const finalSubDir = "wayland_protocol_codegen"
+
+	// Code generation commands are sharded so that up to this many files
+	// are generated as part of one sandbox process.
+	const defaultShardSize = 100
+
+	taskGenerator := func(ctx android.ModuleContext, rawCommand string, srcFiles android.Paths) []generateTask {
+		shardSize := defaultShardSize
+
+		if len(srcFiles) == 0 {
+			ctx.ModuleErrorf("must have at least one source file")
+			return []generateTask{}
+		}
+
+		// wayland_protocol_codegen rules can easily hit command line limits by
+		// repeating the command for every input file.  Shard the input files into
+		// groups.
+		shards := android.ShardPaths(srcFiles, shardSize)
+		var generateTasks []generateTask
+
+		distinctOutputs := make(map[string]android.Path)
+
+		for i, shard := range shards {
+			var commands []string
+			var outFiles android.WritablePaths
+			var copyTo android.WritablePaths
+
+			// When sharding is enabled (i.e. len(shards) > 1), the sbox rules for each
+			// shard will be write to their own directories and then be merged together
+			// into finalSubDir.  If sharding is not enabled (i.e. len(shards) == 1),
+			// the sbox rule will write directly to finalSubDir.
+			genSubDir := finalSubDir
+			if len(shards) > 1 {
+				genSubDir = strconv.Itoa(i)
 			}
-		default:
-			if strings.HasPrefix(name, "location ") {
-				label := strings.TrimSpace(strings.TrimPrefix(name, "location "))
-				if tool, ok := tools[label]; ok {
-					return tool.String(), nil
-				} else {
-					return "", fmt.Errorf("unknown location label %q", label)
+
+			genDir := android.PathForModuleGen(ctx, genSubDir)
+			// NOTE: This TODO is copied from gensrcs, as applies here too.
+			// TODO(ccross): this RuleBuilder is a hack to be able to call
+			// rule.Command().PathForOutput.  Replace this with passing the rule into the
+			// generator.
+			rule := android.NewRuleBuilder(pctx, ctx).Sbox(genDir, nil).SandboxTools()
+
+			for _, in := range shard {
+				outFileRaw := expandOutputPath(ctx, *properties, in)
+
+				if conflictWith, hasKey := distinctOutputs[outFileRaw]; hasKey {
+					ctx.ModuleErrorf("generation conflict: both '%v' and '%v' generate '%v'",
+						conflictWith.String(), in.String(), outFileRaw)
 				}
+
+				distinctOutputs[outFileRaw] = in
+
+				outFile := android.PathForModuleGen(ctx, finalSubDir, outFileRaw)
+
+				// If sharding is enabled, then outFile is the path to the output file in
+				// the shard directory, and copyTo is the path to the output file in the
+				// final directory.
+				if len(shards) > 1 {
+					shardFile := android.PathForModuleGen(ctx, genSubDir, outFileRaw)
+					copyTo = append(copyTo, outFile)
+					outFile = shardFile
+				}
+
+				outFiles = append(outFiles, outFile)
+
+				// pre-expand the command line to replace $in and $out with references to
+				// a single input and output file.
+				command, err := android.Expand(rawCommand, func(name string) (string, error) {
+					switch name {
+					case "in":
+						return in.String(), nil
+					case "out":
+						return rule.Command().PathForOutput(outFile), nil
+					default:
+						return "$(" + name + ")", nil
+					}
+				})
+				if err != nil {
+					ctx.PropertyErrorf("cmd", err.Error())
+				}
+
+				// escape the command in case for example it contains '#', an odd number of '"', etc
+				command = fmt.Sprintf("bash -c %v", proptools.ShellEscape(command))
+				commands = append(commands, command)
 			}
-			return "", fmt.Errorf("unknown variable '$(%s)'", name)
+			fullCommand := strings.Join(commands, " && ")
+
+			generateTasks = append(generateTasks, generateTask{
+				in:     shard,
+				out:    outFiles,
+				copyTo: copyTo,
+				genDir: genDir,
+				cmd:    fullCommand,
+				shard:  i,
+				shards: len(shards),
+			})
 		}
-	})
-	if err != nil {
-		ctx.PropertyErrorf("cmd", "%s", err.Error())
+
+		return generateTasks
 	}
-	return
+
+	g := generatorFactory(taskGenerator, properties)
+	g.subDir = finalSubDir
+	return g
 }
 
-// waylandCodegenModuleFactory creates an extension module instance.
-func waylandCodegenModuleFactory() android.Module {
-	m := &waylandGenModule{}
-	m.AddProperties(&m.properties)
+// Factory for code generation modules
+func codegenFactory() android.Module {
+	m := newCodegen()
 	android.InitAndroidModule(m)
+	android.InitBazelModule(m)
+	android.InitDefaultableModule(m)
 	return m
 }
 
-// splitExt splits a base filename into (filename, ext) components, such that
-// input == filename + ext
-func splitExt(input string) (filename string, ext string) {
-	// There is no filepath.SplitExt() or equivalent.
-	dot := strings.LastIndex(input, ".")
-	if dot != -1 {
-		ext = input[dot:]
-		filename = input[:dot]
-	} else {
-		ext = ""
-		filename = input
+// The custom properties specific to this code generation module.
+type codegenProperties struct {
+	// The string to prepend to every protocol filename to generate the
+	// corresponding output filename. The empty string by default.
+	// Deprecated. Prefer "Output" instead.
+	Prefix *string
+
+	// The suffix to append to every protocol filename to generate the
+	// corresponding output filename. The empty string by default.
+	// Deprecated. Prefer "Output" instead.
+	Suffix *string
+
+	// The output filename template.
+	//
+	// This template string allows the output file name to be generated for
+	// each source file, using some limited properties of the source file.
+	//
+	//	$(in:base): The base filename, no path or extension
+	//	$(in:base.ext): The filename, no path
+	//	$(in:path/base): The filename with path but no extension
+	//	$(in:path/base.ext): The full source filename
+	//	$(in): An alias for $(in:base) for the base filename, no extension
+	//
+	// Note that the path that is maintained is the relative path used when
+	// including the source in an Android.bp file.
+	//
+	// The template allows arbitrary prefixes and suffixes to be added to the
+	// output filename. For example, "a_$(in).d" would take an source filename
+	// of "b.c" and turn it into "a_b.d".
+	//
+	// The output template does not have to generate a unique filename,
+	// however the implementation will raise an error if the same output file
+	// is generated by more than one source file.
+	Output *string
+}
+
+// Expands the output path pattern to form the output path for the given
+// input path.
+func expandOutputPath(ctx android.ModuleContext, properties codegenProperties, in android.Path) string {
+	template := proptools.String(properties.Output)
+	if len(template) == 0 {
+		prefix := proptools.String(properties.Prefix)
+		suffix := proptools.String(properties.Suffix)
+		return prefix + removeExtension(in.Base()) + suffix
 	}
-	return
+
+	outPath, _ := android.Expand(template, func(name string) (string, error) {
+		// Report the error directly without returning an error to
+		// android.Expand to catch multiple errors in a single run.
+		reportError := func(fmt string, args ...interface{}) (string, error) {
+			ctx.PropertyErrorf("output", fmt, args...)
+			return "EXPANSION_ERROR", nil
+		}
+
+		switch name {
+		case "in":
+			return removeExtension(in.Base()), nil
+		case "in:base":
+			return removeExtension(in.Base()), nil
+		case "in:base.ext":
+			return in.Base(), nil
+		case "in:path/base":
+			return removeExtension(in.Rel()), nil
+		case "in:path/base.ext":
+			return in.Rel(), nil
+		default:
+			return reportError("unknown variable '$(%s)'", name)
+		}
+	})
+
+	return outPath
+}
+
+// Removes any extension from the final component of a path.
+func removeExtension(path string) string {
+	// Note: This implementation does not handle files like ".bashrc" correctly.
+	if dot := strings.LastIndex(path, "."); dot != -1 {
+		return path[:dot]
+	}
+	return path
+}
+
+// The attributes for the custom local ./bazel/gensrcs.bzl. See the .bzl file
+// for attribute documentation.
+type bazelGensrcsAttributes struct {
+	Srcs   bazel.LabelListAttribute
+	Output string
+	Tools  bazel.LabelListAttribute
+	Cmd    string
+}
+
+// ConvertWithBp2build converts a Soong module -> Bazel target.
+func (m *Module) ConvertWithBp2build(ctx android.TopDownMutatorContext) {
+	// Bazel only has the "tools" attribute.
+	tools_prop := android.BazelLabelForModuleDeps(ctx, m.properties.Tools)
+	tool_files_prop := android.BazelLabelForModuleSrc(ctx, m.properties.Tool_files)
+	tools_prop.Append(tool_files_prop)
+
+	tools := bazel.MakeLabelListAttribute(tools_prop)
+	srcs := bazel.LabelListAttribute{}
+	srcs_labels := bazel.LabelList{}
+	srcs_labels = android.BazelLabelForModuleSrcExcludes(
+		ctx, m.properties.Srcs, m.properties.Exclude_srcs)
+	srcs = bazel.MakeLabelListAttribute(srcs_labels)
+
+	var allReplacements bazel.LabelList
+	allReplacements.Append(tools.Value)
+	allReplacements.Append(bazel.FirstUniqueBazelLabelList(srcs_labels))
+
+	// Convert the command line template.
+	var cmd string
+	if m.properties.Cmd != nil {
+		// $(in) becomes $(SRC) in our custom gensrcs.bzl
+		cmd = strings.ReplaceAll(*m.properties.Cmd, "$(in)", "$(SRC)")
+		// $(out) becomes $(OUT) in our custom gensrcs.bzl
+		cmd = strings.ReplaceAll(cmd, "$(out)", "$(OUT)")
+		// $(gendir) becomes $(RULEDIR) in our custom gensrcs.bzl
+		cmd = strings.Replace(cmd, "$(genDir)", "$(RULEDIR)", -1)
+
+		// $(location) or $(locations) becomes the more explicit
+		// $(location <default-tool-label>) in Bazel.
+		if len(tools.Value.Includes) > 0 {
+			cmd = strings.Replace(cmd, "$(location)",
+				fmt.Sprintf("$(location %s)", tools.Value.Includes[0].Label), -1)
+			cmd = strings.Replace(cmd, "$(locations)",
+				fmt.Sprintf("$(locations %s)", tools.Value.Includes[0].Label), -1)
+		}
+
+		// Translate all the other $(location <name>) and $(locations <name>)
+		// expansion placeholders.
+		for _, l := range allReplacements.Includes {
+			bpLoc := fmt.Sprintf("$(location %s)", l.OriginalModuleName)
+			bpLocs := fmt.Sprintf("$(locations %s)", l.OriginalModuleName)
+			bazelLoc := fmt.Sprintf("$(location %s)", l.Label)
+			bazelLocs := fmt.Sprintf("$(locations %s)", l.Label)
+			cmd = strings.Replace(cmd, bpLoc, bazelLoc, -1)
+			cmd = strings.Replace(cmd, bpLocs, bazelLocs, -1)
+		}
+	}
+
+	tags := android.ApexAvailableTags(m)
+
+	// The Output_extension prop is not in an immediately accessible field
+	// in the Module struct, so use GetProperties and cast it
+	// to the known struct prop.
+	var outputFileTemplate string
+	for _, propIntf := range m.GetProperties() {
+		if props, ok := propIntf.(*codegenProperties); ok {
+			// Convert the output path template.
+			outputFileTemplate = proptools.String(props.Output)
+			if len(outputFileTemplate) > 0 {
+				outputFileTemplate = strings.Replace(
+					outputFileTemplate, "$(in)", "$(SRC:BASE)", -1)
+				outputFileTemplate = strings.Replace(
+					outputFileTemplate, "$(in:path/base.ext)", "$(SRC:PATH/BASE.EXT)", -1)
+				outputFileTemplate = strings.Replace(
+					outputFileTemplate, "$(in:path/base)", "$(SRC:PATH/BASE)", -1)
+				outputFileTemplate = strings.Replace(
+					outputFileTemplate, "$(in:base.ext)", "$(SRC:BASE.EXT)", -1)
+				outputFileTemplate = strings.Replace(
+					outputFileTemplate, "$(in:base)", "$(SRC:BASE)", -1)
+			} else {
+				outputFileTemplate = proptools.String(props.Prefix) + "$(SRC:BASE)" +
+					proptools.String(props.Suffix)
+			}
+			break
+		}
+	}
+	props := bazel.BazelTargetModuleProperties{
+		Rule_class:        "gensrcs",
+		Bzl_load_location: "//external/wayland-protocols/bazel:gensrcs.bzl",
+	}
+	attrs := &bazelGensrcsAttributes{
+		Srcs:   srcs,
+		Output: outputFileTemplate,
+		Cmd:    cmd,
+		Tools:  tools,
+	}
+	ctx.CreateBazelTargetModule(props, android.CommonAttributes{
+		Name: m.Name(),
+		Tags: tags,
+	}, attrs)
+}
+
+// Defaults module.
+type Defaults struct {
+	android.ModuleBase
+	android.DefaultsModuleBase
+}
+
+func defaultsFactory() android.Module {
+	return DefaultsFactory()
+}
+
+func DefaultsFactory(props ...interface{}) android.Module {
+	module := &Defaults{}
+
+	module.AddProperties(props...)
+	module.AddProperties(
+		&generatorProperties{},
+		&codegenProperties{},
+	)
+
+	android.InitDefaultsModule(module)
+
+	return module
 }

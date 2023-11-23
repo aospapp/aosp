@@ -1667,22 +1667,6 @@ void
 diff_context::show_redundant_changes(bool f)
 {priv_->show_redundant_changes_ = f;}
 
-/// A getter for the flag that says if we should flag indirect class
-/// and union changes in leaf-changes-only mode.
-///
-/// @return the flag.
-bool
-diff_context::flag_indirect_changes() const
-{return priv_->flag_indirect_changes_;}
-
-/// A setter for the flag that says if we should flag indirect class
-/// and union changes in leaf-changes-only mode.
-///
-/// @param f the flag to set.
-void
-diff_context::flag_indirect_changes(bool f)
-{priv_->flag_indirect_changes_ = f;}
-
 /// Getter for the flag that indicates if symbols not referenced by
 /// any debug info are to be compared and reported about.
 ///
@@ -1933,7 +1917,10 @@ diff::end_traversing()
   priv_->traversing_ = false;
 }
 
-/// Finish the building of a given kind of a diff tree node.
+/// Finish the insertion of a diff tree node into the diff graph.
+///
+/// This function might be called several times.  It must perform the
+/// insertion only once.
 ///
 /// For instance, certain kinds of diff tree node have specific
 /// children nodes that are populated after the constructor of the
@@ -1943,6 +1930,10 @@ diff::end_traversing()
 void
 diff::finish_diff_type()
 {
+  if (diff::priv_->finished_)
+    return;
+  chain_into_hierarchy();
+  diff::priv_->finished_ = true;
 }
 
 /// Getter of the first subject of the diff.
@@ -2014,11 +2005,6 @@ diff::append_child_node(diff_sptr d)
   // above.
   priv_->children_.push_back(d.get());
 
-  diff_less_than_functor comp;
-  std::sort(priv_->children_.begin(),
-	    priv_->children_.end(),
-	    comp);
-
   d->priv_->parent_ = this;
 }
 
@@ -2081,6 +2067,13 @@ diff::reported_once() const
 /// without traversing it.  But traversing a node without visiting it
 /// is not possible.
 ///
+/// Note that the insertion of the "generic view" of the diff node
+/// into the graph being traversed is done "on the fly".  The
+/// insertion of the "typed view" of the diff node into the graph is
+/// done implicitely.  To learn more about the generic and typed view
+/// of the diff node, please read the introductory comments of the
+/// @ref diff class.
+///
 /// Note that by default this traversing code visits a given class of
 /// equivalence of a diff node only once.  This behaviour can been
 /// changed by calling
@@ -2118,6 +2111,7 @@ diff::reported_once() const
 bool
 diff::traverse(diff_node_visitor& v)
 {
+  // Insert the "generic view" of the diff node into its graph.
   finish_diff_type();
 
   v.visit_begin(this);
@@ -2548,17 +2542,6 @@ distinct_diff::distinct_diff(type_or_decl_base_sptr first,
   : diff(first, second, ctxt),
     priv_(new priv)
 {ABG_ASSERT(entities_are_of_distinct_kinds(first, second));}
-
-/// Finish building the current instance of @ref distinct_diff.
-void
-distinct_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
 
 /// Getter for the first subject of the diff.
 ///
@@ -3252,16 +3235,6 @@ var_diff::var_diff(var_decl_sptr	first,
     priv_(new priv)
 {priv_->type_diff_ = type_diff;}
 
-/// Finish building the current instance of @ref var_diff.
-void
-var_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
-
 /// Getter for the first @ref var_decl of the diff.
 ///
 /// @return the first @ref var_decl of the diff.
@@ -3380,16 +3353,6 @@ pointer_diff::pointer_diff(pointer_type_def_sptr	first,
   : type_diff_base(first, second, ctxt),
     priv_(new priv(underlying))
 {}
-
-/// Finish building the current instance of @ref pointer_diff.
-void
-pointer_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
 
 /// Getter for the first subject of a pointer diff
 ///
@@ -3530,16 +3493,6 @@ array_diff::array_diff(const array_type_def_sptr	first,
   : type_diff_base(first, second, ctxt),
     priv_(new priv(element_type_diff))
 {}
-
-/// Finish building the current instance of @ref array_diff.
-void
-array_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
 
 /// Getter for the first array of the diff.
 ///
@@ -3692,16 +3645,6 @@ reference_diff::reference_diff(const reference_type_def_sptr	first,
 	priv_(new priv(underlying))
 {}
 
-/// Finish building the current instance of @ref reference_diff.
-void
-reference_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
-
 /// Getter for the first reference of the diff.
 ///
 /// @return the first reference of the diff.
@@ -3836,16 +3779,6 @@ qualified_type_diff::qualified_type_diff(qualified_type_def_sptr	first,
   : type_diff_base(first, second, ctxt),
     priv_(new priv(under))
 {}
-
-/// Finish building the current instance of @ref qualified_type_diff.
-void
-qualified_type_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
 
 /// Getter for the first qualified type of the diff.
 ///
@@ -4080,16 +4013,6 @@ enum_diff::enum_diff(const enum_type_decl_sptr	first,
     priv_(new priv(underlying_type_diff))
 {}
 
-/// Finish building the current instance of @ref enum_diff.
-void
-enum_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
-
 /// @return the first enum of the diff.
 const enum_type_decl_sptr
 enum_diff::first_enum() const
@@ -4194,11 +4117,8 @@ compute_diff(const enum_type_decl_sptr first,
 					second->get_underlying_type(),
 					ctxt);
   enum_diff_sptr d(new enum_diff(first, second, ud, ctxt));
-  bool s = first->get_environment()->use_enum_binary_only_equality();
-  first->get_environment()->use_enum_binary_only_equality(true);
   if (first != second)
     {
-      first->get_environment()->use_enum_binary_only_equality(false);
       compute_diff(first->get_enumerators().begin(),
 		   first->get_enumerators().end(),
 		   second->get_enumerators().begin(),
@@ -4206,7 +4126,6 @@ compute_diff(const enum_type_decl_sptr first,
 		   d->priv_->enumerators_changes_);
       d->ensure_lookup_tables_populated();
     }
-  first->get_environment()->use_enum_binary_only_equality(s);
   ctxt->initialize_canonical_diff(d);
 
   return d;
@@ -4946,16 +4865,6 @@ class_or_union_diff::class_or_union_diff(class_or_union_sptr first_scope,
     //priv_(new priv)
 {}
 
-/// Finish building the current instance of @ref class_or_union_diff.
-void
-class_or_union_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
-
 /// Getter of the private data of the @ref class_or_union_diff type.
 ///
 /// Note that due to an optimization, the private data of @ref
@@ -5308,6 +5217,11 @@ class_diff::ensure_lookup_tables_populated(void) const
 		if (j->second != b)
 		  get_priv()->changed_bases_[name] =
 		    compute_diff(j->second, b, context());
+		else
+		  // The base class changed place.  IOW, the base
+		  // classes got re-arranged.  Let's keep track of the
+		  // base classes that moved.
+		  get_priv()->moved_bases_.push_back(b);
 		get_priv()->deleted_bases_.erase(j);
 	      }
 	    else
@@ -5561,16 +5475,6 @@ class_diff::get_priv() const
   return canonical->priv_;
 }
 
-/// Finish building the current instance of @ref class_diff.
-void
-class_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
-
 /// @return the pretty representation of the current instance of @ref
 /// class_diff.
 const string&
@@ -5647,6 +5551,16 @@ class_diff::inserted_bases() const
 const base_diff_sptrs_type&
 class_diff::changed_bases()
 {return get_priv()->sorted_changed_bases_;}
+
+/// Getter for the vector of bases that "moved".
+/// That is, the vector of base types which position changed.  If this
+/// vector is not empty, it means the bases of the underlying class
+/// type got re-ordered.
+///
+/// @return the vector of bases that moved.
+const vector<class_decl::base_spec_sptr>&
+class_diff::moved_bases() const
+{return get_priv()->moved_bases_;}
 
 /// @return the edit script of the bases of the two classes.
 edit_script&
@@ -5808,17 +5722,6 @@ base_diff::base_diff(class_decl::base_spec_sptr first,
   : diff(first, second, ctxt),
     priv_(new priv(underlying))
 {}
-
-/// Finish building the current instance of @ref base_diff.
-void
-base_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
 
 /// Getter for the first base spec of the diff object.
 ///
@@ -5983,11 +5886,6 @@ union_diff::union_diff(union_decl_sptr first_union,
 		       diff_context_sptr ctxt)
   : class_or_union_diff(first_union, second_union, ctxt)
 {}
-
-/// Finish building the current instance of @ref union_diff.
-void
-union_diff::finish_diff_type()
-{class_or_union_diff::finish_diff_type();}
 
 /// Destructor of the union_diff node.
 union_diff::~union_diff()
@@ -6328,16 +6226,6 @@ scope_diff::scope_diff(scope_decl_sptr first_scope,
     priv_(new priv)
 {}
 
-/// Finish building the current instance of @ref scope_diff.
-void
-scope_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
-
 /// Getter for the first scope of the diff.
 ///
 /// @return the first scope of the diff.
@@ -6631,16 +6519,6 @@ fn_parm_diff::fn_parm_diff(const function_decl::parameter_sptr	first,
   ABG_ASSERT(priv_->type_diff);
 }
 
-/// Finish the building of the current instance of @ref fn_parm_diff.
-void
-fn_parm_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
-
 /// Getter for the first subject of this diff node.
 ///
 /// @return the first function_decl::parameter_sptr subject of this
@@ -6902,16 +6780,6 @@ function_type_diff::function_type_diff(const function_type_sptr first,
     priv_(new priv)
 {}
 
-/// Finish building the current instance of @ref function_type_diff
-void
-function_type_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
-
 /// Getter for the first subject of the diff.
 ///
 /// @return the first function type involved in the diff.
@@ -7118,16 +6986,6 @@ function_decl_diff::function_decl_diff(const function_decl_sptr first,
 {
 }
 
-/// Finish building the current instance of @ref function_decl_diff.
-void
-function_decl_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
-
 /// @return the first function considered by the diff.
 const function_decl_sptr
 function_decl_diff::first_function_decl() const
@@ -7250,15 +7108,6 @@ type_decl_diff::type_decl_diff(const type_decl_sptr first,
 			       diff_context_sptr ctxt)
   : type_diff_base(first, second, ctxt)
 {}
-
-/// Finish building the current instance of @ref type_decl_diff.
-void
-type_decl_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  diff::priv_->finished_ = true;
-}
 
 /// Getter for the first subject of the type_decl_diff.
 ///
@@ -7398,16 +7247,6 @@ typedef_diff::typedef_diff(const typedef_decl_sptr	first,
   : type_diff_base(first, second, ctxt),
     priv_(new priv(underlying))
 {}
-
-/// Finish building the current instance of @ref typedef_diff.
-void
-typedef_diff::finish_diff_type()
-{
-  if (diff::priv_->finished_)
-    return;
-  chain_into_hierarchy();
-  diff::priv_->finished_ = true;
-}
 
 /// Getter for the firt typedef_decl involved in the diff.
 ///
@@ -10034,7 +9873,11 @@ corpus_diff::priv::emit_diff_stats(const diff_stats&	s,
     s.net_num_vars_removed() +
     s.net_num_vars_added() +
     s.net_num_leaf_var_changes() +
-    s.net_num_leaf_type_changes();
+    s.net_num_leaf_type_changes() +
+    s.net_num_removed_func_syms() +
+    s.net_num_added_func_syms() +
+    s.net_num_removed_var_syms() +
+    s.net_num_added_var_syms();
 
   if (!sonames_equal_)
     out << indent << "ELF SONAME changed\n";
@@ -11097,7 +10940,10 @@ compute_diff(const corpus_sptr	f,
 
   ctxt->set_corpus_diff(r);
 
-  r->priv_->sonames_equal_ = f->get_soname() == s->get_soname();
+  if(ctxt->show_soname_change())
+    r->priv_->sonames_equal_ = f->get_soname() == s->get_soname();
+  else
+    r->priv_->sonames_equal_ = true;
 
   r->priv_->architectures_equal_ =
     f->get_architecture_name() == s->get_architecture_name();

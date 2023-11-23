@@ -1,4 +1,4 @@
-#!/usr/bin/python2 -u
+#!/usr/bin/python3 -u
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -108,7 +108,11 @@ def GetUseFlags(overlay=None):
                     GetAutotestTestPackages(overlay))
         child = subprocess.Popen(cmd_args, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE)
-        new_useflags = child.communicate()[0].splitlines()
+        # [bytes] ==> [str]
+        new_useflags = [
+                c.decode() if isinstance(c, bytes) else c
+                for c in child.communicate()[0].splitlines()
+        ]
         if child.returncode == 0:
             useflags = useflags.union(new_useflags)
     return useflags
@@ -287,7 +291,6 @@ def main():
             CheckValidAttr(ctrl_data, attr_allowlist, bvt_allowlist, test_name)
             CheckRetry(ctrl_data, test_name)
             CheckDependencies(ctrl_data, test_name)
-
 
 if __name__ == '__main__':
     main()

@@ -2,20 +2,27 @@
 /*
  * Copyright (c) 2019 FUJITSU LIMITED. All rights reserved.
  * Author: Yang Xu <xuyang2018.jy@cn.fujitsu.com>
+ */
+
+/*\
+ * [Description]
  *
  * Test PR_GET_SECCOMP and PR_SET_SECCOMP of prctl(2).
- * 1) If PR_SET_SECCOMP sets the SECCOMP_MODE_STRICT for the calling thread,
- *    the only system call that the thread is permitted to make are read(2),
- *    write(2),_exit(2)(but not exit_group(2)), and sigreturn(2).  Other
- *    system calls result in the delivery of a SIGKILL signal. This operation
- *    is available only if the kernel is configured with CONFIG_SECCOMP enabled.
- * 2) If PR_SET_SECCOMP sets the SECCOMP_MODE_FILTER for the calling thread,
- *    the system calls allowed are defined by a pointer to a Berkeley Packet
- *    Filter. Other system calls result int the delivery of a SIGSYS signal
- *    with SECCOMP_RET_KILL. The SECCOMP_SET_MODE_FILTER operation is available
- *    only if the kernel is configured with CONFIG_SECCOMP_FILTER enabled.
- * 3) If SECCOMP_MODE_FILTER filters permit fork(2), then the seccomp mode
- *    is inherited by children created by fork(2).
+ *
+ * - If PR_SET_SECCOMP sets the SECCOMP_MODE_STRICT for the calling thread,
+ *   the only system call that the thread is permitted to make are read(2),
+ *   write(2),_exit(2)(but not exit_group(2)), and sigreturn(2).  Other
+ *   system calls result in the delivery of a SIGKILL signal. This operation
+ *   is available only if the kernel is configured with CONFIG_SECCOMP enabled.
+ *
+ * - If PR_SET_SECCOMP sets the SECCOMP_MODE_FILTER for the calling thread,
+ *   the system calls allowed are defined by a pointer to a Berkeley Packet
+ *   Filter. Other system calls result int the delivery of a SIGSYS signal
+ *   with SECCOMP_RET_KILL. The SECCOMP_SET_MODE_FILTER operation is available
+ *   only if the kernel is configured with CONFIG_SECCOMP_FILTER enabled.
+ *
+ * - If SECCOMP_MODE_FILTER filters permit fork(2), then the seccomp mode
+ *   is inherited by children created by fork(2).
  */
 
 #include <errno.h>
@@ -36,8 +43,9 @@
 #define FNAME "filename"
 
 static const struct sock_filter  strict_filter[] = {
-	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, (offsetof (struct seccomp_data, nr))),
+	BPF_STMT(BPF_LD | BPF_W | BPF_ABS, (offsetof(struct seccomp_data, nr))),
 
+	BPF_JUMP(BPF_JMP | BPF_JEQ, __NR_rt_sigprocmask, 6, 0),
 	BPF_JUMP(BPF_JMP | BPF_JEQ, __NR_close, 5, 0),
 	BPF_JUMP(BPF_JMP | BPF_JEQ, __NR_exit,  4, 0),
 	BPF_JUMP(BPF_JMP | BPF_JEQ, __NR_wait4, 3, 0),
@@ -85,6 +93,9 @@ static struct tcase {
 	"SECCOMP_MODE_FILTER doesn't permit exit()"}
 };
 
+
+static int mode_filter_not_supported;
+
 static void check_filter_mode_inherit(void)
 {
 	int childpid;
@@ -127,7 +138,7 @@ static void check_strict_mode(int val)
 		tst_res(TFAIL, "prctl(PR_GET_SECCOMP) succeed unexpectedly");
 	break;
 	case 2:
-		SAFE_WRITE(1, fd, "a", 1);
+		SAFE_WRITE(SAFE_WRITE_ALL, fd, "a", 1);
 		SAFE_READ(0, fd, buf, 1);
 		tst_res(TPASS,
 			"SECCOMP_MODE_STRICT permits read(2) write(2) and _exit(2)");
@@ -146,16 +157,17 @@ static void check_filter_mode(int val)
 {
 	int fd;
 
+	if (mode_filter_not_supported == 1) {
+		tst_res(TCONF, "kernel doesn't support SECCOMP_MODE_FILTER");
+		return;
+	}
+
 	fd = SAFE_OPEN(FNAME, O_RDWR | O_CREAT, 0666);
 
 	TEST(prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &strict));
 	if (TST_RET == -1) {
-		if (TST_ERR == EINVAL)
-			tst_res(TCONF,
-				"kernel doesn't support SECCOMP_MODE_FILTER");
-		else
-			tst_res(TFAIL | TERRNO,
-				"prctl(PR_SET_SECCOMP) sets SECCOMP_MODE_FILTER failed");
+		tst_res(TFAIL | TERRNO,
+			"prctl(PR_SET_SECCOMP) sets SECCOMP_MODE_FILTER failed");
 		return;
 	}
 
@@ -200,7 +212,7 @@ static void verify_prctl(unsigned int n)
 			return;
 		}
 
-		if (tc->pass_flag == 2)
+		if (tc->pass_flag == 2 && mode_filter_not_supported == 0)
 			tst_res(TFAIL,
 				"SECCOMP_MODE_FILTER permits exit() unexpectedly");
 	}
@@ -210,7 +222,15 @@ static void setup(void)
 {
 	TEST(prctl(PR_GET_SECCOMP));
 	if (TST_RET == 0) {
-		tst_res(TINFO, "kernel support PR_GET/SET_SECCOMP");
+		tst_res(TINFO, "kernel supports PR_GET/SET_SECCOMP");
+
+		TEST(prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, NULL));
+		if (TST_RET == -1 && TST_ERR == EINVAL) {
+			mode_filter_not_supported = 1;
+			return;
+		}
+
+		tst_res(TINFO, "kernel supports SECCOMP_MODE_FILTER");
 		return;
 	}
 

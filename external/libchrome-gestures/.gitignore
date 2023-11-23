@@ -1,0 +1,6 @@
+._*
+.deps/*
+html/*
+obj/*
+test
+in-place

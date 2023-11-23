@@ -21,9 +21,11 @@ struct format_metadata;
 uint32_t drv_height_from_format(uint32_t format, uint32_t height, size_t plane);
 uint32_t drv_vertical_subsampling_from_format(uint32_t format, size_t plane);
 uint32_t drv_size_from_format(uint32_t format, uint32_t stride, uint32_t height, size_t plane);
-int drv_bo_from_format(struct bo *bo, uint32_t stride, uint32_t aligned_height, uint32_t format);
-int drv_bo_from_format_and_padding(struct bo *bo, uint32_t stride, uint32_t aligned_height,
-				   uint32_t format, uint32_t padding[DRV_MAX_PLANES]);
+int drv_bo_from_format(struct bo *bo, uint32_t stride, uint32_t stride_align,
+		       uint32_t aligned_height, uint32_t format);
+int drv_bo_from_format_and_padding(struct bo *bo, uint32_t stride, uint32_t stride_align,
+				   uint32_t aligned_height, uint32_t format,
+				   uint32_t padding[DRV_MAX_PLANES]);
 int drv_dumb_bo_create(struct bo *bo, uint32_t width, uint32_t height, uint32_t format,
 		       uint64_t use_flags);
 int drv_dumb_bo_create_ex(struct bo *bo, uint32_t width, uint32_t height, uint32_t format,
@@ -31,7 +33,7 @@ int drv_dumb_bo_create_ex(struct bo *bo, uint32_t width, uint32_t height, uint32
 int drv_dumb_bo_destroy(struct bo *bo);
 int drv_gem_bo_destroy(struct bo *bo);
 int drv_prime_bo_import(struct bo *bo, struct drv_import_fd_data *data);
-void *drv_dumb_bo_map(struct bo *bo, struct vma *vma, size_t plane, uint32_t map_flags);
+void *drv_dumb_bo_map(struct bo *bo, struct vma *vma, uint32_t map_flags);
 int drv_bo_munmap(struct bo *bo, struct vma *vma);
 int drv_get_prot(uint32_t map_flags);
 void drv_add_combination(struct driver *drv, uint32_t format, struct format_metadata *metadata,

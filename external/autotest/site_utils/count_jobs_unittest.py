@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -9,19 +9,18 @@ from __future__ import division
 from __future__ import print_function
 
 from datetime import timedelta, datetime
-import mock
 import unittest
+from unittest import mock
 
 import common
 from autotest_lib.frontend import setup_django_readonly_environment
 from autotest_lib.frontend import setup_test_environment
 from autotest_lib.frontend.afe import models
 from autotest_lib.site_utils import count_jobs
-from django import test
 from six.moves import range
 
 
-class TestCountJobs(test.TestCase):
+class TestCountJobs(unittest.TestCase):
     """Tests the count_jobs script's functionality.
     """
 

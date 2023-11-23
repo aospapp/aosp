@@ -7,6 +7,7 @@ import time
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.cr50_test import Cr50Test
+from autotest_lib.server.cros.servo import chrome_ti50
 
 
 class firmware_Cr50CCDServoCap(Cr50Test):
@@ -41,17 +42,23 @@ class firmware_Cr50CCDServoCap(Cr50Test):
     ON_MAP = [ 'on', 'off', '' ]
     ENABLED_MAP = [ 'enabled', 'disabled', '' ]
     CONNECTED_MAP = [ 'connected', 'disconnected', 'undetectable' ]
+    ASSERTED_MAP = ['asserted', 'deasserted', '']
     VALID_STATES = {
-        'AP' : ON_MAP,
-        'EC' : ON_MAP,
-        'AP UART' : ON_MAP,
-        'Rdd' : CONNECTED_MAP,
-        'Servo' : CONNECTED_MAP,
-        'CCD EXT' : ENABLED_MAP,
+            'AP': ON_MAP,
+            'EC': ON_MAP,
+            'AP UART': ON_MAP,
+            'Rdd': CONNECTED_MAP,
+            'Servo': CONNECTED_MAP,
+            'CCD EXT': ENABLED_MAP,
+            'CCD_MODE': ASSERTED_MAP,
     }
+    # TODO(mruthven): remove CCD_ENABLED_KEYS and mentions of 'CCD EXT' once
+    # prepvt and mp images use CCD_MODE.
+    # Old ccdstate uses CCD EXT. The new ccdstate output uses CCD_MODE.
+    CCD_ENABLED_KEYS = ['CCD EXT', 'CCD_MODE']
     # RESULT_ORDER is a list of the CCD state strings. The order corresponds
     # with the order of the key states in EXPECTED_RESULTS.
-    RESULT_ORDER = ['Rdd', 'CCD EXT', 'Servo']
+    RESULT_ORDER = ['Rdd', 'CCD_MODE', 'Servo']
     # A dictionary containing an order of steps to verify and the expected ccd
     # states as the value.
     #
@@ -105,9 +112,10 @@ class firmware_Cr50CCDServoCap(Cr50Test):
             raise error.TestNAError('Test can only be run on devices with '
                                     'access to the Cr50 console')
 
-        if (self.servo.get_servo_version(active=True) !=
-            'servo_v4_with_servo_micro'):
-            raise error.TestNAError('Must use servo v4 with servo micro')
+        if ('servo_v4' not in self.servo.get_servo_type()
+                    or not self.servo.main_device_is_flex()):
+            raise error.TestNAError('Must use servo v4 with flex(c2d2 or '
+                                    'servo_micro)')
 
         if not self.cr50.servo_dts_mode_is_valid():
             raise error.TestNAError('Need working servo v4 DTS control')
@@ -120,13 +128,16 @@ class firmware_Cr50CCDServoCap(Cr50Test):
         self.fast_ccd_open(enable_testlab=True)
         if not self.cr50.testlab_is_on():
             raise error.TestNAError('Cr50 testlab mode needs to be enabled')
-        logging.info('Cr50 is %s', self.servo.get('cr50_ccd_level'))
+        logging.info('Cr50 is %s', self.servo.get('gsc_ccd_level'))
         self.cr50.set_cap('UartGscTxECRx', 'Always')
         self.ec_efs_support = (
                 self.cr50.uses_board_property('BOARD_EC_CR50_COMM_SUPPORT'))
+        self._ccd_prefix = ('' if self.servo.main_device_is_ccd() else
+                            self.servo.get_ccd_servo_device())
         # Check EC uart if servo has ccd controls and the board has an EC.
-        self.check_ec_uart = (self.servo.has_control('ccd_cr50.ec_board') and
-                              self.check_ec_capability(suppress_warning=True))
+        self.check_ec_uart = (
+                self.servo.has_control('ec_board', prefix=self._ccd_prefix)
+                and self.check_ec_capability(suppress_warning=True))
 
 
     def cleanup(self):
@@ -141,6 +152,12 @@ class firmware_Cr50CCDServoCap(Cr50Test):
 
     def state_matches(self, state_dict, state_name, expected_value):
         """Check the current state. Make sure it matches expected value"""
+        if state_name in self.CCD_ENABLED_KEYS:
+            for state_name in self.CCD_ENABLED_KEYS:
+                if state_name in state_dict:
+                    logging.info('Using %r for ccd enabled key', state_name)
+                    break
+
         valid_state = self.VALID_STATES[state_name][expected_value]
         # I2C isn't a reliable flag, because the hardware often doesn't support
         # it. Remove any I2C flags from the ccdstate output.
@@ -158,7 +175,7 @@ class firmware_Cr50CCDServoCap(Cr50Test):
     def ccd_ec_uart_works(self):
         """Returns True if the CCD ec uart works."""
         try:
-            self.servo.get('ccd_cr50.ec_board')
+            self.servo.get('ec_board', prefix=self._ccd_prefix)
             logging.info('ccd ec console is responsive')
             return True
         except:
@@ -186,18 +203,19 @@ class firmware_Cr50CCDServoCap(Cr50Test):
             output_enabled |= ec_uart_tx_enabled
             ccd_enabled |= ec_uart_enabled
 
-        ccd_ext_is_enabled = ccdstate['CCD EXT'] == 'enabled'
+        ccd_mode_is_asserted = self.state_is_on(ccdstate, 'CCD_MODE')
         mismatch = []
         logging.info('checking state flags')
-        if ccd_enabled and not ccd_ext_is_enabled:
-            mismatch.append('CCD functionality enabled without CCD EXT')
-        if ccd_ext_is_enabled:
+        if ccd_enabled and not ccd_mode_is_asserted:
+            mismatch.append('CCD functionality enabled CCD_MODE asserted')
+        if ccd_mode_is_asserted:
             if output_enabled and self.state_is_on(ccdstate, 'Servo'):
                 mismatch.append('CCD output is enabled with servo attached')
-            if ap_uart_enabled != self.state_is_on(ccdstate, 'AP UART'):
-                mismatch.append('AP UART enabled without AP UART on')
-            if ec_uart_enabled != self.state_is_on(ccdstate, 'EC'):
-                mismatch.append('EC UART enabled without EC on')
+            if not isinstance(self.cr50, chrome_ti50.ChromeTi50):
+                if ap_uart_enabled != self.state_is_on(ccdstate, 'AP UART'):
+                    mismatch.append('AP UART enabled without AP UART on')
+                if ec_uart_enabled != self.state_is_on(ccdstate, 'EC'):
+                    mismatch.append('EC UART enabled without EC on')
             if self.check_ec_uart:
                 ccd_ec_uart_works = self.ccd_ec_uart_works()
                 if (self.servo.get('ec_uart_en') == 'off'

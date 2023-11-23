@@ -19,11 +19,20 @@
 
 #include "perfetto/trace_processor/status.h"
 #include "src/trace_processor/importers/common/event_tracker.h"
+#include "src/trace_processor/importers/common/parser_types.h"
+#include "src/trace_processor/importers/common/system_info_tracker.h"
+#include "src/trace_processor/importers/common/trace_parser.h"
+#include "src/trace_processor/importers/ftrace/drm_tracker.h"
 #include "src/trace_processor/importers/ftrace/ftrace_descriptors.h"
+#include "src/trace_processor/importers/ftrace/iostat_tracker.h"
+#include "src/trace_processor/importers/ftrace/mali_gpu_event_tracker.h"
+#include "src/trace_processor/importers/ftrace/pkvm_hyp_cpu_tracker.h"
 #include "src/trace_processor/importers/ftrace/rss_stat_tracker.h"
 #include "src/trace_processor/importers/ftrace/sched_event_tracker.h"
-#include "src/trace_processor/timestamped_trace_piece.h"
+#include "src/trace_processor/importers/ftrace/virtio_gpu_tracker.h"
 #include "src/trace_processor/types/trace_processor_context.h"
+
+#include <unordered_set>
 
 namespace perfetto {
 namespace trace_processor {
@@ -32,9 +41,17 @@ class FtraceParser {
  public:
   explicit FtraceParser(TraceProcessorContext* context);
 
-  void ParseFtraceStats(protozero::ConstBytes);
+  void ParseFtraceStats(protozero::ConstBytes, uint32_t packet_sequence_id);
 
-  util::Status ParseFtraceEvent(uint32_t cpu, const TimestampedTracePiece& ttp);
+  util::Status ParseFtraceEvent(uint32_t cpu,
+                                int64_t ts,
+                                const TracePacketData& data);
+  util::Status ParseInlineSchedSwitch(uint32_t cpu,
+                                      int64_t ts,
+                                      const InlineSchedSwitch& data);
+  util::Status ParseInlineSchedWaking(uint32_t cpu,
+                                      int64_t ts,
+                                      const InlineSchedWaking& data);
 
  private:
   void ParseGenericFtrace(int64_t timestamp,
@@ -48,7 +65,6 @@ class FtraceParser {
                              protozero::ConstBytes,
                              PacketSequenceStateGeneration*);
   void ParseSchedSwitch(uint32_t cpu, int64_t timestamp, protozero::ConstBytes);
-  void ParseSchedWakeup(int64_t timestamp, uint32_t pid, protozero::ConstBytes);
   void ParseSchedWaking(int64_t timestamp, uint32_t pid, protozero::ConstBytes);
   void ParseSchedProcessFree(int64_t timestamp, protozero::ConstBytes);
   void ParseCpuFreq(int64_t timestamp, protozero::ConstBytes);
@@ -68,6 +84,9 @@ class FtraceParser {
   void ParseMaliTracingMarkWrite(int64_t timestamp,
                                  uint32_t pid,
                                  protozero::ConstBytes);
+  void ParseLwisTracingMarkWrite(int64_t timestamp,
+                                 uint32_t pid,
+                                 protozero::ConstBytes);
   void ParseIonHeapGrowOrShrink(int64_t timestamp,
                                 uint32_t pid,
                                 protozero::ConstBytes,
@@ -78,16 +97,26 @@ class FtraceParser {
   void ParseSignalDeliver(int64_t timestamp,
                           uint32_t pid,
                           protozero::ConstBytes);
-  void ParseLowmemoryKill(int64_t timestamp, protozero::ConstBytes);
   void ParseOOMScoreAdjUpdate(int64_t timestamp, protozero::ConstBytes);
   void ParseOOMKill(int64_t timestamp, protozero::ConstBytes);
   void ParseMmEventRecord(int64_t timestamp,
                           uint32_t pid,
                           protozero::ConstBytes);
-  void ParseSysEvent(int64_t timestamp,
-                     uint32_t pid,
-                     bool is_enter,
-                     protozero::ConstBytes);
+  void ParseSysEnterEvent(int64_t timestamp,
+                          uint32_t pid,
+                          protozero::ConstBytes);
+  void ParseSysExitEvent(int64_t timestamp,
+                         uint32_t pid,
+                         protozero::ConstBytes);
+  void ParseI2cReadEvent(int64_t timestamp,
+                         uint32_t pid,
+                         protozero::ConstBytes);
+  void ParseI2cWriteEvent(int64_t timestamp,
+                          uint32_t pid,
+                          protozero::ConstBytes);
+  void ParseI2cResultEvent(int64_t timestamp,
+                           uint32_t pid,
+                           protozero::ConstBytes);
   void ParseTaskNewTask(int64_t timestamp,
                         uint32_t source_tid,
                         protozero::ConstBytes);
@@ -119,12 +148,23 @@ class FtraceParser {
                          uint32_t pid,
                          protozero::ConstBytes);
   void ParseScmCallEnd(int64_t timestamp, uint32_t pid, protozero::ConstBytes);
+  void ParseCmaAllocStart(int64_t timestamp, uint32_t pid);
+  void ParseCmaAllocInfo(int64_t timestamp,
+                         uint32_t pid,
+                         protozero::ConstBytes);
   void ParseDirectReclaimBegin(int64_t timestamp,
                                uint32_t pid,
                                protozero::ConstBytes);
   void ParseDirectReclaimEnd(int64_t timestamp,
                              uint32_t pid,
                              protozero::ConstBytes);
+  void ParseShrinkSlabStart(int64_t timestamp,
+                            uint32_t pid,
+                            protozero::ConstBytes,
+                            PacketSequenceStateGeneration* seq_state);
+  void ParseShrinkSlabEnd(int64_t timestamp,
+                          uint32_t pid,
+                          protozero::ConstBytes);
   void ParseWorkqueueExecuteStart(uint32_t cpu,
                                   int64_t timestamp,
                                   uint32_t pid,
@@ -146,8 +186,7 @@ class FtraceParser {
   void ParseGpuMemTotal(int64_t timestamp, protozero::ConstBytes);
   void ParseThermalTemperature(int64_t timestamp, protozero::ConstBytes);
   void ParseCdevUpdate(int64_t timestamp, protozero::ConstBytes);
-  void ParseSchedBlockedReason(int64_t timestamp,
-                               protozero::ConstBytes,
+  void ParseSchedBlockedReason(protozero::ConstBytes,
                                PacketSequenceStateGeneration*);
   void ParseFastRpcDmaStat(int64_t timestamp,
                            uint32_t pid,
@@ -173,12 +212,75 @@ class FtraceParser {
   void ParseUfshcdClkGating(int64_t timestamp, protozero::ConstBytes);
 
   void ParseCrosEcSensorhubData(int64_t timestamp, protozero::ConstBytes);
+
   void ParseWakeSourceActivate(int64_t timestamp, protozero::ConstBytes);
   void ParseWakeSourceDeactivate(int64_t timestamp, protozero::ConstBytes);
   void ParseSuspendResume(int64_t timestamp, protozero::ConstBytes);
+  void ParseSuspendResumeMinimal(int64_t timestamp, protozero::ConstBytes);
+  void ParseSchedCpuUtilCfs(int64_t timestap, protozero::ConstBytes);
+
+  void ParseFuncgraphEntry(int64_t timestamp,
+                           uint32_t pid,
+                           protozero::ConstBytes blob,
+                           PacketSequenceStateGeneration* seq_state);
+  void ParseFuncgraphExit(int64_t timestamp,
+                          uint32_t pid,
+                          protozero::ConstBytes blob,
+                          PacketSequenceStateGeneration* seq_state);
+
+  void MaybeOnFirstFtraceEvent();
+  StringId InternedKernelSymbolOrFallback(
+      uint64_t key,
+      PacketSequenceStateGeneration* seq_state);
+  void ParseTrustySmc(uint32_t pid, int64_t timestamp, protozero::ConstBytes);
+  void ParseTrustySmcDone(uint32_t pid,
+                          int64_t timestamp,
+                          protozero::ConstBytes);
+  void ParseTrustyStdCall32(uint32_t pid,
+                            int64_t ts,
+                            protozero::ConstBytes data);
+  void ParseTrustyStdCall32Done(uint32_t pid,
+                                int64_t ts,
+                                protozero::ConstBytes data);
+  void ParseTrustyShareMemory(uint32_t pid, int64_t ts, protozero::ConstBytes);
+  void ParseTrustyShareMemoryDone(uint32_t pid,
+                                  int64_t ts,
+                                  protozero::ConstBytes);
+  void ParseTrustyReclaimMemory(uint32_t pid,
+                                int64_t ts,
+                                protozero::ConstBytes);
+  void ParseTrustyReclaimMemoryDone(uint32_t pid,
+                                    int64_t ts,
+                                    protozero::ConstBytes);
+  void ParseTrustyIrq(uint32_t pid, int64_t ts, protozero::ConstBytes);
+  void ParseTrustyIpcHandleEvent(uint32_t pid,
+                                 int64_t ts,
+                                 protozero::ConstBytes);
+  void ParseTrustyIpcConnect(uint32_t pid, int64_t ts, protozero::ConstBytes);
+  void ParseTrustyIpcConnectEnd(uint32_t pid,
+                                int64_t ts,
+                                protozero::ConstBytes);
+  void ParseTrustyIpcWrite(uint32_t pid, int64_t ts, protozero::ConstBytes);
+  void ParseTrustyIpcWriteEnd(uint32_t pid, int64_t ts, protozero::ConstBytes);
+  void ParseTrustyIpcRead(uint32_t pid, int64_t ts, protozero::ConstBytes);
+  void ParseTrustyIpcReadEnd(uint32_t pid, int64_t ts, protozero::ConstBytes);
+  void ParseTrustyIpcPoll(uint32_t pid, int64_t ts, protozero::ConstBytes);
+  void ParseTrustyIpcRx(uint32_t pid, int64_t ts, protozero::ConstBytes);
+  void ParseTrustyEnqueueNop(uint32_t pid, int64_t ts, protozero::ConstBytes);
+  void ParseMaliKcpuCqsSet(uint32_t pid, int64_t ts);
+  void ParseMaliKcpuCqsWaitStart(uint32_t pid, int64_t ts);
+  void ParseMaliKcpuCqsWaitEnd(uint32_t pid, int64_t ts);
+  void ParseMaliKcpuFenceSignal(uint32_t pid, int64_t ts);
+  void ParseMaliKcpuFenceWaitStart(uint32_t pid, int64_t ts);
+  void ParseMaliKcpuFenceWaitEnd(uint32_t pid, int64_t ts);
 
   TraceProcessorContext* context_;
   RssStatTracker rss_stat_tracker_;
+  DrmTracker drm_tracker_;
+  IostatTracker iostat_tracker_;
+  VirtioGpuTracker virtio_gpu_tracker_;
+  MaliGpuEventTracker mali_gpu_event_tracker_;
+  PkvmHypervisorCpuTracker pkvm_hyp_cpu_tracker_;
 
   const StringId sched_wakeup_name_id_;
   const StringId sched_waking_name_id_;
@@ -187,6 +289,8 @@ class FtraceParser {
   const StringId gpu_freq_name_id_;
   const StringId cpu_idle_name_id_;
   const StringId suspend_resume_name_id_;
+  const StringId suspend_resume_minimal_name_id_;
+  const StringId suspend_resume_minimal_slice_name_id_;
   const StringId kfree_skb_name_id_;
   const StringId ion_total_id_;
   const StringId ion_change_id_;
@@ -221,7 +325,6 @@ class FtraceParser {
   const StringId gpu_mem_total_unit_id_;
   const StringId gpu_mem_total_global_desc_id_;
   const StringId gpu_mem_total_proc_desc_id_;
-  const StringId sched_blocked_reason_id_;
   const StringId io_wait_id_;
   const StringId function_id_;
   const StringId waker_utid_id_;
@@ -230,6 +333,28 @@ class FtraceParser {
   const StringId cros_ec_arg_sample_ts_id_;
   const StringId ufs_clkgating_id_;
   const StringId ufs_command_count_id_;
+  const StringId shrink_slab_id_;
+  const StringId shrink_name_id_;
+  const StringId shrink_total_scan_id_;
+  const StringId shrink_freed_id_;
+  const StringId shrink_priority_id_;
+  const StringId trusty_category_id_;
+  const StringId trusty_name_trusty_std_id_;
+  const StringId trusty_name_tipc_rx_id_;
+  const StringId cma_alloc_id_;
+  const StringId cma_name_id_;
+  const StringId cma_pfn_id_;
+  const StringId cma_req_pages_id_;
+  const StringId cma_nr_migrated_id_;
+  const StringId cma_nr_reclaimed_id_;
+  const StringId cma_nr_mapped_id_;
+  const StringId cma_nr_isolate_fail_id_;
+  const StringId cma_nr_migrate_fail_id_;
+  const StringId cma_nr_test_fail_id_;
+  const StringId syscall_ret_id_;
+  const StringId syscall_args_id_;
+  const StringId replica_slice_id_;
+  std::vector<StringId> syscall_arg_name_ids_;
 
   struct FtraceMessageStrings {
     // The string id of name of the event field (e.g. sched_switch's id).
@@ -275,11 +400,22 @@ class FtraceParser {
   // with a give name
   std::unordered_map<std::string, uint32_t> active_wakelock_to_count_;
 
+  // Record whether a suspend resume action is ongoing.
+  std::unordered_map<std::string, bool> ongoing_suspend_resume_actions;
+
   bool has_seen_first_ftrace_packet_ = false;
 
   // Stores information about the timestamp from the metadata table which is
   // used to filter ftrace packets which happen before this point.
   int64_t drop_ftrace_data_before_ts_ = 0;
+
+  // Does not skip any ftrace events.
+  bool preserve_ftrace_buffer_ = false;
+
+  // Sequence ids for which ftrace_errors have been seen. Used to avoid
+  // putting them in the metadata multiple times (the ftrace data sources
+  // re-emits begin stats on every flush).
+  std::unordered_set<uint32_t> seen_errors_for_sequence_id_;
 };
 
 }  // namespace trace_processor

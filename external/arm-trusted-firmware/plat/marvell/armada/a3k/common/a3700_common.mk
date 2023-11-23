@@ -13,7 +13,7 @@ PLAT_INCLUDE_BASE		:= $(MARVELL_PLAT_INCLUDE_BASE)/$(PLAT_FAMILY)
 PLAT_COMMON_BASE		:= $(PLAT_FAMILY_BASE)/common
 MARVELL_DRV_BASE		:= drivers/marvell
 MARVELL_COMMON_BASE		:= $(MARVELL_PLAT_BASE)/common
-HANDLE_EA_EL3_FIRST		:= 1
+ERRATA_A53_1530924		:= 1
 
 include plat/marvell/marvell.mk
 
@@ -53,7 +53,6 @@ BL31_SOURCES		+=	lib/cpus/aarch64/cortex_a53.S		\
 				$(PLAT_COMMON_BASE)/dram_win.c		\
 				$(PLAT_COMMON_BASE)/io_addr_dec.c	\
 				$(PLAT_COMMON_BASE)/marvell_plat_config.c     \
-				$(PLAT_COMMON_BASE)/a3700_ea.c		\
 				$(PLAT_FAMILY_BASE)/$(PLAT)/plat_bl31_setup.c \
 				$(MARVELL_COMMON_BASE)/marvell_cci.c	\
 				$(MARVELL_COMMON_BASE)/marvell_ddr_info.c	\
@@ -62,6 +61,10 @@ BL31_SOURCES		+=	lib/cpus/aarch64/cortex_a53.S		\
 				drivers/arm/cci/cci.c			\
 				$(PLAT_COMMON_BASE)/a3700_sip_svc.c	\
 				$(MARVELL_DRV)
+
+ifeq ($(HANDLE_EA_EL3_FIRST),1)
+BL31_SOURCES		+=	$(PLAT_COMMON_BASE)/a3700_ea.c
+endif
 
 ifeq ($(CM3_SYSTEM_RESET),1)
 BL31_SOURCES		+=	$(PLAT_COMMON_BASE)/cm3_system_reset.c
@@ -73,6 +76,7 @@ endif
 
 ifdef WTP
 
+# Do not remove! Following checks are required to ensure correct TF-A builds, removing these checks leads to broken TF-A builds
 $(if $(wildcard $(value WTP)/*),,$(error "'WTP=$(value WTP)' was specified, but '$(value WTP)' directory does not exist"))
 $(if $(shell git -C $(value WTP) rev-parse --show-cdup 2>&1),$(error "'WTP=$(value WTP)' was specified, but '$(value WTP)' does not contain valid A3700-utils-marvell git repository"))
 
@@ -140,6 +144,7 @@ CRYPTOPP_LIBDIR		?= $(CRYPTOPP_PATH)
 CRYPTOPP_INCDIR		?= $(CRYPTOPP_PATH)
 
 $(TBB): FORCE
+#	Do not remove! Following checks are required to ensure correct TF-A builds, removing these checks leads to broken TF-A builds
 	$(if $(CRYPTOPP_LIBDIR),,$(error "Platform '$(PLAT)' for WTP image tool requires CRYPTOPP_PATH or CRYPTOPP_LIBDIR. Please set CRYPTOPP_PATH or CRYPTOPP_LIBDIR to point to the right directory"))
 	$(if $(CRYPTOPP_INCDIR),,$(error "Platform '$(PLAT)' for WTP image tool requires CRYPTOPP_PATH or CRYPTOPP_INCDIR. Please set CRYPTOPP_PATH or CRYPTOPP_INCDIR to point to the right directory"))
 	$(if $(wildcard $(CRYPTOPP_LIBDIR)/*),,$(error "Either 'CRYPTOPP_PATH' or 'CRYPTOPP_LIB' was set to '$(CRYPTOPP_LIBDIR)', but '$(CRYPTOPP_LIBDIR)' does not exist"))
@@ -156,6 +161,7 @@ $(BUILD_PLAT)/wtmi.bin: $(WTMI_MULTI_IMG)
 	$(Q)cp -a $(WTMI_MULTI_IMG) $(BUILD_PLAT)/wtmi.bin
 
 $(TIMDDRTOOL): FORCE
+#	Do not remove! Following checks are required to ensure correct TF-A builds, removing these checks leads to broken TF-A builds
 	$(if $(value MV_DDR_PATH),,$(error "Platform '${PLAT}' for ddr tool requires MV_DDR_PATH. Please set MV_DDR_PATH to point to the right directory"))
 	$(if $(wildcard $(value MV_DDR_PATH)/*),,$(error "'MV_DDR_PATH=$(value MV_DDR_PATH)' was specified, but '$(value MV_DDR_PATH)' directory does not exist"))
 	$(if $(shell git -C $(value MV_DDR_PATH) rev-parse --show-cdup 2>&1),$(error "'MV_DDR_PATH=$(value MV_DDR_PATH)' was specified, but '$(value MV_DDR_PATH)' does not contain valid mv-ddr-marvell git repository"))

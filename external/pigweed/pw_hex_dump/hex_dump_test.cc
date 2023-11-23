@@ -18,11 +18,11 @@
 #include <cinttypes>
 #include <cstdint>
 #include <cstring>
-#include <span>
 #include <string_view>
 
 #include "gtest/gtest.h"
 #include "pw_log/log.h"
+#include "pw_span/span.h"
 
 namespace pw::dump {
 namespace {
@@ -308,8 +308,8 @@ TEST_F(HexDump, FormattedHexDump_AsciiHeaderGroupEvery) {
 }
 
 TEST_F(HexDump, FormattedHexDump_OffsetPrefix) {
-  constexpr const char* expected1 = "0000";
-  constexpr const char* expected2 = "0010";
+  constexpr const char* expected1 = "0000:";
+  constexpr const char* expected2 = "0010:";
 
   default_flags_.bytes_per_line = 16;
   default_flags_.prefix_mode = FormattedHexDumper::AddressMode::kOffset;
@@ -329,14 +329,52 @@ TEST_F(HexDump, FormattedHexDump_OffsetPrefix) {
   EXPECT_STREQ(expected2, dest_.data());
 }
 
+TEST_F(HexDump, FormattedHexDump_OffsetPrefix_ShortLine) {
+  constexpr const char* expected = "0000:";
+
+  default_flags_.bytes_per_line = 16;
+  default_flags_.prefix_mode = FormattedHexDumper::AddressMode::kOffset;
+  dumper_ = FormattedHexDumper(dest_, default_flags_);
+
+  EXPECT_TRUE(dumper_.BeginDump(pw::span(source_data).first(8)).ok());
+  // Dump first and only line.
+  EXPECT_TRUE(dumper_.DumpLine().ok());
+  // Truncate string to only contain the offset.
+  dest_[strlen(expected)] = '\0';
+  EXPECT_STREQ(expected, dest_.data());
+}
+
+TEST_F(HexDump, FormattedHexDump_OffsetPrefix_LongData) {
+  constexpr std::array<std::byte, 300> long_data = {std::byte{0xff}};
+
+  constexpr const char* expected1 = "0000:";
+  constexpr const char* expected2 = "0010:";
+
+  default_flags_.bytes_per_line = 16;
+  default_flags_.prefix_mode = FormattedHexDumper::AddressMode::kOffset;
+  dumper_ = FormattedHexDumper(dest_, default_flags_);
+
+  EXPECT_TRUE(dumper_.BeginDump(long_data).ok());
+  // Dump first line.
+  EXPECT_TRUE(dumper_.DumpLine().ok());
+  // Truncate string to only contain the offset.
+  dest_[strlen(expected1)] = '\0';
+  EXPECT_STREQ(expected1, dest_.data());
+
+  // Dump second line.
+  EXPECT_TRUE(dumper_.DumpLine().ok());
+  // Truncate string to only contain the offset.
+  dest_[strlen(expected2)] = '\0';
+  EXPECT_STREQ(expected2, dest_.data());
+}
+
 TEST_F(HexDump, FormattedHexDump_AbsolutePrefix) {
   constexpr size_t kTestBytesPerLine = 16;
   std::array<char, kHexAddrStringSize + 1> expected1;
   std::array<char, kHexAddrStringSize + 1> expected2;
-  DumpAddr(expected1, source_data.data())
-      .IgnoreError();  // TODO(pwbug/387): Handle Status properly
-  DumpAddr(expected2, source_data.data() + kTestBytesPerLine)
-      .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+  ASSERT_EQ(OkStatus(), DumpAddr(expected1, source_data.data()));
+  ASSERT_EQ(OkStatus(),
+            DumpAddr(expected2, source_data.data() + kTestBytesPerLine));
 
   default_flags_.bytes_per_line = kTestBytesPerLine;
   default_flags_.prefix_mode = FormattedHexDumper::AddressMode::kAbsolute;
@@ -346,12 +384,14 @@ TEST_F(HexDump, FormattedHexDump_AbsolutePrefix) {
   // Dump first line.
   EXPECT_TRUE(dumper_.DumpLine().ok());
   // Truncate string to only contain the offset.
+  EXPECT_EQ(dest_[kHexAddrStringSize], ':');
   dest_[kHexAddrStringSize] = '\0';
   EXPECT_STREQ(expected1.data(), dest_.data());
 
   // Dump second line.
   EXPECT_TRUE(dumper_.DumpLine().ok());
   // Truncate string to only contain the offset.
+  EXPECT_EQ(dest_[kHexAddrStringSize], ':');
   dest_[kHexAddrStringSize] = '\0';
   EXPECT_STREQ(expected2.data(), dest_.data());
 }
@@ -405,7 +445,7 @@ TEST_F(SmallBuffer, PrefixIncreasesBufferRequirement) {
 
 TEST(BadBuffer, ZeroSize) {
   char buffer[1] = {static_cast<char>(0xaf)};
-  FormattedHexDumper dumper(std::span<char>(buffer, 0));
+  FormattedHexDumper dumper(span<char>(buffer, 0));
   EXPECT_EQ(dumper.BeginDump(source_data), Status::FailedPrecondition());
   EXPECT_EQ(dumper.DumpLine(), Status::FailedPrecondition());
   EXPECT_EQ(buffer[0], static_cast<char>(0xaf));
@@ -413,7 +453,7 @@ TEST(BadBuffer, ZeroSize) {
 
 TEST(BadBuffer, NullPtrDest) {
   FormattedHexDumper dumper;
-  EXPECT_EQ(dumper.SetLineBuffer(std::span<char>()), Status::InvalidArgument());
+  EXPECT_EQ(dumper.SetLineBuffer(span<char>()), Status::InvalidArgument());
   EXPECT_EQ(dumper.BeginDump(source_data), Status::FailedPrecondition());
   EXPECT_EQ(dumper.DumpLine(), Status::FailedPrecondition());
 }
@@ -421,7 +461,8 @@ TEST(BadBuffer, NullPtrDest) {
 TEST(BadBuffer, NullPtrSrc) {
   char buffer[24] = {static_cast<char>(0)};
   FormattedHexDumper dumper(buffer);
-  EXPECT_EQ(dumper.BeginDump(ByteSpan(nullptr, 64)), Status::InvalidArgument());
+  EXPECT_EQ(dumper.BeginDump(ByteSpan(static_cast<std::byte*>(nullptr), 64)),
+            Status::InvalidArgument());
   // Don't actually dump nullptr in this test as it could cause a crash.
 }
 

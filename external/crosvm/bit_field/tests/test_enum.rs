@@ -1,11 +1,11 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 use bit_field::*;
 
 #[bitfield]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 enum TwoBits {
     Zero = 0b00,
     One = 0b01,
@@ -15,7 +15,7 @@ enum TwoBits {
 
 #[bitfield]
 #[bits = 3]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 enum ThreeBits {
     Zero = 0b00,
     One = 0b01,

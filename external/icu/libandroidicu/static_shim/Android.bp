@@ -32,9 +32,6 @@ cc_library_static {
         "libicuuc",
         "libicui18n",
     ],
-    cppflags: [
-        "-std=c++11", // Use the same standard as libicuuc
-    ],
     cflags: [
         "-Wall",
         "-Werror",
@@ -44,20 +41,6 @@ cc_library_static {
         android: {
             cflags: [
                 "-DANDROID_LINK_SHARED_ICU4C",
-            ],
-        },
-        native_bridge: {
-            exclude_shared_libs: [
-                "libicuuc",
-                "libicui18n",
-            ],
-            header_libs: [
-                "libicuuc_headers",
-                "libicui18n_headers",
-            ],
-            shared_libs: [
-                "libnative_bridge_guest_libicuuc",
-                "libnative_bridge_guest_libicui18n",
             ],
         },
         windows: {

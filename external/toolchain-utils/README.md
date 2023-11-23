@@ -1,6 +1,6 @@
 # `toolchain-utils`
 
-Various utilities used by the Chrome OS toolchain team.
+Various utilities used by the ChromeOS toolchain team.
 
 ## Note
 

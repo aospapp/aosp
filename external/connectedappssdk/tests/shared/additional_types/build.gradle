@@ -38,7 +38,7 @@ android {
             java.srcDirs = [file('../src/main/java')]
             java.includes = [
                     "com/google/android/enterprise/connectedapps/testapp/types/TestCrossProfileInterface.java",
-                    "com/google/android/enterprise/connectedapps/testapp/types/TestInterfaceProvider.java",
+                    "com/google/android/enterprise/connectedapps/testapp/TestInterfaceProvider.java",
             ]
             manifest.srcFile 'AndroidManifest.xml'
         }

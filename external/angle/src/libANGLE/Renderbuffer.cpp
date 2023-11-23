@@ -121,9 +121,15 @@ void Renderbuffer::onDestroy(const Context *context)
 
 Renderbuffer::~Renderbuffer() {}
 
-void Renderbuffer::setLabel(const Context *context, const std::string &label)
+angle::Result Renderbuffer::setLabel(const Context *context, const std::string &label)
 {
     mLabel = label;
+
+    if (mImplementation)
+    {
+        return mImplementation->onLabelUpdate(context);
+    }
+    return angle::Result::Continue;
 }
 
 const std::string &Renderbuffer::getLabel() const
@@ -317,12 +323,12 @@ GLint Renderbuffer::getMemorySize() const
     return size.ValueOrDefault(std::numeric_limits<GLint>::max());
 }
 
-void Renderbuffer::onAttach(const Context *context, rx::Serial framebufferSerial)
+void Renderbuffer::onAttach(const Context *context, rx::UniqueSerial framebufferSerial)
 {
     addRef();
 }
 
-void Renderbuffer::onDetach(const Context *context, rx::Serial framebufferSerial)
+void Renderbuffer::onDetach(const Context *context, rx::UniqueSerial framebufferSerial)
 {
     release(context);
 }
@@ -359,7 +365,7 @@ bool Renderbuffer::isRenderable(const Context *context,
                                                  context->getExtensions());
 }
 
-InitState Renderbuffer::initState(const gl::ImageIndex & /*imageIndex*/) const
+InitState Renderbuffer::initState(GLenum /*binding*/, const gl::ImageIndex & /*imageIndex*/) const
 {
     if (isEGLImageTarget())
     {
@@ -369,7 +375,9 @@ InitState Renderbuffer::initState(const gl::ImageIndex & /*imageIndex*/) const
     return mState.mInitState;
 }
 
-void Renderbuffer::setInitState(const gl::ImageIndex & /*imageIndex*/, InitState initState)
+void Renderbuffer::setInitState(GLenum /*binding*/,
+                                const gl::ImageIndex & /*imageIndex*/,
+                                InitState initState)
 {
     if (isEGLImageTarget())
     {

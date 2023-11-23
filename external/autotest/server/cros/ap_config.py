@@ -4,11 +4,13 @@
 # found in the LICENSE file.
 
 import collections
-import six.moves.configparser
 import logging
 import os
 import time
 
+import six.moves.configparser
+
+from autotest_lib.client.common_lib import seven
 from autotest_lib.client.common_lib.cros.network import ap_constants
 from autotest_lib.server.cros.ap_configurators import ap_spec
 
@@ -28,7 +30,7 @@ def get_ap_list():
     aps = []
     # chaos_ap_list.conf holds static conf of all APs in lab.
     for filename in ['chaos_ap_list.conf']:
-        ap_config = six.moves.configparser.RawConfigParser(
+        ap_config = seven.config_parser(
                 {AP.CONF_RPM_MANAGED: 'False'})
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             filename)

@@ -4,7 +4,7 @@
  * Copyright 2013 Isaac Dunham <ibid.ag@gmail.com>
 
 USE_LSUSB(NEWTOY(lsusb, "i:", TOYFLAG_USR|TOYFLAG_BIN))
-USE_LSPCI(NEWTOY(lspci, "emkn@i:", TOYFLAG_USR|TOYFLAG_BIN))
+USE_LSPCI(NEWTOY(lspci, "emkn@x@i:", TOYFLAG_USR|TOYFLAG_BIN))
 
 config LSPCI
   bool "lspci"
@@ -14,11 +14,12 @@ config LSPCI
 
     List PCI devices.
 
-    -e  Extended (6 digit) class
-    -i  ID database (default /etc/pci.ids[.gz])
-    -k  Show kernel driver
-    -m  Machine readable
-    -n  Numeric output (-nn for both)
+    -e	Extended (6 digit) class
+    -i	ID database (default /etc/pci.ids[.gz])
+    -k	Show kernel driver
+    -m	Machine readable
+    -n	Numeric output (-nn for both)
+    -x	Hex dump of config space (64 bytes; -xxx for 256, -xxxx for 4096)
 
 config LSUSB
   bool "lsusb"
@@ -36,7 +37,7 @@ config LSUSB
 
 GLOBALS(
   char *i;
-  long n;
+  long x, n;
 
   void *ids, *class;
   int count;
@@ -57,7 +58,7 @@ struct scanloop {
 // note that %s is omitted (because pointer is into toybuf, avoiding copy).
 static int scan_uevent(struct dirtree *new, int len, struct scanloop *sl)
 {
-  int ii, count = 0;
+  int ii, saw = 0;
   off_t flen = sizeof(toybuf);
   char *ss, *yy;
 
@@ -74,18 +75,18 @@ static int scan_uevent(struct dirtree *new, int len, struct scanloop *sl)
     // Try each pattern
     for (ii = 0; ii<len; ii++) {
       if (strchr(sl[ii].pattern, '%')) {
-        if (2-!sl[ii].d2==sscanf(ss, sl[ii].pattern, sl[ii].d1, sl[ii].d2))
-          break;
-      } else if (strstart(&ss, sl[ii].pattern)) {
-        *(void **)sl[ii].d1 = ss;
-        break;
-      }
+        if (2-!sl[ii].d2!=sscanf(ss, sl[ii].pattern, sl[ii].d1, sl[ii].d2))
+          continue;
+      } else if (strstart(&ss, sl[ii].pattern)) *(void **)sl[ii].d1 = ss;
+      else continue;
+      saw |= 1<<ii;
+
+      break;
     }
-    if (ii!=len) count++;
     ss = yy;
   }
 
-  return count;
+  return saw;
 }
 
 static void get_names(struct dev_ids *ids, int id1, int id2,
@@ -109,18 +110,22 @@ static void get_names(struct dev_ids *ids, int id1, int id2,
 struct dev_ids *parse_dev_ids(char *name, struct dev_ids **and)
 {
   char *path = "/etc:/vendor:/usr/share/misc";
-  struct string_list *sl;
+  struct string_list *sl = 0;
   FILE *fp;
   char *s, *ss, *sss;
   struct dev_ids *ids = 0, *new;
-  int fd = -1, tick = 0;
+  int fd = -1;
 
   // Open compressed or uncompressed file
-  sprintf(toybuf, "%s.gz", name);
-  if ((sl = find_in_path(path, toybuf))) {
-    signal(SIGCHLD, SIG_IGN);
-    xpopen((char *[]){"zcat", sl->str, 0}, &fd, 1);
-  } else if ((sl = find_in_path(path, name))) fd = xopen(sl->str,O_RDONLY);
+  signal(SIGCHLD, SIG_IGN);
+  s = TT.i;
+  if (!s) {
+    sprintf(toybuf, "%s.gz", name);
+    if ((sl = find_in_path(path, toybuf)) || (sl = find_in_path(path, name)))
+      s = sl->str;
+  }
+  if (s && strend(s, ".gz")) xpopen((char *[]){"zcat", sl->str, 0}, &fd, 1);
+  else if (s) fd = xopen(s, O_RDONLY);
   llist_traverse(sl, free);
   if (fd == -1) return 0;
   
@@ -132,8 +137,7 @@ struct dev_ids *parse_dev_ids(char *name, struct dev_ids **and)
     if (strstart(&ss, "C ") && and) {
       *and = ids;
       and = 0;
-      tick++;
-    } 
+    }
     fd = estrtol(sss = ss, &ss, 16);
     if (ss>sss && *ss++==' ') {
       while (isspace(*ss)) ss++;
@@ -161,7 +165,7 @@ static int list_usb(struct dirtree *new)
   char *n1, *n2;
 
   if (!new->parent) return DIRTREE_RECURSE;
-  if (3 == scan_uevent(new, 3, (struct scanloop[]){{"BUSNUM=%u", &busnum, 0},
+  if (7 == scan_uevent(new, 3, (struct scanloop[]){{"BUSNUM=%u", &busnum, 0},
     {"DEVNUM=%u", &devnum, 0}, {"PRODUCT=%x/%x", &pid, &vid}}))
   {
     get_names(TT.ids, pid, vid, &n1, &n2);
@@ -203,7 +207,7 @@ static int list_pci(struct dirtree *new)
   }
 
   // Load uevent data, look up names in database
-  if (3 != scan_uevent(new, 3, (struct scanloop[]){{"DRIVER=", &driver, 0},
+  if (6>scan_uevent(new, 3, (struct scanloop[]){{"DRIVER=", &driver, 0},
     {"PCI_CLASS=%x", cvd, 0}, {"PCI_ID=%x:%x", cvd+1, cvd+2}})) return 0;
   get_names(TT.class, 255&(cvd[0]>>16), 255&(cvd[0]>>8), names, names);
   get_names(TT.ids, cvd[1], cvd[2], names+1, names+2);
@@ -222,9 +226,27 @@ static int list_pci(struct dirtree *new)
       break;
     } else printf(" \"%s [%s]\"", names[ii], buf);
   }
-  printf(FLAG(m) ? " -r%02x" : " (rev %02x)", revision);
-  if (FLAG(k)) printf(FLAG(m) ? " \"%s\"" : " %s", driver);
+  if (revision) printf(FLAG(m) ? " -r%02x" : " (rev %02x)", revision);
+  if (FLAG(k) && driver) printf(FLAG(m) ? " \"%s\"" : " %s", driver);
   xputc('\n');
+
+  if (TT.x) {
+    FILE *fp;
+    int b, col = 0, max = (TT.x >= 4) ? 4096 : ((TT.x >= 3) ? 256 : 64);
+
+    // TODO: where does the "0000:" come from?
+    snprintf(toybuf, sizeof(toybuf), "/sys/bus/pci/devices/0000:%s/config",
+      new->name+5);
+    fp = xfopen(toybuf, "r");
+    while ((b = fgetc(fp)) != EOF) {
+      if ((col % 16) == 0) printf("%02x: ", col & 0xf0);
+      printf("%02x ", (b & 0xff));
+      if ((++col % 16) == 0) xputc('\n');
+      if (col == max) break;
+    }
+    xputc('\n');
+    fclose(fp);
+  }
 
   return 0;
 }

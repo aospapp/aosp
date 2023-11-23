@@ -1,18 +1,24 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use base::{ioctl_with_ref, AsRawDescriptor, Event, RawDescriptor};
-use data_model::vec_with_array_field;
-use std::fs::{File, OpenOptions};
+use std::fs::File;
+use std::fs::OpenOptions;
 use std::io;
 use std::mem::size_of;
 
+use base::ioctl_with_ref;
+use base::AsRawDescriptor;
+use base::Event;
+use base::RawDescriptor;
+use data_model::vec_with_array_field;
 use remain::sorted;
 use thiserror::Error;
 use vfio_sys::*;
 
-use crate::{IrqEdgeEvent, IrqLevelEvent};
+use crate::ACPIPMFixedEvent;
+use crate::IrqEdgeEvent;
+use crate::IrqLevelEvent;
 
 #[sorted]
 #[derive(Error, Debug)]
@@ -23,12 +29,12 @@ pub enum DirectIrqError {
     CloneResampleEvent(base::Error),
     #[error("failed to enable direct irq")]
     Enable,
+    #[error("failed to enable fixed event irq")]
+    EnableFixedEvent,
     #[error("failed to enable gpe irq")]
     EnableGpe,
     #[error("failed to enable direct sci irq")]
     EnableSci,
-    #[error("failed to enable wake irq")]
-    EnableWake,
     #[error("failed to open /dev/plat-irq-forward: {0}")]
     Open(io::Error),
 }
@@ -109,24 +115,21 @@ impl DirectIrq {
         Ok(())
     }
 
-    pub fn irq_wake_enable(&self, irq_num: u32) -> Result<(), DirectIrqError> {
-        self.plat_irq_wake_ioctl(irq_num, PLAT_IRQ_WAKE_ENABLE)
-    }
-
-    /// Enable hardware triggered SCI interrupt handling for GPE.
+    /// Enable hardware triggered SCI interrupt handling for GPE or fixed events.
     ///
     /// Note: sci_irq_prepare() itself does not enable SCI forwarding yet
-    /// but configures it so it can be enabled for selected GPEs using gpe_enable_forwarding().
+    /// but configures it so it can be enabled for selected GPEs or fixed events
+    /// using gpe_enable_forwarding() or fixed_event_enable_forwarding().
     pub fn sci_irq_prepare(&mut self) -> Result<(), DirectIrqError> {
         if let Some(resample) = &self.resample {
             self.plat_irq_ioctl(
                 0,
-                PLAT_IRQ_FORWARD_SET_LEVEL_SCI_FOR_GPE_TRIGGER_EVENTFD,
+                PLAT_IRQ_FORWARD_SET_LEVEL_ACPI_SCI_TRIGGER_EVENTFD,
                 self.trigger.as_raw_descriptor(),
             )?;
             self.plat_irq_ioctl(
                 0,
-                PLAT_IRQ_FORWARD_SET_LEVEL_SCI_FOR_GPE_UNMASK_EVENTFD,
+                PLAT_IRQ_FORWARD_SET_LEVEL_ACPI_SCI_UNMASK_EVENTFD,
                 resample.as_raw_descriptor(),
             )?;
         } else {
@@ -166,21 +169,6 @@ impl DirectIrq {
         }
     }
 
-    fn plat_irq_wake_ioctl(&self, irq_num: u32, action: u32) -> Result<(), DirectIrqError> {
-        let mut irq_wake_set = vec_with_array_field::<plat_irq_wake_set, u32>(0);
-        irq_wake_set[0].argsz = (size_of::<plat_irq_wake_set>()) as u32;
-        irq_wake_set[0].action_flags = action;
-        irq_wake_set[0].irq_number_host = irq_num;
-
-        // Safe as we are the owner of plat_irq_wake_set and irq_wake_set which are valid value
-        let ret = unsafe { ioctl_with_ref(self, PLAT_IRQ_WAKE_SET(), &irq_wake_set[0]) };
-        if ret < 0 {
-            Err(DirectIrqError::EnableWake)
-        } else {
-            Ok(())
-        }
-    }
-
     /// Enable hardware triggered GPE handling via SCI interrupt forwarding.
     /// Note: requires sci_irq_prepare() to be called beforehand.
     ///
@@ -193,21 +181,64 @@ impl DirectIrq {
             return Err(DirectIrqError::EnableGpe);
         }
 
-        self.gpe_forward_ioctl(gpe_num, ACPI_GPE_FORWARD_SET_TRIGGER)?;
+        self.gpe_forward_ioctl(gpe_num)?;
 
         Ok(())
     }
 
-    fn gpe_forward_ioctl(&self, gpe_num: u32, action: u32) -> Result<(), DirectIrqError> {
-        let mut gpe_set = vec_with_array_field::<gpe_forward_set, u32>(0);
-        gpe_set[0].argsz = (size_of::<gpe_forward_set>()) as u32;
-        gpe_set[0].action_flags = action;
-        gpe_set[0].gpe_host_nr = gpe_num;
+    fn gpe_forward_ioctl(&self, gpe_num: u32) -> Result<(), DirectIrqError> {
+        let mut evt_set = vec_with_array_field::<acpi_evt_forward_set, u32>(0);
+        evt_set[0].argsz = (size_of::<acpi_evt_forward_set>()) as u32;
+        evt_set[0].action_flags = ACPI_EVT_FORWARD_SET_GPE_TRIGGER;
+        evt_set[0].__bindgen_anon_1.gpe_host_nr = gpe_num;
 
-        // Safe as we are the owner of plat_irq_forward and gpe_set which are valid value
-        let ret = unsafe { ioctl_with_ref(self, ACPI_GPE_FORWARD_SET(), &gpe_set[0]) };
+        // Safe as we are the owner of self and evt_set which are valid value
+        let ret = unsafe { ioctl_with_ref(self, ACPI_EVT_FORWARD_SET(), &evt_set[0]) };
         if ret < 0 {
             Err(DirectIrqError::EnableGpe)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Enable hardware triggered ACPI fixed event handling via SCI interrupt forwarding.
+    /// Note: requires sci_irq_prepare() to be called beforehand.
+    ///
+    /// # Arguments
+    ///
+    /// * `event` - ACPI fixed event.
+    ///
+    pub fn fixed_event_enable_forwarding(
+        &mut self,
+        event: ACPIPMFixedEvent,
+    ) -> Result<(), DirectIrqError> {
+        if self.resample.is_none() || !self.sci_irq_prepared {
+            return Err(DirectIrqError::EnableFixedEvent);
+        }
+
+        self.fixed_event_forward_ioctl(
+            // Numeric values from ACPI_EVENT_xxx in include/acpi/actypes.h in kernel.
+            match event {
+                ACPIPMFixedEvent::GlobalLock => 1,
+                ACPIPMFixedEvent::PowerButton => 2,
+                ACPIPMFixedEvent::SleepButton => 3,
+                ACPIPMFixedEvent::RTC => 4,
+            },
+        )?;
+
+        Ok(())
+    }
+
+    fn fixed_event_forward_ioctl(&self, event_num: u32) -> Result<(), DirectIrqError> {
+        let mut evt_set = vec_with_array_field::<acpi_evt_forward_set, u32>(0);
+        evt_set[0].argsz = (size_of::<acpi_evt_forward_set>()) as u32;
+        evt_set[0].action_flags = ACPI_EVT_FORWARD_SET_FIXED_EVENT_TRIGGER;
+        evt_set[0].__bindgen_anon_1.fixed_evt_nr = event_num;
+
+        // Safe as we are the owner of self and evt_set which are valid value
+        let ret = unsafe { ioctl_with_ref(self, ACPI_EVT_FORWARD_SET(), &evt_set[0]) };
+        if ret < 0 {
+            Err(DirectIrqError::EnableFixedEvent)
         } else {
             Ok(())
         }

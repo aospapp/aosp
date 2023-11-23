@@ -1,9 +1,13 @@
 use super::prelude::*;
 
-// TODO?: instead of parsing lazily when invoked, parse the strings into a
-// compressed binary representations that can be stuffed back into the packet
-// buffer, and return an iterator over the binary data that's _guaranteed_ to be
-// valid. This would clean up some of the code in the vCont handler.
+use crate::common::Signal;
+use crate::protocol::common::hex::HexString;
+use crate::protocol::common::thread_id::{SpecificThreadId, ThreadId};
+
+// TODO?: instead of lazily parsing data, parse the strings into a compressed
+// binary representations that can be stuffed back into the packet buffer and
+// return an iterator over the binary data that's _guaranteed_ to be valid. This
+// would clean up some of the code in the vCont handler.
 //
 // The interesting part would be to see whether or not the simplified error
 // handing code will compensate for all the new code required to pre-validate
@@ -15,6 +19,7 @@ pub enum vCont<'a> {
 }
 
 impl<'a> ParseCommand<'a> for vCont<'a> {
+    #[inline(always)]
     fn from_packet(buf: PacketBuf<'a>) -> Option<Self> {
         let body = buf.into_body();
         match body as &[u8] {
@@ -36,10 +41,12 @@ impl<'a> Actions<'a> {
         Actions::Buf(ActionsBuf(buf))
     }
 
+    #[inline(always)]
     pub fn new_step(tid: SpecificThreadId) -> Actions<'a> {
         Actions::FixedStep(tid)
     }
 
+    #[inline(always)]
     pub fn new_continue(tid: SpecificThreadId) -> Actions<'a> {
         Actions::FixedCont(tid)
     }
@@ -89,23 +96,24 @@ pub struct VContAction<'a> {
 #[derive(Debug, Copy, Clone)]
 pub enum VContKind<'a> {
     Continue,
-    ContinueWithSig(u8),
+    ContinueWithSig(Signal),
     RangeStep(HexString<'a>, HexString<'a>),
     Step,
-    StepWithSig(u8),
+    StepWithSig(Signal),
     Stop,
 }
 
 impl<'a> VContKind<'a> {
-    fn from_bytes(s: &[u8]) -> Option<VContKind> {
+    #[inline(always)]
+    fn from_bytes(s: &[u8]) -> Option<VContKind<'_>> {
         use self::VContKind::*;
 
         let res = match s {
             [b'c'] => Continue,
             [b's'] => Step,
             [b't'] => Stop,
-            [b'C', sig @ ..] => ContinueWithSig(decode_hex(sig).ok()?),
-            [b'S', sig @ ..] => StepWithSig(decode_hex(sig).ok()?),
+            [b'C', sig @ ..] => ContinueWithSig(Signal::from_protocol_u8(decode_hex(sig).ok()?)),
+            [b'S', sig @ ..] => StepWithSig(Signal::from_protocol_u8(decode_hex(sig).ok()?)),
             [b'r', range @ ..] => {
                 let mut range = range.split(|b| *b == b',');
                 RangeStep(HexString(range.next()?), HexString(range.next()?))
@@ -130,6 +138,8 @@ where
     B: Iterator<Item = T>,
 {
     type Item = T;
+
+    #[inline(always)]
     fn next(&mut self) -> Option<T> {
         match self {
             EitherIter::A(a) => a.next(),

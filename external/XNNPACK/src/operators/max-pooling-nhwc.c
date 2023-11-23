@@ -23,19 +23,9 @@
 #include <xnnpack/log.h>
 #include <xnnpack/math.h>
 #include <xnnpack/operator.h>
-#include <xnnpack/params-init.h>
+#include <xnnpack/microparams-init.h>
 #include <xnnpack/params.h>
 
-
-static inline size_t compute_output_dimension(
-    size_t padded_input_dimension,
-    size_t kernel_dimension,
-    size_t dilation_dimension,
-    size_t stride_dimension)
-{
-  const size_t effective_kernel_dimension = (kernel_dimension - 1) * dilation_dimension + 1;
-  return (padded_input_dimension - effective_kernel_dimension) / stride_dimension + 1;
-}
 
 static inline size_t compute_output_dimension_with_tf_same_padding(
     size_t input_dimension,
@@ -116,6 +106,20 @@ static enum xnn_status create_max_pooling2d_nhwc(
     goto error;
   }
 
+  if (stride_height > pooling_height) {
+    xnn_log_error(
+      "failed to define %s operator with %" PRIu32 " stride height: must be less than pooling height %" PRIu32,
+      xnn_operator_type_to_string(operator_type), stride_height, pooling_height);
+    return xnn_status_invalid_parameter;
+  }
+
+  if (stride_width > pooling_width) {
+    xnn_log_error(
+      "failed to define %s operator with %" PRIu32 " stride width: must be less than pooling width %" PRIu32,
+      xnn_operator_type_to_string(operator_type), stride_width, pooling_width);
+    return xnn_status_invalid_parameter;
+  }
+
   if (channels == 0) {
     xnn_log_error(
       "failed to create %s operator with %zu channels: number of channels must be non-zero",
@@ -192,6 +196,7 @@ error:
 
 static enum xnn_status setup_max_pooling2d_nhwc(
   xnn_operator_t max_pooling_op,
+  enum xnn_operator_type expected_operator_type,
   size_t batch_size,
   size_t input_height,
   size_t input_width,
@@ -204,6 +209,12 @@ static enum xnn_status setup_max_pooling2d_nhwc(
   size_t params_size,
   size_t num_threads)
 {
+  if (max_pooling_op->type != expected_operator_type) {
+    xnn_log_error("failed to setup operator: operator type mismatch (expected %s, got %s)",
+      xnn_operator_type_to_string(expected_operator_type),
+      xnn_operator_type_to_string(max_pooling_op->type));
+    return xnn_status_invalid_parameter;
+  }
   max_pooling_op->state = xnn_run_state_invalid;
 
   if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
@@ -246,12 +257,12 @@ static enum xnn_status setup_max_pooling2d_nhwc(
     max_pooling_op->padding_bottom = total_padding_height - max_pooling_op->padding_top;
     max_pooling_op->padding_right = total_padding_width - max_pooling_op->padding_left;
   } else {
-    max_pooling_op->output_height = compute_output_dimension(
+    max_pooling_op->output_height = xnn_compute_convolution_output_dimension(
         max_pooling_op->padding_top + input_height + max_pooling_op->padding_bottom,
         max_pooling_op->kernel_height,
         max_pooling_op->dilation_height,
         max_pooling_op->stride_height);
-    max_pooling_op->output_width = compute_output_dimension(
+    max_pooling_op->output_width = xnn_compute_convolution_output_dimension(
         max_pooling_op->padding_left + input_width + max_pooling_op->padding_right,
         max_pooling_op->kernel_width,
         max_pooling_op->dilation_width,
@@ -526,15 +537,8 @@ enum xnn_status xnn_setup_max_pooling2d_nhwc_s8(
     int8_t* output,
     pthreadpool_t threadpool)
 {
-  if (max_pooling_op->type != xnn_operator_type_max_pooling_nhwc_s8) {
-    xnn_log_error("failed to setup operator: operator type mismatch (expected %s, got %s)",
-      xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_s8),
-      xnn_operator_type_to_string(max_pooling_op->type));
-    return xnn_status_invalid_parameter;
-  }
-
   return setup_max_pooling2d_nhwc(
-    max_pooling_op,
+    max_pooling_op, xnn_operator_type_max_pooling_nhwc_s8,
     batch_size, input_height, input_width,
     input, output,
     0 /* log2(sizeof(input element)) = log2(sizeof(int8_t)) */,
@@ -553,15 +557,8 @@ enum xnn_status xnn_setup_max_pooling2d_nhwc_u8(
     uint8_t* output,
     pthreadpool_t threadpool)
 {
-  if (max_pooling_op->type != xnn_operator_type_max_pooling_nhwc_u8) {
-    xnn_log_error("failed to setup operator: operator type mismatch (expected %s, got %s)",
-      xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_u8),
-      xnn_operator_type_to_string(max_pooling_op->type));
-    return xnn_status_invalid_parameter;
-  }
-
   return setup_max_pooling2d_nhwc(
-    max_pooling_op,
+    max_pooling_op, xnn_operator_type_max_pooling_nhwc_u8,
     batch_size, input_height, input_width,
     input, output,
     0 /* log2(sizeof(input element)) = log2(sizeof(uint8_t)) */,
@@ -580,15 +577,8 @@ enum xnn_status xnn_setup_max_pooling2d_nhwc_f16(
     void* output,
     pthreadpool_t threadpool)
 {
-  if (max_pooling_op->type != xnn_operator_type_max_pooling_nhwc_f16) {
-    xnn_log_error("failed to setup operator: operator type mismatch (expected %s, got %s)",
-      xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_f16),
-      xnn_operator_type_to_string(max_pooling_op->type));
-    return xnn_status_invalid_parameter;
-  }
-
   return setup_max_pooling2d_nhwc(
-    max_pooling_op,
+    max_pooling_op, xnn_operator_type_max_pooling_nhwc_f16,
     batch_size, input_height, input_width,
     input, output,
     1 /* log2(sizeof(input element)) = log2(sizeof(uint16_t)) */,
@@ -607,15 +597,8 @@ enum xnn_status xnn_setup_max_pooling2d_nhwc_f32(
     float* output,
     pthreadpool_t threadpool)
 {
-  if (max_pooling_op->type != xnn_operator_type_max_pooling_nhwc_f32) {
-    xnn_log_error("failed to setup operator: operator type mismatch (expected %s, got %s)",
-      xnn_operator_type_to_string(xnn_operator_type_max_pooling_nhwc_f32),
-      xnn_operator_type_to_string(max_pooling_op->type));
-    return xnn_status_invalid_parameter;
-  }
-
   return setup_max_pooling2d_nhwc(
-    max_pooling_op,
+    max_pooling_op, xnn_operator_type_max_pooling_nhwc_f32,
     batch_size, input_height, input_width,
     input, output,
     2 /* log2(sizeof(input element)) = log2(sizeof(float)) */,

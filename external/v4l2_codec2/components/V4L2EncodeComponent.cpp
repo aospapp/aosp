@@ -652,6 +652,12 @@ bool V4L2EncodeComponent::initializeEncoder() {
     // Get the requested bitrate mode and bitrate. The C2 framework doesn't offer a parameter to
     // configure the peak bitrate, so we use a multiple of the target bitrate.
     mBitrateMode = mInterface->getBitrateMode();
+    if (property_get_bool("persist.vendor.v4l2_codec2.disable_vbr", false)) {
+        // NOTE: This is a workaround for b/235771157.
+        ALOGW("VBR is disabled on this device");
+        mBitrateMode = C2Config::BITRATE_CONST;
+    }
+
     mBitrate = mInterface->getBitrate();
 
     mEncoder = V4L2Encoder::create(
@@ -757,7 +763,8 @@ bool V4L2EncodeComponent::encode(C2ConstGraphicBlock block, uint64_t index, int6
     constexpr int64_t kMaxFramerateDiff = 5;
     if (mLastFrameTime && (timestamp > *mLastFrameTime)) {
         int64_t newFramerate = std::max(
-                static_cast<int64_t>(std::round(1000000.0 / (timestamp - *mLastFrameTime))), 1LL);
+                static_cast<int64_t>(std::round(1000000.0 / (timestamp - *mLastFrameTime))),
+                static_cast<int64_t>(1LL));
         if (abs(mFramerate - newFramerate) > kMaxFramerateDiff) {
             ALOGV("Adjusting framerate to %" PRId64 " based on frame timestamps", newFramerate);
             mInterface->setFramerate(static_cast<uint32_t>(newFramerate));

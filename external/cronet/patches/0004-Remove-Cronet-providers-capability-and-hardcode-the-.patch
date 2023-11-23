@@ -1,0 +1,44 @@
+From 85acb5f2a1cff51c5c66f9518aa8a0321f22a370 Mon Sep 17 00:00:00 2001
+From: Dan Stahr <danstahr@google.com>
+Date: Tue, 3 Jan 2023 16:23:10 +0000
+Subject: [PATCH] Remove Cronet providers capability and hardcode the Android
+ platform to always use the native implementation.
+
+Test: m
+
+Change-Id: I51deb9056ed066c4eaad831ab8143ddc6bdae79c
+---
+ components/cronet/android/BUILD.gn | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/components/cronet/android/BUILD.gn b/components/cronet/android/BUILD.gn
+index 409928e4b2f7c..57889b5c99954 100644
+--- a/components/cronet/android/BUILD.gn
++++ b/components/cronet/android/BUILD.gn
+@@ -246,7 +246,6 @@ android_library("cronet_api_java") {
+     "api/src/org/chromium/net/ConnectionMigrationOptions.java",
+     "api/src/org/chromium/net/CronetEngine.java",
+     "api/src/org/chromium/net/CronetException.java",
+-    "api/src/org/chromium/net/CronetProvider.java",
+     "api/src/org/chromium/net/DnsOptions.java",
+     "api/src/org/chromium/net/ExperimentalBidirectionalStream.java",
+     "api/src/org/chromium/net/ExperimentalCronetEngine.java",
+@@ -352,7 +351,6 @@ android_library("cronet_impl_platform_base_java") {
+     "java/src/org/chromium/net/impl/InputStreamChannel.java",
+     "java/src/org/chromium/net/impl/JavaCronetEngine.java",
+     "java/src/org/chromium/net/impl/JavaCronetEngineBuilderImpl.java",
+-    "java/src/org/chromium/net/impl/JavaCronetProvider.java",
+     "java/src/org/chromium/net/impl/JavaUrlRequest.java",
+   ]
+ 
+@@ -436,7 +434,6 @@ android_library("cronet_impl_native_base_java") {
+     "java/src/org/chromium/net/impl/CronetUrlRequestContext.java",
+     "java/src/org/chromium/net/impl/NativeCronetEngineBuilderImpl.java",
+     "java/src/org/chromium/net/impl/NativeCronetEngineBuilderWithLibraryLoaderImpl.java",
+-    "java/src/org/chromium/net/impl/NativeCronetProvider.java",
+   ]
+ 
+   # Adding deps here won't include those deps in the cronet_impl_native_java.jar.
+-- 
+2.41.0.rc0.172.g3f132b7071-goog
+

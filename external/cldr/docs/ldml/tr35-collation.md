@@ -1,24 +1,27 @@
-﻿## Unicode Technical Standard #35
+## Unicode Technical Standard #35
 
 # Unicode Locale Data Markup Language (LDML)<br/>Part 5: Collation
 
-<!-- HTML: no header -->
-<table><tbody>
-<tr><td>Version</td><td>40</td></tr>
-<tr><td>Editors</td><td>Markus Scherer (<a href="mailto:markus.icu@gmail.com">markus.icu@gmail.com</a>) and <a href="tr35.html#Acknowledgments">other CLDR committee members</a></td></tr>
-</tbody></table>
+|Version|42              |
+|-------|----------------|
+|Editors|Markus Scherer (<a href="mailto:markus.icu@gmail.com">markus.icu@gmail.com</a>) and <a href="tr35.md#Acknowledgments">other CLDR committee members</a>|
 
 For the full header, summary, and status, see [Part 1: Core](tr35.md).
 
 ### _Summary_
 
-This document describes parts of an XML format (_vocabulary_) for the exchange of structured locale data. This format is used in the [Unicode Common Locale Data Repository](https://unicode.org/cldr/).
+This document describes parts of an XML format (_vocabulary_) for the exchange of structured locale data. This format is used in the [Unicode Common Locale Data Repository](https://www.unicode.org/cldr/).
 
 This is a partial document, describing only those parts of the LDML that are relevant for collation (sorting, searching & grouping). For the other parts of the LDML see the [main LDML document](tr35.md) and the links above.
 
+_Note:_
+Some links may lead to in-development or older
+versions of the data files.
+See <https://cldr.unicode.org> for up-to-date CLDR release data.
+
 ### _Status_
 
-_This is a draft document which may be updated, replaced, or superseded by other documents at any time. Publication does not imply endorsement by the Unicode Consortium. This is not a stable document; it is inappropriate to cite this document as other than a work in progress._
+_This document has been reviewed by Unicode members and other interested parties, and has been approved for publication by the Unicode Consortium. This is a stable document and may be used as reference material or cited as a normative reference by other specifications._
 
 > _**A Unicode Technical Standard (UTS)** is an independent specification. Conformance to the Unicode Standard does not imply conformance to any UTS._
 
@@ -35,62 +38,63 @@ The LDML specification is divided into the following parts:
 *   Part 5: [Collation](tr35-collation.md#Contents) (sorting, searching, grouping)
 *   Part 6: [Supplemental](tr35-info.md#Contents) (supplemental data)
 *   Part 7: [Keyboards](tr35-keyboards.md#Contents) (keyboard mappings)
+*   Part 8: [Person Names](tr35-personNames.md#Contents) (person names)
 
 ## <a name="Contents" href="#Contents">Contents of Part 5, Collation</a>
 
-*   1 [CLDR Collation](#CLDR_Collation)
-    *   1.1 [CLDR Collation Algorithm](#CLDR_Collation_Algorithm)
-        *   1.1.1 [U+FFFE](#Algorithm_FFFE)
-        *   1.1.2 [Context-Sensitive Mappings](#Context_Sensitive_Mappings)
-        *   1.1.3 [Case Handling](#Algorithm_Case)
-        *   1.1.4 [Reordering Groups](#Algorithm_Reordering_Groups)
-        *   1.1.5 [Combining Rules](#Combining_Rules)
-*   2 [Root Collation](#Root_Collation)
-    *   2.1 [Grouping classes of characters](#grouping_classes_of_characters)
-    *   2.2 [Non-variable symbols](#non_variable_symbols)
-    *   2.3 [Additional contractions for Tibetan](#tibetan_contractions)
-    *   2.4 [Tailored noncharacter weights](#tailored_noncharacter_weights)
-    *   2.5 [Root Collation Data Files](#Root_Data_Files)
-    *   2.6 [Root Collation Data File Formats](#Root_Data_File_Formats)
-        *   2.6.1 [allkeys_CLDR.txt](#File_Format_allkeys_CLDR_txt)
-        *   2.6.2 [FractionalUCA.txt](#File_Format_FractionalUCA_txt)
-        *   2.6.3 [UCA_Rules.txt](#File_Format_UCA_Rules_txt)
-*   3 [Collation Tailorings](#Collation_Tailorings)
-    *   3.1 [Collation Types](#Collation_Types)
-        *   3.1.1 [Collation Type Fallback](#Collation_Type_Fallback)
-            *   Table: [Sample requested and actual collation locales and types](#Sample_requested_and_actual_collation_locales_and_types)
-    *   3.2 [Version](#Collation_Version)
-    *   3.3 [Collation Element](#Collation_Element)
-    *   3.4 [Setting Options](#Setting_Options)
-        *   Table: [Collation Settings](#Collation_Settings)
-        *   3.4.1 [Common settings combinations](#Common_Settings)
-        *   3.4.2 [Notes on the normalization setting](#Normalization_Setting)
-        *   3.4.3 [Notes on variable top settings](#Variable_Top_Settings)
-    *   3.5 [Collation Rule Syntax](#Rules)
-    *   3.6 [Orderings](#Orderings)
-        *   Table: [Specifying Collation Ordering](#Specifying_Collation_Ordering)
-        *   Table: [Abbreviating Ordering Specifications](#Abbreviating_Ordering_Specifications)
-    *   3.7 [Contractions](#Contractions)
-        *   Table: [Specifying Contractions](#Specifying_Contractions)
-    *   3.8 [Expansions](#Expansions)
-    *   3.9 [Context Before](#Context_Before)
-        *   Table: [Specifying Previous Context](#Specifying_Previous_Context)
-    *   3.10 [Placing Characters Before Others](#Placing_Characters_Before_Others)
-    *   3.11 [Logical Reset Positions](#Logical_Reset_Positions)
-        *   Table: [Specifying Logical Positions](#Specifying_Logical_Positions)
-    *   3.12 [Special-Purpose Commands](#Special_Purpose_Commands)
-        *   Table: [Special-Purpose Elements](#Special_Purpose_Elements)
-    *   3.13 [Collation Reordering](#Script_Reordering)
-        *   3.13.1 [Interpretation of a reordering list](#Interpretation_reordering)
-        *   3.13.2 [Reordering Groups for allkeys.txt](#Reordering_Groups_allkeys)
-    *   3.14 [Case Parameters](#Case_Parameters)
-        *   3.14.1 [Untailored Characters](#Case_Untailored)
-        *   3.14.2 [Compute Modified Collation Elements](#Case_Weights)
-        *   3.14.3 [Tailored Strings](#Case_Tailored)
-    *   3.15 [Visibility](#Visibility)
-    *   3.16 [Collation Indexes](#Collation_Indexes)
-        *   3.16.1 [Index Characters](#Index_Characters)
-        *   3.16.2 [CJK Index Markers](#CJK_Index_Markers)
+* 1 [CLDR Collation](#CLDR_Collation)
+  * 1.1 [CLDR Collation Algorithm](#CLDR_Collation_Algorithm)
+    * 1.1.1 [U+FFFE](#Algorithm_FFFE)
+    * 1.1.2 [Context-Sensitive Mappings](#Context_Sensitive_Mappings)
+    * 1.1.3 [Case Handling](#Algorithm_Case)
+    * 1.1.4 [Reordering Groups](#Algorithm_Reordering_Groups)
+    * 1.1.5 [Combining Rules](#Combining_Rules)
+* 2 [Root Collation](#Root_Collation)
+  * 2.1 [Grouping classes of characters](#grouping_classes_of_characters)
+  * 2.2 [Non-variable symbols](#non_variable_symbols)
+  * 2.3 [Additional contractions for Tibetan](#tibetan_contractions)
+  * 2.4 [Tailored noncharacter weights](#tailored_noncharacter_weights)
+  * 2.5 [Root Collation Data Files](#Root_Data_Files)
+  * 2.6 [Root Collation Data File Formats](#Root_Data_File_Formats)
+    * 2.6.1 [allkeys_CLDR.txt](#File_Format_allkeys_CLDR_txt)
+    * 2.6.2 [FractionalUCA.txt](#File_Format_FractionalUCA_txt)
+    * 2.6.3 [UCA_Rules.txt](#File_Format_UCA_Rules_txt)
+* 3 [Collation Tailorings](#Collation_Tailorings)
+  * 3.1 [Collation Types](#Collation_Types)
+    * 3.1.1 [Collation Type Fallback](#Collation_Type_Fallback)
+      * Table: [Sample requested and actual collation locales and types](#Sample_requested_and_actual_collation_locales_and_types)
+  * 3.2 [Version](#Collation_Version)
+  * 3.3 [Collation Element](#Collation_Element)
+  * 3.4 [Setting Options](#Setting_Options)
+    * Table: [Collation Settings](#Collation_Settings)
+    * 3.4.1 [Common settings combinations](#Common_Settings)
+    * 3.4.2 [Notes on the normalization setting](#Normalization_Setting)
+    * 3.4.3 [Notes on variable top settings](#Variable_Top_Settings)
+  * 3.5 [Collation Rule Syntax](#Rules)
+  * 3.6 [Orderings](#Orderings)
+    * Table: [Specifying Collation Ordering](#Specifying_Collation_Ordering)
+    * Table: [Abbreviating Ordering Specifications](#Abbreviating_Ordering_Specifications)
+  * 3.7 [Contractions](#Contractions)
+    * Table: [Specifying Contractions](#Specifying_Contractions)
+  * 3.8 [Expansions](#Expansions)
+  * 3.9 [Context Before](#Context_Before)
+    * Table: [Specifying Previous Context](#Specifying_Previous_Context)
+  * 3.10 [Placing Characters Before Others](#Placing_Characters_Before_Others)
+  * 3.11 [Logical Reset Positions](#Logical_Reset_Positions)
+    * Table: [Specifying Logical Positions](#Specifying_Logical_Positions)
+  * 3.12 [Special-Purpose Commands](#Special_Purpose_Commands)
+    * Table: [Special-Purpose Elements](#Special_Purpose_Elements)
+  * 3.13 [Collation Reordering](#Script_Reordering)
+    * 3.13.1 [Interpretation of a reordering list](#Interpretation_reordering)
+    * 3.13.2 [Reordering Groups for allkeys.txt](#Reordering_Groups_allkeys)
+  * 3.14 [Case Parameters](#Case_Parameters)
+    * 3.14.1 [Untailored Characters](#Case_Untailored)
+    * 3.14.2 [Compute Modified Collation Elements](#Case_Weights)
+    * 3.14.3 [Tailored Strings](#Case_Tailored)
+  * 3.15 [Visibility](#Visibility)
+  * 3.16 [Collation Indexes](#Collation_Indexes)
+    * 3.16.1 [Index Characters](#Index_Characters)
+    * 3.16.2 [CJK Index Markers](#CJK_Index_Markers)
 
 ## 1 <a name="CLDR_Collation" href="#CLDR_Collation">CLDR Collation</a>
 
@@ -112,7 +116,7 @@ For example, when sorting names in a database, a sortable string can be formed w
 
 For backwards secondary level sorting, text _segments_ separated by U+FFFE are processed in forward segment order, and _within_ each segment the secondary weights are compared backwards. This is so that such combined strings are processed consistently with merging their sort keys (for example, by concatenating them level by level with a low separator).
 
-> :point_right: **Note**: With unique, low weights on _all_ levels it is possible to achieve `sortkey(str1 + "\uFFFE" + str2) == mergeSortkeys(sortkey(str1), sortkey(str2))` . When that is not necessary, then code can be a little simpler (no special handling for U+FFFE except for backwards-secondary), sort keys can be a little shorter (when using compressible common non-primary weights for U+FFFE), and another low weight can be used in tailorings.
+> 👉 **Note**: With unique, low weights on _all_ levels it is possible to achieve `sortkey(str1 + "\uFFFE" + str2) == mergeSortkeys(sortkey(str1), sortkey(str2))` . When that is not necessary, then code can be a little simpler (no special handling for U+FFFE except for backwards-secondary), sort keys can be a little shorter (when using compressible common non-primary weights for U+FFFE), and another low weight can be used in tailorings.
 
 #### 1.1.2 <a name="Context_Sensitive_Mappings" href="#Context_Sensitive_Mappings">Context-Sensitive Mappings</a>
 
@@ -127,7 +131,7 @@ A prefix mapping for p|x behaves mostly like the contraction px, except when the
 *   With mappings for "op" and "px", only the first contraction matches in text "opx". (It consumes the "op" characters, and there is no context-sensitive mapping for x.)
 *   With mappings for "op" and "p|x", both the contraction and the prefix rule match in text "opx". (The prefix always matches already-consumed characters, regardless of whether they mapped as part of contractions.)
 
-> :point_right: **Note**: Matching of discontiguous contractions should be implemented without rewriting the text (unlike in the [[UCA](https://www.unicode.org/reports/tr41/#UTS10)] algorithm specification), so that prefix matching is predictable. (It should also help with contraction matching performance.) An implementation that does rewrite the text, as in the UCA, will get different results for some (unusual) combinations of contractions, prefix rules, and input text.
+> 👉 **Note**: Matching of discontiguous contractions should be implemented without rewriting the text (unlike in the [[UCA](https://www.unicode.org/reports/tr41/#UTS10)] algorithm specification), so that prefix matching is predictable. (It should also help with contraction matching performance.) An implementation that does rewrite the text, as in the UCA, will get different results for some (unusual) combinations of contractions, prefix rules, and input text.
 
 Prefix matching uses a simple longest-match algorithm (op|c wins over p|c). It is recommended that prefix rules be limited to mappings where both the prefix string and the mapped string begin with an NFC boundary (that is, with a normalization starter that does not combine backwards). (In op|ch both o and c should be starters (ccc=0) and NFC_QC=Yes.) Otherwise, prefix matching would be affected by canonical reordering and discontiguous matching, like contractions. Prefix matching is thus always contiguous.
 
@@ -193,9 +197,9 @@ collator = Collator.getInstance(ULocale.forLanguageTag("da-u-co-emoji"));
 For that, a slightly more cumbersome method needs to be employed, which is to take the rules for Danish, and explicitly add the rules for emoji.
 
 ```java
-RuleBasedCollator collator = new RuleBasedCollator(  
-((RuleBasedCollator) Collator.getInstance(ULocale.forLanguageTag("da"))).getRules() +  
-((RuleBasedCollator) Collator.getInstance(ULocale.forLanguageTag("und-u-co-emoji")))  
+RuleBasedCollator collator = new RuleBasedCollator(
+((RuleBasedCollator) Collator.getInstance(ULocale.forLanguageTag("da"))).getRules() +
+((RuleBasedCollator) Collator.getInstance(ULocale.forLanguageTag("und-u-co-emoji")))
 .getRules());
 ```
 
@@ -236,8 +240,8 @@ The relative order within each of these groups still matches the DUCET. Symbols,
 
 1. CLDR groups the numbers together after currency symbols, instead of splitting them with some before and some after. Thus the following are put _after_ currencies and just before all the other numbers.
 
-    U+09F4 ( ৴ ) [No] BENGALI CURRENCY NUMERATOR ONE  
-    ...  
+    U+09F4 ( ৴ ) [No] BENGALI CURRENCY NUMERATOR ONE
+    ...
     U+1D371 ( 𝍱 ) [No] COUNTING ROD TENS DIGIT NINE
 
 2. CLDR handles a few other characters differently
@@ -277,11 +281,11 @@ In CLDR, so as to maintain the special collation elements, **U+FFFD..U+FFFF** ar
 &x <\uFFFF
 ```
 
-> :point_right: **Note**: Java uses an early version of this collation syntax, but has not been updated recently. It does not support any of the syntax marked with [...], and its default table is not the DUCET nor the CLDR root collation.
+> 👉 **Note**: Java uses an early version of this collation syntax, but has not been updated recently. It does not support any of the syntax marked with [...], and its default table is not the DUCET nor the CLDR root collation.
 
 ### 2.5 <a name="Root_Data_Files" href="#Root_Data_Files">Root Collation Data Files</a>
 
-The CLDR root collation data files are in the CLDR repository and release, under the path [common/uca/](https://github.com/unicode-org/cldr/tree/latest/common/uca/).
+The CLDR root collation data files are in the CLDR repository and release, under the path [common/uca/](https://github.com/unicode-org/cldr/blob/main/common/uca/).
 
 For most data files there are **\_SHORT** versions available. They contain the same data but only minimal comments, to reduce the file sizes.
 
@@ -505,11 +509,11 @@ This table is informational, providing the top bytes, scripts, and primaries ass
 
 [fixed tertiary common byte 05]
 [fixed first ignorable tertiary byte 3C]
-```                
+```
 
 The final table gives certain hard-coded byte values. The "trail" area is provided for implementation of the "trailing weights" as described in the UCA.
 
-> :point_right: **Note**: The particular primary lead bytes for Hani vs. IMPLICIT vs. TRAILING are only an example. An implementation is free to move them if it also moves the explicit TRAILING weights. This affects only a small number of explicit mappings in FractionalUCA.txt, such as for U+FFFD, U+FFFF, and the “unassigned first primary”. It is possible to use no SPECIAL bytes at all, and to use only the one primary lead byte FF for TRAILING weights.
+> 👉 **Note**: The particular primary lead bytes for Hani vs. IMPLICIT vs. TRAILING are only an example. An implementation is free to move them if it also moves the explicit TRAILING weights. This affects only a small number of explicit mappings in FractionalUCA.txt, such as for U+FFFD, U+FFFF, and the “unassigned first primary”. It is possible to use no SPECIAL bytes at all, and to use only the one primary lead byte FF for TRAILING weights.
 
 #### 2.6.3 <a name="File_Format_UCA_Rules_txt" href="#File_Format_UCA_Rules_txt">UCA_Rules.txt</a>
 
@@ -525,7 +529,7 @@ The format for this file uses the CLDR collation syntax, see _Section 3, [Collat
 
 This element of the LDML format contains one or more `collation` elements, distinguished by type. Each `collation` contains elements with parametric settings, or rules that specify a certain sort order, as a tailoring of the root order, or both.
 
-> :point_right: **Note**: CLDR collation tailoring data should follow the [CLDR Collation Guidelines](http://cldr.unicode.org/index/cldr-spec/collation-guidelines).
+> 👉 **Note**: CLDR collation tailoring data should follow the [CLDR Collation Guidelines](https://cldr.unicode.org/index/cldr-spec/collation-guidelines).
 
 ### 3.1 <a name="Collation_Types" href="#Collation_Types">Collation Types</a>
 
@@ -539,8 +543,9 @@ To allow implementations in reduced memory environments to use CJK sorting, ther
 
 A collation type name that starts with "private-", for example, "private-kana", indicates an incomplete tailoring that is only intended for import into one or more other tailorings (usually for sharing common rules). It does not establish a complete sort order. An implementation should not build data tables for a private collation type, and should not include a private collation type in a list of available types.
 
-> :point_right: **Note**: There is an on-line demonstration of collation at [[LocaleExplorer](tr35.md#LocaleExplorer)] that uses the same rule syntax. (Pick the locale and scroll to "Collation Rules", near the end.)
-> :point_right: **Note**: In CLDR 23 and before, LDML collation files used an XML format. Starting with CLDR 24, the XML collation syntax is deprecated and no longer used. See the _[CLDR 23 version of this document](https://www.unicode.org/reports/tr35/tr35-31/tr35-collation.html#Collation_Tailorings)_ for details about the XML collation syntax.
+> 👉 **Note**: There is an on-line demonstration of collation at [[LocaleExplorer](tr35.md#LocaleExplorer)] that uses the same rule syntax. (Pick the locale and scroll to "Collation Rules", near the end.)
+
+> 👉 **Note**: In CLDR 23 and before, LDML collation files used an XML format. Starting with CLDR 24, the XML collation syntax is deprecated and no longer used. See the _[CLDR 23 version of this document](https://www.unicode.org/reports/tr35/tr35-31/tr35-collation.html#Collation_Tailorings)_ for details about the XML collation syntax.
 
 #### 3.1.1 <a name="Collation_Type_Fallback" href="#Collation_Type_Fallback">Collation Type Fallback</a>
 
@@ -554,7 +559,7 @@ When loading a requested tailoring from its data file and the parent file chain,
 6. If it does not exist, and the type is not "standard", then set the type to "standard" and use that `<collation>` element.
 7. If it does not exist, then use the CLDR root collation.
 
-> :point_right: **Note**: that the CLDR collation/root.xml contains `<defaultCollation>standard</defaultCollation>`, `<collation type="standard">` (with an empty tailoring, so this is the same as the CLDR root collation), and `<collation type="search">`.
+> 👉 **Note**: that the CLDR collation/root.xml contains `<defaultCollation>standard</defaultCollation>`, `<collation type="standard">` (with an empty tailoring, so this is the same as the CLDR root collation), and `<collation type="search">`.
 
 For example, assume that we have collation data for the following tailorings. ("da/search" is shorthand for "da-u-co-search".)
 
@@ -572,7 +577,7 @@ For example, assume that we have collation data for the following tailorings. ("
 * zh/stroke
 * zh-Hant/defaultCollation=stroke
 
-##### <a name="Sample_requested_and_actual_collation_locales_and_types" href="#Sample_requested_and_actual_collation_locales_and_types">Sample requested and actual collation locales and types</a>
+###### Table: <a name="Sample_requested_and_actual_collation_locales_and_types" href="#Sample_requested_and_actual_collation_locales_and_types">Sample requested and actual collation locales and types</a>
 
 | requested         | actual        | comment |
 | ----------------- | ------------- | ------- |
@@ -590,7 +595,7 @@ For example, assume that we have collation data for the following tailorings. ("
 
 The `version` attribute is used in case a specific version of the UCA is to be specified. It is optional, and is specified if the results are to be identical on different systems. If it is not supplied, then the version is assumed to be the same as the Unicode version for the system as a whole.
 
-> :point_right: **Note**: For version 3.1.1 of the UCA, the version of Unicode must also be specified with any versioning information; an example would be "3.1.1/3.2" for version 3.1.1 of the UCA, for version 3.2 of Unicode. This was changed by decision of the UTC, so that dual versions were no longer necessary. So for UCA 4.0 and beyond, the version just has a single number.
+> 👉 **Note**: For version 3.1.1 of the UCA, the version of Unicode must also be specified with any versioning information; an example would be "3.1.1/3.2" for version 3.1.1 of the UCA, for version 3.2 of Unicode. This was changed by decision of the UTC, so that dual versions were no longer necessary. So for UCA 4.0 and beyond, the version just has a single number.
 
 ### 3.3 <a name="Collation_Element" href="#Collation_Element">Collation Element</a>
 
@@ -615,7 +620,7 @@ Parametric settings can be specified in language tags or in rule syntax (in the 
 
 If a setting is not present, the CLDR default (or the default for the locale, if there is one) is used. That default is listed in bold italics. Where there is a UCA default that is different, it is listed in bold with (**UCA default**). Note that the default value for a locale may be different than the normal default value for the setting.
 
-##### <a name="Collation_Settings" href="#Collation_Settings">Collation Settings</a>
+###### Table: <a name="Collation_Settings" href="#Collation_Settings">Collation Settings</a>
 
 <table><tbody>
 <tr><th>BCP47 Key</th><th>BCP47 Value</th><th>Rule Syntax</th><th>Description</th></tr>
@@ -665,8 +670,8 @@ If a setting is not present, the CLDR default (or the default for the locale, if
 <tr><td>punct</td><td><i><b><code>[maxVariable punct]</code></b></i></td></tr>
 <tr><td>symbol</td><td><b><code>[maxVariable symbol]</code><br/>(UCA default)</b></td></tr>
 <tr><td>currency</td><td><code>[maxVariable currency]</code></td></tr>
-<tr><td>vt</td><td>See <i>Part 1 Section 3.6.4, <a href="tr35.html#Unicode_Locale_Extension_Data_Files">U Extension Data Files</a></i>.<br/><i><b>Deprecated:</b></i> Use maxVariable instead.</td><td><code>&amp;\u00XX\uYYYY &lt; [variable top]</code><br/><br/>(the default is set to the highest punctuation, thus including spaces and punctuation, but not symbols)</td>
-    <td>The BCP47 value is described in <i>Appendix Q: <a href="tr35.html#Locale_Extension_Key_and_Type_Data">Locale Extension Keys and Types</a>.</i><br/><br/>Sets the string value for the variable top. All the code points with primary weights less than or equal to the variable top will be considered variable, and thus affected by the alternate handling.<br/>An implementation that supports the variableTop setting should also support the maxVariable setting, and it should "pin" ("round up") the variableTop to the top of the containing reordering group.<br/>Variables are ignorable by default in [<a href="https://www.unicode.org/reports/tr41/#UTS10">UCA</a>], but not in CLDR. See below for more information.</td></tr>
+<tr><td>vt</td><td>See <i>Part 1 Section 3.6.4, <a href="tr35.md#Unicode_Locale_Extension_Data_Files">U Extension Data Files</a></i>.<br/><i><b>Deprecated:</b></i> Use maxVariable instead.</td><td><code>&amp;\u00XX\uYYYY &lt; [variable top]</code><br/><br/>(the default is set to the highest punctuation, thus including spaces and punctuation, but not symbols)</td>
+    <td>The BCP47 value is described in <i>Appendix Q: <a href="tr35.md#Locale_Extension_Key_and_Type_Data">Locale Extension Keys and Types</a>.</i><br/><br/>Sets the string value for the variable top. All the code points with primary weights less than or equal to the variable top will be considered variable, and thus affected by the alternate handling.<br/>An implementation that supports the variableTop setting should also support the maxVariable setting, and it should "pin" ("round up") the variableTop to the top of the containing reordering group.<br/>Variables are ignorable by default in [<a href="https://www.unicode.org/reports/tr41/#UTS10">UCA</a>], but not in CLDR. See below for more information.</td></tr>
 
 <tr><td><i>n/a</i></td><td><i>n/a</i></td><td><i>n/a</i></td>
     <td>match-boundaries: <i><b>none</b></i> | whole-character | whole-word<br/>Defined by <i>Section 8, <a href="https://www.unicode.org/reports/tr10/#Searching">Searching and Matching</a></i> of [<a href="https://www.unicode.org/reports/tr41/#UTS10">UCA</a>].</td></tr>
@@ -696,7 +701,7 @@ In order to handle strings with these characters (e.g., “aä” and “ӛ́”
 
 #### 3.4.3 <a name="Variable_Top_Settings" href="#Variable_Top_Settings">Notes on variable top settings</a>
 
-Users may want to include more or fewer characters as Variable. For example, someone could want to restrict the Variable characters to just include space marks. In that case, maxVariable would be set to "space". (In CLDR 24 and earlier, the now-deprecated variableTop would be set to U+1680, see the “Whitespace” [UCA collation chart](https://unicode.org/charts/collation/)). Alternatively, someone could want more of the Common characters in them, and include characters up to (but not including) '0', by setting maxVariable to "currency". (In CLDR 24 and earlier, the now-deprecated variableTop would be set to U+20BA, see the “Currency-Symbol” collation chart).
+Users may want to include more or fewer characters as Variable. For example, someone could want to restrict the Variable characters to just include space marks. In that case, maxVariable would be set to "space". (In CLDR 24 and earlier, the now-deprecated variableTop would be set to U+1680, see the “Whitespace” [UCA collation chart](https://www.unicode.org/charts/collation/)). Alternatively, someone could want more of the Common characters in them, and include characters up to (but not including) '0', by setting maxVariable to "currency". (In CLDR 24 and earlier, the now-deprecated variableTop would be set to U+20BA, see the “Currency-Symbol” collation chart).
 
 The effect of these settings is to customize to ignore different sets of characters when comparing strings. For example, the locale identifier "de-u-ka-shifted-kv-currency" is requesting settings appropriate for German, including German sorting conventions, and that currency symbols and characters sorting below them are ignored in sorting.
 
@@ -730,7 +735,7 @@ The root collation mappings form the initial state. Mappings are added and remov
 
 A rule chain consists of a reset followed by one or more relations. The reset position is a string which maps to one or more collation elements according to the current state. A relation consists of an operator and a string; it maps the string to the current collation elements, modified according to the operator.
 
-##### <a name="Specifying_Collation_Ordering" href="#Specifying_Collation_Ordering">Specifying Collation Ordering</a>
+###### Table: <a name="Specifying_Collation_Ordering" href="#Specifying_Collation_Ordering">Specifying Collation Ordering</a>
 
 | Relation Operator | Example | Description |
 | ----------------- | ------- | ----------- |
@@ -777,7 +782,7 @@ Some additional operators are provided to save space with large tailorings. The 
 
 A starred relation operator is followed by a sequence of characters with the same quoting/escaping rules as normal relation strings. Such a sequence can also be followed by one or more pairs of ‘-’ and another sequence of characters. The single characters adjacent to the ‘-’ establish a code point order range. The same character cannot be both the end of a range and the start of another range. (For example, `<a-d-g` is not allowed.)
 
-##### <a name="Abbreviating_Ordering_Specifications" href="#Abbreviating_Ordering_Specifications">Abbreviating Ordering Specifications</a>
+###### Table: <a name="Abbreviating_Ordering_Specifications" href="#Abbreviating_Ordering_Specifications">Abbreviating Ordering Specifications</a>
 
 | Relation Operator | Example                 | Equivalent |
 | ----------------- | ----------------------- | ---------- |
@@ -791,7 +796,7 @@ A starred relation operator is followed by a sequence of characters with the sam
 
 A multi-character relation string defines a contraction.
 
-##### <a name="Specifying_Contractions" href="#Specifying_Contractions">Specifying Contractions</a>
+###### Table: <a name="Specifying_Contractions" href="#Specifying_Contractions">Specifying Contractions</a>
 
 | Example          | Description |
 | ---------------- | ----------- |
@@ -817,7 +822,7 @@ A relation string can have a prefix (context before) which makes the mapping fro
 
 For example, suppose that "-" is sorted like the previous vowel. Then one could have rules that take "a-", "e-", and so on. However, that means that every time a very common character (a, e, ...) is encountered, a system will slow down as it looks for possible contractions. An alternative is to indicate that when "-" is encountered, and it comes after an 'a', it sorts like an 'a', and so on.
 
-##### <a name="Specifying_Previous_Context" href="#Specifying_Previous_Context">Specifying Previous Context</a>
+###### Table: <a name="Specifying_Previous_Context" href="#Specifying_Previous_Context">Specifying Previous Context</a>
 
 | Rules |
 | ----- |
@@ -846,7 +851,7 @@ It is an error if the strength of the reset-before differs from the strength of 
 
 The CLDR table (based on UCA) has the following overall structure for weights, going from low to high.
 
-##### <a name="Specifying_Logical_Positions" href="#Specifying_Logical_Positions">Specifying Logical Positions</a>
+###### Table: <a name="Specifying_Logical_Positions" href="#Specifying_Logical_Positions">Specifying Logical Positions</a>
 
 | Name                                                           | Description      | UCA Examples |
 | -------------------------------------------------------------- | ---------------- | ------------ |
@@ -860,7 +865,7 @@ The CLDR table (based on UCA) has the following overall structure for weights, g
 
 Each of the above Names can be used with a reset to position characters relative to that logical position. That allows characters to be ordered before or after a _logical_ position rather than a specific character.
 
-> :point_right: **Note**: The reason for this is so that tailorings can be more stable. A future version of the UCA might add characters at any point in the above list. Suppose that you set character X to be after Y. It could be that you want X to come after Y, no matter what future characters are added; or it could be that you just want Y to come after a given logical position, for example, after the last primary ignorable.
+> 👉 **Note**: The reason for this is so that tailorings can be more stable. A future version of the UCA might add characters at any point in the above list. Suppose that you set character X to be after Y. It could be that you want X to come after Y, no matter what future characters are added; or it could be that you just want Y to come after a given logical position, for example, after the last primary ignorable.
 
 Each of these special reset positions always maps to a single collation element.
 
@@ -880,7 +885,7 @@ The [last trailing] is the CE of U+FFFF. Tailoring to that is not allowed.
 
 The `[last variable]` indicates the "highest" character that is treated as punctuation with alternate handling.
 
-The value can be changed by using the maxVariable setting. This takes effect, however, after the rules have been built, and does not affect any characters that are reset relative to the `[last variable]` value when the rules are being built. The maxVariable setting might also be changed via a runtime parameter. That also does not affect the rules.  
+The value can be changed by using the maxVariable setting. This takes effect, however, after the rules have been built, and does not affect any characters that are reset relative to the `[last variable]` value when the rules are being built. The maxVariable setting might also be changed via a runtime parameter. That also does not affect the rules.
 (In CLDR 24 and earlier, the variable top could also be set by using a tailoring rule with `[variable top]` in the place of a relation string.)
 
 ### 3.12 <a name="Special_Purpose_Commands" href="#Special_Purpose_Commands">Special-Purpose Commands</a>
@@ -893,7 +898,7 @@ _Examples:_
 * `[import und-u-co-search]` (not "root-...")
 * `[import ja-u-co-private-kana]` (language "ja" required even when this import itself is in another "ja" tailoring.)
 
-##### <a name="Special_Purpose_Elements" href="#Special_Purpose_Elements">Special-Purpose Elements</a>
+###### Table: <a name="Special_Purpose_Elements" href="#Special_Purpose_Elements">Special-Purpose Elements</a>
 
 | Rule Syntax |
 | ----------- |
@@ -912,7 +917,7 @@ The reason that these are not settings is so that their contents can be arbitrar
 
 _Example:_
 
-The following is a simple example that combines portions of different tailorings for illustration. For more complete examples, see the actual locale data: [Japanese](https://github.com/unicode-org/cldr/tree/latest/common/collation/ja.xml), [Chinese](https://github.com/unicode-org/cldr/tree/latest/common/collation/zh.xml), [Swedish](https://github.com/unicode-org/cldr/tree/latest/common/collation/sv.xml), and [German](https://github.com/unicode-org/cldr/tree/latest/common/collation/de.xml) (type="phonebook") are particularly illustrative.
+The following is a simple example that combines portions of different tailorings for illustration. For more complete examples, see the actual locale data: [Japanese](https://github.com/unicode-org/cldr/blob/main/common/collation/ja.xml), [Chinese](https://github.com/unicode-org/cldr/blob/main/common/collation/zh.xml), [Swedish](https://github.com/unicode-org/cldr/blob/main/common/collation/sv.xml), and [German](https://github.com/unicode-org/cldr/blob/main/common/collation/de.xml) (type="phonebook") are particularly illustrative.
 
 ```xml
 <collation>
@@ -982,7 +987,7 @@ The default reordering groups are defined by the FractionalUCA.txt file, based o
 There are some special cases:
 
 * The **Hani** group includes implicit weights for _Han characters_ according to the UCA as well as any characters tailored relative to a Han character, or after `&[first Hani]`.
-* Implicit weights for _unassigned code points_ according to the UCA reorder as the last weights in the **others** (**Zzzz**) group.  
+* Implicit weights for _unassigned code points_ according to the UCA reorder as the last weights in the **others** (**Zzzz**) group.
   There is no script code to explicitly reorder the unassigned-implicit weights into a particular position. (Unassigned-implicit weights are used for non-Hani code points without any mappings. For a given Unicode version they are the code points with General_Category values Cn, Co, Cs.)
 * The TRAILING group, the FIELD-SEPARATOR (associated with U+FFFE), and collation elements with only zero primary weights are not reordered.
 * The TERMINATOR, LEVEL-SEPARATOR, and SPECIAL groups are never associated with characters.
@@ -1085,7 +1090,7 @@ Characters and strings that are tailored have case values computed from their ro
 6. Tertiary CEs 0.0.t must get uppercase bits.
 7. Tertiary-ignorable CEs 0.0.0 must get ignorable-case=lowercase bits.
 
-> :point_right: **Note**: Almost all Cased characters have primary (non-ignorable) root collation CEs, except for U+0345 Combining Ypogegrammeni which is Lowercase. All Uppercase characters have primary root collation CEs.
+> 👉 **Note**: Almost all Cased characters have primary (non-ignorable) root collation CEs, except for U+0345 Combining Ypogegrammeni which is Lowercase. All Uppercase characters have primary root collation CEs.
 
 ### 3.15 <a name="Visibility" href="#Visibility">Visibility</a>
 
@@ -1165,10 +1170,10 @@ The per-language index exemplar characters are not useful for collation indexes 
 For example, near the start of the pinyin tailoring there is the following:
 
 ```html
-<p> A</p><!-- INDEX A -->  
+<p> A</p><!-- INDEX A -->
 <pc>阿呵𥥩锕𠼞𨉚</pc><!-- ā -->
 …
-<pc>翶</pc><!-- ao -->  
+<pc>翶</pc><!-- ao -->
 <p> B</p><!-- INDEX B -->
 ```
 
@@ -1180,6 +1185,6 @@ However, for stroke order, the label string is the stroke count (second characte
 
 * * *
 
-Copyright © 2001–2021 Unicode, Inc. All Rights Reserved. The Unicode Consortium makes no expressed or implied warranty of any kind, and assumes no liability for errors or omissions. No liability is assumed for incidental and consequential damages in connection with or arising out of the use of the information or programs contained or accompanying this technical report. The Unicode [Terms of Use](https://unicode.org/copyright.html) apply.
+Copyright © 2001–2022 Unicode, Inc. All Rights Reserved. The Unicode Consortium makes no expressed or implied warranty of any kind, and assumes no liability for errors or omissions. No liability is assumed for incidental and consequential damages in connection with or arising out of the use of the information or programs contained or accompanying this technical report. The Unicode [Terms of Use](https://www.unicode.org/copyright.html) apply.
 
 Unicode and the Unicode logo are trademarks of Unicode, Inc., and are registered in some jurisdictions.

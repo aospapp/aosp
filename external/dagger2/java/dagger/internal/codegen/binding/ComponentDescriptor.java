@@ -16,15 +16,23 @@
 
 package dagger.internal.codegen.binding;
 
+import static androidx.room.compiler.processing.XElementKt.isMethod;
+import static androidx.room.compiler.processing.XTypeKt.isVoid;
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableMap;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
 import static dagger.internal.codegen.langmodel.DaggerTypes.isFutureType;
-import static javax.lang.model.element.Modifier.ABSTRACT;
+import static dagger.internal.codegen.langmodel.DaggerTypes.isTypeOf;
+import static dagger.internal.codegen.xprocessing.XTypes.isPrimitive;
 import static javax.lang.model.type.TypeKind.VOID;
 
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Supplier;
@@ -35,24 +43,21 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
+import com.squareup.javapoet.TypeName;
 import dagger.Component;
 import dagger.Module;
 import dagger.Subcomponent;
 import dagger.internal.codegen.base.ComponentAnnotation;
-import dagger.internal.codegen.langmodel.DaggerElements;
 import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.model.DependencyRequest;
-import dagger.model.Scope;
 import dagger.producers.CancellationPolicy;
-import dagger.producers.ProductionComponent;
+import dagger.spi.model.DependencyRequest;
+import dagger.spi.model.Scope;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 
 /**
@@ -67,6 +72,35 @@ import javax.lang.model.type.TypeMirror;
  */
 @AutoValue
 public abstract class ComponentDescriptor {
+  /** Creates a {@link ComponentDescriptor}. */
+  static ComponentDescriptor create(
+      ComponentAnnotation componentAnnotation,
+      XTypeElement component,
+      ImmutableSet<ComponentRequirement> componentDependencies,
+      ImmutableSet<ModuleDescriptor> transitiveModules,
+      ImmutableMap<XMethodElement, ComponentRequirement> dependenciesByDependencyMethod,
+      ImmutableSet<Scope> scopes,
+      ImmutableSet<ComponentDescriptor> subcomponentsFromModules,
+      ImmutableBiMap<ComponentMethodDescriptor, ComponentDescriptor> subcomponentsByFactoryMethod,
+      ImmutableBiMap<ComponentMethodDescriptor, ComponentDescriptor> subcomponentsByBuilderMethod,
+      ImmutableSet<ComponentMethodDescriptor> componentMethods,
+      Optional<ComponentCreatorDescriptor> creator) {
+    ComponentDescriptor descriptor =
+        new AutoValue_ComponentDescriptor(
+            componentAnnotation,
+            component,
+            componentDependencies,
+            transitiveModules,
+            dependenciesByDependencyMethod,
+            scopes,
+            subcomponentsFromModules,
+            subcomponentsByFactoryMethod,
+            subcomponentsByBuilderMethod,
+            componentMethods,
+            creator);
+    return descriptor;
+  }
+
   /** The annotation that specifies that {@link #typeElement()} is a component. */
   public abstract ComponentAnnotation annotation();
 
@@ -95,11 +129,11 @@ public abstract class ComponentDescriptor {
    * The element that defines the component. This is the element to which the {@link #annotation()}
    * was applied.
    */
-  public abstract TypeElement typeElement();
+  public abstract XTypeElement typeElement();
 
   /**
    * The set of component dependencies listed in {@link Component#dependencies} or {@link
-   * ProductionComponent#dependencies()}.
+   * dagger.producers.ProductionComponent#dependencies()}.
    */
   public abstract ImmutableSet<ComponentRequirement> dependencies();
 
@@ -107,8 +141,8 @@ public abstract class ComponentDescriptor {
   public final ImmutableSet<ComponentRequirement> dependenciesAndConcreteModules() {
     return Stream.concat(
             moduleTypes().stream()
-                .filter(dep -> !dep.getModifiers().contains(ABSTRACT))
-                .map(module -> ComponentRequirement.forModule(module.asType())),
+                .filter(dep -> !dep.isAbstract())
+                .map(module -> ComponentRequirement.forModule(module.getType())),
             dependencies().stream())
         .collect(toImmutableSet());
   }
@@ -120,7 +154,7 @@ public abstract class ComponentDescriptor {
   public abstract ImmutableSet<ModuleDescriptor> modules();
 
   /** The types of the {@link #modules()}. */
-  public final ImmutableSet<TypeElement> moduleTypes() {
+  public final ImmutableSet<XTypeElement> moduleTypes() {
     return modules().stream().map(ModuleDescriptor::moduleElement).collect(toImmutableSet());
   }
 
@@ -142,7 +176,7 @@ public abstract class ComponentDescriptor {
         .filter(
             module ->
                 module.bindings().stream().anyMatch(ContributionBinding::requiresModuleInstance))
-        .map(module -> ComponentRequirement.forModule(module.moduleElement().asType()))
+        .map(module -> ComponentRequirement.forModule(module.moduleElement().getType()))
         .forEach(requirements::add);
     requirements.addAll(dependencies());
     requirements.addAll(
@@ -158,15 +192,17 @@ public abstract class ComponentDescriptor {
    * the enclosing type of the method; a method may be declared by a supertype of the actual
    * dependency.
    */
-  public abstract ImmutableMap<ExecutableElement, ComponentRequirement>
+  public abstract ImmutableMap<XMethodElement, ComponentRequirement>
       dependenciesByDependencyMethod();
 
   /** The {@linkplain #dependencies() component dependency} that defines a method. */
-  public final ComponentRequirement getDependencyThatDefinesMethod(Element method) {
-    checkArgument(
-        method instanceof ExecutableElement, "method must be an executable element: %s", method);
-    return checkNotNull(
-        dependenciesByDependencyMethod().get(method), "no dependency implements %s", method);
+  public final ComponentRequirement getDependencyThatDefinesMethod(XElement method) {
+    checkArgument(isMethod(method), "method must be an executable element: %s", method);
+    checkState(
+        dependenciesByDependencyMethod().containsKey(method),
+        "no dependency implements %s",
+        method);
+    return dependenciesByDependencyMethod().get(method);
   }
 
   /** The scopes of the component. */
@@ -201,7 +237,7 @@ public abstract class ComponentDescriptor {
 
   /** Returns a map of {@link #childComponents()} indexed by {@link #typeElement()}. */
   @Memoized
-  public ImmutableMap<TypeElement, ComponentDescriptor> childComponentsByElement() {
+  public ImmutableMap<XTypeElement, ComponentDescriptor> childComponentsByElement() {
     return Maps.uniqueIndex(childComponents(), ComponentDescriptor::typeElement);
   }
 
@@ -219,7 +255,7 @@ public abstract class ComponentDescriptor {
   abstract ImmutableBiMap<ComponentMethodDescriptor, ComponentDescriptor>
       childComponentsDeclaredByBuilderEntryPoints();
 
-  private final Supplier<ImmutableMap<TypeElement, ComponentDescriptor>>
+  private final Supplier<ImmutableMap<XTypeElement, ComponentDescriptor>>
       childComponentsByBuilderType =
           Suppliers.memoize(
               () ->
@@ -231,7 +267,7 @@ public abstract class ComponentDescriptor {
                               child -> child)));
 
   /** Returns the child component with the given builder type. */
-  final ComponentDescriptor getChildComponentWithBuilderType(TypeElement builderType) {
+  final ComponentDescriptor getChildComponentWithBuilderType(XTypeElement builderType) {
     return checkNotNull(
         childComponentsByBuilderType.get().get(builderType),
         "no child component found for builder type %s",
@@ -283,7 +319,8 @@ public abstract class ComponentDescriptor {
    */
   public final Optional<CancellationPolicy> cancellationPolicy() {
     return isProduction()
-        ? Optional.ofNullable(typeElement().getAnnotation(CancellationPolicy.class))
+        // TODO(bcorso): Get values from XAnnotation instead of using CancellationPolicy directly.
+        ? Optional.ofNullable(toJavac(typeElement()).getAnnotation(CancellationPolicy.class))
         : Optional.empty();
   }
 
@@ -302,7 +339,7 @@ public abstract class ComponentDescriptor {
   @AutoValue
   public abstract static class ComponentMethodDescriptor {
     /** The method itself. Note that this may be declared on a supertype of the component. */
-    public abstract ExecutableElement methodElement();
+    public abstract XMethodElement methodElement();
 
     /**
      * The dependency request for production, provision, and subcomponent creator methods. Absent
@@ -321,16 +358,16 @@ public abstract class ComponentDescriptor {
     public TypeMirror resolvedReturnType(DaggerTypes types) {
       checkState(dependencyRequest().isPresent());
 
-      TypeMirror returnType = methodElement().getReturnType();
-      if (returnType.getKind().isPrimitive() || returnType.getKind().equals(VOID)) {
-        return returnType;
+      XType returnType = methodElement().getReturnType();
+      if (isPrimitive(returnType) || isVoid(returnType)) {
+        return toJavac(returnType);
       }
       return BindingRequest.bindingRequest(dependencyRequest().get())
-          .requestedType(dependencyRequest().get().key().type(), types);
+          .requestedType(dependencyRequest().get().key().type().java(), types);
     }
 
     /** A {@link ComponentMethodDescriptor}builder for a method. */
-    public static Builder builder(ExecutableElement method) {
+    public static Builder builder(XMethodElement method) {
       return new AutoValue_ComponentDescriptor_ComponentMethodDescriptor.Builder()
           .methodElement(method);
     }
@@ -340,7 +377,7 @@ public abstract class ComponentDescriptor {
     @CanIgnoreReturnValue
     public interface Builder {
       /** @see ComponentMethodDescriptor#methodElement() */
-      Builder methodElement(ExecutableElement methodElement);
+      Builder methodElement(XMethodElement methodElement);
 
       /** @see ComponentMethodDescriptor#dependencyRequest() */
       Builder dependencyRequest(DependencyRequest dependencyRequest);
@@ -362,15 +399,23 @@ public abstract class ComponentDescriptor {
    * Returns {@code true} if a method could be a component entry point but not a members-injection
    * method.
    */
-  static boolean isComponentContributionMethod(DaggerElements elements, ExecutableElement method) {
+  static boolean isComponentContributionMethod(XMethodElement method) {
+    return isComponentContributionMethod(toJavac(method));
+  }
+
+  /**
+   * Returns {@code true} if a method could be a component entry point but not a members-injection
+   * method.
+   */
+  static boolean isComponentContributionMethod(ExecutableElement method) {
     return method.getParameters().isEmpty()
         && !method.getReturnType().getKind().equals(VOID)
-        && !elements.getTypeElement(Object.class).equals(method.getEnclosingElement())
+        && !isTypeOf(TypeName.OBJECT, method.getEnclosingElement().asType())
         && !NON_CONTRIBUTING_OBJECT_METHOD_NAMES.contains(method.getSimpleName().toString());
   }
 
   /** Returns {@code true} if a method could be a component production entry point. */
-  static boolean isComponentProductionMethod(DaggerElements elements, ExecutableElement method) {
-    return isComponentContributionMethod(elements, method) && isFutureType(method.getReturnType());
+  static boolean isComponentProductionMethod(XMethodElement method) {
+    return isComponentContributionMethod(method) && isFutureType(method.getReturnType());
   }
 }

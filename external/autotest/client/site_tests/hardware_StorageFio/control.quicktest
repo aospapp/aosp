@@ -11,6 +11,7 @@ TIME = 'SHORT'
 TEST_CLASS = "hardware"
 TEST_CATEGORY = 'Performance'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
 This test uses FIO to spawn a number of threads to perform a particular type of

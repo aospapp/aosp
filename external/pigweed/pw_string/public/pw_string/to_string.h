@@ -38,7 +38,7 @@
 //
 //   template <>
 //   StatusWithSize ToString<SomeCustomType>(const SomeCustomType& value,
-//                           std::span<char> buffer) {
+//                           span<char> buffer) {
 //     return /* ... implementation ... */;
 //   }
 //
@@ -52,11 +52,14 @@
 // StringBuilder may be easier to work with. StringBuilder's operator<< may be
 // overloaded for custom types.
 
-#include <span>
 #include <string_view>
 #include <type_traits>
 
+#include "pw_span/span.h"
 #include "pw_status/status.h"
+#include "pw_status/status_with_size.h"
+#include "pw_string/format.h"
+#include "pw_string/internal/config.h"
 #include "pw_string/type_to_string.h"
 
 namespace pw {
@@ -64,7 +67,7 @@ namespace pw {
 // This function provides string printing numeric types, enums, and anything
 // that convertible to a std::string_view, such as std::string.
 template <typename T>
-StatusWithSize ToString(const T& value, std::span<char> buffer) {
+StatusWithSize ToString(const T& value, span<char> buffer) {
   if constexpr (std::is_same_v<std::remove_cv_t<T>, bool>) {
     return string::BoolToString(value, buffer);
   } else if constexpr (std::is_same_v<std::remove_cv_t<T>, char>) {
@@ -74,7 +77,13 @@ StatusWithSize ToString(const T& value, std::span<char> buffer) {
   } else if constexpr (std::is_enum_v<T>) {
     return string::IntToString(std::underlying_type_t<T>(value), buffer);
   } else if constexpr (std::is_floating_point_v<T>) {
-    return string::FloatAsIntToString(value, buffer);
+    if constexpr (string::internal::config::kEnableDecimalFloatExpansion) {
+      // TODO(hepler): Look into using the float overload of std::to_chars when
+      // it is available.
+      return string::Format(buffer, "%.3f", value);
+    } else {
+      return string::FloatAsIntToString(value, buffer);
+    }
   } else if constexpr (std::is_convertible_v<T, std::string_view>) {
     return string::CopyStringOrNull(value, buffer);
   } else if constexpr (std::is_pointer_v<std::remove_cv_t<T>> ||
@@ -88,15 +97,15 @@ StatusWithSize ToString(const T& value, std::span<char> buffer) {
 
 // ToString overloads for Pigweed types. To override ToString for a custom type,
 // specialize the ToString template function.
-inline StatusWithSize ToString(Status status, std::span<char> buffer) {
+inline StatusWithSize ToString(Status status, span<char> buffer) {
   return string::Copy(status.str(), buffer);
 }
 
-inline StatusWithSize ToString(pw_Status status, std::span<char> buffer) {
+inline StatusWithSize ToString(pw_Status status, span<char> buffer) {
   return ToString(Status(status), buffer);
 }
 
-inline StatusWithSize ToString(std::byte byte, std::span<char> buffer) {
+inline StatusWithSize ToString(std::byte byte, span<char> buffer) {
   return string::IntToHexString(static_cast<unsigned>(byte), buffer, 2);
 }
 

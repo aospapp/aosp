@@ -99,6 +99,7 @@ enum Tag {
   DEVICE_UNIQUE_ATTESTATION = 0x702d0;  // (TagType:BOOL | 720)
   IDENTITY_CREDENTIAL_KEY = 0x702d1;    // (TagType:BOOL | 721)
   STORAGE_KEY = 0x702d2;                // (TagType:BOOL | 722)
+  ATTESTATION_ID_SECOND_IMEI = 0x902d3; // (TagType:BYTES | 723)
   ASSOCIATED_DATA = 0x903e8; // (TagType:BYTES | 1000)
   NONCE = 0x903e9; // (TagType:BYTES | 1001)
   /* RESERVED: AUTH_TOKEN = 0x903ea; // (TagType:BYTES | 1002) */
@@ -330,4 +331,10 @@ enum CertificateStatus {
   CERT_CHECKSUM = 2;
   CERT_UNKNOWN_ERROR = 3;
   CERT_WRONG_PACKET = 4;
+}
+
+enum RkpCsrV2Operation {
+  RKP_CSR_V2_BEGIN = 0;
+  RKP_CSR_V2_UPDATE = 1;
+  RKP_CSR_V2_FINISH = 2;
 }

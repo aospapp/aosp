@@ -32,7 +32,6 @@ import java.io.IOException;
 public final class TimeZoneDataFiles {
     private static final String ANDROID_ROOT_ENV = AndroidDataFiles.ANDROID_ROOT_ENV;
     private static final String ANDROID_TZDATA_ROOT_ENV = AndroidDataFiles.ANDROID_TZDATA_ROOT_ENV;
-    private static final String ANDROID_DATA_ENV = AndroidDataFiles.ANDROID_DATA_ENV;
 
     private TimeZoneDataFiles() {}
 
@@ -40,28 +39,12 @@ public final class TimeZoneDataFiles {
      * Returns time zone file paths for the specified file name in an array in the order they
      * should be tried. See {@link AndroidDataFiles#generateIcuDataPath()} for ICU files instead.
      * <ul>
-     * <li>[0] - the location of the file in the /data partition (may not exist).</li>
-     * <li>[1] - the location of the file from the time zone module under /apex (must exist).</li>
+     * <li>[0] - the location of the file from the time zone module under /apex (must exist).</li>
      * </ul>
      */
     // VisibleForTesting
     public static String[] getTimeZoneFilePaths(String fileName) {
-        return new String[] {
-                getDataTimeZoneFile(fileName),
-                getTimeZoneModuleTzFile(fileName),
-        };
-    }
-
-    // Remove from CorePlatformApi when all users in platform code are removed. http://b/123398797
-    @libcore.api.CorePlatformApi
-    public static String getDataTimeZoneRootDir() {
-        return System.getenv(ANDROID_DATA_ENV) + "/misc/zoneinfo/";
-    }
-
-    // Remove from CorePlatformApi when all users in platform code are removed. http://b/123398797
-    @libcore.api.CorePlatformApi
-    public static String getDataTimeZoneFile(String fileName) {
-        return getDataTimeZoneRootDir() + "current/" + fileName;
+        return new String[] { getTimeZoneModuleTzFile(fileName) };
     }
 
     public static String getTimeZoneModuleTzFile(String fileName) {

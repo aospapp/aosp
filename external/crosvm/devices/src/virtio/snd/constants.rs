@@ -1,6 +1,7 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
 pub const VIRTIO_SND_R_JACK_INFO: u32 = 1;
 pub const VIRTIO_SND_R_JACK_REMAP: u32 = 2;
 
@@ -28,6 +29,11 @@ pub const VIRTIO_SND_S_OK: u32 = 0x8000;
 pub const VIRTIO_SND_S_BAD_MSG: u32 = 0x8001;
 pub const VIRTIO_SND_S_NOT_SUPP: u32 = 0x8002;
 pub const VIRTIO_SND_S_IO_ERR: u32 = 0x8003;
+
+pub enum StatusCode {
+    OK = VIRTIO_SND_S_OK as isize,
+    IoErr = VIRTIO_SND_S_IO_ERR as isize,
+}
 
 /* stream direction */
 pub const VIRTIO_SND_D_OUTPUT: u8 = 0;

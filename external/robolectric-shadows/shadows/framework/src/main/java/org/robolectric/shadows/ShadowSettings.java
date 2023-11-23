@@ -6,6 +6,7 @@ import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static android.os.Build.VERSION_CODES.M;
 import static android.os.Build.VERSION_CODES.P;
 
+import android.app.ActivityThread;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.os.Build;
@@ -265,9 +266,19 @@ public class ShadowSettings {
       return true;
     }
 
+    @Implementation(minSdk = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    protected static boolean putString(String name, String value) {
+      return putString(ActivityThread.currentApplication().getContentResolver(), name, value);
+    }
+
     @Implementation
     protected static String getString(ContentResolver cr, String name) {
       return get(cr).get(name);
+    }
+
+    @Implementation(minSdk = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    protected static String getString(String name) {
+      return getString(ActivityThread.currentApplication().getContentResolver(), name);
     }
 
     // BEGIN-INTERNAL
@@ -287,6 +298,12 @@ public class ShadowSettings {
         }
       }
       return arrayMap;
+    }
+
+    @Implementation(minSdk = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    protected static Map<String, String> getStrings(String prefix,
+            List<String> names) {
+      return getStrings(ActivityThread.currentApplication().getContentResolver(), prefix, names);
     }
     // END-INTERNAL
 

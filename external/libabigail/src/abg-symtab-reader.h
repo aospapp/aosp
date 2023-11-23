@@ -289,6 +289,11 @@ private:
   load_(string_elf_symbols_map_sptr function_symbol_map,
        string_elf_symbols_map_sptr variables_symbol_map);
 
+  GElf_Addr
+  setup_symbol_lookup_tables(Elf* elf_handle,
+			     GElf_Sym* elf_symbol,
+			     const elf_symbol_sptr& symbol_sptr);
+
   void
   update_function_entry_address_symbol_map(Elf*	     elf_handle,
 					   GElf_Sym* native_symbol,

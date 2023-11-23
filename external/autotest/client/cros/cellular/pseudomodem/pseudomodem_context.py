@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -10,26 +11,34 @@
 # command line. To avoid confusion, please use the shell script run_pseudomodem
 # to run pseudomodem from command line.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import dbus
 import json
 import logging
 import os
 import pwd
 import signal
+import six
 import stat
 import sys
 import subprocess
 import tempfile
 
 import common
+
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.cellular import mm1_constants
 from autotest_lib.client.cros.cellular import net_interface
 
-import pm_constants
-import pseudomodem
+
+from autotest_lib.client.cros.cellular.pseudomodem import pm_constants
+from autotest_lib.client.cros.cellular.pseudomodem import pseudomodem
+
 
 # TODO(pprabhu) Move this to the right utils file.
 # pprabhu: I haven't yet figured out which of the myriad utils files I should
@@ -252,7 +261,7 @@ class PseudoModemManagerContext(object):
 
         """
         cmd_line_flags = []
-        for key, value in flags_map.iteritems():
+        for key, value in six.iteritems(flags_map):
             cmd_line_flags.append('--' + key)
             if key in self.TEST_OBJECT_ARG_FLAGS:
                 cmd_line_flags.append(self._DumpArgToFile(value))

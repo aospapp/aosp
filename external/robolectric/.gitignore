@@ -1,0 +1,63 @@
+# Eclipse
+.classpath
+.project
+.settings
+eclipsebin
+
+# m2e-apt
+.factorypath
+
+# Ant
+bin/
+out/
+
+# Maven
+dist
+target
+pom.xml.*
+release.properties
+
+# Gradle
+.gradle/
+build
+
+# Android Profiling
+*.hprof
+
+# IntelliJ
+.idea
+*.iml
+*.iws
+*.ipr
+classes
+
+# Other editors
+*.orig
+*.swp
+*~
+\#*\#
+
+# Mac
+.DS_Store
+
+tmp
+local.properties
+
+# CTS stuff
+cts/
+cts-libs/
+
+# CMake
+# CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+*.a
+*.dylib

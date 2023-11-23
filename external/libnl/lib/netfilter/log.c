@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/netfilter/log.c	Netfilter Log
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
  * Copyright (c) 2007 Philip Craig <philipc@snapgear.com>
  * Copyright (c) 2007 Secure Computing Corporation
@@ -149,6 +142,11 @@ static int nfnl_log_build_request(const struct nfnl_log *log,
 	if (nfnl_log_test_queue_threshold(log) &&
 	    nla_put_u32(msg, NFULA_CFG_QTHRESH,
 			htonl(nfnl_log_get_queue_threshold(log))) < 0)
+		goto nla_put_failure;
+
+	if (nfnl_log_get_flags(log) &&
+	    nla_put_u16(msg, NFULA_CFG_FLAGS,
+			htons(nfnl_log_get_flags(log))) < 0)
 		goto nla_put_failure;
 
 	*result = msg;

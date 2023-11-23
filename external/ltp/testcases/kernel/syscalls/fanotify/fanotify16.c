@@ -14,6 +14,7 @@
  * - FAN_REPORT_DIR_FID   (dir fid)
  * - FAN_REPORT_DIR_FID | FAN_REPORT_FID   (dir fid + child fid)
  * - FAN_REPORT_DFID_NAME | FAN_REPORT_FID (dir fid + name + child fid)
+ * - FAN_REPORT_DFID_NAME_TARGET (dir fid + name + created/deleted file fid)
  */
 
 #define _GNU_SOURCE
@@ -36,9 +37,9 @@
 /* Size of the event structure, not including file handle */
 #define EVENT_SIZE (sizeof(struct fanotify_event_metadata) + \
 		    sizeof(struct fanotify_event_info_fid))
+
 /* Tripple events buffer size to account for file handles and names */
 #define EVENT_BUF_LEN (EVENT_MAX * EVENT_SIZE * 3)
-
 
 #define BUF_SIZE 256
 
@@ -48,10 +49,13 @@ struct event_t {
 	struct fanotify_fid_t *fid;
 	struct fanotify_fid_t *child_fid;
 	char name[BUF_SIZE];
+	char name2[BUF_SIZE];
+	char *old_name;
+	char *new_name;
 };
 
 static char fname1[BUF_SIZE + 11], fname2[BUF_SIZE + 11];
-static char dname1[BUF_SIZE], dname2[BUF_SIZE];
+static char dname1[BUF_SIZE], dname2[BUF_SIZE], tmpdir[BUF_SIZE];
 static int fd_notify;
 
 static struct event_t event_set[EVENT_MAX];
@@ -63,6 +67,10 @@ static char event_buf[EVENT_BUF_LEN];
 #define FILE_NAME1 "test_file1"
 #define FILE_NAME2 "test_file2"
 #define MOUNT_PATH "fs_mnt"
+#define TEMP_DIR MOUNT_PATH "/temp_dir"
+
+static int fan_report_target_fid_unsupported;
+static int rename_events_unsupported;
 
 static struct test_case_t {
 	const char *tname;
@@ -71,6 +79,7 @@ static struct test_case_t {
 	unsigned long mask;
 	struct fanotify_mark_type sub_mark;
 	unsigned long sub_mask;
+	unsigned long tmpdir_ignored_mask;
 } test_cases[] = {
 	{
 		"FAN_REPORT_DFID_NAME monitor filesystem for create/delete/move/open/close",
@@ -80,6 +89,7 @@ static struct test_case_t {
 		/* Mount watch for events possible on children */
 		INIT_FANOTIFY_MARK_TYPE(MOUNT),
 		FAN_OPEN | FAN_CLOSE | FAN_ONDIR,
+		0,
 	},
 	{
 		"FAN_REPORT_DFID_NAME monitor directories for create/delete/move/open/close",
@@ -90,6 +100,7 @@ static struct test_case_t {
 		INIT_FANOTIFY_MARK_TYPE(INODE),
 		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_DELETE_SELF | FAN_MOVE_SELF | FAN_ONDIR |
 		FAN_OPEN | FAN_CLOSE | FAN_EVENT_ON_CHILD,
+		0,
 	},
 	{
 		"FAN_REPORT_DIR_FID monitor filesystem for create/delete/move/open/close",
@@ -99,6 +110,7 @@ static struct test_case_t {
 		/* Mount watch for events possible on children */
 		INIT_FANOTIFY_MARK_TYPE(MOUNT),
 		FAN_OPEN | FAN_CLOSE | FAN_ONDIR,
+		0,
 	},
 	{
 		"FAN_REPORT_DIR_FID monitor directories for create/delete/move/open/close",
@@ -109,6 +121,7 @@ static struct test_case_t {
 		INIT_FANOTIFY_MARK_TYPE(INODE),
 		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_DELETE_SELF | FAN_MOVE_SELF | FAN_ONDIR |
 		FAN_OPEN | FAN_CLOSE | FAN_EVENT_ON_CHILD,
+		0,
 	},
 	{
 		"FAN_REPORT_DFID_FID monitor filesystem for create/delete/move/open/close",
@@ -118,6 +131,7 @@ static struct test_case_t {
 		/* Mount watch for events possible on children */
 		INIT_FANOTIFY_MARK_TYPE(MOUNT),
 		FAN_OPEN | FAN_CLOSE | FAN_ONDIR,
+		0,
 	},
 	{
 		"FAN_REPORT_DFID_FID monitor directories for create/delete/move/open/close",
@@ -128,6 +142,7 @@ static struct test_case_t {
 		INIT_FANOTIFY_MARK_TYPE(INODE),
 		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_DELETE_SELF | FAN_MOVE_SELF | FAN_ONDIR |
 		FAN_OPEN | FAN_CLOSE | FAN_EVENT_ON_CHILD,
+		0,
 	},
 	{
 		"FAN_REPORT_DFID_NAME_FID monitor filesystem for create/delete/move/open/close",
@@ -137,6 +152,7 @@ static struct test_case_t {
 		/* Mount watch for events possible on children */
 		INIT_FANOTIFY_MARK_TYPE(MOUNT),
 		FAN_OPEN | FAN_CLOSE | FAN_ONDIR,
+		0,
 	},
 	{
 		"FAN_REPORT_DFID_NAME_FID monitor directories for create/delete/move/open/close",
@@ -147,6 +163,93 @@ static struct test_case_t {
 		INIT_FANOTIFY_MARK_TYPE(INODE),
 		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_DELETE_SELF | FAN_MOVE_SELF | FAN_ONDIR |
 		FAN_OPEN | FAN_CLOSE | FAN_EVENT_ON_CHILD,
+		0,
+	},
+	{
+		"FAN_REPORT_DFID_NAME_TARGET monitor filesystem for create/delete/move/open/close",
+		INIT_FANOTIFY_GROUP_TYPE(REPORT_DFID_NAME_TARGET),
+		INIT_FANOTIFY_MARK_TYPE(FILESYSTEM),
+		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_DELETE_SELF | FAN_MOVE_SELF | FAN_ONDIR,
+		/* Mount watch for events possible on children */
+		INIT_FANOTIFY_MARK_TYPE(MOUNT),
+		FAN_OPEN | FAN_CLOSE | FAN_ONDIR,
+		0,
+	},
+	{
+		"FAN_REPORT_DFID_NAME_TARGET monitor directories for create/delete/move/open/close",
+		INIT_FANOTIFY_GROUP_TYPE(REPORT_DFID_NAME_TARGET),
+		INIT_FANOTIFY_MARK_TYPE(INODE),
+		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_ONDIR,
+		/* Watches for self events on subdir and events on subdir's children */
+		INIT_FANOTIFY_MARK_TYPE(INODE),
+		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_DELETE_SELF | FAN_MOVE_SELF | FAN_ONDIR |
+		FAN_OPEN | FAN_CLOSE | FAN_EVENT_ON_CHILD,
+		0,
+	},
+	{
+		"FAN_REPORT_DFID_NAME_FID monitor filesystem for create/delete/move/rename/open/close",
+		INIT_FANOTIFY_GROUP_TYPE(REPORT_DFID_NAME_FID),
+		INIT_FANOTIFY_MARK_TYPE(FILESYSTEM),
+		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_RENAME | FAN_DELETE_SELF | FAN_MOVE_SELF | FAN_ONDIR,
+		/* Mount watch for events possible on children */
+		INIT_FANOTIFY_MARK_TYPE(MOUNT),
+		FAN_OPEN | FAN_CLOSE | FAN_ONDIR,
+		0,
+	},
+	{
+		"FAN_REPORT_DFID_NAME_FID monitor directories for create/delete/move/rename/open/close",
+		INIT_FANOTIFY_GROUP_TYPE(REPORT_DFID_NAME_FID),
+		INIT_FANOTIFY_MARK_TYPE(INODE),
+		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_RENAME | FAN_ONDIR,
+		/* Watches for self events on subdir and events on subdir's children */
+		INIT_FANOTIFY_MARK_TYPE(INODE),
+		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_RENAME | FAN_DELETE_SELF | FAN_MOVE_SELF | FAN_ONDIR |
+		FAN_OPEN | FAN_CLOSE | FAN_EVENT_ON_CHILD,
+		0,
+	},
+	{
+		"FAN_REPORT_DFID_NAME_TARGET monitor filesystem for create/delete/move/rename/open/close",
+		INIT_FANOTIFY_GROUP_TYPE(REPORT_DFID_NAME_TARGET),
+		INIT_FANOTIFY_MARK_TYPE(FILESYSTEM),
+		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_RENAME | FAN_DELETE_SELF | FAN_MOVE_SELF | FAN_ONDIR,
+		/* Mount watch for events possible on children */
+		INIT_FANOTIFY_MARK_TYPE(MOUNT),
+		FAN_OPEN | FAN_CLOSE | FAN_ONDIR,
+		0,
+	},
+	{
+		"FAN_REPORT_DFID_NAME_TARGET monitor directories for create/delete/move/rename/open/close",
+		INIT_FANOTIFY_GROUP_TYPE(REPORT_DFID_NAME_TARGET),
+		INIT_FANOTIFY_MARK_TYPE(INODE),
+		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_RENAME | FAN_ONDIR,
+		/* Watches for self events on subdir and events on subdir's children */
+		INIT_FANOTIFY_MARK_TYPE(INODE),
+		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_RENAME | FAN_DELETE_SELF | FAN_MOVE_SELF | FAN_ONDIR |
+		FAN_OPEN | FAN_CLOSE | FAN_EVENT_ON_CHILD,
+		0,
+	},
+	{
+		"FAN_REPORT_DFID_NAME_FID monitor directories and ignore FAN_RENAME events to/from temp directory",
+		INIT_FANOTIFY_GROUP_TYPE(REPORT_DFID_NAME_FID),
+		INIT_FANOTIFY_MARK_TYPE(INODE),
+		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_RENAME | FAN_ONDIR,
+		/* Watches for self events on subdir and events on subdir's children */
+		INIT_FANOTIFY_MARK_TYPE(INODE),
+		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_RENAME | FAN_DELETE_SELF | FAN_MOVE_SELF | FAN_ONDIR |
+		FAN_OPEN | FAN_CLOSE | FAN_EVENT_ON_CHILD,
+		/* Ignore FAN_RENAME to/from tmpdir */
+		FAN_MOVE | FAN_RENAME,
+	},
+	{
+		"FAN_REPORT_DFID_NAME_FID monitor filesystem and ignore FAN_RENAME events to/from temp directory",
+		INIT_FANOTIFY_GROUP_TYPE(REPORT_DFID_NAME_FID),
+		INIT_FANOTIFY_MARK_TYPE(FILESYSTEM),
+		FAN_CREATE | FAN_DELETE | FAN_MOVE | FAN_RENAME | FAN_DELETE_SELF | FAN_MOVE_SELF | FAN_ONDIR,
+		/* Mount watch for events possible on children */
+		INIT_FANOTIFY_MARK_TYPE(MOUNT),
+		FAN_OPEN | FAN_CLOSE | FAN_ONDIR,
+		/* Ignore FAN_RENAME to/from tmpdir */
+		FAN_MOVE | FAN_RENAME,
 	},
 };
 
@@ -158,8 +261,25 @@ static void do_test(unsigned int number)
 	struct fanotify_mark_type *mark = &tc->mark;
 	struct fanotify_mark_type *sub_mark = &tc->sub_mark;
 	struct fanotify_fid_t root_fid, dir_fid, file_fid;
+	struct fanotify_fid_t *child_fid = NULL, *subdir_fid = NULL;
+	int report_name = (group->flag & FAN_REPORT_NAME);
+	int report_target_fid = (group->flag & FAN_REPORT_TARGET_FID);
+	int report_rename = (tc->mask & FAN_RENAME);
+	int fs_mark = (mark->flag == FAN_MARK_FILESYSTEM);
+	int rename_ignored = (tc->tmpdir_ignored_mask & FAN_RENAME);
 
 	tst_res(TINFO, "Test #%d: %s", number, tc->tname);
+
+	if (report_rename && rename_events_unsupported) {
+		tst_res(TCONF, "FAN_RENAME not supported in kernel?");
+		return;
+	}
+
+	if (fan_report_target_fid_unsupported && report_target_fid) {
+		FANOTIFY_INIT_FLAGS_ERR_MSG(FAN_REPORT_TARGET_FID,
+					    fan_report_target_fid_unsupported);
+		return;
+	}
 
 	fd_notify = SAFE_FANOTIFY_INIT(group->flag, 0);
 
@@ -181,14 +301,29 @@ static void do_test(unsigned int number)
 
 	/* Save the subdir fid */
 	fanotify_save_fid(dname1, &dir_fid);
+	/* With FAN_REPORT_TARGET_FID, report subdir fid also for dirent events */
+	if (report_target_fid)
+		subdir_fid = &dir_fid;
 
 	if (tc->sub_mask)
 		SAFE_FANOTIFY_MARK(fd_notify, FAN_MARK_ADD | sub_mark->flag,
 				   tc->sub_mask, AT_FDCWD, dname1);
+	/*
+	 * ignore FAN_RENAME to/from tmpdir, so we won't get the FAN_RENAME events
+	 * when subdir is moved via tmpdir.
+	 * FAN_MOVE is also set in ignored mark of tmpdir, but it will have no effect
+	 * and the MOVED_FROM/TO events will still be reported.
+	 */
+	if (tc->tmpdir_ignored_mask)
+		SAFE_FANOTIFY_MARK(fd_notify, FAN_MARK_ADD |
+				   FAN_MARK_IGNORED_MASK |
+				   FAN_MARK_IGNORED_SURV_MODIFY,
+				   tc->tmpdir_ignored_mask, AT_FDCWD, TEMP_DIR);
 
+	memset(event_set, 0, sizeof(event_set));
 	event_set[tst_count].mask = FAN_CREATE | FAN_ONDIR;
 	event_set[tst_count].fid = &root_fid;
-	event_set[tst_count].child_fid = NULL;
+	event_set[tst_count].child_fid = subdir_fid;
 	strcpy(event_set[tst_count].name, DIR_NAME1);
 	tst_count++;
 
@@ -197,8 +332,11 @@ static void do_test(unsigned int number)
 
 	/* Save the file fid */
 	fanotify_save_fid(fname1, &file_fid);
+	/* With FAN_REPORT_TARGET_FID, report child fid also for dirent events */
+	if (report_target_fid)
+		child_fid = &file_fid;
 
-	SAFE_WRITE(1, fd, "1", 1);
+	SAFE_WRITE(SAFE_WRITE_ALL, fd, "1", 1);
 	SAFE_RENAME(fname1, fname2);
 
 	SAFE_CLOSE(fd);
@@ -214,7 +352,7 @@ static void do_test(unsigned int number)
 	 */
 	event_set[tst_count].mask = FAN_CREATE | FAN_MOVED_FROM;
 	event_set[tst_count].fid = &dir_fid;
-	event_set[tst_count].child_fid = NULL;
+	event_set[tst_count].child_fid = child_fid;
 	strcpy(event_set[tst_count].name, FILE_NAME1);
 	tst_count++;
 	/*
@@ -224,24 +362,45 @@ static void do_test(unsigned int number)
 	 * FAN_REPORT_NAME is not set, then FAN_CREATE above is merged with
 	 * FAN_DELETE below and FAN_OPEN will be merged with FAN_CLOSE.
 	 */
-	if (group->flag & FAN_REPORT_NAME) {
+	if (report_name) {
 		event_set[tst_count].mask = FAN_OPEN;
 		event_set[tst_count].fid = &dir_fid;
 		event_set[tst_count].child_fid = &file_fid;
 		strcpy(event_set[tst_count].name, FILE_NAME1);
 		tst_count++;
 	}
+	/*
+	 * FAN_RENAME event is independent of MOVED_FROM/MOVED_TO and not merged
+	 * with any other event because it has different info records.
+	 */
+	if (report_rename) {
+		event_set[tst_count].mask = FAN_RENAME;
+		event_set[tst_count].fid = &dir_fid;
+		event_set[tst_count].child_fid = child_fid;
+		strcpy(event_set[tst_count].name, FILE_NAME1);
+		strcpy(event_set[tst_count].name2, FILE_NAME2);
+		event_set[tst_count].old_name = event_set[tst_count].name;
+		event_set[tst_count].new_name = event_set[tst_count].name2;
+		tst_count++;
+	}
 
 	event_set[tst_count].mask = FAN_DELETE | FAN_MOVED_TO;
+	/*
+	 * With FAN_REPORT_TARGET_FID, close of FILE_NAME2 is merged with
+	 * moved_to and delete events, because they all have parent and
+	 * child fid records.
+	 */
+	if (report_target_fid)
+		event_set[tst_count].mask |= FAN_CLOSE_WRITE;
 	event_set[tst_count].fid = &dir_fid;
-	event_set[tst_count].child_fid = NULL;
+	event_set[tst_count].child_fid = child_fid;
 	strcpy(event_set[tst_count].name, FILE_NAME2);
 	tst_count++;
 	/*
 	 * When not reporting name, open of FILE_NAME1 is merged
 	 * with close of FILE_NAME2.
 	 */
-	if (!(group->flag & FAN_REPORT_NAME)) {
+	if (!report_name) {
 		event_set[tst_count].mask = FAN_OPEN | FAN_CLOSE_WRITE;
 		event_set[tst_count].fid = &dir_fid;
 		event_set[tst_count].child_fid = &file_fid;
@@ -253,7 +412,7 @@ static void do_test(unsigned int number)
 	 * Filesystem watch gets self event w/o name info if FAN_REPORT_FID
 	 * is set.
 	 */
-	if (mark->flag == FAN_MARK_FILESYSTEM && (group->flag & FAN_REPORT_FID)) {
+	if (fs_mark && (group->flag & FAN_REPORT_FID)) {
 		event_set[tst_count].mask = FAN_DELETE_SELF | FAN_MOVE_SELF;
 		event_set[tst_count].fid = &file_fid;
 		event_set[tst_count].child_fid = NULL;
@@ -261,11 +420,10 @@ static void do_test(unsigned int number)
 		tst_count++;
 	}
 	/*
-	 * When reporting name, close of FILE_NAME2 is not merged with
-	 * open of FILE_NAME1 and it is received after the merged self
-	 * events.
+	 * Without FAN_REPORT_TARGET_FID, close of FILE_NAME2 is not merged with
+	 * open of FILE_NAME1 and it is received after the merged self events.
 	 */
-	if (group->flag & FAN_REPORT_NAME) {
+	if (report_name && !report_target_fid) {
 		event_set[tst_count].mask = FAN_CLOSE_WRITE;
 		event_set[tst_count].fid = &dir_fid;
 		event_set[tst_count].child_fid = &file_fid;
@@ -297,20 +455,62 @@ static void do_test(unsigned int number)
 	strcpy(event_set[tst_count].name, ".");
 	tst_count++;
 
-	SAFE_RENAME(dname1, dname2);
+	/*
+	 * If only root dir and subdir are watched, a rename via an unwatched tmpdir
+	 * will observe the same MOVED_FROM/MOVED_TO events as a direct rename,
+	 * but will observe 2 FAN_RENAME events with 1 info dir+name record each
+	 * instead of 1 FAN_RENAME event with 2 dir+name info records.
+	 *
+	 * If tmpdir is ignoring FAN_RENAME, we will get the MOVED_FROM/MOVED_TO
+	 * events and will not get the FAN_RENAME event for rename via tmpdir.
+	 */
+	if (!fs_mark || rename_ignored) {
+		SAFE_RENAME(dname1, tmpdir);
+		SAFE_RENAME(tmpdir, dname2);
+	} else {
+		SAFE_RENAME(dname1, dname2);
+	}
 	SAFE_RMDIR(dname2);
 
 	/* Read more events on dirs */
 	len += SAFE_READ(0, fd_notify, event_buf + len, EVENT_BUF_LEN - len);
 
+	/*
+	 * FAN_RENAME event is independent of MOVED_FROM/MOVED_TO and not merged
+	 * with any other event because it has different info records.
+	 * When renamed via an unwatched tmpdir, the 1st FAN_RENAME event has the
+	 * info record of root_fid+DIR_NAME1 and the 2nd FAN_RENAME event has the
+	 * info record of root_fid+DIR_NAME2.
+	 * If tmpdir is ignoring FAN_RENAME, we get no FAN_RENAME events at all.
+	 */
+	if (report_rename && !rename_ignored) {
+		event_set[tst_count].mask = FAN_RENAME | FAN_ONDIR;
+		event_set[tst_count].fid = &root_fid;
+		event_set[tst_count].child_fid = subdir_fid;
+		strcpy(event_set[tst_count].name, DIR_NAME1);
+		event_set[tst_count].old_name = event_set[tst_count].name;
+		if (fs_mark) {
+			strcpy(event_set[tst_count].name2, DIR_NAME2);
+			event_set[tst_count].new_name = event_set[tst_count].name2;
+		}
+		tst_count++;
+	}
 	event_set[tst_count].mask = FAN_MOVED_FROM | FAN_ONDIR;
 	event_set[tst_count].fid = &root_fid;
-	event_set[tst_count].child_fid = NULL;
+	event_set[tst_count].child_fid = subdir_fid;
 	strcpy(event_set[tst_count].name, DIR_NAME1);
 	tst_count++;
+	if (report_rename && !fs_mark && !rename_ignored) {
+		event_set[tst_count].mask = FAN_RENAME | FAN_ONDIR;
+		event_set[tst_count].fid = &root_fid;
+		event_set[tst_count].child_fid = subdir_fid;
+		strcpy(event_set[tst_count].name, DIR_NAME2);
+		event_set[tst_count].new_name = event_set[tst_count].name;
+		tst_count++;
+	}
 	event_set[tst_count].mask = FAN_DELETE | FAN_MOVED_TO | FAN_ONDIR;
 	event_set[tst_count].fid = &root_fid;
-	event_set[tst_count].child_fid = NULL;
+	event_set[tst_count].child_fid = subdir_fid;
 	strcpy(event_set[tst_count].name, DIR_NAME2);
 	tst_count++;
 	/* Expect no more events */
@@ -355,10 +555,18 @@ static void do_test(unsigned int number)
 		if (!(group->flag & FAN_REPORT_FID))
 			expected_child_fid = NULL;
 
-		if (!(group->flag & FAN_REPORT_NAME))
+		if (!report_name)
 			expected->name[0] = 0;
 
-		if (expected->name[0]) {
+		if (expected->mask & FAN_RENAME) {
+			/* If old name is not reported, first record is new name */
+			info_type = expected->old_name ?
+				FAN_EVENT_INFO_TYPE_OLD_DFID_NAME :
+				FAN_EVENT_INFO_TYPE_NEW_DFID_NAME;
+			/* The 2nd fid is same as 1st becaue we rename in same parent */
+			if (expected->name2[0])
+				expected_child_fid = expected_fid;
+		} else if (expected->name[0]) {
 			info_type = FAN_EVENT_INFO_TYPE_DFID_NAME;
 		} else if (expected->mask & FAN_ONDIR) {
 			info_type = FAN_EVENT_INFO_TYPE_DFID;
@@ -386,7 +594,7 @@ check_match:
 				"pid=%u fd=%d name='%s' "
 				"len=%d info_type=%d info_len=%d fh_len=%d",
 				(unsigned long long)event->mask,
-				(unsigned)event->pid, event->fd, filename,
+				(unsigned int)event->pid, event->fd, filename,
 				event->event_len, event_fid->hdr.info_type,
 				event_fid->hdr.len, fhlen);
 		} else if (!fhlen || namelen < 0) {
@@ -394,7 +602,7 @@ check_match:
 				"got event without fid: mask=%llx pid=%u fd=%d, "
 				"len=%d info_type=%d info_len=%d fh_len=%d",
 				(unsigned long long)event->mask,
-				(unsigned)event->pid, event->fd,
+				(unsigned int)event->pid, event->fd,
 				event->event_len, event_fid->hdr.info_type,
 				event_fid->hdr.len, fhlen);
 		} else if (!mask_match) {
@@ -403,7 +611,7 @@ check_match:
 				"pid=%u fd=%d name='%s' "
 				"len=%d info_type=%d info_len=%d fh_len=%d",
 				(unsigned long long)event->mask, expected->mask,
-				(unsigned)event->pid, event->fd, filename,
+				(unsigned int)event->pid, event->fd, filename,
 				event->event_len, event_fid->hdr.info_type,
 				event_fid->hdr.len, fhlen);
 		} else if (info_type != event_fid->hdr.info_type) {
@@ -411,16 +619,16 @@ check_match:
 				"got event: mask=%llx pid=%u fd=%d, "
 				"len=%d info_type=%d expected(%d) info_len=%d fh_len=%d",
 				(unsigned long long)event->mask,
-				(unsigned)event->pid, event->fd,
+				(unsigned int)event->pid, event->fd,
 				event->event_len, event_fid->hdr.info_type,
 				info_type, event_fid->hdr.len, fhlen);
 		} else if (fhlen != expected_fid->handle.handle_bytes) {
 			tst_res(TFAIL,
 				"got event: mask=%llx pid=%u fd=%d name='%s' "
-				"len=%d info_type=%d info_len=%d fh_len=%d expected(%d)"
+				"len=%d info_type=%d info_len=%d fh_len=%d expected(%d) "
 				"fh_type=%d",
 				(unsigned long long)event->mask,
-				(unsigned)event->pid, event->fd, filename,
+				(unsigned int)event->pid, event->fd, filename,
 				event->event_len, info_type,
 				event_fid->hdr.len, fhlen,
 				expected_fid->handle.handle_bytes,
@@ -432,7 +640,7 @@ check_match:
 				"len=%d info_type=%d info_len=%d fh_len=%d "
 				"fh_type=%d expected(%x)",
 				(unsigned long long)event->mask,
-				(unsigned)event->pid, event->fd, filename,
+				(unsigned int)event->pid, event->fd, filename,
 				event->event_len, info_type,
 				event_fid->hdr.len, fhlen,
 				file_handle->handle_type,
@@ -444,7 +652,7 @@ check_match:
 				"len=%d info_type=%d info_len=%d fh_len=%d "
 				"fh_type=%d unexpected file handle (%x...)",
 				(unsigned long long)event->mask,
-				(unsigned)event->pid, event->fd, filename,
+				(unsigned int)event->pid, event->fd, filename,
 				event->event_len, info_type,
 				event_fid->hdr.len, fhlen,
 				file_handle->handle_type,
@@ -456,7 +664,7 @@ check_match:
 				"len=%d info_type=%d info_len=%d fh_len=%d "
 				"fsid=%x.%x (expected %x.%x)",
 				(unsigned long long)event->mask,
-				(unsigned)event->pid, event->fd, filename,
+				(unsigned int)event->pid, event->fd, filename,
 				event->event_len, info_type,
 				event_fid->hdr.len, fhlen,
 				FSID_VAL_MEMBER(event_fid->fsid, 0),
@@ -469,7 +677,7 @@ check_match:
 				"pid=%u fd=%d name='%s' expected('%s') "
 				"len=%d info_type=%d info_len=%d fh_len=%d",
 				(unsigned long long)event->mask,
-				(unsigned)event->pid, event->fd,
+				(unsigned int)event->pid, event->fd,
 				filename, expected->name,
 				event->event_len, event_fid->hdr.info_type,
 				event_fid->hdr.len, fhlen);
@@ -479,8 +687,8 @@ check_match:
 				"(expected %u) fd=%d name='%s' "
 				"len=%d info_type=%d info_len=%d fh_len=%d",
 				(unsigned long long)event->mask,
-				(unsigned)event->pid,
-				(unsigned)getpid(),
+				(unsigned int)event->pid,
+				(unsigned int)getpid(),
 				event->fd, filename,
 				event->event_len, event_fid->hdr.info_type,
 				event_fid->hdr.len, fhlen);
@@ -490,7 +698,7 @@ check_match:
 				"pid=%u fd=%d name='%s' num_info=%d (expected %d) "
 				"len=%d info_type=%d info_len=%d fh_len=%d",
 				(unsigned long long)event->mask,
-				(unsigned)event->pid, event->fd,
+				(unsigned int)event->pid, event->fd,
 				filename, 1 + !!child_fid, 1 + !!expected_child_fid,
 				event->event_len, event_fid->hdr.info_type,
 				event_fid->hdr.len, fhlen);
@@ -505,6 +713,16 @@ check_match:
 			expected_fid = expected->child_fid;
 			info_id = 1;
 			info_type = FAN_EVENT_INFO_TYPE_FID;
+			/*
+			 * With FAN_RENAME event, expect a second record of
+			 * type NEW_DFID_NAME, which in our case
+			 * has the same fid as the source dir in 1st record.
+			 * TODO: check the 2nd name and the 3rd child fid record.
+			 */
+			if (event->mask & FAN_RENAME && expected->name2[0]) {
+				info_type = FAN_EVENT_INFO_TYPE_NEW_DFID_NAME;
+				expected_fid = expected->fid;
+			}
 			file_handle = (struct file_handle *)event_fid->handle;
 			fhlen = file_handle->handle_bytes;
 			child_fid = NULL;
@@ -515,7 +733,7 @@ check_match:
 				"got event #%d: mask=%llx pid=%u fd=%d name='%s' "
 				"len=%d; info #%d: info_type=%d info_len=%d fh_len=%d",
 				test_num, (unsigned long long)event->mask,
-				(unsigned)event->pid, event->fd, filename,
+				(unsigned int)event->pid, event->fd, filename,
 				event->event_len, info_id, event_fid->hdr.info_type,
 				event_fid->hdr.len, fhlen);
 		}
@@ -545,9 +763,15 @@ check_match:
 static void setup(void)
 {
 	REQUIRE_FANOTIFY_INIT_FLAGS_SUPPORTED_ON_FS(FAN_REPORT_DIR_FID, MOUNT_PATH);
+	fan_report_target_fid_unsupported =
+		fanotify_init_flags_supported_on_fs(FAN_REPORT_DFID_NAME_TARGET, MOUNT_PATH);
+	rename_events_unsupported =
+		fanotify_events_supported_by_kernel(FAN_RENAME, FAN_REPORT_DFID_NAME, 0);
 
+	SAFE_MKDIR(TEMP_DIR, 0755);
 	sprintf(dname1, "%s/%s", MOUNT_PATH, DIR_NAME1);
 	sprintf(dname2, "%s/%s", MOUNT_PATH, DIR_NAME2);
+	sprintf(tmpdir, "%s/%s", TEMP_DIR, DIR_NAME2);
 	sprintf(fname1, "%s/%s", dname1, FILE_NAME1);
 	sprintf(fname2, "%s/%s", dname1, FILE_NAME2);
 }

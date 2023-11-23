@@ -18,11 +18,6 @@ import com.code_intelligence.jazzer.instrumentor.ClassInstrumentor
 import com.code_intelligence.jazzer.instrumentor.CoverageRecorder
 import com.code_intelligence.jazzer.instrumentor.Hook
 import com.code_intelligence.jazzer.instrumentor.InstrumentationType
-import com.code_intelligence.jazzer.instrumentor.loadHooks
-import com.code_intelligence.jazzer.runtime.NativeLibHooks
-import com.code_intelligence.jazzer.runtime.TraceCmpHooks
-import com.code_intelligence.jazzer.runtime.TraceDivHooks
-import com.code_intelligence.jazzer.runtime.TraceIndirHooks
 import com.code_intelligence.jazzer.utils.ClassNameGlobber
 import java.lang.instrument.ClassFileTransformer
 import java.lang.instrument.Instrumentation
@@ -32,36 +27,24 @@ import kotlin.math.roundToInt
 import kotlin.system.exitProcess
 import kotlin.time.measureTimedValue
 
-internal class RuntimeInstrumentor(
+class RuntimeInstrumentor(
     private val instrumentation: Instrumentation,
-    private val classesToInstrument: ClassNameGlobber,
-    private val dependencyClassesToInstrument: ClassNameGlobber,
+    private val classesToFullyInstrument: ClassNameGlobber,
+    private val classesToHookInstrument: ClassNameGlobber,
     private val instrumentationTypes: Set<InstrumentationType>,
-    idSyncFile: Path?,
+    private val includedHooks: List<Hook>,
+    private val customHooks: List<Hook>,
+    // Dedicated name globber for additional classes to hook stated in hook annotations is needed due to
+    // existing include and exclude pattern of classesToHookInstrument. All classes are included in hook
+    // instrumentation except the ones from default excludes, like JDK and Kotlin classes. But additional
+    // classes to hook, based on annotations, are allowed to reference normally ignored ones, like JDK
+    // and Kotlin internals.
+    // FIXME: Adding an additional class to hook will apply _all_ hooks to it and not only the one it's
+    // defined in. At some point we might want to track the list of classes per custom hook rather than globally.
+    private val additionalClassesToHookInstrument: ClassNameGlobber,
+    private val coverageIdSynchronizer: CoverageIdStrategy,
     private val dumpClassesDir: Path?,
 ) : ClassFileTransformer {
-
-    private val coverageIdSynchronizer = if (idSyncFile != null)
-        SynchronizedCoverageIdStrategy(idSyncFile)
-    else
-        TrivialCoverageIdStrategy()
-
-    private val includedHooks = instrumentationTypes
-        .mapNotNull { type ->
-            when (type) {
-                InstrumentationType.CMP -> TraceCmpHooks::class.java
-                InstrumentationType.DIV -> TraceDivHooks::class.java
-                InstrumentationType.INDIR -> TraceIndirHooks::class.java
-                InstrumentationType.NATIVE -> NativeLibHooks::class.java
-                else -> null
-            }
-        }
-        .flatMap { loadHooks(it) }
-    private val customHooks = emptyList<Hook>().toMutableList()
-
-    fun registerCustomHooks(hooks: List<Hook>) {
-        customHooks.addAll(hooks)
-    }
 
     @OptIn(kotlin.time.ExperimentalTime::class)
     override fun transform(
@@ -86,13 +69,18 @@ internal class RuntimeInstrumentor(
         }.also { instrumentedByteCode ->
             // Only dump classes that were instrumented.
             if (instrumentedByteCode != null && dumpClassesDir != null) {
-                val relativePath = "$internalClassName.class"
-                val absolutePath = dumpClassesDir.resolve(relativePath)
-                val dumpFile = absolutePath.toFile()
-                dumpFile.parentFile.mkdirs()
-                dumpFile.writeBytes(instrumentedByteCode)
+                dumpToClassFile(internalClassName, instrumentedByteCode)
+                dumpToClassFile(internalClassName, classfileBuffer, basenameSuffix = ".original")
             }
         }
+    }
+
+    private fun dumpToClassFile(internalClassName: String, bytecode: ByteArray, basenameSuffix: String = "") {
+        val relativePath = "$internalClassName$basenameSuffix.class"
+        val absolutePath = dumpClassesDir!!.resolve(relativePath)
+        val dumpFile = absolutePath.toFile()
+        dumpFile.parentFile.mkdirs()
+        dumpFile.writeBytes(bytecode)
     }
 
     override fun transform(
@@ -103,33 +91,42 @@ internal class RuntimeInstrumentor(
         protectionDomain: ProtectionDomain?,
         classfileBuffer: ByteArray
     ): ByteArray? {
-        if (module != null && !module.canRead(RuntimeInstrumentor::class.java.module)) {
-            // Make all other modules read our (unnamed) module, which allows them to access the classes needed by the
-            // instrumentations, e.g. CoverageMap. If a module can't be modified, it should not be instrumented as the
-            // injected bytecode might throw NoClassDefFoundError.
-            // https://mail.openjdk.java.net/pipermail/jigsaw-dev/2021-May/014663.html
-            if (!instrumentation.isModifiableModule(module)) {
-                val prettyClassName = internalClassName.replace('/', '.')
-                println("WARN: Failed to instrument $prettyClassName in unmodifiable module ${module.name}, skipping")
-                return null
+        return try {
+            if (module != null && !module.canRead(RuntimeInstrumentor::class.java.module)) {
+                // Make all other modules read our (unnamed) module, which allows them to access the classes needed by the
+                // instrumentations, e.g. CoverageMap. If a module can't be modified, it should not be instrumented as the
+                // injected bytecode might throw NoClassDefFoundError.
+                // https://mail.openjdk.java.net/pipermail/jigsaw-dev/2021-May/014663.html
+                if (!instrumentation.isModifiableModule(module)) {
+                    val prettyClassName = internalClassName.replace('/', '.')
+                    println("WARN: Failed to instrument $prettyClassName in unmodifiable module ${module.name}, skipping")
+                    return null
+                }
+                instrumentation.redefineModule(
+                    module,
+                    /* extraReads */ setOf(RuntimeInstrumentor::class.java.module),
+                    emptyMap(),
+                    emptyMap(),
+                    emptySet(),
+                    emptyMap()
+                )
             }
-            instrumentation.redefineModule(
-                module,
-                /* extraReads */ setOf(RuntimeInstrumentor::class.java.module),
-                emptyMap(),
-                emptyMap(),
-                emptySet(),
-                emptyMap()
-            )
+            transform(loader, internalClassName, classBeingRedefined, protectionDomain, classfileBuffer)
+        } catch (t: Throwable) {
+            // Throwables raised from transform are silently dropped, making it extremely hard to detect instrumentation
+            // failures. The docs advise to use a top-level try-catch.
+            // https://docs.oracle.com/javase/9/docs/api/java/lang/instrument/ClassFileTransformer.html
+            t.printStackTrace()
+            throw t
         }
-        return transform(loader, internalClassName, classBeingRedefined, protectionDomain, classfileBuffer)
     }
 
     @OptIn(kotlin.time.ExperimentalTime::class)
     fun transformInternal(internalClassName: String, classfileBuffer: ByteArray): ByteArray? {
         val fullInstrumentation = when {
-            classesToInstrument.includes(internalClassName) -> true
-            dependencyClassesToInstrument.includes(internalClassName) -> false
+            classesToFullyInstrument.includes(internalClassName) -> true
+            classesToHookInstrument.includes(internalClassName) -> false
+            additionalClassesToHookInstrument.includes(internalClassName) -> false
             else -> return null
         }
         val prettyClassName = internalClassName.replace('/', '.')
@@ -165,14 +162,16 @@ internal class RuntimeInstrumentor(
                 // trigger the GEP callbacks for ByteBuffer.
                 traceDataFlow(instrumentationTypes)
                 hooks(includedHooks + customHooks)
-                val firstId = coverageIdSynchronizer.obtainFirstId(internalClassName)
-                var actualNumEdgeIds = 0
-                try {
-                    actualNumEdgeIds = coverage(firstId)
-                } finally {
-                    coverageIdSynchronizer.commitIdCount(actualNumEdgeIds)
+                coverageIdSynchronizer.withIdForClass(internalClassName) { firstId ->
+                    coverage(firstId).also { actualNumEdgeIds ->
+                        CoverageRecorder.recordInstrumentedClass(
+                            internalClassName,
+                            bytecode,
+                            firstId,
+                            actualNumEdgeIds
+                        )
+                    }
                 }
-                CoverageRecorder.recordInstrumentedClass(internalClassName, bytecode, firstId, firstId + actualNumEdgeIds)
             } else {
                 hooks(customHooks)
             }

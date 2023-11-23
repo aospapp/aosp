@@ -30,6 +30,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include "drm.h"
+#include <strings.h>
 
 IGT_TEST_DESCRIPTION("Tests for the drm sync object wait API");
 

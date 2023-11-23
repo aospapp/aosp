@@ -81,7 +81,7 @@ std::vector<int> GetTopKIndices(int k, const std::vector<T> &v,
     return std::vector<int>();
   }
 
-  if (k > v.size()) {
+  if (static_cast<size_t>(k) > v.size()) {
     k = v.size();
   }
 
@@ -114,7 +114,7 @@ std::vector<int> GetTopKIndices(int k, const std::vector<T> &v,
   // indicated by the indices from |heap|.
   //
   // Invariant C: |heap| is a max heap, according to order rev_vcomp.
-  for (int i = k; i < v.size(); ++i) {
+  for (size_t i = k; i < v.size(); ++i) {
     // We have to update |heap| iff v[i] is larger than the smallest of the
     // top-k seen so far.  This test is easy to do, due to Invariant B above.
     if (smaller(v[heap[0]], v[i])) {

@@ -5,6 +5,7 @@
 import collections
 import dpkt
 import logging
+import six
 import socket
 import time
 
@@ -40,13 +41,13 @@ def _RR_equals(rra, rrb):
         if not hasattr(rra, key):
             continue
         if key == 'cls':
-          # cls attribute should be masked for the cache flush bit.
-          if (getattr(rra, key) & ~DNS_CACHE_FLUSH !=
-                getattr(rrb, key) & ~DNS_CACHE_FLUSH):
-              return False
+            # cls attribute should be masked for the cache flush bit.
+            if (getattr(rra, key) & ~DNS_CACHE_FLUSH !=
+                        getattr(rrb, key) & ~DNS_CACHE_FLUSH):
+                return False
         else:
-          if getattr(rra, key) != getattr(rrb, key):
-              return False
+            if getattr(rra, key) != getattr(rrb, key):
+                return False
     return True
 
 
@@ -436,7 +437,7 @@ class ZeroconfDaemon(object):
         if not rrtype in self._peer_records[rrname]:
             return []
         res = []
-        for data, data_ts in self._peer_records[rrname][rrtype].iteritems():
+        for data, data_ts in six.iteritems(self._peer_records[rrname][rrtype]):
             if data_ts >= timestamp:
                 res.append(DnsRecord(rrname, rrtype, data, data_ts))
         return res

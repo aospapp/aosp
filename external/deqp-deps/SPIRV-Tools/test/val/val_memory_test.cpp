@@ -203,9 +203,11 @@ TEST_F(ValidateMemory, VulkanUniformOnIntBad) {
 )";
   CompileSuccessfully(src, SPV_ENV_VULKAN_1_1);
   ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-Uniform-06807"));
   EXPECT_THAT(
       getDiagnosticString(),
-      HasSubstr("From Vulkan spec, section 14.5.2:\n"
+      HasSubstr("From Vulkan spec:\n"
                 "Variables identified with the Uniform storage class are used "
                 "to access transparent buffer backed resources. Such variables "
                 "must be typed as OpTypeStruct, or an array of this type"));
@@ -277,9 +279,11 @@ TEST_F(ValidateMemory, VulkanUniformOnRuntimeArrayOfArrayBad) {
 )";
   CompileSuccessfully(src, SPV_ENV_VULKAN_1_1);
   ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-Uniform-06807"));
   EXPECT_THAT(
       getDiagnosticString(),
-      HasSubstr("From Vulkan spec, section 14.5.2:\n"
+      HasSubstr("From Vulkan spec:\n"
                 "Variables identified with the Uniform storage class are used "
                 "to access transparent buffer backed resources. Such variables "
                 "must be typed as OpTypeStruct, or an array of this type"));
@@ -318,9 +322,11 @@ TEST_F(ValidateMemory, VulkanUniformOnArrayOfArrayBad) {
 )";
   CompileSuccessfully(src, SPV_ENV_VULKAN_1_1);
   ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-Uniform-06807"));
   EXPECT_THAT(
       getDiagnosticString(),
-      HasSubstr("From Vulkan spec, section 14.5.2:\n"
+      HasSubstr("From Vulkan spec:\n"
                 "Variables identified with the Uniform storage class are used "
                 "to access transparent buffer backed resources. Such variables "
                 "must be typed as OpTypeStruct, or an array of this type"));
@@ -834,10 +840,48 @@ TEST_F(ValidateMemory, VulkanPushConstantNotStructBad) {
   CompileSuccessfully(spirv, SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
   EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("PushConstant OpVariable <id> '6[%6]' has illegal "
-                        "type.\nFrom Vulkan spec, section 14.5.1:\n"
-                        "Such variables must be typed as OpTypeStruct, "
-                        "or an array of this type"));
+              AnyVUID("VUID-StandaloneSpirv-PushConstant-06808"));
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("PushConstant OpVariable <id> '6[%6]' has illegal "
+                "type.\nFrom Vulkan spec, Push Constant Interface section:\n"
+                "Such variables must be typed as OpTypeStruct"));
+}
+
+TEST_F(ValidateMemory, VulkanPushConstantArrayOfStructBad) {
+  std::string spirv = R"(
+            OpCapability Shader
+            OpMemoryModel Logical GLSL450
+            OpEntryPoint Fragment %1 "main"
+            OpExecutionMode %1 OriginUpperLeft
+
+            OpDecorate %struct Block
+            OpMemberDecorate %struct 0 Offset 0
+
+    %void = OpTypeVoid
+  %voidfn = OpTypeFunction %void
+   %float = OpTypeFloat 32
+     %int = OpTypeInt 32 0
+   %int_1 = OpConstant %int 1
+  %struct = OpTypeStruct %float
+   %array = OpTypeArray %struct %int_1
+     %ptr = OpTypePointer PushConstant %array
+      %pc = OpVariable %ptr PushConstant
+
+       %1 = OpFunction %void None %voidfn
+   %label = OpLabel
+            OpReturn
+            OpFunctionEnd
+)";
+  CompileSuccessfully(spirv, SPV_ENV_VULKAN_1_1);
+  EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-PushConstant-06808"));
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("PushConstant OpVariable <id> '10[%10]' has illegal "
+                "type.\nFrom Vulkan spec, Push Constant Interface section:\n"
+                "Such variables must be typed as OpTypeStruct"));
 }
 
 TEST_F(ValidateMemory, VulkanPushConstant) {
@@ -1563,16 +1607,16 @@ OpFunctionEnd
 
 TEST_F(ValidateMemory, PSBLoadAlignedSuccess) {
   const std::string body = R"(
-OpCapability PhysicalStorageBufferAddressesEXT
+OpCapability PhysicalStorageBufferAddresses
 OpCapability Int64
 OpCapability Shader
 OpExtension "SPV_EXT_physical_storage_buffer"
-OpMemoryModel PhysicalStorageBuffer64EXT GLSL450
+OpMemoryModel PhysicalStorageBuffer64 GLSL450
 OpEntryPoint Fragment %main "main"
 OpExecutionMode %main OriginUpperLeft
-OpDecorate %val1 AliasedPointerEXT
+OpDecorate %val1 AliasedPointer
 %uint64 = OpTypeInt 64 0
-%ptr = OpTypePointer PhysicalStorageBufferEXT %uint64
+%ptr = OpTypePointer PhysicalStorageBuffer %uint64
 %pptr_f = OpTypePointer Function %ptr
 %void = OpTypeVoid
 %voidfn = OpTypeFunction %void
@@ -1585,22 +1629,22 @@ OpReturn
 OpFunctionEnd
 )";
 
-  CompileSuccessfully(body.c_str());
-  ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
+  CompileSuccessfully(body.c_str(), SPV_ENV_VULKAN_1_2);
+  ASSERT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_VULKAN_1_2));
 }
 
 TEST_F(ValidateMemory, PSBLoadAlignedMissing) {
   const std::string body = R"(
-OpCapability PhysicalStorageBufferAddressesEXT
+OpCapability PhysicalStorageBufferAddresses
 OpCapability Int64
 OpCapability Shader
 OpExtension "SPV_EXT_physical_storage_buffer"
-OpMemoryModel PhysicalStorageBuffer64EXT GLSL450
+OpMemoryModel PhysicalStorageBuffer64 GLSL450
 OpEntryPoint Fragment %main "main"
 OpExecutionMode %main OriginUpperLeft
-OpDecorate %val1 AliasedPointerEXT
+OpDecorate %val1 AliasedPointer
 %uint64 = OpTypeInt 64 0
-%ptr = OpTypePointer PhysicalStorageBufferEXT %uint64
+%ptr = OpTypePointer PhysicalStorageBuffer %uint64
 %pptr_f = OpTypePointer Function %ptr
 %void = OpTypeVoid
 %voidfn = OpTypeFunction %void
@@ -1613,27 +1657,61 @@ OpReturn
 OpFunctionEnd
 )";
 
-  CompileSuccessfully(body.c_str());
-  ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
+  CompileSuccessfully(body.c_str(), SPV_ENV_VULKAN_1_2);
+  ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_2));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-PhysicalStorageBuffer64-04708"));
   EXPECT_THAT(
       getDiagnosticString(),
-      HasSubstr(
-          "Memory accesses with PhysicalStorageBufferEXT must use Aligned"));
+      HasSubstr("Memory accesses with PhysicalStorageBuffer must use Aligned"));
+}
+
+TEST_F(ValidateMemory, PSBLoadAlignedMissingWithOtherOperand) {
+  const std::string body = R"(
+OpCapability PhysicalStorageBufferAddresses
+OpCapability Int64
+OpCapability Shader
+OpExtension "SPV_EXT_physical_storage_buffer"
+OpMemoryModel PhysicalStorageBuffer64 GLSL450
+OpEntryPoint Fragment %main "main"
+OpExecutionMode %main OriginUpperLeft
+OpDecorate %val1 AliasedPointer
+%uint64 = OpTypeInt 64 0
+%ptr = OpTypePointer PhysicalStorageBuffer %uint64
+%pptr_f = OpTypePointer Function %ptr
+%void = OpTypeVoid
+%voidfn = OpTypeFunction %void
+%main = OpFunction %void None %voidfn
+%entry = OpLabel
+%val1 = OpVariable %pptr_f Function
+%val2 = OpLoad %ptr %val1
+%val3 = OpLoad %uint64 %val2 Volatile
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(body.c_str(), SPV_ENV_VULKAN_1_2);
+  ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_2));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-PhysicalStorageBuffer64-04708"));
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("Memory accesses with PhysicalStorageBuffer must use Aligned"));
 }
 
 TEST_F(ValidateMemory, PSBStoreAlignedSuccess) {
   const std::string body = R"(
-OpCapability PhysicalStorageBufferAddressesEXT
+OpCapability PhysicalStorageBufferAddresses
 OpCapability Int64
 OpCapability Shader
 OpExtension "SPV_EXT_physical_storage_buffer"
-OpMemoryModel PhysicalStorageBuffer64EXT GLSL450
+OpMemoryModel PhysicalStorageBuffer64 GLSL450
 OpEntryPoint Fragment %main "main"
 OpExecutionMode %main OriginUpperLeft
-OpDecorate %val1 AliasedPointerEXT
+OpDecorate %val1 AliasedPointer
 %uint64 = OpTypeInt 64 0
 %u64_1 = OpConstant %uint64 1
-%ptr = OpTypePointer PhysicalStorageBufferEXT %uint64
+%ptr = OpTypePointer PhysicalStorageBuffer %uint64
 %pptr_f = OpTypePointer Function %ptr
 %void = OpTypeVoid
 %voidfn = OpTypeFunction %void
@@ -1646,23 +1724,23 @@ OpReturn
 OpFunctionEnd
 )";
 
-  CompileSuccessfully(body.c_str());
-  ASSERT_EQ(SPV_SUCCESS, ValidateInstructions());
+  CompileSuccessfully(body.c_str(), SPV_ENV_VULKAN_1_2);
+  ASSERT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_VULKAN_1_2));
 }
 
 TEST_F(ValidateMemory, PSBStoreAlignedMissing) {
   const std::string body = R"(
-OpCapability PhysicalStorageBufferAddressesEXT
+OpCapability PhysicalStorageBufferAddresses
 OpCapability Int64
 OpCapability Shader
 OpExtension "SPV_EXT_physical_storage_buffer"
-OpMemoryModel PhysicalStorageBuffer64EXT GLSL450
+OpMemoryModel PhysicalStorageBuffer64 GLSL450
 OpEntryPoint Fragment %main "main"
 OpExecutionMode %main OriginUpperLeft
-OpDecorate %val1 AliasedPointerEXT
+OpDecorate %val1 AliasedPointer
 %uint64 = OpTypeInt 64 0
 %u64_1 = OpConstant %uint64 1
-%ptr = OpTypePointer PhysicalStorageBufferEXT %uint64
+%ptr = OpTypePointer PhysicalStorageBuffer %uint64
 %pptr_f = OpTypePointer Function %ptr
 %void = OpTypeVoid
 %voidfn = OpTypeFunction %void
@@ -1675,27 +1753,168 @@ OpReturn
 OpFunctionEnd
 )";
 
-  CompileSuccessfully(body.c_str());
-  ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
+  CompileSuccessfully(body.c_str(), SPV_ENV_VULKAN_1_2);
+  ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_2));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-PhysicalStorageBuffer64-04708"));
   EXPECT_THAT(
       getDiagnosticString(),
-      HasSubstr(
-          "Memory accesses with PhysicalStorageBufferEXT must use Aligned"));
+      HasSubstr("Memory accesses with PhysicalStorageBuffer must use Aligned"));
+}
+
+TEST_F(ValidateMemory, PSBCopyMemoryAlignedSuccess) {
+  const std::string body = R"(
+OpCapability PhysicalStorageBufferAddresses
+OpCapability Int64
+OpCapability Shader
+OpExtension "SPV_EXT_physical_storage_buffer"
+OpMemoryModel PhysicalStorageBuffer64 GLSL450
+OpEntryPoint Fragment %main "main"
+OpExecutionMode %main OriginUpperLeft
+OpDecorate %val1 AliasedPointer
+%int = OpTypeInt 32 0
+%uint64 = OpTypeInt 64 0
+%u64_1 = OpConstant %uint64 1
+%ptr = OpTypePointer PhysicalStorageBuffer %uint64
+%pptr_f = OpTypePointer Function %ptr
+%void = OpTypeVoid
+%voidfn = OpTypeFunction %void
+%main = OpFunction %void None %voidfn
+%entry = OpLabel
+%val1 = OpVariable %pptr_f Function
+%val2 = OpLoad %ptr %val1
+%val3 = OpLoad %ptr %val1
+OpCopyMemory %val2 %val3 Aligned 4
+OpCopyMemory %val3 %val2 Aligned 4 Aligned 4
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(body.c_str(), SPV_ENV_VULKAN_1_2);
+  EXPECT_EQ(SPV_SUCCESS, ValidateInstructions(SPV_ENV_VULKAN_1_2));
+}
+
+TEST_F(ValidateMemory, PSBCopyMemoryAlignedMissingTarget) {
+  const std::string body = R"(
+OpCapability PhysicalStorageBufferAddresses
+OpCapability Int64
+OpCapability Shader
+OpExtension "SPV_EXT_physical_storage_buffer"
+OpMemoryModel PhysicalStorageBuffer64 GLSL450
+OpEntryPoint Fragment %main "main"
+OpExecutionMode %main OriginUpperLeft
+OpDecorate %val1 AliasedPointer
+%int = OpTypeInt 32 0
+%uint64 = OpTypeInt 64 0
+%u64_1 = OpConstant %uint64 1
+%ptr = OpTypePointer PhysicalStorageBuffer %uint64
+%pptr_f = OpTypePointer Function %ptr
+%void = OpTypeVoid
+%voidfn = OpTypeFunction %void
+%main = OpFunction %void None %voidfn
+%entry = OpLabel
+%val1 = OpVariable %pptr_f Function
+%val2 = OpLoad %ptr %val1
+%val3 = OpLoad %ptr %val1
+OpCopyMemory %val2 %val3 Volatile Aligned 4
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(body.c_str(), SPV_ENV_VULKAN_1_2);
+  ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_2));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-PhysicalStorageBuffer64-04708"));
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("Memory accesses with PhysicalStorageBuffer must use Aligned"));
+}
+
+TEST_F(ValidateMemory, PSBCopyMemoryAlignedMissingSource) {
+  const std::string body = R"(
+OpCapability PhysicalStorageBufferAddresses
+OpCapability Int64
+OpCapability Shader
+OpExtension "SPV_EXT_physical_storage_buffer"
+OpMemoryModel PhysicalStorageBuffer64 GLSL450
+OpEntryPoint Fragment %main "main"
+OpExecutionMode %main OriginUpperLeft
+OpDecorate %val1 AliasedPointer
+%int = OpTypeInt 32 0
+%uint64 = OpTypeInt 64 0
+%u64_1 = OpConstant %uint64 1
+%ptr = OpTypePointer PhysicalStorageBuffer %uint64
+%pptr_f = OpTypePointer Function %ptr
+%void = OpTypeVoid
+%voidfn = OpTypeFunction %void
+%main = OpFunction %void None %voidfn
+%entry = OpLabel
+%val1 = OpVariable %pptr_f Function
+%val2 = OpLoad %ptr %val1
+%val3 = OpLoad %ptr %val1
+OpCopyMemory %val2 %val3 Aligned 4 Volatile
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(body.c_str(), SPV_ENV_VULKAN_1_2);
+  ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_2));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-PhysicalStorageBuffer64-04708"));
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("Memory accesses with PhysicalStorageBuffer must use Aligned"));
+}
+
+TEST_F(ValidateMemory, PSBCopyMemoryAlignedMissingBoth) {
+  const std::string body = R"(
+OpCapability PhysicalStorageBufferAddresses
+OpCapability Int64
+OpCapability Shader
+OpExtension "SPV_EXT_physical_storage_buffer"
+OpMemoryModel PhysicalStorageBuffer64 GLSL450
+OpEntryPoint Fragment %main "main"
+OpExecutionMode %main OriginUpperLeft
+OpDecorate %val1 AliasedPointer
+%int = OpTypeInt 32 0
+%uint64 = OpTypeInt 64 0
+%u64_1 = OpConstant %uint64 1
+%ptr = OpTypePointer PhysicalStorageBuffer %uint64
+%pptr_f = OpTypePointer Function %ptr
+%void = OpTypeVoid
+%voidfn = OpTypeFunction %void
+%main = OpFunction %void None %voidfn
+%entry = OpLabel
+%val1 = OpVariable %pptr_f Function
+%val2 = OpLoad %ptr %val1
+%val3 = OpLoad %ptr %val1
+OpCopyMemory %val2 %val3 Volatile
+OpReturn
+OpFunctionEnd
+)";
+
+  CompileSuccessfully(body.c_str(), SPV_ENV_VULKAN_1_2);
+  ASSERT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_2));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-PhysicalStorageBuffer64-04708"));
+  EXPECT_THAT(
+      getDiagnosticString(),
+      HasSubstr("Memory accesses with PhysicalStorageBuffer must use Aligned"));
 }
 
 TEST_F(ValidateMemory, PSBVariable) {
   const std::string body = R"(
-OpCapability PhysicalStorageBufferAddressesEXT
+OpCapability PhysicalStorageBufferAddresses
 OpCapability Int64
 OpCapability Shader
 OpExtension "SPV_EXT_physical_storage_buffer"
-OpMemoryModel PhysicalStorageBuffer64EXT GLSL450
+OpMemoryModel PhysicalStorageBuffer64 GLSL450
 OpEntryPoint Fragment %main "main"
 OpExecutionMode %main OriginUpperLeft
-OpDecorate %val1 AliasedPointerEXT
+OpDecorate %val1 AliasedPointer
 %uint64 = OpTypeInt 64 0
-%ptr = OpTypePointer PhysicalStorageBufferEXT %uint64
-%val1 = OpVariable %ptr PhysicalStorageBufferEXT
+%ptr = OpTypePointer PhysicalStorageBuffer %uint64
+%val1 = OpVariable %ptr PhysicalStorageBuffer
 %void = OpTypeVoid
 %voidfn = OpTypeFunction %void
 %main = OpFunction %void None %voidfn
@@ -1708,7 +1927,7 @@ OpFunctionEnd
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions());
   EXPECT_THAT(
       getDiagnosticString(),
-      HasSubstr("PhysicalStorageBufferEXT must not be used with OpVariable"));
+      HasSubstr("PhysicalStorageBuffer must not be used with OpVariable"));
 }
 
 std::string GenCoopMatLoadStoreShader(const std::string& storeMemoryAccess,
@@ -2097,6 +2316,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr(
@@ -2162,6 +2383,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr("For Vulkan with RuntimeDescriptorArrayEXT, a variable "
@@ -2217,11 +2440,14 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr(
           "For Vulkan, OpTypeStruct variables containing OpTypeRuntimeArray "
-          "must have storage class of StorageBuffer or Uniform.\n  %6 = "
+          "must have storage class of StorageBuffer, PhysicalStorageBuffer, or "
+          "Uniform.\n  %6 = "
           "OpVariable %_ptr_Workgroup__struct_4 Workgroup\n"));
 }
 
@@ -2247,9 +2473,12 @@ OpFunctionEnd
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
   EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
+  EXPECT_THAT(getDiagnosticString(),
               HasSubstr("For Vulkan, an OpTypeStruct variable containing an "
                         "OpTypeRuntimeArray must be decorated with Block if it "
-                        "has storage class StorageBuffer.\n  %6 = OpVariable "
+                        "has storage class StorageBuffer or "
+                        "PhysicalStorageBuffer.\n  %6 = OpVariable "
                         "%_ptr_StorageBuffer__struct_4 StorageBuffer\n"));
 }
 
@@ -2301,6 +2530,8 @@ OpFunctionEnd
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
   EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
+  EXPECT_THAT(getDiagnosticString(),
               HasSubstr("For Vulkan, an OpTypeStruct variable containing an "
                         "OpTypeRuntimeArray must be decorated with BufferBlock "
                         "if it has storage class Uniform.\n  %6 = OpVariable "
@@ -2328,6 +2559,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr(
@@ -2361,6 +2594,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr(
@@ -2423,6 +2658,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr(
@@ -2459,6 +2696,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr(
@@ -2490,6 +2729,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr("OpTypeArray Element Type <id> '5[%_runtimearr_4]' is not "
@@ -2524,6 +2765,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr(
@@ -2558,6 +2801,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr(
@@ -2595,6 +2840,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-OpTypeRuntimeArray-04680"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr(
@@ -3015,8 +3262,8 @@ OpFunctionEnd
     EXPECT_EQ(SPV_ERROR_INVALID_ID,
               ValidateInstructions(SPV_ENV_UNIVERSAL_1_4));
     EXPECT_THAT(getDiagnosticString(),
-                HasSubstr("Instruction cannot be used without a variable "
-                          "pointers capability"));
+                HasSubstr("Instruction cannot for logical addressing model be "
+                          "used without a variable pointers capability"));
   }
 }
 
@@ -3253,6 +3500,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv, SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-Uniform-06925"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr("In the Vulkan environment, cannot store to Uniform Blocks"));
@@ -3294,6 +3543,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv, SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-Uniform-06925"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr("In the Vulkan environment, cannot store to Uniform Blocks"));
@@ -3366,6 +3617,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv, SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-Uniform-06925"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr("In the Vulkan environment, cannot store to Uniform Blocks"));
@@ -3410,6 +3663,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv, SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-Uniform-06925"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr("In the Vulkan environment, cannot store to Uniform Blocks"));
@@ -3450,6 +3705,8 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv, SPV_ENV_VULKAN_1_1);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_1));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-Uniform-06925"));
   EXPECT_THAT(
       getDiagnosticString(),
       HasSubstr("In the Vulkan environment, cannot store to Uniform Blocks"));
@@ -3975,9 +4232,11 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv, SPV_ENV_VULKAN_1_0);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_0));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-Uniform-06807"));
   EXPECT_THAT(
       getDiagnosticString(),
-      HasSubstr("From Vulkan spec, section 14.5.2:\nVariables identified with "
+      HasSubstr("From Vulkan spec:\nVariables identified with "
                 "the StorageBuffer storage class are used to access "
                 "transparent buffer backed resources. Such variables must be "
                 "typed as OpTypeStruct, or an array of this type"));
@@ -4006,9 +4265,11 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv, SPV_ENV_VULKAN_1_0);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_0));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-Uniform-06807"));
   EXPECT_THAT(
       getDiagnosticString(),
-      HasSubstr("From Vulkan spec, section 14.5.2:\nVariables identified with "
+      HasSubstr("From Vulkan spec:\nVariables identified with "
                 "the StorageBuffer storage class are used to access "
                 "transparent buffer backed resources. Such variables must be "
                 "typed as OpTypeStruct, or an array of this type"));
@@ -4036,9 +4297,11 @@ OpFunctionEnd
 
   CompileSuccessfully(spirv, SPV_ENV_VULKAN_1_0);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_0));
+  EXPECT_THAT(getDiagnosticString(),
+              AnyVUID("VUID-StandaloneSpirv-Uniform-06807"));
   EXPECT_THAT(
       getDiagnosticString(),
-      HasSubstr("From Vulkan spec, section 14.5.2:\nVariables identified with "
+      HasSubstr("From Vulkan spec:\nVariables identified with "
                 "the StorageBuffer storage class are used to access "
                 "transparent buffer backed resources. Such variables must be "
                 "typed as OpTypeStruct, or an array of this type"));
@@ -4259,8 +4522,10 @@ OpFunctionEnd
   CompileSuccessfully(spirv.c_str(), SPV_ENV_VULKAN_1_0);
   EXPECT_EQ(SPV_ERROR_INVALID_ID, ValidateInstructions(SPV_ENV_VULKAN_1_0));
   EXPECT_THAT(getDiagnosticString(),
-              HasSubstr("Variable initializers in Workgroup storage class are "
-                        "limited to OpConstantNull"));
+              AnyVUID(" VUID-StandaloneSpirv-OpVariable-04734"));
+  EXPECT_THAT(getDiagnosticString(),
+              HasSubstr("OpVariable, <id> '5[%5]', initializers are limited to "
+                        "OpConstantNull in Workgroup storage class"));
 }
 
 TEST_F(ValidateMemory, VulkanInitializerWithWorkgroupStorageClassGood) {

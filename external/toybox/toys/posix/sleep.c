@@ -11,7 +11,7 @@ config SLEEP
   bool "sleep"
   default y
   help
-    usage: sleep DURATION
+    usage: sleep DURATION...
 
     Wait before exiting.
 
@@ -24,7 +24,10 @@ config SLEEP
 void sleep_main(void)
 {
   struct timespec ts;
+  char **args;
 
-  xparsetimespec(*toys.optargs, &ts);
-  toys.exitval = !!nanosleep(&ts, NULL);
+  for (args = toys.optargs; !toys.exitval && *args; args++) {
+    xparsetimespec(*args, &ts);
+    toys.exitval = !!nanosleep(&ts, NULL);
+  }
 }

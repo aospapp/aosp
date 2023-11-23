@@ -14,7 +14,6 @@
 #pragma once
 
 #include <cstdint>
-#include <span>
 
 #include "pw_assert/assert.h"
 #include "pw_chrono/system_clock.h"
@@ -22,6 +21,7 @@
 #include "pw_preprocessor/compiler.h"
 #include "pw_rpc/raw/client_reader_writer.h"
 #include "pw_rpc/raw/server_reader_writer.h"
+#include "pw_span/span.h"
 #include "pw_sync/binary_semaphore.h"
 #include "pw_sync/timed_thread_notification.h"
 #include "pw_thread/thread_core.h"
@@ -36,8 +36,8 @@ namespace internal {
 
 class TransferThread : public thread::ThreadCore {
  public:
-  TransferThread(std::span<ClientContext> client_transfers,
-                 std::span<ServerContext> server_transfers,
+  TransferThread(span<ClientContext> client_transfers,
+                 span<ServerContext> server_transfers,
                  ByteSpan chunk_buffer,
                  ByteSpan encode_buffer)
       : client_transfers_(client_transfers),
@@ -46,37 +46,50 @@ class TransferThread : public thread::ThreadCore {
         encode_buffer_(encode_buffer) {}
 
   void StartClientTransfer(TransferType type,
-                           uint32_t transfer_id,
-                           uint32_t handler_id,
+                           ProtocolVersion version,
+                           uint32_t resource_id,
                            stream::Stream* stream,
                            const TransferParameters& max_parameters,
                            Function<void(Status)>&& on_completion,
                            chrono::SystemClock::duration timeout,
-                           uint8_t max_retries) {
+                           uint8_t max_retries,
+                           uint32_t max_lifetime_retries) {
+    uint32_t session_id = version == ProtocolVersion::kLegacy
+                              ? resource_id
+                              : Context::kUnassignedSessionId;
     StartTransfer(type,
-                  transfer_id,
-                  handler_id,
+                  version,
+                  session_id,
+                  resource_id,
+                  /*raw_chunk=*/{},
                   stream,
                   max_parameters,
                   std::move(on_completion),
                   timeout,
-                  max_retries);
+                  max_retries,
+                  max_lifetime_retries);
   }
 
   void StartServerTransfer(TransferType type,
-                           uint32_t transfer_id,
-                           uint32_t handler_id,
+                           ProtocolVersion version,
+                           uint32_t session_id,
+                           uint32_t resource_id,
+                           ConstByteSpan raw_chunk,
                            const TransferParameters& max_parameters,
                            chrono::SystemClock::duration timeout,
-                           uint8_t max_retries) {
+                           uint8_t max_retries,
+                           uint32_t max_lifetime_retries) {
     StartTransfer(type,
-                  transfer_id,
-                  handler_id,
+                  version,
+                  session_id,
+                  resource_id,
+                  raw_chunk,
                   /*stream=*/nullptr,
                   max_parameters,
                   /*on_completion=*/nullptr,
                   timeout,
-                  max_retries);
+                  max_retries,
+                  max_lifetime_retries);
   }
 
   void ProcessClientChunk(ConstByteSpan chunk) {
@@ -87,20 +100,37 @@ class TransferThread : public thread::ThreadCore {
     ProcessChunk(EventType::kServerChunk, chunk);
   }
 
+  void EndClientTransfer(uint32_t session_id,
+                         Status status,
+                         bool send_status_chunk = false) {
+    EndTransfer(
+        EventType::kClientEndTransfer, session_id, status, send_status_chunk);
+  }
+
+  void EndServerTransfer(uint32_t session_id,
+                         Status status,
+                         bool send_status_chunk = false) {
+    EndTransfer(
+        EventType::kServerEndTransfer, session_id, status, send_status_chunk);
+  }
+
+  // Move the read/write streams on this thread instead of the transfer thread.
+  // RPC call objects are synchronized by pw_rpc, so this move will be atomic
+  // with respect to the transfer thread.
   void SetClientReadStream(rpc::RawClientReaderWriter& read_stream) {
-    SetClientStream(TransferStream::kClientRead, read_stream);
+    client_read_stream_ = std::move(read_stream);
   }
 
   void SetClientWriteStream(rpc::RawClientReaderWriter& write_stream) {
-    SetClientStream(TransferStream::kClientWrite, write_stream);
+    client_write_stream_ = std::move(write_stream);
   }
 
   void SetServerReadStream(rpc::RawServerReaderWriter& read_stream) {
-    SetServerStream(TransferStream::kServerRead, read_stream);
+    server_read_stream_ = std::move(read_stream);
   }
 
   void SetServerWriteStream(rpc::RawServerReaderWriter& write_stream) {
-    SetServerStream(TransferStream::kServerWrite, write_stream);
+    server_write_stream_ = std::move(write_stream);
   }
 
   void AddTransferHandler(Handler& handler) {
@@ -109,6 +139,9 @@ class TransferThread : public thread::ThreadCore {
 
   void RemoveTransferHandler(Handler& handler) {
     TransferHandlerEvent(EventType::kRemoveTransferHandler, handler);
+    // Ensure this function blocks until the transfer handler is fully cleaned
+    // up.
+    WaitUntilEventIsProcessed();
   }
 
   size_t max_chunk_size() const { return chunk_buffer_.size(); }
@@ -124,13 +157,13 @@ class TransferThread : public thread::ThreadCore {
   }
 
   // For testing only: simulates a timeout event for a client transfer.
-  void SimulateClientTimeout(uint32_t transfer_id) {
-    SimulateTimeout(EventType::kClientTimeout, transfer_id);
+  void SimulateClientTimeout(uint32_t session_id) {
+    SimulateTimeout(EventType::kClientTimeout, session_id);
   }
 
   // For testing only: simulates a timeout event for a server transfer.
-  void SimulateServerTimeout(uint32_t transfer_id) {
-    SimulateTimeout(EventType::kServerTimeout, transfer_id);
+  void SimulateServerTimeout(uint32_t session_id) {
+    SimulateTimeout(EventType::kServerTimeout, session_id);
   }
 
  private:
@@ -140,28 +173,39 @@ class TransferThread : public thread::ThreadCore {
   static constexpr chrono::SystemClock::duration kMaxTimeout =
       std::chrono::seconds(2);
 
-  // Finds an active server or client transfer.
+  // Finds an active server or client transfer, matching against its legacy ID.
   template <typename T>
-  static Context* FindActiveTransfer(const std::span<T>& transfers,
-                                     uint32_t transfer_id) {
-    auto transfer = std::find_if(
-        transfers.begin(), transfers.end(), [transfer_id](auto& c) {
-          return c.initialized() && c.transfer_id() == transfer_id;
+  static Context* FindActiveTransferByLegacyId(const span<T>& transfers,
+                                               uint32_t session_id) {
+    auto transfer =
+        std::find_if(transfers.begin(), transfers.end(), [session_id](auto& c) {
+          return c.initialized() && c.id() == session_id;
         });
     return transfer != transfers.end() ? &*transfer : nullptr;
   }
 
-  void SimulateTimeout(EventType type, uint32_t transfer_id);
+  // Finds an active server or client transfer, matching against resource ID.
+  template <typename T>
+  static Context* FindActiveTransferByResourceId(const span<T>& transfers,
+                                                 uint32_t resource_id) {
+    auto transfer = std::find_if(
+        transfers.begin(), transfers.end(), [resource_id](auto& c) {
+          return c.initialized() && c.resource_id() == resource_id;
+        });
+    return transfer != transfers.end() ? &*transfer : nullptr;
+  }
+
+  void SimulateTimeout(EventType type, uint32_t session_id);
 
   // Finds an new server or client transfer.
   template <typename T>
-  static Context* FindNewTransfer(const std::span<T>& transfers,
-                                  uint32_t transfer_id) {
+  static Context* FindNewTransfer(const span<T>& transfers,
+                                  uint32_t session_id) {
     Context* new_transfer = nullptr;
 
     for (Context& context : transfers) {
       if (context.active()) {
-        if (context.transfer_id() == transfer_id) {
+        if (context.session_id() == session_id) {
           // Restart an already active transfer.
           return &context;
         }
@@ -201,18 +245,23 @@ class TransferThread : public thread::ThreadCore {
   chrono::SystemClock::time_point GetNextTransferTimeout() const;
 
   void StartTransfer(TransferType type,
-                     uint32_t transfer_id,
-                     uint32_t handler_id,
+                     ProtocolVersion version,
+                     uint32_t session_id,
+                     uint32_t resource_id,
+                     ConstByteSpan raw_chunk,
                      stream::Stream* stream,
                      const TransferParameters& max_parameters,
                      Function<void(Status)>&& on_completion,
                      chrono::SystemClock::duration timeout,
-                     uint8_t max_retries);
+                     uint8_t max_retries,
+                     uint32_t max_lifetime_retries);
 
   void ProcessChunk(EventType type, ConstByteSpan chunk);
 
-  void SetClientStream(TransferStream type, rpc::RawClientReaderWriter& stream);
-  void SetServerStream(TransferStream type, rpc::RawServerReaderWriter& stream);
+  void EndTransfer(EventType type,
+                   uint32_t session_id,
+                   Status status,
+                   bool send_status_chunk);
 
   void TransferHandlerEvent(EventType type, Handler& handler);
 
@@ -226,16 +275,14 @@ class TransferThread : public thread::ThreadCore {
 
   Event next_event_;
   Function<void(Status)> staged_on_completion_;
-  rpc::RawClientReaderWriter staged_client_stream_;
-  rpc::RawServerReaderWriter staged_server_stream_;
 
   rpc::RawClientReaderWriter client_read_stream_;
   rpc::RawClientReaderWriter client_write_stream_;
   rpc::RawServerReaderWriter server_read_stream_;
   rpc::RawServerReaderWriter server_write_stream_;
 
-  std::span<ClientContext> client_transfers_;
-  std::span<ServerContext> server_transfers_;
+  span<ClientContext> client_transfers_;
+  span<ServerContext> server_transfers_;
 
   // All registered transfer handlers.
   IntrusiveList<Handler> handlers_;

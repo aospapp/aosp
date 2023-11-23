@@ -66,14 +66,14 @@ AcmReceiver::~AcmReceiver() = default;
 int AcmReceiver::SetMinimumDelay(int delay_ms) {
   if (neteq_->SetMinimumDelay(delay_ms))
     return 0;
-  RTC_LOG(LERROR) << "AcmReceiver::SetExtraDelay " << delay_ms;
+  RTC_LOG(LS_ERROR) << "AcmReceiver::SetExtraDelay " << delay_ms;
   return -1;
 }
 
 int AcmReceiver::SetMaximumDelay(int delay_ms) {
   if (neteq_->SetMaximumDelay(delay_ms))
     return 0;
-  RTC_LOG(LERROR) << "AcmReceiver::SetExtraDelay " << delay_ms;
+  RTC_LOG(LS_ERROR) << "AcmReceiver::SetExtraDelay " << delay_ms;
   return -1;
 }
 
@@ -131,12 +131,12 @@ int AcmReceiver::InsertPacket(const RTPHeader& rtp_header,
                                   /*num_channels=*/format->num_channels,
                                   /*sdp_format=*/std::move(format->sdp_format)};
     }
-  }  // |mutex_| is released.
+  }  // `mutex_` is released.
 
   if (neteq_->InsertPacket(rtp_header, incoming_payload) < 0) {
-    RTC_LOG(LERROR) << "AcmReceiver::InsertPacket "
-                    << static_cast<int>(rtp_header.payloadType)
-                    << " Failed to insert packet";
+    RTC_LOG(LS_ERROR) << "AcmReceiver::InsertPacket "
+                      << static_cast<int>(rtp_header.payloadType)
+                      << " Failed to insert packet";
     return -1;
   }
   return 0;
@@ -146,20 +146,22 @@ int AcmReceiver::GetAudio(int desired_freq_hz,
                           AudioFrame* audio_frame,
                           bool* muted) {
   RTC_DCHECK(muted);
-  // Accessing members, take the lock.
-  MutexLock lock(&mutex_);
 
-  if (neteq_->GetAudio(audio_frame, muted) != NetEq::kOK) {
-    RTC_LOG(LERROR) << "AcmReceiver::GetAudio - NetEq Failed.";
+  int current_sample_rate_hz = 0;
+  if (neteq_->GetAudio(audio_frame, muted, &current_sample_rate_hz) !=
+      NetEq::kOK) {
+    RTC_LOG(LS_ERROR) << "AcmReceiver::GetAudio - NetEq Failed.";
     return -1;
   }
 
-  const int current_sample_rate_hz = neteq_->last_output_sample_rate_hz();
+  RTC_DCHECK_NE(current_sample_rate_hz, 0);
 
   // Update if resampling is required.
   const bool need_resampling =
       (desired_freq_hz != -1) && (current_sample_rate_hz != desired_freq_hz);
 
+  // Accessing members, take the lock.
+  MutexLock lock(&mutex_);
   if (need_resampling && !resampled_last_output_frame_) {
     // Prime the resampler with the last frame.
     int16_t temp_output[AudioFrame::kMaxDataSizeSamples];
@@ -168,14 +170,14 @@ int AcmReceiver::GetAudio(int desired_freq_hz,
         audio_frame->num_channels_, AudioFrame::kMaxDataSizeSamples,
         temp_output);
     if (samples_per_channel_int < 0) {
-      RTC_LOG(LERROR) << "AcmReceiver::GetAudio - "
-                         "Resampling last_audio_buffer_ failed.";
+      RTC_LOG(LS_ERROR) << "AcmReceiver::GetAudio - "
+                           "Resampling last_audio_buffer_ failed.";
       return -1;
     }
   }
 
-  // TODO(henrik.lundin) Glitches in the output may appear if the output rate
-  // from NetEq changes. See WebRTC issue 3923.
+  // TODO(bugs.webrtc.org/3923) Glitches in the output may appear if the output
+  // rate from NetEq changes.
   if (need_resampling) {
     // TODO(yujo): handle this more efficiently for muted frames.
     int samples_per_channel_int = resampler_.Resample10Msec(
@@ -183,7 +185,7 @@ int AcmReceiver::GetAudio(int desired_freq_hz,
         audio_frame->num_channels_, AudioFrame::kMaxDataSizeSamples,
         audio_frame->mutable_data());
     if (samples_per_channel_int < 0) {
-      RTC_LOG(LERROR)
+      RTC_LOG(LS_ERROR)
           << "AcmReceiver::GetAudio - Resampling audio_buffer_ failed.";
       return -1;
     }
@@ -199,7 +201,7 @@ int AcmReceiver::GetAudio(int desired_freq_hz,
     // We might end up here ONLY if codec is changed.
   }
 
-  // Store current audio in |last_audio_buffer_| for next time.
+  // Store current audio in `last_audio_buffer_` for next time.
   memcpy(last_audio_buffer_.get(), audio_frame->data(),
          sizeof(int16_t) * audio_frame->samples_per_channel_ *
              audio_frame->num_channels_);
@@ -244,26 +246,37 @@ absl::optional<std::pair<int, SdpAudioFormat>> AcmReceiver::LastDecoder()
   return std::make_pair(last_decoder_->payload_type, last_decoder_->sdp_format);
 }
 
-void AcmReceiver::GetNetworkStatistics(NetworkStatistics* acm_stat) const {
+void AcmReceiver::GetNetworkStatistics(
+    NetworkStatistics* acm_stat,
+    bool get_and_clear_legacy_stats /* = true */) const {
   NetEqNetworkStatistics neteq_stat;
-  // NetEq function always returns zero, so we don't check the return value.
-  neteq_->NetworkStatistics(&neteq_stat);
+  if (get_and_clear_legacy_stats) {
+    // NetEq function always returns zero, so we don't check the return value.
+    neteq_->NetworkStatistics(&neteq_stat);
 
+    acm_stat->currentExpandRate = neteq_stat.expand_rate;
+    acm_stat->currentSpeechExpandRate = neteq_stat.speech_expand_rate;
+    acm_stat->currentPreemptiveRate = neteq_stat.preemptive_rate;
+    acm_stat->currentAccelerateRate = neteq_stat.accelerate_rate;
+    acm_stat->currentSecondaryDecodedRate = neteq_stat.secondary_decoded_rate;
+    acm_stat->currentSecondaryDiscardedRate =
+        neteq_stat.secondary_discarded_rate;
+    acm_stat->meanWaitingTimeMs = neteq_stat.mean_waiting_time_ms;
+    acm_stat->maxWaitingTimeMs = neteq_stat.max_waiting_time_ms;
+  } else {
+    neteq_stat = neteq_->CurrentNetworkStatistics();
+    acm_stat->currentExpandRate = 0;
+    acm_stat->currentSpeechExpandRate = 0;
+    acm_stat->currentPreemptiveRate = 0;
+    acm_stat->currentAccelerateRate = 0;
+    acm_stat->currentSecondaryDecodedRate = 0;
+    acm_stat->currentSecondaryDiscardedRate = 0;
+    acm_stat->meanWaitingTimeMs = -1;
+    acm_stat->maxWaitingTimeMs = 1;
+  }
   acm_stat->currentBufferSize = neteq_stat.current_buffer_size_ms;
   acm_stat->preferredBufferSize = neteq_stat.preferred_buffer_size_ms;
   acm_stat->jitterPeaksFound = neteq_stat.jitter_peaks_found ? true : false;
-  acm_stat->currentPacketLossRate = neteq_stat.packet_loss_rate;
-  acm_stat->currentExpandRate = neteq_stat.expand_rate;
-  acm_stat->currentSpeechExpandRate = neteq_stat.speech_expand_rate;
-  acm_stat->currentPreemptiveRate = neteq_stat.preemptive_rate;
-  acm_stat->currentAccelerateRate = neteq_stat.accelerate_rate;
-  acm_stat->currentSecondaryDecodedRate = neteq_stat.secondary_decoded_rate;
-  acm_stat->currentSecondaryDiscardedRate = neteq_stat.secondary_discarded_rate;
-  acm_stat->addedSamples = neteq_stat.added_zero_samples;
-  acm_stat->meanWaitingTimeMs = neteq_stat.mean_waiting_time_ms;
-  acm_stat->medianWaitingTimeMs = neteq_stat.median_waiting_time_ms;
-  acm_stat->minWaitingTimeMs = neteq_stat.min_waiting_time_ms;
-  acm_stat->maxWaitingTimeMs = neteq_stat.max_waiting_time_ms;
 
   NetEqLifetimeStatistics neteq_lifetime_stat = neteq_->GetLifetimeStatistics();
   acm_stat->totalSamplesReceived = neteq_lifetime_stat.total_samples_received;
@@ -274,6 +287,8 @@ void AcmReceiver::GetNetworkStatistics(NetworkStatistics* acm_stat) const {
   acm_stat->jitterBufferDelayMs = neteq_lifetime_stat.jitter_buffer_delay_ms;
   acm_stat->jitterBufferTargetDelayMs =
       neteq_lifetime_stat.jitter_buffer_target_delay_ms;
+  acm_stat->jitterBufferMinimumDelayMs =
+      neteq_lifetime_stat.jitter_buffer_minimum_delay_ms;
   acm_stat->jitterBufferEmittedCount =
       neteq_lifetime_stat.jitter_buffer_emitted_count;
   acm_stat->delayedPacketOutageSamples =
@@ -289,6 +304,7 @@ void AcmReceiver::GetNetworkStatistics(NetworkStatistics* acm_stat) const {
       neteq_lifetime_stat.removed_samples_for_acceleration;
   acm_stat->fecPacketsReceived = neteq_lifetime_stat.fec_packets_received;
   acm_stat->fecPacketsDiscarded = neteq_lifetime_stat.fec_packets_discarded;
+  acm_stat->packetsDiscarded = neteq_lifetime_stat.packets_discarded;
 
   NetEqOperationsAndState neteq_operations_and_state =
       neteq_->GetOperationsAndState();

@@ -82,7 +82,7 @@ class TestDetailView extends DetailView {
         public void onOpen(OpenEvent<DisclosurePanel> event) {
             JSONObject params = new JSONObject();
             params.put("path", new JSONString(getLogUrl()));
-            logLoadingProxy.rpcCall("dummy", params, rpcCallback);
+            logLoadingProxy.rpcCall("stub", params, rpcCallback);
 
             setStatusText("Loading...");
         }

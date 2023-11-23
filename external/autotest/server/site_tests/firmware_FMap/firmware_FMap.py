@@ -82,7 +82,8 @@ class firmware_FMap(FirmwareTest):
 
     def initialize(self, host, cmdline_args, dev_mode=False):
         super(firmware_FMap, self).initialize(host, cmdline_args)
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
 
     def run_cmd(self, command):
         """
@@ -160,7 +161,7 @@ class firmware_FMap(FirmwareTest):
         # Parse map into dictionary.
         bios = {}
         for e in self._TARGET_AREA[TARGET_BIOS]:
-           bios[e['name']] = {'offset': e['offset'], 'size': e['size']}
+            bios[e['name']] = {'offset': e['offset'], 'size': e['size']}
         succeed = True
         # Check RW_SECTION_[AB] sections.
         if 'RW_SECTION_A' not in bios:

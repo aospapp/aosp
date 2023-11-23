@@ -57,7 +57,9 @@ XLA_TEST_P(UnaryOpTest, Ops) {
 
   std::function<half(half)> compute_func = GetParam().compute_func;
   std::vector<half> expected;
-  for (int64_t i = 0; i < x.size(); ++i) {
+  const int64_t n = x.size();
+  expected.reserve(n);
+  for (int64_t i = 0; i < n; ++i) {
     expected.push_back(compute_func(x[i]));
   }
 
@@ -127,7 +129,7 @@ INSTANTIATE_TEST_CASE_P(half, UnaryPredTest,
                             [](half x) { return isfinite(x); }, &IsFinite}));
 
 using BinaryBuildFuncTy = std::function<void(
-    const xla::XlaOp& x, const xla::XlaOp& y, absl::Span<const int64>)>;
+    const xla::XlaOp& x, const xla::XlaOp& y, absl::Span<const int64_t>)>;
 
 struct BinaryOpTestParam {
   std::function<half(half, half)> compute_func;
@@ -151,7 +153,9 @@ XLA_TEST_P(BinaryOpTest, Ops) {
 
   std::function<half(half, half)> compute_func = GetParam().compute_func;
   std::vector<half> expected;
-  for (int64_t i = 0; i < x.size(); ++i) {
+  const int64_t n = x.size();
+  expected.reserve(n);
+  for (int64_t i = 0; i < n; ++i) {
     expected.push_back(compute_func(x[i], y[i]));
   }
 

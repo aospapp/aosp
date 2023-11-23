@@ -11,6 +11,9 @@
       "path": "external/rust/crates/crc32fast"
     },
     {
+      "path": "external/rust/crates/flate2"
+    },
+    {
       "path": "external/rust/crates/libsqlite3-sys"
     },
     {
@@ -21,16 +24,43 @@
     },
     {
       "path": "external/rust/crates/regex"
+    },
+    {
+      "path": "external/uwb/src"
+    },
+    {
+      "path": "packages/modules/DnsResolver"
+    },
+    {
+      "path": "packages/modules/Virtualization/authfs"
+    },
+    {
+      "path": "packages/modules/Virtualization/encryptedstore"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
+    },
+    {
+      "path": "packages/modules/Virtualization/vm"
+    },
+    {
+      "path": "packages/modules/Virtualization/zipfuse"
+    },
+    {
+      "path": "system/logging/rust"
+    },
+    {
+      "path": "system/security/keystore2"
+    },
+    {
+      "path": "system/security/keystore2/legacykeystore"
+    },
+    {
+      "path": "system/security/keystore2/selinux"
     }
   ],
   "presubmit": [
     {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
       "name": "env_logger_test_src_lib"
     },
     {
@@ -44,46 +74,10 @@
     },
     {
       "name": "env_logger_test_tests_regexp_filter"
-    },
-    {
-      "name": "keystore2_selinux_concurrency_test"
-    },
-    {
-      "name": "keystore2_selinux_test"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "logger_device_unit_tests"
-    },
-    {
-      "name": "logger_test_config_log_level"
-    },
-    {
-      "name": "logger_test_default_init"
-    },
-    {
-      "name": "logger_test_env_log_level"
-    },
-    {
-      "name": "logger_test_multiple_init"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ],
   "presubmit-rust": [
     {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
       "name": "env_logger_test_src_lib"
     },
     {
@@ -97,36 +91,6 @@
     },
     {
       "name": "env_logger_test_tests_regexp_filter"
-    },
-    {
-      "name": "keystore2_selinux_concurrency_test"
-    },
-    {
-      "name": "keystore2_selinux_test"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "logger_device_unit_tests"
-    },
-    {
-      "name": "logger_test_config_log_level"
-    },
-    {
-      "name": "logger_test_default_init"
-    },
-    {
-      "name": "logger_test_env_log_level"
-    },
-    {
-      "name": "logger_test_multiple_init"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ]
 }

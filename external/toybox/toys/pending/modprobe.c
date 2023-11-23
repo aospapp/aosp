@@ -444,7 +444,7 @@ static void go_probe(struct module_s *m)
     }
     // none of above is true insert the module.
     errno = 0;
-    rc = ins_mod(fn, options);
+    rc = ins_mod(fn, options ? : "");
     if (FLAG(v))
       printf("loaded %s '%s': %s\n", fn, options, strerror(errno));
     if (errno == EEXIST) rc = 0;
@@ -489,15 +489,15 @@ void modprobe_main(void)
   }
 
   // Read /proc/modules to get loaded modules.
-  fs = xfopen("/proc/modules", "r");
-  
-  while (read_line(fs, &procline) > 0) {
+  fs = fopen("/proc/modules", "r");
+
+  while (fs && read_line(fs, &procline) > 0) {
     *strchr(procline, ' ') = 0;
     get_mod(procline, 1)->flags = MOD_ALOADED;
     free(procline);
     procline = NULL;
   }
-  fclose(fs);
+  if (fs) fclose(fs);
   if (FLAG(a) || FLAG(r)) for (; *argv; argv++) add_mod(*argv);
   else {
     add_mod(*argv);

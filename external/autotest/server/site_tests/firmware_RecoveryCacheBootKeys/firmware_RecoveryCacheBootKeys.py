@@ -35,7 +35,8 @@ class firmware_RecoveryCacheBootKeys(FirmwareTest):
 
         self.client = host
         self.dev_mode = dev_mode
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
         self.setup_usbkey(usbkey=True, host=False)
 
     def cleanup(self):

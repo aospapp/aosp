@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Copyright 2020 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -18,7 +18,6 @@ that noincremental always holds).
 Warning: This switch script assumes the --file_args option
 """
 
-from __future__ import print_function
 
 import shutil
 import sys
@@ -27,19 +26,19 @@ from binary_search_tool.test import common
 
 
 def Main(argv):
-  working_set = common.ReadWorkingSet()
-  object_index = common.ReadObjectIndex(argv[1])
+    working_set = common.ReadWorkingSet()
+    object_index = common.ReadObjectIndex(argv[1])
 
-  for oi in object_index:
-    working_set[int(oi)] = 0
+    for oi in object_index:
+        working_set[int(oi)] = 0
 
-  shutil.copy(argv[1], './noinc_prune_good')
+    shutil.copy(argv[1], "./noinc_prune_good")
 
-  common.WriteWorkingSet(working_set)
+    common.WriteWorkingSet(working_set)
 
-  return 0
+    return 0
 
 
-if __name__ == '__main__':
-  retval = Main(sys.argv)
-  sys.exit(retval)
+if __name__ == "__main__":
+    retval = Main(sys.argv)
+    sys.exit(retval)

@@ -44,9 +44,10 @@ class Worker {
     return initialized_;
   }
 
+  virtual ~Worker();
+
  protected:
   Worker(const char *name, int priority);
-  virtual ~Worker();
 
   int InitWorker();
   virtual void Routine() = 0;

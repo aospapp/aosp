@@ -15,19 +15,30 @@
 #include "pw_protobuf/stream_decoder.h"
 
 #include <algorithm>
-#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <optional>
 
+#include "pw_assert/assert.h"
 #include "pw_assert/check.h"
+#include "pw_bytes/bit.h"
+#include "pw_containers/vector.h"
+#include "pw_function/function.h"
+#include "pw_protobuf/encoder.h"
+#include "pw_protobuf/internal/codegen.h"
+#include "pw_protobuf/wire_format.h"
+#include "pw_span/span.h"
 #include "pw_status/status.h"
 #include "pw_status/status_with_size.h"
 #include "pw_status/try.h"
+#include "pw_string/string.h"
 #include "pw_varint/stream.h"
 #include "pw_varint/varint.h"
 
 namespace pw::protobuf {
+
+using internal::VarintType;
 
 Status StreamDecoder::BytesReader::DoSeek(ptrdiff_t offset, Whence origin) {
   PW_TRY(status_);
@@ -163,7 +174,7 @@ Status StreamDecoder::Advance(size_t end_position) {
 
   while (position_ < end_position) {
     std::byte b;
-    PW_TRY(reader_.Read(std::span(&b, 1)));
+    PW_TRY(reader_.Read(span(&b, 1)));
     position_++;
   }
   return OkStatus();
@@ -202,7 +213,8 @@ Status StreamDecoder::ReadFieldKey() {
   PW_DCHECK(field_consumed_);
 
   uint64_t varint = 0;
-  PW_TRY_ASSIGN(size_t bytes_read, varint::Read(reader_, &varint));
+  PW_TRY_ASSIGN(size_t bytes_read,
+                varint::Read(reader_, &varint, RemainingBytes()));
   position_ += bytes_read;
 
   if (!FieldKey::IsValidKey(varint)) {
@@ -214,8 +226,16 @@ Status StreamDecoder::ReadFieldKey() {
   if (current_field_.wire_type() == WireType::kDelimited) {
     // Read the length varint of length-delimited fields immediately to simplify
     // later processing of the field.
-    PW_TRY_ASSIGN(bytes_read, varint::Read(reader_, &varint));
-    position_ += bytes_read;
+    StatusWithSize sws = varint::Read(reader_, &varint, RemainingBytes());
+    if (sws.IsOutOfRange()) {
+      // Out of range indicates the end of the stream. As a value is expected
+      // here, report it as a data loss and terminate the decode operation.
+      return Status::DataLoss();
+    }
+    if (!sws.ok()) {
+      return sws.status();
+    }
+    position_ += sws.size();
 
     if (varint > std::numeric_limits<uint32_t>::max()) {
       return Status::DataLoss();
@@ -246,7 +266,8 @@ Status StreamDecoder::SkipField() {
   switch (current_field_.wire_type()) {
     case WireType::kVarint: {
       // Consume the varint field; nothing more to skip afterward.
-      PW_TRY_ASSIGN(size_t bytes_read, varint::Read(reader_, &value));
+      PW_TRY_ASSIGN(size_t bytes_read,
+                    varint::Read(reader_, &value, RemainingBytes()));
       position_ += bytes_read;
       break;
     }
@@ -272,6 +293,11 @@ Status StreamDecoder::SkipField() {
       return status_;
     }
 
+    if (RemainingBytes() < bytes_to_skip) {
+      status_ = Status::DataLoss();
+      return status_;
+    }
+
     PW_TRY(Advance(position_ + bytes_to_skip));
   }
 
@@ -279,8 +305,8 @@ Status StreamDecoder::SkipField() {
   return OkStatus();
 }
 
-Status StreamDecoder::ReadVarintField(std::span<std::byte> out,
-                                      VarintDecodeType decode_type) {
+Status StreamDecoder::ReadVarintField(span<std::byte> out,
+                                      VarintType decode_type) {
   PW_CHECK(out.size() == sizeof(bool) || out.size() == sizeof(uint32_t) ||
                out.size() == sizeof(uint64_t),
            "Protobuf varints must only be used with bool, int32_t, uint32_t, "
@@ -293,10 +319,10 @@ Status StreamDecoder::ReadVarintField(std::span<std::byte> out,
   return sws.status();
 }
 
-StatusWithSize StreamDecoder::ReadOneVarint(std::span<std::byte> out,
-                                            VarintDecodeType decode_type) {
+StatusWithSize StreamDecoder::ReadOneVarint(span<std::byte> out,
+                                            VarintType decode_type) {
   uint64_t value;
-  StatusWithSize sws = varint::Read(reader_, &value);
+  StatusWithSize sws = varint::Read(reader_, &value, RemainingBytes());
   if (sws.IsOutOfRange()) {
     // Out of range indicates the end of the stream. As a value is expected
     // here, report it as a data loss and terminate the decode operation.
@@ -310,32 +336,32 @@ StatusWithSize StreamDecoder::ReadOneVarint(std::span<std::byte> out,
   position_ += sws.size();
 
   if (out.size() == sizeof(uint64_t)) {
-    if (decode_type == VarintDecodeType::kUnsigned) {
+    if (decode_type == VarintType::kUnsigned) {
       std::memcpy(out.data(), &value, out.size());
     } else {
-      const int64_t signed_value = decode_type == VarintDecodeType::kZigZag
+      const int64_t signed_value = decode_type == VarintType::kZigZag
                                        ? varint::ZigZagDecode(value)
                                        : static_cast<int64_t>(value);
       std::memcpy(out.data(), &signed_value, out.size());
     }
   } else if (out.size() == sizeof(uint32_t)) {
-    if (decode_type == VarintDecodeType::kUnsigned) {
+    if (decode_type == VarintType::kUnsigned) {
       if (value > std::numeric_limits<uint32_t>::max()) {
-        return StatusWithSize(Status::OutOfRange(), sws.size());
+        return StatusWithSize(Status::FailedPrecondition(), sws.size());
       }
       std::memcpy(out.data(), &value, out.size());
     } else {
-      const int64_t signed_value = decode_type == VarintDecodeType::kZigZag
+      const int64_t signed_value = decode_type == VarintType::kZigZag
                                        ? varint::ZigZagDecode(value)
                                        : static_cast<int64_t>(value);
       if (signed_value > std::numeric_limits<int32_t>::max() ||
           signed_value < std::numeric_limits<int32_t>::min()) {
-        return StatusWithSize(Status::OutOfRange(), sws.size());
+        return StatusWithSize(Status::FailedPrecondition(), sws.size());
       }
       std::memcpy(out.data(), &signed_value, out.size());
     }
   } else if (out.size() == sizeof(bool)) {
-    PW_CHECK(decode_type == VarintDecodeType::kUnsigned,
+    PW_CHECK(decode_type == VarintType::kUnsigned,
              "Protobuf bool can never be signed");
     std::memcpy(out.data(), &value, out.size());
   }
@@ -343,7 +369,7 @@ StatusWithSize StreamDecoder::ReadOneVarint(std::span<std::byte> out,
   return sws;
 }
 
-Status StreamDecoder::ReadFixedField(std::span<std::byte> out) {
+Status StreamDecoder::ReadFixedField(span<std::byte> out) {
   WireType expected_wire_type =
       out.size() == sizeof(uint32_t) ? WireType::kFixed32 : WireType::kFixed64;
   PW_TRY(CheckOkToRead(expected_wire_type));
@@ -353,18 +379,23 @@ Status StreamDecoder::ReadFixedField(std::span<std::byte> out) {
     return status_;
   }
 
+  if (RemainingBytes() < out.size()) {
+    status_ = Status::DataLoss();
+    return status_;
+  }
+
   PW_TRY(reader_.Read(out));
   position_ += out.size();
   field_consumed_ = true;
 
-  if (std::endian::native != std::endian::little) {
+  if (endian::native != endian::little) {
     std::reverse(out.begin(), out.end());
   }
 
   return OkStatus();
 }
 
-StatusWithSize StreamDecoder::ReadDelimitedField(std::span<std::byte> out) {
+StatusWithSize StreamDecoder::ReadDelimitedField(span<std::byte> out) {
   if (Status status = CheckOkToRead(WireType::kDelimited); !status.ok()) {
     return StatusWithSize(status, 0);
   }
@@ -391,7 +422,7 @@ StatusWithSize StreamDecoder::ReadDelimitedField(std::span<std::byte> out) {
   return StatusWithSize(result.value().size());
 }
 
-StatusWithSize StreamDecoder::ReadPackedFixedField(std::span<std::byte> out,
+StatusWithSize StreamDecoder::ReadPackedFixedField(span<std::byte> out,
                                                    size_t elem_size) {
   if (Status status = CheckOkToRead(WireType::kDelimited); !status.ok()) {
     return StatusWithSize(status, 0);
@@ -418,7 +449,7 @@ StatusWithSize StreamDecoder::ReadPackedFixedField(std::span<std::byte> out,
   field_consumed_ = true;
 
   // Decode little-endian serialized packed fields.
-  if (std::endian::native != std::endian::little) {
+  if (endian::native != endian::little) {
     for (auto out_start = out.begin(); out_start != out.end();
          out_start += elem_size) {
       std::reverse(out_start, out_start + elem_size);
@@ -428,8 +459,9 @@ StatusWithSize StreamDecoder::ReadPackedFixedField(std::span<std::byte> out,
   return StatusWithSize(result.value().size() / elem_size);
 }
 
-StatusWithSize StreamDecoder::ReadPackedVarintField(
-    std::span<std::byte> out, size_t elem_size, VarintDecodeType decode_type) {
+StatusWithSize StreamDecoder::ReadPackedVarintField(span<std::byte> out,
+                                                    size_t elem_size,
+                                                    VarintType decode_type) {
   PW_CHECK(elem_size == sizeof(bool) || elem_size == sizeof(uint32_t) ||
                elem_size == sizeof(uint64_t),
            "Protobuf varints must only be used with bool, int32_t, uint32_t, "
@@ -478,6 +510,194 @@ Status StreamDecoder::CheckOkToRead(WireType type) {
   // corruption cases.
   if (current_field_.wire_type() != type) {
     status_ = Status::NotFound();
+  }
+
+  return status_;
+}
+
+Status StreamDecoder::Read(span<std::byte> message,
+                           span<const internal::MessageField> table) {
+  PW_TRY(status_);
+
+  while (Next().ok()) {
+    // Find the field in the table,
+    // TODO(b/234876102): Finding the field can be made more efficient.
+    const auto field =
+        std::find(table.begin(), table.end(), current_field_.field_number());
+    if (field == table.end()) {
+      // If the field is not found, skip to the next one.
+      // TODO(b/234873295): Provide a way to allow the caller to inspect unknown
+      // fields, and serialize them back out later.
+      continue;
+    }
+
+    // Calculate the span of bytes corresponding to the structure field to
+    // output into.
+    const auto out =
+        message.subspan(field->field_offset(), field->field_size());
+    PW_CHECK(out.begin() >= message.begin() && out.end() <= message.end());
+
+    // If the field is using callbacks, interpret the output field accordingly
+    // and allow the caller to provide custom handling.
+    if (field->use_callback()) {
+      const Callback<StreamEncoder, StreamDecoder>* callback =
+          reinterpret_cast<const Callback<StreamEncoder, StreamDecoder>*>(
+              out.data());
+      PW_TRY(callback->Decode(*this));
+      continue;
+    }
+
+    // Switch on the expected wire type of the field, not the actual, to ensure
+    // the remote encoder doesn't influence our decoding unexpectedly.
+    switch (field->wire_type()) {
+      case WireType::kFixed64:
+      case WireType::kFixed32: {
+        // Fixed fields call ReadFixedField() for singular case, and either
+        // ReadPackedFixedField() or ReadRepeatedFixedField() for repeated
+        // fields.
+        PW_CHECK(field->elem_size() == (field->wire_type() == WireType::kFixed32
+                                            ? sizeof(uint32_t)
+                                            : sizeof(uint64_t)),
+                 "Mismatched message field type and size");
+        if (field->is_fixed_size()) {
+          PW_CHECK(field->is_repeated(), "Non-repeated fixed size field");
+          PW_TRY(ReadPackedFixedField(out, field->elem_size()));
+        } else if (field->is_repeated()) {
+          // The struct member for this field is a vector of a type
+          // corresponding to the field element size. Cast to the correct
+          // vector type so we're not performing type aliasing (except for
+          // unsigned vs signed which is explicitly allowed).
+          if (field->elem_size() == sizeof(uint64_t)) {
+            auto* vector = reinterpret_cast<pw::Vector<uint64_t>*>(out.data());
+            PW_TRY(ReadRepeatedFixedField(*vector));
+          } else if (field->elem_size() == sizeof(uint32_t)) {
+            auto* vector = reinterpret_cast<pw::Vector<uint32_t>*>(out.data());
+            PW_TRY(ReadRepeatedFixedField(*vector));
+          }
+        } else if (field->is_optional()) {
+          // The struct member for this field is a std::optional of a type
+          // corresponding to the field element size. Cast to the correct
+          // optional type so we're not performing type aliasing (except for
+          // unsigned vs signed which is explicitly allowed), and assign through
+          // a temporary.
+          if (field->elem_size() == sizeof(uint64_t)) {
+            uint64_t value = 0;
+            PW_TRY(ReadFixedField(as_writable_bytes(span(&value, 1))));
+            auto* optional =
+                reinterpret_cast<std::optional<uint64_t>*>(out.data());
+            *optional = value;
+          } else if (field->elem_size() == sizeof(uint32_t)) {
+            uint32_t value = 0;
+            PW_TRY(ReadFixedField(as_writable_bytes(span(&value, 1))));
+            auto* optional =
+                reinterpret_cast<std::optional<uint32_t>*>(out.data());
+            *optional = value;
+          }
+        } else {
+          PW_CHECK(out.size() == field->elem_size(),
+                   "Mismatched message field type and size");
+          PW_TRY(ReadFixedField(out));
+        }
+        break;
+      }
+      case WireType::kVarint: {
+        // Varint fields call ReadVarintField() for singular case, and either
+        // ReadPackedVarintField() or ReadRepeatedVarintField() for repeated
+        // fields.
+        PW_CHECK(field->elem_size() == sizeof(uint64_t) ||
+                     field->elem_size() == sizeof(uint32_t) ||
+                     field->elem_size() == sizeof(bool),
+                 "Mismatched message field type and size");
+        if (field->is_fixed_size()) {
+          PW_CHECK(field->is_repeated(), "Non-repeated fixed size field");
+          PW_TRY(ReadPackedVarintField(
+              out, field->elem_size(), field->varint_type()));
+        } else if (field->is_repeated()) {
+          // The struct member for this field is a vector of a type
+          // corresponding to the field element size. Cast to the correct
+          // vector type so we're not performing type aliasing (except for
+          // unsigned vs signed which is explicitly allowed).
+          if (field->elem_size() == sizeof(uint64_t)) {
+            auto* vector = reinterpret_cast<pw::Vector<uint64_t>*>(out.data());
+            PW_TRY(ReadRepeatedVarintField(*vector, field->varint_type()));
+          } else if (field->elem_size() == sizeof(uint32_t)) {
+            auto* vector = reinterpret_cast<pw::Vector<uint32_t>*>(out.data());
+            PW_TRY(ReadRepeatedVarintField(*vector, field->varint_type()));
+          } else if (field->elem_size() == sizeof(bool)) {
+            auto* vector = reinterpret_cast<pw::Vector<bool>*>(out.data());
+            PW_TRY(ReadRepeatedVarintField(*vector, field->varint_type()));
+          }
+        } else if (field->is_optional()) {
+          // The struct member for this field is a std::optional of a type
+          // corresponding to the field element size. Cast to the correct
+          // optional type so we're not performing type aliasing (except for
+          // unsigned vs signed which is explicitly allowed), and assign through
+          // a temporary.
+          if (field->elem_size() == sizeof(uint64_t)) {
+            uint64_t value = 0;
+            PW_TRY(ReadVarintField(as_writable_bytes(span(&value, 1)),
+                                   field->varint_type()));
+            auto* optional =
+                reinterpret_cast<std::optional<uint64_t>*>(out.data());
+            *optional = value;
+          } else if (field->elem_size() == sizeof(uint32_t)) {
+            uint32_t value = 0;
+            PW_TRY(ReadVarintField(as_writable_bytes(span(&value, 1)),
+                                   field->varint_type()));
+            auto* optional =
+                reinterpret_cast<std::optional<uint32_t>*>(out.data());
+            *optional = value;
+          } else if (field->elem_size() == sizeof(bool)) {
+            bool value = false;
+            PW_TRY(ReadVarintField(as_writable_bytes(span(&value, 1)),
+                                   field->varint_type()));
+            auto* optional = reinterpret_cast<std::optional<bool>*>(out.data());
+            *optional = value;
+          }
+        } else {
+          PW_CHECK(out.size() == field->elem_size(),
+                   "Mismatched message field type and size");
+          PW_TRY(ReadVarintField(out, field->varint_type()));
+        }
+        break;
+      }
+      case WireType::kDelimited: {
+        // Delimited fields are always a singular case because of the inability
+        // to cast to a generic vector with an element of a certain size (we
+        // always need a type).
+        PW_CHECK(!field->is_repeated(),
+                 "Repeated delimited messages always require a callback");
+        if (field->nested_message_fields()) {
+          // Nested Message. Struct member is an embedded struct for the
+          // nested field. Obtain a nested decoder and recursively call Read()
+          // using the fields table pointer from this field.
+          auto nested_decoder = GetNestedDecoder();
+          PW_TRY(nested_decoder.Read(out, *field->nested_message_fields()));
+        } else if (field->is_fixed_size()) {
+          // Fixed-length bytes field. Struct member is a std::array<std::byte>.
+          // Call ReadDelimitedField() to populate it from the stream.
+          PW_CHECK(field->elem_size() == sizeof(std::byte),
+                   "Mismatched message field type and size");
+          PW_TRY(ReadDelimitedField(out));
+        } else {
+          // bytes or string field with a maximum size. The struct member is
+          // pw::Vector<std::byte> for bytes or pw::InlineString<> for string.
+          PW_CHECK(field->elem_size() == sizeof(std::byte),
+                   "Mismatched message field type and size");
+          if (field->is_string()) {
+            PW_TRY(ReadStringOrBytesField<pw::InlineString<>>(out.data()));
+          } else {
+            PW_TRY(ReadStringOrBytesField<pw::Vector<std::byte>>(out.data()));
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  // Reaching the end of the encoded protobuf is not an error.
+  if (status_ == Status::OutOfRange()) {
+    return OkStatus();
   }
 
   return status_;

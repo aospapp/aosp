@@ -45,7 +45,7 @@ class FillOp : public XlaOpKernel {
                 errors::InvalidArgument("value must be a scalar, got shape ",
                                         value_shape.DebugString()));
 
-    std::vector<int64> dims;
+    std::vector<int64_t> dims;
     OP_REQUIRES_OK(ctx,
                    ctx->ConstantInputAsIntVector(
                        "dims", &dims, xla::ValueInferenceMode::kUpperBound));

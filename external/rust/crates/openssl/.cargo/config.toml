@@ -1,0 +1,2 @@
+[patch.crates-io]
+bssl-ffi = { package = "bssl-sys", version = "0.1.0", path = "../../../boringssl/build/rust", optional=true }

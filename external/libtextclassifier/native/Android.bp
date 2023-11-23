@@ -31,6 +31,7 @@ cc_library_headers {
         "com.android.neuralnetworks",
         "test_com.android.neuralnetworks",
     ],
+    min_sdk_version: "apex_inherit",
     sdk_version: "current",
 }
 
@@ -61,11 +62,13 @@ cc_library_static {
     defaults: ["libtextclassifier_hash_defaults"],
     sdk_version: "current",
     stl: "libc++_static",
+    min_sdk_version: "apex_inherit",
     apex_available: [
         "//apex_available:platform",
         "com.android.neuralnetworks",
         "test_com.android.neuralnetworks",
         "com.android.extservices",
+        "com.android.adservices",
     ],
 }
 
@@ -134,6 +137,61 @@ cc_defaults {
     ],
 }
 
+cc_library_static {
+    name: "libtextclassifier_bert_tokenizer",
+    export_include_dirs: ["."],
+    visibility: ["//external/tflite-support:__subpackages__"],
+    srcs: [
+        "utils/base/logging.cc",
+        "utils/base/logging_raw.cc",
+        "utils/bert_tokenizer.cc",
+        "utils/strings/utf8.cc",
+        "utils/tokenizer-utils.cc",
+        "utils/utf8/unilib-common.cc",
+        "utils/utf8/unicodetext.cc",
+        "utils/wordpiece_tokenizer.cc",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.extservices",
+        "com.android.adservices",
+    ],
+    cflags: [
+        "-Wno-ignored-qualifiers",
+        "-Wno-missing-field-initializers",
+        "-Wno-unused-parameter",
+
+        "-DLIBTEXTCLASSIFIER_UNILIB_ICU",
+        "-DZLIB_CONST",
+        "-DSAFTM_COMPACT_LOGGING",
+        "-DTC3_WITH_ACTIONS_OPS",
+        "-DTC3_UNILIB_JAVAICU",
+        "-DTC3_CALENDAR_JAVAICU",
+        "-DTC3_AOSP",
+        "-DTC3_VOCAB_ANNOTATOR_IMPL",
+        "-DTC3_POD_NER_ANNOTATOR_IMPL",
+    ],
+    product_variables: {
+        debuggable: {
+            // Only enable debug logging in userdebug/eng builds.
+            cflags: ["-DTC3_DEBUG_LOGGING=1"],
+        },
+    },
+    header_libs: [
+        "jni_headers",
+        "tensorflow_headers",
+        "flatbuffer_headers",
+        "libtextclassifier_flatbuffer_headers",
+    ],
+    static_libs: [
+        "libtextclassifier_abseil",
+        "tflite_support",
+    ],
+    sdk_version: "current",
+    min_sdk_version: "30",
+    stl: "libc++_static",
+}
+
 // -----------------
 // Generate headers with FlatBuffer schema compiler.
 // -----------------
@@ -179,7 +237,9 @@ cc_library {
         "**/*_test-include.*",
         "**/*unittest.*",
     ],
-
+    static_libs: [
+        "libflatbuffers-cpp",
+    ],
     version_script: "jni.lds",
 
     apex_available: [
@@ -240,6 +300,7 @@ cc_test_library {
     ],
     version_script: "jni.lds",
     static_libs: [
+        "libflatbuffers-cpp",
         "libgmock_ndk",
         "libgtest_ndk_c++",
         "libbase_ndk",

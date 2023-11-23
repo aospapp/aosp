@@ -14,23 +14,22 @@
 
 #include <array>
 #include <cstddef>
-#include <span>
 #include <string_view>
 #include <vector>
 
 #include "gtest/gtest.h"
 #include "pw_kvs/internal/span_traits.h"
+#include "pw_span/span.h"
 
 namespace pw::kvs {
 namespace {
 
 using internal::make_span;
+
 using std::byte;
-using std::dynamic_extent;
-using std::span;
 
 // Test that the ConvertsToSpan trait correctly idenitifies types that convert
-// to std::span.
+// to span.
 
 // Basic types should not convert to span.
 struct Foo {};
@@ -70,9 +69,13 @@ static_assert(ConvertsToSpan<const int (&&)[35]>());
 struct FakeContainer {
   const char* data() const { return nullptr; }
   size_t size() const { return 0; }
+
+  const char* begin() const { return nullptr; }
+  const char* end() const { return nullptr; }
 };
 
 static_assert(ConvertsToSpan<FakeContainer>());
+
 static_assert(ConvertsToSpan<FakeContainer&>());
 static_assert(ConvertsToSpan<FakeContainer&&>());
 static_assert(ConvertsToSpan<const FakeContainer>());
@@ -88,12 +91,12 @@ static_assert(ConvertsToSpan<const std::string_view&>());
 static_assert(ConvertsToSpan<const std::string_view&&>());
 
 // Spans should also convert to span.
-static_assert(ConvertsToSpan<std::span<int>>());
-static_assert(ConvertsToSpan<std::span<byte>>());
-static_assert(ConvertsToSpan<std::span<const int*>>());
-static_assert(ConvertsToSpan<std::span<bool>&&>());
-static_assert(ConvertsToSpan<const std::span<bool>&>());
-static_assert(ConvertsToSpan<std::span<bool>&&>());
+static_assert(ConvertsToSpan<span<int>>());
+static_assert(ConvertsToSpan<span<byte>>());
+static_assert(ConvertsToSpan<span<const int*>>());
+static_assert(ConvertsToSpan<span<bool>&&>());
+static_assert(ConvertsToSpan<const span<bool>&>());
+static_assert(ConvertsToSpan<span<bool>&&>());
 
 // These tests for the make_span function were copied from Chromium:
 // https://chromium.googlesource.com/chromium/src/+/main/base/containers/span_unittest.cc
@@ -108,7 +111,7 @@ TEST(SpanTest, MakeSpanFromDataAndSize) {
   auto made_span = make_span(vector.data(), vector.size());
   EXPECT_EQ(expected_span.data(), made_span.data());
   EXPECT_EQ(expected_span.size(), made_span.size());
-  static_assert(decltype(made_span)::extent == dynamic_extent, "");
+  static_assert(decltype(made_span)::extent == dynamic_extent);
   static_assert(
       std::is_same<decltype(expected_span), decltype(made_span)>::value,
       "the type of made_span differs from expected_span!");
@@ -124,7 +127,7 @@ TEST(SpanTest, MakeSpanFromPointerPair) {
   auto made_span = make_span(vector.data(), vector.data() + vector.size());
   EXPECT_EQ(expected_span.data(), made_span.data());
   EXPECT_EQ(expected_span.size(), made_span.size());
-  static_assert(decltype(made_span)::extent == dynamic_extent, "");
+  static_assert(decltype(made_span)::extent == dynamic_extent);
   static_assert(
       std::is_same<decltype(expected_span), decltype(made_span)>::value,
       "the type of made_span differs from expected_span!");
@@ -136,7 +139,7 @@ TEST(SpanTest, MakeSpanFromConstexprArray) {
   constexpr auto made_span = make_span(kArray);
   EXPECT_EQ(expected_span.data(), made_span.data());
   EXPECT_EQ(expected_span.size(), made_span.size());
-  static_assert(decltype(made_span)::extent == 5, "");
+  static_assert(decltype(made_span)::extent == 5);
   static_assert(
       std::is_same<decltype(expected_span), decltype(made_span)>::value,
       "the type of made_span differs from expected_span!");
@@ -148,7 +151,7 @@ TEST(SpanTest, MakeSpanFromStdArray) {
   auto made_span = make_span(kArray);
   EXPECT_EQ(expected_span.data(), made_span.data());
   EXPECT_EQ(expected_span.size(), made_span.size());
-  static_assert(decltype(made_span)::extent == 5, "");
+  static_assert(decltype(made_span)::extent == 5);
   static_assert(
       std::is_same<decltype(expected_span), decltype(made_span)>::value,
       "the type of made_span differs from expected_span!");
@@ -160,7 +163,7 @@ TEST(SpanTest, MakeSpanFromConstContainer) {
   auto made_span = make_span(vector);
   EXPECT_EQ(expected_span.data(), made_span.data());
   EXPECT_EQ(expected_span.size(), made_span.size());
-  static_assert(decltype(made_span)::extent == dynamic_extent, "");
+  static_assert(decltype(made_span)::extent == dynamic_extent);
   static_assert(
       std::is_same<decltype(expected_span), decltype(made_span)>::value,
       "the type of made_span differs from expected_span!");
@@ -174,7 +177,7 @@ TEST(SpanTest, MakeStaticSpanFromConstContainer) {
   auto made_span = make_span<5>(vector);
   EXPECT_EQ(expected_span.data(), made_span.data());
   EXPECT_EQ(expected_span.size(), made_span.size());
-  static_assert(decltype(made_span)::extent == 5, "");
+  static_assert(decltype(made_span)::extent == 5);
   static_assert(
       std::is_same<decltype(expected_span), decltype(made_span)>::value,
       "the type of made_span differs from expected_span!");
@@ -188,7 +191,7 @@ TEST(SpanTest, MakeSpanFromContainer) {
   auto made_span = make_span(vector);
   EXPECT_EQ(expected_span.data(), made_span.data());
   EXPECT_EQ(expected_span.size(), made_span.size());
-  static_assert(decltype(made_span)::extent == dynamic_extent, "");
+  static_assert(decltype(made_span)::extent == dynamic_extent);
   static_assert(
       std::is_same<decltype(expected_span), decltype(made_span)>::value,
       "the type of made_span differs from expected_span!");
@@ -202,7 +205,7 @@ TEST(SpanTest, MakeStaticSpanFromContainer) {
   auto made_span = make_span<5>(vector);
   EXPECT_EQ(expected_span.data(), make_span<5>(vector).data());
   EXPECT_EQ(expected_span.size(), make_span<5>(vector).size());
-  static_assert(decltype(make_span<5>(vector))::extent == 5, "");
+  static_assert(decltype(make_span<5>(vector))::extent == 5);
   static_assert(
       std::is_same<decltype(expected_span), decltype(made_span)>::value,
       "the type of made_span differs from expected_span!");
@@ -232,7 +235,7 @@ TEST(SpanTest, MakeSpanFromRValueContainer) {
   auto made_span = make_span(static_cast<std::vector<int>&&>(vector));
   EXPECT_EQ(expected_span.data(), made_span.data());
   EXPECT_EQ(expected_span.size(), made_span.size());
-  static_assert(decltype(made_span)::extent == dynamic_extent, "");
+  static_assert(decltype(made_span)::extent == dynamic_extent);
   static_assert(
       std::is_same<decltype(expected_span), decltype(made_span)>::value,
       "the type of made_span differs from expected_span!");
@@ -250,7 +253,7 @@ TEST(SpanTest, MakeStaticSpanFromRValueContainer) {
   auto made_span = make_span<5>(static_cast<std::vector<int>&&>(vector));
   EXPECT_EQ(expected_span.data(), made_span.data());
   EXPECT_EQ(expected_span.size(), made_span.size());
-  static_assert(decltype(made_span)::extent == 5, "");
+  static_assert(decltype(made_span)::extent == 5);
   static_assert(
       std::is_same<decltype(expected_span), decltype(made_span)>::value,
       "the type of made_span differs from expected_span!");

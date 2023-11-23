@@ -23,10 +23,12 @@
 #include "perfetto/base/build_config.h"
 #include "perfetto/protozero/field.h"
 #include "src/trace_processor/importers/common/args_tracker.h"
+#include "src/trace_processor/importers/common/parser_types.h"
 #include "src/trace_processor/importers/common/slice_tracker.h"
+#include "src/trace_processor/importers/common/trace_parser.h"
+#include "src/trace_processor/importers/proto/active_chrome_processes_tracker.h"
 #include "src/trace_processor/importers/proto/chrome_string_lookup.h"
 #include "src/trace_processor/storage/trace_storage.h"
-#include "src/trace_processor/timestamped_trace_piece.h"
 #include "src/trace_processor/util/proto_to_args_parser.h"
 
 #include "protos/perfetto/trace/track_event/track_event.pbzero.h"
@@ -43,7 +45,7 @@ namespace trace_processor {
 // TODO(ddrone): replace with a predicate on field id to import new fields
 // automatically
 static constexpr uint16_t kReflectFields[] = {24, 25, 26, 27, 28, 29, 32, 33,
-                                              34, 35, 38, 39, 40, 41, 42, 43};
+                                              34, 35, 38, 39, 40, 41, 43, 49};
 
 class PacketSequenceStateGeneration;
 class TraceProcessorContext;
@@ -53,13 +55,19 @@ class TrackEventParser {
  public:
   TrackEventParser(TraceProcessorContext*, TrackEventTracker*);
 
-  void ParseTrackDescriptor(protozero::ConstBytes);
-  UniquePid ParseProcessDescriptor(protozero::ConstBytes);
+  void ParseTrackDescriptor(int64_t packet_timestamp,
+                            protozero::ConstBytes,
+                            uint32_t packet_sequence_id);
+  UniquePid ParseProcessDescriptor(int64_t packet_timestamp,
+                                   protozero::ConstBytes);
   UniqueTid ParseThreadDescriptor(protozero::ConstBytes);
 
   void ParseTrackEvent(int64_t ts,
-                       TrackEventData* event_data,
-                       protozero::ConstBytes);
+                       const TrackEventData* event_data,
+                       protozero::ConstBytes,
+                       uint32_t packet_sequence_id);
+
+  void NotifyEndOfFile();
 
  private:
   class EventImporter;
@@ -67,6 +75,7 @@ class TrackEventParser {
   void ParseChromeProcessDescriptor(UniquePid, protozero::ConstBytes);
   void ParseChromeThreadDescriptor(UniqueTid, protozero::ConstBytes);
   void ParseCounterDescriptor(TrackId, protozero::ConstBytes);
+  void AddActiveProcess(int64_t packet_timestamp, int32_t pid);
 
   // Reflection-based proto TrackEvent field parser.
   util::ProtoToArgsParser args_parser_;
@@ -80,6 +89,9 @@ class TrackEventParser {
   const StringId task_function_name_args_key_id_;
   const StringId task_line_number_args_key_id_;
   const StringId log_message_body_key_id_;
+  const StringId log_message_source_location_function_name_key_id_;
+  const StringId log_message_source_location_file_name_key_id_;
+  const StringId log_message_source_location_line_number_key_id_;
   const StringId source_location_function_name_key_id_;
   const StringId source_location_file_name_key_id_;
   const StringId source_location_line_number_key_id_;
@@ -110,11 +122,16 @@ class TrackEventParser {
   const StringId chrome_host_app_package_name_id_;
   const StringId chrome_crash_trace_id_name_id_;
   const StringId chrome_process_label_flat_key_id_;
+  const StringId chrome_process_type_id_;
+  const StringId event_category_key_id_;
+  const StringId event_name_key_id_;
 
   ChromeStringLookup chrome_string_lookup_;
   std::array<StringId, 4> counter_unit_ids_;
 
   std::vector<uint16_t> reflect_fields_;
+
+  ActiveChromeProcessesTracker active_chrome_processes_tracker_;
 };
 
 }  // namespace trace_processor

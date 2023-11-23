@@ -16,6 +16,7 @@
  package com.google.android.enterprise.connectedapps;
 
 import com.google.android.enterprise.connectedapps.ICrossProfileCallback;
+import android.os.Bundle;
 
 interface ICrossProfileService {
   // When making a call containing params larger than
@@ -29,6 +30,9 @@ interface ICrossProfileService {
   // and is used to prepare the cache with the first use of prepareCall
   void prepareCall(long callId, int blockId, int numBytes, in byte[] params);
 
+
+  void prepareBundle(long callId, int bundleId, in Bundle bundle);
+
   // When making a call with params smaller than
   // CrossProfileSender.MAX_BYTES_PER_BLOCK bytes bytes, or with the final
   // block in a larger call, this method is used.
@@ -38,4 +42,6 @@ interface ICrossProfileService {
     ICrossProfileCallback callback);
 
   byte[] fetchResponse(long callId, int blockId);
+
+  Bundle fetchResponseBundle(long callId, int bundleId);
 }

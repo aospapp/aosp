@@ -197,9 +197,8 @@ void monitor_fcn(int sig)
 void badboy_fork(void)
 {
 	int status, pid;
-	pid_t child;
-	child = fork();
-	badboy_pid = status;
+	pid_t child = fork();
+
 	switch (child) {
 	case -1:
 		perror("fork");
@@ -211,6 +210,7 @@ void badboy_fork(void)
 #endif
 		exit(0);
 	default:
+		badboy_pid = child;
 		if (verbose_level > 3)
 			printf("badboy pid = %d\n", badboy_pid);
 
@@ -464,7 +464,8 @@ int in_blacklist(int sysno)
 		 */
 #if defined(__NR_vfork) && __NR_vfork
 		SYS_vfork,
-#elif defined(__NR_fork) && __NR_fork
+#endif
+#if defined(__NR_fork) && __NR_fork
 		SYS_fork,
 #endif
 #endif /* __ia64__ */
@@ -476,6 +477,13 @@ int in_blacklist(int sysno)
 #endif
 #if defined(__NR_pause) && __NR_pause
 		__NR_pause,	/* int pause(void); - sleep indefinitely */
+#endif
+#if defined(__NR_read) && __NR_read
+		/*
+		 * ssize_t read(int fd, void *buf, size_t count); - will sleep
+		 * indefinitely if the first argument is 0
+		 */
+		__NR_read,
 #endif
 		-1
 	};

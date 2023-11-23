@@ -6,7 +6,7 @@ from autotest_lib.client.cros.audio import audio_test_data
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "audio_AudioNodeSwitch.JACK"
 PURPOSE = "Check if correct audio channel selected."
 CRITERIA = "This test will fail if expected audio channel is not selected."
@@ -15,6 +15,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
 DEPENDENCIES = "audio_box, test_audio_jack_usb_hdmi"
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests audio nodes selection.

@@ -17,7 +17,7 @@
 	devices
 	* Add support for using the sysfs power supply class
 	  (Donnie Berkholz)
-	* Fix USB suspend suggestion to take semi blacklisted stuff into
+	* Fix USB suspend suggestion to take semi denylisted stuff into
 	  account
 	* Add support for Intel's 4965 wireless power saving mode
 	* On new enough cpus (and kernel 2.6.25), report which C-states the

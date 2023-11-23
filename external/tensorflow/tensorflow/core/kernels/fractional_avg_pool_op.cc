@@ -12,6 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
+
 #define EIGEN_USE_THREADS
 
 #include <algorithm>
@@ -19,15 +20,15 @@ limitations under the License.
 #include <random>
 #include <vector>
 
-#include "tensorflow/core/kernels/fractional_pool_common.h"
-
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/framework/numeric_op.h"
 #include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/kernels/fractional_pool_common.h"
 #include "tensorflow/core/lib/random/random.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/mutex.h"
 #include "tensorflow/core/util/guarded_philox_random.h"
+#include "tensorflow/core/util/overflow.h"
 
 namespace tensorflow {
 typedef Eigen::ThreadPoolDevice CPUDevice;
@@ -93,8 +94,8 @@ class FractionalAvgPoolOp : public OpKernel {
     }
 
     // Generate pooling sequence.
-    std::vector<int64> row_cum_seq;
-    std::vector<int64> col_cum_seq;
+    std::vector<int64_t> row_cum_seq;
+    std::vector<int64_t> col_cum_seq;
     GuardedPhiloxRandom generator;
     generator.Init(seed_, seed2_);
     row_cum_seq = GeneratePoolingSequence(input_size[1], output_size[1],
@@ -110,15 +111,15 @@ class FractionalAvgPoolOp : public OpKernel {
                                              output_size[2], output_size[3]}),
                                 &output_tensor));
     Tensor* output_row_seq_tensor = nullptr;
-    OP_REQUIRES_OK(context,
-                   context->allocate_output(
-                       1, TensorShape({static_cast<int64>(row_cum_seq.size())}),
-                       &output_row_seq_tensor));
+    OP_REQUIRES_OK(
+        context, context->allocate_output(
+                     1, TensorShape({static_cast<int64_t>(row_cum_seq.size())}),
+                     &output_row_seq_tensor));
     Tensor* output_col_seq_tensor = nullptr;
-    OP_REQUIRES_OK(context,
-                   context->allocate_output(
-                       2, TensorShape({static_cast<int64>(col_cum_seq.size())}),
-                       &output_col_seq_tensor));
+    OP_REQUIRES_OK(
+        context, context->allocate_output(
+                     2, TensorShape({static_cast<int64_t>(col_cum_seq.size())}),
+                     &output_col_seq_tensor));
 
     ConstEigenMatrixMap in_mat(tensor_in.flat<T>().data(), input_size[3],
                                input_size[2] * input_size[1] * input_size[0]);
@@ -132,8 +133,8 @@ class FractionalAvgPoolOp : public OpKernel {
     out_mat.setZero();
     out_count.setZero();
 
-    auto output_row_seq_flat = output_row_seq_tensor->flat<int64>();
-    auto output_col_seq_flat = output_col_seq_tensor->flat<int64>();
+    auto output_row_seq_flat = output_row_seq_tensor->flat<int64_t>();
+    auto output_col_seq_flat = output_col_seq_tensor->flat<int64_t>();
 
     // Set output tensors.
     for (int i = 0; i < row_cum_seq.size(); ++i) {
@@ -186,8 +187,8 @@ class FractionalAvgPoolOp : public OpKernel {
 
  private:
   bool deterministic_;
-  int64 seed_;
-  int64 seed2_;
+  int64_t seed_;
+  int64_t seed2_;
   std::vector<float> pooling_ratio_;
   bool pseudo_random_;
   bool overlapping_;
@@ -199,7 +200,7 @@ class FractionalAvgPoolOp : public OpKernel {
       FractionalAvgPoolOp<type>)
 
 REGISTER_FRACTIONALAVGPOOL(int32);
-REGISTER_FRACTIONALAVGPOOL(int64);
+REGISTER_FRACTIONALAVGPOOL(int64_t);
 REGISTER_FRACTIONALAVGPOOL(float);
 REGISTER_FRACTIONALAVGPOOL(double);
 
@@ -241,7 +242,32 @@ class FractionalAvgPoolGradOp : public OpKernel {
                     orig_input_tensor_shape.NumElements() == 4,
                 errors::InvalidArgument("original input tensor shape must be"
                                         "1-dimensional and 4 elements"));
+    int64_t num_elements = 1;
+    for (int i = 0; i < orig_input_tensor_shape.dims(); i++) {
+      OP_REQUIRES(context, orig_input_tensor_shape.dim_size(i) > 0,
+                  errors::InvalidArgument(
+                      "orig_input_tensor_shape must be positive, got: ",
+                      orig_input_tensor_shape.dim_size(i)));
+      num_elements = MultiplyWithoutOverflow(
+          num_elements, orig_input_tensor_shape.dim_size(i));
+      OP_REQUIRES(
+          context, num_elements > 0,
+          errors::InvalidArgument(
+              "The total elements specified by orig_input_tensor_shape",
+              " is too large. Encountered overflow after multiplying ",
+              orig_input_tensor_shape.dim_size(i), ", result: ", num_elements));
+    }
+
     const Tensor& out_backprop = context->input(1);
+    OP_REQUIRES(context, out_backprop.dims() == 4,
+                errors::InvalidArgument("out_backprop must be 4-dimensional"));
+    for (int i = 0; i < out_backprop.dims(); i++) {
+      OP_REQUIRES(context, out_backprop.dim_size(i) > 0,
+                  errors::InvalidArgument(
+                      "out_backprop must be positive for all dimension, got:",
+                      out_backprop.dim_size(i)));
+    }
+
     const Tensor& row_seq_tensor = context->input(2);
     const Tensor& col_seq_tensor = context->input(3);
 
@@ -263,9 +289,9 @@ class FractionalAvgPoolGradOp : public OpKernel {
                                         out_cols + 1, " elements, but got ",
                                         col_seq_tensor.NumElements()));
 
-    auto row_seq_tensor_flat = row_seq_tensor.flat<int64>();
-    auto col_seq_tensor_flat = col_seq_tensor.flat<int64>();
-    auto orig_input_tensor_shape_flat = orig_input_tensor_shape.flat<int64>();
+    auto row_seq_tensor_flat = row_seq_tensor.flat<int64_t>();
+    auto col_seq_tensor_flat = col_seq_tensor.flat<int64_t>();
+    auto orig_input_tensor_shape_flat = orig_input_tensor_shape.flat<int64_t>();
 
     const int64_t in_batch = orig_input_tensor_shape_flat(0);
     const int64_t in_rows = orig_input_tensor_shape_flat(1);
@@ -311,15 +337,26 @@ class FractionalAvgPoolGradOp : public OpKernel {
     for (int64_t b = 0; b < out_batch; ++b) {
       for (int64_t r = 0; r < out_rows; ++r) {
         const int64_t in_row_start = row_seq_tensor_flat(r);
+
         int64_t in_row_end = overlapping_ ? row_seq_tensor_flat(r + 1)
                                           : row_seq_tensor_flat(r + 1) - 1;
         in_row_end = std::min(in_row_end, in_max_row_index);
+        OP_REQUIRES(context, in_row_start >= 0 && in_row_end >= 0,
+                    errors::InvalidArgument(
+                        "Row sequence tensor values must not be negative, got ",
+                        row_seq_tensor_flat));
+
         for (int64_t c = 0; c < out_cols; ++c) {
           const int64_t in_col_start = col_seq_tensor_flat(c);
           int64_t in_col_end = overlapping_ ? col_seq_tensor_flat(c + 1)
                                             : col_seq_tensor_flat(c + 1) - 1;
           in_col_end = std::min(in_col_end, in_max_col_index);
 
+          OP_REQUIRES(
+              context, in_col_start >= 0 && in_col_end >= 0,
+              errors::InvalidArgument(
+                  "Column sequence tensor values must not be negative, got ",
+                  col_seq_tensor_flat));
           const int64_t num_elements_in_pooling_cell =
               (in_row_end - in_row_start + 1) * (in_col_end - in_col_start + 1);
           const int64_t out_index = (b * out_rows + r) * out_cols + c;
@@ -366,7 +403,7 @@ class FractionalAvgPoolGradOp : public OpKernel {
                           FractionalAvgPoolGradOp<type>)
 
 REGISTER_FRACTIONALAVGPOOLGRAD(int32);
-REGISTER_FRACTIONALAVGPOOLGRAD(int64);
+REGISTER_FRACTIONALAVGPOOLGRAD(int64_t);
 REGISTER_FRACTIONALAVGPOOLGRAD(float);
 REGISTER_FRACTIONALAVGPOOLGRAD(double);
 

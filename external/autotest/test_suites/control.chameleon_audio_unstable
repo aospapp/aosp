@@ -14,7 +14,7 @@ TEST_TYPE = "Server"
 DOC = """
 Audio tests which require chameleon and audio boards connected.
 The Audio and Chameleon boards can emulate audio jack audio activity
-in order to test the Chrome OS audio stack.
+in order to test the ChromeOS audio stack.
 
 Together with DUT and external peripherals they are bundled in
 audio-box environment for end-to-end testing. Details on go/audioboard

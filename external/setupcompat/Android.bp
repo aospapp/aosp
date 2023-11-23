@@ -84,4 +84,7 @@ android_library {
     ],
     min_sdk_version: "14",
     sdk_version: "current",
+    optimize: {
+        proguard_flags_files: ["proguard.flags"],
+    }
 }

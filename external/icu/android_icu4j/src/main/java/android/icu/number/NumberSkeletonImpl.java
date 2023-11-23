@@ -1336,8 +1336,9 @@ class NumberSkeletonImpl {
                 // @, @@, @@@
                 maxSig = minSig;
             }
-            RoundingPriority priority;
+            FractionPrecision oldRounder = (FractionPrecision) macros.precision;
             if (offset < segment.length()) {
+                RoundingPriority priority;
                 if (maxSig == -1) {
                     throw new SkeletonSyntaxException(
                         "Invalid digits option: Wildcard character not allowed with the priority annotation", segment);
@@ -1356,21 +1357,18 @@ class NumberSkeletonImpl {
                     throw new SkeletonSyntaxException(
                         "Invalid digits option for fraction rounder", segment);
                 }
+                macros.precision = oldRounder.withSignificantDigits(minSig, maxSig, priority);
             } else if (maxSig == -1) {
                 // withMinDigits
-                maxSig = minSig;
-                minSig = 1;
-                priority = RoundingPriority.RELAXED;
+                macros.precision = oldRounder.withMinDigits(minSig);
             } else if (minSig == 1) {
                 // withMaxDigits
-                priority = RoundingPriority.STRICT;
+                macros.precision = oldRounder.withMaxDigits(maxSig);
             } else {
                 throw new SkeletonSyntaxException(
                     "Invalid digits option: Priority annotation required", segment);
             }
 
-            FractionPrecision oldRounder = (FractionPrecision) macros.precision;
-            macros.precision = oldRounder.withSignificantDigits(minSig, maxSig, priority);
             return true;
         }
 
@@ -1578,11 +1576,19 @@ class NumberSkeletonImpl {
                 Precision.FracSigRounderImpl impl = (Precision.FracSigRounderImpl) macros.precision;
                 BlueprintHelpers.generateFractionStem(impl.minFrac, impl.maxFrac, sb);
                 sb.append('/');
-                BlueprintHelpers.generateDigitsStem(impl.minSig, impl.maxSig, sb);
-                if (impl.priority == RoundingPriority.RELAXED) {
-                    sb.append('r');
+                if (impl.retain) {
+                    if (impl.priority == RoundingPriority.RELAXED) {
+                        BlueprintHelpers.generateDigitsStem(impl.maxSig, -1, sb);
+                    } else {
+                        BlueprintHelpers.generateDigitsStem(1, impl.maxSig, sb);
+                    }
                 } else {
-                    sb.append('s');
+                    BlueprintHelpers.generateDigitsStem(impl.minSig, impl.maxSig, sb);
+                    if (impl.priority == RoundingPriority.RELAXED) {
+                        sb.append('r');
+                    } else {
+                        sb.append('s');
+                    }
                 }
             } else if (macros.precision instanceof Precision.IncrementRounderImpl) {
                 Precision.IncrementRounderImpl impl = (Precision.IncrementRounderImpl) macros.precision;

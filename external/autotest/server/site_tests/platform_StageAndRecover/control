@@ -4,7 +4,7 @@
 
 from autotest_lib.client.common_lib import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "platform_StageAndRecover"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Install"
@@ -12,6 +12,7 @@ TEST_CLASS = "platform"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
 ATTRIBUTES = "suite:platform_test"
+PY_VERSION = 3
 
 DOC = """
 This test stages and installs the same build recovery image onto a

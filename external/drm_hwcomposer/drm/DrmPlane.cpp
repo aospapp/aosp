@@ -91,17 +91,17 @@ int DrmPlane::Init() {
   GetPlaneProperty("zpos", zpos_property_, Presence::kOptional);
 
   if (GetPlaneProperty("rotation", rotation_property_, Presence::kOptional)) {
-    rotation_property_.AddEnumToMap("rotate-0", DrmHwcTransform::kIdentity,
+    rotation_property_.AddEnumToMap("rotate-0", LayerTransform::kIdentity,
                                     transform_enum_map_);
-    rotation_property_.AddEnumToMap("rotate-90", DrmHwcTransform::kRotate90,
+    rotation_property_.AddEnumToMap("rotate-90", LayerTransform::kRotate90,
                                     transform_enum_map_);
-    rotation_property_.AddEnumToMap("rotate-180", DrmHwcTransform::kRotate180,
+    rotation_property_.AddEnumToMap("rotate-180", LayerTransform::kRotate180,
                                     transform_enum_map_);
-    rotation_property_.AddEnumToMap("rotate-270", DrmHwcTransform::kRotate270,
+    rotation_property_.AddEnumToMap("rotate-270", LayerTransform::kRotate270,
                                     transform_enum_map_);
-    rotation_property_.AddEnumToMap("reflect-x", DrmHwcTransform::kFlipH,
+    rotation_property_.AddEnumToMap("reflect-x", LayerTransform::kFlipH,
                                     transform_enum_map_);
-    rotation_property_.AddEnumToMap("reflect-y", DrmHwcTransform::kFlipV,
+    rotation_property_.AddEnumToMap("reflect-y", LayerTransform::kFlipV,
                                     transform_enum_map_);
   }
 
@@ -109,11 +109,11 @@ int DrmPlane::Init() {
 
   if (GetPlaneProperty("pixel blend mode", blend_property_,
                        Presence::kOptional)) {
-    blend_property_.AddEnumToMap("Pre-multiplied", DrmHwcBlending::kPreMult,
+    blend_property_.AddEnumToMap("Pre-multiplied", BufferBlendMode::kPreMult,
                                  blending_enum_map_);
-    blend_property_.AddEnumToMap("Coverage", DrmHwcBlending::kCoverage,
+    blend_property_.AddEnumToMap("Coverage", BufferBlendMode::kCoverage,
                                  blending_enum_map_);
-    blend_property_.AddEnumToMap("None", DrmHwcBlending::kNone,
+    blend_property_.AddEnumToMap("None", BufferBlendMode::kNone,
                                  blending_enum_map_);
   }
 
@@ -123,23 +123,23 @@ int DrmPlane::Init() {
     if (GetPlaneProperty("COLOR_ENCODING", color_encoding_propery_,
                          Presence::kOptional)) {
       color_encoding_propery_.AddEnumToMap("ITU-R BT.709 YCbCr",
-                                           DrmHwcColorSpace::kItuRec709,
+                                           BufferColorSpace::kItuRec709,
                                            color_encoding_enum_map_);
       color_encoding_propery_.AddEnumToMap("ITU-R BT.601 YCbCr",
-                                           DrmHwcColorSpace::kItuRec601,
+                                           BufferColorSpace::kItuRec601,
                                            color_encoding_enum_map_);
       color_encoding_propery_.AddEnumToMap("ITU-R BT.2020 YCbCr",
-                                           DrmHwcColorSpace::kItuRec2020,
+                                           BufferColorSpace::kItuRec2020,
                                            color_encoding_enum_map_);
     }
 
     if (GetPlaneProperty("COLOR_RANGE", color_range_property_,
                          Presence::kOptional)) {
       color_range_property_.AddEnumToMap("YCbCr full range",
-                                         DrmHwcSampleRange::kFullRange,
+                                         BufferSampleRange::kFullRange,
                                          color_range_enum_map_);
       color_range_property_.AddEnumToMap("YCbCr limited range",
-                                         DrmHwcSampleRange::kLimitedRange,
+                                         BufferSampleRange::kLimitedRange,
                                          color_range_enum_map_);
     }
   }
@@ -148,35 +148,52 @@ int DrmPlane::Init() {
 }
 
 bool DrmPlane::IsCrtcSupported(const DrmCrtc &crtc) const {
+  unsigned int crtc_property_value = 0;
+  std::tie(std::ignore, crtc_property_value) = crtc_property_.value();
+  if (crtc_property_value != 0 && crtc_property_value != crtc.GetId() &&
+      GetType() == DRM_PLANE_TYPE_PRIMARY) {
+    // Some DRM driver such as omap_drm allows sharing primary plane between
+    // CRTCs, but the primay plane could not be shared if it has been used by
+    // any CRTC already, which is protected by the plane_switching_crtc function
+    // in the kernel drivers/gpu/drm/drm_atomic.c file.
+    // The current drm_hwc design is not ready to support such scenario yet,
+    // so adding the CRTC status check here to workaorund for now.
+    ALOGW(
+        "%s: This Plane(id=%d) is activated for Crtc(id=%d), could not be used "
+        "for Crtc (id=%d)",
+        __FUNCTION__, GetId(), crtc_property_value, crtc.GetId());
+    return false;
+  }
+
   return ((1 << crtc.GetIndexInResArray()) & plane_->possible_crtcs) != 0;
 }
 
-bool DrmPlane::IsValidForLayer(DrmHwcLayer *layer) {
+bool DrmPlane::IsValidForLayer(LayerData *layer) {
   if (!rotation_property_) {
-    if (layer->transform != DrmHwcTransform::kIdentity) {
+    if (layer->pi.transform != LayerTransform::kIdentity) {
       ALOGV("No rotation property on plane %d", GetId());
       return false;
     }
   } else {
-    if (transform_enum_map_.count(layer->transform) == 0) {
+    if (transform_enum_map_.count(layer->pi.transform) == 0) {
       ALOGV("Transform is not supported on plane %d", GetId());
       return false;
     }
   }
 
-  if (alpha_property_.id() == 0 && layer->alpha != UINT16_MAX) {
+  if (alpha_property_.id() == 0 && layer->pi.alpha != UINT16_MAX) {
     ALOGV("Alpha is not supported on plane %d", GetId());
     return false;
   }
 
-  if (blending_enum_map_.count(layer->blending) == 0 &&
-      layer->blending != DrmHwcBlending::kNone &&
-      layer->blending != DrmHwcBlending::kPreMult) {
+  if (blending_enum_map_.count(layer->bi->blend_mode) == 0 &&
+      layer->bi->blend_mode != BufferBlendMode::kNone &&
+      layer->bi->blend_mode != BufferBlendMode::kPreMult) {
     ALOGV("Blending is not supported on plane %d", GetId());
     return false;
   }
 
-  uint32_t format = layer->buffer_info.format;
+  uint32_t format = layer->bi->format;
   if (!IsFormatSupported(format)) {
     ALOGV("Plane %d does not supports %c%c%c%c format", GetId(), format,
           format >> 8, format >> 16, format >> 24);
@@ -198,17 +215,17 @@ bool DrmPlane::HasNonRgbFormat() const {
                           }) != std::end(formats_);
 }
 
-static uint64_t ToDrmRotation(DrmHwcTransform transform) {
+static uint64_t ToDrmRotation(LayerTransform transform) {
   uint64_t rotation = 0;
-  if ((transform & DrmHwcTransform::kFlipH) != 0)
+  if ((transform & LayerTransform::kFlipH) != 0)
     rotation |= DRM_MODE_REFLECT_X;
-  if ((transform & DrmHwcTransform::kFlipV) != 0)
+  if ((transform & LayerTransform::kFlipV) != 0)
     rotation |= DRM_MODE_REFLECT_Y;
-  if ((transform & DrmHwcTransform::kRotate90) != 0)
+  if ((transform & LayerTransform::kRotate90) != 0)
     rotation |= DRM_MODE_ROTATE_90;
-  else if ((transform & DrmHwcTransform::kRotate180) != 0)
+  else if ((transform & LayerTransform::kRotate180) != 0)
     rotation |= DRM_MODE_ROTATE_180;
-  else if ((transform & DrmHwcTransform::kRotate270) != 0)
+  else if ((transform & LayerTransform::kRotate270) != 0)
     rotation |= DRM_MODE_ROTATE_270;
   else
     rotation |= DRM_MODE_ROTATE_0;
@@ -222,9 +239,9 @@ static int To1616FixPt(float in) {
   return int(in * (1 << kBitShift));
 }
 
-auto DrmPlane::AtomicSetState(drmModeAtomicReq &pset, DrmHwcLayer &layer,
+auto DrmPlane::AtomicSetState(drmModeAtomicReq &pset, LayerData &layer,
                               uint32_t zpos, uint32_t crtc_id) -> int {
-  if (!layer.fb_id_handle) {
+  if (!layer.fb) {
     ALOGE("Expected a valid framebuffer for pset");
     return -EINVAL;
   }
@@ -245,46 +262,45 @@ auto DrmPlane::AtomicSetState(drmModeAtomicReq &pset, DrmHwcLayer &layer,
     return -EINVAL;
   }
 
+  auto &disp = layer.pi.display_frame;
+  auto &src = layer.pi.source_crop;
   if (!crtc_property_.AtomicSet(pset, crtc_id) ||
-      !fb_property_.AtomicSet(pset, layer.fb_id_handle->GetFbId()) ||
-      !crtc_x_property_.AtomicSet(pset, layer.display_frame.left) ||
-      !crtc_y_property_.AtomicSet(pset, layer.display_frame.top) ||
-      !crtc_w_property_.AtomicSet(pset, layer.display_frame.right -
-                                            layer.display_frame.left) ||
-      !crtc_h_property_.AtomicSet(pset, layer.display_frame.bottom -
-                                            layer.display_frame.top) ||
-      !src_x_property_.AtomicSet(pset, To1616FixPt(layer.source_crop.left)) ||
-      !src_y_property_.AtomicSet(pset, To1616FixPt(layer.source_crop.top)) ||
-      !src_w_property_.AtomicSet(pset, To1616FixPt(layer.source_crop.right -
-                                                   layer.source_crop.left)) ||
-      !src_h_property_.AtomicSet(pset, To1616FixPt(layer.source_crop.bottom -
-                                                   layer.source_crop.top))) {
+      !fb_property_.AtomicSet(pset, layer.fb->GetFbId()) ||
+      !crtc_x_property_.AtomicSet(pset, disp.left) ||
+      !crtc_y_property_.AtomicSet(pset, disp.top) ||
+      !crtc_w_property_.AtomicSet(pset, disp.right - disp.left) ||
+      !crtc_h_property_.AtomicSet(pset, disp.bottom - disp.top) ||
+      !src_x_property_.AtomicSet(pset, To1616FixPt(src.left)) ||
+      !src_y_property_.AtomicSet(pset, To1616FixPt(src.top)) ||
+      !src_w_property_.AtomicSet(pset, To1616FixPt(src.right - src.left)) ||
+      !src_h_property_.AtomicSet(pset, To1616FixPt(src.bottom - src.top))) {
     return -EINVAL;
   }
 
   if (rotation_property_ &&
-      !rotation_property_.AtomicSet(pset, ToDrmRotation(layer.transform))) {
+      !rotation_property_.AtomicSet(pset, ToDrmRotation(layer.pi.transform))) {
     return -EINVAL;
   }
 
-  if (alpha_property_ && !alpha_property_.AtomicSet(pset, layer.alpha)) {
+  if (alpha_property_ && !alpha_property_.AtomicSet(pset, layer.pi.alpha)) {
     return -EINVAL;
   }
 
-  if (blending_enum_map_.count(layer.blending) != 0 &&
-      !blend_property_.AtomicSet(pset, blending_enum_map_[layer.blending])) {
+  if (blending_enum_map_.count(layer.bi->blend_mode) != 0 &&
+      !blend_property_.AtomicSet(pset,
+                                 blending_enum_map_[layer.bi->blend_mode])) {
     return -EINVAL;
   }
 
-  if (color_encoding_enum_map_.count(layer.color_space) != 0 &&
+  if (color_encoding_enum_map_.count(layer.bi->color_space) != 0 &&
       !color_encoding_propery_
-           .AtomicSet(pset, color_encoding_enum_map_[layer.color_space])) {
+           .AtomicSet(pset, color_encoding_enum_map_[layer.bi->color_space])) {
     return -EINVAL;
   }
 
-  if (color_range_enum_map_.count(layer.sample_range) != 0 &&
+  if (color_range_enum_map_.count(layer.bi->sample_range) != 0 &&
       !color_range_property_
-           .AtomicSet(pset, color_range_enum_map_[layer.sample_range])) {
+           .AtomicSet(pset, color_range_enum_map_[layer.bi->sample_range])) {
     return -EINVAL;
   }
 

@@ -36,13 +36,12 @@ import (
 	"strings"
 	"time"
 
-	"../../cause"
-	"../../cov"
-	"../../deqp"
-	"../../llvm"
-	"../../shell"
-	"../../testlist"
-	"../../util"
+	"swiftshader.googlesource.com/SwiftShader/tests/regres/cov"
+	"swiftshader.googlesource.com/SwiftShader/tests/regres/deqp"
+	"swiftshader.googlesource.com/SwiftShader/tests/regres/llvm"
+	"swiftshader.googlesource.com/SwiftShader/tests/regres/shell"
+	"swiftshader.googlesource.com/SwiftShader/tests/regres/testlist"
+	"swiftshader.googlesource.com/SwiftShader/tests/regres/util"
 )
 
 func min(a, b int) int {
@@ -56,6 +55,7 @@ var (
 	deqpVkBinary     = flag.String("deqp-vk", "deqp-vk", "path to the deqp-vk binary")
 	testList         = flag.String("test-list", "vk-master-PASS.txt", "path to a test list file")
 	numThreads       = flag.Int("num-threads", min(runtime.NumCPU(), 100), "number of parallel test runner processes")
+	maxTestsPerProc  = flag.Int("max-tests-per-proc", 1, "maximum number of tests running in a single process")
 	maxProcMemory    = flag.Uint64("max-proc-mem", shell.MaxProcMemory, "maximum virtual memory per child process")
 	output           = flag.String("output", "results.json", "path to an output JSON results file")
 	filter           = flag.String("filter", "", "filter for test names. Start with a '/' to indicate regex")
@@ -110,6 +110,7 @@ func run() error {
 		ExeVulkan:        *deqpVkBinary,
 		Env:              os.Environ(),
 		NumParallelTests: *numThreads,
+		MaxTestsPerProc:  *maxTestsPerProc,
 		TestLists:        testlist.Lists{group},
 		TestTimeout:      testTimeout,
 		ValidationLayer:  *enableValidation,
@@ -144,10 +145,10 @@ func run() error {
 	if *genCoverage {
 		f, err := os.Create("coverage.dat")
 		if err != nil {
-			return cause.Wrap(err, "Couldn't open coverage.dat file")
+			return fmt.Errorf("failed to open coverage.dat file: %w", err)
 		}
 		if err := res.Coverage.Encode("master", f); err != nil {
-			return cause.Wrap(err, "Couldn't encode coverage data")
+			return fmt.Errorf("failed to encode coverage data: %w", err)
 		}
 	}
 

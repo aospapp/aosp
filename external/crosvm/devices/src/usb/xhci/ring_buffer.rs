@@ -1,15 +1,24 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use super::xhci_abi::{
-    AddressedTrb, Error as TrbError, LinkTrb, TransferDescriptor, Trb, TrbCast, TrbType,
-};
-use remain::sorted;
-use std::fmt::{self, Display};
+use std::fmt;
+use std::fmt::Display;
 use std::mem::size_of;
+
+use remain::sorted;
 use thiserror::Error;
-use vm_memory::{GuestAddress, GuestMemory, GuestMemoryError};
+use vm_memory::GuestAddress;
+use vm_memory::GuestMemory;
+use vm_memory::GuestMemoryError;
+
+use super::xhci_abi::AddressedTrb;
+use super::xhci_abi::Error as TrbError;
+use super::xhci_abi::LinkTrb;
+use super::xhci_abi::TransferDescriptor;
+use super::xhci_abi::Trb;
+use super::xhci_abi::TrbCast;
+use super::xhci_abi::TrbType;
 
 #[sorted]
 #[derive(Error, Debug)]

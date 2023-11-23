@@ -107,41 +107,42 @@ public class OptionalBindingRequestFulfillmentTest {
             .addLines(
                 "package test;",
                 "",
-                "import com.google.common.base.Optional;",
-                "",
                 GeneratedLines.generatedAnnotations(),
                 "final class DaggerTestComponent implements TestComponent {")
             .addLinesIn(
                 FAST_INIT_MODE,
-                "  private volatile Provider<Maybe> provideMaybeProvider;",
+                "  private Provider<Maybe> provideMaybeProvider;",
                 "",
-                "  private Provider<Maybe> maybeProvider() {",
-                "    Object local = provideMaybeProvider;",
-                "    if (local == null) {",
-                "      local = new SwitchingProvider<>(0);",
-                "      provideMaybeProvider = (Provider<Maybe>) local;",
-                "    }",
-                "    return (Provider<Maybe>) local;",
+                "  @SuppressWarnings(\"unchecked\")",
+                "  private void initialize() {",
+                "    this.provideMaybeProvider = new SwitchingProvider<>(testComponent, 0);",
                 "  }")
-            .addLines(
+            .addLinesIn(
+                DEFAULT_MODE,
                 "  @Override",
                 "  public Optional<Maybe> maybe() {",
-                "    return Optional.of(",
-                "        Maybe_MaybeModule_ProvideMaybeFactory.provideMaybe());",
-                "  }",
-                "",
+                "    return Optional.of(Maybe_MaybeModule_ProvideMaybeFactory.provideMaybe());",
+                "  }")
+            .addLinesIn(
+                FAST_INIT_MODE,
+                "  @Override",
+                "  public Optional<Maybe> maybe() {",
+                "    return Optional.of(provideMaybeProvider.get());",
+                "  }")
+            .addLinesIn(
+                DEFAULT_MODE,
                 "  @Override",
                 "  public Optional<Provider<Lazy<Maybe>>> providerOfLazyOfMaybe() {",
-                "    return Optional.of(ProviderOfLazy.create(")
+                "    return Optional.of(ProviderOfLazy.create(",
+                "        Maybe_MaybeModule_ProvideMaybeFactory.create()));",
+                "  }")
             .addLinesIn(
-                DEFAULT_MODE, //
-                "        Maybe_MaybeModule_ProvideMaybeFactory.create()));")
-            .addLinesIn(
-                FAST_INIT_MODE, //
-                "        maybeProvider()));")
+                FAST_INIT_MODE,
+                "  @Override",
+                "  public Optional<Provider<Lazy<Maybe>>> providerOfLazyOfMaybe() {",
+                "    return Optional.of(ProviderOfLazy.create(provideMaybeProvider));",
+                "  }")
             .addLines(
-                "  }",
-                "",
                 "  @Override",
                 "  public Optional<DefinitelyNot> definitelyNot() {",
                 "    return Optional.<DefinitelyNot>absent();",
@@ -154,21 +155,13 @@ public class OptionalBindingRequestFulfillmentTest {
                 "  }")
             .addLinesIn(
                 FAST_INIT_MODE,
-                "  private final class SwitchingProvider<T> implements Provider<T> {",
-                "    private final int id;",
-                "",
-                "    SwitchingProvider(int id) {",
-                "      this.id = id;",
-                "    }",
-                "",
+                "  private static final class SwitchingProvider<T> implements Provider<T> {",
                 "    @SuppressWarnings(\"unchecked\")",
                 "    @Override",
                 "    public T get() {",
                 "      switch (id) {",
-                "        case 0:",
-                "          return (T) Maybe_MaybeModule_ProvideMaybeFactory.provideMaybe();",
-                "        default:",
-                "          throw new AssertionError(id);",
+                "        case 0: return (T) Maybe_MaybeModule_ProvideMaybeFactory.provideMaybe();",
+                "        default: throw new AssertionError(id);",
                 "      }",
                 "    }",
                 "  }",

@@ -23,13 +23,5 @@ python_library {
         "portpicker.py",
         "portserver.py",
     ],
-    version: {
-        py2: {
-            enabled: false,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     pkg_path: "portpicker",
 }

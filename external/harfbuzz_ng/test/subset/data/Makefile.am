@@ -7,6 +7,8 @@ SUBDIRS = repack_tests
 
 EXTRA_DIST += \
 	$(TESTS) \
+	$(DISABLED_TESTS) \
+	expected/32bit_var_store \
 	expected/basics \
 	expected/full-font \
 	expected/glyf_bug_3131 \
@@ -33,22 +35,31 @@ EXTRA_DIST += \
 	expected/layout.gdef \
 	expected/layout.gdef.glyphset \
 	expected/layout.context \
+	expected/layout.context_format2 \
 	expected/layout.gdef-varstore \
 	expected/layout.gdef-attachlist \
 	expected/layout.notonastaliqurdu \
 	expected/layout.tinos \
 	expected/layout.duplicate_features \
 	expected/layout.unsorted_featurelist \
+	expected/layout.drop_feature \
 	expected/cmap \
 	expected/cmap14 \
 	expected/sbix \
 	expected/colr \
+	expected/colr_glyphs \
 	expected/colrv1 \
 	expected/colr_with_components \
 	expected/cbdt \
 	expected/variable \
 	expected/glyph_names \
 	expected/math \
+	expected/math_coverage_offset \
+	expected/post \
+	expected/full_instance \
+	expected/instance_feature_variations \
+	expected/instantiate_glyf \
+	expected/pin_all_at_default \
 	fonts \
 	profiles \
 	$(NULL)

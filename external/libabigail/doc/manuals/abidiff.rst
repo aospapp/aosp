@@ -129,7 +129,7 @@ Options
     library that the tool has to consider.  The tool will thus filter
     out ABI changes on types that are not defined in public headers.
 
-  * ``--headers-dir2 | --hd2`` <headers-directory-path-1>
+  * ``--headers-dir2 | --hd2`` <headers-directory-path-2>
 
     Specifies where to find the public headers of the second shared
     library that the tool has to consider.  The tool will thus filter
@@ -309,6 +309,10 @@ Options
 
     Show sizes and offsets in decimal base.  This option is activated
     by default.
+
+  * ``--ignore-soname``
+
+    Ignore differences in the SONAME when doing a comparison
 
   *  ``--no-show-relative-offset-changes``
 

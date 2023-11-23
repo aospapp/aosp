@@ -8,6 +8,9 @@
       "path": "external/rust/crates/crossbeam-deque"
     },
     {
+      "path": "external/rust/crates/hashbrown"
+    },
+    {
       "path": "external/rust/crates/tinytemplate"
     },
     {

@@ -14,7 +14,7 @@ class firmware_LegacyRecovery(FirmwareTest):
     """
     Servo based test to Verify recovery request at Remove Screen.
 
-    This test requires a USB disk plugged-in, which contains a Chrome OS test
+    This test requires a USB disk plugged-in, which contains a ChromeOS test
     image (built by "build_image --test"). It recovery boots to the USB image
     and sets recovery_request=1 and do a reboot. A failure is expected.
     """

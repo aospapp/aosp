@@ -1,9 +1,9 @@
 diff --git a/Android.bp b/Android.bp
-index b6d9875..14124db 100644
+index f33ba7a..62b8b27 100644
 --- a/Android.bp
 +++ b/Android.bp
-@@ -44,9 +44,16 @@ rust_library {
-     crate_name: "ahash",
+@@ -46,9 +46,16 @@ rust_library {
+     cargo_pkg_version: "0.8.2",
      srcs: ["src/lib.rs"],
      edition: "2018",
 +    arch: {
@@ -17,6 +17,6 @@ index b6d9875..14124db 100644
      features: [
          "default",
 -        "folded_multiply",
+         "getrandom",
          "runtime-rng",
          "specialize",
-         "std",

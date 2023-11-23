@@ -48,8 +48,8 @@ class TpuAotCompilationOptions : public xla::AotCompilationOptions {
   };
 
   void set_num_cores(int64_t tpu_cores) { num_cores_ = tpu_cores; }
-  int64 replica_count() const override { return replica_count_; }
-  int64 num_cores() const override { return num_cores_; }
+  int64_t replica_count() const override { return replica_count_; }
+  int64_t num_cores() const override { return num_cores_; }
 
   void set_allow_separate_sharding_programs(bool allow) {
     allow_separate_sharding_programs_ = allow;
@@ -68,8 +68,8 @@ class TpuAotCompilationOptions : public xla::AotCompilationOptions {
   }
 
  private:
-  int64 num_cores_;
-  int64 replica_count_;
+  int64_t num_cores_;
+  int64_t replica_count_;
 
   // Whether to allow the compiler to create separte sharding and unsharding
   // programs, and modify the original program's input/output sharded size. This
@@ -117,9 +117,6 @@ class TpuProgramGroup : public TpuProgramGroupInterface {
   bool LogProgramMemorySummary() override;
 
   void UnloadAndDestroyPrograms() override;
-
-  Status LogCompilationStats(const TpuCompilationCacheKey& key,
-                             absl::Duration duration) override;
 
   const std::vector<bool>& may_modify_variables_list() const override;
   void set_may_modify_variables(const std::vector<bool>& may_modify_variables);

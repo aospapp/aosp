@@ -147,7 +147,7 @@ def define_tests():
         test_common.define_test(
             'audio/CrasSanity',
             suites = ['bvt-perbuild'],
-            main_package = 'autotest_lib.client.site_tests.audio_CrasSanity.audio_CrasSanity',
+            main_package = 'autotest_lib.client.site_tests.audio_CrasCheck.audio_CrasCheck',
         ),
         test_common.define_test(
             'audio/CrasStress',

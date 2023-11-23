@@ -9,6 +9,9 @@
 //!
 //! Each handle can be used on separate tasks.
 //!
+//! Since the `send` method is not async, it can be used anywhere. This includes
+//! sending between two runtimes, and using it from non-async code.
+//!
 //! # Examples
 //!
 //! ```
@@ -119,6 +122,8 @@
 use crate::loom::cell::UnsafeCell;
 use crate::loom::sync::atomic::AtomicUsize;
 use crate::loom::sync::Arc;
+#[cfg(all(tokio_unstable, feature = "tracing"))]
+use crate::util::trace;
 
 use std::fmt;
 use std::future::Future;
@@ -212,6 +217,8 @@ use std::task::{Context, Poll, Waker};
 #[derive(Debug)]
 pub struct Sender<T> {
     inner: Option<Arc<Inner<T>>>,
+    #[cfg(all(tokio_unstable, feature = "tracing"))]
+    resource_span: tracing::Span,
 }
 
 /// Receives a value from the associated [`Sender`].
@@ -220,7 +227,15 @@ pub struct Sender<T> {
 /// [`channel`](fn@channel) function.
 ///
 /// This channel has no `recv` method because the receiver itself implements the
-/// [`Future`] trait. To receive a value, `.await` the `Receiver` object directly.
+/// [`Future`] trait. To receive a `Result<T, `[`error::RecvError`]`>`, `.await` the `Receiver` object directly.
+///
+/// The `poll` method on the `Future` trait is allowed to spuriously return
+/// `Poll::Pending` even if the message has been sent. If such a spurious
+/// failure happens, then the caller will be woken when the spurious failure has
+/// been resolved so that the caller can attempt to receive the message again.
+/// Note that receiving such a wakeup does not guarantee that the next call will
+/// succeed — it could fail with another spurious failure. (A spurious failure
+/// does not mean that the message is lost. It is just delayed.)
 ///
 /// [`Future`]: trait@std::future::Future
 ///
@@ -302,6 +317,12 @@ pub struct Sender<T> {
 #[derive(Debug)]
 pub struct Receiver<T> {
     inner: Option<Arc<Inner<T>>>,
+    #[cfg(all(tokio_unstable, feature = "tracing"))]
+    resource_span: tracing::Span,
+    #[cfg(all(tokio_unstable, feature = "tracing"))]
+    async_op_span: tracing::Span,
+    #[cfg(all(tokio_unstable, feature = "tracing"))]
+    async_op_poll_span: tracing::Span,
 }
 
 pub mod error {
@@ -310,11 +331,13 @@ pub mod error {
     use std::fmt;
 
     /// Error returned by the `Future` implementation for `Receiver`.
-    #[derive(Debug, Eq, PartialEq)]
+    ///
+    /// This error is returned by the receiver when the sender is dropped without sending.
+    #[derive(Debug, Eq, PartialEq, Clone)]
     pub struct RecvError(pub(super) ());
 
     /// Error returned by the `try_recv` function on `Receiver`.
-    #[derive(Debug, Eq, PartialEq)]
+    #[derive(Debug, Eq, PartialEq, Clone)]
     pub enum TryRecvError {
         /// The send half of the channel has not yet sent a value.
         Empty,
@@ -386,21 +409,21 @@ impl Task {
         F: FnOnce(&Waker) -> R,
     {
         self.0.with(|ptr| {
-            let waker: *const Waker = (&*ptr).as_ptr();
+            let waker: *const Waker = (*ptr).as_ptr();
             f(&*waker)
         })
     }
 
     unsafe fn drop_task(&self) {
         self.0.with_mut(|ptr| {
-            let ptr: *mut Waker = (&mut *ptr).as_mut_ptr();
+            let ptr: *mut Waker = (*ptr).as_mut_ptr();
             ptr.drop_in_place();
         });
     }
 
     unsafe fn set_task(&self, cx: &mut Context<'_>) {
         self.0.with_mut(|ptr| {
-            let ptr: *mut Waker = (&mut *ptr).as_mut_ptr();
+            let ptr: *mut Waker = (*ptr).as_mut_ptr();
             ptr.write(cx.waker().clone());
         });
     }
@@ -439,7 +462,56 @@ struct State(usize);
 ///     }
 /// }
 /// ```
+#[track_caller]
 pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
+    #[cfg(all(tokio_unstable, feature = "tracing"))]
+    let resource_span = {
+        let location = std::panic::Location::caller();
+
+        let resource_span = tracing::trace_span!(
+            "runtime.resource",
+            concrete_type = "Sender|Receiver",
+            kind = "Sync",
+            loc.file = location.file(),
+            loc.line = location.line(),
+            loc.col = location.column(),
+        );
+
+        resource_span.in_scope(|| {
+            tracing::trace!(
+            target: "runtime::resource::state_update",
+            tx_dropped = false,
+            tx_dropped.op = "override",
+            )
+        });
+
+        resource_span.in_scope(|| {
+            tracing::trace!(
+            target: "runtime::resource::state_update",
+            rx_dropped = false,
+            rx_dropped.op = "override",
+            )
+        });
+
+        resource_span.in_scope(|| {
+            tracing::trace!(
+            target: "runtime::resource::state_update",
+            value_sent = false,
+            value_sent.op = "override",
+            )
+        });
+
+        resource_span.in_scope(|| {
+            tracing::trace!(
+            target: "runtime::resource::state_update",
+            value_received = false,
+            value_received.op = "override",
+            )
+        });
+
+        resource_span
+    };
+
     let inner = Arc::new(Inner {
         state: AtomicUsize::new(State::new().as_usize()),
         value: UnsafeCell::new(None),
@@ -449,8 +521,27 @@ pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
 
     let tx = Sender {
         inner: Some(inner.clone()),
+        #[cfg(all(tokio_unstable, feature = "tracing"))]
+        resource_span: resource_span.clone(),
     };
-    let rx = Receiver { inner: Some(inner) };
+
+    #[cfg(all(tokio_unstable, feature = "tracing"))]
+    let async_op_span = resource_span
+        .in_scope(|| tracing::trace_span!("runtime.resource.async_op", source = "Receiver::await"));
+
+    #[cfg(all(tokio_unstable, feature = "tracing"))]
+    let async_op_poll_span =
+        async_op_span.in_scope(|| tracing::trace_span!("runtime.resource.async_op.poll"));
+
+    let rx = Receiver {
+        inner: Some(inner),
+        #[cfg(all(tokio_unstable, feature = "tracing"))]
+        resource_span,
+        #[cfg(all(tokio_unstable, feature = "tracing"))]
+        async_op_span,
+        #[cfg(all(tokio_unstable, feature = "tracing"))]
+        async_op_poll_span,
+    };
 
     (tx, rx)
 }
@@ -521,6 +612,15 @@ impl<T> Sender<T> {
                 return Err(inner.consume_value().unwrap());
             }
         }
+
+        #[cfg(all(tokio_unstable, feature = "tracing"))]
+        self.resource_span.in_scope(|| {
+            tracing::trace!(
+            target: "runtime::resource::state_update",
+            value_sent = true,
+            value_sent.op = "override",
+            )
+        });
 
         Ok(())
     }
@@ -595,7 +695,20 @@ impl<T> Sender<T> {
     pub async fn closed(&mut self) {
         use crate::future::poll_fn;
 
-        poll_fn(|cx| self.poll_closed(cx)).await
+        #[cfg(all(tokio_unstable, feature = "tracing"))]
+        let resource_span = self.resource_span.clone();
+        #[cfg(all(tokio_unstable, feature = "tracing"))]
+        let closed = trace::async_op(
+            || poll_fn(|cx| self.poll_closed(cx)),
+            resource_span,
+            "Sender::closed",
+            "poll_closed",
+            false,
+        );
+        #[cfg(not(all(tokio_unstable, feature = "tracing")))]
+        let closed = poll_fn(|cx| self.poll_closed(cx));
+
+        closed.await
     }
 
     /// Returns `true` if the associated [`Receiver`] handle has been dropped.
@@ -674,7 +787,7 @@ impl<T> Sender<T> {
     /// ```
     pub fn poll_closed(&mut self, cx: &mut Context<'_>) -> Poll<()> {
         // Keep track of task budget
-        let coop = ready!(crate::coop::poll_proceed(cx));
+        let coop = ready!(crate::runtime::coop::poll_proceed(cx));
 
         let inner = self.inner.as_ref().unwrap();
 
@@ -725,6 +838,14 @@ impl<T> Drop for Sender<T> {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.as_ref() {
             inner.complete();
+            #[cfg(all(tokio_unstable, feature = "tracing"))]
+            self.resource_span.in_scope(|| {
+                tracing::trace!(
+                target: "runtime::resource::state_update",
+                tx_dropped = true,
+                tx_dropped.op = "override",
+                )
+            });
         }
     }
 }
@@ -792,6 +913,14 @@ impl<T> Receiver<T> {
     pub fn close(&mut self) {
         if let Some(inner) = self.inner.as_ref() {
             inner.close();
+            #[cfg(all(tokio_unstable, feature = "tracing"))]
+            self.resource_span.in_scope(|| {
+                tracing::trace!(
+                target: "runtime::resource::state_update",
+                rx_dropped = true,
+                rx_dropped.op = "override",
+                )
+            });
         }
     }
 
@@ -804,12 +933,16 @@ impl<T> Receiver<T> {
     /// This function is useful to call from outside the context of an
     /// asynchronous task.
     ///
+    /// Note that unlike the `poll` method, the `try_recv` method cannot fail
+    /// spuriously. Any send or close event that happens before this call to
+    /// `try_recv` will be correctly returned to the caller.
+    ///
     /// # Return
     ///
     /// - `Ok(T)` if a value is pending in the channel.
     /// - `Err(TryRecvError::Empty)` if no value has been sent yet.
     /// - `Err(TryRecvError::Closed)` if the sender has dropped without sending
-    ///   a value.
+    ///   a value, or if the message has already been received.
     ///
     /// # Examples
     ///
@@ -869,7 +1002,17 @@ impl<T> Receiver<T> {
                 // `UnsafeCell`. Therefore, it is now safe for us to access the
                 // cell.
                 match unsafe { inner.consume_value() } {
-                    Some(value) => Ok(value),
+                    Some(value) => {
+                        #[cfg(all(tokio_unstable, feature = "tracing"))]
+                        self.resource_span.in_scope(|| {
+                            tracing::trace!(
+                            target: "runtime::resource::state_update",
+                            value_received = true,
+                            value_received.op = "override",
+                            )
+                        });
+                        Ok(value)
+                    }
                     None => Err(TryRecvError::Closed),
                 }
             } else if state.is_closed() {
@@ -885,12 +1028,51 @@ impl<T> Receiver<T> {
         self.inner = None;
         result
     }
+
+    /// Blocking receive to call outside of asynchronous contexts.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if called within an asynchronous execution
+    /// context.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::thread;
+    /// use tokio::sync::oneshot;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let (tx, rx) = oneshot::channel::<u8>();
+    ///
+    ///     let sync_code = thread::spawn(move || {
+    ///         assert_eq!(Ok(10), rx.blocking_recv());
+    ///     });
+    ///
+    ///     let _ = tx.send(10);
+    ///     sync_code.join().unwrap();
+    /// }
+    /// ```
+    #[track_caller]
+    #[cfg(feature = "sync")]
+    pub fn blocking_recv(self) -> Result<T, RecvError> {
+        crate::future::block_on(self)
+    }
 }
 
 impl<T> Drop for Receiver<T> {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.as_ref() {
             inner.close();
+            #[cfg(all(tokio_unstable, feature = "tracing"))]
+            self.resource_span.in_scope(|| {
+                tracing::trace!(
+                target: "runtime::resource::state_update",
+                rx_dropped = true,
+                rx_dropped.op = "override",
+                )
+            });
         }
     }
 }
@@ -900,8 +1082,21 @@ impl<T> Future for Receiver<T> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // If `inner` is `None`, then `poll()` has already completed.
+        #[cfg(all(tokio_unstable, feature = "tracing"))]
+        let _res_span = self.resource_span.clone().entered();
+        #[cfg(all(tokio_unstable, feature = "tracing"))]
+        let _ao_span = self.async_op_span.clone().entered();
+        #[cfg(all(tokio_unstable, feature = "tracing"))]
+        let _ao_poll_span = self.async_op_poll_span.clone().entered();
+
         let ret = if let Some(inner) = self.as_ref().get_ref().inner.as_ref() {
-            ready!(inner.poll_recv(cx))?
+            #[cfg(all(tokio_unstable, feature = "tracing"))]
+            let res = ready!(trace_poll_op!("poll_recv", inner.poll_recv(cx)))?;
+
+            #[cfg(any(not(tokio_unstable), not(feature = "tracing")))]
+            let res = ready!(inner.poll_recv(cx))?;
+
+            res
         } else {
             panic!("called after complete");
         };
@@ -931,7 +1126,7 @@ impl<T> Inner<T> {
 
     fn poll_recv(&self, cx: &mut Context<'_>) -> Poll<Result<T, RecvError>> {
         // Keep track of task budget
-        let coop = ready!(crate::coop::poll_proceed(cx));
+        let coop = ready!(crate::runtime::coop::poll_proceed(cx));
 
         // Load the state
         let mut state = State::load(&self.state, Acquire);

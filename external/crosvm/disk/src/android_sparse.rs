@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,17 +6,36 @@
 
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{self, ErrorKind, Read, Seek, SeekFrom};
+use std::io;
+use std::io::ErrorKind;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::mem;
+use std::sync::Arc;
 
-use crate::DiskGetLen;
-use base::{
-    AsRawDescriptor, FileAllocate, FileReadWriteAtVolatile, FileSetLen, FileSync, PunchHole,
-    RawDescriptor, WriteZeroesAt,
-};
-use data_model::{DataInit, Le16, Le32, VolatileSlice};
+use async_trait::async_trait;
+use base::AsRawDescriptor;
+use base::FileAllocate;
+use base::FileReadWriteAtVolatile;
+use base::FileSetLen;
+use base::RawDescriptor;
+use cros_async::BackingMemory;
+use cros_async::Executor;
+use cros_async::IoSource;
+use data_model::DataInit;
+use data_model::Le16;
+use data_model::Le32;
+use data_model::VolatileSlice;
 use remain::sorted;
 use thiserror::Error;
+
+use crate::AsyncDisk;
+use crate::DiskFile;
+use crate::DiskGetLen;
+use crate::Error as DiskError;
+use crate::Result as DiskResult;
+use crate::ToAsyncDisk;
 
 #[sorted]
 #[derive(Error, Debug)]
@@ -71,7 +90,7 @@ unsafe impl DataInit for ChunkHeader {}
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Chunk {
     Raw(u64), // Offset into the file
-    Fill(Vec<u8>),
+    Fill([u8; 4]),
     DontCare,
 }
 
@@ -93,33 +112,36 @@ pub struct AndroidSparse {
     chunks: BTreeMap<u64, ChunkWithSize>,
 }
 
-fn parse_chunk<T: Read + Seek>(
-    mut input: &mut T,
-    chunk_hdr_size: u64,
-    blk_sz: u64,
-) -> Result<Option<ChunkWithSize>> {
+fn parse_chunk<T: Read + Seek>(mut input: &mut T, blk_sz: u64) -> Result<Option<ChunkWithSize>> {
+    const HEADER_SIZE: usize = mem::size_of::<ChunkHeader>();
     let current_offset = input
         .seek(SeekFrom::Current(0))
         .map_err(Error::ReadSpecificationError)?;
     let chunk_header =
         ChunkHeader::from_reader(&mut input).map_err(Error::ReadSpecificationError)?;
+    let chunk_body_size = (chunk_header.total_sz.to_native() as usize)
+        .checked_sub(HEADER_SIZE)
+        .ok_or(Error::InvalidSpecification(format!(
+            "chunk total_sz {} smaller than header size {}",
+            chunk_header.total_sz.to_native(),
+            HEADER_SIZE
+        )))?;
     let chunk = match chunk_header.chunk_type.to_native() {
         CHUNK_TYPE_RAW => {
             input
-                .seek(SeekFrom::Current(
-                    chunk_header.total_sz.to_native() as i64 - chunk_hdr_size as i64,
-                ))
+                .seek(SeekFrom::Current(chunk_body_size as i64))
                 .map_err(Error::ReadSpecificationError)?;
-            Chunk::Raw(current_offset + chunk_hdr_size as u64)
+            Chunk::Raw(current_offset + HEADER_SIZE as u64)
         }
         CHUNK_TYPE_FILL => {
-            if chunk_header.total_sz == chunk_hdr_size as u32 {
-                return Err(Error::InvalidSpecification(
-                    "Fill chunk did not have any data to fill".to_string(),
-                ));
+            let mut fill_bytes = [0u8; 4];
+            if chunk_body_size != fill_bytes.len() {
+                return Err(Error::InvalidSpecification(format!(
+                    "Fill chunk had bad size. Expected {}, was {}",
+                    fill_bytes.len(),
+                    chunk_body_size
+                )));
             }
-            let fill_size = chunk_header.total_sz.to_native() as u64 - chunk_hdr_size as u64;
-            let mut fill_bytes = vec![0u8; fill_size as usize];
             input
                 .read_exact(&mut fill_bytes)
                 .map_err(Error::ReadSpecificationError)?;
@@ -159,19 +181,19 @@ impl AndroidSparse {
                 MAJOR_VERSION,
                 sparse_header.major_version.to_native(),
             )));
-        } else if (sparse_header.chunk_hdr_size.to_native() as usize)
-            < mem::size_of::<ChunkHeader>()
+        } else if sparse_header.chunk_hdr_size.to_native() as usize != mem::size_of::<ChunkHeader>()
         {
+            // The canonical parser for this format allows `chunk_hdr_size >= sizeof(ChunkHeader)`,
+            // but we've chosen to be stricter for simplicity.
             return Err(Error::InvalidSpecification(format!(
-                "Chunk header size does not fit chunk header struct, expected >={}, was {}",
+                "Chunk header size does not match chunk header struct, expected {}, was {}",
                 sparse_header.chunk_hdr_size.to_native(),
                 mem::size_of::<ChunkHeader>()
             )));
         }
-        let header_size = sparse_header.chunk_hdr_size.to_native() as u64;
         let block_size = sparse_header.blk_sz.to_native() as u64;
         let chunks = (0..sparse_header.total_chunks.to_native())
-            .filter_map(|_| parse_chunk(&mut file, header_size, block_size).transpose())
+            .filter_map(|_| parse_chunk(&mut file, block_size).transpose())
             .collect::<Result<Vec<ChunkWithSize>>>()?;
         let total_size =
             sparse_header.total_blks.to_native() as u64 * sparse_header.blk_sz.to_native() as u64;
@@ -199,7 +221,7 @@ impl AndroidSparse {
             total_size: size,
             chunks: chunks_map,
         };
-        let calculated_len = image.get_len().map_err(Error::ReadSpecificationError)?;
+        let calculated_len: u64 = image.chunks.iter().map(|x| x.1.expanded_size).sum();
         if calculated_len != size {
             return Err(Error::InvalidSpecification(format!(
                 "Header promised size {}, chunks added up to {}",
@@ -225,42 +247,9 @@ impl FileSetLen for AndroidSparse {
     }
 }
 
-impl FileSync for AndroidSparse {
-    fn fsync(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
-
-impl PunchHole for AndroidSparse {
-    fn punch_hole(&mut self, _offset: u64, _length: u64) -> io::Result<()> {
-        Err(io::Error::new(
-            ErrorKind::PermissionDenied,
-            "unsupported operation",
-        ))
-    }
-}
-
-impl WriteZeroesAt for AndroidSparse {
-    fn write_zeroes_at(&mut self, _offset: u64, _length: usize) -> io::Result<usize> {
-        Err(io::Error::new(
-            ErrorKind::PermissionDenied,
-            "unsupported operation",
-        ))
-    }
-}
-
 impl AsRawDescriptor for AndroidSparse {
     fn as_raw_descriptor(&self) -> RawDescriptor {
         self.file.as_raw_descriptor()
-    }
-}
-
-impl FileAllocate for AndroidSparse {
-    fn allocate(&mut self, _offset: u64, _length: u64) -> io::Result<()> {
-        Err(io::Error::new(
-            ErrorKind::PermissionDenied,
-            "unsupported operation",
-        ))
     }
 }
 
@@ -319,11 +308,152 @@ impl FileReadWriteAtVolatile for AndroidSparse {
     }
 }
 
+// TODO(b/271381851): implement `try_clone`. It allows virtio-blk to run multiple workers.
+impl DiskFile for AndroidSparse {}
+
+/// An Android Sparse disk that implements `AsyncDisk` for access.
+pub struct AsyncAndroidSparse {
+    inner: IoSource<File>,
+    total_size: u64,
+    chunks: BTreeMap<u64, ChunkWithSize>,
+}
+
+impl ToAsyncDisk for AndroidSparse {
+    fn to_async_disk(self: Box<Self>, ex: &Executor) -> DiskResult<Box<dyn AsyncDisk>> {
+        Ok(Box::new(AsyncAndroidSparse {
+            inner: ex.async_from(self.file).map_err(DiskError::ToAsync)?,
+            total_size: self.total_size,
+            chunks: self.chunks,
+        }))
+    }
+}
+
+impl DiskGetLen for AsyncAndroidSparse {
+    fn get_len(&self) -> io::Result<u64> {
+        Ok(self.total_size)
+    }
+}
+
+impl FileSetLen for AsyncAndroidSparse {
+    fn set_len(&self, _len: u64) -> io::Result<()> {
+        Err(io::Error::new(
+            ErrorKind::PermissionDenied,
+            "unsupported operation",
+        ))
+    }
+}
+
+impl FileAllocate for AsyncAndroidSparse {
+    fn allocate(&mut self, _offset: u64, _length: u64) -> io::Result<()> {
+        Err(io::Error::new(
+            ErrorKind::PermissionDenied,
+            "unsupported operation",
+        ))
+    }
+}
+
+#[async_trait(?Send)]
+impl AsyncDisk for AsyncAndroidSparse {
+    fn into_inner(self: Box<Self>) -> Box<dyn DiskFile> {
+        Box::new(AndroidSparse {
+            file: self.inner.into_source(),
+            total_size: self.total_size,
+            chunks: self.chunks,
+        })
+    }
+
+    async fn fsync(&self) -> DiskResult<()> {
+        // Do nothing because it's read-only.
+        Ok(())
+    }
+
+    /// Reads data from `file_offset` to the end of the current chunk and write them into memory
+    /// `mem` at `mem_offsets`.
+    async fn read_to_mem<'a>(
+        &'a self,
+        file_offset: u64,
+        mem: Arc<dyn BackingMemory + Send + Sync>,
+        mem_offsets: &'a [cros_async::MemRegion],
+    ) -> DiskResult<usize> {
+        let found_chunk = self.chunks.range(..=file_offset).next_back();
+        let (
+            chunk_start,
+            ChunkWithSize {
+                chunk,
+                expanded_size,
+            },
+        ) = found_chunk.ok_or(DiskError::ReadingData(io::Error::new(
+            ErrorKind::UnexpectedEof,
+            format!("no chunk for offset {}", file_offset),
+        )))?;
+        let chunk_offset = file_offset - chunk_start;
+        let chunk_size = *expanded_size;
+
+        // Truncate `mem_offsets` to the remaining size of the current chunk.
+        let mem_offsets =
+            cros_async::MemRegion::truncate((chunk_size - chunk_offset) as usize, mem_offsets);
+        let mem_size = mem_offsets.iter().map(|x| x.len).sum();
+        match chunk {
+            Chunk::DontCare => {
+                for region in mem_offsets.iter() {
+                    mem.get_volatile_slice(*region)
+                        .map_err(DiskError::GuestMemory)?
+                        .write_bytes(0);
+                }
+                Ok(mem_size)
+            }
+            Chunk::Raw(offset) => self
+                .inner
+                .read_to_mem(Some(offset + chunk_offset), mem, &mem_offsets)
+                .await
+                .map_err(DiskError::ReadToMem),
+            Chunk::Fill(fill_bytes) => {
+                let chunk_offset_mod = chunk_offset % fill_bytes.len() as u64;
+                let filled_memory: Vec<u8> = fill_bytes
+                    .iter()
+                    .cloned()
+                    .cycle()
+                    .skip(chunk_offset_mod as usize)
+                    .take(mem_size)
+                    .collect();
+
+                let mut filled_count = 0;
+                for region in mem_offsets.iter() {
+                    let buf = &filled_memory[filled_count..filled_count + region.len];
+                    mem.get_volatile_slice(*region)
+                        .map_err(DiskError::GuestMemory)?
+                        .copy_from(buf);
+                    filled_count += region.len;
+                }
+                Ok(mem_size)
+            }
+        }
+    }
+
+    async fn write_from_mem<'a>(
+        &'a self,
+        _file_offset: u64,
+        _mem: Arc<dyn BackingMemory + Send + Sync>,
+        _mem_offsets: &'a [cros_async::MemRegion],
+    ) -> DiskResult<usize> {
+        Err(DiskError::UnsupportedOperation)
+    }
+
+    async fn punch_hole(&self, _file_offset: u64, _length: u64) -> DiskResult<()> {
+        Err(DiskError::UnsupportedOperation)
+    }
+
+    async fn write_zeroes_at(&self, _file_offset: u64, _length: u64) -> DiskResult<()> {
+        Err(DiskError::UnsupportedOperation)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+    use std::io::Write;
+
     use super::*;
-    use std::io::{Cursor, Write};
-    use tempfile::tempfile;
 
     const CHUNK_SIZE: usize = mem::size_of::<ChunkHeader>();
 
@@ -340,7 +470,7 @@ mod tests {
         chunk_bytes.extend_from_slice(header_bytes);
         chunk_bytes.extend_from_slice(&[0u8; 123]);
         let mut chunk_cursor = Cursor::new(chunk_bytes);
-        let chunk = parse_chunk(&mut chunk_cursor, CHUNK_SIZE as u64, 123)
+        let chunk = parse_chunk(&mut chunk_cursor, 123)
             .expect("Failed to parse")
             .expect("Failed to determine chunk type");
         let expected_chunk = ChunkWithSize {
@@ -360,7 +490,7 @@ mod tests {
         };
         let header_bytes = chunk_raw.as_slice();
         let mut chunk_cursor = Cursor::new(header_bytes);
-        let chunk = parse_chunk(&mut chunk_cursor, CHUNK_SIZE as u64, 123)
+        let chunk = parse_chunk(&mut chunk_cursor, 123)
             .expect("Failed to parse")
             .expect("Failed to determine chunk type");
         let expected_chunk = ChunkWithSize {
@@ -383,11 +513,11 @@ mod tests {
         chunk_bytes.extend_from_slice(header_bytes);
         chunk_bytes.extend_from_slice(&[123u8; 4]);
         let mut chunk_cursor = Cursor::new(chunk_bytes);
-        let chunk = parse_chunk(&mut chunk_cursor, CHUNK_SIZE as u64, 123)
+        let chunk = parse_chunk(&mut chunk_cursor, 123)
             .expect("Failed to parse")
             .expect("Failed to determine chunk type");
         let expected_chunk = ChunkWithSize {
-            chunk: Chunk::Fill(vec![123, 123, 123, 123]),
+            chunk: Chunk::Fill([123, 123, 123, 123]),
             expanded_size: 12300,
         };
         assert_eq!(expected_chunk, chunk);
@@ -406,13 +536,12 @@ mod tests {
         chunk_bytes.extend_from_slice(header_bytes);
         chunk_bytes.extend_from_slice(&[123u8; 4]);
         let mut chunk_cursor = Cursor::new(chunk_bytes);
-        let chunk =
-            parse_chunk(&mut chunk_cursor, CHUNK_SIZE as u64, 123).expect("Failed to parse");
+        let chunk = parse_chunk(&mut chunk_cursor, 123).expect("Failed to parse");
         assert_eq!(None, chunk);
     }
 
     fn test_image(chunks: Vec<ChunkWithSize>) -> AndroidSparse {
-        let file = tempfile().expect("failed to create tempfile");
+        let file = tempfile::tempfile().expect("failed to create tempfile");
         let size = chunks.iter().map(|x| x.expanded_size).sum();
         AndroidSparse::from_parts(file, size, chunks).expect("Could not create image")
     }
@@ -435,7 +564,7 @@ mod tests {
     #[test]
     fn read_fill_simple() {
         let chunks = vec![ChunkWithSize {
-            chunk: Chunk::Fill(vec![10, 20]),
+            chunk: Chunk::Fill([10, 20, 10, 20]),
             expanded_size: 8,
         }];
         let mut image = test_image(chunks);
@@ -450,7 +579,7 @@ mod tests {
     #[test]
     fn read_fill_edges() {
         let chunks = vec![ChunkWithSize {
-            chunk: Chunk::Fill(vec![10, 20, 30]),
+            chunk: Chunk::Fill([10, 20, 30, 40]),
             expanded_size: 8,
         }];
         let mut image = test_image(chunks);
@@ -458,7 +587,7 @@ mod tests {
         image
             .read_exact_at_volatile(VolatileSlice::new(&mut input_memory[..]), 1)
             .expect("Could not read");
-        let expected = [20, 30, 10, 20, 30, 10];
+        let expected = [20, 30, 40, 10, 20, 30];
         assert_eq!(&expected[..], &input_memory[..]);
     }
 
@@ -470,7 +599,7 @@ mod tests {
                 expanded_size: 20,
             },
             ChunkWithSize {
-                chunk: Chunk::Fill(vec![10, 20, 30]),
+                chunk: Chunk::Fill([10, 20, 30, 40]),
                 expanded_size: 100,
             },
         ];
@@ -479,7 +608,7 @@ mod tests {
         image
             .read_exact_at_volatile(VolatileSlice::new(&mut input_memory[..]), 39)
             .expect("Could not read");
-        let expected = [20, 30, 10, 20, 30, 10, 20];
+        let expected = [40, 10, 20, 30, 40, 10, 20];
         assert_eq!(&expected[..], &input_memory[..]);
     }
 
@@ -503,11 +632,11 @@ mod tests {
     fn read_two_fills() {
         let chunks = vec![
             ChunkWithSize {
-                chunk: Chunk::Fill(vec![10, 20]),
+                chunk: Chunk::Fill([10, 20, 10, 20]),
                 expanded_size: 4,
             },
             ChunkWithSize {
-                chunk: Chunk::Fill(vec![30, 40]),
+                chunk: Chunk::Fill([30, 40, 30, 40]),
                 expanded_size: 4,
             },
         ];
@@ -518,5 +647,284 @@ mod tests {
             .expect("Could not read");
         let expected = [10, 20, 10, 20, 30, 40, 30, 40];
         assert_eq!(&expected[..], &input_memory[..]);
+    }
+
+    /**
+     * Tests for Async.
+     */
+    use cros_async::MemRegion;
+    use vm_memory::GuestAddress;
+    use vm_memory::GuestMemory;
+
+    fn test_async_image(
+        chunks: Vec<ChunkWithSize>,
+        ex: &Executor,
+    ) -> DiskResult<Box<dyn AsyncDisk>> {
+        Box::new(test_image(chunks)).to_async_disk(ex)
+    }
+
+    /// Reads `len` bytes of data from `image` at 'offset'.
+    async fn read_exact_at(image: &dyn AsyncDisk, offset: usize, len: usize) -> Vec<u8> {
+        let guest_mem = Arc::new(GuestMemory::new(&[(GuestAddress(0), 4096)]).unwrap());
+        // Fill in guest_mem with dirty data.
+        guest_mem
+            .write_all_at_addr(&vec![55u8; len], GuestAddress(0))
+            .unwrap();
+
+        let mut count = 0usize;
+        while count < len {
+            let result = image
+                .read_to_mem(
+                    (offset + count) as u64,
+                    guest_mem.clone(),
+                    &[MemRegion {
+                        offset: count as u64,
+                        len: len - count,
+                    }],
+                )
+                .await;
+            count += result.unwrap();
+        }
+
+        let mut buf = vec![0; len];
+        guest_mem.read_at_addr(&mut buf, GuestAddress(0)).unwrap();
+        buf
+    }
+
+    #[test]
+    fn async_read_dontcare() {
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let chunks = vec![ChunkWithSize {
+                chunk: Chunk::DontCare,
+                expanded_size: 100,
+            }];
+            let image = test_async_image(chunks, &ex).unwrap();
+            let buf = read_exact_at(&*image, 0, 100).await;
+            assert!(buf.iter().all(|x| *x == 0));
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn async_read_dontcare_with_offsets() {
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let chunks = vec![ChunkWithSize {
+                chunk: Chunk::DontCare,
+                expanded_size: 10,
+            }];
+            let image = test_async_image(chunks, &ex).unwrap();
+            // Prepare guest_mem with dirty data.
+            let guest_mem = Arc::new(GuestMemory::new(&[(GuestAddress(0), 4096)]).unwrap());
+            guest_mem
+                .write_all_at_addr(&[55u8; 20], GuestAddress(0))
+                .unwrap();
+
+            // Pass multiple `MemRegion` to `read_to_mem`.
+            image
+                .read_to_mem(
+                    0,
+                    guest_mem.clone(),
+                    &[
+                        MemRegion { offset: 1, len: 3 },
+                        MemRegion { offset: 6, len: 2 },
+                    ],
+                )
+                .await
+                .unwrap();
+            let mut buf = vec![0; 10];
+            guest_mem.read_at_addr(&mut buf, GuestAddress(0)).unwrap();
+            let expected = [55, 0, 0, 0, 55, 55, 0, 0, 55, 55];
+            assert_eq!(expected[..], buf[..]);
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn async_read_fill_simple() {
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let chunks = vec![ChunkWithSize {
+                chunk: Chunk::Fill([10, 20, 10, 20]),
+                expanded_size: 8,
+            }];
+            let image = test_async_image(chunks, &ex).unwrap();
+            let buf = read_exact_at(&*image, 0, 8).await;
+            let expected = [10, 20, 10, 20, 10, 20, 10, 20];
+            assert_eq!(expected[..], buf[..]);
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn async_read_fill_simple_with_offset() {
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let chunks = vec![ChunkWithSize {
+                chunk: Chunk::Fill([10, 20, 10, 20]),
+                expanded_size: 8,
+            }];
+            let image = test_async_image(chunks, &ex).unwrap();
+            // Prepare guest_mem with dirty data.
+            let guest_mem = Arc::new(GuestMemory::new(&[(GuestAddress(0), 4096)]).unwrap());
+            guest_mem
+                .write_all_at_addr(&[55u8; 20], GuestAddress(0))
+                .unwrap();
+
+            // Pass multiple `MemRegion` to `read_to_mem`.
+            image
+                .read_to_mem(
+                    0,
+                    guest_mem.clone(),
+                    &[
+                        MemRegion { offset: 1, len: 3 },
+                        MemRegion { offset: 6, len: 2 },
+                    ],
+                )
+                .await
+                .unwrap();
+            let mut buf = vec![0; 10];
+            guest_mem.read_at_addr(&mut buf, GuestAddress(0)).unwrap();
+            let expected = [55, 10, 20, 10, 55, 55, 20, 10, 55, 55];
+            assert_eq!(expected[..], buf[..]);
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn async_read_fill_edges() {
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let chunks = vec![ChunkWithSize {
+                chunk: Chunk::Fill([10, 20, 30, 40]),
+                expanded_size: 8,
+            }];
+            let image = test_async_image(chunks, &ex).unwrap();
+            let buf = read_exact_at(&*image, 1, 6).await;
+            let expected = [20, 30, 40, 10, 20, 30];
+            assert_eq!(expected[..], buf[..]);
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn async_read_fill_offset_edges() {
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let chunks = vec![
+                ChunkWithSize {
+                    chunk: Chunk::DontCare,
+                    expanded_size: 20,
+                },
+                ChunkWithSize {
+                    chunk: Chunk::Fill([10, 20, 30, 40]),
+                    expanded_size: 100,
+                },
+            ];
+            let image = test_async_image(chunks, &ex).unwrap();
+            let buf = read_exact_at(&*image, 39, 7).await;
+            let expected = [40, 10, 20, 30, 40, 10, 20];
+            assert_eq!(expected[..], buf[..]);
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn async_read_raw() {
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let chunks = vec![ChunkWithSize {
+                chunk: Chunk::Raw(0),
+                expanded_size: 100,
+            }];
+            let mut image = Box::new(test_image(chunks));
+            write!(image.file, "hello").unwrap();
+            let async_image = image.to_async_disk(&ex).unwrap();
+            let buf = read_exact_at(&*async_image, 0, 5).await;
+            let expected = [104, 101, 108, 108, 111];
+            assert_eq!(&expected[..], &buf[..]);
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn async_read_fill_raw_with_offset() {
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let chunks = vec![ChunkWithSize {
+                chunk: Chunk::Raw(0),
+                expanded_size: 100,
+            }];
+            let mut image = Box::new(test_image(chunks));
+            write!(image.file, "hello").unwrap();
+            let async_image = image.to_async_disk(&ex).unwrap();
+            // Prepare guest_mem with dirty data.
+            let guest_mem = Arc::new(GuestMemory::new(&[(GuestAddress(0), 4096)]).unwrap());
+            guest_mem
+                .write_all_at_addr(&[55u8; 20], GuestAddress(0))
+                .unwrap();
+
+            // Pass multiple `MemRegion` to `read_to_mem`.
+            async_image
+                .read_to_mem(
+                    0,
+                    guest_mem.clone(),
+                    &[
+                        MemRegion { offset: 1, len: 3 },
+                        MemRegion { offset: 6, len: 2 },
+                    ],
+                )
+                .await
+                .unwrap();
+            let mut buf = vec![0; 10];
+            guest_mem.read_at_addr(&mut buf, GuestAddress(0)).unwrap();
+            let expected = [55, 104, 101, 108, 55, 55, 108, 111, 55, 55];
+            assert_eq!(expected[..], buf[..]);
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn async_read_two_fills() {
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let chunks = vec![
+                ChunkWithSize {
+                    chunk: Chunk::Fill([10, 20, 10, 20]),
+                    expanded_size: 4,
+                },
+                ChunkWithSize {
+                    chunk: Chunk::Fill([30, 40, 30, 40]),
+                    expanded_size: 4,
+                },
+            ];
+            let image = test_async_image(chunks, &ex).unwrap();
+            let buf = read_exact_at(&*image, 0, 8).await;
+            let expected = [10, 20, 10, 20, 30, 40, 30, 40];
+            assert_eq!(&expected[..], &buf[..]);
+        })
+        .unwrap();
+    }
+
+    // Convert to sync and back again. There was once a bug where `into_inner` converted the
+    // AndroidSparse into a raw file.
+    //
+    // Skip on windows because `into_source` isn't supported.
+    #[cfg(not(windows))]
+    #[test]
+    fn async_roundtrip_read_dontcare() {
+        let ex = Executor::new().unwrap();
+        ex.run_until(async {
+            let chunks = vec![ChunkWithSize {
+                chunk: Chunk::DontCare,
+                expanded_size: 100,
+            }];
+            let image = test_async_image(chunks, &ex).unwrap();
+            let image = image.into_inner().to_async_disk(&ex).unwrap();
+            let buf = read_exact_at(&*image, 0, 100).await;
+            assert!(buf.iter().all(|x| *x == 0));
+        })
+        .unwrap();
     }
 }

@@ -161,7 +161,18 @@ typedef unordered_map<GElf_Addr, elf_symbol_sptr> addr_elf_symbol_sptr_map_type;
 /// Convenience typedef for a set of ELF addresses.
 typedef unordered_set<GElf_Addr> address_set_type;
 
-typedef unordered_set<interned_string, hash_interned_string> istring_set_type;
+/// A hasher for a pair of Dwarf_Off.  This is used as a hasher for
+/// the type @ref dwarf_offset_pair_set_type.
+struct dwarf_offset_pair_hash
+{
+  size_t
+  operator()(const std::pair<Dwarf_Off, Dwarf_Off>& p) const
+  {return abigail::hashing::combine_hashes(p.first, p.second);}
+};// end struct dwarf_offset_pair_hash
+
+typedef unordered_set<std::pair<Dwarf_Off,
+				Dwarf_Off>,
+		      dwarf_offset_pair_hash> dwarf_offset_pair_set_type;
 
 /// Convenience typedef for a shared pointer to an @ref address_set_type.
 typedef shared_ptr<address_set_type> address_set_sptr;
@@ -297,6 +308,12 @@ get_scope_die(const read_context&	ctxt,
 	      size_t			where_offset,
 	      Dwarf_Die&		scope_die);
 
+static Dwarf_Off
+die_offset(Dwarf_Die* die);
+
+static Dwarf_Off
+die_offset(const Dwarf_Die* die);
+
 static bool
 die_is_anonymous(const Dwarf_Die* die);
 
@@ -363,7 +380,7 @@ die_is_at_class_scope(const read_context& ctxt,
 		      Dwarf_Die& class_scope_die);
 static bool
 eval_last_constant_dwarf_sub_expr(Dwarf_Op*	expr,
-				  uint64_t	expr_len,
+				  size_t	expr_len,
 				  int64_t&	value,
 				  bool&	is_tls_address);
 
@@ -2077,6 +2094,9 @@ public:
   /// A map that associates a function type representations to
   /// function types, inside a translation unit.
   mutable istring_fn_type_map_type per_tu_repr_to_fn_type_maps_;
+  mutable std::unordered_map<std::pair<Dwarf_Off, Dwarf_Off>,
+			     size_t,
+			     dwarf_offset_pair_hash> die_comparison_visits_;
 
   die_class_or_union_map_type	die_wip_classes_map_;
   die_class_or_union_map_type	alternate_die_wip_classes_map_;
@@ -4149,12 +4169,9 @@ public:
     ABG_ASSERT(!e->canonicalization_is_done());
 
     bool s0 = e->decl_only_class_equals_definition();
-    bool s1 = e->use_enum_binary_only_equality();
     e->decl_only_class_equals_definition(true);
-    e->use_enum_binary_only_equality(true);
     bool equal = l == r;
     e->decl_only_class_equals_definition(s0);
-    e->use_enum_binary_only_equality(s1);
     return equal;
   }
 
@@ -6233,6 +6250,24 @@ void
 set_do_log(read_context& ctxt, bool f)
 {ctxt.do_log(f);}
 
+/// Get the offset of a DIE
+///
+/// @param die the DIE to consider.
+///
+/// @return the offset of the DIE.
+static Dwarf_Off
+die_offset(Dwarf_Die* die)
+{return dwarf_dieoffset(die);}
+
+/// Get the offset of a DIE
+///
+/// @param die the DIE to consider.
+///
+/// @return the offset of the DIE.
+static Dwarf_Off
+die_offset(const Dwarf_Die* die)
+{return die_offset(const_cast<Dwarf_Die*>(die));}
+
 /// Test if a given DIE is anonymous
 ///
 /// @param die the DIE to consider.
@@ -7689,7 +7724,7 @@ static bool
 die_location_expr(const Dwarf_Die* die,
 		  unsigned attr_name,
 		  Dwarf_Op** expr,
-		  uint64_t* expr_len)
+		  size_t* expr_len)
 {
   if (!die)
     return false;
@@ -7735,9 +7770,9 @@ die_location_expr(const Dwarf_Die* die,
 /// value onto the DEVM stack, false otherwise.
 static bool
 op_pushes_constant_value(Dwarf_Op*			ops,
-			 uint64_t			ops_len,
-			 uint64_t			index,
-			 uint64_t&			next_index,
+			 size_t				ops_len,
+			 size_t				index,
+			 size_t&			next_index,
 			 dwarf_expr_eval_context&	ctxt)
 {
   ABG_ASSERT(index < ops_len);
@@ -7899,9 +7934,9 @@ op_pushes_constant_value(Dwarf_Op*			ops,
 /// non-constant value onto the DEVM stack, false otherwise.
 static bool
 op_pushes_non_constant_value(Dwarf_Op* ops,
-			     uint64_t ops_len,
-			     uint64_t index,
-			     uint64_t& next_index,
+			     size_t ops_len,
+			     size_t index,
+			     size_t& next_index,
 			     dwarf_expr_eval_context& ctxt)
 {
   ABG_ASSERT(index < ops_len);
@@ -8025,9 +8060,9 @@ op_pushes_non_constant_value(Dwarf_Op* ops,
 /// DEVM stack, false otherwise.
 static bool
 op_manipulates_stack(Dwarf_Op* expr,
-		     uint64_t expr_len,
-		     uint64_t index,
-		     uint64_t& next_index,
+		     size_t expr_len,
+		     size_t index,
+		     size_t& next_index,
 		     dwarf_expr_eval_context& ctxt)
 {
   Dwarf_Op& op = expr[index];
@@ -8149,9 +8184,9 @@ op_manipulates_stack(Dwarf_Op* expr,
 /// arithmetic or logic operation.
 static bool
 op_is_arith_logic(Dwarf_Op* expr,
-		  uint64_t expr_len,
-		  uint64_t index,
-		  uint64_t& next_index,
+		  size_t expr_len,
+		  size_t index,
+		  size_t& next_index,
 		  dwarf_expr_eval_context& ctxt)
 {
   ABG_ASSERT(index < expr_len);
@@ -8282,9 +8317,9 @@ op_is_arith_logic(Dwarf_Op* expr,
 /// control flow operation, false otherwise.
 static bool
 op_is_control_flow(Dwarf_Op* expr,
-		   uint64_t expr_len,
-		   uint64_t index,
-		   uint64_t& next_index,
+		   size_t expr_len,
+		   size_t index,
+		   size_t& next_index,
 		   dwarf_expr_eval_context& ctxt)
 {
   ABG_ASSERT(index < expr_len);
@@ -8329,7 +8364,7 @@ op_is_control_flow(Dwarf_Op* expr,
 
     case DW_OP_bra:
       val1 = ctxt.pop();
-      if (val1 != 0)
+      if (val1.const_value() != 0)
 	index += val1.const_value() - 1;
       break;
 
@@ -8401,7 +8436,7 @@ eval_quickly(Dwarf_Op*	expr,
 /// to evaluate, false otherwise.
 static bool
 eval_last_constant_dwarf_sub_expr(Dwarf_Op*	expr,
-				  uint64_t	expr_len,
+				  size_t	expr_len,
 				  int64_t&	value,
 				  bool&	is_tls_address,
 				  dwarf_expr_eval_context &eval_ctxt)
@@ -8410,7 +8445,7 @@ eval_last_constant_dwarf_sub_expr(Dwarf_Op*	expr,
   // expression contained in the DWARF expression 'expr'.
   eval_ctxt.reset();
 
-  uint64_t index = 0, next_index = 0;
+  size_t index = 0, next_index = 0;
   do
     {
       if (op_is_arith_logic(expr, expr_len, index,
@@ -8455,7 +8490,7 @@ eval_last_constant_dwarf_sub_expr(Dwarf_Op*	expr,
 /// to evaluate, false otherwise.
 static bool
 eval_last_constant_dwarf_sub_expr(Dwarf_Op*	expr,
-				  uint64_t	expr_len,
+				  size_t	expr_len,
 				  int64_t&	value,
 				  bool&	is_tls_address)
 {
@@ -8778,7 +8813,7 @@ die_member_offset(const read_context& ctxt,
 		  int64_t& offset)
 {
   Dwarf_Op* expr = NULL;
-  uint64_t expr_len = 0;
+  size_t expr_len = 0;
   uint64_t bit_offset = 0;
 
   // First let's see if the DW_AT_data_bit_offset attribute is
@@ -8855,7 +8890,7 @@ die_location_address(Dwarf_Die*	die,
 		     bool&		is_tls_address)
 {
   Dwarf_Op* expr = NULL;
-  uint64_t expr_len = 0;
+  size_t expr_len = 0;
 
   is_tls_address = false;
 
@@ -8901,7 +8936,7 @@ die_virtual_function_index(Dwarf_Die* die,
     return false;
 
   Dwarf_Op* expr = NULL;
-  uint64_t expr_len = 0;
+  size_t expr_len = 0;
   if (!die_location_expr(die, DW_AT_vtable_elem_location,
 			 &expr, &expr_len))
     return false;
@@ -10101,6 +10136,50 @@ fn_die_equal_by_linkage_name(const read_context &ctxt,
 	  && llinkage_name == rlinkage_name);
 }
 
+/// Test if the pair of offset {p1,p2} is present in a set.
+///
+/// @param set the set of pairs of DWARF offsets to consider.
+///
+/// @param p1 the first value of the pair.
+///
+/// @param p2 the second value of the pair.
+///
+/// @return if the pair {p1,p2} is present in the set.
+static bool
+has_offset_pair(const dwarf_offset_pair_set_type& set,
+		Dwarf_Off p1, Dwarf_Off p2)
+{
+  if (set.find(std::make_pair(p1, p2)) != set.end())
+    return true;
+  return false;
+}
+
+/// Insert a new pair of offset into the set of pair.
+///
+/// @param set the set of pairs of DWARF offsets to consider.
+///
+/// @param p1 the first value of the pair.
+///
+/// @param p2 the second value of the pair.
+static void
+insert_offset_pair(dwarf_offset_pair_set_type& set, Dwarf_Off p1, Dwarf_Off p2)
+{set.insert(std::make_pair(p1, p2));}
+
+/// Erase a pair of DWARF offset from a set of pairs.
+///
+///
+/// @param set the set of pairs of DWARF offsets to consider.
+///
+/// @param p1 the first value of the pair.
+///
+/// @param p2 the second value of the pair.
+static void
+erase_offset_pair(dwarf_offset_pair_set_type& set, Dwarf_Off p1, Dwarf_Off p2)
+{
+  std::pair<Dwarf_Off, Dwarf_Off> p(p1, p2);
+  set.erase(p);
+}
+
 /// Compare two DIEs emitted by a C compiler.
 ///
 /// @param ctxt the read context used to load the DWARF information.
@@ -10127,7 +10206,7 @@ fn_die_equal_by_linkage_name(const read_context &ctxt,
 static bool
 compare_dies(const read_context& ctxt,
 	     const Dwarf_Die *l, const Dwarf_Die *r,
-	     istring_set_type& aggregates_being_compared,
+	     dwarf_offset_pair_set_type& aggregates_being_compared,
 	     bool update_canonical_dies_on_the_fly)
 {
   ABG_ASSERT(l);
@@ -10141,6 +10220,15 @@ compare_dies(const read_context& ctxt,
 
   Dwarf_Off l_offset = dwarf_dieoffset(const_cast<Dwarf_Die*>(l)),
     r_offset = dwarf_dieoffset(const_cast<Dwarf_Die*>(r));
+
+  if (l_offset == r_offset)
+    return true;
+  auto& visit = ctxt.die_comparison_visits_[std::make_pair(l_offset, r_offset)];
+  if (visit == 10000)
+    return true;
+  else
+    ++visit;
+
   Dwarf_Off l_canonical_die_offset = 0, r_canonical_die_offset = 0;
   const die_source l_die_source = ctxt.get_die_source(l);
   const die_source r_die_source = ctxt.get_die_source(r);
@@ -10161,6 +10249,7 @@ compare_dies(const read_context& ctxt,
     return l_canonical_die_offset == r_canonical_die_offset;
 
   bool result = true;
+  bool aggregate_redundancy_detected = false;
 
   switch (l_tag)
     {
@@ -10272,23 +10361,19 @@ compare_dies(const read_context& ctxt,
     case DW_TAG_structure_type:
     case DW_TAG_union_type:
       {
-	interned_string ln = ctxt.get_die_pretty_type_representation(l, 0);
-	interned_string rn = ctxt.get_die_pretty_type_representation(r, 0);
-
-	if ((aggregates_being_compared.find(ln)
-	     != aggregates_being_compared.end())
-	    || (aggregates_being_compared.find(rn)
-		!= aggregates_being_compared.end()))
-	  result = true;
-	else if (!compare_as_decl_dies(l, r))
-	  result = false;
-	else if (!compare_as_type_dies(l, r))
+	if (has_offset_pair(aggregates_being_compared,
+			    die_offset(l), die_offset(r)))
+	  {
+	    result = true;
+	    aggregate_redundancy_detected = true;
+	    break;
+	  }
+	else if (!compare_as_decl_dies(l, r) || !compare_as_type_dies(l, r))
 	  result = false;
 	else
 	  {
-	    aggregates_being_compared.insert(ln);
-	    aggregates_being_compared.insert(rn);
-
+	    insert_offset_pair(aggregates_being_compared,
+			       die_offset(l), die_offset(r));
 	    Dwarf_Die l_member, r_member;
 	    bool found_l_member, found_r_member;
 	    for (found_l_member = dwarf_child(const_cast<Dwarf_Die*>(l),
@@ -10320,8 +10405,8 @@ compare_dies(const read_context& ctxt,
 	    if (found_l_member != found_r_member)
 	      result = false;
 
-	    aggregates_being_compared.erase(ln);
-	    aggregates_being_compared.erase(rn);
+	    erase_offset_pair(aggregates_being_compared,
+			      die_offset(l), die_offset(r));
 	  }
       }
       break;
@@ -10406,12 +10491,11 @@ compare_dies(const read_context& ctxt,
 	interned_string ln = ctxt.get_die_pretty_type_representation(l, 0);
 	interned_string rn = ctxt.get_die_pretty_type_representation(r, 0);
 
-	if ((aggregates_being_compared.find(ln)
-	     != aggregates_being_compared.end())
-	    || (aggregates_being_compared.find(rn)
-		!= aggregates_being_compared.end()))
+	if (has_offset_pair(aggregates_being_compared, die_offset(l),
+			    die_offset(r)))
 	  {
 	    result = true;
+	    aggregate_redundancy_detected = true;
 	    break;
 	  }
 	else if (l_tag == DW_TAG_subroutine_type)
@@ -10502,8 +10586,8 @@ compare_dies(const read_context& ctxt,
 	      }
 	  }
 
-	aggregates_being_compared.erase(ln);
-	aggregates_being_compared.erase(rn);
+	erase_offset_pair(aggregates_being_compared,
+			  die_offset(l), die_offset(r));
       }
       break;
 
@@ -10539,19 +10623,10 @@ compare_dies(const read_context& ctxt,
 	      Dwarf_Die l_type, r_type;
 	      ABG_ASSERT(die_die_attribute(l, DW_AT_type, l_type));
 	      ABG_ASSERT(die_die_attribute(r, DW_AT_type, r_type));
-	      if (aggregates_being_compared.size () < 5)
-		{
-		  if (!compare_dies(ctxt, &l_type, &r_type,
-				    aggregates_being_compared,
-				    update_canonical_dies_on_the_fly))
-		    result = false;
-		}
-	      else
-		{
-		  if (!compare_as_type_dies(&l_type, &r_type)
-		      ||!compare_as_decl_dies(&l_type, &r_type))
-		    return false;
-		}
+	      if (!compare_dies(ctxt, &l_type, &r_type,
+				aggregates_being_compared,
+				update_canonical_dies_on_the_fly))
+		result = false;
 	    }
 	}
       else
@@ -10616,6 +10691,7 @@ compare_dies(const read_context& ctxt,
     }
 
   if (result == true
+      && !aggregate_redundancy_detected
       && update_canonical_dies_on_the_fly
       && is_canonicalizeable_type_tag(l_tag))
     {
@@ -10665,7 +10741,7 @@ compare_dies(const read_context& ctxt,
 	     const Dwarf_Die *r,
 	     bool update_canonical_dies_on_the_fly)
 {
-  istring_set_type aggregates_being_compared;
+  dwarf_offset_pair_set_type aggregates_being_compared;
   return compare_dies(ctxt, l, r, aggregates_being_compared,
 		      update_canonical_dies_on_the_fly);
 }
@@ -12163,19 +12239,6 @@ add_or_update_class_type(read_context&	 ctxt,
 	return class_type;
       }
   }
-
-  if (!ctxt.die_is_in_cplus_plus(die))
-    // In c++, a given class might be put together "piecewise".  That
-    // is, in a translation unit, some data members of that class
-    // might be defined; then in another later, some member types
-    // might be defined.  So we can't just re-use a class "verbatim"
-    // just because we've seen previously.  So in c++, re-using the
-    // class is a much clever process.  In the other languages however
-    // (like in C) we can re-use a class definition verbatim.
-    if (class_decl_sptr class_type =
-	is_class_type(ctxt.lookup_type_from_die(die)))
-      if (!class_type->get_is_declaration_only())
-	return class_type;
 
   string name, linkage_name;
   location loc;
@@ -14394,10 +14457,12 @@ read_debug_info_into_corpus(read_context& ctxt)
   // First set some mundane properties of the corpus gathered from
   // ELF.
   ctxt.current_corpus()->set_path(ctxt.elf_path());
+
+  corpus::origin origin = corpus::DWARF_ORIGIN;
   if (is_linux_kernel(ctxt.elf_handle()))
-    ctxt.current_corpus()->set_origin(corpus::LINUX_KERNEL_BINARY_ORIGIN);
-  else
-    ctxt.current_corpus()->set_origin(corpus::DWARF_ORIGIN);
+    origin |= corpus::LINUX_KERNEL_BINARY_ORIGIN;
+  ctxt.current_corpus()->set_origin(origin);
+
   ctxt.current_corpus()->set_soname(ctxt.dt_soname());
   ctxt.current_corpus()->set_needed(ctxt.dt_needed());
   ctxt.current_corpus()->set_architecture_name(ctxt.elf_architecture());

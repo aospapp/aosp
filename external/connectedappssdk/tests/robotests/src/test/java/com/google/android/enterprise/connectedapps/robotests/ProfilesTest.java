@@ -71,13 +71,13 @@ public class ProfilesTest {
     testUtilities.setRunningOnPersonalProfile();
     testUtilities.setRequestsPermissions(INTERACT_ACROSS_USERS);
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
   }
 
   @Test
   public void profiles_isBound_resultContainsAllProfileResults() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     Map<Profile, String> result =
         profileTestCrossProfileType

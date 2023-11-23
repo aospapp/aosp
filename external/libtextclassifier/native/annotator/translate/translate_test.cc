@@ -31,20 +31,33 @@ namespace {
 using testing::AllOf;
 using testing::Field;
 
-const TranslateAnnotatorOptions* TestingTranslateAnnotatorOptions() {
-  static const flatbuffers::DetachedBuffer* options_data = []() {
-    TranslateAnnotatorOptionsT options;
-    options.enabled = true;
-    options.algorithm = TranslateAnnotatorOptions_::Algorithm_BACKOFF;
-    options.backoff_options.reset(
-        new TranslateAnnotatorOptions_::BackoffOptionsT());
+const flatbuffers::DetachedBuffer* CreateOptionsData(ModeFlag enabled_modes) {
+  TranslateAnnotatorOptionsT options;
+  options.enabled = true;
+  options.algorithm = TranslateAnnotatorOptions_::Algorithm_BACKOFF;
+  options.backoff_options.reset(
+      new TranslateAnnotatorOptions_::BackoffOptionsT());
+  options.enabled_modes = enabled_modes;
 
-    flatbuffers::FlatBufferBuilder builder;
-    builder.Finish(TranslateAnnotatorOptions::Pack(builder, &options));
-    return new flatbuffers::DetachedBuffer(builder.Release());
-  }();
+  flatbuffers::FlatBufferBuilder builder;
+  builder.Finish(TranslateAnnotatorOptions::Pack(builder, &options));
+  return new flatbuffers::DetachedBuffer(builder.Release());
+}
 
-  return flatbuffers::GetRoot<TranslateAnnotatorOptions>(options_data->data());
+const TranslateAnnotatorOptions* TestingTranslateAnnotatorOptions(
+    ModeFlag enabled_modes) {
+  static const flatbuffers::DetachedBuffer* options_data_classification =
+      CreateOptionsData(ModeFlag_CLASSIFICATION);
+  static const flatbuffers::DetachedBuffer* options_data_none =
+      CreateOptionsData(ModeFlag_NONE);
+
+  if (enabled_modes == ModeFlag_CLASSIFICATION) {
+    return flatbuffers::GetRoot<TranslateAnnotatorOptions>(
+        options_data_classification->data());
+  } else {
+    return flatbuffers::GetRoot<TranslateAnnotatorOptions>(
+        options_data_none->data());
+  }
 }
 
 class TestingTranslateAnnotator : public TranslateAnnotator {
@@ -60,16 +73,22 @@ std::string GetModelPath() { return GetTestDataPath("annotator/test_data/"); }
 
 class TranslateAnnotatorTest : public ::testing::Test {
  protected:
-  TranslateAnnotatorTest()
+  explicit TranslateAnnotatorTest(
+      ModeFlag enabled_modes = ModeFlag_CLASSIFICATION)
       : INIT_UNILIB_FOR_TESTING(unilib_),
         langid_model_(libtextclassifier3::mobile::lang_id::GetLangIdFromFlatbufferFile(
             GetModelPath() + "lang_id.smfb")),
-        translate_annotator_(TestingTranslateAnnotatorOptions(),
+        translate_annotator_(TestingTranslateAnnotatorOptions(enabled_modes),
                              langid_model_.get(), &unilib_) {}
 
   UniLib unilib_;
   std::unique_ptr<libtextclassifier3::mobile::lang_id::LangId> langid_model_;
   TestingTranslateAnnotator translate_annotator_;
+};
+
+class TranslateAnnotatorForNoneTest : public TranslateAnnotatorTest {
+ protected:
+  TranslateAnnotatorForNoneTest() : TranslateAnnotatorTest(ModeFlag_NONE) {}
 };
 
 TEST_F(TranslateAnnotatorTest, WhenSpeaksEnglishGetsTranslateActionForCzech) {
@@ -108,6 +127,13 @@ TEST_F(TranslateAnnotatorTest, EntityDataIsSet) {
   EXPECT_EQ(predictions->Get(1)->language_tag()->str(), "ja");
   EXPECT_TRUE(predictions->Get(0)->confidence_score() >=
               predictions->Get(1)->confidence_score());
+}
+
+TEST_F(TranslateAnnotatorForNoneTest,
+       ClassifyTextDisabledClassificationReturnsFalse) {
+  ClassificationResult classification;
+  EXPECT_FALSE(translate_annotator_.ClassifyText(
+      UTF8ToUnicodeText("学校"), {0, 2}, "en", &classification));
 }
 
 TEST_F(TranslateAnnotatorTest,

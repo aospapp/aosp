@@ -15,9 +15,7 @@
 #include <random>
 #include <vector>
 
-#include <xnnpack.h>
-#include <xnnpack/params-init.h>
-#include <xnnpack/params.h>
+#include <xnnpack/microfnptr.h>
 
 
 class UnpoolMicrokernelTester {

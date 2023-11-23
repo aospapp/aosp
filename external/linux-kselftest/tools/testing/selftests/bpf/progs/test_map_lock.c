@@ -2,7 +2,7 @@
 // Copyright (c) 2019 Facebook
 #include <linux/bpf.h>
 #include <linux/version.h>
-#include "bpf_helpers.h"
+#include <bpf/bpf_helpers.h>
 
 #define VAR_NUM 16
 
@@ -30,7 +30,7 @@ struct {
 	__type(value, struct array_elem);
 } array_map SEC(".maps");
 
-SEC("map_lock_demo")
+SEC("cgroup/skb")
 int bpf_map_lock_test(struct __sk_buff *skb)
 {
 	struct hmap_elem zero = {}, *val;

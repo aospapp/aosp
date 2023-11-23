@@ -8,12 +8,13 @@ AUTHOR = 'chromeos-bluetooth'
 NAME = 'bluetooth_AdapterCLHealth.stress'
 PURPOSE = ('Batch of Bluetooth Classic health tests')
 CRITERIA = 'Pass all health test'
-ATTRIBUTES = 'suite:bluetooth_stress'
+ATTRIBUTES = ''
 TIME = 'LONG'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1'
+PY_VERSION = 3
 
 DOC = """
 A Batch of Bluetooth Classic health tests. This test is written as a batch

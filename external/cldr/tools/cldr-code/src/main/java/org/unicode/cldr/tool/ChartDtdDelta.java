@@ -2,6 +2,7 @@ package org.unicode.cldr.tool;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -13,8 +14,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 
+import org.unicode.cldr.draft.FileUtilities;
 import org.unicode.cldr.tool.ToolConstants.ChartStatus;
 import org.unicode.cldr.util.CLDRConfig;
+import org.unicode.cldr.util.CLDRPaths;
 import org.unicode.cldr.util.CldrUtility;
 import org.unicode.cldr.util.DtdData;
 import org.unicode.cldr.util.DtdData.Attribute;
@@ -40,11 +43,16 @@ public class ChartDtdDelta extends Chart {
 
     private static final Splitter SPLITTER_SPACE = Splitter.on(' ');
 
-    private static final String DEPRECATED_PREFIX = "⊖";
-
     private static final String NEW_PREFIX = "+";
+
+    private static final String DEPRECATED_PREFIX = "⊖";
+    private static final String UNDEPRECATED_PREFIX = "⊙"; // no occurances yet
+
     private static final String ORDERED_SIGN = "⇣";
     private static final String UNORDERED_SIGN = "⇟";
+
+    private static final String TECHPREVIEW_SIGN = "🅟";
+    private static final String UNTECHPREVIEW_SIGN = "ⓟ";
 
 
     private static final Set<String> OMITTED_ATTRIBUTES = Collections.singleton("⊕");
@@ -78,6 +86,9 @@ public class ChartDtdDelta extends Chart {
             + "<li>Attribute value constraints are marked with ⟨…⟩ (for DTD constraints) and ⟪…⟫ (for augmented constraints, added in v35.0).</li>\n"
             + "<li>Changes in status or constraints are shown with ➠, with identical sections shown with ….</li>\n"
             + "<li>Newly ordered elements are indicated with " + ORDERED_SIGN + "; newly unordered with " + UNORDERED_SIGN + ".</li>\n"
+            + "<li>Newly tech-preview items are marked with " + TECHPREVIEW_SIGN + "; newly graduated from tech preview with " + UNTECHPREVIEW_SIGN + ".</li>\n"
+            + "<li>The following elements are skipped: " + SKIP_ELEMENTS + " and " + SKIP_TYPE_ELEMENTS + "</li>\n"
+            + "<li>The following attributes are skipped: " + SKIP_ATTRIBUTES + " and " + SKIP_ATTRIBUTE_MATCHES + "</li>\n"
             + "</ul></li></ul>\n"
             + "<p>For more information, see the LDML spec.</p>";
     }
@@ -109,6 +120,7 @@ public class ChartDtdDelta extends Chart {
             for (DtdType type : TYPES) {
                 String firstVersion = type.firstVersion; // FIRST_VERSION.get(type);
                 if (firstVersion != null && current != null && current.compareTo(firstVersion) < 0) {
+                    // skip if current is too old to have “type”
                     continue;
                 }
                 DtdData dtdCurrent = null;
@@ -126,14 +138,9 @@ public class ChartDtdDelta extends Chart {
                     continue;
                 }
                 DtdData dtdLast = null;
-                if (last != null) {
-                    try {
-                        dtdLast = DtdData.getInstance(type, last);
-                    } catch (Exception e) {
-                        if (!(e.getCause() instanceof FileNotFoundException)) {
-                            throw e;
-                        }
-                    }
+                if (last != null && (firstVersion == null || last.compareTo(firstVersion) >= 0)) {
+                    // only read if last isn’t too old to have “type”
+                    dtdLast = DtdData.getInstance(type, last);
                 }
                 diff(currentName, dtdLast, dtdCurrent);
             }
@@ -154,6 +161,9 @@ public class ChartDtdDelta extends Chart {
         }
         pw.write(tablePrinter.toTable());
         pw.write(Utility.repeat("<br>", 50));
+        try (PrintWriter tsvFile = FileUtilities.openUTF8Writer(CLDRPaths.CHART_DIRECTORY + "/tsv/", "dtd_deltas.tsv")) {
+            tablePrinter.toTsv(tsvFile);
+        }
     }
 
     static final String NONE = " ";
@@ -214,23 +224,32 @@ public class ChartDtdDelta extends Chart {
 
         Element oldElement = null;
         boolean ordered = element.isOrdered();
+        boolean currentTechPreview = element.isTechPreview();
 
         if (!oldNameToElement.containsKey(name)) {
             Set<String> attributeNames = getAttributeNames(dtdCurrent, dtdLast, name, Collections.emptyMap(), element.getAttributes());
-            addData(dtdCurrent, NEW_PREFIX + name + (ordered ? ORDERED_SIGN : ""), version, newPath, attributeNames);
+            final String prefix = NEW_PREFIX + (currentTechPreview ? TECHPREVIEW_SIGN : "");
+            addData(dtdCurrent, prefix + name + (ordered ? ORDERED_SIGN : ""), version, newPath, attributeNames);
         } else {
             oldElement = oldNameToElement.get(name);
             boolean oldOrdered = oldElement.isOrdered();
             Set<String> attributeNames = getAttributeNames(dtdCurrent, dtdLast, name, oldElement.getAttributes(), element.getAttributes());
             boolean currentDeprecated = element.isDeprecated();
             boolean lastDeprecated = dtdLast == null ? false : oldElement.isDeprecated(); //  + (currentDeprecated ? "ⓓ" : "")
-            boolean newlyDeprecated = currentDeprecated && !lastDeprecated;
-            String orderingStatus = (ordered == oldOrdered || currentDeprecated) ? "" : ordered ? ORDERED_SIGN : UNORDERED_SIGN;
-            if (newlyDeprecated) {
-                addData(dtdCurrent, DEPRECATED_PREFIX + name + orderingStatus, version, newPath, Collections.emptySet());
-            }
-            if (!attributeNames.isEmpty()) {
-                addData(dtdCurrent, (newlyDeprecated ? DEPRECATED_PREFIX : "") + name + orderingStatus, version, newPath, attributeNames);
+            boolean lastTechPreview = dtdLast == null ? false : oldElement.isTechPreview(); //  + (currentDeprecated ? "ⓓ" : "")
+
+            String deprecatedStatus = currentDeprecated == lastDeprecated ? ""
+                : currentDeprecated ? DEPRECATED_PREFIX : UNDEPRECATED_PREFIX ;
+            String orderingStatus = (ordered == oldOrdered || currentDeprecated) ? ""
+                : ordered ? ORDERED_SIGN : UNORDERED_SIGN;
+            String previewStatus = (currentTechPreview == lastTechPreview || currentDeprecated) ? ""
+                : currentTechPreview ? TECHPREVIEW_SIGN : UNTECHPREVIEW_SIGN;
+
+            if (!orderingStatus.isEmpty()
+                || !previewStatus.isEmpty()
+                || !deprecatedStatus.isEmpty()
+                || !attributeNames.isEmpty()) {
+                addData(dtdCurrent, deprecatedStatus + previewStatus + name + orderingStatus, version, newPath, attributeNames);
             }
         }
         if (element.getName().equals("coordinateUnit")) {
@@ -315,7 +334,14 @@ public class ChartDtdDelta extends Chart {
 
     static final Multimap<DtdType, String> SKIP_TYPE_ELEMENTS = ImmutableMultimap.of(DtdType.ldml, "alias");
 
-    static final Set<String> SKIP_ATTRIBUTES = ImmutableSet.of("references", "standard", "draft", "alt");
+    static final Set<String> SKIP_ATTRIBUTES = ImmutableSet.of(
+        "references",
+        "standard",
+        "draft"
+        );
+
+    static final Multimap<String, String> SKIP_ATTRIBUTE_MATCHES = ImmutableMultimap.of(
+        "alt", "", "alt", "⟪literal/variant⟫");
 
     private static Set<String> getAttributeNames(DtdData dtdCurrent, DtdData dtdLast, String elementName,
         Map<Attribute, Integer> attributesOld,
@@ -342,6 +368,9 @@ public class ChartDtdDelta extends Chart {
                 String pre, post;
                 Attribute attributeOld = attribute.getMatchingName(attributesOld);
                 if (attributeOld == null) {
+                    if (SKIP_ATTRIBUTE_MATCHES.containsEntry(name, match)) {
+                        continue main;
+                    }
                     display = NEW_PREFIX + name +  " " + AttributeStatus.getShortName(status) + " " + match;
                 } else if (attribute.isDeprecated() && !attributeOld.isDeprecated()) {
                     display = DEPRECATED_PREFIX + name;
@@ -358,6 +387,10 @@ public class ChartDtdDelta extends Chart {
                             post += " " + match;
                         }
                     } else if (!matchEquals) {
+                        if (oldMatch.isEmpty()
+                            && SKIP_ATTRIBUTE_MATCHES.containsEntry(name, match)) {
+                            continue main;
+                        }
                         pre = oldMatch;
                         post = match;
                     } else {

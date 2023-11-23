@@ -29,9 +29,6 @@ static int check_newuser(void)
 {
 	int pid, status;
 
-	if (tst_kvercmp(3, 8, 0) < 0)
-		tst_brkm(TCONF, NULL, "CLONE_NEWUSER not supported");
-
 	pid = do_clone_unshare_test(T_CLONE, CLONE_NEWUSER, dummy_child, NULL);
 	if (pid == -1)
 		tst_brkm(TCONF | TERRNO, NULL, "CLONE_NEWUSER not supported");
@@ -56,7 +53,7 @@ LTP_ATTRIBUTE_UNUSED static int updatemap(int cpid, bool type, int idnum,
 
 	sprintf(content, "%d %d 1", idnum, parentmappid);
 	fd = SAFE_OPEN(cleanup, path, O_WRONLY, 0644);
-	SAFE_WRITE(cleanup, 1, fd, content, strlen(content));
+	SAFE_WRITE(cleanup, SAFE_WRITE_ALL, fd, content, strlen(content));
 	SAFE_CLOSE(cleanup, fd);
 	return 0;
 }

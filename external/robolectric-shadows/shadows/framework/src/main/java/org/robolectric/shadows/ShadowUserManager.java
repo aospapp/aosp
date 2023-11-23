@@ -8,6 +8,7 @@ import static android.os.Build.VERSION_CODES.N;
 import static android.os.Build.VERSION_CODES.N_MR1;
 import static android.os.Build.VERSION_CODES.R;
 import static android.os.Build.VERSION_CODES.TIRAMISU;
+import static android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
 
 import static org.robolectric.shadow.api.Shadow.directlyOn;
 
@@ -17,6 +18,7 @@ import android.annotation.UserIdInt;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
+import android.content.pm.UserProperties;
 import android.os.Bundle;
 import android.os.IUserManager;
 import android.os.Process;
@@ -64,6 +66,10 @@ public class ShadowUserManager {
   private boolean userUnlocked = true;
   private boolean managedProfile = false;
   private boolean isSystemUser = true;
+  private static boolean isHeadlessSystemUserMode = false;
+  private static boolean isMultipleAdminEnabled = false;
+
+
   private Map<Integer, Bundle> userRestrictions = new HashMap<>();
   private BiMap<UserHandle, Long> userProfiles = HashBiMap.create();
   private Map<String, Bundle> applicationRestrictions = new HashMap<>();
@@ -72,6 +78,7 @@ public class ShadowUserManager {
   private Map<Integer, UserInfo> userInfoMap = new HashMap<>();
   private Map<Integer, List<UserInfo>> profiles = new HashMap<>();
   private Map<Integer, Integer> profileToParent = new HashMap<>();
+  private Map<Integer, UserProperties> mUserPropertiesMap = new HashMap<>();
 
   private Context context;
   private boolean enforcePermissions;
@@ -339,6 +346,24 @@ public class ShadowUserManager {
 
   private boolean hasManageUsersPermission() {
     return context.getPackageManager().checkPermission(permission.MANAGE_USERS, context.getPackageName()) == PackageManager.PERMISSION_GRANTED;
+  }
+
+  public static void setIsMultipleAdminEnabled(boolean enableMultipleAdmin) {
+    isMultipleAdminEnabled = enableMultipleAdmin;
+  }
+
+  @Implementation(minSdk = UPSIDE_DOWN_CAKE)
+  protected static boolean isMultipleAdminEnabled() {
+    return isMultipleAdminEnabled;
+  }
+
+  public static void setIsHeadlessSystemUserMode(boolean isHSUM) {
+    isHeadlessSystemUserMode = isHSUM;
+  }
+
+  @Implementation
+  protected static boolean isHeadlessSystemUserMode() {
+      return isHeadlessSystemUserMode;
   }
 
   private void checkPermissions() {
@@ -636,5 +661,18 @@ public class ShadowUserManager {
       userPidMap.clear();
       userPidMap.put(UserHandle.USER_SYSTEM, Process.myUid());
     }
+    isMultipleAdminEnabled = false;
+  }
+
+  public void setupUserProperty(int userId, int showInSettings) {
+    UserProperties userProperties = new UserProperties(new UserProperties.Builder()
+            .setShowInSettings(showInSettings).build());
+    mUserPropertiesMap.putIfAbsent(userId, userProperties);
+  }
+
+  @Implementation(minSdk = UPSIDE_DOWN_CAKE)
+  protected UserProperties getUserProperties(UserHandle user) {
+    return mUserPropertiesMap.getOrDefault(user.getIdentifier(),
+            new UserProperties(new UserProperties.Builder().build()));
   }
 }

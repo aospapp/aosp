@@ -53,7 +53,7 @@ public class AlwaysThrowsTest {
                 annotatedNotesProvider(annotationPrinter),
                 annotatedNotesCrossProfileType(annotationPrinter));
 
-    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_AlwaysThrows");
+    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".NotesType_AlwaysThrows");
   }
 
   @Test
@@ -66,10 +66,9 @@ public class AlwaysThrowsTest {
                 annotatedNotesCrossProfileType(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_AlwaysThrows")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_AlwaysThrows")
         .contentsAsUtf8String()
-        .contains(
-            "class ProfileNotesType_AlwaysThrows implements" + " ProfileNotesType_SingleSender");
+        .contains("class NotesType_AlwaysThrows implements NotesType_SingleSender");
   }
 
   @Test
@@ -82,8 +81,8 @@ public class AlwaysThrowsTest {
                 annotatedNotesCrossProfileType(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_AlwaysThrows")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_AlwaysThrows")
         .contentsAsUtf8String()
-        .contains("public ProfileNotesType_AlwaysThrows(String errorMessage)");
+        .contains("public NotesType_AlwaysThrows(String errorMessage)");
   }
 }

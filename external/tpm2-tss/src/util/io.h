@@ -7,10 +7,12 @@
 #define UTIL_IO_H
 
 #ifdef _WIN32
-#include <BaseTsd.h>
+#include <basetsd.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#ifdef _MSC_VER
 typedef SSIZE_T ssize_t;
+#endif
 #define _HOST_NAME_MAX MAX_COMPUTERNAME_LENGTH
 
 #else

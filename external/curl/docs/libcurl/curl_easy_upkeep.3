@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -18,16 +18,19 @@
 .\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 .\" * KIND, either express or implied.
 .\" *
+.\" * SPDX-License-Identifier: curl
+.\" *
 .\" **************************************************************************
 .\"
-.TH curl_easy_upkeep 3 "October 25, 2021" "libcurl 7.80.0" "libcurl Manual"
-
+.TH curl_easy_upkeep 3 "31 Oct 2018" "libcurl 7.62.0" "libcurl Manual"
 .SH NAME
 curl_easy_upkeep - Perform any connection upkeep checks.
 .SH SYNOPSIS
-.B #include <curl/curl.h>
+.nf
+#include <curl/curl.h>
 
-.BI "CURLcode curl_easy_upkeep(CURL *" handle ");"
+CURLcode curl_easy_upkeep(CURL *handle);
+.fi
 .SH DESCRIPTION
 
 Some protocols have "connection upkeep" mechanisms. These mechanisms usually

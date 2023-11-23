@@ -122,6 +122,7 @@
             "-Wno-deprecated-declarations",
             "-Wtrampolines",
             "-static-libgcc",
+            "-nopie",
             "main.cc",
             "-L/usr/x86_64-cros-linux-gnu/usr/lib64",
             "-mno-movbe"

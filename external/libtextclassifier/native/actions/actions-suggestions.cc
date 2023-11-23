@@ -21,6 +21,8 @@
 #include <vector>
 
 #include "utils/base/statusor.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/random/random.h"
 
 #if !defined(TC3_DISABLE_LUA)
 #include "actions/lua-actions.h"
@@ -42,6 +44,7 @@
 #include "utils/strings/utf8.h"
 #include "utils/utf8/unicodetext.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/random/distributions.h"
 #include "tensorflow/lite/string_util.h"
 
 namespace libtextclassifier3 {
@@ -813,6 +816,8 @@ void ActionsSuggestions::PopulateTextReplies(
     const tflite::Interpreter* interpreter, int suggestion_index,
     int score_index, const std::string& type, float priority_score,
     const absl::flat_hash_set<std::string>& blocklist,
+    const absl::flat_hash_map<std::string, std::vector<std::string>>&
+        concept_mappings,
     ActionsSuggestionsResponse* response) const {
   const std::vector<tflite::StringRef> replies =
       model_executor_->Output<tflite::StringRef>(suggestion_index, interpreter);
@@ -830,6 +835,12 @@ void ActionsSuggestions::PopulateTextReplies(
     std::string response_text(replies[i].str, replies[i].len);
     if (blocklist.contains(response_text)) {
       continue;
+    }
+    if (concept_mappings.contains(response_text)) {
+      const int candidates_size = concept_mappings.at(response_text).size();
+      const int candidate_index = absl::Uniform<int>(
+          absl::IntervalOpenOpen, bit_gen_, 0, candidates_size);
+      response_text = concept_mappings.at(response_text)[candidate_index];
     }
 
     response->actions.push_back({response_text, type, score, priority_score});
@@ -918,11 +929,11 @@ bool ActionsSuggestions::ReadModelOutput(
   if (!response->output_filtered_min_triggering_score &&
       model_->tflite_model_spec()->output_replies() >= 0) {
     absl::flat_hash_set<std::string> empty_blocklist;
-    PopulateTextReplies(interpreter,
-                        model_->tflite_model_spec()->output_replies(),
-                        model_->tflite_model_spec()->output_replies_scores(),
-                        model_->smart_reply_action_type()->str(),
-                        /* priority_score */ 0.0, empty_blocklist, response);
+    PopulateTextReplies(
+        interpreter, model_->tflite_model_spec()->output_replies(),
+        model_->tflite_model_spec()->output_replies_scores(),
+        model_->smart_reply_action_type()->str(),
+        /* priority_score */ 0.0, empty_blocklist, {}, response);
   }
 
   // Read actions suggestions.
@@ -961,6 +972,8 @@ bool ActionsSuggestions::ReadModelOutput(
       const int suggestions_scores_index =
           metadata->output_suggestions_scores();
       absl::flat_hash_set<std::string> response_text_blocklist;
+      absl::flat_hash_map<std::string, std::vector<std::string>>
+          concept_mappings;
       switch (metadata->prediction_type()) {
         case PredictionType_NEXT_MESSAGE_PREDICTION:
           if (!task_spec || task_spec->type()->size() == 0) {
@@ -973,13 +986,22 @@ bool ActionsSuggestions::ReadModelOutput(
                 response_text_blocklist.insert(val->str());
               }
             }
+            if (task_spec->concept_mappings()) {
+              for (const auto& concept : *task_spec->concept_mappings()) {
+                std::vector<std::string> candidates;
+                for (const auto& candidate : *concept->candidates()) {
+                  candidates.push_back(candidate->str());
+                }
+                concept_mappings[concept->concept_name()->str()] = candidates;
+              }
+            }
           }
           PopulateTextReplies(
               interpreter, suggestions_index, suggestions_scores_index,
               task_spec ? task_spec->type()->str()
                         : model_->smart_reply_action_type()->str(),
               task_spec ? task_spec->priority_score() : 0.0,
-              response_text_blocklist, response);
+              response_text_blocklist, concept_mappings, response);
           break;
         case PredictionType_INTENT_TRIGGERING:
           PopulateIntentTriggering(interpreter, suggestions_index,

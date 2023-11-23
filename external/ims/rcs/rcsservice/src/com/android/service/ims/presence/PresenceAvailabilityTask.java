@@ -69,5 +69,4 @@ public class PresenceAvailabilityTask extends PresenceTask{
         return super.toString() +
                 " mNotifyTimeStamp=" + mNotifyTimeStamp;
     }
-};
-
+}

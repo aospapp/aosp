@@ -1,24 +1,21 @@
 # Building the libcap/{cap.psx} Go packages, and examples.
 #
-# Note, we use symlinks to construct a GOPATH friendly src tree. The
+# Note, we use symlinks to construct a go.mod build friendly tree. The
 # packages themselves are intended to be (ultimately) found via proxy
 # as "kernel.org/pub/linux/libs/security/libcap/cap" and
 # "kernel.org/pub/linux/libs/security/libcap/psx". However, to
 # validate their use on these paths, we fake such a structure in the
-# build tree with symlinks.
+# build tree with symlinks and a vendor directory.
 
 topdir=$(realpath ..)
 include $(topdir)/Make.Rules
 
-GOPATH=$(realpath .)
 IMPORTDIR=kernel.org/pub/linux/libs/security/libcap
 PKGDIR=pkg/$(GOOSARCH)/$(IMPORTDIR)
-PSXGOPACKAGE=$(PKGDIR)/psx.a
-CAPGOPACKAGE=$(PKGDIR)/cap.a
 
 DEPS=../libcap/libcap.a ../libcap/libpsx.a
 
-all: $(PSXGOPACKAGE) $(CAPGOPACKAGE) web setid gowns compare-cap try-launching psx-signals
+all: PSXGOPACKAGE CAPGOPACKAGE web setid gowns compare-cap try-launching psx-signals
 
 $(DEPS):
 	make -C ../libcap all
@@ -26,71 +23,80 @@ $(DEPS):
 ../progs/tcapsh-static:
 	make -C ../progs tcapsh-static
 
-src/$(IMPORTDIR)/psx:
-	mkdir -p "src/$(IMPORTDIR)"
-	ln -s $(topdir)/psx $@
+vendor/$(IMPORTDIR) vendor/modules.txt:
+	mkdir -p "vendor/$(IMPORTDIR)"
+	echo "# $(IMPORTDIR)/psx v$(GOMAJOR).$(VERSION).$(MINOR)" > vendor/modules.txt
+	echo "$(IMPORTDIR)/psx" >> vendor/modules.txt
+	echo "# $(IMPORTDIR)/cap v$(GOMAJOR).$(VERSION).$(MINOR)" >> vendor/modules.txt
+	echo "$(IMPORTDIR)/cap" >> vendor/modules.txt
 
-src/$(IMPORTDIR)/cap:
-	mkdir -p "src/$(IMPORTDIR)"
-	ln -s $(topdir)/cap $@
+vendor/$(IMPORTDIR)/psx: vendor/modules.txt
+	ln -sf $(topdir)/psx vendor/$(IMPORTDIR)
+	touch ../psx
 
-$(topdir)/libcap/cap_names.h: $(DEPS)
-	make -C $(topdir)/libcap all
+vendor/$(IMPORTDIR)/cap: vendor/modules.txt
+	ln -sf $(topdir)/cap vendor/$(IMPORTDIR)
+	touch ../cap
 
-good-names.go: $(topdir)/libcap/cap_names.h src/$(IMPORTDIR)/cap  mknames.go
-	$(GO) run mknames.go --header=$< --textdir=$(topdir)/doc/values | gofmt > $@ || rm -f $@
+$(topdir)/libcap/cap_names.h:
+	make -C $(topdir)/libcap cap_names.h
+
+good-names.go: $(topdir)/libcap/cap_names.h vendor/$(IMPORTDIR)/cap mknames.go
+	CC="$(CC)" $(GO) run -mod=vendor mknames.go --header=$< --textdir=$(topdir)/doc/values | gofmt > $@ || rm -f $@
 	diff -u ../cap/names.go $@
 
-$(PSXGOPACKAGE): src/$(IMPORTDIR)/psx ../psx/*.go $(DEPS)
-	mkdir -p pkg
-	GO111MODULE=off CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" GOPATH="$(GOPATH)" $(GO) install $(IMPORTDIR)/psx
+PSXGOPACKAGE: vendor/$(IMPORTDIR)/psx ../psx/*.go $(DEPS)
+	touch $@
 
-$(CAPGOPACKAGE): src/$(IMPORTDIR)/cap ../cap/*.go good-names.go $(PSXGOPACKAGE)
-	GO111MODULE=off CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" GOPATH=$(GOPATH) $(GO) install $(IMPORTDIR)/cap
+CAPGOPACKAGE: vendor/$(IMPORTDIR)/cap ../cap/*.go good-names.go $(PSXGOPACKAGE)
+	touch $@
 
 # Compiles something with this package to compare it to libcap. This
 # tests more when run under sudotest (see ../progs/quicktest.sh for that).
-compare-cap: compare-cap.go $(CAPGOPACKAGE)
-	GO111MODULE=off CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" GOPATH=$(GOPATH) $(GO) build $<
+compare-cap: compare-cap.go CAPGOPACKAGE
+	CC="$(CC)" $(CGO_LDFLAGS_ALLOW) CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GO) build -mod=vendor $<
 
-web: ../goapps/web/web.go $(CAPGOPACKAGE)
-	GO111MODULE=off CGO_ENABLED="$(CGO_REQUIRED)" CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" GOPATH=$(GOPATH) $(GO) build -o $@ $<
+web: ../goapps/web/web.go CAPGOPACKAGE
+	CC="$(CC)" CGO_ENABLED="$(CGO_REQUIRED)" $(CGO_LDFLAGS_ALLOW) $(GO) build -mod=vendor -o $@ $<
 ifeq ($(RAISE_GO_FILECAP),yes)
 	make -C ../progs setcap
 	sudo ../progs/setcap cap_setpcap,cap_net_bind_service=p web
 	@echo "NOTE: RAISED cap_setpcap,cap_net_bind_service ON web binary"
 endif
 
-setid: ../goapps/setid/setid.go $(CAPGOPACKAGE) $(PSXGOPACKAGE)
-	GO111MODULE=off CGO_ENABLED="$(CGO_REQUIRED)" CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" GOPATH=$(GOPATH) $(GO) build -o $@ $<
+setid: ../goapps/setid/setid.go CAPGOPACKAGE PSXGOPACKAGE
+	CC="$(CC)" CGO_ENABLED="$(CGO_REQUIRED)" $(CGO_LDFLAGS_ALLOW) $(GO) build -mod=vendor -o $@ $<
 
-gowns: ../goapps/gowns/gowns.go $(CAPGOPACKAGE)
-	GO111MODULE=off CGO_ENABLED="$(CGO_REQUIRED)" CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" GOPATH=$(GOPATH) $(GO) build -o $@ $<
+gowns: ../goapps/gowns/gowns.go CAPGOPACKAGE
+	CC="$(CC)" CGO_ENABLED="$(CGO_REQUIRED)" $(CGO_LDFLAGS_ALLOW) $(GO) build -mod=vendor -o $@ $<
 
 ok: ok.go
-	GO111MODULE=off CGO_ENABLED=0 GOPATH=$(GOPATH) $(GO) build $<
+	CC="$(CC)" CGO_ENABLED=0 $(GO) build -mod=vendor $<
 
-try-launching: try-launching.go $(CAPGOPACKAGE) ok
-	GO111MODULE=off CGO_ENABLED="$(CGO_REQUIRED)" CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" GOPATH=$(GOPATH) $(GO) build $<
+try-launching: try-launching.go CAPGOPACKAGE ok
+	CC="$(CC)" CGO_ENABLED="$(CGO_REQUIRED)" $(CGO_LDFLAGS_ALLOW) $(GO) build -mod=vendor $<
 ifeq ($(CGO_REQUIRED),0)
-	GO111MODULE=off CGO_ENABLED="1" CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" GOPATH=$(GOPATH) $(GO) build -o $@-cgo $<
+	CC="$(CC)" CGO_ENABLED="1" $(CGO_LDFLAGS_ALLOW) $(GO) build -mod=vendor -o $@-cgo $<
 endif
 
-psx-signals: psx-signals.go $(PSXGOPACKAGE)
-	GO111MODULE=off CGO_ENABLED="$(CGO_REQUIRED)" CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" GOPATH=$(GOPATH) $(GO) build $<
+psx-signals: psx-signals.go PSXGOPACKAGE
+	CC="$(CC)" CGO_ENABLED="$(CGO_REQUIRED)" $(CGO_LDFLAGS_ALLOW) CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GO) build -mod=vendor $<
+
 ifeq ($(CGO_REQUIRED),0)
-	GO111MODULE=off CGO_ENABLED="1" CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" GOPATH=$(GOPATH) $(GO) build -o $@-cgo $<
+psx-signals-cgo: psx-signals.go PSXGOPACKAGE
+	CC="$(CC)" CGO_ENABLED="1" $(CGO_LDFLAGS_ALLOW) CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GO) build -mod=vendor -o $@ $<
 endif
 
-b210613: b210613.go $(CAPGOPACKAGE)
-	GO111MODULE=off CGO_ENABLED="$(CGO_REQUIRED)" CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" GOPATH=$(GOPATH) $(GO) build $<
+b210613: b210613.go CAPGOPACKAGE
+	CC="$(CC)" CGO_ENABLED="$(CGO_REQUIRED)" $(CGO_LDFLAGS_ALLOW) CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GO) build -mod=vendor $<
 
 test: all
-	GO111MODULE=off CGO_ENABLED="$(CGO_REQUIRED)" CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" GOPATH="$(GOPATH)" $(GO) test $(IMPORTDIR)/psx
-	GO111MODULE=off CGO_ENABLED="$(CGO_REQUIRED)" CGO_LDFLAGS_ALLOW="$(CGO_LDFLAGS_ALLOW)" GOPATH="$(GOPATH)" $(GO) test $(IMPORTDIR)/cap
+	CC="$(CC)" CGO_ENABLED="$(CGO_REQUIRED)" $(CGO_LDFLAGS_ALLOW) $(GO) test -mod=vendor $(IMPORTDIR)/psx
+	CC="$(CC)" CGO_ENABLED="$(CGO_REQUIRED)" $(CGO_LDFLAGS_ALLOW) $(GO) test -mod=vendor $(IMPORTDIR)/cap
 	LD_LIBRARY_PATH=../libcap ./compare-cap
 	./psx-signals
 ifeq ($(CGO_REQUIRED),0)
+	$(MAKE) psx-signals-cgo
 	./psx-signals-cgo
 endif
 	./setid --caps=false
@@ -114,10 +120,10 @@ endif
 install: all
 	rm -rf $(FAKEROOT)$(GOPKGDIR)/$(IMPORTDIR)/psx
 	mkdir -p $(FAKEROOT)$(GOPKGDIR)/$(IMPORTDIR)/psx
-	install -m 0644 src/$(IMPORTDIR)/psx/* $(FAKEROOT)$(GOPKGDIR)/$(IMPORTDIR)/psx
+	install -m 0644 vendor/$(IMPORTDIR)/psx/* $(FAKEROOT)$(GOPKGDIR)/$(IMPORTDIR)/psx
 	mkdir -p $(FAKEROOT)$(GOPKGDIR)/$(IMPORTDIR)/cap
 	rm -rf $(FAKEROOT)$(GOPKGDIR)/$(IMPORTDIR)/cap/*
-	install -m 0644 src/$(IMPORTDIR)/cap/* $(FAKEROOT)$(GOPKGDIR)/$(IMPORTDIR)/cap
+	install -m 0644 vendor/$(IMPORTDIR)/cap/* $(FAKEROOT)$(GOPKGDIR)/$(IMPORTDIR)/cap
 
 clean:
 	rm -f *.o *.so *~ mknames ok good-names.go
@@ -125,4 +131,4 @@ clean:
 	rm -f compare-cap try-launching try-launching-cgo
 	rm -f $(topdir)/cap/*~ $(topdir)/psx/*~
 	rm -f b210613 psx-signals psx-signals-cgo
-	rm -fr pkg src
+	rm -fr vendor CAPGOPACKAGE PSXGOPACKAGE go.sum

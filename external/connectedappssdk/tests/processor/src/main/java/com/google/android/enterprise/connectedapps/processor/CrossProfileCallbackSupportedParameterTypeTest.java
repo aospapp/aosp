@@ -83,7 +83,8 @@ public class CrossProfileCallbackSupportedParameterTypeTest {
       "java.util.List<com.google.protos.connectedappssdk.TestProtoOuterClass.TestProto>",
       "com.google.common.collect.ImmutableMap<String, String>",
       "android.util.Pair<String, Integer>",
-      "com.google.common.base.Optional<ParcelableObject>"
+      "com.google.common.base.Optional<ParcelableObject>",
+      "android.graphics.drawable.Drawable"
     };
     return combineParameters(AnnotationFinder.annotationStrings(), Arrays.asList(types));
   }

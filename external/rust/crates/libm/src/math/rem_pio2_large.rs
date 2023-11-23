@@ -27,7 +27,7 @@ const INIT_JK: [usize; 4] = [3, 4, 4, 6];
 //
 // NB: This table must have at least (e0-3)/24 + jk terms.
 //     For quad precision (e0 <= 16360, jk = 6), this is 686.
-#[cfg(target_pointer_width = "32")]
+#[cfg(any(target_pointer_width = "32", target_pointer_width = "16"))]
 const IPIO2: [i32; 66] = [
     0xA2F983, 0x6E4E44, 0x1529FC, 0x2757D1, 0xF534DD, 0xC0DB62, 0x95993C, 0x439041, 0xFE5163,
     0xABDEBB, 0xC561B7, 0x246E3A, 0x424DD2, 0xE00649, 0x2EEA09, 0xD1921C, 0xFE1DEB, 0x1CB129,
@@ -242,12 +242,12 @@ pub(crate) fn rem_pio2_large(x: &[f64], y: &mut [f64], e0: i32, prec: usize) -> 
     let mut iq: [i32; 20] = [0; 20];
 
     /* initialize jk*/
-    let jk = INIT_JK[prec];
+    let jk = i!(INIT_JK, prec);
     let jp = jk;
 
     /* determine jx,jv,q0, note that 3>q0 */
     let jx = nx - 1;
-    let mut jv = (e0 - 3) / 24;
+    let mut jv = div!(e0 - 3, 24);
     if jv < 0 {
         jv = 0;
     }

@@ -9,18 +9,18 @@ third_party {
     value: "https://www.cups.org/"
   }
   url {
-    type: ARCHIVE
-    value: "https://github.com/apple/cups/releases/download/v2.3.3/cups-2.3.3-source.tar.gz"
+    type: GIT
+    value: "https://github.com/apple/cups/"
   }
   version: "v2.3.3"
-  license_note: "would be RESTRICTED save for Apple license in backend/usb-darwin.c"
   license_type: BY_EXCEPTION_ONLY
-  last_upgrade_date {
-    year: 2020
-    month: 10
-    day: 28
-  }
+  license_note: "would be RESTRICTED save for Apple license in backend/usb-darwin.c"
   security {
-      tag: "NVD-CPE2.3:cpe:/a:cups:cups:2.3.3"
+    tag: "NVD-CPE2.3:cpe:/a:cups:cups:2.3.3"
+  }
+  last_upgrade_date {
+    year: 2022
+    month: 10
+    day: 4
   }
 }

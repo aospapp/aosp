@@ -32,14 +32,14 @@ public class ExampleValueProfileFuzzer {
     // Without -use_value_profile=1, the fuzzer gets stuck here as there is no direct correspondence
     // between the input bytes and the compared string. With value profile, the fuzzer can guess the
     // expected input byte by byte, which takes linear rather than exponential time.
-    if (base64(data.consumeBytes(6)).equals("SmF6emVy")) {
+    if (((Object) base64(data.consumeBytes(6))).equals("SmF6emVy")) {
       long[] plaintextBlocks = data.consumeLongs(2);
       if (plaintextBlocks.length != 2)
         return;
       if (insecureEncrypt(plaintextBlocks[0]) == 0x9fc48ee64d3dc090L) {
-        // Without --fake_pcs (enabled by default with -use_value_profile=1), the fuzzer would get
-        // stuck here as the value profile information for long comparisons would not be able to
-        // distinguish between this comparison and the one above.
+        // Without variants of the fuzzer hooks for compares that also take in fake PCs, the fuzzer
+        // would get stuck here as the value profile information for long comparisons would not be
+        // able to distinguish between this comparison and the one above.
         if (insecureEncrypt(plaintextBlocks[1]) == 0x888a82ff483ad9c2L) {
           mustNeverBeCalled();
         }

@@ -40,11 +40,11 @@ struct TermMatchInfo {
   SectionIdMask section_ids_mask;
   // Array with fixed size kMaxSectionId. For every section id, i.e.
   // vector index, it stores the term frequency of the term.
-  std::array<Hit::TermFrequency, kMaxSectionId> term_frequencies;
+  std::array<Hit::TermFrequency, kTotalNumSections> term_frequencies;
 
   explicit TermMatchInfo(
       std::string_view term, SectionIdMask section_ids_mask,
-      std::array<Hit::TermFrequency, kMaxSectionId> term_frequencies)
+      std::array<Hit::TermFrequency, kTotalNumSections> term_frequencies)
       : term(term),
         section_ids_mask(section_ids_mask),
         term_frequencies(std::move(term_frequencies)) {}
@@ -62,6 +62,44 @@ struct TermMatchInfo {
 // }
 class DocHitInfoIterator {
  public:
+  struct TrimmedNode {
+    // the query results which we should only search for suggestion in these
+    // documents.
+    std::unique_ptr<DocHitInfoIterator> iterator_;
+    // term of the trimmed node which we need to generate suggested strings.
+    std::string term_;
+    // the string in the query which indicates the target section we should
+    // search for suggestions.
+    std::string target_section_;
+    // the start index of the current term in the given search query.
+    int term_start_index_;
+    // The length of the given unnormalized term in the search query
+    int unnormalized_term_length_;
+
+    TrimmedNode(std::unique_ptr<DocHitInfoIterator> iterator, std::string term,
+                int term_start_index, int unnormalized_term_length)
+        : iterator_(std::move(iterator)),
+          term_(term),
+          target_section_(""),
+          term_start_index_(term_start_index),
+          unnormalized_term_length_(unnormalized_term_length) {}
+  };
+
+  // Trim the rightmost iterator of the iterator tree.
+  // This is to support search suggestions for the last term which is the
+  // right-most node of the root iterator tree. Only support trim the right-most
+  // node on the AND, AND_NARY, OR, OR_NARY, OR_LEAF, Filter, and the
+  // property-in-schema-check iterator.
+  //
+  // After calling this method, this iterator is no longer usable. Please use
+  // the returned iterator.
+  // Returns:
+  //   the new iterator without the right-most child, if was able to trim the
+  //   right-most node.
+  //   nullptr if the current iterator should be trimmed.
+  //   INVALID_ARGUMENT if the right-most node is not suppose to be trimmed.
+  virtual libtextclassifier3::StatusOr<TrimmedNode> TrimRightMostNode() && = 0;
+
   virtual ~DocHitInfoIterator() = default;
 
   // Returns:

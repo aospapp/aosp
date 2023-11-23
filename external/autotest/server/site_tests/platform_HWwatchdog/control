@@ -3,12 +3,13 @@
 # found in the LICENSE file.
 
 NAME = "platform_HWwatchdog"
-AUTHOR = "Chrome OS Team"
-ATTRIBUTES = "suite:kernel_per-build_regression"
+AUTHOR = "ChromeOS Team"
+ATTRIBUTES = "suite:kernel_per-build_regression, suite:pvs-kernel"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 This test uses the hardware watchdog interface to make sure a machine

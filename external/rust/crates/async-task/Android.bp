@@ -42,7 +42,7 @@ rust_library {
     host_supported: true,
     crate_name: "async_task",
     cargo_env_compat: true,
-    cargo_pkg_version: "4.1.0",
+    cargo_pkg_version: "4.3.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -53,4 +53,6 @@ rust_library {
         "//apex_available:platform",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
 }

@@ -40,4 +40,10 @@ java_library_host {
     srcs: [
         "src/main/**/*.java",
     ],
+
+    errorprone: {
+        javacflags: [
+            "-Xep:IdentityBinaryExpression:WARN",
+        ],
+    },
 }

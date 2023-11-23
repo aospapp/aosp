@@ -10,11 +10,11 @@ This test will fail if one of the following conditions occur:
   - 3G modem fails to connect to network
   - the modem is not left in a working state
 """
-ATTRIBUTES = "suite:cellular_pseudomodem"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
+PY_VERSION = 3
 DOC = """
   Tests that 3G modem can connect to the network
 

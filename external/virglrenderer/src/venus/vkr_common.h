@@ -10,6 +10,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -18,14 +19,14 @@
 #include <string.h>
 
 #include "c11/threads.h"
-#include "os/os_misc.h"
-#include "os/os_thread.h"
 #include "pipe/p_compiler.h"
+#include "util/hash_table.h"
+#include "util/os_misc.h"
 #include "util/u_double_list.h"
-#include "util/u_hash_table.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
 #include "util/u_pointer.h"
+#include "util/u_thread.h"
 #include "venus-protocol/vulkan.h"
 #include "virgl_util.h"
 #include "virglrenderer.h"
@@ -33,15 +34,8 @@
 
 #include "vkr_renderer.h"
 
-/*
- * TODO what extensions do we need from the host driver?
- *
- * We don't check vkGetPhysicalDeviceExternalBufferProperties, etc. yet.  Even
- * if we did, silently adding external memory info to vkCreateBuffer or
- * vkCreateImage could change the results of vkGetBufferMemoryRequirements or
- * vkGetImageMemoryRequirements and confuse the guest.
- */
-#define FORCE_ENABLE_DMABUF
+/* cap instance and device api versions to this */
+#define VKR_MAX_API_VERSION VK_API_VERSION_1_3
 
 #define VKR_DEBUG(category) (unlikely(vkr_debug_flags & VKR_DEBUG_##category))
 
@@ -65,6 +59,7 @@
       .begin = (offset), .end = (offset) + (size)                                        \
    }
 
+struct vn_info_extension_table;
 struct vkr_context;
 struct vkr_instance;
 struct vkr_physical_device;
@@ -163,6 +158,23 @@ extern uint32_t vkr_debug_flags;
 void
 vkr_log(const char *fmt, ...);
 
+static inline uint32_t
+vkr_api_version_cap_minor(uint32_t version, uint32_t cap)
+{
+   assert(VK_API_VERSION_MAJOR(version) == VK_API_VERSION_MAJOR(cap));
+   if (VK_API_VERSION_MINOR(version) > VK_API_VERSION_MINOR(cap))
+      version = cap - VK_API_VERSION_PATCH(cap) + VK_API_VERSION_PATCH(version);
+   return version;
+}
+
+void
+vkr_extension_table_init(struct vn_info_extension_table *table,
+                         const char *const *exts,
+                         uint32_t count);
+
+uint32_t
+vkr_extension_get_spec_version(const char *name);
+
 bool
 object_array_init(struct vkr_context *ctx,
                   struct object_array *arr,
@@ -176,13 +188,28 @@ void
 object_array_fini(struct object_array *arr);
 
 static inline void *
-vkr_find_pnext(const void *chain, VkStructureType type)
+vkr_find_struct(const void *chain, VkStructureType type)
 {
-   VkBaseOutStructure *pnext = (VkBaseOutStructure *)chain;
-   while (pnext) {
-      if (pnext->sType == type)
-         return pnext;
-      pnext = pnext->pNext;
+   VkBaseOutStructure *s = (VkBaseOutStructure *)chain;
+   while (s) {
+      if (s->sType == type)
+         return s;
+      s = s->pNext;
+   }
+   return NULL;
+}
+
+/*
+ * Find struct in the pNext of chain and return its previous struct.
+ */
+static inline void *
+vkr_find_prev_struct(const void *chain, VkStructureType type)
+{
+   VkBaseOutStructure *prev = (VkBaseOutStructure *)chain;
+   while (prev->pNext) {
+      if (prev->pNext->sType == type)
+         return prev;
+      prev = prev->pNext;
    }
    return NULL;
 }
@@ -258,7 +285,7 @@ vkr_region_size(const struct vkr_region *region)
 static inline bool
 vkr_region_is_aligned(const struct vkr_region *region, size_t align)
 {
-   assert(align && util_is_power_of_two(align));
+   assert(util_is_power_of_two_nonzero(align));
    return !((region->begin | region->end) & (align - 1));
 }
 

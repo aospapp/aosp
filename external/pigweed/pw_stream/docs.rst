@@ -86,7 +86,7 @@ Interface documentation
 =======================
 Summary documentation for the ``pw_stream`` interfaces is below. See the API
 comments in `pw_stream/public/pw_stream/stream.h
-<https://cs.opensource.google/pigweed/pigweed/+/main:pw_stream/public/pw_stream/stream.h>`_
+<https://cs.pigweed.dev/pigweed/+/main:pw_stream/public/pw_stream/stream.h>`_
 for full details.
 
 .. cpp:class:: Stream
@@ -209,7 +209,7 @@ Reader interfaces
 -----------------
 .. cpp:class:: Reader : public Stream
 
-   A Stream that supports writing but not reading. The Write() method is hidden.
+   A Stream that supports reading but not writing. The Write() method is hidden.
 
    Use in APIs when:
      * Must read from, but not write to, a stream.
@@ -399,11 +399,20 @@ Implementations
   The ``MemoryReader`` class implements the :cpp:class:`Reader` interface by
   backing the data source with an **externally-provided** memory buffer.
 
-.. cpp:class:: NullReaderWriter : public SeekableReaderWriter
+.. cpp:class:: NullStream : public SeekableReaderWriter
 
-  ``NullReaderWriter`` is a no-op stream implementation, similar to
-  ``/dev/null``. Writes are always dropped. Reads always return
-  ``OUT_OF_RANGE``. Seeks have no effect.
+  ``NullStream`` is a no-op stream implementation, similar to ``/dev/null``.
+  Writes are always dropped. Reads always return ``OUT_OF_RANGE``. Seeks have no
+  effect.
+
+.. cpp:class:: CountingNullStream : public SeekableReaderWriter
+
+  ``CountingNullStream`` is a no-op stream implementation, like
+  :cpp:class:`NullStream`, that counts the number of bytes written.
+
+  .. cpp:function:: size_t bytes_written() const
+
+    Returns the number of bytes provided to previous ``Write()`` calls.
 
 .. cpp:class:: StdFileWriter : public SeekableWriter
 
@@ -414,6 +423,17 @@ Implementations
 
   ``StdFileReader`` wraps an ``std::ifstream`` with the :cpp:class:`Reader`
   interface.
+
+.. cpp:class:: SocketStream : public NonSeekableReaderWriter
+
+  ``SocketStream`` wraps posix-style TCP sockets with the :cpp:class:`Reader`
+  and :cpp:class:`Writer` interfaces. It can be used to connect to a TCP server,
+  or to communicate with a client via the ``ServerSocket`` class.
+
+.. cpp:class:: ServerSocket
+
+  ``ServerSocket`` wraps a posix server socket, and produces a
+  :cpp:class:`SocketStream` for each accepted client connection.
 
 ------------------
 Why use pw_stream?

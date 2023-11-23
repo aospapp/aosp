@@ -32,10 +32,11 @@
 use super::{
     chacha::{self, *},
     chacha20_poly1305::derive_poly1305_key,
-    cpu, poly1305, Nonce, Tag,
+    cpu, poly1305,
+    polyfill::ChunksFixed,
+    Nonce, Tag,
 };
 use crate::{constant_time, endian::*, error};
-use core::convert::TryInto;
 
 /// A key for sealing packets.
 pub struct SealingKey {
@@ -44,8 +45,8 @@ pub struct SealingKey {
 
 impl SealingKey {
     /// Constructs a new `SealingKey`.
-    pub fn new(key_material: &[u8; KEY_LEN]) -> SealingKey {
-        SealingKey {
+    pub fn new(key_material: &[u8; KEY_LEN]) -> Self {
+        Self {
             key: Key::new(key_material, cpu::features()),
         }
     }
@@ -64,8 +65,7 @@ impl SealingKey {
         tag_out: &mut [u8; TAG_LEN],
     ) {
         let mut counter = make_counter(sequence_number);
-        let poly_key =
-            derive_poly1305_key(&self.key.k_2, counter.increment(), self.key.cpu_features);
+        let poly_key = derive_poly1305_key(&self.key.k_2, counter.increment());
 
         {
             let (len_in_out, data_and_padding_in_out) =
@@ -91,8 +91,8 @@ pub struct OpeningKey {
 
 impl OpeningKey {
     /// Constructs a new `OpeningKey`.
-    pub fn new(key_material: &[u8; KEY_LEN]) -> OpeningKey {
-        OpeningKey {
+    pub fn new(key_material: &[u8; KEY_LEN]) -> Self {
+        Self {
             key: Key::new(key_material, cpu::features()),
         }
     }
@@ -132,8 +132,7 @@ impl OpeningKey {
         // We must verify the tag before decrypting so that
         // `ciphertext_in_plaintext_out` is unmodified if verification fails.
         // This is beyond what we guarantee.
-        let poly_key =
-            derive_poly1305_key(&self.key.k_2, counter.increment(), self.key.cpu_features);
+        let poly_key = derive_poly1305_key(&self.key.k_2, counter.increment());
         verify(poly_key, ciphertext_in_plaintext_out, tag)?;
 
         let plaintext_in_ciphertext_out = &mut ciphertext_in_plaintext_out[PACKET_LENGTH_LEN..];
@@ -148,19 +147,15 @@ impl OpeningKey {
 struct Key {
     k_1: chacha::Key,
     k_2: chacha::Key,
-    cpu_features: cpu::Features,
 }
 
 impl Key {
-    fn new(key_material: &[u8; KEY_LEN], cpu_features: cpu::Features) -> Key {
+    fn new(key_material: &[u8; KEY_LEN], cpu_features: cpu::Features) -> Self {
         // The first half becomes K_2 and the second half becomes K_1.
-        let (k_2, k_1) = key_material.split_at(chacha::KEY_LEN);
-        let k_1: [u8; chacha::KEY_LEN] = k_1.try_into().unwrap();
-        let k_2: [u8; chacha::KEY_LEN] = k_2.try_into().unwrap();
-        Key {
-            k_1: chacha::Key::from(k_1),
-            k_2: chacha::Key::from(k_2),
-            cpu_features,
+        let &[k_2, k_1]: &[[u8; chacha::KEY_LEN]; 2] = key_material.chunks_fixed();
+        Self {
+            k_1: chacha::Key::new(k_1, cpu_features),
+            k_2: chacha::Key::new(k_2, cpu_features),
         }
     }
 }
@@ -181,7 +176,7 @@ pub const KEY_LEN: usize = chacha::KEY_LEN * 2;
 pub const PACKET_LENGTH_LEN: usize = 4; // 32 bits
 
 /// The length in bytes of an authentication tag.
-pub const TAG_LEN: usize = super::BLOCK_LEN;
+pub const TAG_LEN: usize = super::TAG_LEN;
 
 fn verify(key: poly1305::Key, msg: &[u8], tag: &[u8; TAG_LEN]) -> Result<(), error::Unspecified> {
     let Tag(calculated_tag) = poly1305::sign(key, msg);

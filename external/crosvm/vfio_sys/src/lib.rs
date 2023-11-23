@@ -1,6 +1,10 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
+//! Linux VFIO (Virtual Function I/O) bindings.
+//!
+//! <https://www.kernel.org/doc/html/latest/driver-api/vfio.html>
 
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
@@ -39,6 +43,7 @@ ioctl_io_nr!(VFIO_IOMMU_MAP_DMA, VFIO_TYPE, VFIO_BASE + 13);
 ioctl_io_nr!(VFIO_IOMMU_UNMAP_DMA, VFIO_TYPE, VFIO_BASE + 14);
 ioctl_io_nr!(VFIO_IOMMU_ENABLE, VFIO_TYPE, VFIO_BASE + 15);
 ioctl_io_nr!(VFIO_IOMMU_DISABLE, VFIO_TYPE, VFIO_BASE + 16);
+ioctl_io_nr!(VFIO_DEVICE_FEATURE, VFIO_TYPE, VFIO_BASE + 17);
 
 ioctl_io_nr!(
     PLAT_IRQ_FORWARD_SET,
@@ -47,13 +52,7 @@ ioctl_io_nr!(
 );
 
 ioctl_io_nr!(
-    PLAT_IRQ_WAKE_SET,
+    ACPI_EVT_FORWARD_SET,
     PLAT_IRQ_FORWARD_TYPE,
-    PLAT_IRQ_FORWARD_BASE + 1
-);
-
-ioctl_io_nr!(
-    ACPI_GPE_FORWARD_SET,
-    PLAT_IRQ_FORWARD_TYPE,
-    GPE_FORWARD_BASE
+    ACPI_EVT_FORWARD_BASE
 );

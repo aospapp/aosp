@@ -58,7 +58,7 @@ def main():
     options = parse_arguments(sys.argv[1:])
     logging_manager.configure_logging(BuildExternalsLoggingConfig(),
                                       verbose=True)
-    os.umask(022)
+    os.umask(0o22)
 
     top_of_tree = external_packages.find_top_of_autotest_tree()
     package_dir = os.path.join(top_of_tree, PACKAGE_DIR)
@@ -78,7 +78,7 @@ def main():
     fetched_packages, fetch_errors = fetch_necessary_packages(
         package_dir, install_dir, set(options.names_to_check))
     install_errors = build_and_install_packages(fetched_packages, install_dir,
-                                                options.use_chromite_master)
+                                                options.use_chromite_main)
 
     # Byte compile the code after it has been installed in its final
     # location as .pyc files contain the path passed to compile_dir().
@@ -113,8 +113,8 @@ def parse_arguments(args):
     parser = argparse.ArgumentParser(
             description='Command to build third party dependencies required '
                         'for autotest.')
-    parser.add_argument('--use_chromite_master', action='store_true',
-                        help='Update chromite to master branch, rather than '
+    parser.add_argument('--use_chromite_main', action='store_true',
+                        help='Update chromite to main branch, rather than '
                              'prod.')
     parser.add_argument('--names_to_check', nargs='*', type=str, default=set(),
                         help='Package names to check whether they are needed '
@@ -160,13 +160,13 @@ def fetch_necessary_packages(dest_dir, install_dir, names_to_check=set()):
 
 
 def build_and_install_packages(packages, install_dir,
-                               use_chromite_master=True):
+                               use_chromite_main=True):
     """
     Builds and installs all packages into install_dir.
 
     @param packages - A list of already fetched ExternalPackage instances.
     @param install_dir - Directory the packages should be installed into.
-    @param use_chromite_master: True if updating chromite to master branch. Due
+    @param use_chromite_main: True if updating chromite to main branch. Due
                                 to the non-usage of origin/prod tag, the default
                                 value for this argument has been set to True.
                                 This argument has not been removed for backward
@@ -177,14 +177,14 @@ def build_and_install_packages(packages, install_dir,
     errors = []
     for package in packages:
         if package.name.lower() == 'chromiterepo':
-            if not use_chromite_master:
+            if not use_chromite_main:
                 logging.warning(
-                    'Even though use_chromite_master has been set to %s, it '
-                    'will be checked out to master as the origin/prod tag '
-                    'carries little value now.', use_chromite_master)
-            logging.info('Checking out autotest-chromite to master branch.')
+                    'Even though use_chromite_main has been set to %s, it '
+                    'will be checked out to main as the origin/prod tag '
+                    'carries little value now.', use_chromite_main)
+            logging.info('Checking out autotest-chromite to main branch.')
             result = package.build_and_install(
-                install_dir, master_branch=True)
+                install_dir, main_branch=True)
         else:
             result = package.build_and_install(install_dir)
         if isinstance(result, bool):

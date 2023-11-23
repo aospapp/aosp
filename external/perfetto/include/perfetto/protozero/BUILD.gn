@@ -13,13 +13,17 @@
 # limitations under the License.
 
 source_set("protozero") {
-  public_deps = [ "../base" ]
+  public_deps = [
+    "../base",
+    "../public:protozero",
+  ]
   sources = [
     "contiguous_memory_range.h",
     "copyable_ptr.h",
     "cpp_message_obj.h",
     "field.h",
     "field_writer.h",
+    "gen_field_helpers.h",
     "message.h",
     "message_arena.h",
     "message_handle.h",

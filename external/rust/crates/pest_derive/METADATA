@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/pest_derive
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "pest_derive"
 description: "pest\'s derive macro"
 third_party {
@@ -7,14 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/pest_derive/pest_derive-2.1.0.crate"
+    value: "https://static.crates.io/crates/pest_derive/pest_derive-2.5.5.crate"
   }
-  version: "2.1.0"
-  # Dual-licensed, using the least restrictive per go/thirdpartylicenses#same.
+  version: "2.5.5"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2022
-    month: 1
-    day: 27
+    year: 2023
+    month: 2
+    day: 16
   }
 }

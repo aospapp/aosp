@@ -68,7 +68,7 @@ class network_Ipv6SimpleNegotiation(dhcp_test_base.DhcpTestBase):
         for ipconfig in self.get_interface_ipconfig_objects(
                 self.ethernet_pair.peer_interface_name):
             ipconfig_properties = shill_proxy.ShillProxy.dbus2primitive(
-                    ipconfig.GetProperties(utf8_strings=True))
+                    ipconfig.GetProperties())
             if 'Method' not in ipconfig_properties:
                 continue
 
@@ -141,14 +141,14 @@ class network_Ipv6SimpleNegotiation(dhcp_test_base.DhcpTestBase):
 
         for property, value in (('Address', address), ('Prefixlen', prefix)):
             if property not in ipconfig_properties:
-               raise error.TestError('IPv6 IPConfig entry does not '
-                                     'contain property %s' % property)
+                raise error.TestError('IPv6 IPConfig entry does not '
+                                      'contain property %s' % property)
             if ipconfig_properties[property] != value:
-               raise error.TestError('IPv6 IPConfig property %s does not '
-                                     'contain the expected value %s; '
-                                     'instead it is %s' %
-                                     (property, value,
-                                      ipconfig_properties[property]))
+                raise error.TestError(
+                        'IPv6 IPConfig property %s does not '
+                        'contain the expected value %s; '
+                        'instead it is %s' %
+                        (property, value, ipconfig_properties[property]))
 
 
     def verify_ipconfig_name_servers(self, name_servers):
@@ -169,7 +169,9 @@ class network_Ipv6SimpleNegotiation(dhcp_test_base.DhcpTestBase):
 
     def test_body(self):
         """The main body for this test."""
-        server = radvd_server.RadvdServer(self.ethernet_pair.interface_name)
+        server = radvd_server.RadvdServer(
+                self.ethernet_pair.interface_name,
+                self.ethernet_pair.interface_namespace)
         server.start_server()
 
         try:

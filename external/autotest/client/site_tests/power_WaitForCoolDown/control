@@ -9,6 +9,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 Transition test to wait for DUT to cool down after thermal test while collecting
@@ -18,4 +19,4 @@ power / thermal releated log.
 args_dict = utils.args_to_dict(args)
 pdash_note = args_dict.get('pdash_note', '')
 job.run_test('power_WaitForCoolDown', pdash_note=pdash_note,
-             force_discharge=True)
+             force_discharge='optional')

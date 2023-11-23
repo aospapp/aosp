@@ -23,11 +23,12 @@ import java.lang.annotation.Target;
 import java.lang.invoke.MethodType;
 
 /**
- * Registers this method as a hook that should run after the method
- * specified by the annotation parameters has returned.
+ * Registers the annotated method as a hook that should run before, instead or
+ * after the method specified by the annotation parameters.
  * <p>
- * This method will be called after every call to the target method and has
- * access to its return value. The target method is specified by
+ * Depending on {@link #type()} this method will be called after, instead or
+ * before every call to the target method and has
+ * access to its parameters and return value. The target method is specified by
  * {@link #targetClassName()} and {@link #targetMethod()}. In case of an
  * overloaded method, {@link #targetMethodDescriptor()} can be used to restrict
  * the application of the hook to a particular overload.
@@ -87,7 +88,7 @@ import java.lang.invoke.MethodType;
  * <p>
  * Return value: the value that should take the role of the value the target
  * method would have returned
- *
+ * <p>
  * <dt><span class="strong">{@link HookType#AFTER}</span>
  * <dd>
  * <pre>{@code
@@ -114,6 +115,13 @@ import java.lang.invoke.MethodType;
  * will be wrapped into their corresponding wrapper type (e.g. {@link Boolean}).
  * If the original method has return type {@code void}, this value will be
  * {@code null}.
+ * <p>
+ * Multiple {@link HookType#BEFORE} and {@link HookType#AFTER} hooks are
+ * allowed to reference the same target method. Exclusively one
+ * {@link HookType#REPLACE} hook may reference a target method, no other types
+ * allowed. Attention must be paid to not guide the Fuzzer in different
+ * directions via {@link Jazzer}'s {@code guideTowardsXY} methods in the
+ * different hooks.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
@@ -141,6 +149,11 @@ public @interface MethodHook {
   /**
    * The name of the class that contains the method that should be hooked,
    * as returned by {@link Class#getName()}.
+   * <p>
+   * If an interface or abstract class is specified, also calls to all
+   * implementations and subclasses available on the classpath during startup
+   * are hooked, respectively. Interfaces and subclasses are not taken into
+   * account for concrete classes.
    * <p>
    * Examples:
    * <p><ul>
@@ -180,4 +193,15 @@ public @interface MethodHook {
    * @return the descriptor of the method to be hooked
    */
   String targetMethodDescriptor() default "";
+
+  /**
+   * Array of additional classes to hook.
+   * <p>
+   * Hooks are applied on call sites. This means that classes calling the one
+   * defined in this annotation need to be instrumented to actually execute
+   * the hook. This property can be used to hook normally ignored classes.
+   *
+   * @return fully qualified class names to hook
+   */
+  String[] additionalClassesToHook() default {};
 }

@@ -9,6 +9,8 @@ TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+EXTENDED_TIMEOUT = 80000 # 20 hours + guard
+PY_VERSION = 3
 
 DOC = """
 Runs iterations of bare suspend/resume cycles without additional workload.

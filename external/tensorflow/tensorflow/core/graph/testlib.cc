@@ -40,7 +40,7 @@ Node* Send(Graph* g, Node* input, const string& tensor, const string& sender,
                   .Attr("tensor_name", tensor)
                   .Attr("send_device", sender)
                   .Attr("send_device_incarnation",
-                        static_cast<int64>(sender_incarnation))
+                        static_cast<int64_t>(sender_incarnation))
                   .Attr("recv_device", receiver)
                   .Finalize(g, &ret));
   return ret;
@@ -57,7 +57,7 @@ Node* Recv(Graph* g, const string& tensor, const string& type,
                   .Attr("tensor_name", tensor)
                   .Attr("send_device", sender)
                   .Attr("send_device_incarnation",
-                        static_cast<int64>(sender_incarnation))
+                        static_cast<int64_t>(sender_incarnation))
                   .Attr("recv_device", receiver)
                   .Finalize(g, &ret));
   return ret;
@@ -515,10 +515,10 @@ Node* Arg(Graph* g, int64_t index, DataType type) {
   return ret;
 }
 
-Node* Retval(Graph* g, int64_t index, Node* in) {
+Node* Retval(Graph* g, int64_t index, Node* in, int64_t in_index) {
   Node* ret;
   TF_CHECK_OK(NodeBuilder(g->NewName("n"), "_Retval")
-                  .Input(in)
+                  .Input(in, in_index)
                   .Attr("index", index)
                   .Finalize(g, &ret));
   return ret;

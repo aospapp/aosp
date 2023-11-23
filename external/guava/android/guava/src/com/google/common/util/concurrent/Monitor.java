@@ -16,7 +16,6 @@ package com.google.common.util.concurrent;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.annotations.Beta;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.primitives.Longs;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -197,7 +196,6 @@ import javax.annotation.CheckForNull;
  * @author Martin Buchholz
  * @since 10.0
  */
-@Beta
 @GwtIncompatible
 @SuppressWarnings("GuardedBy") // TODO(b/35466881): Fix or suppress.
 @ElementTypesAreNonnullByDefault
@@ -301,7 +299,6 @@ public final class Monitor {
    *
    * @since 10.0
    */
-  @Beta
   public abstract static class Guard {
 
     @Weak final Monitor monitor;
@@ -735,7 +732,7 @@ public final class Monitor {
    * @throws InterruptedException if interrupted while waiting
    */
   public void waitFor(Guard guard) throws InterruptedException {
-    if (!((guard.monitor == this) & lock.isHeldByCurrentThread())) {
+    if (!((guard.monitor == this) && lock.isHeldByCurrentThread())) {
       throw new IllegalMonitorStateException();
     }
     if (!guard.isSatisfied()) {
@@ -753,7 +750,7 @@ public final class Monitor {
   @SuppressWarnings("GoodTime") // should accept a java.time.Duration
   public boolean waitFor(Guard guard, long time, TimeUnit unit) throws InterruptedException {
     final long timeoutNanos = toSafeNanos(time, unit);
-    if (!((guard.monitor == this) & lock.isHeldByCurrentThread())) {
+    if (!((guard.monitor == this) && lock.isHeldByCurrentThread())) {
       throw new IllegalMonitorStateException();
     }
     if (guard.isSatisfied()) {
@@ -770,7 +767,7 @@ public final class Monitor {
    * currently occupying this monitor.
    */
   public void waitForUninterruptibly(Guard guard) {
-    if (!((guard.monitor == this) & lock.isHeldByCurrentThread())) {
+    if (!((guard.monitor == this) && lock.isHeldByCurrentThread())) {
       throw new IllegalMonitorStateException();
     }
     if (!guard.isSatisfied()) {
@@ -787,7 +784,7 @@ public final class Monitor {
   @SuppressWarnings("GoodTime") // should accept a java.time.Duration
   public boolean waitForUninterruptibly(Guard guard, long time, TimeUnit unit) {
     final long timeoutNanos = toSafeNanos(time, unit);
-    if (!((guard.monitor == this) & lock.isHeldByCurrentThread())) {
+    if (!((guard.monitor == this) && lock.isHeldByCurrentThread())) {
       throw new IllegalMonitorStateException();
     }
     if (guard.isSatisfied()) {

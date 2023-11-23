@@ -7,23 +7,45 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
-use std::ops::Range;
-use std::rc::Rc;
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::rc::Rc;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::num::NonZeroUsize;
+use core::ops::Range;
+use core::sync::atomic::{AtomicUsize, Ordering};
 
-use error::{Error, ErrorVariant};
-use iterators::{pairs, QueueableToken};
-use position::{self, Position};
-use span::Span;
-use stack::Stack;
-use RuleType;
+use crate::error::{Error, ErrorVariant};
+use crate::iterators::{pairs, QueueableToken};
+use crate::position::{self, Position};
+use crate::span::Span;
+use crate::stack::Stack;
+use crate::RuleType;
 
 /// The current lookahead status of a [`ParserState`].
 ///
 /// [`ParserState`]: struct.ParserState.html
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Lookahead {
+    /// The positive predicate, written as an ampersand &,
+    /// attempts to match its inner expression.
+    /// If the inner expression succeeds, parsing continues,
+    /// but at the same position as the predicate —
+    /// &foo ~ bar is thus a kind of "AND" statement:
+    /// "the input string must match foo AND bar".
+    /// If the inner expression fails,
+    /// the whole expression fails too.
     Positive,
+    /// The negative predicate, written as an exclamation mark !,
+    /// attempts to match its inner expression.
+    /// If the inner expression fails, the predicate succeeds
+    /// and parsing continues at the same position as the predicate.
+    /// If the inner expression succeeds, the predicate fails —
+    /// !foo ~ bar is thus a kind of "NOT" statement:
+    /// "the input string must match bar but NOT foo".
     Negative,
+    /// No lookahead (i.e. it will consume input).
     None,
 }
 
@@ -32,8 +54,16 @@ pub enum Lookahead {
 /// [`ParserState`]: struct.ParserState.html
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Atomicity {
+    /// prevents implicit whitespace: inside an atomic rule,
+    /// the tilde ~ means "immediately followed by",
+    /// and repetition operators (asterisk * and plus sign +)
+    /// have no implicit separation. In addition, all other rules
+    /// called from an atomic rule are also treated as atomic.
+    /// (interior matching rules are silent)
     Atomic,
+    /// The same as atomic, but inner tokens are produced as normal.
     CompoundAtomic,
+    /// implicit whitespace is enabled
     NonAtomic,
 }
 
@@ -43,8 +73,53 @@ pub type ParseResult<S> = Result<S, S>;
 /// Match direction for the stack. Used in `PEEK[a..b]`/`stack_match_peek_slice`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MatchDir {
+    /// from the bottom to the top of the stack
     BottomToTop,
+    /// from the top to the bottom of the stack
     TopToBottom,
+}
+
+static CALL_LIMIT: AtomicUsize = AtomicUsize::new(0);
+
+/// Sets the maximum call limit for the parser state
+/// to prevent stack overflows or excessive execution times
+/// in some grammars.
+/// If set, the calls are tracked as a running total
+/// over all non-terminal rules that can nest closures
+/// (which are passed to transform the parser state).
+///
+/// # Arguments
+///
+/// * `limit` - The maximum number of calls. If None,
+///             the number of calls is unlimited.
+pub fn set_call_limit(limit: Option<NonZeroUsize>) {
+    CALL_LIMIT.store(limit.map(|f| f.get()).unwrap_or(0), Ordering::Relaxed);
+}
+
+#[derive(Debug)]
+struct CallLimitTracker {
+    current_call_limit: Option<(usize, usize)>,
+}
+
+impl Default for CallLimitTracker {
+    fn default() -> Self {
+        let limit = CALL_LIMIT.load(Ordering::Relaxed);
+        let current_call_limit = if limit > 0 { Some((0, limit)) } else { None };
+        Self { current_call_limit }
+    }
+}
+
+impl CallLimitTracker {
+    fn limit_reached(&self) -> bool {
+        self.current_call_limit
+            .map_or(false, |(current, limit)| current >= limit)
+    }
+
+    fn increment_depth(&mut self) {
+        if let Some((current, _)) = &mut self.current_call_limit {
+            *current += 1;
+        }
+    }
 }
 
 /// The complete state of a [`Parser`].
@@ -60,6 +135,7 @@ pub struct ParserState<'i, R: RuleType> {
     attempt_pos: usize,
     atomicity: Atomicity,
     stack: Stack<Span<'i>>,
+    call_tracker: CallLimitTracker,
 }
 
 /// Creates a `ParserState` from a `&str`, supplying it to a closure `f`.
@@ -71,6 +147,7 @@ pub struct ParserState<'i, R: RuleType> {
 /// let input = "";
 /// pest::state::<(), _>(input, |s| Ok(s)).unwrap();
 /// ```
+#[allow(clippy::perf)]
 pub fn state<'i, R: RuleType, F>(input: &'i str, f: F) -> Result<pairs::Pairs<'i, R>, Error<R>>
 where
     F: FnOnce(Box<ParserState<'i, R>>) -> ParseResult<Box<ParserState<'i, R>>>,
@@ -80,19 +157,26 @@ where
     match f(state) {
         Ok(state) => {
             let len = state.queue.len();
-            Ok(pairs::new(Rc::new(state.queue), input, 0, len))
+            Ok(pairs::new(Rc::new(state.queue), input, None, 0, len))
         }
         Err(mut state) => {
-            state.pos_attempts.sort();
-            state.pos_attempts.dedup();
-            state.neg_attempts.sort();
-            state.neg_attempts.dedup();
-
-            Err(Error::new_from_pos(
+            let variant = if state.reached_call_limit() {
+                ErrorVariant::CustomError {
+                    message: "call limit reached".to_owned(),
+                }
+            } else {
+                state.pos_attempts.sort();
+                state.pos_attempts.dedup();
+                state.neg_attempts.sort();
+                state.neg_attempts.dedup();
                 ErrorVariant::ParsingError {
                     positives: state.pos_attempts.clone(),
                     negatives: state.neg_attempts.clone(),
-                },
+                }
+            };
+
+            Err(Error::new_from_pos(
+                variant,
                 // TODO(performance): Guarantee state.attempt_pos is a valid position
                 position::Position::new(input, state.attempt_pos).unwrap(),
             ))
@@ -111,7 +195,6 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// let input = "";
     /// let state: Box<pest::ParserState<&str>> = pest::ParserState::new(input);
     /// ```
-    #[allow(clippy::new_ret_no_self)]
     pub fn new(input: &'i str) -> Box<Self> {
         Box::new(ParserState {
             position: Position::from_start(input),
@@ -122,6 +205,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
             attempt_pos: 0,
             atomicity: Atomicity::NonAtomic,
             stack: Stack::new(),
+            call_tracker: Default::default(),
         })
     }
 
@@ -138,7 +222,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// }
     ///
     /// let input = "ab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let position = state.position();
     /// assert_eq!(position.pos(), 0);
     /// ```
@@ -160,12 +244,26 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// }
     ///
     /// let input = "ab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let atomicity = state.atomicity();
     /// assert_eq!(atomicity, Atomicity::NonAtomic);
     /// ```
     pub fn atomicity(&self) -> Atomicity {
         self.atomicity
+    }
+
+    #[inline]
+    fn inc_call_check_limit(mut self: Box<Self>) -> ParseResult<Box<Self>> {
+        if self.call_tracker.limit_reached() {
+            return Err(self);
+        }
+        self.call_tracker.increment_depth();
+        Ok(self)
+    }
+
+    #[inline]
+    fn reached_call_limit(&self) -> bool {
+        self.call_tracker.limit_reached()
     }
 
     /// Wrapper needed to generate tokens. This will associate the `R` type rule to the closure
@@ -193,6 +291,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     where
         F: FnOnce(Box<Self>) -> ParseResult<Box<Self>>,
     {
+        self = self.inc_call_check_limit()?;
         let actual_pos = self.position.pos();
         let index = self.queue.len();
 
@@ -357,12 +456,13 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// assert_eq!(pairs.len(), 0);
     /// ```
     #[inline]
-    pub fn sequence<F>(self: Box<Self>, f: F) -> ParseResult<Box<Self>>
+    pub fn sequence<F>(mut self: Box<Self>, f: F) -> ParseResult<Box<Self>>
     where
         F: FnOnce(Box<Self>) -> ParseResult<Box<Self>>,
     {
+        self = self.inc_call_check_limit()?;
         let token_index = self.queue.len();
-        let initial_pos = self.position.clone();
+        let initial_pos = self.position;
 
         let result = f(self);
 
@@ -391,7 +491,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// }
     ///
     /// let input = "aab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.repeat(|s| {
     ///     s.match_string("a")
     /// });
@@ -406,10 +506,11 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// assert_eq!(result.unwrap().position().pos(), 0);
     /// ```
     #[inline]
-    pub fn repeat<F>(self: Box<Self>, mut f: F) -> ParseResult<Box<Self>>
+    pub fn repeat<F>(mut self: Box<Self>, mut f: F) -> ParseResult<Box<Self>>
     where
         F: FnMut(Box<Self>) -> ParseResult<Box<Self>>,
     {
+        self = self.inc_call_check_limit()?;
         let mut result = f(self);
 
         loop {
@@ -434,7 +535,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// }
     ///
     /// let input = "ab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let result = state.optional(|s| {
     ///     s.match_string("ab")
     /// });
@@ -447,10 +548,11 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// assert!(result.is_ok());
     /// ```
     #[inline]
-    pub fn optional<F>(self: Box<Self>, f: F) -> ParseResult<Box<Self>>
+    pub fn optional<F>(mut self: Box<Self>, f: F) -> ParseResult<Box<Self>>
     where
         F: FnOnce(Box<Self>) -> ParseResult<Box<Self>>,
     {
+        self = self.inc_call_check_limit()?;
         match f(self) {
             Ok(state) | Err(state) => Ok(state),
         }
@@ -469,13 +571,13 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "ab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let result = state.match_char_by(|c| c.is_ascii());
     /// assert!(result.is_ok());
     /// assert_eq!(result.unwrap().position().pos(), 1);
     ///
     /// let input = "❤";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let result = state.match_char_by(|c| c.is_ascii());
     /// assert!(result.is_err());
     /// assert_eq!(result.unwrap_err().position().pos(), 0);
@@ -504,7 +606,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "ab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.match_string("ab");
     /// assert!(result.is_ok());
     /// assert_eq!(result.unwrap().position().pos(), 2);
@@ -535,7 +637,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "ab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.match_insensitive("AB");
     /// assert!(result.is_ok());
     /// assert_eq!(result.unwrap().position().pos(), 2);
@@ -557,6 +659,9 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// Attempts to match a single character from the given range. Returns `Ok` with the updated
     /// `Box<ParserState>` if successful, or `Err` with the updated `Box<ParserState>` otherwise.
     ///
+    /// # Caution
+    /// The provided `range` is intepreted as inclusive.
+    ///
     /// # Examples
     ///
     /// ```
@@ -566,7 +671,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "ab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.match_range('a'..'z');
     /// assert!(result.is_ok());
     /// assert_eq!(result.unwrap().position().pos(), 1);
@@ -597,7 +702,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "ab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.skip(1);
     /// assert!(result.is_ok());
     /// assert_eq!(result.unwrap().position().pos(), 1);
@@ -628,7 +733,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "abcd";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.skip_until(&["c", "d"]);
     /// assert!(result.is_ok());
     /// assert_eq!(result.unwrap().position().pos(), 2);
@@ -651,7 +756,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "ab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.start_of_input();
     /// assert!(result.is_ok());
     ///
@@ -681,7 +786,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "ab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.end_of_input();
     /// assert!(result.is_err());
     ///
@@ -728,6 +833,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     where
         F: FnOnce(Box<Self>) -> ParseResult<Box<Self>>,
     {
+        self = self.inc_call_check_limit()?;
         let initial_lookahead = self.lookahead;
 
         self.lookahead = if is_positive {
@@ -742,7 +848,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
             }
         };
 
-        let initial_pos = self.position.clone();
+        let initial_pos = self.position;
 
         let result = f(self.checkpoint());
 
@@ -795,6 +901,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     where
         F: FnOnce(Box<Self>) -> ParseResult<Box<Self>>,
     {
+        self = self.inc_call_check_limit()?;
         let initial_atomicity = self.atomicity;
         let should_toggle = self.atomicity != atomicity;
 
@@ -833,23 +940,24 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "ab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.stack_push(|state| state.match_string("a"));
     /// assert!(result.is_ok());
     /// assert_eq!(result.unwrap().position().pos(), 1);
     /// ```
     #[inline]
-    pub fn stack_push<F>(self: Box<Self>, f: F) -> ParseResult<Box<Self>>
+    pub fn stack_push<F>(mut self: Box<Self>, f: F) -> ParseResult<Box<Self>>
     where
         F: FnOnce(Box<Self>) -> ParseResult<Box<Self>>,
     {
-        let start = self.position.clone();
+        self = self.inc_call_check_limit()?;
+        let start = self.position;
 
         let result = f(self);
 
         match result {
             Ok(mut state) => {
-                let end = state.position.clone();
+                let end = state.position;
                 state.stack.push(start.span(&end));
                 Ok(state)
             }
@@ -869,7 +977,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "aa";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.stack_push(|state| state.match_string("a")).and_then(
     ///     |state| state.stack_peek()
     /// );
@@ -898,7 +1006,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "aa";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.stack_push(|state| state.match_string("a")).and_then(
     ///     |state| state.stack_pop()
     /// );
@@ -926,7 +1034,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "abcd cd cb";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state
     ///     .stack_push(|state| state.match_string("a"))
     ///     .and_then(|state| state.stack_push(|state| state.match_string("b")))
@@ -955,10 +1063,10 @@ impl<'i, R: RuleType> ParserState<'i, R> {
             return Ok(self);
         }
 
-        let mut position = self.position.clone();
+        let mut position = self.position;
         let result = {
             let mut iter_b2t = self.stack[range].iter();
-            let matcher = |span: &Span| position.match_string(span.as_str());
+            let matcher = |span: &Span<'_>| position.match_string(span.as_str());
             match match_dir {
                 MatchDir::BottomToTop => iter_b2t.all(matcher),
                 MatchDir::TopToBottom => iter_b2t.rev().all(matcher),
@@ -983,7 +1091,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "abba";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state
     ///     .stack_push(|state| state.match_string("a"))
     ///     .and_then(|state| { state.stack_push(|state| state.match_string("b")) })
@@ -1007,7 +1115,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "aaaa";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.stack_push(|state| state.match_string("a")).and_then(|state| {
     ///     state.stack_push(|state| state.match_string("a"))
     /// }).and_then(|state| state.stack_match_peek());
@@ -1016,7 +1124,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// ```
     #[inline]
     pub fn stack_match_pop(mut self: Box<Self>) -> ParseResult<Box<Self>> {
-        let mut position = self.position.clone();
+        let mut position = self.position;
         let mut result = true;
         while let Some(span) = self.stack.pop() {
             result = position.match_string(span.as_str());
@@ -1045,7 +1153,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "aa";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.stack_push(|state| state.match_string("a")).and_then(
     ///     |state| state.stack_drop()
     /// );
@@ -1072,7 +1180,7 @@ impl<'i, R: RuleType> ParserState<'i, R> {
     /// enum Rule {}
     ///
     /// let input = "ab";
-    /// let mut state: Box<pest::ParserState<Rule>> = pest::ParserState::new(input);
+    /// let mut state: Box<pest::ParserState<'_, Rule>> = pest::ParserState::new(input);
     /// let mut result = state.restore_on_err(|state| state.stack_push(|state|
     ///     state.match_string("a")).and_then(|state| state.match_string("a"))
     /// );

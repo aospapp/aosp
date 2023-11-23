@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #pylint: disable-msg=C0111
 import logging
 import os
@@ -54,11 +54,24 @@ class abstract_test_init(base_job_unittest.test_init.generic_tests):
     """Generic client job mixin used when defining variations on the
     job.__init__ generic tests."""
     PUBLIC_ATTRIBUTES = (
-        base_job_unittest.test_init.generic_tests.PUBLIC_ATTRIBUTES
-        - set(['bootloader', 'control', 'drop_caches',
-               'drop_caches_between_iterations', 'harness', 'hosts', 'logging',
-               'machines', 'num_tests_failed', 'num_tests_run', 'profilers',
-               'sysinfo', 'user',  'warning_loggers', 'warning_manager']))
+            base_job_unittest.test_init.generic_tests.PUBLIC_ATTRIBUTES - set([
+                    'bootloader',
+                    'control',
+                    'drop_caches',
+                    'drop_caches_between_iterations',
+                    'force_full_log_collection',
+                    'harness',
+                    'hosts',
+                    'logging',
+                    'machines',
+                    'num_tests_failed',
+                    'num_tests_run',
+                    'profilers',
+                    'sysinfo',
+                    'user',
+                    'warning_loggers',
+                    'warning_manager',
+            ]))
 
 
 class test_init_minimal_options(abstract_test_init, setup_job_test_case):
@@ -89,7 +102,7 @@ class test_init_minimal_options(abstract_test_init, setup_job_test_case):
         self.job.__init__(options)
 
 
-class dummy(object):
+class stub(object):
     """A simple placeholder for attributes"""
     pass
 
@@ -119,10 +132,10 @@ class test_setup_job(unittest.TestCase):
         sys.stdout = six.StringIO()
         logging_manager.configure_logging(logging_config.TestingConfig())
         logging.disable(logging.CRITICAL)
-        def dummy_configure_logging(*args, **kwargs):
+        def stub_configure_logging(*args, **kwargs):
             pass
         self.god.stub_with(logging_manager, 'configure_logging',
-                           dummy_configure_logging)
+                           stub_configure_logging)
         real_get_logging_manager = logging_manager.get_logging_manager
         def get_logging_manager_no_fds(manage_stdout_and_stderr=False,
                                        redirect_fds=False):
@@ -169,7 +182,7 @@ class test_setup_job(unittest.TestCase):
         resultdir = self._setup_pre_record_init()
 
         # finish constructor
-        options = dummy()
+        options = stub()
         options.tag = self.jobtag
         options.log = False
         options.verbose = False

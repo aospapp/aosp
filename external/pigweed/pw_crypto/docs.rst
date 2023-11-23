@@ -98,10 +98,13 @@ configured.
 
   # Install and configure MbedTLS
   pw package install mbedtls
-  gn gen out \
-      --args='dir_pw_third_party_mbedtls="//.environment/packages/mbedtls" \
-      pw_crypto_SHA256_BACKEND="//pw_crypto:sha256_mbedtls" \
-      pw_crypto_ECDSA_BACKEND="//pw_crypto:ecdsa_mbedtls"'
+  gn gen out --args='
+      import("//build_overrides/pigweed_environment.gni")
+
+      dir_pw_third_party_mbedtls=pw_env_setup_PACKAGE_ROOT+"/mbedtls"
+      pw_crypto_SHA256_BACKEND="//pw_crypto:sha256_mbedtls"
+      pw_crypto_ECDSA_BACKEND="//pw_crypto:ecdsa_mbedtls"
+  '
 
   ninja -C out
 
@@ -143,10 +146,13 @@ configured.
 
   # Install and configure BoringSSL
   pw package install boringssl
-  gn gen out \
-      --args='dir_pw_third_party_boringssl="//.environment/packages/boringssl" \
-      pw_crypto_SHA256_BACKEND="//pw_crypto:sha256_boringssl" \
-      pw_crypto_ECDSA_BACKEND="//pw_crypto:ecdsa_boringssl"'
+  gn gen out --args='
+      import("//build_overrides/pigweed_environment.gni")
+
+      dir_pw_third_party_boringssl=pw_env_setup_PACKAGE_ROOT+"/boringssl"
+      pw_crypto_SHA256_BACKEND="//pw_crypto:sha256_boringssl"
+      pw_crypto_ECDSA_BACKEND="//pw_crypto:ecdsa_boringssl"
+  '
 
   ninja -C out
 
@@ -162,7 +168,18 @@ To select Micro ECC, the library needs to be installed and configured.
 
   # Install and configure Micro ECC
   pw package install micro-ecc
-  gn gen out --args='dir_pw_third_party_micro_ecc="//.environment/packages/micro-ecc" pw_crypto_ECDSA_BACKEND="//pw_crypto:ecdsa_uecc"'
+  gn gen out --args='
+      import("//build_overrides/pigweed_environment.gni")
+
+      dir_pw_third_party_micro_ecc=pw_env_setup_PACKAGE_ROOT+"/micro-ecc"
+      pw_crypto_ECDSA_BACKEND="//pw_crypto:ecdsa_uecc"
+  '
+
+The default micro-ecc backend uses big endian as is standard practice. It also
+has a little-endian configuration which can be used to slightly reduce call
+stack frame use and/or when non pw_crypto clients use the same micro-ecc
+with a little-endian configuration. The little-endian version of micro-ecc
+can be selected with ``pw_crypto_ECDSA_BACKEND="//pw_crypto:ecdsa_uecc_little_endian"``
 
 Note Micro-ECC does not implement any hashing functions, so you will need to use other backends for SHA256 functionality if needed.
 

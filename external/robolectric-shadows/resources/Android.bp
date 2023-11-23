@@ -20,6 +20,11 @@ java_library_host {
         "guava",
         "jsr305",
     ],
+    errorprone: {
+        javacflags: [
+            "-Xep:EmptyTopLevelDeclaration:WARN",
+        ],
+    },
 }
 
 //#############################################

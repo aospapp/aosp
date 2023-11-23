@@ -12,38 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use uwb_uci_packets::StatusCode;
+use crate::error::{Error, Result};
+use crate::params::uci_packets::StatusCode;
 
-/// The error code for UCI module.
-#[derive(Debug, thiserror::Error, Clone)]
-pub enum Error {
-    #[error("Call the mothod in the wrong state")]
-    WrongState,
-    #[error("UCI response is mismatched with the pending command")]
-    ResponseMismatched,
-    #[error("Error occurs inside UciHal")]
-    HalFailed,
-    #[error("UCI response is not received in timeout")]
-    Timeout,
-    #[error("Could not parse: {0}")]
-    Parse(String),
-    #[error("Could not specialize packet: {0:?}")]
-    Specialize(Vec<u8>),
-    #[error("Invalid args")]
-    InvalidArgs,
-    #[error("Error UCI status code: {0:?}")]
-    Status(StatusCode),
-    #[cfg(test)]
-    #[error("The result of the mock method is not assigned.")]
-    MockUndefined,
-}
-
-// Because uwb_uci_packets::Error doesn't derive Clone trait, we convert it to Error::Parse with
-// the formatted string.
-impl From<uwb_uci_packets::Error> for Error {
-    fn from(err: uwb_uci_packets::Error) -> Self {
-        Error::Parse(format!("{:?}", err))
+pub(crate) fn status_code_to_result(status: StatusCode) -> Result<()> {
+    match status {
+        StatusCode::UciStatusOk => Ok(()),
+        StatusCode::UciStatusMaxSessionsExceeded => Err(Error::MaxSessionsExceeded),
+        StatusCode::UciStatusInvalidParam
+        | StatusCode::UciStatusInvalidRange
+        | StatusCode::UciStatusInvalidMsgSize => Err(Error::BadParameters),
+        StatusCode::UciStatusSessionNotExist
+        | StatusCode::UciStatusErrorCccSeBusy
+        | StatusCode::UciStatusErrorCccLifecycle => Err(Error::ProtocolSpecific),
+        StatusCode::UciStatusCommandRetry => Err(Error::CommandRetry),
+        _ => Err(Error::Unknown),
     }
 }
-
-pub type Result<T> = std::result::Result<T, Error>;

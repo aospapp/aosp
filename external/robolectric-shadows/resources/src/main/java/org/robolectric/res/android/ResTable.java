@@ -630,18 +630,18 @@ public class ResTable {
               sparseIndices,
               new ResTable_sparseTypeEntry(buf, sparseIndices.myOffset() + dtohl(thisType.entryCount)),
               new ResTable_sparseTypeEntry(buf, realEntryIndex),
-              (a, b) -> dtohs(a.idxOrOffset) < dtohs(b.idxOrOffset));
+              (a, b) -> dtohs(a.idx) < dtohs(b.idx));
 //          if (result == sparseIndices + dtohl(thisType.entryCount)
 //              || dtohs(result.idx) != realEntryIndex) {
           if (result.myOffset() == sparseIndices.myOffset() + dtohl(thisType.entryCount)
-              || dtohs(result.idxOrOffset) != realEntryIndex) {
+              || dtohs(result.idx) != realEntryIndex) {
             // No entry found.
             continue;
           }
           // Extract the offset from the entry. Each offset must be a multiple of 4
           // so we store it as the real offset divided by 4.
 //          thisOffset = dtohs(result->offset) * 4u;
-          thisOffset = dtohs(result.idxOrOffset) * 4;
+          thisOffset = dtohs(result.offset) * 4;
         } else {
           if (realEntryIndex >= dtohl(thisType.entryCount)) {
             // Entry does not exist.
@@ -986,11 +986,6 @@ public class ResTable {
           }
 
           Type t = typeList.get(typeList.size() - 1);
-          if (newEntryCount != t.entryCount) {
-            ALOGE("ResTable_type entry count inconsistent: given %d, previously %d",
-                (int) newEntryCount, (int) t.entryCount);
-            return (mError = BAD_TYPE);
-          }
 
           if (t._package_ != _package) {
             ALOGE("No TypeSpec for type %d", type.id);

@@ -1,12 +1,14 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#![cfg(unix)]
 #![cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 
 use kvm::*;
 use kvm_sys::kvm_regs;
-use vm_memory::{GuestAddress, GuestMemory};
+use vm_memory::GuestAddress;
+use vm_memory::GuestMemory;
 
 #[test]
 fn test_run() {

@@ -11,13 +11,14 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
-#include <functional>
 #include <random>
 #include <vector>
 
+#include <fp16.h>
+
 #include <xnnpack.h>
-#include <xnnpack/params.h>
-#include <xnnpack/params-init.h>
+#include <xnnpack/microfnptr.h>
+#include <xnnpack/microparams-init.h>
 
 
 class RAddStoreExpMinusMaxMicrokernelTester {
@@ -41,18 +42,61 @@ class RAddStoreExpMinusMaxMicrokernelTester {
     return this->iterations_;
   }
 
+  void Test(xnn_f16_raddstoreexpminusmax_ukernel_function raddstoreexpminusmax, xnn_init_f16_expminus_params_fn init_params) const {
+    std::random_device random_device;
+    auto rng = std::mt19937(random_device());
+    // Choose such range that exph(x[i]) overflows, but exph(x[i] - x_max) doesn't.
+    // However, the range is still narrow enough that double-precision exp doesn't overflow.
+    std::uniform_real_distribution<float> f32dist(15.0f, 20.0f);
+
+    std::vector<uint16_t> x(elements() + XNN_EXTRA_BYTES / sizeof(uint16_t));
+    std::vector<uint16_t> y(elements());
+    std::vector<float> y_ref(elements());
+    for (size_t iteration = 0; iteration < iterations(); iteration++) {
+      std::generate(x.begin(), x.end(), [&]() { return fp16_ieee_from_fp32_value(f32dist(rng)); });
+      std::fill(y.begin(), y.end(), UINT16_C(0x7E00) /* NaN */);
+
+      // Compute reference results.
+      float sum_ref = 0.0f;
+      float x_max_as_float = -std::numeric_limits<float>::infinity();
+      for (size_t i = 0; i < elements(); i++) {
+        x_max_as_float = std::max(x_max_as_float, fp16_ieee_to_fp32_value(x[i]));
+      }
+      const uint16_t x_max_as_half = fp16_ieee_from_fp32_value(x_max_as_float);
+      for (size_t i = 0; i < elements(); i++) {
+        const float y_ref_value = exp(fp16_ieee_to_fp32_value(x[i]) - x_max_as_float);
+        y_ref[i] = y_ref_value;
+        sum_ref += y_ref_value;
+      }
+
+      // Call optimized micro-kernel.
+      uint16_t sum = UINT16_C(0x7E00) /* NaN */;
+      xnn_f16_expminus_params params;
+      init_params(&params);
+      raddstoreexpminusmax(elements() * sizeof(uint16_t), x.data(), &x_max_as_half, y.data(), &sum, &params);
+
+      // Verify results.
+      for (size_t i = 0; i < elements(); i++) {
+      ASSERT_NEAR(y_ref[i], fp16_ieee_to_fp32_value(y[i]), std::abs(y_ref[i]) * 5.0e-3f)
+        << "element " << i << " / " << elements() << ", x_max " << x_max_as_float;
+      }
+      ASSERT_NEAR(sum_ref, fp16_ieee_to_fp32_value(sum), std::abs(sum_ref) * 5.0e-3f)
+        << "batch " << elements() << ", x_max " << x_max_as_float;
+    }
+  }
+
   void Test(xnn_f32_raddstoreexpminusmax_ukernel_function raddstoreexpminusmax, xnn_init_f32_expminus_params_fn init_params) const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
     // Choose such range that expf(x[i]) overflows, but expf(x[i] - x_max) doesn't.
     // However, the range is still narrow enough that double-precision exp doesn't overflow.
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(90.0f, 100.0f), rng);
+    std::uniform_real_distribution<float> f32dist(90.0f, 100.0f);
 
     std::vector<float> x(elements() + XNN_EXTRA_BYTES / sizeof(float));
     std::vector<float> y(elements());
     std::vector<double> y_ref(elements());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(x.begin(), x.end(), std::ref(f32rng));
+      std::generate(x.begin(), x.end(), [&]() { return f32dist(rng); });
       std::fill(y.begin(), y.end(), std::nanf(""));
 
       // Compute reference results.
@@ -73,10 +117,10 @@ class RAddStoreExpMinusMaxMicrokernelTester {
       // Verify results.
       for (size_t i = 0; i < elements(); i++) {
       ASSERT_NEAR(y_ref[i], double(y[i]), std::abs(y_ref[i]) * 1.0e-6)
-        << "i = " << i << ", elements = " << elements() << ", x_max = " << x_max;
+        << "element " << i << " / " << elements() << ", x_max " << x_max;
       }
       ASSERT_NEAR(sum_ref, double(sum), std::abs(sum_ref) * 1.0e-6)
-        << "elements = " << elements() << ", x_max = " << x_max;
+        << "batch " << elements() << ", x_max " << x_max;
     }
   }
 

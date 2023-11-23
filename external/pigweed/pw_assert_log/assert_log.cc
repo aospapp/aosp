@@ -12,17 +12,21 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-#include "pw_assert_log/assert_log.h"
-
 #include "pw_assert/config.h"
+#include "pw_log/levels.h"
+#include "pw_log/log.h"
+#include "pw_log/options.h"
+#include "pw_preprocessor/compiler.h"
 
 extern "C" void pw_assert_HandleFailure(void) {
 #if PW_ASSERT_ENABLE_DEBUG
   PW_LOG(PW_LOG_LEVEL_FATAL,
+         "pw_assert_log",
          PW_LOG_FLAGS,
          "Crash: PW_ASSERT() or PW_DASSERT() failure");
 #else
   PW_LOG(PW_LOG_LEVEL_FATAL,
+         "pw_assert_log",
          PW_LOG_FLAGS,
          "Crash: PW_ASSERT() failure. Note: PW_DASSERT disabled");
 #endif  // PW_ASSERT_ENABLE_DEBUG

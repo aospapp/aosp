@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_Cr50DeferredECReset"
 PURPOSE = "Verify Deferred EC Reset."
 # TODO(b/139537748): should verify this test running on varius platforms
@@ -15,6 +15,7 @@ ATTRIBUTES = "suite:faft_cr50_experimental"
 TIME = "SHORT"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 Verify EC_RST_L stays asserted while RDD is plugged in until the power button

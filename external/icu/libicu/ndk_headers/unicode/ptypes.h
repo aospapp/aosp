@@ -20,7 +20,7 @@
 */
 
 /**
- * @addtogroup ICU4C
+ * @addtogroup icu4c ICU4C
  * @{
  * \file
  * \brief C API: Definitions of integer types of various widths

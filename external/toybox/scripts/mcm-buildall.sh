@@ -91,7 +91,11 @@ make_toolchain()
 
   # Prevent cross compiler reusing dynamically linked host build files for
   # $BOOTSTRAP arch
-  [ -z "$TYPE" ] && make clean
+  [ -z "$TYPE" ] && {
+    [ -e musl-git-master ] && mv musl-git-master keep-this-dir
+    make clean
+    [ -e keep-this-dir ] && mv keep-this-dir musl-git-master
+  }
 
   if [ "$TYPE" == native ]
   then
@@ -138,13 +142,6 @@ fix_nommu()
   PP=patches/musl-"$(sed -n 's/MUSL_VER[ \t]*=[ \t]*//p' Makefile)"
   mkdir -p "$PP" &&
   cat > "$PP"/0001-nommu.patch << 'EOF'
---- a/include/features.h
-+++ b/include/features.h
-@@ -3,2 +3,4 @@
- 
-+#define __MUSL__ 1
-+
- #if defined(_ALL_SOURCE) && !defined(_GNU_SOURCE)
 --- a/src/legacy/daemon.c
 +++ b/src/legacy/daemon.c
 @@ -17,3 +17,3 @@

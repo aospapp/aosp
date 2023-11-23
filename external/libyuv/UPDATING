@@ -1,0 +1,36 @@
+To sync the libyuv checkout to an upstream revision, do the following:
+
+These commands are known to work from the external/libyuv directory of the
+Android tree's checkout.
+
+Step 1: Remove the files/ subdirectory.
+
+$ rm -rf files
+
+Step 2: Clone the libyuv repository from upstream.
+
+$ git clone https://chromium.googlesource.com/libyuv/libyuv files
+
+Step 3 (optional): Checkout a specific commit/tag.
+
+$ cd files
+$ git checkout <commit_or_tag>
+$ cd ..
+
+Step 4: Remove files that aren't necessary (Android.mk, .git and OWNERS).
+
+$ rm files/Android.mk
+$ rm -rf files/.git
+$ find files/ -name "OWNERS" | xargs rm
+
+Step 5: Update the version and last_upgrade_date fields in the METADATA file.
+
+Step 6: Update README.version with the version (can be found in
+        files/include/libyuv/version.h)
+
+Step 7: If any local modifications are being done, update README.version and
+        this file with updated instructions.
+
+Step 8: Ensure that libyuv builds and camera and media related CTS tests are
+        passing. If there are any linker errors about missing symbols, try
+	updating frameworks/av/media/libstagefright/export.lds.

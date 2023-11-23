@@ -16,6 +16,7 @@ import argparse
 import contextlib
 import logging
 import os
+import signal
 import sys
 import time
 
@@ -65,12 +66,13 @@ def main(argv=None):
   tests = None
   if args.tests:
     tests = args.tests
+  console_level = logging.DEBUG if args.verbose else logging.INFO
   # Execute the test class with configs.
   ok = True
   for config in test_configs:
     runner = TestRunner(log_dir=config.log_path,
                         testbed_name=config.testbed_name)
-    with runner.mobly_logger():
+    with runner.mobly_logger(console_level=console_level):
       runner.add_test_class(config, test_class, tests)
       try:
         runner.run()
@@ -125,6 +127,11 @@ def parse_mobly_cli_args(argv):
                       type=str,
                       metavar='[<TEST BED NAME1> <TEST BED NAME2> ...]',
                       help='Specify which test beds to run tests on.')
+
+  parser.add_argument('-v',
+                      '--verbose',
+                      action='store_true',
+                      help='Set console logger level to DEBUG')
   if not argv:
     argv = sys.argv[1:]
   return parser.parse_known_args(argv)[0]
@@ -245,6 +252,10 @@ class TestRunner:
                                            self._logger_start_time)
       return self.root_output_path
 
+    @property
+    def summary_file_path(self):
+      return os.path.join(self.root_output_path, records.OUTPUT_FILE_SUMMARY)
+
     def set_start_point(self):
       """Sets the start point of a test run.
 
@@ -289,20 +300,26 @@ class TestRunner:
     self._test_run_metadata = TestRunner._TestRunMetaData(log_dir, testbed_name)
 
   @contextlib.contextmanager
-  def mobly_logger(self, alias='latest'):
+  def mobly_logger(self, alias='latest', console_level=logging.INFO):
     """Starts and stops a logging context for a Mobly test run.
 
     Args:
       alias: optional string, the name of the latest log alias directory to
         create. If a falsy value is specified, then the directory will not
         be created.
+      console_level: optional logging level, log level threshold used for log
+        messages printed to the console. Logs with a level less severe than
+        console_level will not be printed to the console.
 
     Yields:
       The host file path where the logs for the test run are stored.
     """
     # Refresh the log path at the beginning of the logger context.
     root_output_path = self._test_run_metadata.generate_test_run_log_path()
-    logger.setup_test_logger(root_output_path, self._testbed_name, alias=alias)
+    logger.setup_test_logger(root_output_path,
+                             self._testbed_name,
+                             alias=alias,
+                             console_level=console_level)
     try:
       yield self._test_run_metadata.root_output_path
     finally:
@@ -388,8 +405,20 @@ class TestRunner:
     utils.create_dir(self._test_run_metadata.root_output_path)
 
     summary_writer = records.TestSummaryWriter(
-        os.path.join(self._test_run_metadata.root_output_path,
-                     records.OUTPUT_FILE_SUMMARY))
+        self._test_run_metadata.summary_file_path)
+
+    # When a SIGTERM is received during the execution of a test, the Mobly test
+    # immediately terminates without executing any of the finally blocks. This
+    # handler converts the SIGTERM into a TestAbortAll signal so that the
+    # finally blocks will execute. We use TestAbortAll because other exceptions
+    # will be caught in the base test class and it will continue executing
+    # remaining tests.
+    def sigterm_handler(*args):
+      logging.warning('Test received a SIGTERM. Aborting all tests.')
+      raise signals.TestAbortAll('Test received a SIGTERM.')
+
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
     try:
       for test_run_info in self._test_run_infos:
         # Set up the test-specific config
@@ -413,6 +442,7 @@ class TestRunner:
           f'Summary for test run {self._test_run_metadata.run_id}:',
           f'Total time elapsed {self._test_run_metadata.time_elapsed_sec}s',
           f'Artifacts are saved in "{self._test_run_metadata.root_output_path}"',
+          f'Test summary saved in "{self._test_run_metadata.summary_file_path}"',
           f'Test results: {self.results.summary_str()}'
       ]
       logging.info('\n'.join(summary_lines))

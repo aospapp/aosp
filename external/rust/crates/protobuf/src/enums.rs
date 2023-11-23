@@ -1,8 +1,17 @@
-use crate::reflect::EnumDescriptor;
-use crate::reflect::EnumValueDescriptor;
+use std::fmt;
 
 /// Trait implemented by all protobuf enum types.
-pub trait ProtobufEnum: Eq + Sized + Copy + 'static {
+///
+/// Additionally, generated enums also implement [`EnumFull`](crate::EnumFull) trait,
+/// which provides access to reflection.
+pub trait Enum: Eq + Sized + Copy + fmt::Debug + Default + Send + Sync + 'static {
+    /// Enum name as specified in `.proto` file.
+    ///
+    /// There's full reflection when non-lite runtime code generation is used,
+    /// and enums implement [`EnumFull`](crate::EnumFull) trait.
+    /// This operation is for lite runtime.
+    const NAME: &'static str;
+
     /// Get enum `i32` value.
     fn value(&self) -> i32;
 
@@ -10,23 +19,6 @@ pub trait ProtobufEnum: Eq + Sized + Copy + 'static {
     /// Return `None` if value is unknown.
     fn from_i32(v: i32) -> Option<Self>;
 
-    /// Get all enum values for enum type.
-    fn values() -> &'static [Self] {
-        panic!();
-    }
-
-    /// Get enum value descriptor.
-    fn descriptor(&self) -> &'static EnumValueDescriptor {
-        self.enum_descriptor().value_by_number(self.value())
-    }
-
-    /// Get enum descriptor.
-    fn enum_descriptor(&self) -> &'static EnumDescriptor {
-        Self::enum_descriptor_static()
-    }
-
-    /// Get enum descriptor by type.
-    fn enum_descriptor_static() -> &'static EnumDescriptor {
-        panic!();
-    }
+    /// All enum values for enum type.
+    const VALUES: &'static [Self] = &[];
 }

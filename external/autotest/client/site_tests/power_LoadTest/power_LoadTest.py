@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -21,7 +22,6 @@ from autotest_lib.client.common_lib.cros.network import interface
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
 from autotest_lib.client.common_lib.cros.network import xmlrpc_security_types
 from autotest_lib.client.cros import backchannel
-from autotest_lib.client.cros import ec
 from autotest_lib.client.cros import httpd
 from autotest_lib.client.cros import memory_bandwidth_logger
 from autotest_lib.client.cros import service_stopper
@@ -32,6 +32,7 @@ from autotest_lib.client.cros.networking import wifi_proxy
 from autotest_lib.client.cros.power import power_dashboard
 from autotest_lib.client.cros.power import power_status
 from autotest_lib.client.cros.power import power_utils
+from autotest_lib.client.cros.power import force_discharge_utils
 from telemetry.core import exceptions
 
 params_dict = {
@@ -48,16 +49,33 @@ class power_LoadTest(arc.ArcTest):
     """test class"""
     version = 2
 
-    def initialize(self, percent_initial_charge_min=None,
-                 check_network=True, loop_time=3600, loop_count=1,
-                 should_scroll='true', should_scroll_up='true',
-                 scroll_loop='false', scroll_interval_ms='10000',
-                 scroll_by_pixels='600', test_low_batt_p=3,
-                 verbose=True, force_wifi=False, wifi_ap='', wifi_sec='none',
-                 wifi_pw='', wifi_timeout=60, use_cellular_network=False,
-                 tasks='', volume_level=10, mic_gain=10, low_batt_margin_p=2,
-                 ac_ok=False, log_mem_bandwidth=False, gaia_login=None,
-                 force_discharge=False, pdash_note=''):
+    def initialize(self,
+                   percent_initial_charge_min=None,
+                   check_network=True,
+                   loop_time=3600,
+                   loop_count=1,
+                   should_scroll='true',
+                   should_scroll_up='true',
+                   scroll_loop='false',
+                   scroll_interval_ms='10000',
+                   scroll_by_pixels='600',
+                   test_low_batt_p=3,
+                   verbose=True,
+                   force_wifi=False,
+                   wifi_ap='',
+                   wifi_sec='none',
+                   wifi_pw='',
+                   wifi_timeout=60,
+                   use_cellular_network=False,
+                   tasks='',
+                   volume_level=10,
+                   mic_gain=10,
+                   low_batt_margin_p=2,
+                   ac_ok=False,
+                   log_mem_bandwidth=False,
+                   gaia_login=None,
+                   force_discharge='false',
+                   pdash_note=''):
         """
         percent_initial_charge_min: min battery charge at start of test
         check_network: check that Ethernet interface is not running
@@ -84,8 +102,12 @@ class power_LoadTest(arc.ArcTest):
         log_mem_bandwidth: boolean to log memory bandwidth during the test
         gaia_login: whether real GAIA login should be attempted.  If 'None'
             (default) then boolean is determined from URL.
-        force_discharge: boolean of whether to tell ec to discharge battery even
-            when the charger is plugged in.
+        force_discharge: string of whether to tell ec to discharge battery even
+            when the charger is plugged in. 'false' means no forcing discharge;
+            'true' means forcing discharge and raising an error when it fails;
+            'optional' means forcing discharge when possible but not raising an
+            error when it fails, which is more friendly to devices without a
+            battery.
         pdash_note: note of the current run to send to power dashboard.
         """
         self._backlight = None
@@ -109,7 +131,7 @@ class power_LoadTest(arc.ArcTest):
         self._force_wifi = force_wifi
         self._use_cellular_network = use_cellular_network
         self._testServer = None
-        self._tasks = tasks.replace(' ','')
+        self._tasks = tasks
         self._backchannel = None
         self._shill_proxy = None
         self._volume_level = volume_level
@@ -118,20 +140,13 @@ class power_LoadTest(arc.ArcTest):
         self._log_mem_bandwidth = log_mem_bandwidth
         self._wait_time = 60
         self._stats = collections.defaultdict(list)
-        self._force_discharge = force_discharge
         self._pdash_note = pdash_note
 
         self._power_status = power_status.get_status()
 
-        if force_discharge:
-            if not self._power_status.battery:
-                raise error.TestNAError('DUT does not have battery. '
-                                        'Could not force discharge.')
-            if not ec.has_cros_ec():
-                raise error.TestNAError('DUT does not have CrOS EC. '
-                                        'Could not force discharge.')
-            if not power_utils.charge_control_by_ectool(False):
-                raise error.TestError('Could not run battery force discharge.')
+        self._force_discharge_success = force_discharge_utils.process(
+                force_discharge, self._power_status)
+        if self._force_discharge_success:
             self._ac_ok = True
 
         if not self._power_status.battery:
@@ -142,8 +157,10 @@ class power_LoadTest(arc.ArcTest):
                 rsp = "Skipping test for device without battery and powercap."
                 raise error.TestNAError(rsp)
 
-        self._tmp_keyvals['b_on_ac'] = (not force_discharge and
-                                        self._power_status.on_ac())
+        self._tmp_keyvals['b_on_ac'] = int(not self._force_discharge_success
+                                           and self._power_status.on_ac())
+        self._tmp_keyvals['force_discharge'] = int(
+                self._force_discharge_success)
 
         self._gaia_login = gaia_login
         if gaia_login is None:
@@ -181,7 +198,7 @@ class power_LoadTest(arc.ArcTest):
 
             self._shill_proxy = wifi_proxy.WifiProxy()
             self._shill_proxy.remove_all_wifi_entries()
-            for i in xrange(1,4):
+            for i in range(1, 4):
                 raw_output = self._shill_proxy.connect_to_wifi_network(
                         wifi_config.ssid,
                         wifi_config.security,
@@ -199,7 +216,7 @@ class power_LoadTest(arc.ArcTest):
                         from_dbus_proxy_output(raw_output)
                 if result.success:
                     break
-                logging.warn('wifi connect: disc:%d assoc:%d config:%d fail:%s',
+                logging.warning('wifi connect: disc:%d assoc:%d config:%d fail:%s',
                              result.discovery_time, result.association_time,
                              result.configuration_time, result.failure_reason)
             else:
@@ -228,13 +245,13 @@ class power_LoadTest(arc.ArcTest):
             self._shill_proxy.wait_for_cellular_service_object()
 
         # record the max backlight level
-        self._backlight = power_utils.Backlight()
+        self._backlight = power_utils.Backlight(
+                force_battery=self._force_discharge_success)
         self._tmp_keyvals['level_backlight_max'] = \
             self._backlight.get_max_level()
 
         self._services = service_stopper.ServiceStopper(
             service_stopper.ServiceStopper.POWER_DRAW_SERVICES)
-        self._services.stop_services()
 
         self._detachable_handler = power_utils.BaseActivitySimulator()
 
@@ -272,7 +289,9 @@ class power_LoadTest(arc.ArcTest):
             self._wh_energy_start = self._power_status.battery.energy
 
         self.task_monitor_file = open(os.path.join(self.resultsdir,
-                                      'task-monitor.json'), 'wt')
+                                                   'task-monitor.json'),
+                                      mode='wt',
+                                      **power_utils.encoding_kwargs())
 
 
     def run_once(self):
@@ -310,29 +329,41 @@ class power_LoadTest(arc.ArcTest):
         if utils.is_arc_available():
             arc_mode = arc_common.ARC_MODE_ENABLED
 
+        # --disable-sync disables test account info sync, eg. Wi-Fi credentials,
+        # so that each test run does not remember info from last test run.
+        extra_browser_args = ['--disable-sync']
+        # b/228256145 to avoid powerd restart
+        extra_browser_args.append('--disable-features=FirmwareUpdaterApp')
         try:
-            self._browser = chrome.Chrome(extension_paths=[ext_path],
-                                          gaia_login=self._gaia_login,
-                                          username=self._username,
-                                          password=self._password,
-                                          arc_mode=arc_mode)
+            self._browser = chrome.Chrome(
+                    extension_paths=[ext_path],
+                    extra_browser_args=extra_browser_args,
+                    gaia_login=self._gaia_login,
+                    username=self._username,
+                    password=self._password,
+                    arc_mode=arc_mode)
         except exceptions.LoginException:
             # already failed guest login
             if not self._gaia_login:
                 raise
             self._gaia_login = False
-            logging.warn("Unable to use GAIA acct %s.  Using GUEST instead.\n",
+            logging.warning("Unable to use GAIA acct %s.  Using GUEST instead.\n",
                          self._username)
             self._browser = chrome.Chrome(extension_paths=[ext_path],
                                           gaia_login=self._gaia_login)
         if not self._gaia_login:
             self._tmp_keyvals['username'] = 'GUEST'
+        self._tmp_keyvals['gaia_login'] = int(self._gaia_login)
 
         extension = self._browser.get_extension(ext_path)
         for k in params_dict:
             if getattr(self, params_dict[k]) is not '':
                 extension.ExecuteJavaScript('var %s = %s;' %
                                             (k, getattr(self, params_dict[k])))
+
+        # Stop the services after the browser is setup. This ensures that
+        # restart ui does not restart services e.g. powerd underneath us
+        self._services.stop_services()
 
         # This opens a trap start page to capture tabs opened for first login.
         # It will be closed when startTest is run.
@@ -420,6 +451,8 @@ class power_LoadTest(arc.ArcTest):
         psr.refresh()
         self._tmp_keyvals['minutes_battery_life_tested'] = (t1 - t0) / 60
         self._tmp_keyvals.update(psr.get_keyvals())
+        self._start_time = t0
+        self._end_time = t1
 
 
     def postprocess_iteration(self):
@@ -436,12 +469,12 @@ class power_LoadTest(arc.ArcTest):
 
 
         def _log_per_loop_stats():
-            samples_per_loop = self._loop_time / self._wait_time + 1
+            samples_per_loop = int(self._loop_time / self._wait_time) + 1
             for kname in self._stats:
                 start_idx = 0
                 loop = 1
-                for end_idx in xrange(samples_per_loop, len(self._stats[kname]),
-                                      samples_per_loop):
+                for end_idx in range(samples_per_loop, len(self._stats[kname]),
+                                     samples_per_loop):
                     _log_stats("%s loop %d" % (kname, loop),
                                self._stats[kname][start_idx:end_idx])
                     loop += 1
@@ -500,11 +533,15 @@ class power_LoadTest(arc.ArcTest):
         keyvals['wh_energy_powerlogger'] = \
                              self._energy_use_from_powerlogger(keyvals)
 
-        if not self._power_status.on_ac() and keyvals['ah_charge_used'] > 0:
+        if (self._force_discharge_success or not self._power_status.on_ac()
+            ) and keyvals['ah_charge_used'] > 0:
             # For full runs, we should use charge to scale for battery life,
             # since the voltage swing is accounted for.
             # For short runs, energy will be a better estimate.
-            if self._loop_count > 1:
+            # TODO(b/188082306): some devices do not provide
+            # 'wh_energy_powerlogger' so use charge in this case to scale for
+            # battery life.
+            if self._loop_count > 1 or keyvals['wh_energy_powerlogger'] <= 0:
                 estimated_reps = (keyvals['ah_charge_full_design'] /
                                   keyvals['ah_charge_used'])
             else:
@@ -540,16 +577,46 @@ class power_LoadTest(arc.ArcTest):
                             keyvals)
         # Avoid polluting the keyvals with non-core domains.
         core_keyvals = power_utils.get_core_keyvals(keyvals)
-        if not self._gaia_login:
-            core_keyvals = {'INVALID_%s' % str(k): v for k, v in
-                            core_keyvals.iteritems()}
-        else:
-            for key, value in core_keyvals.iteritems():
-                if re.match(r'percent_[cg]pu(idle|pkg).*_R?C0(_C1)?_time', key):
-                    self.output_perf_value(description=key,
-                                           value=value,
-                                           units='percent',
-                                           higher_is_better=False)
+        for key, value in core_keyvals.items():
+            if re.match(r'percent_[cg]pu(idle|pkg).*_R?C0(_C1)?_time', key):
+                self.output_perf_value(description=key,
+                                       value=value,
+                                       units='percent',
+                                       higher_is_better=False)
+
+        logger = power_dashboard.KeyvalLogger(self._start_time, self._end_time)
+        for key in [
+                'b_on_ac', 'force_discharge', 'gaia_login',
+                'percent_usb_suspended_time'
+        ]:
+            logger.add_item(key, keyvals[key], 'point', 'perf')
+
+        # Add audio/docs/email/web fail load details to power dashboard and to keyval
+        for task in ('audio', 'docs', 'email', 'web'):
+            key = 'ext_%s_failed_loads' % task
+            if key not in keyvals:
+                continue
+            vals = (int(x) for x in keyvals[key].split('_'))
+            for index, val in enumerate(vals):
+                log_name = 'loop%02d_%s_failed_load' % (index, task)
+                logger.add_item(log_name, val, 'point', 'perf')
+                core_keyvals[log_name] = val
+
+        # Add ext_ms_page_load_time_mean to power dashboard
+        if 'ext_ms_page_load_time_mean' in keyvals:
+            vals = (float(x)
+                    for x in keyvals['ext_ms_page_load_time_mean'].split('_'))
+            for index, val in enumerate(vals):
+                log_name = 'loop%02d_ms_page_load_time' % index
+                logger.add_item(log_name, val, 'point', 'perf')
+
+        # Add battery life and power to power dashboard
+        for key in ('minutes_battery_life_tested', 'minutes_battery_life',
+                    'w_energy_rate'):
+            if key in keyvals:
+                logger.add_item(key, keyvals[key], 'point', 'perf')
+
+        self._meas_logs.append(logger)
 
         self.write_perf_keyval(core_keyvals)
         for log in self._meas_logs:
@@ -566,10 +633,10 @@ class power_LoadTest(arc.ArcTest):
                 self.tagged_testname, self.resultsdir, note=self._pdash_note)
             dashboard.upload()
 
+        power_dashboard.generate_parallax_report(self.outputdir)
 
     def cleanup(self):
-        if self._force_discharge:
-            power_utils.charge_control_by_ectool(True)
+        force_discharge_utils.restore(self._force_discharge_success)
         if self._backlight:
             self._backlight.restore()
         if self._services:
@@ -579,6 +646,7 @@ class power_LoadTest(arc.ArcTest):
 
         if self.task_monitor_file:
             self.task_monitor_file.close()
+            self._generate_task_monitor_html()
 
         if self._shill_proxy:
             if self._force_wifi:
@@ -768,7 +836,7 @@ class power_LoadTest(arc.ArcTest):
         elif has_light_sensor:
             level_to_set = (40 * default_level) / 100
         elif has_hover:
-            logging.warn('Device has hover but no light sensor')
+            logging.warning('Device has hover but no light sensor')
 
         logging.info('Setting keyboard backlight to %d', level_to_set)
         self._keyboard_backlight.set_level(level_to_set)
@@ -798,7 +866,7 @@ class power_LoadTest(arc.ArcTest):
                 if start_extension >= start:
                     start = start_extension
                     break
-                logging.warn('Timestamp from extension (%.2f) is earlier than'
+                logging.warning('Timestamp from extension (%.2f) is earlier than'
                              'timestamp from autotest (%.2f).',
                              start_extension, start)
 
@@ -829,8 +897,83 @@ class power_LoadTest(arc.ArcTest):
                 self.task_monitor_file.write(",\n")
                 # we don't want to add url information to our keyvals.
                 # httpd adds them automatically so we remove them again
-                del handler.server._form_entries[idx]
+                if idx in handler.server._form_entries:
+                    del handler.server._form_entries[idx]
         handler.send_response(200)
+
+
+    def _generate_task_monitor_html(self):
+        json_decoder = json.JSONDecoder()
+        # regex pattern to simplify the url
+        pattern = re.compile(r'.*https?://(www[.])?(?P<site>[^.]*[.][^/]*)')
+        data = []
+        min_ts = None
+        process_dict = {}
+        process_id = 1
+        with open(os.path.join(self.resultsdir, 'task-monitor.json'), 'r',
+                  **power_utils.encoding_kwargs()) as f:
+            json_strs = f.read().splitlines()
+            for json_str in json_strs[1:]:
+                if len(json_str) < 10:
+                    continue
+                entry_dict, _ = json_decoder.raw_decode(json_str, 0)
+                if not min_ts:
+                    min_ts = entry_dict['timestamp']
+                ts = (entry_dict['timestamp'] - min_ts) / 1000
+
+                items = {}
+                for p in entry_dict['processes']:
+                    if 'cpu' not in p:
+                        continue
+                    tab = p['tasks'][0]
+                    key = tab['title']
+                    if 'tabId' in tab:
+                        tabInfo = [
+                                t for t in entry_dict['tabInfo']
+                                if t['tabId'] == tab['tabId']
+                        ]
+                        if len(tabInfo) > 0 and 'url' in tabInfo[0]:
+                            url = tabInfo[0]['url']
+                            key = 'Tab: ' + pattern.search(url).group('site')
+
+                    if key.startswith('Service Worker'):
+                        key = 'Service Worker: ' + \
+                            pattern.search(key).group('site')
+
+                    items[key] = p['cpu']
+                    if key not in process_dict:
+                        process_dict[key] = process_id
+                        process_id += 1
+
+                data.append((ts, items))
+
+        cols = ['timestamp'] + list(process_dict.keys())
+        rows = [cols]
+
+        # This data is logged every seconds but graph would be too dense.
+        # So we average data in |avg_window| seconds window.
+        avg_window = 3
+        if len(data) > 1000:
+            avg_window = 20
+
+        for index, (ts, items) in enumerate(data):
+            if index % avg_window == 0:
+                row = [0] * len(cols)
+                row[0] = ts
+            for name, cpu in items.items():
+                row[process_dict[name]] += cpu / avg_window
+            if index % avg_window == avg_window - 1:
+                rows.append(row)
+
+        row_indent = ' ' * 12
+        data_str = ',\n'.join([row_indent + json.dumps(row) for row in rows])
+
+        out_str = power_dashboard._HTML_CHART_STR.format(
+                data=data_str, unit='percent', type='process cpu usage')
+
+        with open(os.path.join(self.resultsdir, 'task-monitor.html'),
+                  'w') as f:
+            f.write(out_str)
 
 
 def alphanum_key(s):
@@ -861,12 +1004,13 @@ def _extension_log_handler(handler, form, loop_number):
     """
 
     if form:
-        for field in sorted(form.keys(), key=alphanum_key):
+        for field in sorted(list(form.keys()), key=alphanum_key):
             logging.debug("[extension] @ %s %s", _loop_prefix(loop_number),
             form[field].value)
             # we don't want to add url information to our keyvals.
             # httpd adds them automatically so we remove them again
-            del handler.server._form_entries[field]
+            if field in handler.server._form_entries:
+                del handler.server._form_entries[field]
 
 
 def _extension_page_time_info_handler(handler, form, loop_number,
@@ -906,7 +1050,8 @@ def _extension_page_time_info_handler(handler, form, loop_number,
 
         # we don't want to add url information to our keyvals.
         # httpd adds them automatically so we remove them again
-        del handler.server._form_entries[field]
+        if field in handler.server._form_entries:
+            del handler.server._form_entries[field]
 
     page_base = _loop_keyname(loop_number, 'web_page_')
     for page in page_timestamps:
@@ -960,7 +1105,7 @@ def _extension_key_values_handler(handler, form, loop_number,
         keyval_data = json.loads(form[field].value)
 
         # Print each key:value pair and associate it with the data
-        for key, value in keyval_data.iteritems():
+        for key, value in keyval_data.items():
             logging.debug("[extension] @ %s key: %s val: %s",
                 _loop_prefix(loop_number), key, value)
             # Add the key:values to the _tmp_keyvals set
@@ -968,7 +1113,8 @@ def _extension_key_values_handler(handler, form, loop_number,
 
         # we don't want to add url information to our keyvals.
         # httpd adds them automatically so we remove them again
-        del handler.server._form_entries[field]
+        if field in handler.server._form_entries:
+            del handler.server._form_entries[field]
 
 
 def _loop_prefix(loop):

@@ -7,8 +7,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import mock
 import unittest
+from unittest import mock
 
 import common
 from autotest_lib.frontend.afe.json_rpc import proxy as rpc_proxy
@@ -126,7 +126,7 @@ class AfeStoreTest(unittest.TestCase):
 
 
     def test_str(self):
-        """Sanity tests the __str__ implementaiton"""
+        """Tests the __str__ implementaiton"""
         self.assertEqual(str(self.store), 'AfeStore[some-host]')
 
 

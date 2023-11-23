@@ -43,17 +43,20 @@ rust_library {
     host_supported: true,
     crate_name: "uuid",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.8.2",
+    cargo_pkg_version: "1.3.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
+        "atomic",
         "getrandom",
+        "rng",
         "serde",
         "std",
         "v1",
         "v4",
     ],
     rustlibs: [
+        "libatomic_rust",
         "libgetrandom",
         "libserde",
     ],
@@ -61,4 +64,22 @@ rust_library {
         "//apex_available:platform",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
 }
+
+rust_library_rlib {
+    name: "libuuid_nostd",
+    crate_name: "uuid",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.8.2",
+    srcs: ["src/lib.rs"],
+    edition: "2018",
+    prefer_rlib: true,
+    no_stdlibs: true,
+    stdlibs: [
+        "libcompiler_builtins.rust_sysroot",
+        "libcore.rust_sysroot",
+    ],
+}
+

@@ -35,10 +35,13 @@ class AllReduceSimplifier : public HloModulePass {
 
   // Run all-reduce simplification on the given computation. Returns whether the
   // computation was changed.
-  StatusOr<bool> Run(HloModule* module) override;
+  using HloPassInterface::Run;
+  StatusOr<bool> Run(
+      HloModule* module,
+      const absl::flat_hash_set<absl::string_view>& execution_threads) override;
 
  private:
-  int64 replica_count_;
+  int64_t replica_count_;
 };
 
 }  // namespace xla

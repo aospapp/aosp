@@ -15,18 +15,20 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import com.google.security.wycheproof.WycheproofRunner.ProviderType;
-import com.google.security.wycheproof.WycheproofRunner.SlowTest;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
 import java.security.Key;
+import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import org.junit.After;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.Ignore;
+import android.security.keystore.KeyProtection;
+import android.security.keystore.KeyProperties;
+import android.keystore.cts.util.KeyStoreUtil;
 
 /**
  * Tests for MACs.
@@ -35,8 +37,23 @@ import org.junit.runners.JUnit4;
  * with known results are necessary. So far only simple test vectors for long messages are
  * available.
  */
-@RunWith(JUnit4.class)
 public class MacTest {
+  private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
+  private static final String KEY_ALIAS_1 = "TestKey";
+
+  @After
+  public void tearDown() throws Exception {
+    KeyStoreUtil.cleanUpKeyStore();
+  }
+
+  private static Key getKeyStoreSecretKey(byte[] keyMaterial, String algorithm, boolean isStrongBox)
+          throws Exception {
+      KeyStore keyStore = KeyStoreUtil.saveSecretKeyToKeystore(KEY_ALIAS_1,
+                            new SecretKeySpec(keyMaterial, algorithm),
+                            new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
+                                    .setIsStrongBoxBacked(isStrongBox).build());
+    return keyStore.getKey(KEY_ALIAS_1, null);
+  }
 
   /**
    * Computes the maximum of an array with at least one element.
@@ -79,7 +96,7 @@ public class MacTest {
    */
   private void testUpdateWithChunks(String algorithm, Key key, byte[] data, int... chunkSizes)
       throws Exception {
-    Mac mac = Mac.getInstance(algorithm);
+    Mac mac = Mac.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
 
     // First evaluation: compute MAC in one piece.
     int totalLength = 0;
@@ -177,16 +194,18 @@ public class MacTest {
   }
 
   public void testMac(String algorithm, int keySize) throws Exception {
+    testMac(algorithm, keySize, false);
+  }
+  public void testMac(String algorithm, int keySize, boolean isStrongBox) throws Exception {
     try {
-      Mac.getInstance(algorithm);
+      Mac.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
     } catch (NoSuchAlgorithmException ex) {
-      System.out.println("Algorithm " + algorithm + " is not supported. Skipping test.");
-      return;
+      fail("Algorithm " + algorithm + " is not supported.");
     }
     byte[] key = new byte[keySize];
     SecureRandom rand = new SecureRandom();
     rand.nextBytes(key);
-    testUpdate(algorithm, new SecretKeySpec(key, algorithm));
+    testUpdate(algorithm, getKeyStoreSecretKey(key, algorithm, isStrongBox));
   }
 
   @Test
@@ -205,6 +224,13 @@ public class MacTest {
   }
 
   @Test
+  @Ignore // StrongBox takes very long time to complete this test and CTS timed out (b/242028608), hence ignoring it.
+  public void testHmacSha256_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testMac("HMACSHA256", 32, true);
+  }
+
+  @Test
   public void testHmacSha384() throws Exception {
     testMac("HMACSHA384", 48);
   }
@@ -215,21 +241,25 @@ public class MacTest {
   }
 
   @Test
+  @Ignore // HmacSha3 algorithms are not supported in AndroidKeyStore
   public void testHmacSha3_224() throws Exception {
     testMac("HMACSHA3-224", 28);
   }
 
   @Test
+  @Ignore // HmacSha3 algorithms are not supported in AndroidKeyStore
   public void testHmacSha3_256() throws Exception {
     testMac("HMACSHA3-256", 32);
   }
 
   @Test
+  @Ignore // HmacSha3 algorithms are not supported in AndroidKeyStore
   public void testHmacSha3_384() throws Exception {
     testMac("HMACSHA3-384", 48);
   }
 
   @Test
+  @Ignore // HmacSha3 algorithms are not supported in AndroidKeyStore
   public void testHmacSha3_512() throws Exception {
     testMac("HMACSHA3-512", 64);
   }
@@ -246,7 +276,7 @@ public class MacTest {
    */
   public byte[] macRepeatedMessage(String algorithm, Key key, byte[] message, long repetitions)
       throws Exception {
-    Mac mac = Mac.getInstance(algorithm);
+    Mac mac = Mac.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
     mac.init(key);
     // If the message is short then it is more efficient to collect multiple copies
     // of the message in one chunk and call update with the larger chunk.
@@ -280,31 +310,31 @@ public class MacTest {
    * IMPLEMENTATION RETURNS INCORRECT HASH FOR LARGE SETS OF DATA
    */
   private void testLongMac(
-      String algorithm, String keyhex, String message, long repetitions, String expected)
-      throws Exception {
+          String algorithm, String keyhex, String message, long repetitions, String expected)
+          throws Exception {
+    testLongMac(algorithm, keyhex, message, repetitions, expected, false);
+  }
+  private void testLongMac(
+      String algorithm, String keyhex, String message, long repetitions, String expected,
+          boolean isStrongBox) throws Exception {
 
-    Key key = new SecretKeySpec(TestUtil.hexToBytes(keyhex), algorithm);
+    Key key = getKeyStoreSecretKey(TestUtil.hexToBytes(keyhex), algorithm, isStrongBox);
     byte[] bytes = message.getBytes(UTF_8);
     byte[] mac = null;
     try {
       mac = macRepeatedMessage(algorithm, key, bytes, repetitions);
     } catch (NoSuchAlgorithmException ex) {
-      System.out.println("Algorithm " + algorithm + " is not supported. Skipping test.");
-      return;
+      fail("Algorithm " + algorithm + " is not supported.");
     }
     String hexmac = TestUtil.bytesToHex(mac);
     assertEquals(expected, hexmac);
   }
 
-  @SlowTest(
-      providers = {
-        ProviderType.OPENJDK,
-        ProviderType.BOUNCY_CASTLE,
-        ProviderType.SPONGY_CASTLE,
-        ProviderType.CONSCRYPT
-      })
   @Test
   public void testLongMacSha1() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
+
     testLongMac(
         "HMACSHA1",
         "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
@@ -319,38 +349,40 @@ public class MacTest {
         "d7f4c387f2237ea119fcc27cd7520fc5132b6230");
   }
 
-  @SlowTest(
-      providers = {
-        ProviderType.OPENJDK,
-        ProviderType.BOUNCY_CASTLE,
-        ProviderType.SPONGY_CASTLE,
-        ProviderType.CONSCRYPT
-      })
   @Test
   public void testLongMacSha256() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
+    testLongMacSha256(false);
+  }
+  @Test
+  @Ignore // StrongBox takes very long time to complete this test and CTS timed out (b/242028608), hence ignoring it.
+  public void testLongMacSha256_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testLongMacSha256(true);
+  }
+  private void testLongMacSha256(boolean isStrongBox) throws Exception {
     testLongMac(
         "HMACSHA256",
         "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
         "a",
         2147483647L,
-        "84f213c9bb5b329d547bc31dabed41939754b1af7482365ec74380c45f6ea0a7");
+        "84f213c9bb5b329d547bc31dabed41939754b1af7482365ec74380c45f6ea0a7",
+        isStrongBox);
     testLongMac(
         "HMACSHA256",
         "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
         "a",
         5000000000L,
-        "59a75754df7093fa4339aa618b64b104f153a5b42cc85394fdb8735b13ea684a");
+        "59a75754df7093fa4339aa618b64b104f153a5b42cc85394fdb8735b13ea684a",
+        isStrongBox);
   }
 
-  @SlowTest(
-      providers = {
-        ProviderType.OPENJDK,
-        ProviderType.BOUNCY_CASTLE,
-        ProviderType.SPONGY_CASTLE,
-        ProviderType.CONSCRYPT
-      })
   @Test
   public void testLongMacSha384() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
+
     testLongMac(
         "HMACSHA384",
         "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
@@ -369,15 +401,11 @@ public class MacTest {
             + "a477e6a84d159d8b7a3daaa89c4f2372");
   }
 
-  @SlowTest(
-      providers = {
-        ProviderType.OPENJDK,
-        ProviderType.BOUNCY_CASTLE,
-        ProviderType.SPONGY_CASTLE,
-        ProviderType.CONSCRYPT
-      })
   @Test
   public void testLongMacSha512() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
+
     testLongMac(
         "HMACSHA512",
         "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"

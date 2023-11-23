@@ -1,6 +1,8 @@
 import unittest
 
-import cfm_jmidata_log_collector
+import common
+
+from autotest_lib.server.cros import cfm_jmidata_log_collector
 
 
 class CfmJmidataLogCollectorTest(unittest.TestCase):
@@ -286,4 +288,3 @@ JMI_LOG = (
 'diaType":"video","googFrameHeightSent":720,"googFrameRateSent":24,"googCode'
 'cName":"VP8","googAdaptationChanges":0,"ssrc":3865366536,"googFirsReceived"'
 ':0,"packetsSent":1869,"bytesSent":1796767,"googAdaptationReason":0}}]')
-

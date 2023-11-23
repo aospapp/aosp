@@ -41,7 +41,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Libabigail'
-copyright = u'2014-2016, Red Hat, Inc.'
+copyright = u'2014-2022, Red Hat, Inc.'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -220,6 +220,7 @@ man_pages = [
     ('abilint', 'abilint', u'validate an abigail ABI representation', [u'Dodji Seketeli'], 1),
     ('abicompat', 'abicompat', u'check ABI compatibility', [u'Dodji Seketeli'], 1),
     ('fedabipkgdiff', 'fedabipkgdiff', u'compare ABIs of Fedora packages', [u'Chenxiong Qi'], 1),
+    ('kmidiff', 'kmidiff', u'compare KMIs of Linux Kernel trees', [u'Dodji Seketeli'], 1),
 ]
 
 # If true, show URL addresses after external links.

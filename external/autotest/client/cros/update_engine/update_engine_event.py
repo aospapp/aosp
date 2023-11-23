@@ -1,8 +1,14 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 # Update event types.
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+import six
+
 EVENT_TYPE_DOWNLOAD_COMPLETE = 1
 EVENT_TYPE_INSTALL_COMPLETE = 2
 EVENT_TYPE_UPDATE_COMPLETE = 3
@@ -65,8 +71,10 @@ class UpdateEngineEvent(object):
 
     def __str__(self):
         """Returns a comma separated list of the event data."""
-        return '{%s}' % ', '.join(['%s:%s' % (k, v) for k, v in
-                                   self._expected_attrs.iteritems()])
+        return '{%s}' % ', '.join([
+                '%s:%s' % (k, v)
+                for k, v in six.iteritems(self._expected_attrs)
+        ])
 
     def equals(self, actual_event):
         """
@@ -81,11 +89,10 @@ class UpdateEngineEvent(object):
 
         """
         mismatched_attrs = []
-        for expected_name, expected_val in self._expected_attrs.iteritems():
+        for expected_name, expected_val in six.iteritems(self._expected_attrs):
             actual_val = actual_event.get(expected_name)
             if (expected_val and (actual_val is None or
                                   expected_val != actual_val)):
                 mismatched_attrs.append(expected_name)
 
         return mismatched_attrs if mismatched_attrs else None
-

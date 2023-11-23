@@ -26,14 +26,14 @@ compiler_test(
     compiler_deps = [
         "//java/dagger/hilt/migration:disable_install_in_check",
         "//:dagger_with_compiler",
-        "@google_bazel_common//third_party/java/jsr250_annotations",
+        "//third_party/java/jsr250_annotations",
         "//java/dagger/hilt:entry_point",
     ],
     deps = [
         "//java/dagger/hilt/processor/internal/disableinstallincheck:processor_lib",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/compile_testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

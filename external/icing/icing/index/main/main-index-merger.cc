@@ -20,10 +20,11 @@
 #include <unordered_map>
 
 #include "icing/absl_ports/canonical_errors.h"
+#include "icing/file/posting_list/index-block.h"
 #include "icing/index/lite/term-id-hit-pair.h"
-#include "icing/index/main/index-block.h"
 #include "icing/index/term-id-codec.h"
 #include "icing/legacy/core/icing-string-util.h"
+#include "icing/util/logging.h"
 #include "icing/util/status-macros.h"
 
 namespace icing {

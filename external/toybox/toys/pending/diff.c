@@ -3,53 +3,67 @@
  * Copyright 2014 Sandeep Sharma <sandeep.jack2756@gmail.com>
  * Copyright 2014 Ashwini Kumar <ak.ashwini1981@gmail.com>
  *
- * See: http://cm.bell-labs.com/cm/cs/cstr/41.pdf
+ * See https://pubs.opengroup.org/onlinepubs/9699919799/utilities/diff.html
+ * and https://www.cs.dartmouth.edu/~doug/diff.pdf
+ *
+ * Deviations from posix: always does -u
 
-USE_DIFF(NEWTOY(diff, "<2>2(color)(strip-trailing-cr)B(ignore-blank-lines)d(minimal)b(ignore-space-change)ut(expand-tabs)w(ignore-all-space)i(ignore-case)T(initial-tab)s(report-identical-files)q(brief)a(text)L(label)*S(starting-file):N(new-file)r(recursive)U(unified)#<0=3", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)))
+USE_DIFF(NEWTOY(diff, "<2>2(unchanged-line-format):;(old-line-format):;(new-line-format):;(color)(strip-trailing-cr)B(ignore-blank-lines)d(minimal)b(ignore-space-change)ut(expand-tabs)w(ignore-all-space)i(ignore-case)T(initial-tab)s(report-identical-files)q(brief)a(text)S(starting-file):F(show-function-line):;L(label)*N(new-file)r(recursive)U(unified)#<0=3", TOYFLAG_USR|TOYFLAG_BIN|TOYFLAG_ARGFAIL(2)))
 
 config DIFF
   bool "diff"
   default n
   help
-  usage: diff [-abBdiNqrTstw] [-L LABEL] [-S FILE] [-U LINES] FILE1 FILE2
+  usage: diff [-abBdiNqrTstw] [-L LABEL] [-S FILE] [-U LINES] [-F REGEX ] FILE1 FILE2
 
   -a	Treat all files as text
   -b	Ignore changes in the amount of whitespace
   -B	Ignore changes whose lines are all blank
   -d	Try hard to find a smaller set of changes
+  -F 	Show the most recent line matching the regex
   -i	Ignore case differences
   -L	Use LABEL instead of the filename in the unified header
   -N	Treat absent files as empty
   -q	Output only whether files differ
   -r	Recurse
   -S	Start with FILE when comparing directories
-  -T	Make tabs line up by prefixing a tab when necessary
   -s	Report when two files are the same
+  -T	Make tabs line up by prefixing a tab when necessary
   -t	Expand tabs to spaces in output
   -u	Unified diff
   -U	Output LINES lines of context
   -w	Ignore all whitespace
 
-  --color              Colored output
-  --strip-trailing-cr  Strip trailing '\r's from input lines
+  --color     Color output   --strip-trailing-cr   Strip '\r' from input lines
+  --TYPE-line-format=FORMAT  Display TYPE (unchanged/old/new) lines using FORMAT
+    FORMAT uses printf integer escapes (ala %-2.4x) followed by LETTER: FELMNn
+  Supported format specifiers are:
+  * %l, the contents of the line, without the trailing newline
+  * %L, the contents of the line, including the trailing newline
+  * %%, the character '%'
 */
 
 #define FOR_diff
 #include "toys.h"
 
 GLOBALS(
-  long ct;
-  char *start;
-  struct arg_list *L_list;
+  long U;
+  struct arg_list *L;
+  char *F, *S, *new_line_format, *old_line_format, *unchanged_line_format;
 
-  int dir_num, size, is_binary, status, change, len[2];
-  int *offset[2];
+  int dir_num, size, is_binary, differ, change, len[2], *offset[2];
   struct stat st[2];
+  struct {
+    char **list;
+    int nr_elm;
+  } dir[2];
+  struct {
+    FILE *fp;
+    int len;
+  } file[2];
 )
 
-#define MIN(x,y) ((x) < (y) ? (x) : (y))
-#define MAX(x,y) ((x) > (y) ? (x) : (y))
-#define IS_STDIN(s)     ((s)[0] == '-' && !(s)[1])
+#define IS_STDIN(s)     (*(s)=='-' && !(s)[1])
 
 struct v_vector {
   unsigned serial:31;
@@ -64,24 +78,9 @@ struct diff {
   long a, b, c, d, prev, suff;
 };
 
-static struct dir_t {
-  char **list;
-  int nr_elm;
-} dir[2];
-
 struct candidate {
+  struct candidate *next, *prev;
   int a, b;
-  struct candidate *prev, *next;
-};
-
-static struct file_t {
-  FILE *fp;
-  int len;
-} file[2];
-
-enum {
-  SAME,
-  DIFFER,
 };
 
 enum {
@@ -91,36 +90,27 @@ enum {
   space = 1 << 12
 };
 
-static int comp(const void *a, const void* b)
+static int comp(void *a, void *b)
 {
-  int i = ((struct v_vector *)a)->hash -
-    ((struct v_vector *)b)->hash;
+  int i = ((struct v_vector *)a)->hash - ((struct v_vector *)b)->hash;
 
-  if (!i) i = ((struct v_vector *)a)->serial -
-    ((struct v_vector *)b)->serial;
-  return i;
+  return i ? : ((struct v_vector *)a)->serial - ((struct v_vector *)b)->serial;
 }
 
-static int search (struct candidate **K, int r, int k, int j)
+static int search(struct candidate **K, int r, int k, int j)
 {
   int low = r, upper = k, mid;
 
-  mid = (low + upper) / 2;
-  while (low <= mid) {
-    if (((struct candidate*)(K[mid]))->b < j &&
-        ((struct candidate*)(K[mid + 1]))->b > j)
-      return mid;
-
-    if (((struct candidate*)(K[mid]))->b < j) low = mid + 1;
-    else if (((struct candidate*)(K[mid]))->b > j) upper = mid - 1;
+  while (low<=(mid = (low+upper)/2)) {
+    if (K[mid]->b < j && K[mid + 1]->b > j) return mid;
+    if (K[mid]->b < j) low = mid + 1;
+    else if (K[mid]->b > j) upper = mid - 1;
     else return -1;
-
-    mid = (low + upper) / 2;
   }
   return -1;
 }
 
-static struct candidate * new_candidate (int i, int j, struct candidate* prev)
+static struct candidate *new_candidate(int i, int j, struct candidate *prev)
 {
   struct candidate *c = xzalloc(sizeof(struct candidate));
 
@@ -130,18 +120,7 @@ static struct candidate * new_candidate (int i, int j, struct candidate* prev)
   return c;
 }
 
-
-static void free_candidates(struct candidate *c)
-{
-  struct candidate *t = c;
-  
-  while ((t = c)) {
-    c = c->next;
-    free(t);
-  }
-}
-/*
- * 1. Search K[r: k] for an element K[s] such that K[s]-> b < j and K[s + 1]->b > j
+/* 1. Search K[r: k] for an element K[s] such that K[s]-> b < j and K[s + 1]->b > j
  * 2. if found do
  *  2.a. If K[s + 1]->b > j do K[r] = c; r = s+1 and c = candidate(i, j, K[s]) //we have a candidate
  *  2.b. if s = k (fence reached move it further) do K[k + 2] = K[k + 1], k++
@@ -149,47 +128,33 @@ static void free_candidates(struct candidate *c)
  *    else p = p + 1 //keep traversing the equiv class.
  * 4. K[r] = c //Save the sucessfully filled k-candidate.
  */
-static void  do_merge(struct candidate **K, int *k, int i,
+static void do_merge(struct candidate **K, int *k, int i,
     struct v_vector *E, int p)
 {
   int r = 0, s, j;
   struct candidate *pr = 0, *c = K[0];
 
-  while (1) {
+  for (;;) {
     j = E[p].serial;
     s = search(K, r, *k, j);
-    if (s >= 0 && (((struct candidate*)(K[s]))->b < j &&
-          ((struct candidate*)(K[s + 1]))->b > j)) {
-
-      if (((struct candidate*)(K[s + 1]))->b > j) {
+    if (s>=0 && K[s]->b<j && K[s+1]->b>j) {
+      if (K[s+1]->b>j) {
         pr = K[s];
         if (r && K[r]) c->next = K[r];
         K[r] = c;
-        r = s + 1;
+        r = s+1;
         c = new_candidate(i , j, pr);
       }
       if (s == *k) {
-        K[*k + 2] = K[*k + 1];
-        *k = *k + 1;
+        ++*k;
+        K[*k+1] = K[*k];
         break;
       }
     }
     if (E[p].last) break;
-    else p = p + 1;
+    else p++;
   }
   K[r] = c;
-}
-
-static FILE* read_stdin()
-{
-  char *tmp_name;
-  int tmpfd = xtempfile("stdin", &tmp_name);
-
-  unlink(tmp_name);
-  free(tmp_name);
-
-  xsendfile(0, tmpfd);
-  return fdopen(tmpfd, "r");
 }
 
 static int read_tok(FILE *fp, off_t *off, int tok)
@@ -215,12 +180,11 @@ static int read_tok(FILE *fp, off_t *off, int tok)
     tok |= (t & (eof + eol)); //set tok eof+eol when t is eof
 
     if (t == '\n') tok |= eol;
-    if (toys.optflags & FLAG_i)
-      if (t >= 'A' && t <= 'Z') t = tolower(t);
+    if (FLAG(i)) if (t >= 'A' && t <= 'Z') t = tolower(t);
 
-    if (toys.optflags & FLAG_w && is_space) continue;
+    if (FLAG(w) && is_space) continue;
 
-    if (toys.optflags & FLAG_b) {
+    if (FLAG(b)) {
       if (tok & space) {
         if (is_space) continue;
         tok &= ~space;
@@ -234,18 +198,13 @@ static int read_tok(FILE *fp, off_t *off, int tok)
   return tok;
 }
 
-int bcomp(const void *a, const void *b) 
+int bcomp(void *a, void *b)
 {
-  struct v_vector *l = (struct v_vector*)a,
-                  *r = (struct v_vector*)b;
-  int ret = l->hash - r->hash;
+  struct v_vector *l = (struct v_vector *)a, *r = (struct v_vector *)b;
 
-  if (!ret) {
-    if ((r -1)->last) return 0;
-    else return -1;
-  }
-  return ret;
+  return (l->hash-r->hash) ? : r[-1].last ? 0 : -1;
 }
+
 /*  file[0] corresponds file 1 and file[1] correspond file 2.
  * 1. calc hashes for both the files and store them in vector(v[0], v[1])
  * 2. sort file[1] with hash as primary and serial as sec. key
@@ -259,7 +218,7 @@ int bcomp(const void *a, const void *b)
  * 6. Create a vector J[i] = j, such that i'th line in file[0] is j'th line of
  *    file[1], i.e J comprises LCS
  */
-static int * create_j_vector()
+static int *create_j_vector()
 {
   int tok, i, j, size = 100, k;
   off_t off;
@@ -273,96 +232,92 @@ static int * create_j_vector()
     hash = 5831;
     v[i] = xzalloc(size * sizeof(struct v_vector));
     TT.offset[i] = xzalloc(size * sizeof(int));
-    file[i].len = 0;
-    fseek(file[i].fp, 0, SEEK_SET);
+    TT.file[i].len = 0;
+    if (fseek(TT.file[i].fp, 0, SEEK_SET)) perror_exit("fseek failed");
 
     while (1) {
-      tok  = read_tok(file[i].fp, &off, tok);
+      tok  = read_tok(TT.file[i].fp, &off, tok);
       if (!(tok & empty)) {
         hash = ((hash << 5) + hash) + (tok & 0xff);
         continue;
       }
 
-      if (size == ++file[i].len) {
+      if (size == ++TT.file[i].len) {
         size = size * 11 / 10;
         v[i] = xrealloc(v[i], size*sizeof(struct v_vector));
         TT.offset[i] = xrealloc(TT.offset[i], size*sizeof(int));
       }
 
-      v[i][file[i].len].hash = hash & INT_MAX;
-      TT.offset[i][file[i].len] = off;
+      v[i][TT.file[i].len].hash = hash & INT_MAX;
+      TT.offset[i][TT.file[i].len] = off;
       if ((tok & eof)) {
-        TT.offset[i][file[i].len] = ++off;
+        TT.offset[i][TT.file[i].len] = ++off;
         break;
       }
       hash = 5831;  //next line
       tok = 0;
     }
-    if (TT.offset[i][file[i].len] - TT.offset[i][file[i].len - 1] == 1)
-      file[i].len--;
+    if (TT.offset[i][TT.file[i].len]-TT.offset[i][TT.file[i].len-1] == 1)
+      TT.file[i].len--;
   }
 
-  for (i = 0; i <= file[1].len; i++) v[1][i].serial = i;
-  qsort(v[1] + 1, file[1].len, sizeof(struct v_vector), comp);
+  for (i = 0; i<=TT.file[1].len; i++) v[1][i].serial = i;
+  qsort(v[1]+1, TT.file[1].len, sizeof(struct v_vector), (void *)comp);
 
   e = v[1];
   e[0].serial = 0;
   e[0].last = 1;
-  for ( i = 1; i <= file[1].len; i++) {
-    if ((i == file[1].len) || (v[1][i].hash != v[1][i+1].hash)) e[i].last = 1;
-    else e[i].last = 0;
+  for (i = 1; i<=TT.file[1].len; i++)
+    e[i].last = i==TT.file[1].len || v[1][i].hash!=v[1][i+1].hash;
+
+  p_vector = xzalloc((TT.file[0].len+2)*sizeof(int));
+  for (i = 1; i<=TT.file[0].len; i++) {
+    void *r = bsearch(&v[0][i], e+1, TT.file[1].len, sizeof(*e), (void *)bcomp);
+    if (r) p_vector[i] = (struct v_vector *)r - e;
   }
 
-  p_vector = xzalloc((file[0].len + 2) * sizeof(int));
-  for (i = 1; i <= file[0].len; i++) {
-    void *r = bsearch(&v[0][i], (e + 1), file[1].len, sizeof(e[0]), bcomp);
-    if (r) p_vector[i] = (struct v_vector*)r - e;
-  }
-
-  for (i = 1; i <= file[0].len; i++)
-    e[i].p = p_vector[i];
+  for (i = 1; i<=TT.file[0].len; i++) e[i].p = p_vector[i];
   free(p_vector);
 
   size = 100;
-  kcand = xzalloc(size * sizeof(struct candidate*));
+  kcand = xzalloc(size * sizeof(struct candidate *));
 
-  kcand[0] = new_candidate(0 , 0, NULL);
-  kcand[1] = new_candidate(file[0].len+1, file[1].len+1, NULL); //the fence
+  kcand[0] = new_candidate(0 , 0, 0);
+  kcand[1] = new_candidate(TT.file[0].len+1, TT.file[1].len+1, 0); //the fence
 
   k = 0;  //last successfully filled k candidate.
-  for (i = 1; i <= file[0].len; i++) {
-
+  for (i = 1; i<=TT.file[0].len; i++) {
     if (!e[i].p) continue;
     if ((size - 2) == k) {
       size = size * 11 / 10;
-      kcand = xrealloc(kcand, (size * sizeof(struct candidate*)));
+      kcand = xrealloc(kcand, (size*sizeof(struct candidate *)));
     }
     do_merge(kcand, &k, i, e, e[i].p);
   }
   free(v[0]); //no need for v_vector now.
   free(v[1]);
 
-  J = xzalloc((file[0].len + 2) * sizeof(int));
+  J = xzalloc((TT.file[0].len+2)*sizeof(int));
 
-  for (pr = kcand[k]; pr; pr = pr->prev)
-    J[pr->a] = pr->b;
-  J[file[0].len + 1] = file[1].len+1; //mark boundary
+  for (pr = kcand[k]; pr; pr = pr->prev) J[pr->a] = pr->b;
+  J[TT.file[0].len+1] = TT.file[1].len+1; //mark boundary
 
-  for (i = k + 1; i >= 0; i--) free_candidates(kcand[i]);
+  for (i = k+1; i>=0; i--) llist_traverse(kcand[i], free);
   free(kcand);
 
-  for (i = 1; i <= file[0].len; i++) { // jackpot?
+  for (i = 1; i<=TT.file[0].len; i++) { // jackpot?
     if (!J[i]) continue;
 
-    fseek(file[0].fp, TT.offset[0][i - 1], SEEK_SET);
-    fseek(file[1].fp, TT.offset[1][J[i] - 1], SEEK_SET);
+    if (fseek(TT.file[0].fp, TT.offset[0][i-1], SEEK_SET)
+     || fseek(TT.file[1].fp, TT.offset[1][J[i]-1], SEEK_SET))
+       perror_exit("fseek");
 
-    for (j = J[i]; i <= file[0].len && J[i] == j; i++, j++) {
+    for (j = J[i]; i<=TT.file[0].len && J[i]==j; i++, j++) {
       int tok0 = 0, tok1 = 0;
 
       do {
-        tok0 = read_tok(file[0].fp, NULL, tok0);
-        tok1 = read_tok(file[1].fp, NULL, tok1);
+        tok0 = read_tok(TT.file[0].fp, NULL, tok0);
+        tok1 = read_tok(TT.file[1].fp, NULL, tok1);
         if (((tok0 ^ tok1) & empty) || ((tok0 & 0xff) != (tok1 & 0xff)))
           J[i] = 0;
       } while (!(tok0 & tok1 & empty));
@@ -378,78 +333,132 @@ static int *diff(char **files)
   char *bufi, *bufj;
 
   TT.is_binary = 0; //loop calls to diff
-  TT.status = SAME;
+  TT.differ = 0;
 
   for (i = 0; i < 2; i++) {
-    if (IS_STDIN(files[i])) file[i].fp = read_stdin();
-    else file[i].fp = fopen(files[i], "r");
+    if ((j = !strcmp(files[i], "-")) || S_ISFIFO(TT.st[i].st_mode)) {
+      char *tmp_name;
+      int srcfd = j ? 0 : open(files[i], O_RDONLY),
+        tmpfd = xtempfile("fifo", &tmp_name);
 
-    if (!file[i].fp){
-      perror_msg("%s",files[i]);
-      TT.status = 2;
-      return NULL; //return SAME
+      unlink(tmp_name);
+      free(tmp_name);
+
+      xsendfile(srcfd, tmpfd);
+      if (!j) close(srcfd);
+      TT.file[i].fp = fdopen(tmpfd, "r");
+    } else TT.file[i].fp = fopen(files[i], "r");
+
+    if (!TT.file[i].fp) {
+      perror_msg("%s", files[i]);
+      TT.differ = 2;
+      return 0; //return SAME
     }
   }
 
   s = sizeof(toybuf)/2;
   bufi = toybuf;
-  bufj = (toybuf + s);
+  bufj = toybuf+s;
 
-  fseek(file[0].fp, 0, SEEK_SET);
-  fseek(file[1].fp, 0, SEEK_SET);
+  if (fseek(TT.file[0].fp, 0, SEEK_SET) || fseek(TT.file[1].fp, 0, SEEK_SET))
+    perror_exit("fseek");
 
-  if (toys.optflags & FLAG_a) return create_j_vector();
+  if (FLAG(a)) return create_j_vector();
 
   while (1) {
-    i = fread(bufi, 1, s, file[0].fp);
-    j = fread(bufj, 1, s, file[1].fp);
+    i = fread(bufi, 1, s, TT.file[0].fp);
+    j = fread(bufj, 1, s, TT.file[1].fp);
 
-    if (i != j) TT.status = DIFFER;
+    if (i != j) TT.differ = 1;
 
-    for (t = 0; t < i && !TT.is_binary; t++)
-      if (!bufi[t]) TT.is_binary = 1;
-    for (t = 0; t < j && !TT.is_binary; t++)
-      if (!bufj[t]) TT.is_binary = 1;
+    for (t = 0; t < i && !TT.is_binary; t++) if (!bufi[t]) TT.is_binary = 1;
+    for (t = 0; t < j && !TT.is_binary; t++) if (!bufj[t]) TT.is_binary = 1;
 
-    i = MIN(i, j);
-    for (t = 0; t < i; t++)
-      if (bufi[t] != bufj[t]) TT.status = DIFFER;
+    i = minof(i, j);
+    for (t = 0; t < i; t++) if (bufi[t] != bufj[t]) TT.differ = 1;
 
     if (!i || !j) break;
   }
-  if (TT.is_binary || (TT.status == SAME)) return NULL;
+  if (TT.is_binary || !TT.differ) return 0;
+
   return create_j_vector();
+}
+
+static void print_line_matching_regex(int a, regex_t *reg, int *off_set, FILE *fp) {
+  int i = 0, j = 0, line_buf_size = 100, cc = 0;
+  char* line = xzalloc(line_buf_size * sizeof(char));
+  for (i = a; a > 0; --i) {
+    int line_len = 0;
+    if (fseek(fp, off_set[i - 1], SEEK_SET)) perror_exit("fseek failed");
+    for (j = 0; j < (off_set[i] - off_set[i - 1]); j++) {
+      cc = fgetc(fp);
+      if (cc == EOF || cc == '\n') {
+        break;
+      }
+      ++line_len;
+      if (line_len >= line_buf_size) {
+        line_buf_size = line_buf_size * 11 / 10;
+        line = xrealloc(line, line_buf_size*sizeof(char));
+      }
+      line[j] = cc;
+    }
+    line[line_len] = '\0';
+    if (!regexec0(reg, line, line_len, 0, NULL, 0)) {
+      printf(" %s", line);
+      break;
+    }
+  }
+  free(line);
 }
 
 static void print_diff(int a, int b, char c, int *off_set, FILE *fp)
 {
   int i, j, cc, cl;
-  char *reset = NULL;
+  char *reset = 0, *fmt = 0;
 
-  if (c != ' ' && (toys.optflags & FLAG_color)) {
-    printf("\e[%dm", c == '+' ? 32 : 31);
+  if (!TT.new_line_format && c!=' ' && FLAG(color)) {
+    printf("\e[%dm", 31+(c=='+'));
     reset = "\e[0m";
   }
 
   for (i = a; i <= b; i++) {
-    fseek(fp, off_set[i - 1], SEEK_SET);
+    if (fseek(fp, off_set[i - 1], SEEK_SET)) perror_exit("fseek failed");
+    if (TT.new_line_format) {
+      if (c == '+') fmt = TT.new_line_format;
+      else if (c == '-') fmt = TT.old_line_format;
+      else fmt = TT.unchanged_line_format;
+      while (*fmt) {
+        if (*fmt == '%') {
+          fmt++;
+          char f = *fmt++;
+          if (f == '%') putchar('%');
+          else if (f == 'l' || f == 'L') {
+            for (j = 0; j <  (off_set[i] - off_set[i - 1]); j++) {
+              cc = fgetc(fp);
+              if (cc == EOF) break;
+              if (cc != '\n' || f == 'L') putchar(cc);
+            }
+          } else error_exit("Unrecognized format specifier %%%c", f);
+        } else putchar(*fmt++);
+      }
+      continue;
+    }
     putchar(c);
-    if (toys.optflags & FLAG_T) putchar('\t');
+    if (FLAG(T)) putchar('\t');
     for (j = 0, cl = 0; j <  (off_set[i] - off_set[i - 1]); j++) {
       cc = fgetc(fp);
       if (cc == EOF) {
-        printf("%s\n\\ No newline at end of file\n", reset ? reset : "");
+        printf("%s\n\\ No newline at end of file\n", reset ? : "");
         return;
       }
-      if ((cc == '\t') && (toys.optflags & FLAG_t))
-        do putchar(' '); while (++cl & 7);
+      if ((cc == '\t') && FLAG(t)) do putchar(' '); while (++cl & 7);
       else {
         putchar(cc); //xputc has calls to fflush, it hurts performance badly.
         cl++;
       }
     }
   }
-  if (reset) printf("%s", reset);
+  if (reset) xputsn(reset);
 }
 
 static char *concat_file_path(char *path, char *default_path)
@@ -488,14 +497,14 @@ static void add_to_list(struct dirtree *node)
 {
   char *full_path;
 
-  dir[TT.dir_num].list = xrealloc(dir[TT.dir_num].list,
+  TT.dir[TT.dir_num].list = xrealloc(TT.dir[TT.dir_num].list,
       (TT.size + 1)*sizeof(char*));
   TT.size++;
   full_path = dirtree_path(node, NULL);
-  dir[TT.dir_num].list[TT.size - 1] = full_path;
+  TT.dir[TT.dir_num].list[TT.size - 1] = full_path;
 }
 
-static int list_dir (struct dirtree *node)
+static int list_dir(struct dirtree *node)
 {
   int ret = 0;
 
@@ -506,9 +515,9 @@ static int list_dir (struct dirtree *node)
     return (DIRTREE_RECURSE|DIRTREE_SYMFOLLOW);
   }
 
-  if (S_ISDIR(node->st.st_mode) && (toys.optflags & FLAG_r)) {
-    if (!(toys.optflags & FLAG_N)) ret = skip(node);
-    if (!ret) return (DIRTREE_RECURSE|DIRTREE_SYMFOLLOW);
+  if (S_ISDIR(node->st.st_mode) && FLAG(r)) {
+    if (!FLAG(N)) ret = skip(node);
+    if (!ret) return DIRTREE_RECURSE|DIRTREE_SYMFOLLOW;
     else {
       add_to_list(node); //only at one side.
       return 0;
@@ -519,58 +528,43 @@ static int list_dir (struct dirtree *node)
   }
 }
 
-static int cmp(const void *p1, const void *p2)
+static int cmp(void *p1, void *p2)
 {
-   return strcmp(* (char * const *)p1, * (char * const *)p2);
+   return strcmp(*(char **)p1, *(char **)p2);
 }
 
 // quote and escape filenames that have awkward characters
 char *quote_filename(char *filename)
 {
-  char *to = "abfnrtv\"\\", *from = "\a\b\f\n\r\t\v\"\\";
-  char *result, *s, *t;
-  size_t len = 0;
-  int quote = 0;
+  char *to = "abfnrtv\"\\", *from = "\a\b\f\n\r\t\v\"\\", *s, *t=0, *u;
+  int len, quote = 0;
 
-  // calculate memory usage and presence of quotes
-  for (s = filename; *s; s++) {
-    if (*s == '\a' || *s == '\b' || *s == '\f' || *s == '\r' || *s == '\v'
-      || *s == '\n' || *s == '\t' || *s == '"' || *s == '\\')
-    {
-      quote = 1;
-      len += 2;
-    } else if (*s == ' ') {
-      quote = 1;
-      len++;
-    } else if (*s < 0x20 || *s >= 0x80) {
-      quote = 1;
-      len += 4;
-    } else {
-      len++;
+  for (;;) {
+    // measure escapes on first pass, write on second
+    len = 0;
+    for (s = filename; *s; s++) {
+      if ((u = strchr(from, *s))) {
+        if (t) t[len] = '\\', t[len+1] = to[u-from];
+        len += 2;
+      } else if (*s<0x20 || *s>=0x80)
+        len += snprintf(t+len, 5*!!t, "\\%.3o", *s);
+      else {
+        if (t) t[len] = *s;
+        len++;
+      }
     }
-  }
+    if (t) {
+      if (quote) t[len++] = '"';
+      t[len] = 0;
 
-  // construct the new string
-  result = xmalloc(len + (quote ? 2 : 0) + 1);
-  t = result;
-  if (quote) *t++ = '"';
-  for (s = filename; *s; s++) {
-    if (*s == '\a' || *s == '\b' || *s == '\f' || *s == '\r' || *s == '\v'
-      || *s == '\n' || *s == '\t' || *s == '"' || *s == '\\')
-    {
-      *t = '\\';
-      t[1] = to[strchr(from, *s) - from];
-      t += 2;
-    } else if (*s < 0x20 || *s >= 0x80) {
-      sprintf(t, "\\%.3o", *s);
-      t += 4;
-    } else {
-      *t++ = *s;
+      return t-quote;
     }
+
+    // construct the new string
+    quote = strlen(filename)!=len || strchr(filename, ' ');
+    t = xmalloc(len+1+2*quote);
+    if (quote) *t++ = '"';
   }
-  if (quote) *t++ = '"';
-  *t = 0;
-  return result;
 }
 
 static void show_label(char *prefix, char *filename, struct stat *sb)
@@ -586,34 +580,38 @@ static void show_label(char *prefix, char *filename, struct stat *sb)
 
 static void do_diff(char **files)
 {
-
   long i = 1, size = 1, x = 0, change = 0, ignore_white,
    start1, end1, start2, end2;
   struct diff *d;
-  struct arg_list *llist = TT.L_list;
+  struct arg_list *llist = TT.L;
   int *J;
+  regex_t reg;
   
   TT.offset[0] = TT.offset[1] = NULL;
   J = diff(files);
 
   if (!J) return; //No need to compare, have to status only
 
+  if (TT.F) {
+    xregcomp(&reg, TT.F, 0);
+  }
+
   d = xzalloc(size *sizeof(struct diff));
   do {
     ignore_white = 0;
-    for (d[x].a = i; d[x].a <= file[0].len; d[x].a++) {
+    for (d[x].a = i; d[x].a<=TT.file[0].len; d[x].a++) {
       if (J[d[x].a] != (J[d[x].a - 1] + 1)) break;
       else continue;
     }
     d[x].c = (J[d[x].a - 1] + 1);
 
-    for (d[x].b = (d[x].a - 1); d[x].b <= file[0].len; d[x].b++) {
+    for (d[x].b = (d[x].a - 1); d[x].b<=TT.file[0].len; d[x].b++) {
       if (J[d[x].b + 1]) break;
       else continue;
     }
     d[x].d = (J[d[x].b + 1] - 1);
 
-    if ((toys.optflags & FLAG_B)) {
+    if (FLAG(B)) {
       if (d[x].a <= d[x].b) {
         if ((TT.offset[0][d[x].b] - TT.offset[0][d[x].a - 1])
             == (d[x].b - d[x].a + 1))
@@ -625,83 +623,85 @@ static void do_diff(char **files)
       }
     }
 
-    if ((d[x].a <= d[x].b || d[x].c <= d[x].d) && !ignore_white)
-      change = 1; //is we have diff ?
+    //is we have diff ?   TODO: lolcat?
+    if ((d[x].a <= d[x].b || d[x].c <= d[x].d) && !ignore_white) change = 1;
 
     if (!ignore_white) d = xrealloc(d, (x + 2) *sizeof(struct diff));
     i = d[x].b + 1;
-    if (i > file[0].len) break;
+    if (i>TT.file[0].len) break;
     J[d[x].b] = d[x].d;
     if (!ignore_white) x++;
-  } while (i <= file[0].len);
+  } while (i<=TT.file[0].len);
 
   i = x+1;
-  TT.status = change; //update status, may change bcoz of -w etc.
+  TT.differ = change; //update status, may change bcoz of -w etc.
 
-  if (!(toys.optflags & FLAG_q) && change) {  //start of !FLAG_q
-    if (toys.optflags & FLAG_color) printf("\e[1m");
-    if (toys.optflags & FLAG_L) printf("--- %s\n", llist->arg);
-    else show_label("---", files[0], &(TT).st[0]);
-    if (((toys.optflags & FLAG_L) && !llist->next) || !(toys.optflags & FLAG_L))
-      show_label("+++", files[1], &(TT).st[1]);
-    else {
-      while (llist->next) llist = llist->next;
-      printf("+++ %s\n", llist->arg);
+  if (!FLAG(q) && change) {
+    if (!TT.new_line_format) {
+      if (FLAG(color)) printf("\e[1m");
+      if (FLAG(L)) printf("--- %s\n", llist->arg);
+      else show_label("---", files[0], &(TT).st[0]);
+      if (!FLAG(L) || !llist->next) show_label("+++", files[1], &(TT).st[1]);
+      else {
+        while (llist->next) llist = llist->next;
+        printf("+++ %s\n", llist->arg);
+      }
+      if (FLAG(color)) printf("\e[0m");
     }
-    if (toys.optflags & FLAG_color) printf("\e[0m");
 
     struct diff *t, *ptr1 = d, *ptr2 = d;
     while (i) {
       long a,b;
 
-      if (TT.ct > file[0].len) TT.ct = file[0].len; //trim context to file len.
+      // trim context to file len.
+      if (TT.new_line_format || TT.U>TT.file[0].len) TT.U = TT.file[0].len;
       if (ptr1->b < ptr1->a && ptr1->d < ptr1->c) {
         i--;
         continue;
       }
       //Handle the context stuff
       a =  ptr1->a;
-      b =  ptr1->b;
-
-      b  = MIN(file[0].len, b);
-      if (i == x + 1) ptr1->suff = MAX(1,a - TT.ct);
-      else {
-        if ((ptr1 - 1)->prev >= (ptr1->a - TT.ct))
-          ptr1->suff = (ptr1 - 1)->prev + 1;
-        else ptr1->suff =  ptr1->a - TT.ct;
-      }
+      b = minof(TT.file[0].len, ptr1->b);
+      if (i == x + 1) ptr1->suff = maxof(1, a-TT.U);
+      else if (ptr1[-1].prev >= ptr1->a-TT.U) ptr1->suff = ptr1[-1].prev+1;
+      else ptr1->suff =  ptr1->a-TT.U;
 calc_ct:
       if (i > 1) {
-        if ((ptr2->b + TT.ct) >= (ptr2  + 1)->a) {
+        if ((ptr2->b + TT.U) >= (ptr2  + 1)->a) {
           ptr2++;
           i--;
           goto calc_ct;
-        } else ptr2->prev = ptr2->b + TT.ct;
+        } else ptr2->prev = ptr2->b + TT.U;
       } else ptr2->prev = ptr2->b;
       start1 = (ptr2->prev - ptr1->suff + 1);
       end1 = (start1 == 1) ? -1 : start1;
-      start2 = MAX(1, ptr1->c - (ptr1->a - ptr1->suff));
+      start2 = maxof(1, ptr1->c - (ptr1->a - ptr1->suff));
       end2 = ptr2->prev - ptr2->b + ptr2->d;
 
-      if (toys.optflags & FLAG_color) printf("\e[36m");
-      printf("@@ -%ld", start1 ? ptr1->suff: (ptr1->suff -1));
-      if (end1 != -1) printf(",%ld ", ptr2->prev-ptr1->suff + 1);
-      else putchar(' ');
+      if (!TT.new_line_format) {
+        if (FLAG(color)) printf("\e[36m");
+        printf("@@ -%ld", start1 ? ptr1->suff: (ptr1->suff -1));
+        if (end1 != -1) printf(",%ld ", ptr2->prev-ptr1->suff + 1);
+        else putchar(' ');
 
-      printf("+%ld", (end2 - start2 + 1) ? start2: (start2 -1));
-      if ((end2 - start2 +1) != 1) printf(",%ld ", (end2 - start2 +1));
-      else putchar(' ');
-      printf("@@");
-      if (toys.optflags & FLAG_color) printf("\e[0m");
-      putchar('\n');
+        printf("+%ld", (end2 - start2 + 1) ? start2: (start2 -1));
+        if ((end2 - start2 +1) != 1) printf(",%ld ", (end2 - start2 +1));
+        else putchar(' ');
+        printf("@@");
+        if (FLAG(color)) printf("\e[0m");
+        if (TT.F) {
+          print_line_matching_regex(ptr1->suff-1, &reg, TT.offset[0], TT.file[0].fp);
+        }
+        putchar('\n');
+      }
 
       for (t = ptr1; t <= ptr2; t++) {
-        if (t== ptr1) print_diff(t->suff, t->a-1, ' ', TT.offset[0], file[0].fp);
-        print_diff(t->a, t->b, '-', TT.offset[0], file[0].fp);
-        print_diff(t->c, t->d, '+', TT.offset[1], file[1].fp);
+        if (t==ptr1) print_diff(t->suff, t->a-1, ' ', TT.offset[0], TT.file[0].fp);
+        print_diff(t->a, t->b, '-', TT.offset[0], TT.file[0].fp);
+        print_diff(t->c, t->d, '+', TT.offset[1], TT.file[1].fp);
         if (t == ptr2)
-          print_diff(t->b+1, (t)->prev, ' ', TT.offset[0], file[0].fp);
-        else print_diff(t->b+1, (t+1)->a-1, ' ', TT.offset[0], file[0].fp);
+          print_diff(t->b+1, (t)->prev, ' ', TT.offset[0], TT.file[0].fp);
+        else print_diff(t->b+1, (t+1)->a-1, ' ', TT.offset[0], TT.file[0].fp);
       }
       ptr2++;
       ptr1 = ptr2;
@@ -716,16 +716,10 @@ calc_ct:
 
 static void show_status(char **files)
 {
-  switch (TT.status) {
-    case SAME:
-      if (toys.optflags & FLAG_s)
-        printf("Files %s and %s are identical\n",files[0], files[1]);
-      break;
-    case DIFFER:
-      if ((toys.optflags & FLAG_q) || TT.is_binary)
-        printf("Files %s and %s differ\n",files[0], files[1]);
-      break;
-  }
+  if (TT.differ==2) return; // TODO: needed?
+  if (TT.differ ? FLAG(q) || TT.is_binary : FLAG(s))
+    printf("Files %s and %s %s\n", files[0], files[1],
+      TT.differ ? "differ" : "are identical");
 }
 
 static void create_empty_entry(int l , int r, int j)
@@ -734,54 +728,41 @@ static void create_empty_entry(int l , int r, int j)
   char *f[2], *path[2];
   int i;
 
-  if (j > 0 && (toys.optflags & FLAG_N)) {
-    path[0] = concat_file_path(dir[0].list[0], dir[1].list[r] + TT.len[1]);
-    f[0] = "/dev/null";
-    path[1] = f[1] = dir[1].list[r];
-    stat(f[1], &st[0]);
-    st[1] = st[0];
-  }
-  else if (j < 0 && (toys.optflags & FLAG_N)) {
-    path[1] = concat_file_path(dir[1].list[0], dir[0].list[l] + TT.len[0]);
-    f[1] = "/dev/null";
-    path[0] = f[0] = dir[0].list[l];
-    stat(f[0], &st[0]);
-    st[1] = st[0];
+  for (i = 0; i < 2; i++) {
+    if (j) {
+      if (!FLAG(N) || i!=(j>0)) continue;
+      path[!i] = concat_file_path(TT.dir[!i].list[0],
+        TT.dir[i].list[i ? r : l]+TT.len[i]);
+      f[!i] = "/dev/null";
+    }
+    path[i] = f[i] = TT.dir[i].list[i ? r : l];
+    stat(f[i], st+i);
+    if (j) st[!i] = st[i];
   }
 
-  if (!j) {
-    for (i = 0; i < 2; i++) {
-      path[i] = f[i] = dir[i].list[!i ? l: r];
-      stat(f[i], &st[i]);
+  for (i = 0; i<2; i++) {
+    if (!S_ISREG(st[i].st_mode) && !S_ISDIR(st[i].st_mode)) {
+      printf("File %s is not a regular file or directory and was skipped\n",
+        path[i]);
+      break;
     }
   }
 
-  if (S_ISDIR(st[0].st_mode) && S_ISDIR(st[1].st_mode))
+  if (i != 2);
+  else if (S_ISDIR(st[0].st_mode) && S_ISDIR(st[1].st_mode))
     printf("Common subdirectories: %s and %s\n", path[0], path[1]);
-  else if (!S_ISREG(st[0].st_mode) && !S_ISDIR(st[0].st_mode))
-    printf("File %s is not a regular file or directory "
-        "and was skipped\n", path[0]);
-  else if (!S_ISREG(st[1].st_mode) && !S_ISDIR(st[1].st_mode))
-    printf("File %s is not a regular file or directory "
-        "and was skipped\n", path[1]);
-  else if (S_ISDIR(st[0].st_mode) != S_ISDIR(st[1].st_mode)) {
-    if (S_ISDIR(st[0].st_mode))
-      printf("File %s is a %s while file %s is a"
-          " %s\n", path[0], "directory", path[1], "regular file");
-    else
-      printf("File %s is a %s while file %s is a"
-          " %s\n", path[0], "regular file", path[1], "directory");
+  else if ((i = S_ISDIR(st[0].st_mode)) != S_ISDIR(st[1].st_mode)) {
+    char *fidir[] = {"directory", "regular file"};
+    printf("File %s is a %s while file %s is a %s\n",
+      path[0], fidir[!i], path[1], fidir[i]);
   } else {
     do_diff(f);
     show_status(path);
-    if (file[0].fp) fclose(file[0].fp);
-    if (file[1].fp) fclose(file[1].fp);
+    if (TT.file[0].fp) fclose(TT.file[0].fp);
+    if (TT.file[1].fp) fclose(TT.file[1].fp);
   }
 
-  if ((toys.optflags & FLAG_N) && j) {
-    if (j > 0) free(path[0]);
-    else free(path[1]);
-  }
+  if (FLAG(N) && j) free(path[j<=0]);
 }
 
 static void diff_dir(int *start)
@@ -790,102 +771,89 @@ static void diff_dir(int *start)
 
   l = start[0]; //left side file start
   r = start[1]; //right side file start
-  while (l < dir[0].nr_elm && r < dir[1].nr_elm) {
-    if ((j = strcmp ((dir[0].list[l] + TT.len[0]),
-            (dir[1].list[r] + TT.len[1]))) && !(toys.optflags & FLAG_N)) {
+  while (l < TT.dir[0].nr_elm && r < TT.dir[1].nr_elm) {
+    if ((j = strcmp (TT.dir[0].list[l]+TT.len[0],
+            (TT.dir[1].list[r]+TT.len[1]))) && !FLAG(N)) {
       if (j > 0) {
-        printf ("Only in %s: %s\n", dir[1].list[0], dir[1].list[r] + TT.len[1]);
-        free(dir[1].list[r]);
-        r++;
+        printf("Only in %s: %s\n", TT.dir[1].list[0], TT.dir[1].list[r]+TT.len[1]);
+        free(TT.dir[1].list[r++]);
       } else {
-        printf ("Only in %s: %s\n", dir[0].list[0], dir[0].list[l] + TT.len[0]);
-        free(dir[0].list[l]);
-        l++;
+        printf ("Only in %s: %s\n", TT.dir[0].list[0], TT.dir[0].list[l]+TT.len[0]);
+        free(TT.dir[0].list[l++]);
       }
-      TT.status = DIFFER;
+      TT.differ = 1;
     } else {
       create_empty_entry(l, r, j); //create non empty dirs/files if -N.
-      if (j > 0) {
-        free(dir[1].list[r]);
-        r++;
-      } else if (j < 0) {
-        free(dir[0].list[l]);
-        l++;
-      } else {
-        free(dir[1].list[r]);
-        free(dir[0].list[l]);
-        l++;
-        r++;
-      }
+      if (j>=0) free(TT.dir[1].list[r++]);
+      if (j<=0) free(TT.dir[0].list[l++]);
     }
   }
 
-  if (l == dir[0].nr_elm) {
-    while (r < dir[1].nr_elm) {
-      if (!(toys.optflags & FLAG_N)) {
-        printf ("Only in %s: %s\n", dir[1].list[0], dir[1].list[r] + TT.len[1]);
-        TT.status = DIFFER;
+  if (l == TT.dir[0].nr_elm) {
+    while (r<TT.dir[1].nr_elm) {
+      if (!FLAG(N)) {
+        printf ("Only in %s: %s\n", TT.dir[1].list[0], TT.dir[1].list[r]+TT.len[1]);
+        TT.differ = 1;
       } else create_empty_entry(l, r, 1);
-      free(dir[1].list[r]);
-      r++;
+      free(TT.dir[1].list[r++]);
     }
-  } else if (r == dir[1].nr_elm) {
-    while (l < dir[0].nr_elm) {
-      if (!(toys.optflags & FLAG_N)) {
-        printf ("Only in %s: %s\n", dir[0].list[0], dir[0].list[l] + TT.len[0]);
-        TT.status = DIFFER;
+  } else if (r == TT.dir[1].nr_elm) {
+    while (l<TT.dir[0].nr_elm) {
+      if (!FLAG(N)) {
+        printf ("Only in %s: %s\n", TT.dir[0].list[0], TT.dir[0].list[l]+TT.len[0]);
+        TT.differ = 1;
       } else create_empty_entry(l, r, -1);
-      free(dir[0].list[l]);
-      l++;
+      free(TT.dir[0].list[l++]);
     }
   }
-  free(dir[0].list[0]); //we are done, free root nodes too
-  free(dir[1].list[0]);
+  free(TT.dir[0].list[0]); //we are done, free root nodes too
+  free(TT.dir[0].list);
+  free(TT.dir[1].list[0]);
+  free(TT.dir[1].list);
 }
 
 void diff_main(void)
 {
   int j = 0, k = 1, start[2] = {1, 1};
-  char *files[2];
+  char **files = toys.optargs;
 
   toys.exitval = 2;
-
-  if ((toys.optflags & FLAG_color) && !isatty(1)) toys.optflags ^= FLAG_color;
+  if (FLAG(color) && !isatty(1)) toys.optflags ^= FLAG_color;
 
   for (j = 0; j < 2; j++) {
-    files[j] = toys.optargs[j];
-    if (IS_STDIN(files[j])) {
-      if (fstat(0, &TT.st[j]) == -1)
-        perror_exit("can't fstat %s", files[j]);
-    } else {
-      xstat(files[j], &TT.st[j]);
-    }
+    if (IS_STDIN(files[j])) fstat(0, &TT.st[j]);
+    else xstat(files[j], &TT.st[j]);
   }
 
-  if ((IS_STDIN(files[0]) || IS_STDIN(files[1]))
-      && (S_ISDIR(TT.st[0].st_mode) || S_ISDIR(TT.st[1].st_mode)))
-    error_exit("can't compare stdin to directory");
+  if (S_ISDIR(TT.st[0].st_mode) != S_ISDIR(TT.st[1].st_mode))
+    error_exit("can't compare directory to non-directory");
 
-  if ((TT.st[0].st_ino == TT.st[1].st_ino) //physicaly same device
-      && (TT.st[0].st_dev == TT.st[1].st_dev)) {
+  if (TT.unchanged_line_format || TT.old_line_format || TT.new_line_format) {
+    if (S_ISDIR(TT.st[0].st_mode) && S_ISDIR(TT.st[1].st_mode))
+      error_exit("can't use line format with directories");
+    if (!TT.unchanged_line_format) TT.unchanged_line_format = "%l\n";
+    if (!TT.old_line_format) TT.old_line_format = "%l\n";
+    if (!TT.new_line_format) TT.new_line_format = "%l\n";
+  }
+
+  if (same_file(TT.st, TT.st+1)) {
     toys.exitval = 0;
     return show_status(files);
   }
 
   if (S_ISDIR(TT.st[0].st_mode) && S_ISDIR(TT.st[1].st_mode)) {
     for (j = 0; j < 2; j++) {
-      memset(&dir[j], 0, sizeof(struct dir_t));
+      memset(TT.dir+j, 0, sizeof(*TT.dir));
       dirtree_flagread(files[j], DIRTREE_SYMFOLLOW, list_dir);
-      dir[j].nr_elm = TT.size; //size updated in list_dir
-      qsort(&(dir[j].list[1]), (TT.size - 1), sizeof(char*), cmp);
+      TT.dir[j].nr_elm = TT.size; //size updated in list_dir
+      qsort(&TT.dir[j].list[1], TT.size-1, sizeof(char *), (void *)cmp);
 
-      TT.len[j] = strlen(dir[j].list[0]); //calc root node len
-      TT.len[j] += (dir[j].list[0][TT.len[j] -1] != '/');
+      TT.len[j] = strlen(TT.dir[j].list[0]); //calc root node len
+      TT.len[j] += TT.dir[j].list[0][TT.len[j]-1] != '/';
 
-      if (toys.optflags & FLAG_S) {
-        while (k < TT.size && strcmp(dir[j].list[k] +
-              TT.len[j], TT.start) < 0) {
-          start[j] += 1;
+      if (FLAG(S)) {
+        while (k<TT.size && strcmp(TT.dir[j].list[k]+TT.len[j], TT.S)<0) {
+          start[j]++;
           k++;
         }
       }
@@ -894,21 +862,18 @@ void diff_main(void)
       k = 1;
     }
     diff_dir(start);
-    free(dir[0].list); //free array
-    free(dir[1].list);
   } else {
     if (S_ISDIR(TT.st[0].st_mode) || S_ISDIR(TT.st[1].st_mode)) {
       int d = S_ISDIR(TT.st[0].st_mode);
       char *slash = strrchr(files[d], '/');
 
-      files[1 - d] = concat_file_path(files[1 - d], slash ? slash + 1 : files[d]);
-      if ((stat(files[1 - d], &TT.st[1 - d])) == -1)
-        perror_exit("%s", files[1 - d]);
+      files[!d] = concat_file_path(files[!d], slash ? slash+1 : files[d]);
+      if (stat(files[!d], &TT.st[!d])) perror_exit("%s", files[!d]);
     }
     do_diff(files);
     show_status(files);
-    if (file[0].fp) fclose(file[0].fp);
-    if (file[1].fp) fclose(file[1].fp);
+    if (TT.file[0].fp) fclose(TT.file[0].fp);
+    if (TT.file[1].fp) fclose(TT.file[1].fp);
   }
-  toys.exitval = TT.status; //exit status will be the status
+  toys.exitval = TT.differ; //exit status will be the status
 }

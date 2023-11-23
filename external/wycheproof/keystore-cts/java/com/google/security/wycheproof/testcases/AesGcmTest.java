@@ -24,11 +24,16 @@ import java.security.AlgorithmParameters;
 import java.security.GeneralSecurityException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
+import java.security.UnrecoverableKeyException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import javax.crypto.Cipher;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.ShortBufferException;
 import javax.crypto.spec.GCMParameterSpec;
@@ -37,11 +42,10 @@ import javax.crypto.spec.SecretKeySpec;
 import org.junit.Test;
 import org.junit.Ignore;
 import org.junit.Before;
+import org.junit.After;
+import android.keystore.cts.util.KeyStoreUtil;
 import android.security.keystore.KeyProtection;
 import android.security.keystore.KeyProperties;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.UnrecoverableKeyException;
 
 // TODO(bleichen):
 //   - For EAX I was able to derive some special cases by inverting OMAC.
@@ -54,17 +58,35 @@ import java.security.UnrecoverableKeyException;
 public class AesGcmTest {
   private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
   private KeyStore keyStore;
+  private static final String KEY_ALIAS_1 = "Key1";
+  private static final String KEY_ALIAS_2 = "Key2";
+  private static final String KEY_ALIAS_3 = "Key3";
+  private static final String KEY_ALIAS_4 = "Key4";
+  private static final String KEY_ALIAS_5 = "Key5";
+  private static final String KEY_ALIAS_6 = "Key6";
+  private static final String KEY_ALIAS_7 = "Key7";
+  private static final String KEY_ALIAS_8 = "Key8";
+  private static final String KEY_ALIAS_9 = "Key9";
 
   @Before
   public void setup() throws Exception {
     keyStore = KeyStore.getInstance("AndroidKeyStore");
     keyStore.load(null);
+    boolean hasStrongBox = KeyStoreUtil.hasStrongBox();
     for (GcmTestVector test : GCM_TEST_VECTORS) {
-      setKeystoreEntry(test.alias, test.key);
+      setKeystoreEntry(test.alias, test.key, false);
+      if (hasStrongBox) {
+        setKeystoreEntry(test.alias_sb, test.key, true);
+      }
     }
   }
 
-  private SecretKey setKeystoreEntry(String alias, SecretKeySpec key)
+  @After
+  public void tearDown() throws Exception {
+    KeyStoreUtil.cleanUpKeyStore();
+  }
+
+  private SecretKey setKeystoreEntry(String alias, SecretKeySpec key, boolean isStrongBox)
         throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException {
     keyStore.setEntry(
           alias,
@@ -73,9 +95,24 @@ public class AesGcmTest {
                   .setBlockModes(KeyProperties.BLOCK_MODE_ECB, KeyProperties.BLOCK_MODE_GCM)
                   .setRandomizedEncryptionRequired(false)
                   .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                  .setIsStrongBoxBacked(isStrongBox)
                   .build());
       // Key imported, obtain a reference to it.
       return (SecretKey) keyStore.getKey(alias, null);
+  }
+
+  private SecretKey getKey(String alias) throws Exception {
+    return (SecretKey) keyStore.getKey(alias, null);
+  }
+
+  private Cipher getInitializedCipherInstance(String algorithm, int operationMode,
+                                   GcmTestVector testVector, boolean isStrongBox)
+          throws Exception {
+    Cipher cipher = Cipher.getInstance(algorithm,
+            EXPECTED_PROVIDER_NAME);
+    cipher.init(operationMode, getKey(isStrongBox ? testVector.alias_sb : testVector.alias),
+              testVector.parameters);
+    return cipher;
   }
 
   /** Test vectors */
@@ -90,6 +127,7 @@ public class AesGcmTest {
     final int nonceLengthInBits;
     final int tagLengthInBits;
     final String alias;
+    final String alias_sb;
 
     public GcmTestVector(
         String message,
@@ -109,6 +147,7 @@ public class AesGcmTest {
       this.parameters = new GCMParameterSpec(tagLengthInBits, TestUtil.hexToBytes(nonce));
       this.key = new SecretKeySpec(TestUtil.hexToBytes(keyMaterial), "AES");
       this.alias = alias;
+      this.alias_sb = alias + "_sb";
     }
   };
 
@@ -119,35 +158,35 @@ public class AesGcmTest {
         "028318abc1824029138141a2",
         "",
         "26073cc1d851beff176384dc9896d5ff",
-        "0a3ea7a5487cb5f7d70fb6c58d038554", "Key1"),
+        "0a3ea7a5487cb5f7d70fb6c58d038554", KEY_ALIAS_1),
     new GcmTestVector(
         "001d0c231287c1182784554ca3a21908",
         "5b9604fe14eadba931b0ccf34843dab9",
         "921d2507fa8007b7bd067d34",
         "00112233445566778899aabbccddeeff",
         "49d8b9783e911913d87094d1f63cc765",
-        "1e348ba07cca2cf04c618cb4", "Key2"),
+        "1e348ba07cca2cf04c618cb4", KEY_ALIAS_2),
     new GcmTestVector(
         "2035af313d1346ab00154fea78322105",
         "aa023d0478dcb2b2312498293d9a9129",
         "0432bc49ac34412081288127",
         "aac39231129872a2",
         "eea945f3d0f98cc0fbab472a0cf24e87",
-        "4bb9b4812519dadf9e1232016d068133", "Key3"),
+        "4bb9b4812519dadf9e1232016d068133", KEY_ALIAS_3),
     new GcmTestVector(
         "2035af313d1346ab00154fea78322105",
         "aa023d0478dcb2b2312498293d9a9129",
         "0432bc49ac344120",
         "aac39231129872a2",
         "64c36bb3b732034e3a7d04efc5197785",
-        "b7d0dd70b00d65b97cfd080ff4b819d1", "Key4"),
+        "b7d0dd70b00d65b97cfd080ff4b819d1", KEY_ALIAS_4),
     new GcmTestVector(
         "02efd2e5782312827ed5d230189a2a342b277ce048462193",
         "2034a82547276c83dd3212a813572bce",
         "3254202d854734812398127a3d134421",
         "1a0293d8f90219058902139013908190bc490890d3ff12a3",
         "64069c2d58690561f27ee199e6b479b6369eec688672bde9",
-        "9b7abadd6e69c1d9ec925786534f5075", "Key5"),
+        "9b7abadd6e69c1d9ec925786534f5075", KEY_ALIAS_5),
     // GCM uses GHASH to compute the initial counter J0 if the nonce is not 12 bytes long.
     // The counter is incremented modulo 2^32 in counter mode. The following test vectors verify
     // the behavior of an implementation for initial counter values J0 close to a 2^32 limit.
@@ -158,7 +197,7 @@ public class AesGcmTest {
         "7b95b8c356810a84711d68150a1b7750",
         "",
         "84d4c9c08b4f482861e3a9c6c35bc4d91df927374513bfd49f436bd73f325285daef4ff7e13d46a6",
-        "213a3cb93855d18e69337eee66aeec07", "Key6"),
+        "213a3cb93855d18e69337eee66aeec07", KEY_ALIAS_6),
     // J0:ffffffffffffffffffffffffffffffff
     new GcmTestVector(
         "00000000000000000000000000000000000000000000000000000000000000000000000000000000",
@@ -166,7 +205,7 @@ public class AesGcmTest {
         "1a552e67cdc4dc1a33b824874ebf0bed",
         "",
         "948ca37a8e6649e88aeffb1c598f3607007702417ea0e0bc3c60ad5a949886de968cf53ea6462aed",
-        "99b381bfa2af9751c39d1b6e86d1be6a", "Key6"),
+        "99b381bfa2af9751c39d1b6e86d1be6a", KEY_ALIAS_7),
     // J0:000102030405060708090a0bffffffff
     new GcmTestVector(
         "00000000000000000000000000000000000000000000000000000000000000000000000000000000",
@@ -174,7 +213,7 @@ public class AesGcmTest {
         "99821c2dd5daecded07300f577f7aff1",
         "",
         "127af9b39ecdfc57bb11a2847c7c2d3d8f938f40f877e0c4af37d0fe9af033052bd537c4ae978f60",
-        "07eb2fe4a958f8434d40684899507c7c", "Key7"),
+        "07eb2fe4a958f8434d40684899507c7c", KEY_ALIAS_8),
     // J0:000102030405060708090a0bfffffffe
     new GcmTestVector(
         "00000000000000000000000000000000000000000000000000000000000000000000000000000000",
@@ -182,7 +221,7 @@ public class AesGcmTest {
         "5e4a3900142358d1c774d8d124d8d27d",
         "",
         "0cf6ae47156b14dce03c8a07a2e172b1127af9b39ecdfc57bb11a2847c7c2d3d8f938f40f877e0c4",
-        "f145c2dcaf339eede427be934357eac0", "Key8"),
+        "f145c2dcaf339eede427be934357eac0", KEY_ALIAS_9),
   };
 
   /**
@@ -195,15 +234,15 @@ public class AesGcmTest {
    * <p>The only assumption we make here is that all test vectors with 128 bit tags and nonces with
    * at least 96 bits are supported.
    */
-  private Iterable<GcmTestVector> getTestVectors() throws Exception {
+  private Iterable<GcmTestVector> getTestVectors(boolean isStrongBox) throws Exception {
     ArrayList<GcmTestVector> supported = new ArrayList<GcmTestVector>();
     for (GcmTestVector test : GCM_TEST_VECTORS) {
       if (test.nonceLengthInBits != 96 || test.tagLengthInBits != 128) {
         try {
           // Checks whether the parameter size is supported.
           // It would be nice if there was a way to check this without trying to encrypt.
-          Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
-          cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+          getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.ENCRYPT_MODE,
+                  test, isStrongBox);
         } catch (InvalidKeyException | InvalidAlgorithmParameterException ex) {
           // Not supported
           continue;
@@ -216,9 +255,17 @@ public class AesGcmTest {
 
   @Test
   public void testVectors() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
-      cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+    testVectors(false);
+  }
+  @Test
+  public void testVectors_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testVectors(true);
+  }
+  private void testVectors(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.ENCRYPT_MODE,
+              test, isStrongBox);
       cipher.updateAAD(test.aad);
       byte[] ct = cipher.doFinal(test.pt);
       assertEquals(test.ctHex, TestUtil.bytesToHex(ct));
@@ -228,11 +275,19 @@ public class AesGcmTest {
   /** Test encryption when update and doFinal are done with empty byte arrays. */
   @Test
   public void testEncryptWithEmptyArrays() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
+    testEncryptWithEmptyArrays(false);
+  }
+  @Test
+  public void testEncryptWithEmptyArrays_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testEncryptWithEmptyArrays(true);
+  }
+  private void testEncryptWithEmptyArrays(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
       // Encryption
       byte[] empty = new byte[0];
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
-      cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.ENCRYPT_MODE,
+              test, isStrongBox);
       int outputSize = cipher.getOutputSize(test.pt.length);
       ByteBuffer ctBuffer = ByteBuffer.allocate(outputSize);
       cipher.updateAAD(empty);
@@ -255,10 +310,18 @@ public class AesGcmTest {
 
   @Test
   public void testDecryptWithEmptyArrays() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
+    testDecryptWithEmptyArrays(false);
+  }
+  @Test
+  public void testDecryptWithEmptyArrays_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testDecryptWithEmptyArrays(true);
+  }
+  private void testDecryptWithEmptyArrays(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
       byte[] empty = new byte[0];
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
-      cipher.init(Cipher.DECRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.DECRYPT_MODE,
+              test, isStrongBox);
       int outputSize = cipher.getOutputSize(test.ct.length);
       ByteBuffer ptBuffer = ByteBuffer.allocate(outputSize);
       cipher.updateAAD(empty);
@@ -279,7 +342,8 @@ public class AesGcmTest {
 
       // Simple test that a modified ciphertext fails.
       ptBuffer.clear();
-      cipher.init(Cipher.DECRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.DECRYPT_MODE, test,
+              isStrongBox);
       cipher.updateAAD(empty);
       cipher.updateAAD(test.aad);
       cipher.updateAAD(new byte[1]);
@@ -313,9 +377,17 @@ public class AesGcmTest {
    */
   @Test
   public void testLateUpdateAAD() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
-      cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+    testLateUpdateAAD(false);
+  }
+  @Test
+  public void testLateUpdateAAD_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testLateUpdateAAD(true);
+  }
+  private void testLateUpdateAAD(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.ENCRYPT_MODE, test,
+              isStrongBox);
       byte[] c0 = cipher.update(test.pt);
       try {
         cipher.updateAAD(test.aad);
@@ -346,9 +418,17 @@ public class AesGcmTest {
    */
   @Test
   public void testIvReuse() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
-      cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+    testIvReuse(false);
+  }
+  @Test
+  public void testIvReuse_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testIvReuse(true);
+  }
+  private void testIvReuse(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.ENCRYPT_MODE, test,
+              isStrongBox);
       cipher.updateAAD(test.aad);
       byte[] ct1 = cipher.doFinal(test.pt);
       try {
@@ -372,14 +452,22 @@ public class AesGcmTest {
    */
   @Test
   public void testByteBufferSize() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
-      // Encryption
-      cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+    testByteBufferSize(false);
+  }
+  @Test
+  public void testByteBufferSize_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testByteBufferSize(true);
+  }
+  private void testByteBufferSize(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.ENCRYPT_MODE,
+              test, isStrongBox);
       int outputSize = cipher.getOutputSize(test.pt.length);
       assertEquals("plaintext size:" + test.pt.length, test.ct.length, outputSize);
       // Decryption
-      cipher.init(Cipher.DECRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.DECRYPT_MODE,
+              test, isStrongBox);
       outputSize = cipher.getOutputSize(test.ct.length);
       assertEquals("ciphertext size:" + test.ct.length, test.pt.length, outputSize);
     }
@@ -388,11 +476,19 @@ public class AesGcmTest {
   /** Encryption with ByteBuffers. */
   @Test
   public void testByteBuffer() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
+    testByteBuffer(false);
+  }
+  @Test
+  public void testByteBuffer_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testByteBuffer(true);
+  }
+  private void testByteBuffer(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
       // Encryption
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
       ByteBuffer ptBuffer = ByteBuffer.wrap(test.pt);
-      cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.ENCRYPT_MODE,
+              test, isStrongBox);
       int outputSize = cipher.getOutputSize(test.pt.length);
       ByteBuffer ctBuffer = ByteBuffer.allocate(outputSize);
       cipher.updateAAD(test.aad);
@@ -401,7 +497,8 @@ public class AesGcmTest {
 
       // Decryption
       ctBuffer.flip();
-      cipher.init(Cipher.DECRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.DECRYPT_MODE,
+              test, isStrongBox);
       outputSize = cipher.getOutputSize(test.ct.length);
       ByteBuffer decrypted = ByteBuffer.allocate(outputSize);
       cipher.updateAAD(test.aad);
@@ -413,10 +510,18 @@ public class AesGcmTest {
   /** Encryption with ByteBuffers should be copy-safe. */
   @Test
   public void testByteBufferAlias() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
+    testByteBufferAlias(false);
+  }
+  @Test
+  public void testByteBufferAlias_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testByteBufferAlias(true);
+  }
+  private void testByteBufferAlias(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
       // Encryption
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
-      cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.ENCRYPT_MODE,
+              test, isStrongBox);
       int outputSize = cipher.getOutputSize(test.pt.length);
       byte[] backingArray = new byte[outputSize];
       ByteBuffer ptBuffer = ByteBuffer.wrap(backingArray);
@@ -430,7 +535,8 @@ public class AesGcmTest {
       // Decryption
       ByteBuffer decrypted = ByteBuffer.wrap(backingArray);
       ctBuffer.flip();
-      cipher.init(Cipher.DECRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.DECRYPT_MODE,
+              test, isStrongBox);
       cipher.updateAAD(test.aad);
       cipher.doFinal(ctBuffer, decrypted);
       assertEquals(test.ptHex, TestUtil.byteBufferToHex(decrypted));
@@ -440,6 +546,14 @@ public class AesGcmTest {
   /** Encryption and decryption with large arrays should be copy-safe. */
   @Test
   public void testLargeArrayAlias() throws Exception {
+    testLargeArrayAlias(false);
+  }
+  @Test
+  public void testLargeArrayAlias_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testLargeArrayAlias(true);
+  }
+  private void testLargeArrayAlias(boolean isStrongBox) throws Exception {
     byte[] ptVector = new byte[8192];
 
     // this offset is relative to the start of the input, not the start of the buffer.
@@ -450,7 +564,7 @@ public class AesGcmTest {
           try {
             String alias = "TestKey" + 1;
               SecretKeySpec keySpec = new SecretKeySpec(new byte[16], "AES");
-              secretKey = setKeystoreEntry(alias, keySpec);
+              secretKey = setKeystoreEntry(alias, keySpec, isStrongBox);
           } catch (Exception e) {
             fail("Failed to set secret key entry in KeyStore.");
           }
@@ -522,6 +636,14 @@ public class AesGcmTest {
    */
   @Test
   public void testByteBufferShiftedAlias() throws Exception {
+    testByteBufferShiftedAlias(false);
+  }
+  @Test
+  public void testByteBufferShiftedAlias_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testByteBufferShiftedAlias(true);
+  }
+  private void testByteBufferShiftedAlias(boolean isStrongBox) throws Exception {
     byte[] ptVector = new byte[8192];
 
     for (int i = 0; i < 3; i++) {
@@ -532,7 +654,7 @@ public class AesGcmTest {
           try {
             String alias = "TestKey" + 1;
               SecretKeySpec keySpec = new SecretKeySpec(new byte[16], "AES");
-              secretKey = setKeystoreEntry(alias, keySpec);
+              secretKey = setKeystoreEntry(alias, keySpec, isStrongBox);
           } catch (Exception e) {
             fail("Failed to set secret key entry in KeyStore.");
           }
@@ -636,11 +758,19 @@ public class AesGcmTest {
 
   @Test
   public void testReadOnlyByteBuffer() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
+    testReadOnlyByteBuffer(false);
+  }
+  @Test
+  public void testReadOnlyByteBuffer_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testReadOnlyByteBuffer(true);
+  }
+  private void testReadOnlyByteBuffer(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
       // Encryption
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
       ByteBuffer ptBuffer = ByteBuffer.wrap(test.pt).asReadOnlyBuffer();
-      cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.ENCRYPT_MODE,
+              test, isStrongBox);
       int outputSize = cipher.getOutputSize(test.pt.length);
       ByteBuffer ctBuffer = ByteBuffer.allocate(outputSize);
       cipher.updateAAD(test.aad);
@@ -650,7 +780,8 @@ public class AesGcmTest {
       // Decryption
       ctBuffer.flip();
       ctBuffer = ctBuffer.asReadOnlyBuffer();
-      cipher.init(Cipher.DECRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.DECRYPT_MODE,
+              test, isStrongBox);
       outputSize = cipher.getOutputSize(test.ct.length);
       ByteBuffer decrypted = ByteBuffer.allocate(outputSize);
       cipher.updateAAD(test.aad);
@@ -666,9 +797,18 @@ public class AesGcmTest {
    */
   @Test
   public void testByteBufferWithOffset() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
+    testByteBufferWithOffset(false);
+  }
+  @Test
+  public void testByteBufferWithOffset_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testByteBufferWithOffset(true);
+  }
+  private void testByteBufferWithOffset(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
       // Encryption
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.ENCRYPT_MODE,
+              test, isStrongBox);
       ByteBuffer ptBuffer = ByteBuffer.wrap(new byte[test.pt.length + 50]);
       ptBuffer.position(5);
       ptBuffer = ptBuffer.slice();
@@ -678,7 +818,6 @@ public class AesGcmTest {
       ByteBuffer ctBuffer = ByteBuffer.wrap(new byte[test.ct.length + 50]);
       ctBuffer.position(8);
       ctBuffer = ctBuffer.slice();
-      cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
       cipher.updateAAD(test.aad);
       cipher.doFinal(ptBuffer, ctBuffer);
       assertEquals(test.ctHex, TestUtil.byteBufferToHex(ctBuffer));
@@ -688,7 +827,8 @@ public class AesGcmTest {
       ByteBuffer decBuffer = ByteBuffer.wrap(new byte[test.pt.length + 50]);
       decBuffer.position(6);
       decBuffer = decBuffer.slice();
-      cipher.init(Cipher.DECRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.DECRYPT_MODE,
+              test, isStrongBox);
       cipher.updateAAD(test.aad);
       cipher.doFinal(ctBuffer, decBuffer);
       assertEquals(test.ptHex, TestUtil.byteBufferToHex(decBuffer));
@@ -697,12 +837,20 @@ public class AesGcmTest {
 
   @Test
   public void testByteBufferTooShort() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
+    testByteBufferTooShort(false);
+  }
+  @Test
+  public void testByteBufferTooShort_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testByteBufferTooShort(true);
+  }
+  private void testByteBufferTooShort(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
       // Encryption
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.ENCRYPT_MODE,
+              test, isStrongBox);
       ByteBuffer ptBuffer = ByteBuffer.wrap(test.pt);
       ByteBuffer ctBuffer = ByteBuffer.allocate(test.ct.length - 1);
-      cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
       cipher.updateAAD(test.aad);
       try {
         cipher.doFinal(ptBuffer, ctBuffer);
@@ -714,7 +862,8 @@ public class AesGcmTest {
       // Decryption
       ctBuffer = ByteBuffer.wrap(test.ct);
       ByteBuffer decrypted = ByteBuffer.allocate(test.pt.length - 1);
-      cipher.init(Cipher.DECRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.DECRYPT_MODE,
+              test, isStrongBox);
       cipher.updateAAD(test.aad);
       try {
         cipher.doFinal(ctBuffer, decrypted);
@@ -731,12 +880,20 @@ public class AesGcmTest {
    */
   @Test
   public void testEncryptWithEmptyByteBuffer() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
+    testEncryptWithEmptyByteBuffer(false);
+  }
+  @Test
+  public void testEncryptWithEmptyByteBuffer_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testEncryptWithEmptyByteBuffer(true);
+  }
+  private void testEncryptWithEmptyByteBuffer(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
       // Encryption
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.ENCRYPT_MODE,
+              test, isStrongBox);
       ByteBuffer empty = ByteBuffer.allocate(0);
       ByteBuffer ptBuffer = ByteBuffer.wrap(test.pt);
-      cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
       int outputSize = cipher.getOutputSize(test.pt.length);
       ByteBuffer ctBuffer = ByteBuffer.allocate(outputSize);
       cipher.updateAAD(empty);
@@ -750,11 +907,19 @@ public class AesGcmTest {
 
   @Test
   public void testDecryptWithEmptyBuffer() throws Exception {
-    for (GcmTestVector test : getTestVectors()) {
-      Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
+    testDecryptWithEmptyBuffer(false);
+  }
+  @Test
+  public void testDecryptWithEmptyBuffer_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testDecryptWithEmptyBuffer(true);
+  }
+  private void testDecryptWithEmptyBuffer(boolean isStrongBox) throws Exception {
+    for (GcmTestVector test : getTestVectors(isStrongBox)) {
+      Cipher cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.DECRYPT_MODE,
+              test, isStrongBox);
       ByteBuffer empty = ByteBuffer.allocate(0);
       ByteBuffer ctBuffer = ByteBuffer.wrap(test.ct);
-      cipher.init(Cipher.DECRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
       int outputSize = cipher.getOutputSize(test.ct.length);
       ByteBuffer ptBuffer = ByteBuffer.allocate(outputSize);
       cipher.updateAAD(empty);
@@ -767,7 +932,8 @@ public class AesGcmTest {
       // Simple test that a modified ciphertext fails.
       ctBuffer.flip();
       ptBuffer.clear();
-      cipher.init(Cipher.DECRYPT_MODE, (SecretKey) keyStore.getKey(test.alias, null), test.parameters);
+      cipher = getInitializedCipherInstance("AES/GCM/NoPadding", Cipher.DECRYPT_MODE,
+              test, isStrongBox);
       cipher.updateAAD(empty);
       cipher.updateAAD(test.aad);
       cipher.updateAAD(new byte[1]);
@@ -802,17 +968,12 @@ public class AesGcmTest {
       try {
         String alias = "TestKey" + 1;
           SecretKeySpec keySpec = new SecretKeySpec(new byte[16], "AES");
-          secretKey = setKeystoreEntry(alias, keySpec);
+          secretKey = setKeystoreEntry(alias, keySpec, /*isStrongBox*/ false);
       } catch (Exception e) {
         fail("Failed to set secret key entry in KeyStore.");
       }
     Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
-    try {
-      cipher.init(Cipher.ENCRYPT_MODE, secretKey, new IvParameterSpec(counter));
-    } catch (InvalidAlgorithmParameterException ex) {
-      // OpenJDK8 does not support IvParameterSpec for GCM.
-      throw ex;
-    }
+    cipher.init(Cipher.ENCRYPT_MODE, secretKey, new IvParameterSpec(counter));
     byte[] output = cipher.doFinal(input);
     assertEquals(input.length + 16, output.length);
   }
@@ -836,17 +997,12 @@ public class AesGcmTest {
       try {
         String alias = "TestKey" + 1;
           SecretKeySpec keySpec = new SecretKeySpec(new byte[16], "AES");
-          secretKey = setKeystoreEntry(alias, keySpec);
+          secretKey = setKeystoreEntry(alias, keySpec, /*isStrongBox*/ false);
       } catch (Exception e) {
         fail("Failed to set secret key entry in KeyStore.");
       }
     Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", EXPECTED_PROVIDER_NAME);
-    try {
-      AlgorithmParameterGenerator.getInstance("GCM");
-    } catch (NoSuchAlgorithmException ex) {
-      // Conscrypt does not support AlgorithmParameterGenerator for GCM.
-      throw ex;
-    }
+    AlgorithmParameterGenerator.getInstance("GCM");
     AlgorithmParameters param = AlgorithmParameterGenerator.getInstance("GCM").generateParameters();
     cipher.init(Cipher.ENCRYPT_MODE, secretKey, param);
     byte[] output = cipher.doFinal(input);
@@ -897,7 +1053,7 @@ public class AesGcmTest {
       try {
         String alias = "TestKey" + 1;
           SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
-          secretKey = setKeystoreEntry(alias, keySpec);
+          secretKey = setKeystoreEntry(alias, keySpec, /*isStrongBox*/ false);
       } catch (Exception e) {
         fail("Failed to set secret key entry in KeyStore.");
       }
@@ -929,6 +1085,15 @@ public class AesGcmTest {
    */
   @Test
   public void testEncryptEmptyPlaintextWithEmptyIv() throws Exception {
+    testEncryptEmptyPlaintextWithEmptyIv(false);
+  }
+  @Test
+  public void testEncryptEmptyPlaintextWithEmptyIv_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testEncryptEmptyPlaintextWithEmptyIv(true);
+  }
+
+  private void testEncryptEmptyPlaintextWithEmptyIv(boolean isStrongBox) throws Exception {
     byte[] emptyIv = new byte[0];
     byte[] input = new byte[0];
     byte[] key = TestUtil.hexToBytes("56aae7bd5cbefc71d31c4338e6ddd6c5");
@@ -936,7 +1101,7 @@ public class AesGcmTest {
       try {
         String alias = "TestKey" + 1;
           SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
-          secretKey = setKeystoreEntry(alias, keySpec);
+          secretKey = setKeystoreEntry(alias, keySpec, isStrongBox);
       } catch (Exception e) {
         fail("Failed to set secret key entry in KeyStore.");
       }
@@ -957,13 +1122,22 @@ public class AesGcmTest {
 
   @Test
   public void testDecryptWithEmptyIv() throws Exception {
+    testDecryptWithEmptyIv(false);
+  }
+  @Test
+  public void testDecryptWithEmptyIv_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testDecryptWithEmptyIv(true);
+  }
+
+  private void testDecryptWithEmptyIv(boolean isStrongBox) throws Exception {
     byte[] emptyIv = new byte[0];
     byte[] key = TestUtil.hexToBytes("56aae7bd5cbefc71d31c4338e6ddd6c5");
     SecretKey secretKey = null;
       try {
         String alias = "TestKey" + 1;
           SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
-          secretKey = setKeystoreEntry(alias, keySpec);
+          secretKey = setKeystoreEntry(alias, keySpec, isStrongBox);
       } catch (Exception e) {
         fail("Failed to set secret key entry in KeyStore.");
       }

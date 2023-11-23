@@ -51,10 +51,17 @@ inline half shortAsHalf(short s)
 
 class RGB9E5
 {
-	unsigned int R : 9;
-	unsigned int G : 9;
-	unsigned int B : 9;
-	unsigned int E : 5;
+	union
+	{
+		struct
+		{
+			unsigned int R : 9;
+			unsigned int G : 9;
+			unsigned int B : 9;
+			unsigned int E : 5;
+		};
+		uint32_t packed;
+	};
 
 public:
 	RGB9E5(const float rgb[3])
@@ -111,7 +118,7 @@ public:
 
 	operator unsigned int() const
 	{
-		return *reinterpret_cast<const unsigned int *>(this);
+		return packed;
 	}
 
 	void toRGB16F(half rgb[3]) const
@@ -127,6 +134,17 @@ public:
 
 class R11G11B10F
 {
+	union
+	{
+		struct
+		{
+			unsigned int R : 11;
+			unsigned int G : 11;
+			unsigned int B : 10;
+		};
+		uint32_t packed;
+	};
+
 public:
 	R11G11B10F(const float rgb[3])
 	{
@@ -137,7 +155,7 @@ public:
 
 	operator unsigned int() const
 	{
-		return *reinterpret_cast<const unsigned int *>(this);
+		return packed;
 	}
 
 	void toRGB16F(half rgb[3]) const
@@ -176,7 +194,7 @@ public:
 		const unsigned int float32MinNormfloat11 = 0x38800000;
 		const unsigned int float32MinDenormfloat11 = 0x35000080;
 
-		const unsigned int float32Bits = *reinterpret_cast<unsigned int *>(&fp32);
+		const unsigned int float32Bits = bit_cast<unsigned int>(fp32);
 		const bool float32Sign = (float32Bits & float32SignMask) == float32SignMask;
 
 		unsigned int float32Val = float32Bits & float32ValueMask;
@@ -255,7 +273,7 @@ public:
 		const unsigned int float32MinNormfloat10 = 0x38800000;
 		const unsigned int float32MinDenormfloat10 = 0x35800040;
 
-		const unsigned int float32Bits = *reinterpret_cast<unsigned int *>(&fp32);
+		const unsigned int float32Bits = bit_cast<unsigned int>(fp32);
 		const bool float32Sign = (float32Bits & float32SignMask) == float32SignMask;
 
 		unsigned int float32Val = float32Bits & float32ValueMask;
@@ -314,11 +332,6 @@ public:
 			return ((float32Val + 0x1FFFF + ((float32Val >> 18) & 1)) >> 18) & float10BitMask;
 		}
 	}
-
-private:
-	unsigned int R : 11;
-	unsigned int G : 11;
-	unsigned int B : 10;
 };
 
 }  // namespace sw

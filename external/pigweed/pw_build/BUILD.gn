@@ -14,9 +14,12 @@
 
 import("//build_overrides/pigweed.gni")
 
+import("$dir_pw_build/cc_blob_library.gni")
 import("$dir_pw_build/python.gni")
 import("$dir_pw_build/relative_source_file_names.gni")
 import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_toolchain/traits.gni")
+import("$dir_pw_unit_test/test.gni")
 import("target_types.gni")
 
 # IMPORTANT: The compilation flags in this file must be kept in sync with
@@ -61,6 +64,11 @@ config("optimize_size") {
   ldflags = cflags
 }
 
+config("optimize_size_clang") {
+  cflags = [ "-Oz" ]
+  ldflags = cflags
+}
+
 # Standard compiler flags to reduce output binary size.
 config("reduced_size") {
   cflags = [
@@ -78,6 +86,18 @@ config("reduced_size") {
     # Delete unreferenced sections. Helpful with -ffunction-sections.
     ldflags = [ "-Wl,--gc-sections" ]
   }
+}
+
+config("rust_edition_2015") {
+  rustflags = [ "--edition=2015" ]
+}
+
+config("rust_edition_2018") {
+  rustflags = [ "--edition=2018" ]
+}
+
+config("rust_edition_2021") {
+  rustflags = [ "--edition=2021" ]
 }
 
 config("strict_warnings") {
@@ -114,6 +134,52 @@ config("extra_strict_warnings") {
   cflags_c = [ "-Wstrict-prototypes" ]
 }
 
+# This config contains warnings that are enabled for upstream Pigweed.
+# This config MUST NOT be used downstream to allow for warnings to be
+# added in the future without breaking downstream.
+config("internal_strict_warnings") {
+  cflags = [ "-Wswitch-enum" ]
+  cflags_cc = [ "-Wextra-semi" ]
+
+  # TODO(b/243069432): Enable pedantic warnings on Windows when they pass.
+  if (host_os != "win") {
+    configs = [ ":pedantic_warnings" ]
+  }
+}
+
+config("pedantic_warnings") {
+  cflags = [
+    # Enable -Wpedantic, but disable a few warnings.
+    "-Wpedantic",
+
+    # Allow designated initializers, which were added in C++20 but widely
+    # supported prior and permitted by the Google style guide.
+    "-Wno-c++20-designator",
+
+    # Allow empty ... arguments in macros, which are permitted in C++20 but
+    # widely supported prior.
+    "-Wno-gnu-zero-variadic-macro-arguments",
+  ]
+
+  if (pw_toolchain_CXX_STANDARD < pw_toolchain_STANDARD.CXX17) {
+    # Allow C++17 attributes in C++14, since Pigweed targets C++17 or newer.
+    cflags += [ "-Wno-c++17-attribute-extensions" ]
+  }
+}
+
+# Numeric conversion warnings.
+#
+# Originally Pigweed didn't enable this, but we ultimately decided to turn it
+# on since it caused issues with downstream project that enable this warning.
+#
+# b/259746255 tracks converting everything to build with this warning.
+config("conversion_warnings") {
+  # TODO(b/260629756): Remove Windows restriction once fixed for Windows + GCC.
+  if (host_os != "win") {
+    cflags = [ "-Wconversion" ]
+  }
+}
+
 config("cpp14") {
   cflags_cc = [ "-std=c++14" ]
 }
@@ -125,6 +191,29 @@ config("cpp17") {
     # Allow uses of the register keyword, which may appear in C headers.
     "-Wno-register",
   ]
+}
+
+config("cpp20") {
+  cflags_cc = [
+    "-std=c++20",
+    "-Wno-register",
+  ]
+}
+
+# Selects the C++ standard to used based on the pw_toolchain_CXX_STANDARD
+# toolchain trait.
+config("toolchain_cpp_standard") {
+  if (pw_toolchain_CXX_STANDARD == pw_toolchain_STANDARD.CXX14) {
+    configs = [ ":cpp14" ]
+  } else if (pw_toolchain_CXX_STANDARD == pw_toolchain_STANDARD.CXX17) {
+    configs = [ ":cpp17" ]
+  } else if (pw_toolchain_CXX_STANDARD == pw_toolchain_STANDARD.CXX20) {
+    configs = [ ":cpp20" ]
+  } else {
+    assert(false,
+           "Unexpected pw_toolchain_CXX_STANDARD value: " +
+               pw_toolchain_CXX_STANDARD)
+  }
 }
 
 # Removes system-dependent prefixes from macros like __FILE__ and debug symbols.
@@ -178,24 +267,41 @@ group("link_deps") {
 group("empty") {
 }
 
-# Requirements for the pw_python_package lint targets.
-pw_python_requirements("python_lint") {
-  requirements = [
-    "build",
-
-    # NOTE: mypy needs to stay in sync with mypy-protobuf
-    # Currently using mypy 0.910 and mypy-protobuf 2.9
-    "mypy==0.910",
-
-    # typeshed packages (required by mypy > 0.9)
-    "types-setuptools",
-    "pylint==2.9.3",
-  ]
-}
-
 pw_doc_group("docs") {
   sources = [
     "docs.rst",
     "python.rst",
   ]
+}
+
+# Pigweed upstream does not use the default toolchain, but other projects may
+# use it. To support using pw_build from the default toolchain without fully
+# configuring the Pigweed build, only instantiate the pw_build tests for a
+# non-default toolchain.
+if (current_toolchain != default_toolchain) {
+  pw_test("cc_blob_library_test") {
+    sources = [ "cc_blob_library_test.cc" ]
+    deps = [ ":test_blob" ]
+  }
+
+  pw_cc_blob_library("test_blob") {
+    out_header = "pw_build/test_blob.h"
+    namespace = "test::ns"
+    blobs = [
+      {
+        file_path = "test_blob_0123.bin"
+        symbol_name = "kFirstBlob0123"
+        alignas = 512
+      },
+      {
+        file_path = "test_blob_0123.bin"
+        symbol_name = "kSecondBlob0123"
+      },
+    ]
+    visibility = [ ":*" ]
+  }
+
+  pw_test_group("tests") {
+    tests = [ ":cc_blob_library_test" ]
+  }
 }

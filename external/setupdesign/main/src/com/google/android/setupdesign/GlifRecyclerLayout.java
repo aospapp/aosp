@@ -92,6 +92,10 @@ public class GlifRecyclerLayout extends GlifLayout {
   protected View onInflateTemplate(LayoutInflater inflater, int template) {
     if (template == 0) {
       template = R.layout.sud_glif_recycler_template;
+      // if the activity is embedded should apply an embedded layout.
+      if (isEmbeddedActivityOnePaneEnabled(getContext())) {
+        template = R.layout.sud_glif_recycler_embedded_template;
+      }
     }
     return super.onInflateTemplate(inflater, template);
   }

@@ -20,27 +20,31 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.binding.SourceFiles.setFactoryClassName;
 
 import com.squareup.javapoet.CodeBlock;
+import dagger.assisted.Assisted;
+import dagger.assisted.AssistedFactory;
+import dagger.assisted.AssistedInject;
 import dagger.internal.codegen.base.ContributionType;
 import dagger.internal.codegen.base.SetType;
 import dagger.internal.codegen.binding.BindingGraph;
 import dagger.internal.codegen.binding.BindingType;
 import dagger.internal.codegen.binding.ContributionBinding;
-import dagger.model.DependencyRequest;
-import dagger.producers.Produced;
+import dagger.internal.codegen.javapoet.TypeNames;
+import dagger.spi.model.DependencyRequest;
 
 /** A factory creation expression for a multibound set. */
 final class SetFactoryCreationExpression extends MultibindingFactoryCreationExpression {
   private final BindingGraph graph;
   private final ContributionBinding binding;
 
+  @AssistedInject
   SetFactoryCreationExpression(
-      ContributionBinding binding,
+      @Assisted ContributionBinding binding,
       ComponentImplementation componentImplementation,
-      ComponentBindingExpressions componentBindingExpressions,
+      ComponentRequestRepresentations componentRequestRepresentations,
       BindingGraph graph) {
-    super(binding, componentImplementation, componentBindingExpressions);
+    super(binding, componentImplementation, componentRequestRepresentations);
     this.binding = checkNotNull(binding);
-    this.graph = checkNotNull(graph);
+    this.graph = graph;
   }
 
   @Override
@@ -50,9 +54,9 @@ final class SetFactoryCreationExpression extends MultibindingFactoryCreationExpr
       SetType setType = SetType.from(binding.key());
       builder.add(
           "<$T>",
-          setType.elementsAreTypeOf(Produced.class)
-              ? setType.unwrappedElementType(Produced.class)
-              : setType.elementType());
+          setType.elementsAreTypeOf(TypeNames.PRODUCED)
+              ? setType.unwrappedElementType(TypeNames.PRODUCED).getTypeName()
+              : setType.elementType().getTypeName());
     }
 
     int individualProviders = 0;
@@ -88,5 +92,10 @@ final class SetFactoryCreationExpression extends MultibindingFactoryCreationExpr
     builder.add(builderMethodCalls.build());
 
     return builder.add(".build()").build();
+  }
+
+  @AssistedFactory
+  static interface Factory {
+    SetFactoryCreationExpression create(ContributionBinding binding);
   }
 }

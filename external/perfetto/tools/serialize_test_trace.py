@@ -21,15 +21,16 @@ import argparse
 import os
 import sys
 
-from proto_utils import serialize_python_trace, serialize_textproto_trace
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(ROOT_DIR)
+
+from python.generators.diff_tests.utils import serialize_textproto_trace, serialize_python_trace
 
 
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument(
-      '--out',
-      type=str,
-      help='out directory to search for trace descriptor')
+      '--out', type=str, help='out directory to search for trace descriptor')
   parser.add_argument(
       '--descriptor', type=str, help='path to the trace descriptor')
   parser.add_argument('trace_path', type=str, help='path of trace to serialize')
@@ -57,7 +58,8 @@ def main():
   trace_path = args.trace_path
 
   if trace_path.endswith('.py'):
-    serialize_python_trace(trace_descriptor_path, trace_path, sys.stdout.buffer)
+    serialize_python_trace(ROOT_DIR, trace_descriptor_path, trace_path,
+                           sys.stdout.buffer)
   elif trace_path.endswith('.textproto'):
     serialize_textproto_trace(trace_descriptor_path, extension_descriptors,
                               trace_path, sys.stdout.buffer)

@@ -3,7 +3,10 @@ package org.robolectric.shadows;
 import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR1;
 import static android.os.Build.VERSION_CODES.JELLY_BEAN_MR2;
 
+import android.content.Context;
 import android.os.Looper;
+import android.os.ServiceManager;
+import android.view.IWindowManager;
 import android.view.WindowManagerGlobal;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
@@ -32,7 +35,7 @@ public class ShadowWindowManagerGlobal {
 
   @Implementation
   public static Object getWindowManagerService() {
-    return null;
+    return IWindowManager.Stub.asInterface(ServiceManager.getService(Context.WINDOW_SERVICE));
   }
 
 }

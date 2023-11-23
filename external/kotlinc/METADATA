@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update kotlinc
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "kotlinc"
 description: "Standalone Kotlin command-line compiler tools."
 third_party {
@@ -7,22 +11,18 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://github.com/JetBrains/kotlin/releases/download/v1.6.10/kotlin-compiler-1.6.10.zip"
+    value: "https://github.com/JetBrains/kotlin/releases/download/v1.8.10/kotlin-compiler-1.8.10.zip"
   }
   url {
     type: ARCHIVE
-    value: "https://github.com/JetBrains/intellij-community/raw/171/lib/src/trove4j_src.jar"
+    value: "https://repo1.maven.org/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330-sources.jar"
   }
-  version: "v1.6.10"
-  license_note: "would be RECIPROCAL save for:\n"
-  "   license/third_party/rhino_LICENSE.txt\n"
-  "   license/third_party/testdata/findbugs_license.txt\n"
-  "   license/third_party/trove_license.txt\n"
-  "   license/third_party/trove_readme_license.txt"
+  version: "v1.8.10"
   license_type: RESTRICTED
+  license_note: "would be RECIPROCAL save for:\n   license/third_party/rhino_LICENSE.txt\n   license/third_party/testdata/findbugs_license.txt\n   license/third_party/trove_license.txt\n   license/third_party/trove_readme_license.txt"
   last_upgrade_date {
-    year: 2021
-    month: 12
-    day: 14
+    year: 2023
+    month: 3
+    day: 20
   }
 }

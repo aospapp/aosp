@@ -1,3 +1,17 @@
+// Thanks to Tokio for this macro
+macro_rules! feature {
+    (
+        #![$meta:meta]
+        $($item:item)*
+    ) => {
+        $(
+            #[cfg($meta)]
+            #[cfg_attr(docsrs, doc(cfg($meta)))]
+            $item
+        )*
+    }
+}
+
 /// The `libc_bitflags!` macro helps with a common use case of defining a public bitflags type
 /// with values from the libc crate. It is used the same way as the `bitflags!` macro, except
 /// that only the name of the flag value has to be given.
@@ -5,7 +19,7 @@
 /// The `libc` crate must be in scope with the name `libc`.
 ///
 /// # Example
-/// ```
+/// ```ignore
 /// libc_bitflags!{
 ///     pub struct ProtFlags: libc::c_int {
 ///         PROT_NONE;
@@ -25,7 +39,7 @@
 /// various flags have different types, so we cast the broken ones to the right
 /// type.
 ///
-/// ```
+/// ```ignore
 /// libc_bitflags!{
 ///     pub struct SaFlags: libc::c_ulong {
 ///         SA_NOCLDSTOP as libc::c_ulong;
@@ -66,7 +80,7 @@ macro_rules! libc_bitflags {
 /// The `libc` crate must be in scope with the name `libc`.
 ///
 /// # Example
-/// ```
+/// ```ignore
 /// libc_enum!{
 ///     pub enum ProtFlags {
 ///         PROT_NONE,
@@ -80,6 +94,9 @@ macro_rules! libc_bitflags {
 ///     }
 /// }
 /// ```
+// Some targets don't use all rules.
+#[allow(unknown_lints)]
+#[allow(unused_macro_rules)]
 macro_rules! libc_enum {
     // Exit rule.
     (@make_enum

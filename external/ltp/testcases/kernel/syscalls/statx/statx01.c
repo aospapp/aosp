@@ -4,43 +4,36 @@
  * Email: code@zilogic.com
  */
 
-/*
- * Test statx
+/*\
+ * [Description]
  *
  * This code tests the functionality of statx system call.
  *
- * TESTCASE 1:
- * The metadata for normal file are tested against predefined values:
- * 1) gid
- * 2) uid
- * 3) mode
- * 4) blocks
- * 5) size
+ * The metadata for normal file are tested against expected values:
  *
- * A file is created and metadata values are set with
- * predefined values.
- * Then the values obtained using statx is checked against
- * the predefined values.
+ * - gid
+ * - uid
+ * - mode
+ * - blocks
+ * - size
+ * - nlink
+ * - mnt_id
  *
- * TESTCASE 2:
- * The metadata for device file are tested against predefined values:
- * 1) MAJOR number
- * 2) MINOR number
+ * The metadata for device file are tested against expected values:
  *
- * A device file is created seperately using mknod(must be a root user).
- * The major number and minor number are set while creation.
- * Major and minor numbers obtained using statx is checked against
- * predefined values.
- * Minimum kernel version required is 4.11.
+ * - MAJOR number
+ * - MINOR number
  */
 
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include <sys/sysmacros.h>
 #include "tst_test.h"
 #include "tst_safe_macros.h"
 #include "lapi/stat.h"
+#include "tst_safe_stdio.h"
 #include <string.h>
 #include <inttypes.h>
 
@@ -52,6 +45,55 @@
 #define SIZE 256
 #define MAJOR 8
 #define MINOR 1
+
+static int file_fd = -1;
+
+#ifdef HAVE_STRUCT_STATX_STX_MNT_ID
+static void test_mnt_id(struct statx *buf)
+{
+	FILE *file;
+	char line[PATH_MAX];
+	int pid, flag = 0;
+	unsigned int line_mjr, line_mnr;
+	uint64_t mnt_id;
+
+	if (!(buf->stx_mask & STATX_MNT_ID)) {
+		tst_res(TCONF, "stx_mnt_id is not supported until linux 5.8");
+		return;
+	}
+
+	file = SAFE_FOPEN("/proc/self/mountinfo", "r");
+
+	while (fgets(line, sizeof(line), file)) {
+		if (sscanf(line, "%"SCNu64" %*d %d:%d", &mnt_id, &line_mjr, &line_mnr) != 3)
+			continue;
+
+		if (line_mjr == buf->stx_dev_major && line_mnr == buf->stx_dev_minor) {
+			if (buf->stx_mnt_id == mnt_id) {
+				flag = 1;
+				break;
+			}
+			tst_res(TINFO, "%s doesn't contain %"PRIu64" %d:%d",
+				line, (uint64_t)buf->stx_mnt_id, buf->stx_dev_major, buf->stx_dev_minor);
+		}
+	}
+
+	SAFE_FCLOSE(file);
+
+	if (flag)
+		tst_res(TPASS,
+			"statx.stx_mnt_id equals to mount_id(%"PRIu64") in /proc/self/mountinfo",
+			mnt_id);
+	else
+		tst_res(TFAIL,
+			"statx.stx_mnt_id(%"PRIu64") doesn't exist in /proc/self/mountinfo",
+			(uint64_t)buf->stx_mnt_id);
+
+	pid = getpid();
+	snprintf(line, PATH_MAX, "/proc/%d/fdinfo/%d", pid, file_fd);
+	TST_ASSERT_FILE_INT(line, "mnt_id:", buf->stx_mnt_id);
+}
+#endif
 
 static void test_normal_file(void)
 {
@@ -79,11 +121,11 @@ static void test_normal_file(void)
 
 	if (buff.stx_size == SIZE)
 		tst_res(TPASS,
-			"stx_size(%"PRIu64") is correct", buff.stx_size);
+			"stx_size(%"PRIu64") is correct", (uint64_t)buff.stx_size);
 	else
 		tst_res(TFAIL,
 			"stx_size(%"PRIu64") is different from expected(%u)",
-			buff.stx_size, SIZE);
+			(uint64_t)buff.stx_size, SIZE);
 
 	if ((buff.stx_mode & ~(S_IFMT)) == MODE)
 		tst_res(TPASS, "stx_mode(%u) is correct", buff.stx_mode);
@@ -91,14 +133,24 @@ static void test_normal_file(void)
 		tst_res(TFAIL, "stx_mode(%u) is different from expected(%u)",
 			buff.stx_mode, MODE);
 
-
 	if (buff.stx_blocks <= buff.stx_blksize/512 * 2)
 		tst_res(TPASS, "stx_blocks(%"PRIu64") is valid",
-			buff.stx_blocks);
+			(uint64_t)buff.stx_blocks);
 	else
 		tst_res(TFAIL, "stx_blocks(%"PRIu64") is invalid",
-			buff.stx_blocks);
+			(uint64_t)buff.stx_blocks);
 
+	if (buff.stx_nlink == 1)
+		tst_res(TPASS, "stx_nlink(1) is correct");
+	else
+		tst_res(TFAIL, "stx_nlink(%u) is different from expected(1)",
+			buff.stx_nlink);
+
+#ifdef HAVE_STRUCT_STATX_STX_MNT_ID
+	test_mnt_id(&buff);
+#else
+	tst_res(TCONF, "stx_mnt_id is not defined in struct statx");
+#endif
 }
 
 static void test_device_file(void)
@@ -131,7 +183,7 @@ static void test_device_file(void)
 }
 
 
-struct tcase {
+static struct tcase {
 	void (*tfunc)(void);
 } tcases[] = {
 	{&test_normal_file},
@@ -146,23 +198,28 @@ static void run(unsigned int i)
 static void setup(void)
 {
 	char data_buff[SIZE];
-	int file_fd;
 
 	umask(0);
 
 	memset(data_buff, '@', sizeof(data_buff));
 
 	file_fd =  SAFE_OPEN(TESTFILE, O_RDWR|O_CREAT, MODE);
-	SAFE_WRITE(1, file_fd, data_buff, sizeof(data_buff));
-	SAFE_CLOSE(file_fd);
+	SAFE_WRITE(SAFE_WRITE_ALL, file_fd, data_buff, sizeof(data_buff));
 
 	SAFE_MKNOD(DEVICEFILE, S_IFBLK | 0777, makedev(MAJOR, MINOR));
+}
+
+static void cleanup(void)
+{
+	if (file_fd > -1)
+		SAFE_CLOSE(file_fd);
 }
 
 static struct tst_test test = {
 	.test = run,
 	.tcnt = ARRAY_SIZE(tcases),
 	.setup = setup,
+	.cleanup = cleanup,
 	.min_kver = "4.11",
 	.needs_devfs = 1,
 	.mntpoint = MNTPOINT,

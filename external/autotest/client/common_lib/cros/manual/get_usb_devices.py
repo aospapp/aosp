@@ -10,7 +10,8 @@
 # 5. Check usb devices's interface.
 # 6. Retrieve usb device based on product and manufacture.
 #
-import cStringIO
+
+from six import StringIO
 from autotest_lib.client.common_lib.cros import textfsm
 
 USB_DEVICES_TPLT = (
@@ -91,7 +92,7 @@ def extract_usb_data(rawdata):
     """
     usbdata = []
     rawdata += '\n'
-    re_table = textfsm.TextFSM(cStringIO.StringIO(USB_DEVICES_TPLT))
+    re_table = textfsm.TextFSM(StringIO.StringIO(USB_DEVICES_TPLT))
     fsm_results = re_table.ParseText(rawdata)
     usbdata = [dict(zip(re_table.header, row)) for row in fsm_results]
     return usbdata
@@ -121,7 +122,7 @@ def get_list_audio_device(usbdata):
     audio_device_list = []
     for _data in usbdata:
         if "snd-usb-audio" in _data['intdriver']:
-           audio_device_list.append(_data)
+            audio_device_list.append(_data)
     return audio_device_list
 
 
@@ -133,7 +134,7 @@ def get_list_video_device(usbdata):
     video_device_list = []
     for _data in usbdata:
         if "uvcvideo" in _data['intdriver']:
-             video_device_list.append(_data)
+            video_device_list.append(_data)
     return video_device_list
 
 

@@ -95,6 +95,8 @@ public class SHA384
             addHMACAlias(provider, "SHA384", PKCSObjectIdentifiers.id_hmacWithSHA384);
             */
             // END Android-removed: Unsupported algorithms
+            // Android-added: Private implementation needed to support PBKDF2 with PKCS#12
+            provider.addPrivateAlgorithm("Mac", NISTObjectIdentifiers.id_sha384, PREFIX + "$HashMac");
         }
     }
 }

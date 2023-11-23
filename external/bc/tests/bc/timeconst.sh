@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# Copyright (c) 2018-2021 Gavin D. Howard and contributors.
+# Copyright (c) 2018-2023 Gavin D. Howard and contributors.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,23 @@
 script="$0"
 testdir=$(dirname "$script")
 
-# Gets the timeconst script, which could be a command-line argument.
+outputdir=${BC_TEST_OUTPUT_DIR:-$testdir/..}
+
+# Just print the usage and exit with an error. This can receive a message to
+# print.
+# @param 1  A message to print.
+usage() {
+	if [ $# -eq 1 ]; then
+		printf '%s\n\n' "$1"
+	fi
+	printf 'usage: %s [timeconst_script] [exec args...]\n' "$0"
+	exit 1
+}
+
+. "$testdir/../../scripts/functions.sh"
+
+# Gets the timeconst script, which could be a command-line argument. I don't
+# need to check for error because we just skip if it doesn't work.
 if [ "$#" -gt 0 ]; then
 	timeconst="$1"
 	shift
@@ -44,13 +60,14 @@ fi
 if [ "$#" -gt 0 ]; then
 	bc="$1"
 	shift
+	check_exec_arg "$bc"
 else
 	bc="$testdir/../../bin/bc"
+	check_exec_arg "$bc"
 fi
 
-#
-out1="$testdir/bc_outputs/bc_timeconst.txt"
-out2="$testdir/bc_outputs/bc_timeconst_results.txt"
+out1="$outputdir/bc_outputs/bc_timeconst.txt"
+out2="$outputdir/bc_outputs/bc_timeconst_results.txt"
 
 outdir=$(dirname "$out1")
 

@@ -40,7 +40,7 @@ enum class GameState {
     FailedToLoad
 };
 
-class Game : public AudioStreamCallback {
+class Game : public AudioStreamDataCallback, AudioStreamErrorCallback {
 public:
     explicit Game(AAssetManager&);
     void start();
@@ -51,11 +51,11 @@ public:
     void tick();
     void tap(int64_t eventTimeAsUptime);
 
-    // Inherited from oboe::AudioStreamDataCallback
+    // Inherited from oboe::AudioStreamDataCallback.
     DataCallbackResult
     onAudioReady(AudioStream *oboeStream, void *audioData, int32_t numFrames) override;
 
-    // Inherited from oboe::AudioStreamErrorCallback
+    // Inherited from oboe::AudioStreamErrorCallback.
     void onErrorAfterClose(AudioStream *oboeStream, Result error) override;
 
 private:
@@ -64,7 +64,6 @@ private:
     std::unique_ptr<Player> mClap;
     std::unique_ptr<Player> mBackingTrack;
     Mixer mMixer;
-    std::unique_ptr<float[]> mConversionBuffer { nullptr }; // For float->int16 conversion
 
     LockFreeQueue<int64_t, kMaxQueueItems> mClapEvents;
     std::atomic<int64_t> mCurrentFrame { 0 };

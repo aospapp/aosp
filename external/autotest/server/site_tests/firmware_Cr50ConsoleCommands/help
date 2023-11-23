@@ -1,5 +1,4 @@
 ap_ro_info
-ap_ro_verstate
 bid
 -bitbang
 bpforce
@@ -12,6 +11,7 @@ dump_nvmem
 ec_comm
 ecrst
 (?P<guc>eraseflashinfo)?
+fips
 gettime
 gpiocfg
 gpioget
@@ -19,17 +19,16 @@ gpioget
 help
 history
 -i2cscan
-i2cstpm
+i2cptpm
 -i2cxfer
 idle
 -panicinfo
 pinmux
 -powerbtn
--rddkeepalive
+rddkeepalive
 -reboot
 recbtnforce
 rma_auth
--serialno
 shmem
 sleepmask
 sn

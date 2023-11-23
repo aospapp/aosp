@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,7 +8,11 @@
 import dbus
 import dbus.mainloop.glib
 import dbus.service
-import gobject
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 import logging
 
 from multiprocessing import Process, Pipe
@@ -34,6 +39,11 @@ class AdvMonitor(dbus.service.Object):
 
     """
 
+    # Refer doc/advertisement-monitor-api.txt for more info about unset values.
+    UNSET_RSSI = 127
+    UNSET_TIMEOUT = 0
+    UNSET_SAMPLING_PERIOD = 256
+
     # Indexes of the Monitor object parameters in a monitor data list.
     MONITOR_TYPE = 0
     RSSI_FILTER = 1
@@ -44,6 +54,7 @@ class AdvMonitor(dbus.service.Object):
     RSSI_H_TIMEOUT = 1
     RSSI_L_THRESH = 2
     RSSI_L_TIMEOUT = 3
+    SAMPLING_PERIOD = 4
 
     # Indexes of the Patterns filter parameters in a monitor data list.
     PATTERN_START_POS = 0
@@ -66,6 +77,8 @@ class AdvMonitor(dbus.service.Object):
         self.events['Release'] = 0
         self.events['DeviceFound'] = 0
         self.events['DeviceLost'] = 0
+
+        self.target_devices = []
 
         self._set_type(monitor_data[self.MONITOR_TYPE])
         self._set_rssi(monitor_data[self.RSSI_FILTER])
@@ -91,8 +104,16 @@ class AdvMonitor(dbus.service.Object):
         """
         properties = dict()
         properties['Type'] = dbus.String(self.monitor_type)
-        properties['RSSIThresholdsAndTimers'] = dbus.Struct(self.rssi,
-                                                            signature='nqnq')
+        if self.rssi_h_thresh != self.UNSET_RSSI:
+            properties['RSSIHighThreshold'] = dbus.Int16(self.rssi_h_thresh)
+        if self.rssi_h_timeout != self.UNSET_TIMEOUT:
+            properties['RSSIHighTimeout'] = dbus.UInt16(self.rssi_h_timeout)
+        if self.rssi_l_thresh != self.UNSET_RSSI:
+            properties['RSSILowThreshold'] = dbus.Int16(self.rssi_l_thresh)
+        if self.rssi_l_timeout != self.UNSET_TIMEOUT:
+            properties['RSSILowTimeout'] = dbus.UInt16(self.rssi_l_timeout)
+        if self.sampling_period != self.UNSET_SAMPLING_PERIOD:
+            properties['RSSISamplingPeriod'] = dbus.UInt16(self.sampling_period)
         properties['Patterns'] = dbus.Array(self.patterns, signature='(yyay)')
         return {ADV_MONITOR_IFACE: properties}
 
@@ -112,11 +133,11 @@ class AdvMonitor(dbus.service.Object):
         @param rssi: the list of rssi threshold and timeout values.
 
         """
-        h_thresh = dbus.Int16(rssi[self.RSSI_H_THRESH])
-        h_timeout = dbus.UInt16(rssi[self.RSSI_H_TIMEOUT])
-        l_thresh = dbus.Int16(rssi[self.RSSI_L_THRESH])
-        l_timeout = dbus.UInt16(rssi[self.RSSI_L_TIMEOUT])
-        self.rssi = (h_thresh, h_timeout, l_thresh, l_timeout)
+        self.rssi_h_thresh = rssi[self.RSSI_H_THRESH]
+        self.rssi_h_timeout = rssi[self.RSSI_H_TIMEOUT]
+        self.rssi_l_thresh = rssi[self.RSSI_L_THRESH]
+        self.rssi_l_timeout = rssi[self.RSSI_L_TIMEOUT]
+        self.sampling_period = rssi[self.SAMPLING_PERIOD]
 
 
     def _set_patterns(self, patterns):
@@ -190,6 +211,17 @@ class AdvMonitor(dbus.service.Object):
         return False
 
 
+    def set_target_devices(self, devices):
+        """Set the target devices to the given monitor.
+
+        DeviceFound and DeviceLost will only be counted if it is triggered by a
+        target device.
+
+        @param devices: a list of devices in dbus object path
+
+        """
+        self.target_devices = devices
+
     @dbus.service.method(DBUS_PROP_IFACE,
                          in_signature='s',
                          out_signature='a{sv}')
@@ -238,7 +270,10 @@ class AdvMonitor(dbus.service.Object):
 
         """
         logging.info('%s: %s Device Found!', self.path, device)
-        self._update_event_count('DeviceFound')
+        if device in self.target_devices:
+            self._update_event_count('DeviceFound')
+        else:
+            logging.debug('Found an uninteresting device: %s', device)
 
 
     @dbus.service.method(ADV_MONITOR_IFACE,
@@ -251,7 +286,10 @@ class AdvMonitor(dbus.service.Object):
 
         """
         logging.info('%s: %s Device Lost!', self.path, device)
-        self._update_event_count('DeviceLost')
+        if device in self.target_devices:
+            self._update_event_count('DeviceLost')
+        else:
+            logging.debug('Lost an uninteresting device: %s', device)
 
 
 class AdvMonitorApp(dbus.service.Object):
@@ -328,7 +366,7 @@ class AdvMonitorApp(dbus.service.Object):
 
         # Emit the InterfacesRemoved signal before removing the Monitor object.
         self.InterfacesRemoved(monitor.get_path(),
-                               monitor.get_properties().keys())
+                               list(monitor.get_properties().keys()))
 
         monitor.remove_monitor()
 
@@ -366,6 +404,23 @@ class AdvMonitorApp(dbus.service.Object):
 
         return self.monitors[monitor_id].reset_event_count(event)
 
+
+    def set_target_devices(self, monitor_id, devices):
+        """Set the target devices to the given monitor.
+
+        DeviceFound and DeviceLost will only be counted if it is triggered by a
+        target device.
+
+        @param monitor_id: the monitor id.
+        @param devices: a list of devices in dbus object path
+
+        @returns: True on success, False otherwise.
+        """
+        if monitor_id not in self.monitors:
+            return False
+
+        self.monitors[monitor_id].set_target_devices(devices)
+        return True
 
     def _mainloop_thread(self):
         """Run the dbus mainloop thread.
@@ -515,6 +570,7 @@ class AdvMonitorAppMgr():
     CMD_REMOVE_MONITOR = 7
     CMD_GET_EVENT_COUNT = 8
     CMD_RESET_EVENT_COUNT = 9
+    CMD_SET_TARGET_DEVICES = 10
 
     def __init__(self):
         """Construction of applications manager object."""
@@ -610,11 +666,11 @@ class AdvMonitorAppMgr():
         @param app_id: the app id of this test app process.
 
         """
-        # Initialize threads in gobject/dbus-glib before creating local threads.
-        gobject.threads_init()
+        # Initialize threads in GObject/dbus-glib before creating local threads.
+        GObject.threads_init()
         dbus.mainloop.glib.threads_init()
 
-        # Arrange for the GLib main loop to be the default.
+        # Arrange for the GObject main loop to be the default.
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
         def get_advmon_mgr(bus):
@@ -630,7 +686,7 @@ class AdvMonitorAppMgr():
             return None
 
         bus = dbus.SystemBus()
-        mainloop = gobject.MainLoop()
+        mainloop = GObject.MainLoop()
         advmon_mgr = get_advmon_mgr(bus)
 
         app = AdvMonitorApp(bus, mainloop, advmon_mgr, app_id)
@@ -661,6 +717,9 @@ class AdvMonitorAppMgr():
 
             elif cmd == self.CMD_RESET_EVENT_COUNT:
                 ret = app.reset_event_count(*data)
+
+            elif cmd == self.CMD_SET_TARGET_DEVICES:
+                ret = app.set_target_devices(*data)
 
             helper_conn.send(ret)
 
@@ -821,6 +880,25 @@ class AdvMonitorAppMgr():
         return self._send_to_helper(self.CMD_RESET_EVENT_COUNT, app_id,
                                     (monitor_id, event))
 
+
+    def set_target_devices(self, app_id, monitor_id, devices):
+        """Set the target devices to the given monitor.
+
+        DeviceFound and DeviceLost will only be counted if it is triggered by a
+        target device.
+
+        @param app_id: the app id.
+        @param monitor_id: the monitor id.
+        @param devices: a list of devices in dbus object path
+
+        @returns: True on success, False otherwise.
+        """
+        if app_id not in self.apps:
+            return False
+
+        self._send_to_helper(self.CMD_SET_TARGET_DEVICES, app_id,
+                             (monitor_id, devices))
+        return True
 
     def destroy(self):
         """Clean up the helper process and test app processes."""

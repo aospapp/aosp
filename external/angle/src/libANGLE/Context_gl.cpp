@@ -2654,16 +2654,6 @@ void Context::viewportIndexedfv(GLuint index, const GLfloat *v)
     UNIMPLEMENTED();
 }
 
-void Context::drawElementsInstancedBaseInstance(GLenum mode,
-                                                GLsizei count,
-                                                GLenum type,
-                                                const void *indices,
-                                                GLsizei instancecount,
-                                                GLuint baseinstance)
-{
-    UNIMPLEMENTED();
-}
-
 void Context::drawTransformFeedbackInstanced(GLenum mode,
                                              TransformFeedbackID id,
                                              GLsizei instancecount)
@@ -3695,11 +3685,6 @@ void Context::multiDrawElementsIndirectCount(GLenum mode,
                                              GLintptr drawcount,
                                              GLsizei maxdrawcount,
                                              GLsizei stride)
-{
-    UNIMPLEMENTED();
-}
-
-void Context::polygonOffsetClamp(GLfloat factor, GLfloat units, GLfloat clamp)
 {
     UNIMPLEMENTED();
 }

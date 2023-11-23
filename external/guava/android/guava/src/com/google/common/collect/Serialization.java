@@ -187,10 +187,10 @@ final class Serialization {
   }
 
   // Secret sauce for setting final fields; don't make it public.
-  static <T> FieldSetter<T> getFieldSetter(final Class<T> clazz, String fieldName) {
+  static <T> FieldSetter<T> getFieldSetter(Class<T> clazz, String fieldName) {
     try {
       Field field = clazz.getDeclaredField(fieldName);
-      return new FieldSetter<T>(field);
+      return new FieldSetter<>(field);
     } catch (NoSuchFieldException e) {
       throw new AssertionError(e); // programmer error
     }

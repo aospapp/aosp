@@ -415,6 +415,7 @@ table GrammarModel {
   // The grammar rules.
   rules:grammar.RulesSet;
 
+  // Deprecated. Used only for the old implementation of the grammar model.
   rule_classification_result:[GrammarModel_.RuleClassificationResult];
 
   // Number of tokens in the context to use for classification and text
@@ -432,6 +433,10 @@ table GrammarModel {
 
   // The priority score used for conflict resolution with the other models.
   priority_score:float = 1;
+
+  // Global enabled modes. Use this instead of
+  // `rule_classification_result.enabled_modes`.
+  enabled_modes:ModeFlag = ALL;
 }
 
 namespace libtextclassifier3.MoneyParsingOptions_;
@@ -486,6 +491,15 @@ table ModelTriggeringOptions {
   // map. Key: collection type e.g. "address", "phone"..., Value: float number.
   // NOTE: The entries here need to be sorted since we use LookupByKey.
   collection_to_priority:[ModelTriggeringOptions_.CollectionToPriorityEntry];
+
+  // Enabled modes for the knowledge engine model.
+  knowledge_enabled_modes:ModeFlag = ALL;
+
+  // Enabled modes for the experimental model.
+  experimental_enabled_modes:ModeFlag = ALL;
+
+  // Enabled modes for the installed app model.
+  installed_app_enabled_modes:ModeFlag = ALL;
 }
 
 // Options controlling the output of the classifier.
@@ -894,6 +908,9 @@ table ContactAnnotatorOptions {
 
   // For each language there is a customized list of supported declensions.
   language:string (shared);
+
+  // Enabled modes.
+  enabled_modes:ModeFlag = ALL;
 }
 
 namespace libtextclassifier3.TranslateAnnotatorOptions_;
@@ -927,6 +944,9 @@ table TranslateAnnotatorOptions {
 
   algorithm:TranslateAnnotatorOptions_.Algorithm;
   backoff_options:TranslateAnnotatorOptions_.BackoffOptions;
+
+  // Enabled modes.
+  enabled_modes:ModeFlag = CLASSIFICATION;
 }
 
 namespace libtextclassifier3.PodNerModel_;
@@ -1012,6 +1032,9 @@ table PodNerModel {
   min_number_of_tokens:int = 1;
 
   min_number_of_wordpieces:int = 1;
+
+  // Enabled modes.
+  enabled_modes:ModeFlag = ALL;
 }
 
 namespace libtextclassifier3;
@@ -1043,6 +1066,9 @@ table VocabModel {
 
   // Priority score used for conflict resolution with the other models.
   priority_score:float = 0;
+
+  // Enabled modes.
+  enabled_modes:ModeFlag = ANNOTATION_AND_CLASSIFICATION;
 }
 
 root_type libtextclassifier3.Model;

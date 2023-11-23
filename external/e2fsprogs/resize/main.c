@@ -49,7 +49,7 @@ static void usage (char *prog)
 	fprintf (stderr, _("Usage: %s [-d debug_flags] [-f] [-F] [-M] [-P] "
 			   "[-p] device [-b|-s|new_size] [-S RAID-stride] "
 			   "[-z undo_file]\n\n"),
-		 prog);
+		 prog ? prog : "resize2fs");
 
 	exit (1);
 }
@@ -111,8 +111,8 @@ static void determine_fs_stride(ext2_filsys fs)
 	unsigned int	group;
 	unsigned long long sum;
 	unsigned int	has_sb, prev_has_sb = 0, num;
+	unsigned int	flexbg_size = 1U << fs->super->s_log_groups_per_flex;
 	int		i_stride, b_stride;
-	int		flexbg_size = 1 << fs->super->s_log_groups_per_flex;
 
 	if (fs->stride)
 		return;
@@ -256,6 +256,7 @@ int main (int argc, char ** argv)
 	int		force_min_size = 0;
 	int		print_min_size = 0;
 	int		fd, ret;
+	int		open_flags = O_RDWR;
 	blk64_t		new_size = 0;
 	blk64_t		max_size = 0;
 	blk64_t		min_size = 0;
@@ -286,6 +287,8 @@ int main (int argc, char ** argv)
 		 E2FSPROGS_VERSION, E2FSPROGS_DATE);
 	if (argc && *argv)
 		program_name = *argv;
+	else
+		usage(NULL);
 
 	while ((c = getopt(argc, argv, "d:fFhMPpS:bsz:")) != EOF) {
 		switch (c) {
@@ -363,7 +366,10 @@ int main (int argc, char ** argv)
 		len = 2 * len;
 	}
 
-	fd = ext2fs_open_file(device_name, O_RDWR, 0);
+	if (print_min_size)
+		open_flags = O_RDONLY;
+
+	fd = ext2fs_open_file(device_name, open_flags, 0);
 	if (fd < 0) {
 		com_err("open", errno, _("while opening %s"),
 			device_name);
@@ -401,7 +407,7 @@ int main (int argc, char ** argv)
 #endif
 		io_ptr = unix_io_manager;
 
-	if (!(mount_flags & EXT2_MF_MOUNTED))
+	if (!(mount_flags & EXT2_MF_MOUNTED) && !print_min_size)
 		io_flags = EXT2_FLAG_RW | EXT2_FLAG_EXCLUSIVE;
 
 	io_flags |= EXT2_FLAG_64BITS | EXT2_FLAG_THREADS;
@@ -448,11 +454,15 @@ int main (int argc, char ** argv)
 		    (fs->super->s_free_inodes_count > fs->super->s_inodes_count))
 			checkit = 1;
 
+		if ((fs->super->s_last_orphan != 0) ||
+		    ext2fs_has_feature_journal_needs_recovery(fs->super))
+			checkit = 1;
+
 		if (checkit) {
 			fprintf(stderr,
 				_("Please run 'e2fsck -f %s' first.\n\n"),
 				device_name);
-			exit(1);
+			goto errout;
 		}
 	}
 
@@ -463,7 +473,7 @@ int main (int argc, char ** argv)
 	if (fs->super->s_feature_compat & ~EXT2_LIB_FEATURE_COMPAT_SUPP) {
 		com_err(program_name, EXT2_ET_UNSUPP_FEATURE,
 			"(%s)", device_name);
-		exit(1);
+		goto errout;
 	}
 
 	min_size = calculate_minimum_resize_size(fs, flags);
@@ -471,6 +481,9 @@ int main (int argc, char ** argv)
 	if (print_min_size) {
 		printf(_("Estimated minimum size of the filesystem: %llu\n"),
 		       (unsigned long long) min_size);
+	success_exit:
+		(void) ext2fs_close_free(&fs);
+		remove_error_table(&et_ext2_error_table);
 		exit(0);
 	}
 
@@ -497,7 +510,7 @@ int main (int argc, char ** argv)
 	if (retval) {
 		com_err(program_name, retval, "%s",
 			_("while trying to determine filesystem size"));
-		exit(1);
+		goto errout;
 	}
 	if (force_min_size)
 		new_size = min_size;
@@ -507,7 +520,7 @@ int main (int argc, char ** argv)
 		if (new_size == 0) {
 			com_err(program_name, 0,
 				_("Invalid new size: %s\n"), new_size_str);
-			exit(1);
+			goto errout;
 		}
 	} else {
 		new_size = max_size;
@@ -527,9 +540,15 @@ int main (int argc, char ** argv)
 			com_err(program_name, 0, "%s",
 				_("New size too large to be "
 				  "expressed in 32 bits\n"));
-			exit(1);
+			goto errout;
 		}
 	}
+
+	/* If using cluster allocations, trim down to a cluster boundary */
+	if (ext2fs_has_feature_bigalloc(fs->super)) {
+		new_size &= ~((blk64_t)(1ULL << fs->cluster_ratio_bits) - 1);
+	}
+
 	new_group_desc_count = ext2fs_div64_ceil(new_size -
 				fs->super->s_first_data_block,
 						 EXT2_BLOCKS_PER_GROUP(fs->super));
@@ -540,20 +559,20 @@ int main (int argc, char ** argv)
 		com_err(program_name, 0,
 			_("New size results in too many block group "
 			  "descriptors.\n"));
-		exit(1);
+		goto errout;
 	}
 
 	if (!force && new_size < min_size) {
 		com_err(program_name, 0,
 			_("New size smaller than minimum (%llu)\n"),
 			(unsigned long long) min_size);
-		exit(1);
+		goto errout;
 	}
 	if (use_stride >= 0) {
 		if (use_stride >= (int) fs->super->s_blocks_per_group) {
 			com_err(program_name, 0, "%s",
 				_("Invalid stride length"));
-			exit(1);
+			goto errout;
 		}
 		fs->stride = fs->super->s_raid_stride = use_stride;
 		ext2fs_mark_super_dirty(fs);
@@ -580,52 +599,56 @@ int main (int argc, char ** argv)
 			" is only %llu (%dk) blocks.\nYou requested a new size"
 			" of %llu blocks.\n\n"), (unsigned long long) max_size,
 			blocksize / 1024, (unsigned long long) new_size);
-		exit(1);
+		goto errout;
 	}
 	if ((flags & RESIZE_DISABLE_64BIT) && (flags & RESIZE_ENABLE_64BIT)) {
 		fprintf(stderr, _("Cannot set and unset 64bit feature.\n"));
-		exit(1);
+		goto errout;
 	} else if (flags & (RESIZE_DISABLE_64BIT | RESIZE_ENABLE_64BIT)) {
 		if (new_size >= (1ULL << 32)) {
 			fprintf(stderr, _("Cannot change the 64bit feature "
 				"on a filesystem that is larger than "
 				"2^32 blocks.\n"));
-			exit(1);
+			goto errout;
 		}
 		if (mount_flags & EXT2_MF_MOUNTED) {
 			fprintf(stderr, _("Cannot change the 64bit feature "
 				"while the filesystem is mounted.\n"));
-			exit(1);
+			goto errout;
 		}
 		if (flags & RESIZE_ENABLE_64BIT &&
 		    !ext2fs_has_feature_extents(fs->super)) {
 			fprintf(stderr, _("Please enable the extents feature "
 				"with tune2fs before enabling the 64bit "
 				"feature.\n"));
-			exit(1);
+			goto errout;
 		}
-	} else if (new_size == ext2fs_blocks_count(fs->super)) {
-		fprintf(stderr, _("The filesystem is already %llu (%dk) "
-			"blocks long.  Nothing to do!\n\n"),
-			(unsigned long long) new_size,
-			blocksize / 1024);
-		exit(0);
+	} else {
+		adjust_new_size(fs, &new_size);
+		if (new_size == ext2fs_blocks_count(fs->super)) {
+			fprintf(stderr, _("The filesystem is already "
+					  "%llu (%dk) blocks long.  "
+					  "Nothing to do!\n\n"),
+				(unsigned long long) new_size,
+				blocksize / 1024);
+			goto success_exit;
+		}
 	}
 	if ((flags & RESIZE_ENABLE_64BIT) &&
 	    ext2fs_has_feature_64bit(fs->super)) {
 		fprintf(stderr, _("The filesystem is already 64-bit.\n"));
-		exit(0);
+		goto success_exit;
 	}
 	if ((flags & RESIZE_DISABLE_64BIT) &&
 	    !ext2fs_has_feature_64bit(fs->super)) {
 		fprintf(stderr, _("The filesystem is already 32-bit.\n"));
-		exit(0);
+		goto success_exit;
 	}
 	if (new_size < ext2fs_blocks_count(fs->super) &&
 	    ext2fs_has_feature_stable_inodes(fs->super)) {
 		fprintf(stderr, _("Cannot shrink this filesystem "
 			"because it has the stable_inodes feature flag.\n"));
-		exit(1);
+		goto errout;
 	}
 	if (mount_flags & EXT2_MF_MOUNTED) {
 		retval = online_resize_fs(fs, mtpt, &new_size, flags);
@@ -652,8 +675,7 @@ int main (int argc, char ** argv)
 			_("Please run 'e2fsck -fy %s' to fix the filesystem\n"
 			  "after the aborted resize operation.\n"),
 			device_name);
-		ext2fs_close_free(&fs);
-		exit(1);
+		goto errout;
 	}
 	printf(_("The filesystem on %s is now %llu (%dk) blocks long.\n\n"),
 	       device_name, (unsigned long long) new_size, blocksize / 1024);
@@ -676,5 +698,9 @@ int main (int argc, char ** argv)
 	if (fd > 0)
 		close(fd);
 	remove_error_table(&et_ext2_error_table);
-	return (0);
+	return 0;
+errout:
+	(void) ext2fs_close_free(&fs);
+	remove_error_table(&et_ext2_error_table);
+	return 1;
 }

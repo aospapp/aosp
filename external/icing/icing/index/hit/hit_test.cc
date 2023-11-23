@@ -26,6 +26,7 @@ namespace {
 
 using ::testing::ElementsAre;
 using ::testing::Eq;
+using ::testing::Ge;
 using ::testing::IsFalse;
 using ::testing::IsTrue;
 using ::testing::Lt;
@@ -34,6 +35,63 @@ using ::testing::Not;
 static constexpr DocumentId kSomeDocumentId = 24;
 static constexpr SectionId kSomeSectionid = 5;
 static constexpr Hit::TermFrequency kSomeTermFrequency = 57;
+
+TEST(BasicHitTest, Accessors) {
+  BasicHit h1(kSomeSectionid, kSomeDocumentId);
+  EXPECT_THAT(h1.document_id(), Eq(kSomeDocumentId));
+  EXPECT_THAT(h1.section_id(), Eq(kSomeSectionid));
+}
+
+TEST(BasicHitTest, Invalid) {
+  BasicHit default_invalid;
+  EXPECT_THAT(default_invalid.is_valid(), IsFalse());
+
+  // Also make sure the invalid BasicHit contains an invalid document id.
+  EXPECT_THAT(default_invalid.document_id(), Eq(kInvalidDocumentId));
+  EXPECT_THAT(default_invalid.section_id(), Eq(kMinSectionId));
+}
+
+TEST(BasicHitTest, Valid) {
+  BasicHit maximum_document_id_hit(kSomeSectionid, kMaxDocumentId);
+  EXPECT_THAT(maximum_document_id_hit.is_valid(), IsTrue());
+
+  BasicHit maximum_section_id_hit(kMaxSectionId, kSomeDocumentId);
+  EXPECT_THAT(maximum_section_id_hit.is_valid(), IsTrue());
+
+  BasicHit minimum_document_id_hit(kSomeSectionid, kMinDocumentId);
+  EXPECT_THAT(minimum_document_id_hit.is_valid(), IsTrue());
+
+  BasicHit minimum_section_id_hit(kMinSectionId, kSomeDocumentId);
+  EXPECT_THAT(minimum_section_id_hit.is_valid(), IsTrue());
+
+  BasicHit all_maximum_hit(kMaxSectionId, kMaxDocumentId);
+  EXPECT_THAT(all_maximum_hit.is_valid(), IsTrue());
+
+  BasicHit all_minimum_hit(kMinSectionId, kMinDocumentId);
+  EXPECT_THAT(all_minimum_hit.is_valid(), IsTrue());
+
+  // We use invalid BasicHit for std::lower_bound. Verify that value of the
+  // smallest valid BasicHit (which contains kMinSectionId, kMaxDocumentId) is
+  // >= BasicHit::kInvalidValue.
+  BasicHit smallest_hit(kMinSectionId, kMaxDocumentId);
+  ASSERT_THAT(smallest_hit.is_valid(), IsTrue());
+  EXPECT_THAT(smallest_hit.value(), Ge(BasicHit::kInvalidValue));
+}
+
+TEST(BasicHitTest, Comparison) {
+  BasicHit hit(/*section_id=*/1, /*document_id=*/243);
+  // DocumentIds are sorted in ascending order. So a hit with a lower
+  // document_id should be considered greater than one with a higher
+  // document_id.
+  BasicHit higher_document_id_hit(/*section_id=*/1, /*document_id=*/2409);
+  BasicHit higher_section_id_hit(/*section_id=*/15, /*document_id=*/243);
+
+  std::vector<BasicHit> hits{hit, higher_document_id_hit,
+                             higher_section_id_hit};
+  std::sort(hits.begin(), hits.end());
+  EXPECT_THAT(hits,
+              ElementsAre(higher_document_id_hit, hit, higher_section_id_hit));
+}
 
 TEST(HitTest, HasTermFrequencyFlag) {
   Hit h1(kSomeSectionid, kSomeDocumentId, Hit::kDefaultTermFrequency);
@@ -101,6 +159,17 @@ TEST(HitTest, Valid) {
 
   Hit minimum_section_id_hit(0, kSomeDocumentId, kSomeTermFrequency);
   EXPECT_THAT(minimum_section_id_hit.is_valid(), IsTrue());
+
+  // We use Hit with value Hit::kMaxDocumentIdSortValue for std::lower_bound in
+  // the lite index. Verify that the value of the smallest valid Hit (which
+  // contains kMinSectionId, kMaxDocumentId and 3 flags = false) is >=
+  // Hit::kMaxDocumentIdSortValue.
+  Hit smallest_hit(kMinSectionId, kMaxDocumentId, Hit::kDefaultTermFrequency);
+  ASSERT_THAT(smallest_hit.is_valid(), IsTrue());
+  ASSERT_THAT(smallest_hit.has_term_frequency(), IsFalse());
+  ASSERT_THAT(smallest_hit.is_prefix_hit(), IsFalse());
+  ASSERT_THAT(smallest_hit.is_in_prefix_section(), IsFalse());
+  EXPECT_THAT(smallest_hit.value(), Ge(Hit::kMaxDocumentIdSortValue));
 }
 
 TEST(HitTest, Comparison) {

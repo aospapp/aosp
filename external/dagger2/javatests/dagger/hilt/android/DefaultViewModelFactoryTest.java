@@ -18,11 +18,11 @@ package dagger.hilt.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import androidx.lifecycle.ViewModel;
-import androidx.lifecycle.ViewModelProvider;
 import android.os.Build;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
+import androidx.lifecycle.ViewModel;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import dagger.hilt.android.lifecycle.HiltViewModel;

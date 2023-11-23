@@ -288,6 +288,7 @@ class OutputGenerator:
         self.diagFile = diagFile
         # Internal state
         self.featureName = None
+        self.featureType = None
         self.genOpts = None
         self.registry = None
         self.featureDictionary = {}
@@ -820,6 +821,7 @@ class OutputGenerator:
         - emit - actually write to the header only when True"""
         self.emit = emit
         self.featureName = interface.get('name')
+        self.featureType = interface.get('type')
         # If there's an additional 'protect' attribute in the feature, save it
         self.featureExtraProtect = interface.get('protect')
 
@@ -828,6 +830,7 @@ class OutputGenerator:
 
         Derived classes responsible for emitting feature"""
         self.featureName = None
+        self.featureType = None
         self.featureExtraProtect = None
 
     def genRequirements(self, name, mustBeFound = True):

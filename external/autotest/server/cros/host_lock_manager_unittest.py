@@ -1,13 +1,15 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Unit tests for server/cros/host_lock_manager.py."""
-import mock
+
 import unittest
-import common
+from unittest import mock
+
+from . import common
 
 from autotest_lib.server.cros import host_lock_manager
 from autotest_lib.server.cros.chaos_lib import chaos_datastore_utils
@@ -61,7 +63,7 @@ class HostLockManagerTest(unittest.TestCase):
         return_value=False)
     def testCheckHost_SkipsUnknownHost(self, get_mock):
         actual = self.manager._check_host('host1', None)
-        self.assertEquals(None, actual)
+        self.assertEqual(None, actual)
 
 
     @mock.patch.object(chaos_datastore_utils.ChaosDataStoreUtils, 'show_device',
@@ -70,7 +72,7 @@ class HostLockManagerTest(unittest.TestCase):
     def testCheckHost_DetectsLockedHost(self, get_mock):
         """Test that a host which is already locked is skipped."""
         actual = self.manager._check_host(self.HOST1, self.manager.LOCK)
-        self.assertEquals(None, actual)
+        self.assertEqual(None, actual)
 
 
     @mock.patch.object(chaos_datastore_utils.ChaosDataStoreUtils, 'show_device',
@@ -79,7 +81,7 @@ class HostLockManagerTest(unittest.TestCase):
     def testCheckHost_DetectsUnlockedHost(self, get_mock):
         """Test that a host which is already unlocked is skipped."""
         actual = self.manager._check_host(self.HOST1, self.manager.UNLOCK)
-        self.assertEquals(None, actual)
+        self.assertEqual(None, actual)
 
 
     @mock.patch.object(chaos_datastore_utils.ChaosDataStoreUtils, 'show_device',
@@ -88,7 +90,7 @@ class HostLockManagerTest(unittest.TestCase):
     def testCheckHost_ReturnsHostToLock(self, get_mock):
         """Test that a host which can be locked is returned."""
         actual = self.manager._check_host(self.HOST1, self.manager.LOCK)
-        self.assertEquals(self.HOST1, actual)
+        self.assertEqual(self.HOST1, actual)
 
 
     @mock.patch.object(chaos_datastore_utils.ChaosDataStoreUtils, 'show_device',
@@ -97,7 +99,7 @@ class HostLockManagerTest(unittest.TestCase):
     def testCheckHost_ReturnsHostToUnlock(self, get_mock):
         """Test that a host which can be unlocked is returned."""
         actual = self.manager._check_host(self.HOST1, self.manager.UNLOCK)
-        self.assertEquals(self.HOST1, actual)
+        self.assertEqual(self.HOST1, actual)
 
 
     def testLock_WithNonOverlappingHosts(self):
@@ -106,7 +108,7 @@ class HostLockManagerTest(unittest.TestCase):
         manager = self.MockHostLockManager()
         manager.locked_hosts = set([self.HOST1])
         manager.lock(hosts, lock_reason='Locking for test')
-        self.assertEquals(set([self.HOST1, self.HOST2]), manager.locked_hosts)
+        self.assertEqual(set([self.HOST1, self.HOST2]), manager.locked_hosts)
 
 
     def testLock_WithPartialOverlappingHosts(self):
@@ -115,7 +117,7 @@ class HostLockManagerTest(unittest.TestCase):
         manager = self.MockHostLockManager()
         manager.locked_hosts = set([self.HOST1, self.HOST3])
         manager.lock(hosts, lock_reason='Locking for test')
-        self.assertEquals(set([self.HOST1, self.HOST2, self.HOST3]),
+        self.assertEqual(set([self.HOST1, self.HOST2, self.HOST3]),
                           manager.locked_hosts)
 
 
@@ -124,7 +126,7 @@ class HostLockManagerTest(unittest.TestCase):
         hosts = [self.HOST1, self.HOST2]
         self.manager.locked_hosts = set(hosts)
         self.manager.lock(hosts)
-        self.assertEquals(set(hosts), self.manager.locked_hosts)
+        self.assertEqual(set(hosts), self.manager.locked_hosts)
 
 
     def testUnlock_WithNonOverlappingHosts(self):
@@ -132,7 +134,7 @@ class HostLockManagerTest(unittest.TestCase):
         hosts = [self.HOST2]
         self.manager.locked_hosts = set([self.HOST1])
         self.manager.unlock(hosts)
-        self.assertEquals(set([self.HOST1]), self.manager.locked_hosts)
+        self.assertEqual(set([self.HOST1]), self.manager.locked_hosts)
 
 
 if __name__ == '__main__':

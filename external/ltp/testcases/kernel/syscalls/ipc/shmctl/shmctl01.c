@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include "tst_test.h"
 #include "tst_safe_sysv_ipc.h"
+#include "tst_clocks.h"
 #include "libnewipc.h"
 
 #define NCHILD 20
@@ -117,7 +118,7 @@ static void check_nattch(int exp_nattch, const char *msg)
 	}
 
 	tst_res(TFAIL, "%s shm_nattcg=%li expected %i",
-	        msg, (long)ds1.shm_nattch, exp_nattch);
+		msg, (long)ds1.shm_nattch, exp_nattch);
 }
 
 static void verify_shmstat_attach(void)
@@ -169,14 +170,14 @@ static void check_ds(struct shmid_ds *ds, const char *desc)
 
 	if (ds->shm_segsz != SHM_SIZE) {
 		tst_res(TFAIL, "%s: shm_segsz=%zu, expected %i",
-		        desc, ds->shm_segsz, SHM_SIZE);
+			desc, ds->shm_segsz, SHM_SIZE);
 	} else {
 		tst_res(TPASS, "%s: shm_segsz=%i", desc, SHM_SIZE);
 	}
 
 	if (ds->shm_cpid != pid) {
 		tst_res(TFAIL, "%s: shm_cpid=%i, expected %i",
-		        desc, ds->shm_cpid, pid);
+			desc, ds->shm_cpid, pid);
 	} else {
 		tst_res(TPASS, "%s: shm_cpid=%i", desc, pid);
 	}
@@ -231,7 +232,7 @@ static int get_shm_idx_from_id(int shm_id)
 	struct shmid_ds dummy_ds;
 	int max_idx, i;
 
-	max_idx = SAFE_SHMCTL(shm_id, SHM_INFO, (void*)&dummy);
+	max_idx = SAFE_SHMCTL(shm_id, SHM_INFO, (void *)&dummy);
 
 	for (i = 0; i <= max_idx; i++) {
 		if (shmctl(i, SHM_STAT, &dummy_ds) == shm_id)
@@ -243,9 +244,9 @@ static int get_shm_idx_from_id(int shm_id)
 
 static void setup(void)
 {
-	ctime_min = get_ipc_timestamp();
+	ctime_min = tst_get_fs_timestamp();
 	shm_id = SAFE_SHMGET(IPC_PRIVATE, SHM_SIZE, IPC_CREAT | SHM_RW);
-	ctime_max = get_ipc_timestamp();
+	ctime_max = tst_get_fs_timestamp();
 
 	shm_idx = get_shm_idx_from_id(shm_id);
 

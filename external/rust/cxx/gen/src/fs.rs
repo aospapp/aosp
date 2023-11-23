@@ -13,6 +13,15 @@ pub(crate) struct Error {
     message: String,
 }
 
+impl Error {
+    pub fn kind(&self) -> io::ErrorKind {
+        match &self.source {
+            Some(io_error) => io_error.kind(),
+            None => io::ErrorKind::Other,
+        }
+    }
+}
+
 impl Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str(&self.message)
@@ -57,6 +66,13 @@ pub(crate) fn current_dir() -> Result<PathBuf> {
         Ok(dir) => Ok(dir),
         Err(e) => err!(e, "Failed to determine current directory"),
     }
+}
+
+pub(crate) fn exists(path: impl AsRef<Path>) -> bool {
+    let path = path.as_ref();
+    // If path is a symlink, this returns true, regardless of whether the
+    // symlink points to a path that exists.
+    std::fs::symlink_metadata(path).is_ok()
 }
 
 pub(crate) fn read(path: impl AsRef<Path>) -> Result<Vec<u8>> {

@@ -25,7 +25,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <signal.h>
 #include <sys/types.h>
@@ -46,9 +45,6 @@ static void setown_pid_test(void);
 static void setown_pgrp_test(void);
 
 #if defined(HAVE_STRUCT_F_OWNER_EX)
-static int ownex_enabled;
-static char *ownex_tconf_msg = "F_GETOWN_EX and F_SETOWN_EX only run on "
-			"kernels that are 2.6.32 and higher";
 static void setownex_tid_test(void);
 static void setownex_pid_test(void);
 static void setownex_pgrp_test(void);
@@ -127,15 +123,11 @@ static void setup(void)
 		tst_brkm(TBROK | TERRNO, cleanup, "getpgid() failed");
 
 #if defined(HAVE_STRUCT_F_OWNER_EX)
-	if ((tst_kvercmp(2, 6, 32)) >= 0) {
-		ownex_enabled = 1;
-
-		/* get original f_owner_ex info */
-		TEST(fcntl(test_fd, F_GETOWN_EX, &orig_own_ex));
-		if (TEST_RETURN < 0) {
-			tst_brkm(TFAIL | TTERRNO, cleanup,
-				 "fcntl get original f_owner_ex info failed");
-		}
+	/* get original f_owner_ex info */
+	TEST(fcntl(test_fd, F_GETOWN_EX, &orig_own_ex));
+	if (TEST_RETURN < 0) {
+		tst_brkm(TFAIL | TTERRNO, cleanup,
+			 "fcntl get original f_owner_ex info failed");
 	}
 #endif
 
@@ -205,13 +197,8 @@ static void setownex_tid_test(void)
 {
 	static struct f_owner_ex tst_own_ex;
 
-	if (ownex_enabled == 0) {
-		tst_resm(TCONF, "%s", ownex_tconf_msg);
-		return;
-	}
-
 	tst_own_ex.type = F_OWNER_TID;
-	tst_own_ex.pid = ltp_syscall(__NR_gettid);
+	tst_own_ex.pid = tst_syscall(__NR_gettid);
 
 	TEST(fcntl(test_fd, F_SETOWN_EX, &tst_own_ex));
 	if (TEST_RETURN < 0) {
@@ -226,11 +213,6 @@ static void setownex_tid_test(void)
 static void setownex_pid_test(void)
 {
 	static struct f_owner_ex tst_own_ex;
-
-	if (ownex_enabled == 0) {
-		tst_resm(TCONF, "%s", ownex_tconf_msg);
-		return;
-	}
 
 	tst_own_ex.type = F_OWNER_PID;
 	tst_own_ex.pid = pid;
@@ -249,11 +231,6 @@ static void setownex_pid_test(void)
 static void setownex_pgrp_test(void)
 {
 	static struct f_owner_ex tst_own_ex;
-
-	if (ownex_enabled == 0) {
-		tst_resm(TCONF, "%s", ownex_tconf_msg);
-		return;
-	}
 
 	tst_own_ex.type = F_OWNER_PGRP;
 	tst_own_ex.pid = pgrp_pid;

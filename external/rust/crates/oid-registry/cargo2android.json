@@ -1,4 +1,8 @@
 {
+  "apex-available": [
+    "//apex_available:platform",
+    "com.android.virt"
+  ],
   "copy-out": true,
   "device": true,
   "features": "crypto,x509",

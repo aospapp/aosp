@@ -1,0 +1,9 @@
+{
+  "run": true,
+  "device": true,
+  "apex-available": [
+    "//apex_available:platform",
+    "com.android.compos",
+    "com.android.virt"
+  ]
+}

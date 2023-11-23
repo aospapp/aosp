@@ -13,8 +13,9 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "audio"
 TEST_TYPE = "server"
-#ATTRIBUTES = "suite:chameleon_audio_unstable"
+ATTRIBUTES = "suite:audio_advanced"
 DEPENDENCIES = "audio_box"
+PY_VERSION = 3
 
 DOC = """
 A basic assistant voice command test.

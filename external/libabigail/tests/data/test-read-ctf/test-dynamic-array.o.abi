@@ -21,7 +21,7 @@
     <type-decl name='unsigned long int' size-in-bits='64' alignment-in-bits='64' id='type-id-3'/>
     <pointer-type-def type-id='type-id-5' size-in-bits='64' alignment-in-bits='64' id='type-id-7'/>
     <pointer-type-def type-id='type-id-1' size-in-bits='64' alignment-in-bits='64' id='type-id-6'/>
-    <function-decl name='use_struct_s' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8'>
+    <function-decl name='use_struct_s' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8' elf-symbol-id='use_struct_s'>
       <parameter type-id='type-id-7'/>
       <return type-id='type-id-8'/>
     </function-decl>

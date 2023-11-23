@@ -56,6 +56,7 @@ import junit.framework.TestSuite;
  * @author Jared Levy
  */
 @GwtCompatible(emulated = true)
+@SuppressWarnings("AlwaysThrows")
 public class ImmutableSortedMapTest extends TestCase {
   // TODO: Avoid duplicating code in ImmutableMapTest
 
@@ -875,12 +876,11 @@ public class ImmutableSortedMapTest extends TestCase {
   }
 
   private static <K, V> void assertMapEquals(Map<K, V> map, Object... alternatingKeysAndValues) {
-    assertEquals(map.size(), alternatingKeysAndValues.length / 2);
-    int i = 0;
-    for (Entry<K, V> entry : map.entrySet()) {
-      assertEquals(alternatingKeysAndValues[i++], entry.getKey());
-      assertEquals(alternatingKeysAndValues[i++], entry.getValue());
+    Map<Object, Object> expected = new LinkedHashMap<>();
+    for (int i = 0; i < alternatingKeysAndValues.length; i += 2) {
+      expected.put(alternatingKeysAndValues[i], alternatingKeysAndValues[i + 1]);
     }
+    assertThat(map).containsExactlyEntriesIn(expected).inOrder();
   }
 
   private static class IntHolder implements Serializable {

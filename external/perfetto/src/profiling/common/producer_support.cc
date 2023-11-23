@@ -16,9 +16,10 @@
 
 #include "src/profiling/common/producer_support.h"
 
+#include <optional>
+
 #include "perfetto/ext/base/android_utils.h"
 #include "perfetto/ext/base/file_utils.h"
-#include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/string_splitter.h"
 #include "perfetto/tracing/core/data_source_config.h"
 #include "src/traced/probes/packages_list/packages_list_parser.h"
@@ -27,26 +28,26 @@ namespace perfetto {
 namespace profiling {
 
 namespace {
-base::Optional<Package> FindInPackagesList(
+std::optional<Package> FindInPackagesList(
     uint64_t lookup_uid,
     const std::string& packages_list_path) {
   std::string content;
   if (!base::ReadFile(packages_list_path, &content)) {
     PERFETTO_ELOG("Failed to read %s", packages_list_path.c_str());
-    return base::nullopt;
+    return std::nullopt;
   }
   for (base::StringSplitter ss(std::move(content), '\n'); ss.Next();) {
     Package pkg;
     if (!ReadPackagesListLine(ss.cur_token(), &pkg)) {
       PERFETTO_ELOG("Failed to parse packages.list");
-      return base::nullopt;
+      return std::nullopt;
     }
 
     if (pkg.uid == lookup_uid) {
       return std::move(pkg);  // -Wreturn-std-move-in-c++11
     }
   }
-  return base::nullopt;
+  return std::nullopt;
 }
 
 bool AllPackagesProfileableByTrustedInitiator(
@@ -110,10 +111,25 @@ bool CanProfileAndroid(const DataSourceConfig& ds_config,
     return true;
   }
 
+  bool trusted_initiator = ds_config.session_initiator() ==
+                           DataSourceConfig::SESSION_INITIATOR_TRUSTED_SYSTEM;
+
   uint64_t uid_without_profile = uid % kAidUserOffset;
   uint64_t uid_for_lookup = 0;
-  if (uid_without_profile >= kAidAppStart &&
-      uid_without_profile <= kAidAppEnd) {
+  if (uid_without_profile < kAidAppStart) {
+    // Platform processes are considered profileable by the platform itself.
+    // This includes platform UIDs from other profiles, e.g. "u10_system".
+    // It's possible that this is an app (e.g. com.android.settings runs as
+    // AID_SYSTEM), but we will skip checking packages.list for the profileable
+    // manifest flags, as running under a platform UID is considered sufficient.
+    // Minor consequence: shell cannot profile platform apps, even if their
+    // manifest flags opt into profiling from shell. Resolving this would
+    // require definitively disambiguating native processes from apps if both
+    // can run as the same platform UID.
+    return trusted_initiator;
+
+  } else if (uid_without_profile >= kAidAppStart &&
+             uid_without_profile <= kAidAppEnd) {
     // normal app
     uid_for_lookup = uid_without_profile;
 
@@ -133,8 +149,6 @@ bool CanProfileAndroid(const DataSourceConfig& ds_config,
     // even be the package in which the service was defined).
     // TODO(rsavitski): find a way for the platform to tell native services
     // about isolated<->app relations.
-    bool trusted_initiator = ds_config.session_initiator() ==
-                             DataSourceConfig::SESSION_INITIATOR_TRUSTED_SYSTEM;
     return trusted_initiator &&
            AllPackagesProfileableByTrustedInitiator(packages_list_path);
 
@@ -143,7 +157,7 @@ bool CanProfileAndroid(const DataSourceConfig& ds_config,
     return false;
   }
 
-  base::Optional<Package> pkg =
+  std::optional<Package> pkg =
       FindInPackagesList(uid_for_lookup, packages_list_path);
 
   if (!pkg)

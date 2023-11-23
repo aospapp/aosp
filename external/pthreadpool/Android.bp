@@ -46,7 +46,6 @@ cc_library_static {
         "-DPTHREADPOOL_USE_CPUINFO=1",
         "-DPTHREADPOOL_USE_CONDVAR=1",
     ],
-    c_std: "gnu11",
     header_libs: [
         "fxdiv_headers",
     ],

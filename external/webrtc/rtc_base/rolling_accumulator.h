@@ -17,7 +17,6 @@
 #include <vector>
 
 #include "rtc_base/checks.h"
-#include "rtc_base/constructor_magic.h"
 #include "rtc_base/numerics/running_statistics.h"
 
 namespace rtc {
@@ -35,12 +34,15 @@ class RollingAccumulator {
   }
   ~RollingAccumulator() {}
 
+  RollingAccumulator(const RollingAccumulator&) = delete;
+  RollingAccumulator& operator=(const RollingAccumulator&) = delete;
+
   size_t max_count() const { return samples_.size(); }
 
   size_t count() const { return static_cast<size_t>(stats_.Size()); }
 
   void Reset() {
-    stats_ = webrtc::RunningStatistics<T>();
+    stats_ = webrtc::webrtc_impl::RunningStatistics<T>();
     next_index_ = 0U;
     max_ = T();
     max_stale_ = false;
@@ -129,15 +131,13 @@ class RollingAccumulator {
   double ComputeVariance() const { return stats_.GetVariance().value_or(0); }
 
  private:
-  webrtc::RunningStatistics<T> stats_;
+  webrtc::webrtc_impl::RunningStatistics<T> stats_;
   size_t next_index_;
   mutable T max_;
   mutable bool max_stale_;
   mutable T min_;
   mutable bool min_stale_;
   std::vector<T> samples_;
-
-  RTC_DISALLOW_COPY_AND_ASSIGN(RollingAccumulator);
 };
 
 }  // namespace rtc

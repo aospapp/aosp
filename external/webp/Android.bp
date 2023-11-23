@@ -45,7 +45,7 @@ license {
 cc_library_static {
     name: "webp-headers",
     host_supported: true,
-    export_include_dirs: ["include"],
+    export_include_dirs: ["src"],
     sdk_version: "9",
     target: {
         windows: {
@@ -60,6 +60,13 @@ cc_library_static {
     name: "libwebp-encode",
     host_supported: true,
     srcs: [
+        "sharpyuv/sharpyuv.c",
+        "sharpyuv/sharpyuv_cpu.c",
+        "sharpyuv/sharpyuv_csp.c",
+        "sharpyuv/sharpyuv_dsp.c",
+        "sharpyuv/sharpyuv_gamma.c",
+        "sharpyuv/sharpyuv_neon.c",
+        "sharpyuv/sharpyuv_sse2.c",
         "src/dsp/cost.c",
         "src/dsp/cost_mips32.c",
         "src/dsp/cost_mips_dsp_r2.c",
@@ -121,10 +128,10 @@ cc_library_static {
     },
 
     cflags: [
-        "-O2",
         "-DANDROID",
         "-DWEBP_SWAP_16BIT_CSP",
         "-DWEBP_USE_THREAD",
+        "-O2",
         "-Wall",
         "-Werror",
     ],
@@ -221,10 +228,10 @@ cc_library_static {
     },
 
     cflags: [
-        "-O2",
         "-DANDROID",
         "-DWEBP_SWAP_16BIT_CSP",
         "-DWEBP_USE_THREAD",
+        "-O2",
         "-Wall",
         "-Werror",
     ],

@@ -71,8 +71,10 @@ void AutoShardDatasetOp::MakeDataset(OpKernelContext* ctx, DatasetBase* input,
   // FlatMapDataset, InterleaveDataset etc. So we disable generalized
   // function optimization and explicitly handle function modifications
   // for those datasets in the rewrite.
+  core::RefCountPtr<DatasetBase> rewritten;
   OP_REQUIRES_OK(ctx, RewriteDataset(ctx, input, std::move(config_factory),
-                                     /*record_fingerprint=*/false, output));
+                                     /*record_fingerprint=*/false, &rewritten));
+  *output = rewritten.release();
 }
 
 RewriterConfig AutoShardDatasetOp::CreateConfig(int64_t num_workers,
@@ -87,7 +89,7 @@ RewriterConfig AutoShardDatasetOp::CreateConfig(int64_t num_workers,
   auto custom_optimizer = rewriter_config.add_custom_optimizers();
   custom_optimizer->set_name(kOptimizerName);
 
-  const std::array<std::pair<const char* const, int64>, 4> attr_pairs = {
+  const std::array<std::pair<const char* const, int64_t>, 4> attr_pairs = {
       {{kNumWorkers, num_workers},
        {kIndex, index},
        {kAutoShardPolicy, auto_shard_policy},

@@ -1,6 +1,6 @@
 /* flac - Command-line FLAC encoder/decoder
  * Copyright (C) 2000-2009  Josh Coalson
- * Copyright (C) 2011-2016  Xiph.Org Foundation
+ * Copyright (C) 2011-2022  Xiph.Org Foundation
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -62,7 +62,7 @@ void flac__analyze_init(analysis_options aopts)
 	}
 }
 
-void flac__analyze_frame(const FLAC__Frame *frame, uint32_t frame_number, FLAC__uint64 frame_offset, uint32_t frame_bytes, analysis_options aopts, FILE *fout)
+void flac__analyze_frame(const FLAC__Frame *frame, uint32_t frame_number, FLAC__uint64 frame_offset, FLAC__uint64 frame_bytes, analysis_options aopts, FILE *fout)
 {
 	const uint32_t channels = frame->header.channels;
 	char outfilename[1024];
@@ -70,7 +70,7 @@ void flac__analyze_frame(const FLAC__Frame *frame, uint32_t frame_number, FLAC__
 	uint32_t i, channel, partitions;
 
 	/* do the human-readable part first */
-	fprintf(fout, "frame=%u\toffset=%" PRIu64 "\tbits=%u\tblocksize=%u\tsample_rate=%u\tchannels=%u\tchannel_assignment=%s\n", frame_number, frame_offset, frame_bytes*8, frame->header.blocksize, frame->header.sample_rate, channels, FLAC__ChannelAssignmentString[frame->header.channel_assignment]);
+	fprintf(fout, "frame=%u\toffset=%" PRIu64 "\tbits=%" PRIu64 "\tblocksize=%u\tsample_rate=%u\tchannels=%u\tchannel_assignment=%s\n", frame_number, frame_offset, frame_bytes*8, frame->header.blocksize, frame->header.sample_rate, channels, FLAC__ChannelAssignmentString[frame->header.channel_assignment]);
 	for(channel = 0; channel < channels; channel++) {
 		const FLAC__Subframe *subframe = frame->subframes+channel;
 		const FLAC__bool is_rice2 = subframe->data.fixed.entropy_coding_method.type == FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE2;
@@ -78,13 +78,13 @@ void flac__analyze_frame(const FLAC__Frame *frame, uint32_t frame_number, FLAC__
 		fprintf(fout, "\tsubframe=%u\twasted_bits=%u\ttype=%s", channel, subframe->wasted_bits, FLAC__SubframeTypeString[subframe->type]);
 		switch(subframe->type) {
 			case FLAC__SUBFRAME_TYPE_CONSTANT:
-				fprintf(fout, "\tvalue=%d\n", subframe->data.constant.value);
+				fprintf(fout, "\tvalue=%" PRId64 "\n", subframe->data.constant.value);
 				break;
 			case FLAC__SUBFRAME_TYPE_FIXED:
 				FLAC__ASSERT(subframe->data.fixed.entropy_coding_method.type <= FLAC__ENTROPY_CODING_METHOD_PARTITIONED_RICE2);
 				fprintf(fout, "\torder=%u\tresidual_type=%s\tpartition_order=%u\n", subframe->data.fixed.order, is_rice2? "RICE2":"RICE", subframe->data.fixed.entropy_coding_method.data.partitioned_rice.order);
 				for(i = 0; i < subframe->data.fixed.order; i++)
-					fprintf(fout, "\t\twarmup[%u]=%d\n", i, subframe->data.fixed.warmup[i]);
+					fprintf(fout, "\t\twarmup[%u]=%" PRId64 "\n", i, subframe->data.fixed.warmup[i]);
 				partitions = (1u << subframe->data.fixed.entropy_coding_method.data.partitioned_rice.order);
 				for(i = 0; i < partitions; i++) {
 					uint32_t parameter = subframe->data.fixed.entropy_coding_method.data.partitioned_rice.contents->parameters[i];
@@ -104,7 +104,7 @@ void flac__analyze_frame(const FLAC__Frame *frame, uint32_t frame_number, FLAC__
 				for(i = 0; i < subframe->data.lpc.order; i++)
 					fprintf(fout, "\t\tqlp_coeff[%u]=%d\n", i, subframe->data.lpc.qlp_coeff[i]);
 				for(i = 0; i < subframe->data.lpc.order; i++)
-					fprintf(fout, "\t\twarmup[%u]=%d\n", i, subframe->data.lpc.warmup[i]);
+					fprintf(fout, "\t\twarmup[%u]=%" PRId64 "\n", i, subframe->data.lpc.warmup[i]);
 				partitions = (1u << subframe->data.lpc.entropy_coding_method.data.partitioned_rice.order);
 				for(i = 0; i < partitions; i++) {
 					uint32_t parameter = subframe->data.lpc.entropy_coding_method.data.partitioned_rice.contents->parameters[i];
@@ -152,18 +152,20 @@ void flac__analyze_frame(const FLAC__Frame *frame, uint32_t frame_number, FLAC__
 				update_stats(&all_, stats.buckets[i].residual, stats.buckets[i].count);
 			}
 
-			/* write the subframe */
-			flac_snprintf(outfilename, sizeof (outfilename), "f%06u.s%u.gp", frame_number, channel);
-			compute_stats(&stats);
+			if(stats.nsamples > 0) {
+				/* write the subframe */
+				flac_snprintf(outfilename, sizeof (outfilename), "f%06u.s%u.gp", frame_number, channel);
+				compute_stats(&stats);
 
-			(void)dump_stats(&stats, outfilename);
+				(void)dump_stats(&stats, outfilename);
+			}
 		}
 	}
 }
 
 void flac__analyze_finish(analysis_options aopts)
 {
-	if(aopts.do_residual_gnuplot) {
+	if(aopts.do_residual_gnuplot && all_.nsamples > 0) {
 		compute_stats(&all_);
 		(void)dump_stats(&all_, "all");
 	}

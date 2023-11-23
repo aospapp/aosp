@@ -60,10 +60,10 @@ U_CDECL_BEGIN
  * @see u_getUnicodeVersion
  * \xrefitem stable "Stable" "Stable List" ICU 2.0
  */
-#define U_UNICODE_VERSION "14.0"
+#define U_UNICODE_VERSION "15.0"
 
 /**
- * @addtogroup ICU4C
+ * @addtogroup icu4c ICU4C
  * @{
  * \file
  * \brief C API: Unicode Properties
@@ -485,57 +485,55 @@ typedef enum UProperty {
      * \xrefitem stable "Stable" "Stable List" ICU 62
      */
     UCHAR_EXTENDED_PICTOGRAPHIC=64,
-#ifndef U_HIDE_DRAFT_API
     /**
      * Binary property of strings Basic_Emoji.
      * See https://www.unicode.org/reports/tr51/#Emoji_Sets
      *
-     * \xrefitem draft "Draft" "Draft List" This API may be changed in the future versions and was introduced in ICU 70
+     * \xrefitem stable "Stable" "Stable List" ICU 70
      */
     UCHAR_BASIC_EMOJI=65,
     /**
      * Binary property of strings Emoji_Keycap_Sequence.
      * See https://www.unicode.org/reports/tr51/#Emoji_Sets
      *
-     * \xrefitem draft "Draft" "Draft List" This API may be changed in the future versions and was introduced in ICU 70
+     * \xrefitem stable "Stable" "Stable List" ICU 70
      */
     UCHAR_EMOJI_KEYCAP_SEQUENCE=66,
     /**
      * Binary property of strings RGI_Emoji_Modifier_Sequence.
      * See https://www.unicode.org/reports/tr51/#Emoji_Sets
      *
-     * \xrefitem draft "Draft" "Draft List" This API may be changed in the future versions and was introduced in ICU 70
+     * \xrefitem stable "Stable" "Stable List" ICU 70
      */
     UCHAR_RGI_EMOJI_MODIFIER_SEQUENCE=67,
     /**
      * Binary property of strings RGI_Emoji_Flag_Sequence.
      * See https://www.unicode.org/reports/tr51/#Emoji_Sets
      *
-     * \xrefitem draft "Draft" "Draft List" This API may be changed in the future versions and was introduced in ICU 70
+     * \xrefitem stable "Stable" "Stable List" ICU 70
      */
     UCHAR_RGI_EMOJI_FLAG_SEQUENCE=68,
     /**
      * Binary property of strings RGI_Emoji_Tag_Sequence.
      * See https://www.unicode.org/reports/tr51/#Emoji_Sets
      *
-     * \xrefitem draft "Draft" "Draft List" This API may be changed in the future versions and was introduced in ICU 70
+     * \xrefitem stable "Stable" "Stable List" ICU 70
      */
     UCHAR_RGI_EMOJI_TAG_SEQUENCE=69,
     /**
      * Binary property of strings RGI_Emoji_ZWJ_Sequence.
      * See https://www.unicode.org/reports/tr51/#Emoji_Sets
      *
-     * \xrefitem draft "Draft" "Draft List" This API may be changed in the future versions and was introduced in ICU 70
+     * \xrefitem stable "Stable" "Stable List" ICU 70
      */
     UCHAR_RGI_EMOJI_ZWJ_SEQUENCE=70,
     /**
      * Binary property of strings RGI_Emoji.
      * See https://www.unicode.org/reports/tr51/#Emoji_Sets
      *
-     * \xrefitem draft "Draft" "Draft List" This API may be changed in the future versions and was introduced in ICU 70
+     * \xrefitem stable "Stable" "Stable List" ICU 70
      */
     UCHAR_RGI_EMOJI=71,
-#endif  // U_HIDE_DRAFT_API
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the last constant for binary Unicode properties.
@@ -1887,6 +1885,23 @@ enum UBlockCode {
     /** \xrefitem stable "Stable" "Stable List" ICU 70 */
     UBLOCK_ZNAMENNY_MUSICAL_NOTATION = 320, /*[1CF00]*/
 
+    // New blocks in Unicode 15.0
+
+    /** \xrefitem stable "Stable" "Stable List" ICU 72 */
+    UBLOCK_ARABIC_EXTENDED_C = 321, /*[10EC0]*/
+    /** \xrefitem stable "Stable" "Stable List" ICU 72 */
+    UBLOCK_CJK_UNIFIED_IDEOGRAPHS_EXTENSION_H = 322, /*[31350]*/
+    /** \xrefitem stable "Stable" "Stable List" ICU 72 */
+    UBLOCK_CYRILLIC_EXTENDED_D = 323, /*[1E030]*/
+    /** \xrefitem stable "Stable" "Stable List" ICU 72 */
+    UBLOCK_DEVANAGARI_EXTENDED_A = 324, /*[11B00]*/
+    /** \xrefitem stable "Stable" "Stable List" ICU 72 */
+    UBLOCK_KAKTOVIK_NUMERALS = 325, /*[1D2C0]*/
+    /** \xrefitem stable "Stable" "Stable List" ICU 72 */
+    UBLOCK_KAWI = 326, /*[11F00]*/
+    /** \xrefitem stable "Stable" "Stable List" ICU 72 */
+    UBLOCK_NAG_MUNDARI = 327, /*[1E4D0]*/
+
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal UBlockCode value.
@@ -1894,7 +1909,7 @@ enum UBlockCode {
      *
      * \xrefitem deprecated "Deprecated" "Deprecated List" ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
-    UBLOCK_COUNT = 321,
+    UBLOCK_COUNT = 328,
 #endif  // U_HIDE_DEPRECATED_API
 
     /** \xrefitem stable "Stable" "Stable List" ICU 2.0 */
@@ -2684,11 +2699,7 @@ u_hasBinaryProperty(UChar32 c, UProperty which) __INTRODUCED_IN(31);
 
 
 
-#ifndef U_HIDE_DRAFT_API
 
-
-
-#endif  // U_HIDE_DRAFT_API
 
 
 

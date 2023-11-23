@@ -1,8 +1,6 @@
 macro_rules! force_eval {
     ($e:expr) => {
-        unsafe {
-            ::core::ptr::read_volatile(&$e);
-        }
+        unsafe { ::core::ptr::read_volatile(&$e) }
     };
 }
 
@@ -55,6 +53,24 @@ macro_rules! i {
     };
     ($array:expr, $index:expr, == , $rhs:expr) => {
         *$array.get_mut($index).unwrap() == $rhs
+    };
+}
+
+// Temporary macro to avoid panic codegen for division (in debug mode too). At
+// the time of this writing this is only used in a few places, and once
+// rust-lang/rust#72751 is fixed then this macro will no longer be necessary and
+// the native `/` operator can be used and panics won't be codegen'd.
+#[cfg(any(debug_assertions, not(feature = "unstable")))]
+macro_rules! div {
+    ($a:expr, $b:expr) => {
+        $a / $b
+    };
+}
+
+#[cfg(all(not(debug_assertions), feature = "unstable"))]
+macro_rules! div {
+    ($a:expr, $b:expr) => {
+        unsafe { core::intrinsics::unchecked_div($a, $b) }
     };
 }
 
@@ -154,6 +170,8 @@ mod remainder;
 mod remainderf;
 mod remquo;
 mod remquof;
+mod rint;
+mod rintf;
 mod round;
 mod roundf;
 mod scalbn;
@@ -268,6 +286,8 @@ pub use self::remainder::remainder;
 pub use self::remainderf::remainderf;
 pub use self::remquo::remquo;
 pub use self::remquof::remquof;
+pub use self::rint::rint;
+pub use self::rintf::rintf;
 pub use self::round::round;
 pub use self::roundf::roundf;
 pub use self::scalbn::scalbn;

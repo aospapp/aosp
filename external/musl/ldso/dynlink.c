@@ -32,7 +32,9 @@
 #define realloc __libc_realloc
 #define free __libc_free
 
-static void error(const char *, ...);
+static void error_impl(const char *, ...);
+static void error_noop(const char *, ...);
+static void (*error)(const char *, ...) = error_noop;
 
 #define MAXP2(a,b) (-(-(a)&-(b)))
 #define ALIGN(x,y) ((x)+(y)-1 & -(y))
@@ -63,6 +65,8 @@ struct dso {
 	size_t *dynv;
 	struct dso *next, *prev;
 
+	int elfmachine;
+	int elfclass;
 	Phdr *phdr;
 	int phnum;
 	size_t phentsize;
@@ -151,6 +155,7 @@ static struct fdpic_loadmap *app_loadmap;
 static struct fdpic_dummy_loadmap app_dummy_loadmap;
 
 struct debug *_dl_debug_addr = &debug;
+static void (*exe_dl_debug_state)(void) = 0;
 
 extern hidden int __malloc_replaced;
 
@@ -211,7 +216,8 @@ static void decode_vec(size_t *v, size_t *a, size_t cnt)
 	size_t i;
 	for (i=0; i<cnt; i++) a[i] = 0;
 	for (; v[0]; v+=2) if (v[0]-1<cnt-1) {
-		a[0] |= 1UL<<v[0];
+		if (v[0] < 8*sizeof(long))
+			a[0] |= 1UL<<v[0];
 		a[v[0]] = v[1];
 	}
 }
@@ -516,6 +522,23 @@ static void do_relocs(struct dso *dso, size_t *rel, size_t rel_size, size_t stri
 	}
 }
 
+static void do_relr_relocs(struct dso *dso, size_t *relr, size_t relr_size)
+{
+	unsigned char *base = dso->base;
+	size_t *reloc_addr;
+	for (; relr_size; relr++, relr_size-=sizeof(size_t))
+		if ((relr[0]&1) == 0) {
+			reloc_addr = laddr(dso, relr[0]);
+			*reloc_addr++ += (size_t)base;
+		} else {
+			int i = 0;
+			for (size_t bitmap=relr[0]; (bitmap>>=1); i++)
+				if (bitmap&1)
+					reloc_addr[i] += (size_t)base;
+			reloc_addr += 8*sizeof(size_t)-1;
+		}
+}
+
 static void redo_lazy_relocs()
 {
 	struct dso *p = lazy_head, *next;
@@ -623,6 +646,19 @@ static void unmap_library(struct dso *dso)
 	}
 }
 
+static int verify_elf_magic(const Ehdr* eh) {
+	return eh->e_ident[0] == ELFMAG0 &&
+		eh->e_ident[1] == ELFMAG1 &&
+		eh->e_ident[2] == ELFMAG2 &&
+		eh->e_ident[3] == ELFMAG3;
+}
+
+/* Verifies that an elf header's machine and class match the loader */
+static int verify_elf_arch(const Ehdr* eh) {
+	return eh->e_machine == ldso.elfmachine &&
+		eh->e_ident[EI_CLASS] == ldso.elfclass;
+}
+
 static void *map_library(int fd, struct dso *dso)
 {
 	Ehdr buf[(896+sizeof(Ehdr))/sizeof(Ehdr)];
@@ -645,6 +681,10 @@ static void *map_library(int fd, struct dso *dso)
 	if (l<0) return 0;
 	if (l<sizeof *eh || (eh->e_type != ET_DYN && eh->e_type != ET_EXEC))
 		goto noexec;
+	if (!verify_elf_magic(eh)) goto noexec;
+	if (!verify_elf_arch(eh)) goto noexec;
+	dso->elfmachine = eh->e_machine;
+	dso->elfclass = eh->e_ident[EI_CLASS];
 	phsize = eh->e_phentsize * eh->e_phnum;
 	if (phsize > sizeof buf - sizeof *eh) {
 		allocated_buf = malloc(phsize);
@@ -809,29 +849,53 @@ error:
 	return 0;
 }
 
-static int path_open(const char *name, const char *s, char *buf, size_t buf_size)
+static int path_open_library(const char *name, const char *s, char *buf, size_t buf_size)
 {
 	size_t l;
 	int fd;
+	const char *p;
 	for (;;) {
 		s += strspn(s, ":\n");
+		p = s;
 		l = strcspn(s, ":\n");
 		if (l-1 >= INT_MAX) return -1;
-		if (snprintf(buf, buf_size, "%.*s/%s", (int)l, s, name) < buf_size) {
-			if ((fd = open(buf, O_RDONLY|O_CLOEXEC))>=0) return fd;
-			switch (errno) {
-			case ENOENT:
-			case ENOTDIR:
-			case EACCES:
-			case ENAMETOOLONG:
-				break;
-			default:
-				/* Any negative value but -1 will inhibit
-				 * futher path search. */
+		s += l;
+		if (snprintf(buf, buf_size, "%.*s/%s", (int)l, p, name) < buf_size) {
+			fd = open(buf, O_RDONLY|O_CLOEXEC);
+			if (fd < 0) {
+				switch (errno) {
+				case ENOENT:
+				case ENOTDIR:
+				case EACCES:
+				case ENAMETOOLONG:
+					/* Keep searching in path list. */
+					continue;
+				default:
+					/* Any negative value but -1 will
+					 * inhibit further path search in
+					 * load_library. */
+					return -2;
+				}
+			}
+			Ehdr eh;
+			ssize_t n = pread(fd, &eh, sizeof eh, 0);
+			/* If the elf file is invalid return -2 to inhibit
+			 * further path search in load_library. */
+			if (n < 0 ||
+			    n != sizeof eh ||
+			    !verify_elf_magic(&eh)) {
+				close(fd);
 				return -2;
 			}
+			/* If the elf file has a valid header but is for the
+			 * wrong architecture ignore it and keep searching the
+			 * path list. */
+			if (!verify_elf_arch(&eh)) {
+				close(fd);
+				continue;
+			}
+			return fd;
 		}
-		s += l;
 	}
 }
 
@@ -869,7 +933,7 @@ static int fixup_rpath(struct dso *p, char *buf, size_t buf_size)
 		case ENOENT:
 		case ENOTDIR:
 		case EACCES:
-			break;
+			return 0;
 		default:
 			return -1;
 		}
@@ -1011,7 +1075,7 @@ static struct dso *load_library(const char *name, struct dso *needed_by)
 	/* Catch and block attempts to reload the implementation itself */
 	if (name[0]=='l' && name[1]=='i' && name[2]=='b') {
 		static const char reserved[] =
-			"c.pthread.rt.m.dl.util.xnet.";
+			"c.c_musl.pthread.rt.m.dl.util.xnet.";
 		const char *rp, *next;
 		for (rp=reserved; *rp; rp=next) {
 			next = strchr(rp, '.') + 1;
@@ -1055,12 +1119,12 @@ static struct dso *load_library(const char *name, struct dso *needed_by)
 		}
 		if (strlen(name) > NAME_MAX) return 0;
 		fd = -1;
-		if (env_path) fd = path_open(name, env_path, buf, sizeof buf);
+		if (env_path) fd = path_open_library(name, env_path, buf, sizeof buf);
 		for (p=needed_by; fd == -1 && p; p=p->needed_by) {
 			if (fixup_rpath(p, buf, sizeof buf) < 0)
 				fd = -2; /* Inhibit further search. */
 			if (p->rpath)
-				fd = path_open(name, p->rpath, buf, sizeof buf);
+				fd = path_open_library(name, p->rpath, buf, sizeof buf);
 		}
 		if (fd == -1) {
 			if (!sys_path) {
@@ -1099,7 +1163,7 @@ static struct dso *load_library(const char *name, struct dso *needed_by)
 				}
 			}
 			if (!sys_path) sys_path = "/lib:/usr/local/lib:/usr/lib";
-			fd = path_open(name, sys_path, buf, sizeof buf);
+			fd = path_open_library(name, sys_path, buf, sizeof buf);
 		}
 		pathname = buf;
 	}
@@ -1358,13 +1422,17 @@ static void reloc_all(struct dso *p)
 			2+(dyn[DT_PLTREL]==DT_RELA));
 		do_relocs(p, laddr(p, dyn[DT_REL]), dyn[DT_RELSZ], 2);
 		do_relocs(p, laddr(p, dyn[DT_RELA]), dyn[DT_RELASZ], 3);
+		if (!DL_FDPIC)
+			do_relr_relocs(p, laddr(p, dyn[DT_RELR]), dyn[DT_RELRSZ]);
 
-		if (head != &ldso && p->relro_start != p->relro_end &&
-		    mprotect(laddr(p, p->relro_start), p->relro_end-p->relro_start, PROT_READ)
-		    && errno != ENOSYS) {
-			error("Error relocating %s: RELRO protection failed: %m",
-				p->name);
-			if (runtime) longjmp(*rtld_fail, 1);
+		if (head != &ldso && p->relro_start != p->relro_end) {
+			long ret = __syscall(SYS_mprotect, laddr(p, p->relro_start),
+				p->relro_end-p->relro_start, PROT_READ);
+			if (ret != 0 && ret != -ENOSYS) {
+				error("Error relocating %s: RELRO protection failed: %m",
+					p->name);
+				if (runtime) longjmp(*rtld_fail, 1);
+			}
 		}
 
 		p->relocated = 1;
@@ -1561,6 +1629,8 @@ void __libc_start_init(void)
 
 static void dl_debug_state(void)
 {
+	if (exe_dl_debug_state)
+		exe_dl_debug_state();
 }
 
 weak_alias(dl_debug_state, _dl_debug_state);
@@ -1667,6 +1737,8 @@ hidden void __dls2(unsigned char *base, size_t *sp)
 	ldso.phnum = ehdr->e_phnum;
 	ldso.phdr = laddr(&ldso, ehdr->e_phoff);
 	ldso.phentsize = ehdr->e_phentsize;
+	ldso.elfmachine = ehdr->e_machine;
+	ldso.elfclass = ehdr->e_ident[EI_CLASS];
 	kernel_mapped_dso(&ldso);
 	decode_dyn(&ldso);
 
@@ -1758,6 +1830,9 @@ void __dls3(size_t *sp, size_t *auxv)
 		env_path = getenv("LD_LIBRARY_PATH");
 		env_preload = getenv("LD_PRELOAD");
 	}
+
+	/* Activate error handler function */
+	error = error_impl;
 
 	/* If the main program was already loaded by the kernel,
 	 * AT_PHDR will point to some location other than the dynamic
@@ -1982,6 +2057,12 @@ void __dls3(size_t *sp, size_t *auxv)
 		__malloc_replaced = 1;
 	if (find_sym(head, "aligned_alloc", 1).dso != &ldso)
 		__aligned_alloc_replaced = 1;
+
+	/* Determine if another DSO is providing the _dl_debug_state symbol
+	 * and forward calls to it. */
+	struct symdef debug_sym = find_sym(head, "_dl_debug_state", 1);
+	if (debug_sym.dso != &ldso)
+		exe_dl_debug_state = (void (*)(void))laddr(debug_sym.dso, debug_sym.sym->st_value);
 
 	/* Switch to runtime mode: any further failures in the dynamic
 	 * linker are a reportable failure rather than a fatal startup
@@ -2348,7 +2429,7 @@ int dl_iterate_phdr(int(*callback)(struct dl_phdr_info *info, size_t size, void 
 	return ret;
 }
 
-static void error(const char *fmt, ...)
+static void error_impl(const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
@@ -2361,4 +2442,8 @@ static void error(const char *fmt, ...)
 	}
 	__dl_vseterr(fmt, ap);
 	va_end(ap);
+}
+
+static void error_noop(const char *fmt, ...)
+{
 }

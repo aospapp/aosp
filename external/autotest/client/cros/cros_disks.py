@@ -8,8 +8,13 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-import dbus, gobject, logging, os, stat
+import dbus, logging, os, stat
 from dbus.mainloop.glib import DBusGMainLoop
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 import six
 from six.moves import zip
 
@@ -62,7 +67,7 @@ class ExceptionSuppressor(object):
 class DBusClient(object):
     """ A base class of a DBus proxy client to test a DBus server.
 
-    This class is expected to be used along with a GLib main loop and provides
+    This class is expected to be used along with a GObject main loop and provides
     some convenient functions for testing the DBus API exposed by a DBus server.
     """
 
@@ -70,7 +75,7 @@ class DBusClient(object):
         """Initializes the instance.
 
         Args:
-            main_loop: The GLib main loop.
+            main_loop: The GObject main loop.
             bus: The bus where the DBus server is connected to.
             bus_name: The bus name owned by the DBus server.
             object_path: The object path of the DBus server.
@@ -209,7 +214,7 @@ class CrosDisksClient(DBusClient):
         """Initializes the instance.
 
         Args:
-            main_loop: The GLib main loop.
+            main_loop: The GObject main loop.
             bus: The bus where the DBus server is connected to.
             timeout_seconds: Maximum time in seconds to wait for the DBus
                              connection.
@@ -423,7 +428,7 @@ class CrosDisksTester(GenericTesterMainLoop):
     def __init__(self, test):
         bus_loop = DBusGMainLoop(set_as_default=True)
         self.bus = dbus.SystemBus(mainloop=bus_loop)
-        self.main_loop = gobject.MainLoop()
+        self.main_loop = GObject.MainLoop()
         super(CrosDisksTester, self).__init__(test, self.main_loop)
         self.cros_disks = CrosDisksClient(self.main_loop, self.bus)
 

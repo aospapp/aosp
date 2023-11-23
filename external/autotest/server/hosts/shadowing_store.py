@@ -9,7 +9,7 @@ import logging
 
 import common
 from autotest_lib.server.hosts import host_info
-from chromite.lib import metrics
+from autotest_lib.utils.frozen_chromite.lib import metrics
 
 
 _METRICS_PREFIX = 'chromeos/autotest/autoserv/host_info/shadowing_store/'

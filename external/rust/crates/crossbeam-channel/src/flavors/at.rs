@@ -4,7 +4,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crate::context::Context;
 use crate::err::{RecvTimeoutError, TryRecvError};
@@ -31,11 +31,6 @@ impl Channel {
             delivery_time: when,
             received: AtomicBool::new(false),
         }
-    }
-    /// Creates a channel that delivers a message after a certain duration of time.
-    #[inline]
-    pub(crate) fn new_timeout(dur: Duration) -> Self {
-        Self::new_deadline(Instant::now() + dur)
     }
 
     /// Attempts to receive a message without blocking.
@@ -142,7 +137,6 @@ impl Channel {
     }
 
     /// Returns the capacity of the channel.
-    #[allow(clippy::unnecessary_wraps)] // This is intentional.
     #[inline]
     pub(crate) fn capacity(&self) -> Option<usize> {
         Some(1)

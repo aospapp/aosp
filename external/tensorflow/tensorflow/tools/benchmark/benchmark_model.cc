@@ -57,7 +57,7 @@ Status InitializeVariables(Session* session,
   for (const string& init_op : init_ops) {
     TF_RETURN_IF_ERROR(session->Run({}, {}, {init_op}, nullptr));
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 template <class T>
@@ -80,6 +80,10 @@ void CreateTensorsFromInputInfo(
     switch (input.data_type) {
       case DT_INT32: {
         InitializeTensor<int32>(input.initialization_values, &input_tensor);
+        break;
+      }
+      case DT_INT64: {
+        InitializeTensor<int64>(input.initialization_values, &input_tensor);
         break;
       }
       case DT_FLOAT: {
@@ -143,13 +147,13 @@ Status GetOutputShapes(const std::vector<InputLayerInfo>& inputs,
     const TensorShape& found_shape = output_tensors[i].shape();
     (*node_shapes)[wanted_shape_name] = found_shape;
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status CalculateFlops(const GraphDef& graph,
                       const std::vector<InputLayerInfo>& inputs,
-                      Session* session, int64* total_flops,
-                      std::unordered_map<string, int64>* flops_by_op) {
+                      Session* session, int64_t* total_flops,
+                      std::unordered_map<string, int64_t>* flops_by_op) {
   std::unordered_set<string> floppable_ops = {
       "Conv2D", "MatMul", "QuantizedConv2D", "QuantizedMatMul",
       "DepthwiseConv2dNative"};
@@ -209,7 +213,7 @@ Status CalculateFlops(const GraphDef& graph,
       *total_flops += current_flops;
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 void RecordBenchmarkEntry(const string& output_prefix,
@@ -278,13 +282,13 @@ Status InitializeSession(int num_threads, const string& graph,
     return s;
   }
 
-  return Status::OK();
+  return OkStatus();
 }
 
 Status RunBenchmark(const std::vector<InputLayerInfo>& inputs,
                     const std::vector<string>& outputs,
                     const std::vector<string>& targets, Session* session,
-                    StatSummarizer* stats, int64* inference_time_us) {
+                    StatSummarizer* stats, int64_t* inference_time_us) {
   std::vector<std::pair<string, tensorflow::Tensor> > input_tensors;
   CreateTensorsFromInputInfo(inputs, &input_tensors);
 
@@ -322,8 +326,8 @@ Status TimeMultipleRuns(double sleep_seconds, int num_runs, double max_time_s,
                         const std::vector<InputLayerInfo>& inputs,
                         const std::vector<string>& outputs,
                         const std::vector<string>& targets, Session* session,
-                        StatSummarizer* stats, int64* total_time_us,
-                        int64* actual_num_runs) {
+                        StatSummarizer* stats, int64_t* total_time_us,
+                        int64_t* actual_num_runs) {
   *total_time_us = 0;
 
   LOG(INFO) << "Running benchmark for max " << num_runs << " iterations, max "
@@ -332,7 +336,7 @@ Status TimeMultipleRuns(double sleep_seconds, int num_runs, double max_time_s,
             << " detailed stat logging, with " << sleep_seconds
             << "s sleep between inferences";
 
-  Stat<int64> stat;
+  Stat<int64_t> stat;
   const bool until_max_time = num_runs <= 0;
   for (int i = 0; until_max_time || i < num_runs; ++i) {
     int64_t time;
@@ -362,7 +366,7 @@ Status TimeMultipleRuns(double sleep_seconds, int num_runs, double max_time_s,
   stat.OutputToStream(&stream);
   LOG(INFO) << stream.str() << std::endl;
 
-  return Status::OK();
+  return OkStatus();
 }
 
 int Main(int argc, char** argv) {
@@ -623,7 +627,7 @@ int Main(int argc, char** argv) {
 
   if (show_flops) {
     int64_t total_flops;
-    std::unordered_map<string, int64> flops_by_op;
+    std::unordered_map<string, int64_t> flops_by_op;
     Status flop_status = CalculateFlops(*graph_def, inputs, session.get(),
                                         &total_flops, &flops_by_op);
     if (!flop_status.ok()) {
@@ -648,7 +652,7 @@ int Main(int argc, char** argv) {
     const double mean_run_time = no_stat_wall_time / no_stat_num_runs;
     LOG(INFO) << "FLOPs/second: "
               << strings::HumanReadableNum(
-                     static_cast<int64>(total_flops / mean_run_time));
+                     static_cast<int64_t>(total_flops / mean_run_time));
   }
 
   if (!benchmark_name.empty() && !output_prefix.empty()) {

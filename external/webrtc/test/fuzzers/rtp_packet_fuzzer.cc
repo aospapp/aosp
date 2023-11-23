@@ -9,16 +9,18 @@
  */
 
 #include <bitset>
+#include <vector>
 
 #include "absl/types/optional.h"
 #include "modules/rtp_rtcp/include/rtp_header_extension_map.h"
 #include "modules/rtp_rtcp/source/rtp_generic_frame_descriptor_extension.h"
 #include "modules/rtp_rtcp/source/rtp_header_extensions.h"
 #include "modules/rtp_rtcp/source/rtp_packet_received.h"
+#include "modules/rtp_rtcp/source/rtp_video_layers_allocation_extension.h"
 
 namespace webrtc {
 // We decide which header extensions to register by reading four bytes
-// from the beginning of |data| and interpreting it as a bitmask over
+// from the beginning of `data` and interpreting it as a bitmask over
 // the RTPExtensionType enum. This assert ensures four bytes are enough.
 static_assert(kRtpExtensionNumberOfExtensions <= 32,
               "Insufficient bits read to configure all header extensions. Add "
@@ -75,6 +77,11 @@ void FuzzOneInput(const uint8_t* data, size_t size) {
         uint8_t audio_level;
         packet.GetExtension<AudioLevel>(&voice_activity, &audio_level);
         break;
+      case kRtpExtensionCsrcAudioLevel: {
+        std::vector<uint8_t> audio_levels;
+        packet.GetExtension<CsrcAudioLevel>(&audio_levels);
+        break;
+      }
       case kRtpExtensionAbsoluteSendTime:
         uint32_t sendtime;
         packet.GetExtension<AbsoluteSendTime>(&sendtime);
@@ -100,7 +107,7 @@ void FuzzOneInput(const uint8_t* data, size_t size) {
         break;
       }
       case kRtpExtensionPlayoutDelay: {
-        PlayoutDelay playout = PlayoutDelay::Noop();
+        VideoPlayoutDelay playout;
         packet.GetExtension<PlayoutDelayLimits>(&playout);
         break;
       }
@@ -108,10 +115,11 @@ void FuzzOneInput(const uint8_t* data, size_t size) {
         VideoContentType content_type;
         packet.GetExtension<VideoContentTypeExtension>(&content_type);
         break;
-      case kRtpExtensionVideoTiming:
+      case kRtpExtensionVideoTiming: {
         VideoSendTiming timing;
         packet.GetExtension<VideoTimingExtension>(&timing);
         break;
+      }
       case kRtpExtensionRtpStreamId: {
         std::string rsid;
         packet.GetExtension<RtpStreamId>(&rsid);
@@ -140,6 +148,16 @@ void FuzzOneInput(const uint8_t* data, size_t size) {
       case kRtpExtensionInbandComfortNoise: {
         absl::optional<uint8_t> noise_level;
         packet.GetExtension<InbandComfortNoiseExtension>(&noise_level);
+        break;
+      }
+      case kRtpExtensionVideoLayersAllocation: {
+        VideoLayersAllocation allocation;
+        packet.GetExtension<RtpVideoLayersAllocationExtension>(&allocation);
+        break;
+      }
+      case kRtpExtensionVideoFrameTrackingId: {
+        uint16_t tracking_id;
+        packet.GetExtension<VideoFrameTrackingIdExtension>(&tracking_id);
         break;
       }
       case kRtpExtensionGenericFrameDescriptor02:

@@ -64,7 +64,6 @@ public interface SendChannel<in E> {
      */
     public val onSend: SelectClause2<E, SendChannel<E>>
 
-
     /**
      * Immediately adds the specified [element] to this channel, if this doesn't violate its capacity restrictions,
      * and returns the successful result. Otherwise, returns failed or closed result.
@@ -158,10 +157,10 @@ public interface SendChannel<in E> {
      * @suppress **Deprecated**.
      */
     @Deprecated(
-        level = DeprecationLevel.WARNING,
+        level = DeprecationLevel.ERROR,
         message = "Deprecated in the favour of 'trySend' method",
         replaceWith = ReplaceWith("trySend(element).isSuccess")
-    ) // Warning since 1.5.0
+    ) // Warning since 1.5.0, error since 1.6.0
     public fun offer(element: E): Boolean {
         val result = trySend(element)
         if (result.isSuccess) return true
@@ -314,12 +313,12 @@ public interface ReceiveChannel<out E> {
      * @suppress **Deprecated**.
      */
     @Deprecated(
-        level = DeprecationLevel.WARNING,
+        level = DeprecationLevel.ERROR,
         message = "Deprecated in the favour of 'tryReceive'. " +
             "Please note that the provided replacement does not rethrow channel's close cause as 'poll' did, " +
             "for the precise replacement please refer to the 'poll' documentation",
         replaceWith = ReplaceWith("tryReceive().getOrNull()")
-    ) // Warning since 1.5.0
+    ) // Warning since 1.5.0, error since 1.6.0
     public fun poll(): E? {
         val result = tryReceive()
         if (result.isSuccess) return result.getOrThrow()
@@ -365,7 +364,7 @@ public interface ReceiveChannel<out E> {
         message = "Deprecated in favor of onReceiveCatching extension",
         level = DeprecationLevel.ERROR,
         replaceWith = ReplaceWith("onReceiveCatching")
-    ) // Warning since 1.3.0, error in 1.5.0, will be hidden or removed in 1.6.0
+    ) // Warning since 1.3.0, error in 1.5.0, will be hidden or removed in 1.7.0
     public val onReceiveOrNull: SelectClause1<E?>
         get() {
             return object : SelectClause1<E?> {
@@ -685,7 +684,7 @@ public interface ChannelIterator<out E> {
  * exception which is either rethrown from the caller method or handed off to the exception handler in the current context
  * (see [CoroutineExceptionHandler]) when one is available.
  *
- * A typical usage for `onDeliveredElement` is to close a resource that is being transferred via the channel. The
+ * A typical usage for `onUndeliveredElement` is to close a resource that is being transferred via the channel. The
  * following code pattern guarantees that opened resources are closed even if producer, consumer, and/or channel
  * are cancelled. Resources are never lost.
  *

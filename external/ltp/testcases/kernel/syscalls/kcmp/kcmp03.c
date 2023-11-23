@@ -18,10 +18,9 @@
 
 #include <errno.h>
 #include <stdlib.h>
-#include <sched.h>
 #include <sys/wait.h>
 #include "tst_test.h"
-#include "kcmp.h"
+#include "lapi/kcmp.h"
 #include "lapi/sched.h"
 
 #define STACK_SIZE	(1024*1024)
@@ -88,5 +87,4 @@ static struct tst_test test = {
 	.cleanup = cleanup,
 	.forks_child = 1,
 	.test = verify_kcmp,
-	.min_kver = "3.5.0"
 };

@@ -87,7 +87,11 @@ macro_rules! make_numeric_coord {
                     return limit.1;
                 }
 
-                return limit.0 + (actual_length as f64 * logic_length + 1e-3).floor() as i32;
+                if actual_length > 0 {
+                    return limit.0 + (actual_length as f64 * logic_length + 1e-3).floor() as i32;
+                } else {
+                    return limit.0 + (actual_length as f64 * logic_length - 1e-3).ceil() as i32;
+                }
             }
             fn key_points<Hint: KeyPointHint>(&self, hint: Hint) -> Vec<$type> {
                 $key_points((self.0, self.1), hint.max_num_points())
@@ -109,21 +113,30 @@ macro_rules! gen_key_points_comp {
                 return vec![];
             }
 
-            let range = (range.0 as f64, range.1 as f64);
+            let range = (range.0.min(range.1) as f64, range.1.max(range.0) as f64);
 
             assert!(!(range.0.is_nan() || range.1.is_nan()));
 
-            if range.0 == range.1 {
+            if (range.0 - range.1).abs() < std::f64::EPSILON {
                 return vec![range.0 as $type];
             }
 
             let mut scale = (10f64).powf((range.1 - range.0).log(10.0).floor());
-            let mut digits = -(range.1 - range.0).log(10.0).floor() as i32 + 1;
+            // The value granularity controls how we round the values.
+            // To avoid generating key points like 1.00000000001, we round to the nearest multiple of the
+            // value granularity.
+            // By default, we make the granularity as the 1/10 of the scale.
+            let mut value_granularity = scale / 10.0;
             fn rem_euclid(a: f64, b: f64) -> f64 {
-                if b > 0.0 {
+                let ret = if b > 0.0 {
                     a - (a / b).floor() * b
                 } else {
                     a - (a / b).ceil() * b
+                };
+                if (ret - b).abs() < std::f64::EPSILON {
+                    0.0
+                } else {
+                    ret
                 }
             }
 
@@ -131,41 +144,53 @@ macro_rules! gen_key_points_comp {
             // The scale must yield number of points than requested
             if 1 + ((range.1 - range.0) / scale).floor() as usize > max_points {
                 scale *= 10.0;
+                value_granularity *= 10.0;
             }
 
             'outer: loop {
                 let old_scale = scale;
                 for nxt in [2.0, 5.0, 10.0].iter() {
-                    let new_left = range.0 + scale / nxt - rem_euclid(range.0, scale / nxt);
-                    let new_right = range.1 - rem_euclid(range.1, scale / nxt);
+                    let mut new_left = range.0 - rem_euclid(range.0, old_scale / nxt);
+                    if new_left < range.0 {
+                        new_left += old_scale / nxt;
+                    }
+                    let new_right = range.1 - rem_euclid(range.1, old_scale / nxt);
 
-                    let npoints = 1 + ((new_right - new_left) / old_scale * nxt) as usize;
+                    let npoints = 1.0 + ((new_right - new_left) / old_scale * nxt);
 
-                    if npoints > max_points {
+                    if npoints.round() as usize > max_points {
                         break 'outer;
                     }
 
                     scale = old_scale / nxt;
                 }
                 scale = old_scale / 10.0;
-                if scale < 1.0 {
-                    digits += 1;
-                }
+                value_granularity /= 10.0;
             }
 
             let mut ret = vec![];
-            let mut left = range.0 + scale - rem_euclid(range.0, scale);
-            let right = range.1 - rem_euclid(range.1, scale);
-            while left <= right {
-                let size = (10f64).powf(digits as f64 + 1.0);
-                let new_left = (left * size).abs() + 1e-3;
-                if left < 0.0 {
-                    left = -new_left.round() / size;
-                } else {
-                    left = new_left.round() / size;
+            // In some extreme cases, left might be too big, so that (left + scale) - left == 0 due to
+            // floating point error.
+            // In this case, we may loop forever. To avoid this, we need to use two variables to store
+            // the current left value. So we need keep a left_base and a left_relative.
+            let left = {
+                let mut value = range.0 - rem_euclid(range.0, scale);
+                if value < range.0 {
+                    value += scale;
                 }
-                ret.push(left as $type);
-                left += scale;
+                value
+            };
+            let left_base = (left / value_granularity).floor() * value_granularity;
+            let mut left_relative = left - left_base;
+            let right = range.1 - rem_euclid(range.1, scale);
+            while (right - left_relative - left_base) >= -std::f64::EPSILON {
+                let new_left_relative =
+                    (left_relative / value_granularity).round() * value_granularity;
+                if new_left_relative < 0.0 {
+                    left_relative += value_granularity;
+                }
+                ret.push((left_relative + left_base) as $type);
+                left_relative += scale;
             }
             return ret;
         }
@@ -174,13 +199,12 @@ macro_rules! gen_key_points_comp {
         fn $name(range: ($type, $type), max_points: usize) -> Vec<$type> {
             let mut scale: $type = 1;
             let range = (range.0.min(range.1), range.0.max(range.1));
-            'outer: while (range.1 - range.0 + scale - 1) as usize / (scale as usize) > max_points {
+            let range_size = range.1 as f64 - range.0 as f64;
+            'outer: while (range_size / scale as f64).ceil() > max_points as f64 {
                 let next_scale = scale * 10;
                 for new_scale in [scale * 2, scale * 5, scale * 10].iter() {
                     scale = *new_scale;
-                    if (range.1 - range.0 + *new_scale - 1) as usize / (*new_scale as usize)
-                        < max_points
-                    {
+                    if (range_size / *new_scale as f64).ceil() < max_points as f64 {
                         break 'outer;
                     }
                 }
@@ -195,7 +219,11 @@ macro_rules! gen_key_points_comp {
             let mut ret = vec![];
             while left <= right {
                 ret.push(left as $type);
-                left += scale;
+                if left < right {
+                    left += scale;
+                } else {
+                    break;
+                }
             }
 
             return ret;
@@ -367,7 +395,7 @@ mod test {
     }
 
     #[test]
-    fn test_zero_sized_coord_not_hang() {
+    fn regression_test_issue_253_zero_sized_coord_not_hang() {
         let coord: RangedCoordf32 = (0.0..0.0).into();
         let _points = coord.key_points(10);
     }
@@ -377,5 +405,49 @@ mod test {
         let coord: RangedCoordf64 = (0.0..1e-25).into();
         let points = coord.key_points(10);
         assert!(points.len() > 0);
+    }
+
+    #[test]
+    fn regression_test_issue_255_reverse_f32_coord_no_hang() {
+        let coord: RangedCoordf32 = (10.0..0.0).into();
+        let _points = coord.key_points(10);
+    }
+
+    #[test]
+    fn regession_test_issue_358_key_points_no_hang() {
+        let coord: RangedCoordf64 = (-200.0..801.0).into();
+        let points = coord.key_points(500);
+        assert!(points.len() <= 500);
+    }
+
+    #[test]
+    fn regression_test_issue_358_key_points_no_hang_2() {
+        let coord: RangedCoordf64 = (10000000000001f64..10000000000002f64).into();
+        let points = coord.key_points(500);
+        assert!(points.len() <= 500);
+    }
+
+    #[test]
+    fn test_coord_follows_hint() {
+        let coord: RangedCoordf64 = (1.0..2.0).into();
+        let points = coord.key_points(6);
+        assert_eq!(points.len(), 6);
+        assert_eq!(points[0], 1.0);
+        let coord: RangedCoordf64 = (1.0..125.0).into();
+        let points = coord.key_points(12);
+        assert_eq!(points.len(), 12);
+        let coord: RangedCoordf64 = (0.9995..1.0005).into();
+        let points = coord.key_points(11);
+        assert_eq!(points.len(), 11);
+        let coord: RangedCoordf64 = (0.9995..1.0005).into();
+        let points = coord.key_points(2);
+        assert!(points.len() <= 2);
+    }
+
+    #[test]
+    fn regression_test_issue_304_intmax_keypoint_no_panic() {
+        let coord: RangedCoordu32 = (0..u32::MAX).into();
+        let p = coord.key_points(10);
+        assert!(p.len() > 0 && p.len() <= 10);
     }
 }

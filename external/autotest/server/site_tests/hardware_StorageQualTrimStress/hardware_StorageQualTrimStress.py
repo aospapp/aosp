@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -22,7 +23,7 @@ class hardware_StorageQualTrimStress(test.test):
 
         client = hosts.create_host(client_ip)
         client_at = autotest.Autotest(client)
-        control = """job.parallel(
+        control = """REQUIRE_SSP = True \n\njob.parallel(
             [lambda: job.run_test('power_SuspendStress', tag='disk',
                 duration=%d, init_delay=10, min_suspend=7, min_resume=30,
                 check_connection=True)],
@@ -30,4 +31,3 @@ class hardware_StorageQualTrimStress(test.test):
                 disable_sysinfo=True,
                 tag='qual_trim')])""" % (duration, duration)
         client_at.run(control, '.', None)
-

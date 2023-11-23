@@ -1,5 +1,4 @@
-use serde::Deserialize;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_xml_rs::{self, from_str, to_string, EventReader, ParserConfig};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -23,7 +22,7 @@ struct Nodes {
 
 #[test]
 fn basic_struct() {
-    let src = r#"<Item><name>Banana</name><source>Store</source></Item>"#;
+    let src = r#"<?xml version="1.0" encoding="UTF-8"?><Item><name>Banana</name><source>Store</source></Item>"#;
     let should_be = Item {
         name: "Banana".to_string(),
         source: "Store".to_string(),
@@ -37,7 +36,6 @@ fn basic_struct() {
 }
 
 #[test]
-#[ignore]
 fn round_trip_list_of_enums() {
     // Construct some inputs
     let nodes = Nodes {
@@ -51,17 +49,7 @@ fn round_trip_list_of_enums() {
         ],
     };
 
-    let should_be = r#"
-    <Nodes>
-        <Boolean>
-            true
-        </Boolean>
-        <Identifier>
-            <value>foo</value>
-            <index>5</index>
-        </Identifier>
-        <EOF />
-    </Nodes>"#;
+    let should_be = r#"<?xml version="1.0" encoding="UTF-8"?><Nodes><Boolean>true</Boolean><Identifier><value>foo</value><index>5</index></Identifier><EOF /></Nodes>"#;
 
     let serialized_nodes = to_string(&nodes).unwrap();
     assert_eq!(serialized_nodes, should_be);
@@ -77,6 +65,7 @@ fn whitespace_preserving_config() {
     // Test a configuration which does not clip whitespace from tags
 
     let src = r#"
+    <?xml version="1.0" encoding="UTF-8"?>
     <Item>
         <name>  space banana  </name>
         <source>   fantasy costco   </source>
@@ -97,7 +86,7 @@ fn whitespace_preserving_config() {
 
     // Space outside values is not preserved.
     let serialized_should_be =
-        "<Item><name>  space banana  </name><source>   fantasy costco   </source></Item>";
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Item><name>  space banana  </name><source>   fantasy costco   </source></Item>";
     let reserialized_item = to_string(&item).unwrap();
     assert_eq!(reserialized_item, serialized_should_be);
 }

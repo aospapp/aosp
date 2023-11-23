@@ -23,12 +23,14 @@ rust_library {
     host_supported: true,
     crate_name: "textwrap",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.15.0",
+    cargo_pkg_version: "0.16.0",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
     apex_available: [
         "//apex_available:platform",
         "com.android.compos",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
 }

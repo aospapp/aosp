@@ -23,6 +23,8 @@ MODULE_SRCS := \
 	$(LOCAL_DIR)/src/boringssl_hash_kdf_ops.c \
 	$(LOCAL_DIR)/src/boringssl_ed25519_ops.c \
 	$(LOCAL_DIR)/src/cbor_cert_op.c \
+	$(LOCAL_DIR)/src/cbor_ed25519_cert_op.c \
+	$(LOCAL_DIR)/src/cbor_reader.c \
 	$(LOCAL_DIR)/src/cbor_writer.c \
 	$(LOCAL_DIR)/src/clear_memory.c \
 	$(LOCAL_DIR)/src/dice.c \

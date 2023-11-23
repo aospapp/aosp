@@ -1,5 +1,5 @@
 # Autotest Best Practices
-When the Chrome OS team started using autotest, we tried our best to figure out
+When the ChromeOS team started using autotest, we tried our best to figure out
 how to fit our code and our tests into the upstream style with little guidance
 and poor documentation.  This went poorly.  With the benefit of hindsight,
 we’re going to lay out some best-practices that we’d like to enforce going

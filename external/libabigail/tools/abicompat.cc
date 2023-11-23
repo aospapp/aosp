@@ -37,9 +37,13 @@
 #include "abg-config.h"
 #include "abg-tools-utils.h"
 #include "abg-corpus.h"
+#include "abg-reader.h"
 #include "abg-dwarf-reader.h"
 #include "abg-comparison.h"
 #include "abg-suppression.h"
+#ifdef WITH_CTF
+#include "abg-ctf-reader.h"
+#endif
 
 using std::string;
 using std::cerr;
@@ -74,6 +78,11 @@ public:
   bool			redundant_opt_set;
   bool			no_redundant_opt_set;
   bool			show_locs;
+  bool			fail_no_debug_info;
+  bool			ignore_soname;
+#ifdef WITH_CTF
+  bool			use_ctf;
+#endif
 
   options(const char* program_name)
     :prog_name(program_name),
@@ -85,7 +94,13 @@ public:
      show_redundant(true),
      redundant_opt_set(),
      no_redundant_opt_set(),
-     show_locs(true)
+     show_locs(true),
+     fail_no_debug_info(),
+     ignore_soname(false)
+#ifdef WITH_CTF
+    ,
+      use_ctf()
+#endif
   {}
 }; // end struct options
 
@@ -112,9 +127,14 @@ display_usage(const string& prog_name, ostream& out)
     << "  --suppressions|--suppr <path> specify a suppression file\n"
     << "  --no-redundant  do not display redundant changes\n"
     << "  --no-show-locs  do now show location information\n"
+    << "  --ignore-soname  do not take the SONAMEs into account\n"
+    << "  --fail-no-debug-info  bail out if no debug info was found\n"
     << "  --redundant  display redundant changes (this is the default)\n"
     << "  --weak-mode  check compatibility between the application and "
     "just one version of the library.\n"
+#ifdef WITH_CTF
+    << "  --ctf use CTF instead of DWARF in ELF files\n"
+#endif
     ;
 }
 
@@ -206,6 +226,10 @@ parse_command_line(int argc, char* argv[], options& opts)
 	}
       else if (!strcmp(argv[i], "--no-show-locs"))
 	opts.show_locs = false;
+      else if (!strcmp(argv[i], "--ignore-soname"))
+	opts.ignore_soname=true;
+      else if (!strcmp(argv[i], "--fail-no-debug-info"))
+	opts.fail_no_debug_info = true;
       else if (!strcmp(argv[i], "--help")
 	       || !strcmp(argv[i], "-h"))
 	{
@@ -214,6 +238,10 @@ parse_command_line(int argc, char* argv[], options& opts)
 	}
       else if (!strcmp(argv[i], "--weak-mode"))
 	opts.weak_mode = true;
+#ifdef WITH_CTF
+      else if (!strcmp(argv[i], "--ctf"))
+        opts.use_ctf = true;
+#endif
       else
 	{
 	  opts.unknow_option = argv[i];
@@ -247,6 +275,8 @@ using abigail::ir::function_type_sptr;
 using abigail::ir::function_decl;
 using abigail::ir::var_decl;
 using abigail::elf_reader::status;
+using abigail::elf_reader::STATUS_ALT_DEBUG_INFO_NOT_FOUND;
+using abigail::elf_reader::STATUS_DEBUG_INFO_NOT_FOUND;
 using abigail::dwarf_reader::read_corpus_from_elf;
 using abigail::comparison::diff_context_sptr;
 using abigail::comparison::diff_context;
@@ -277,6 +307,8 @@ create_diff_context(const options& opts)
   ctxt->show_linkage_names(true);
   ctxt->show_redundant_changes(opts.show_redundant);
   ctxt->show_locs(opts.show_locs);
+  // Intentional logic flip of ignore_soname
+  ctxt->show_soname_change(!opts.ignore_soname);
   ctxt->switch_categories_off
     (abigail::comparison::ACCESS_CHANGE_CATEGORY
      | abigail::comparison::COMPATIBLE_TYPE_CHANGE_CATEGORY
@@ -610,6 +642,75 @@ perform_compat_check_in_weak_mode(options& opts,
   return status;
 }
 
+/// Read an ABI corpus, be it from ELF or abixml.
+///
+/// @param opts the options passed from the user to the program.
+///
+/// @param status the resulting elf_reader::status to send back to the
+/// caller.
+///
+/// @param di_roots the directories from where to look for debug info.
+///
+/// @param env the environment used for libabigail.
+///
+/// @param path the path to the ABI corpus to read from.
+static corpus_sptr
+read_corpus(options opts, status &status,
+	    const vector<char**> di_roots,
+	    const environment_sptr &env,
+	    const string &path)
+{
+  corpus_sptr retval = NULL;
+  abigail::tools_utils::file_type type =
+    abigail::tools_utils::guess_file_type(path);
+
+  switch (type)
+    {
+    case abigail::tools_utils::FILE_TYPE_UNKNOWN:
+      emit_prefix(opts.prog_name, cerr)
+	<< "Unknown content type for file " << path << "\n";
+      break;
+    case abigail::tools_utils::FILE_TYPE_ELF:
+      {
+#ifdef WITH_CTF
+	if (opts.use_ctf)
+	  {
+	    abigail::ctf_reader::read_context_sptr r_ctxt
+	      = abigail::ctf_reader::create_read_context(path,
+							 env.get());
+	    ABG_ASSERT(r_ctxt);
+
+	    retval = abigail::ctf_reader::read_corpus(r_ctxt.get(), status);
+	  }
+	else
+#endif
+	  retval = read_corpus_from_elf(path, di_roots, env.get(),
+					/*load_all_types=*/opts.weak_mode,
+					status);
+      }
+      break;
+    case abigail::tools_utils::FILE_TYPE_XML_CORPUS:
+      {
+	abigail::xml_reader::read_context_sptr r_ctxt =
+	  abigail::xml_reader::create_native_xml_read_context(path, env.get());
+	assert(r_ctxt);
+	retval = abigail::xml_reader::read_corpus_from_input(*r_ctxt);
+      }
+      break;
+    case abigail::tools_utils::FILE_TYPE_AR:
+    case abigail::tools_utils::FILE_TYPE_XML_CORPUS_GROUP:
+    case abigail::tools_utils::FILE_TYPE_RPM:
+    case abigail::tools_utils::FILE_TYPE_SRPM:
+    case abigail::tools_utils::FILE_TYPE_DEB:
+    case abigail::tools_utils::FILE_TYPE_DIR:
+    case abigail::tools_utils::FILE_TYPE_TAR:
+    case abigail::tools_utils::FILE_TYPE_NATIVE_BI:
+      break;
+    }
+
+  return retval;
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -667,15 +768,6 @@ main(int argc, char* argv[])
   if (!abigail::tools_utils::check_file(opts.app_path, cerr, opts.prog_name))
     return abigail::tools_utils::ABIDIFF_ERROR;
 
-  abigail::tools_utils::file_type type =
-    abigail::tools_utils::guess_file_type(opts.app_path);
-  if (type != abigail::tools_utils::FILE_TYPE_ELF)
-    {
-      emit_prefix(argv[0], cerr)
-	<< opts.app_path << " is not an ELF file\n";
-      return abigail::tools_utils::ABIDIFF_ERROR;
-    }
-
   // Create the context of the diff
   diff_context_sptr ctxt = create_diff_context(opts);
 
@@ -684,7 +776,7 @@ main(int argc, char* argv[])
   suppressions_type& supprs = ctxt->suppressions();
   bool files_suppressed = (file_is_suppressed(opts.app_path, supprs)
 			   || file_is_suppressed(opts.lib1_path, supprs)
-			   ||file_is_suppressed(opts.lib2_path, supprs));
+			   || file_is_suppressed(opts.lib2_path, supprs));
 
   if (files_suppressed)
     // We don't have to compare anything because a user
@@ -698,12 +790,24 @@ main(int argc, char* argv[])
   app_di_roots.push_back(&app_di_root);
   status status = abigail::elf_reader::STATUS_UNKNOWN;
   environment_sptr env(new environment);
-  corpus_sptr app_corpus=
-    read_corpus_from_elf(opts.app_path,
-			 app_di_roots, env.get(),
-			 /*load_all_types=*/opts.weak_mode,
-			 status);
 
+  corpus_sptr app_corpus = read_corpus(opts, status,
+				       app_di_roots, env,
+				       opts.app_path);
+  if (!app_corpus)
+    {
+      emit_prefix(argv[0], cerr) << opts.app_path
+				 << " is not a supported file\n";
+      return abigail::tools_utils::ABIDIFF_ERROR;
+    }
+
+  if (opts.fail_no_debug_info && (status & STATUS_ALT_DEBUG_INFO_NOT_FOUND)
+      && (status & STATUS_DEBUG_INFO_NOT_FOUND))
+    {
+      emit_prefix(argv[0], cerr) << opts.app_path
+				 << " does not have debug symbols\n";
+      return abigail::tools_utils::ABIDIFF_ERROR;
+    }
   if (status & abigail::elf_reader::STATUS_NO_SYMBOLS_FOUND)
     {
       emit_prefix(argv[0], cerr)
@@ -739,26 +843,27 @@ main(int argc, char* argv[])
   ABG_ASSERT(!opts.lib1_path.empty());
   if (!abigail::tools_utils::check_file(opts.lib1_path, cerr, opts.prog_name))
     return abigail::tools_utils::ABIDIFF_ERROR;
-  type = abigail::tools_utils::guess_file_type(opts.lib1_path);
-  if (type != abigail::tools_utils::FILE_TYPE_ELF)
-    {
-      emit_prefix(argv[0], cerr) << opts.lib1_path << " is not an ELF file\n";
-      return abigail::tools_utils::ABIDIFF_ERROR;
-    }
 
   char * lib1_di_root = opts.lib1_di_root_path.get();
   vector<char**> lib1_di_roots;
   lib1_di_roots.push_back(&lib1_di_root);
-  corpus_sptr lib1_corpus = read_corpus_from_elf(opts.lib1_path,
-						 lib1_di_roots, env.get(),
-						 /*load_all_types=*/false,
-						 status);
-  if (status & abigail::elf_reader::STATUS_DEBUG_INFO_NOT_FOUND)
+  corpus_sptr lib1_corpus = read_corpus(opts, status,
+					lib1_di_roots,
+					env, opts.lib1_path);
+  if (!lib1_corpus)
+    {
+      emit_prefix(argv[0], cerr) << opts.lib1_path
+				 << " is not a supported file\n";
+      return abigail::tools_utils::ABIDIFF_ERROR;
+    }
+  if (opts.fail_no_debug_info && (status & STATUS_ALT_DEBUG_INFO_NOT_FOUND)
+      && (status & STATUS_DEBUG_INFO_NOT_FOUND))
     emit_prefix(argv[0], cerr)
       << "could not read debug info for " << opts.lib1_path << "\n";
   if (status & abigail::elf_reader::STATUS_NO_SYMBOLS_FOUND)
     {
-      cerr << "could not read symbols from " << opts.lib1_path << "\n";
+      emit_prefix(argv[0], cerr) << "could not read symbols from "
+				 << opts.lib1_path << "\n";
       return abigail::tools_utils::ABIDIFF_ERROR;
     }
   if (!(status & abigail::elf_reader::STATUS_OK))
@@ -776,13 +881,23 @@ main(int argc, char* argv[])
       char * lib2_di_root = opts.lib2_di_root_path.get();
       vector<char**> lib2_di_roots;
       lib2_di_roots.push_back(&lib2_di_root);
-      lib2_corpus = read_corpus_from_elf(opts.lib2_path,
-					 lib2_di_roots, env.get(),
-					 /*load_all_types=*/false,
-					 status);
-      if (status & abigail::elf_reader::STATUS_DEBUG_INFO_NOT_FOUND)
-	emit_prefix(argv[0], cerr)
-	  << "could not read debug info for " << opts.lib2_path << "\n";
+      lib2_corpus = read_corpus(opts, status,
+				lib2_di_roots, env,
+				opts.lib2_path);
+      if (!lib2_corpus)
+	{
+	  emit_prefix(argv[0], cerr) << opts.lib2_path
+				     << " is not a supported file\n";
+	  return abigail::tools_utils::ABIDIFF_ERROR;
+	}
+
+      if (opts.fail_no_debug_info && (status & STATUS_ALT_DEBUG_INFO_NOT_FOUND)
+	  && (status & STATUS_DEBUG_INFO_NOT_FOUND))
+	{
+	  emit_prefix(argv[0], cerr)
+	    << "could not read debug info for " << opts.lib2_path << "\n";
+	  return abigail::tools_utils::ABIDIFF_ERROR;
+	}
       if (status & abigail::elf_reader::STATUS_NO_SYMBOLS_FOUND)
 	{
 	  emit_prefix(argv[0], cerr)

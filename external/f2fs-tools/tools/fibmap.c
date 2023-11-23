@@ -23,7 +23,9 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/types.h>
+#ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
+#endif
 #include <sys/stat.h>
 #ifdef HAVE_SYS_SYSMACROS_H
 #include <sys/sysmacros.h>
@@ -45,7 +47,7 @@
 #endif
 
 struct file_ext {
-	__u32 f_pos;
+	__u64 f_pos;
 	__u32 start_blk;
 	__u32 end_blk;
 	__u32 blk_count;
@@ -54,9 +56,9 @@ struct file_ext {
 void print_ext(struct file_ext *ext)
 {
 	if (ext->end_blk == 0)
-		printf("%8d    %8d    %8d    %8d\n", ext->f_pos, 0, 0, ext->blk_count);
+		printf("%8llu    %8d    %8d    %8d\n", ext->f_pos, 0, 0, ext->blk_count);
 	else
-		printf("%8d    %8d    %8d    %8d\n", ext->f_pos, ext->start_blk,
+		printf("%8llu    %8d    %8d    %8d\n", ext->f_pos, ext->start_blk,
 					ext->end_blk, ext->blk_count);
 }
 
@@ -100,7 +102,7 @@ static void stat_bdev(struct stat *st, unsigned int *start_lba)
 	char linkname[32] = { 0, };
 	int fd;
 
-	sprintf(devname, "/dev/block/%d:%d", major(st->st_dev), minor(st->st_dev));
+	sprintf(devname, "/sys/dev/block/%d:%d", major(st->st_dev), minor(st->st_dev));
 
 	fd = open(devname, O_RDONLY);
 	if (fd < 0)
@@ -207,7 +209,7 @@ int main(int argc, char *argv[])
 			ext.blk_count++;
 		} else {
 			print_ext(&ext);
-			ext.f_pos = i * st.st_blksize;
+			ext.f_pos = (__u64)i * st.st_blksize;
 			ext.start_blk = blknum;
 			ext.end_blk = blknum;
 			ext.blk_count = 1;

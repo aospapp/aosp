@@ -53,7 +53,7 @@ public class InternalCrossProfileTypeTest {
                 annotatedNotesProvider(annotationPrinter),
                 annotatedNotesCrossProfileType(annotationPrinter));
 
-    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_Internal");
+    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".NotesType_Internal");
   }
 
   @Test
@@ -66,9 +66,9 @@ public class InternalCrossProfileTypeTest {
                 annotatedNotesCrossProfileType(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_Internal")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_Internal")
         .contentsAsUtf8String()
-        .contains("private ProfileNotesType_Internal() {");
+        .contains("private NotesType_Internal() {");
   }
 
   @Test
@@ -81,9 +81,9 @@ public class InternalCrossProfileTypeTest {
                 annotatedNotesCrossProfileType(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_Internal")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_Internal")
         .contentsAsUtf8String()
-        .contains("public Parcel call(Context context, int methodIdentifier, Parcel params,");
+        .contains("public Bundle call(Context context, int methodIdentifier, Bundle params,");
   }
 
   @Test
@@ -96,8 +96,8 @@ public class InternalCrossProfileTypeTest {
                 annotatedNotesCrossProfileType(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_Internal")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_Internal")
         .contentsAsUtf8String()
-        .contains("static ProfileNotesType_Internal instance()");
+        .contains("static NotesType_Internal instance()");
   }
 }

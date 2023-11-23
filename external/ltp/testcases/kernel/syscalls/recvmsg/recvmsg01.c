@@ -46,6 +46,7 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/signal.h>
@@ -268,8 +269,10 @@ void setup(void)
 
 void cleanup(void)
 {
-	if (pid > 0)
+	if (pid > 0) {
 		(void)kill(pid, SIGKILL);	/* kill server */
+		wait(NULL);
+	}
 	if (tmpsunpath[0] != '\0')
 		(void)unlink(tmpsunpath);
 	tst_rmdir();

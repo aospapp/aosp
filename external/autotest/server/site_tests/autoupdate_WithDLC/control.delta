@@ -10,11 +10,13 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:au-perbuild"
+PY_VERSION = 3
 DOC = """
 This tests that DLC can be installed, and auto-updated together with the OS
 using a delta payload.
+Use the `running_at_desk` arg when testing locally.
 
-test_that <hostname>.cros autoupdate_WithDLC.delta --args="job_repo_url='http://<IP>:<port>/static/<board>-release/RXX-XXXX.X.X/autotest/packages'"
+test_that <hostname>.cros autoupdate_WithDLC.delta --args="job_repo_url='http://<IP>:<port>/static/<board>-release/RXX-XXXX.X.X/autotest/packages' running_at_desk=True"
 """
 
 from autotest_lib.client.common_lib import utils

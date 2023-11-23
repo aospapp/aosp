@@ -62,6 +62,8 @@ import com.android.service.ims.presence.PresenceBase;
 import com.android.service.ims.presence.PresencePublisher;
 import com.android.service.ims.presence.SubscribePublisher;
 
+import java.util.Arrays;
+
 public class RcsStackAdaptor implements PresencePublisher, SubscribePublisher {
     private static final boolean DEBUG = true;
 
@@ -309,7 +311,7 @@ public class RcsStackAdaptor implements PresencePublisher, SubscribePublisher {
 
     @Override
     public int requestCapability(String[] formattedContacts, int taskId) {
-        logger.print("requestCapability formattedContacts=" + formattedContacts);
+        logger.print("requestCapability formattedContacts=" + Arrays.toString(formattedContacts));
 
         int ret = ResultCode.SUCCESS;
         try {

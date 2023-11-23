@@ -27,13 +27,43 @@
 //  IMPORTANT: This header must not pull any non-public perfetto header.
 
 #include <stdint.h>
+
+#include <functional>
+#include <string>
+
 #include "perfetto/tracing.h"
 
 namespace perfetto {
 namespace test {
 
 int32_t GetCurrentProcessId();
-bool StartSystemService();
+
+// RAII wrapper to start and stop an in process system service. Only one at a
+// time can be started.
+class SystemService {
+ public:
+  static SystemService Start();
+  SystemService() = default;
+  SystemService(SystemService&& other) noexcept { *this = std::move(other); }
+  SystemService& operator=(SystemService&&) noexcept;
+
+  ~SystemService() { Clean(); }
+
+  // Returns true if this SystemService has been started successfully and can be
+  // used.
+  bool valid() const { return valid_; }
+
+  void Clean();
+
+  // Restarts this SystemService. Producer and consumers will be disconnected.
+  void Restart();
+
+ private:
+  SystemService(const SystemService&) = delete;
+  SystemService& operator=(const SystemService&) = delete;
+  bool valid_ = false;
+};
+
 void SyncProducers();
 
 void SetBatchCommitsDuration(uint32_t batch_commits_duration_ms,
@@ -50,6 +80,33 @@ struct TestTempFile {
 
 // The caller must close(2) the returned TempFile.fd.
 TestTempFile CreateTempFile();
+
+class DataSourceInternalForTest {
+ public:
+  template <typename DerivedDataSource>
+  static void ClearTlsState() {
+    internal::DataSourceThreadLocalState*& tls_state =
+        DerivedDataSource::tls_state_;
+    if (tls_state) {
+      tls_state = nullptr;
+    }
+  }
+};
+
+class TracingMuxerImplInternalsForTest {
+ public:
+  static bool DoesSystemBackendHaveSMB();
+  static void ClearIncrementalState();
+
+  template <typename DerivedDataSource>
+  static void ClearDataSourceTlsStateOnReset() {
+    AppendResetForTestingCallback(
+        [] { DataSourceInternalForTest::ClearTlsState<DerivedDataSource>(); });
+  }
+
+ private:
+  static void AppendResetForTestingCallback(std::function<void()>);
+};
 
 }  // namespace test
 }  // namespace perfetto

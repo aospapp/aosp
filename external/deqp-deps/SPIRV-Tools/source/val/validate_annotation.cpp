@@ -22,138 +22,6 @@ namespace spvtools {
 namespace val {
 namespace {
 
-std::string LogStringForDecoration(uint32_t decoration) {
-  switch (decoration) {
-    case SpvDecorationRelaxedPrecision:
-      return "RelaxedPrecision";
-    case SpvDecorationSpecId:
-      return "SpecId";
-    case SpvDecorationBlock:
-      return "Block";
-    case SpvDecorationBufferBlock:
-      return "BufferBlock";
-    case SpvDecorationRowMajor:
-      return "RowMajor";
-    case SpvDecorationColMajor:
-      return "ColMajor";
-    case SpvDecorationArrayStride:
-      return "ArrayStride";
-    case SpvDecorationMatrixStride:
-      return "MatrixStride";
-    case SpvDecorationGLSLShared:
-      return "GLSLShared";
-    case SpvDecorationGLSLPacked:
-      return "GLSLPacked";
-    case SpvDecorationCPacked:
-      return "CPacked";
-    case SpvDecorationBuiltIn:
-      return "BuiltIn";
-    case SpvDecorationNoPerspective:
-      return "NoPerspective";
-    case SpvDecorationFlat:
-      return "Flat";
-    case SpvDecorationPatch:
-      return "Patch";
-    case SpvDecorationCentroid:
-      return "Centroid";
-    case SpvDecorationSample:
-      return "Sample";
-    case SpvDecorationInvariant:
-      return "Invariant";
-    case SpvDecorationRestrict:
-      return "Restrict";
-    case SpvDecorationAliased:
-      return "Aliased";
-    case SpvDecorationVolatile:
-      return "Volatile";
-    case SpvDecorationConstant:
-      return "Constant";
-    case SpvDecorationCoherent:
-      return "Coherent";
-    case SpvDecorationNonWritable:
-      return "NonWritable";
-    case SpvDecorationNonReadable:
-      return "NonReadable";
-    case SpvDecorationUniform:
-      return "Uniform";
-    case SpvDecorationSaturatedConversion:
-      return "SaturatedConversion";
-    case SpvDecorationStream:
-      return "Stream";
-    case SpvDecorationLocation:
-      return "Location";
-    case SpvDecorationComponent:
-      return "Component";
-    case SpvDecorationIndex:
-      return "Index";
-    case SpvDecorationBinding:
-      return "Binding";
-    case SpvDecorationDescriptorSet:
-      return "DescriptorSet";
-    case SpvDecorationOffset:
-      return "Offset";
-    case SpvDecorationXfbBuffer:
-      return "XfbBuffer";
-    case SpvDecorationXfbStride:
-      return "XfbStride";
-    case SpvDecorationFuncParamAttr:
-      return "FuncParamAttr";
-    case SpvDecorationFPRoundingMode:
-      return "FPRoundingMode";
-    case SpvDecorationFPFastMathMode:
-      return "FPFastMathMode";
-    case SpvDecorationLinkageAttributes:
-      return "LinkageAttributes";
-    case SpvDecorationNoContraction:
-      return "NoContraction";
-    case SpvDecorationInputAttachmentIndex:
-      return "InputAttachmentIndex";
-    case SpvDecorationAlignment:
-      return "Alignment";
-    case SpvDecorationMaxByteOffset:
-      return "MaxByteOffset";
-    case SpvDecorationAlignmentId:
-      return "AlignmentId";
-    case SpvDecorationMaxByteOffsetId:
-      return "MaxByteOffsetId";
-    case SpvDecorationNoSignedWrap:
-      return "NoSignedWrap";
-    case SpvDecorationNoUnsignedWrap:
-      return "NoUnsignedWrap";
-    case SpvDecorationExplicitInterpAMD:
-      return "ExplicitInterpAMD";
-    case SpvDecorationOverrideCoverageNV:
-      return "OverrideCoverageNV";
-    case SpvDecorationPassthroughNV:
-      return "PassthroughNV";
-    case SpvDecorationViewportRelativeNV:
-      return "ViewportRelativeNV";
-    case SpvDecorationSecondaryViewportRelativeNV:
-      return "SecondaryViewportRelativeNV";
-    case SpvDecorationPerPrimitiveNV:
-      return "PerPrimitiveNV";
-    case SpvDecorationPerViewNV:
-      return "PerViewNV";
-    case SpvDecorationPerTaskNV:
-      return "PerTaskNV";
-    case SpvDecorationPerVertexNV:
-      return "PerVertexNV";
-    case SpvDecorationNonUniform:
-      return "NonUniform";
-    case SpvDecorationRestrictPointer:
-      return "RestrictPointer";
-    case SpvDecorationAliasedPointer:
-      return "AliasedPointer";
-    case SpvDecorationCounterBuffer:
-      return "CounterBuffer";
-    case SpvDecorationHlslSemanticGOOGLE:
-      return "HlslSemanticGOOGLE";
-    default:
-      break;
-  }
-  return "Unknown";
-}
-
 // Returns true if the decoration takes ID parameters.
 // TODO(dneto): This can be generated from the grammar.
 bool DecorationTakesIdParameters(SpvDecoration type) {
@@ -233,7 +101,7 @@ spv_result_t ValidateDecorationTarget(ValidationState_t& _, SpvDecoration dec,
   auto fail = [&_, dec, inst, target](uint32_t vuid) -> DiagnosticStream {
     DiagnosticStream ds = std::move(
         _.diag(SPV_ERROR_INVALID_ID, inst)
-        << _.VkErrorID(vuid) << LogStringForDecoration(dec)
+        << _.VkErrorID(vuid) << _.SpvDecorationString(dec)
         << " decoration on target <id> '" << _.getIdName(target->id()) << "' ");
     return ds;
   };
@@ -326,17 +194,20 @@ spv_result_t ValidateDecorationTarget(ValidationState_t& _, SpvDecoration dec,
       case SpvDecorationLocation:
       case SpvDecorationComponent:
         // Location is used for input, output and ray tracing stages.
-        if (sc == SpvStorageClassStorageBuffer ||
-            sc == SpvStorageClassUniform ||
-            sc == SpvStorageClassUniformConstant ||
-            sc == SpvStorageClassWorkgroup || sc == SpvStorageClassPrivate ||
-            sc == SpvStorageClassFunction) {
+        if (sc != SpvStorageClassInput && sc != SpvStorageClassOutput &&
+            sc != SpvStorageClassRayPayloadKHR &&
+            sc != SpvStorageClassIncomingRayPayloadKHR &&
+            sc != SpvStorageClassHitAttributeKHR &&
+            sc != SpvStorageClassCallableDataKHR &&
+            sc != SpvStorageClassIncomingCallableDataKHR &&
+            sc != SpvStorageClassShaderRecordBufferKHR) {
           return _.diag(SPV_ERROR_INVALID_ID, target)
-                 << LogStringForDecoration(dec)
+                 << _.VkErrorID(6672) << _.SpvDecorationString(dec)
                  << " decoration must not be applied to this storage class";
         }
         break;
       case SpvDecorationIndex:
+        // Langauge from SPIR-V definition of Index
         if (sc != SpvStorageClassOutput) {
           return fail(0) << "must be in the Output storage class";
         }
@@ -346,13 +217,13 @@ spv_result_t ValidateDecorationTarget(ValidationState_t& _, SpvDecoration dec,
         if (sc != SpvStorageClassStorageBuffer &&
             sc != SpvStorageClassUniform &&
             sc != SpvStorageClassUniformConstant) {
-          return fail(0) << "must be in the StorageBuffer, Uniform, or "
-                            "UniformConstant storage class";
+          return fail(6491) << "must be in the StorageBuffer, Uniform, or "
+                               "UniformConstant storage class";
         }
         break;
       case SpvDecorationInputAttachmentIndex:
         if (sc != SpvStorageClassUniformConstant) {
-          return fail(0) << "must be in the UniformConstant storage class";
+          return fail(6678) << "must be in the UniformConstant storage class";
         }
         break;
       case SpvDecorationFlat:
@@ -361,6 +232,11 @@ spv_result_t ValidateDecorationTarget(ValidationState_t& _, SpvDecoration dec,
       case SpvDecorationSample:
         if (sc != SpvStorageClassInput && sc != SpvStorageClassOutput) {
           return fail(4670) << "storage class must be Input or Output";
+        }
+        break;
+      case SpvDecorationPerVertexKHR:
+        if (sc != SpvStorageClassInput) {
+          return fail(6777) << "storage class must be Input";
         }
         break;
       default:
@@ -383,7 +259,7 @@ spv_result_t ValidateDecorate(ValidationState_t& _, const Instruction* inst) {
         (decoration == SpvDecorationGLSLPacked)) {
       return _.diag(SPV_ERROR_INVALID_ID, inst)
              << _.VkErrorID(4669) << "OpDecorate decoration '"
-             << LogStringForDecoration(decoration)
+             << _.SpvDecorationString(decoration)
              << "' is not valid for the Vulkan execution environment.";
     }
   }
@@ -397,7 +273,7 @@ spv_result_t ValidateDecorate(ValidationState_t& _, const Instruction* inst) {
   if (target->opcode() != SpvOpDecorationGroup) {
     if (IsMemberDecorationOnly(decoration)) {
       return _.diag(SPV_ERROR_INVALID_ID, inst)
-             << LogStringForDecoration(decoration)
+             << _.SpvDecorationString(decoration)
              << " can only be applied to structure members";
     }
 
@@ -450,7 +326,7 @@ spv_result_t ValidateMemberDecorate(ValidationState_t& _,
   const auto decoration = inst->GetOperandAs<SpvDecoration>(2);
   if (IsNotMemberDecoration(decoration)) {
     return _.diag(SPV_ERROR_INVALID_ID, inst)
-           << LogStringForDecoration(decoration)
+           << _.SpvDecorationString(decoration)
            << " cannot be applied to structure members";
   }
 
@@ -573,7 +449,7 @@ spv_result_t RegisterDecorations(ValidationState_t& _,
       // Word 1 is the group <id>. All subsequent words are target <id>s that
       // are going to be decorated with the decorations.
       const uint32_t decoration_group_id = inst->word(1);
-      std::vector<Decoration>& group_decorations =
+      std::set<Decoration>& group_decorations =
           _.id_decorations(decoration_group_id);
       for (size_t i = 2; i < inst->words().size(); ++i) {
         const uint32_t target_id = inst->word(i);
@@ -587,7 +463,7 @@ spv_result_t RegisterDecorations(ValidationState_t& _,
       // pairs. All decorations of the group should be applied to all the struct
       // members that are specified in the instructions.
       const uint32_t decoration_group_id = inst->word(1);
-      std::vector<Decoration>& group_decorations =
+      std::set<Decoration>& group_decorations =
           _.id_decorations(decoration_group_id);
       // Grammar checks ensures that the number of arguments to this instruction
       // is an odd number: 1 decoration group + (id,literal) pairs.

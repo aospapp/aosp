@@ -20,7 +20,7 @@
 #include "unicode/utypes.h"
 
 /**
- * @addtogroup ICU4C
+ * @addtogroup icu4c ICU4C
  * @{
  * \file
  * \brief C API: Unicode Script Information
@@ -497,6 +497,11 @@ typedef enum UScriptCode {
       /** \xrefitem stable "Stable" "Stable List" ICU 70 */
       USCRIPT_VITHKUQI                      = 197,/* Vith */
 
+      /** \xrefitem stable "Stable" "Stable List" ICU 72 */
+      USCRIPT_KAWI                          = 198,/* Kawi */
+      /** \xrefitem stable "Stable" "Stable List" ICU 72 */
+      USCRIPT_NAG_MUNDARI                   = 199,/* Nagm */
+
 #ifndef U_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal UScriptCode value.
@@ -504,7 +509,7 @@ typedef enum UScriptCode {
      *
      * \xrefitem deprecated "Deprecated" "Deprecated List" ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
-    USCRIPT_CODE_LIMIT    = 198
+    USCRIPT_CODE_LIMIT    = 200
 #endif  // U_HIDE_DEPRECATED_API
 } UScriptCode;
 

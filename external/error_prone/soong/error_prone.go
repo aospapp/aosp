@@ -22,9 +22,9 @@ func init() {
 	// These values are set into build/soong/java/config/config.go so that soong doesn't have any
 	// references to external/error_prone, which may not always exist.
 	config.ErrorProneClasspath = []string{
-		"external/error_prone/error_prone/error_prone_core-2.11.0-with-dependencies.jar",
-		"external/error_prone/error_prone/error_prone_annotations-2.11.0.jar",
-		"external/error_prone/error_prone/error_prone_type_annotations-2.11.0.jar",
+		"external/error_prone/error_prone/error_prone_core-2.15.0-with-dependencies.jar",
+		"external/error_prone/error_prone/error_prone_annotations-2.15.0.jar",
+		"external/error_prone/error_prone/error_prone_type_annotations-2.15.0.jar",
 		"external/error_prone/checkerframework/dataflow-errorprone-3.21.2.jar",
 		"external/error_prone/jFormatString/jFormatString-3.0.0.jar",
 	}
@@ -113,20 +113,21 @@ func init() {
 	// The checks that are not fatal to the build.
 	config.ErrorProneChecksWarning = []string{
 		// Errorprone default severity ERROR
-		"-Xep:ArrayEquals:WARN",
-		"-Xep:ArrayHashCode:WARN",
-		"-Xep:ArrayToString:WARN",
-		"-Xep:ArraysAsListPrimitiveArray:WARN",
 		"-Xep:BadAnnotationImplementation:WARN",
 		"-Xep:BadShiftAmount:WARN",
+		"-Xep:BanJNDI:WARN",
+		"-Xep:BoxedPrimitiveEquality:WARN",
 		"-Xep:ComparableType:WARN",
 		"-Xep:ComplexBooleanConstant:WARN",
 		"-Xep:CollectionToArraySafeParameter:WARN",
 		"-Xep:ConditionalExpressionNumericPromotion:WARN",
 		"-Xep:DangerousLiteralNull:WARN",
+		"-Xep:DoubleBraceInitialization:WARN",
 		"-Xep:DurationFrom:WARN",
 		"-Xep:DurationTemporalUnit:WARN",
+		"-Xep:EmptyTopLevelDeclaration:WARN",
 		"-Xep:EqualsHashCode:WARN",
+		"-Xep:EqualsNull:WARN",
 		"-Xep:EqualsReference:WARN",
 		"-Xep:FormatString:WARN",
 		"-Xep:FromTemporalAccessor:WARN",
@@ -136,19 +137,23 @@ func init() {
 		"-Xep:HashtableContains:WARN",
 		"-Xep:IdentityBinaryExpression:WARN",
 		"-Xep:IdentityHashMapBoxing:WARN",
+		"-Xep:IgnoredPureGetter:WARN",
 		"-Xep:InstantTemporalUnit:WARN",
 		"-Xep:InvalidTimeZoneID:WARN",
 		"-Xep:InvalidZoneId:WARN",
 		"-Xep:IsInstanceIncompatibleType:WARN",
 		"-Xep:IsLoggableTagLength:WARN",
 		"-Xep:JUnitParameterMethodNotFound:WARN",
+		"-Xep:LockOnBoxedPrimitive:WARN",
 		"-Xep:MathRoundIntLong:WARN",
 		"-Xep:MislabeledAndroidString:WARN",
 		"-Xep:MisusedDayOfYear:WARN",
 		"-Xep:MissingSuperCall:WARN",
 		"-Xep:MisusedWeekYear:WARN",
 		"-Xep:ModifyingCollectionWithItself:WARN",
+		"-Xep:NoCanIgnoreReturnValueOnClasses:WARN",
 		"-Xep:NonRuntimeAnnotation:WARN",
+		"-Xep:NullableOnContainingClass:WARN",
 		"-Xep:NullTernary:WARN",
 		"-Xep:OverridesJavaxInjectableMethod:WARN",
 		"-Xep:ParcelableCreator:WARN",
@@ -165,6 +170,7 @@ func init() {
 		"-Xep:SelfEquals:WARN",
 		"-Xep:SizeGreaterThanOrEqualsZero:WARN",
 		"-Xep:StringBuilderInitWithChar:WARN",
+		"-Xep:TreeToString:WARN",
 		"-Xep:TryFailThrowable:WARN",
 		"-Xep:UnnecessaryCheckNotNull:WARN",
 		"-Xep:UnusedCollectionModifiedInPlace:WARN",
@@ -196,6 +202,8 @@ func init() {
 		// This check increates the `platformprotos` module's build
 		// time by ~15 minutes
 		"-Xep:SameNameButDifferent:OFF",
+		// Noisy and requires projects to add a dependency on errorprone annotations
+		"-Xep:CanIgnoreReturnValueSuggester:OFF",
 	}
 
 	config.ErrorProneFlags = []string{
@@ -220,6 +228,7 @@ func init() {
 		"-J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
 		"-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
 		"-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+		"-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
 		"-J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
 		"-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
 	}

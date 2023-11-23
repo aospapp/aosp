@@ -2804,7 +2804,8 @@ static int igt_primary_plane_commit_legacy(igt_plane_t *primary,
 
 	if (!igt_plane_is_prop_changed(primary, IGT_PLANE_FB_ID) &&
 	    !(primary->changed & IGT_PLANE_COORD_CHANGED_MASK) &&
-	    !igt_pipe_obj_is_prop_changed(primary->pipe, IGT_CRTC_MODE_ID))
+	    !(igt_pipe_obj_is_prop_changed(primary->pipe, IGT_CRTC_MODE_ID) &&
+		primary == igt_pipe_get_plane_type(primary->pipe, DRM_PLANE_TYPE_PRIMARY)))
 		return 0;
 
 	crtc_id = pipe->crtc_id;
@@ -2915,7 +2916,8 @@ static int igt_plane_commit(igt_plane_t *plane,
 
 	if (plane->type == DRM_PLANE_TYPE_CURSOR && s == COMMIT_LEGACY) {
 		return igt_cursor_commit_legacy(plane, pipe, fail_on_error);
-	} else if (plane->type == DRM_PLANE_TYPE_PRIMARY && s == COMMIT_LEGACY) {
+	} else if (plane->type == DRM_PLANE_TYPE_PRIMARY && s == COMMIT_LEGACY &&
+		plane == igt_pipe_get_plane_type(plane->pipe, DRM_PLANE_TYPE_PRIMARY)) {
 		return igt_primary_plane_commit_legacy(plane, pipe,
 						       fail_on_error);
 	} else {

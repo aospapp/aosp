@@ -4,13 +4,14 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "servo_LabstationVerification.local"
 PURPOSE = "Ensure labstation images can provide basic lab functionality."
 TIME = "MEDIUM"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 The local version of servo_LabstationVerification. Local in this context means

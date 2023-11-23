@@ -15,10 +15,10 @@
  */
 package com.google.android.enterprise.connectedapps;
 
-import android.os.Parcel;
+import android.os.Bundle;
+import com.google.android.enterprise.connectedapps.internal.BundleUtilities;
 import com.google.android.enterprise.connectedapps.internal.Bundler;
 import com.google.android.enterprise.connectedapps.internal.BundlerType;
-import com.google.android.enterprise.connectedapps.internal.ParcelUtilities;
 
 /** Wrapper for adding support for a future type to the Connected Apps SDK. */
 public abstract class FutureWrapper<E> implements LocalCallback {
@@ -34,9 +34,9 @@ public abstract class FutureWrapper<E> implements LocalCallback {
   }
 
   @Override
-  public void onResult(int methodIdentifier, Parcel params) {
+  public void onResult(int methodIdentifier, Bundle params) {
     @SuppressWarnings("unchecked")
-    E result = (E) bundler.readFromParcel(params, bundlerType);
+    E result = (E) bundler.readFromBundle(params, "result", bundlerType);
 
     onResult(result);
   }
@@ -44,8 +44,8 @@ public abstract class FutureWrapper<E> implements LocalCallback {
   public abstract void onResult(E result);
 
   @Override
-  public void onException(Parcel exception) {
-    Throwable throwable = ParcelUtilities.readThrowableFromParcel(exception);
+  public void onException(Bundle exception) {
+    Throwable throwable = BundleUtilities.readThrowableFromBundle(exception, "throwable");
     onException(throwable);
   }
 

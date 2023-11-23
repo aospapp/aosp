@@ -50,15 +50,11 @@ static void *ioctl_thread(void *unused)
 	tp.filter = 0xf;
 
 	while (tst_fzsync_run_b(&fzsync_pair)) {
-
+		tst_fzsync_start_race_b(&fzsync_pair);
 		ioctl(snd_fd, SNDRV_TIMER_IOCTL_TREAD, &tread_arg);
-
 		ioctl(snd_fd, SNDRV_TIMER_IOCTL_SELECT, &ts);
-
 		ioctl(snd_fd, SNDRV_TIMER_IOCTL_PARAMS, &tp);
-
 		ioctl(snd_fd, SNDRV_TIMER_IOCTL_START, 0);
-
 		tst_fzsync_end_race_b(&fzsync_pair);
 	}
 	return unused;
@@ -101,8 +97,9 @@ static void run(void)
 	while (tst_fzsync_run_a(&fzsync_pair)) {
 		nz = 0;
 		memset(read_buf, 0, sizeof(read_buf));
-		size = readv(snd_fd, &iov, 1);
 
+		tst_fzsync_start_race_a(&fzsync_pair);
+		size = readv(snd_fd, &iov, 1);
 		tst_fzsync_end_race_a(&fzsync_pair);
 
 		/* check if it could be a valid ioctl result */
@@ -139,6 +136,7 @@ static struct tst_test test = {
 	.setup = setup,
 	.cleanup = cleanup,
 	.taint_check = TST_TAINT_W | TST_TAINT_D,
+	.max_runtime = 150,
 	.tags = (const struct tst_tag[]) {
 		{"linux-git", "d11662f4f798"},
 		{"linux-git", "ba3021b2c79b"},

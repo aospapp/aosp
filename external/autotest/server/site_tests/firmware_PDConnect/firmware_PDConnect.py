@@ -35,13 +35,13 @@ class firmware_PDConnect(FirmwareTest):
                              'Unable to set it disconnected; skip this item.')
                 continue
 
-            for attempt in xrange(self.CONNECT_ITERATIONS):
+            for attempt in range(self.CONNECT_ITERATIONS):
                 logging.info('Disconnect/Connect iteration %d', attempt)
                 try:
                     if dev.drp_disconnect_connect(RECONNECT_DELAY) == False:
                         raise error.TestFail('Disconnect/Connect Failed')
                 except NotImplementedError:
-                    logging.warn('Device does not support disconnect/connect')
+                    logging.warning('Device does not support disconnect/connect')
                     break
 
     def initialize(self, host, cmdline_args, flip_cc=False, dts_mode=False):
@@ -84,7 +84,7 @@ class firmware_PDConnect(FirmwareTest):
                     swappable_dev = dev
                     break
             except NotImplementedError:
-                logging.warn('Power role swap not supported on the device')
+                logging.warning('Power role swap not supported on the device')
 
         if swappable_dev:
             try:
@@ -95,5 +95,5 @@ class firmware_PDConnect(FirmwareTest):
                 if not swappable_dev.pr_swap():
                     logging.error('Failed to swap power role to the original')
         else:
-            logging.warn('Device pair could not perform power role swap, '
+            logging.warning('Device pair could not perform power role swap, '
                          'ending test')

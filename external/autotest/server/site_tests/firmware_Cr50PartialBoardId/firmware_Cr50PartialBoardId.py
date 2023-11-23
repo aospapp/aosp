@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import logging
+import six
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import cr50_utils
@@ -20,7 +21,7 @@ class firmware_Cr50PartialBoardId(Cr50Test):
     # Brand used for testing. It doesn't matter what this is.
     DEFAULT_BRAND = 'ZZAF'
 
-    WHITELABEL_FLAGS = 0x3f80
+    ALLOW_FLAGS = 0x3f80
     OTHER_FLAGS = 0x7f7f
 
     SUCCESS = ''
@@ -45,9 +46,9 @@ class firmware_Cr50PartialBoardId(Cr50Test):
         logging.info('Test Brand: %r', self.test_brand)
         self.image_flags = int(bid.rsplit(':', 1)[-1], 16) if bid else 0
         # The image may have non-zero flags. Use test flags as close to the
-        # whitelabel flags as possible, but make sure they can be used with
+        # allowed flags as possible, but make sure they can be used with
         # the running image.
-        self.test_flags = self.WHITELABEL_FLAGS | self.image_flags
+        self.test_flags = self.ALLOW_FLAGS | self.image_flags
         self.other_flags = self.OTHER_FLAGS | self.image_flags
 
 
@@ -71,7 +72,7 @@ class firmware_Cr50PartialBoardId(Cr50Test):
         """Returns a string representation of the board id tuple."""
         bid_str_fields = []
         for field in bid:
-            if isinstance(field, str):
+            if isinstance(field, six.string_types):
                 bid_str_fields.append(field)
             elif isinstance(field, int):
                 bid_str_fields.append(hex(field))
@@ -159,7 +160,7 @@ class firmware_Cr50PartialBoardId(Cr50Test):
 
         self.eraseflashinfo()
         # Plain whitelabel flags will run on any board id locked image.
-        bid = (cr50_utils.ERASED_BID_STR, None, self.WHITELABEL_FLAGS)
+        bid = (cr50_utils.ERASED_BID_STR, None, self.ALLOW_FLAGS)
         self.set_board_id_check_response(bid, cr50_utils.ERASED_CHIP_BID,
                                          self.ERR_BID_MISMATCH)
         # Previous board id was rejected. The board id can still be set.

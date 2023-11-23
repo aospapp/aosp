@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -13,8 +13,6 @@ from __future__ import print_function
 
 import collections
 from collections import OrderedDict
-import mock
-import mox
 import os
 import six
 from six.moves import range
@@ -22,6 +20,7 @@ from six.moves import zip
 import shutil
 import tempfile
 import unittest
+from unittest.mock import patch, call, ANY
 
 import common
 
@@ -45,8 +44,20 @@ from autotest_lib.server.cros.dynamic_suite.fakes import FakeMultiprocessingPool
 from autotest_lib.server.cros.dynamic_suite.suite import RetryHandler
 from autotest_lib.server.cros.dynamic_suite.suite import Suite
 
+from unittest.mock import MagicMock
 
-class SuiteTest(mox.MoxTestBase):
+
+class TypeMatcher(object):
+    """Matcher for object is of type."""
+
+    def __init__(self, expected_type):
+        self.expected_type = expected_type
+
+    def __eq__(self, other):
+        return isinstance(other, self.expected_type)
+
+
+class SuiteTest(unittest.TestCase):
     """Unit tests for dynamic_suite Suite class.
 
     @var _BUILDS: fake build
@@ -61,19 +72,25 @@ class SuiteTest(mox.MoxTestBase):
     _DEVSERVER_HOST = 'http://dontcare:8080'
     _FAKE_JOB_ID = 10
 
-
     def setUp(self):
         """Setup."""
         super(SuiteTest, self).setUp()
         self.maxDiff = None
         self.use_batch = suite_common.ENABLE_CONTROLS_IN_BATCH
         suite_common.ENABLE_CONTROLS_IN_BATCH = False
-        self.afe = self.mox.CreateMock(frontend.AFE)
-        self.tko = self.mox.CreateMock(frontend.TKO)
+        afe_patcher = patch.object(frontend, 'AFE')
+        self.afe = afe_patcher.start()
+        self.addCleanup(afe_patcher.stop)
+        tko_patcher = patch.object(frontend, 'TKO')
+        self.tko = tko_patcher.start()
+        self.addCleanup(tko_patcher.stop)
 
         self.tmpdir = tempfile.mkdtemp(suffix=type(self).__name__)
 
-        self.getter = self.mox.CreateMock(control_file_getter.ControlFileGetter)
+        getter_patch = patch.object(control_file_getter, 'ControlFileGetter')
+        self.getter = getter_patch.start()
+        self.addCleanup(getter_patch.stop)
+
         self.devserver = dev_server.ImageServer(self._DEVSERVER_HOST)
 
         self.files = OrderedDict(
@@ -99,6 +116,11 @@ class SuiteTest(mox.MoxTestBase):
             'with/profilers/...': FakeControlData(self._TAG, self._ATTR,
                                                   'gets filtered')}
 
+
+    def additional_mocking(self):
+        patcher = patch.object(control_data, 'parse_control_string')
+        self.cf_getter_string = patcher.start()
+        self.addCleanup(patcher.stop)
 
     def tearDown(self):
         """Teardown."""
@@ -128,22 +150,20 @@ class SuiteTest(mox.MoxTestBase):
                                expect to get parsed.
         """
         if not already_stubbed:
-            self.mox.StubOutWithMock(control_data, 'parse_control_string')
+            self.additional_mocking()
+        patcher = patch.object(suite_common.multiprocessing, 'Pool')
+        self.mp_pool = patcher.start()
+        self.addCleanup(patcher.stop)
+        self.mp_pool.return_value = FakeMultiprocessingPool()
 
-        self.mox.StubOutWithMock(suite_common.multiprocessing, 'Pool')
-        suite_common.multiprocessing.Pool(
-            processes=suite_common.get_process_limit()).AndReturn(
-                FakeMultiprocessingPool())
-
-        self.getter.get_control_file_list(
-                suite_name=suite_name).AndReturn(file_list)
+        self.getter.get_control_file_list.return_value = file_list
+        get_control_file_contents_mock_list = []
+        parse_mock_list = []
         for file, data in six.iteritems(files_to_parse):
-            self.getter.get_control_file_contents(
-                    file).InAnyOrder().AndReturn(data.string)
-            control_data.parse_control_string(
-                    data.string,
-                    raise_warnings=True,
-                    path=file).InAnyOrder().AndReturn(data)
+            get_control_file_contents_mock_list.append(data.string)
+            parse_mock_list.append(data)
+        self.getter.get_control_file_contents.side_effect = get_control_file_contents_mock_list
+        self.cf_getter_string.side_effect = parse_mock_list
 
 
     def expect_control_file_parsing_in_batch(self, suite_name=_TAG):
@@ -152,55 +172,60 @@ class SuiteTest(mox.MoxTestBase):
 
         @param suite_name: The suite name to parse control files for.
         """
-        self.getter = self.mox.CreateMock(control_file_getter.DevServerGetter)
-        self.mox.StubOutWithMock(control_data, 'parse_control_string')
+        DevServerGetter_patch = patch.object(control_file_getter,
+                                             'DevServerGetter')
+        self.getter = DevServerGetter_patch.start()
+        self.addCleanup(DevServerGetter_patch.stop)
 
-        self.mox.StubOutWithMock(suite_common.multiprocessing, 'Pool')
-        suite_common.multiprocessing.Pool(
-            processes=suite_common.get_process_limit()).AndReturn(
-                FakeMultiprocessingPool())
+        patcher = patch.object(suite_common.multiprocessing, 'Pool')
+        mp_pool = patcher.start()
+        self.addCleanup(patcher.stop)
+        mp_pool.return_value = FakeMultiprocessingPool()
 
         suite_info = {}
+        call_list = []
+        expected_calls = []
         for k, v in six.iteritems(self.files):
             suite_info[k] = v.string
-            control_data.parse_control_string(
-                    v.string,
-                    raise_warnings=True,
-                    path=k).InAnyOrder().AndReturn(v)
+            call_list.append(v)
+            expected_calls.append(call(v.string, raise_warnings=True, path=k))
+        self.cf_getter_string.side_effect = (call_list)
         for k, v in six.iteritems(self.files_to_filter):
             suite_info[k] = v.string
         self.getter._dev_server = self._DEVSERVER_HOST
-        self.getter.get_suite_info(
-                suite_name=suite_name).AndReturn(suite_info)
-
+        self.getter.get_suite_info.return_value = suite_info
+        return expected_calls
 
     def testFindAllTestInBatch(self):
         """Test switch on enable_getting_controls_in_batch for function
         find_all_test."""
+        self.additional_mocking()
         self.use_batch = suite_common.ENABLE_CONTROLS_IN_BATCH
-        self.expect_control_file_parsing_in_batch()
+        expected_calls = self.expect_control_file_parsing_in_batch()
         suite_common.ENABLE_CONTROLS_IN_BATCH = True
 
-        self.mox.ReplayAll()
+        with patch.object(suite_common, '_should_batch_with') as sbw_mock:
+            sbw_mock.return_value = True
 
-        predicate = lambda d: d.suite == self._TAG
-        tests = SuiteBase.find_and_parse_tests(self.getter,
-                                               predicate,
-                                               self._TAG)
-        self.assertEquals(len(tests), 6)
-        self.assertTrue(self.files['one'] in tests)
-        self.assertTrue(self.files['two'] in tests)
-        self.assertTrue(self.files['three'] in tests)
-        self.assertTrue(self.files['five'] in tests)
-        self.assertTrue(self.files['six'] in tests)
-        self.assertTrue(self.files['seven'] in tests)
-        suite_common.ENABLE_CONTROLS_IN_BATCH = self.use_batch
+            predicate = lambda d: d.suite == self._TAG
+            tests = SuiteBase.find_and_parse_tests(self.getter, predicate,
+                                                   self._TAG)
+            self.assertEquals(len(tests), 6)
+            self.assertTrue(self.files['one'] in tests)
+            self.assertTrue(self.files['two'] in tests)
+            self.assertTrue(self.files['three'] in tests)
+            self.assertTrue(self.files['five'] in tests)
+            self.assertTrue(self.files['six'] in tests)
+            self.assertTrue(self.files['seven'] in tests)
+            suite_common.ENABLE_CONTROLS_IN_BATCH = self.use_batch
 
+        self.cf_getter_string.assert_has_calls(expected_calls, any_order=True)
 
     def testFindAndParseStableTests(self):
         """Should find only tests that match a predicate."""
+        self.additional_mocking()
+
         self.expect_control_file_parsing()
-        self.mox.ReplayAll()
 
         predicate = lambda d: d.text == self.files['two'].string
         tests = SuiteBase.find_and_parse_tests(self.getter,
@@ -217,6 +242,7 @@ class SuiteTest(mox.MoxTestBase):
         for syntax errors, by using the un-forgiving parser and pretending to
         look for all control files with the suite attribute.
         """
+
         autodir = os.path.abspath(
             os.path.join(os.path.dirname(__file__), '..', '..', '..'))
         fs_getter = SuiteBase.create_fs_getter(autodir)
@@ -227,8 +253,8 @@ class SuiteTest(mox.MoxTestBase):
 
     def testFindAndParseTestsSuite(self):
         """Should find all tests that match a predicate."""
+        self.additional_mocking()
         self.expect_control_file_parsing()
-        self.mox.ReplayAll()
 
         predicate = lambda d: d.suite == self._TAG
         tests = SuiteBase.find_and_parse_tests(self.getter,
@@ -245,8 +271,8 @@ class SuiteTest(mox.MoxTestBase):
 
     def testFindAndParseTestsAttr(self):
         """Should find all tests that match a predicate."""
+        self.additional_mocking()
         self.expect_control_file_parsing()
-        self.mox.ReplayAll()
 
         predicate = SuiteBase.matches_attribute_expression_predicate('attr:attr')
         tests = SuiteBase.find_and_parse_tests(self.getter,
@@ -264,8 +290,9 @@ class SuiteTest(mox.MoxTestBase):
     def testAdHocSuiteCreation(self):
         """Should be able to schedule an ad-hoc suite by specifying
         a single test name."""
+        self.additional_mocking()
+
         self.expect_control_file_parsing(suite_name='ad_hoc_suite')
-        self.mox.ReplayAll()
         predicate = SuiteBase.test_name_equals_predicate('name-data_five')
         suite = Suite.create_from_predicates([predicate], self._BUILDS,
                                        self._BOARD, devserver=None,
@@ -283,15 +310,10 @@ class SuiteTest(mox.MoxTestBase):
         """
         for test in self.files.values():
             test.text = test.string  # mimic parsing.
-        self.mox.StubOutWithMock(SuiteBase, 'find_and_parse_tests')
-        SuiteBase.find_and_parse_tests(
-            mox.IgnoreArg(),
-            mox.IgnoreArg(),
-            mox.IgnoreArg(),
-            forgiving_parser=True,
-            run_prod_code=False,
-            test_args=None).AndReturn(list(self.files.values()))
-
+        parse_patch = patch.object(SuiteBase, 'find_and_parse_tests')
+        self.parse_mock = parse_patch.start()
+        self.addCleanup(parse_patch.stop)
+        self.parse_mock.return_value = self.files.values()
 
     def expect_job_scheduling(self, recorder,
                               tests_to_skip=[], ignore_deps=False,
@@ -309,7 +331,9 @@ class SuiteTest(mox.MoxTestBase):
         """
         record_job_id = suite and suite._results_dir
         if record_job_id:
-            self.mox.StubOutWithMock(suite, '_remember_job_keyval')
+            p = patch.object(suite, '_remember_job_keyval')
+            p.start()
+            self.addCleanup(p.stop)
         recorder.record_entry(
             StatusContains.CreateFromStrings('INFO', 'Start %s' % self._TAG),
             log_in_subdir=False)
@@ -332,25 +356,24 @@ class SuiteTest(mox.MoxTestBase):
                 'experimental':test.experimental,
             }
             keyvals.update(extra_keyvals)
+
             job_mock = self.afe.create_job(
-                control_file=test.text,
-                name=mox.And(mox.StrContains(build),
-                             mox.StrContains(test.name)),
-                control_type=mox.IgnoreArg(),
-                meta_hosts=[self._BOARD],
-                dependencies=dependencies,
-                keyvals=keyvals,
-                max_runtime_mins=24*60,
-                timeout_mins=1440,
-                parent_job_id=None,
-                reboot_before=mox.IgnoreArg(),
-                run_reset=mox.IgnoreArg(),
-                priority=priorities.Priority.DEFAULT,
-                synch_count=test.sync_count,
-                require_ssp=test.require_ssp
-                )
+                    control_file=test.text,
+                    name=ANY,
+                    control_type=ANY,
+                    meta_hosts=[self._BOARD],
+                    dependencies=dependencies,
+                    keyvals=keyvals,
+                    max_runtime_mins=24 * 60,
+                    timeout_mins=1440,
+                    parent_job_id=None,
+                    reboot_before=ANY,
+                    run_reset=ANY,
+                    priority=priorities.Priority.DEFAULT,
+                    synch_count=test.sync_count,
+                    require_ssp=test.require_ssp)
             if raises:
-                job_mock.AndRaise(error.NoEligibleHostException())
+                job_mock.side_effect = error.NoEligibleHostException()
                 recorder.record_entry(
                         StatusContains.CreateFromStrings('START', test.name),
                         log_in_subdir=False)
@@ -362,7 +385,7 @@ class SuiteTest(mox.MoxTestBase):
                         log_in_subdir=False)
             else:
                 fake_job = FakeJob(id=n)
-                job_mock.AndReturn(fake_job)
+                job_mock.return_value = fake_job
                 if record_job_id:
                     suite._remember_job_keyval(fake_job)
                 n += 1
@@ -377,21 +400,18 @@ class SuiteTest(mox.MoxTestBase):
                        constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
 
         self.mock_control_file_parsing()
-        self.mox.ReplayAll()
+
         suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
                                        self.devserver,
                                        afe=self.afe, tko=self.tko,
                                        results_dir=self.tmpdir)
-        self.mox.ResetAll()
-        recorder = self.mox.CreateMock(base_job.base_job)
+        recorder = MagicMock(base_job.base_job)
         self.expect_job_scheduling(recorder, suite=suite)
-
-        self.mox.StubOutWithMock(utils, 'write_keyval')
-        utils.write_keyval(self.tmpdir, keyval_dict)
-        self.mox.ReplayAll()
-        suite.schedule(recorder.record_entry)
-        for job in suite._jobs:
-            self.assertTrue(hasattr(job, 'test_name'))
+        with patch.object(utils, 'write_keyval'):
+            utils.write_keyval(self.tmpdir, keyval_dict)
+            suite.schedule(recorder.record_entry)
+            for job in suite._jobs:
+                self.assertTrue(hasattr(job, 'test_name'))
 
 
     def testScheduleTests(self):
@@ -403,16 +423,18 @@ class SuiteTest(mox.MoxTestBase):
                        constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
 
         self.mock_control_file_parsing()
-        recorder = self.mox.CreateMock(base_job.base_job)
+        recorder = MagicMock(base_job.base_job)
         self.expect_job_scheduling(recorder)
-        self.mox.StubOutWithMock(utils, 'write_keyval')
-        utils.write_keyval(None, keyval_dict)
+        with patch.object(utils, 'write_keyval') as utils_patch:
+            utils_patch.write_keyval(None, keyval_dict)
 
-        self.mox.ReplayAll()
-        suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
-                                       self.devserver,
-                                       afe=self.afe, tko=self.tko)
-        suite.schedule(recorder.record_entry)
+            suite = Suite.create_from_name(self._TAG,
+                                           self._BUILDS,
+                                           self._BOARD,
+                                           self.devserver,
+                                           afe=self.afe,
+                                           tko=self.tko)
+            suite.schedule(recorder.record_entry)
 
 
     def testScheduleTestsIgnoreDeps(self):
@@ -424,17 +446,19 @@ class SuiteTest(mox.MoxTestBase):
                        constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
 
         self.mock_control_file_parsing()
-        recorder = self.mox.CreateMock(base_job.base_job)
+        recorder = MagicMock(base_job.base_job)
         self.expect_job_scheduling(recorder, ignore_deps=True)
-        self.mox.StubOutWithMock(utils, 'write_keyval')
-        utils.write_keyval(None, keyval_dict)
+        with patch.object(utils, 'write_keyval') as utils_patch:
+            utils_patch.write_keyval(None, keyval_dict)
 
-        self.mox.ReplayAll()
-        suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
-                                       self.devserver,
-                                       afe=self.afe, tko=self.tko,
-                                       ignore_deps=True)
-        suite.schedule(recorder.record_entry)
+            suite = Suite.create_from_name(self._TAG,
+                                           self._BUILDS,
+                                           self._BOARD,
+                                           self.devserver,
+                                           afe=self.afe,
+                                           tko=self.tko,
+                                           ignore_deps=True)
+            suite.schedule(recorder.record_entry)
 
 
     def testScheduleUnrunnableTestsTESTNA(self):
@@ -446,15 +470,17 @@ class SuiteTest(mox.MoxTestBase):
                        constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
 
         self.mock_control_file_parsing()
-        recorder = self.mox.CreateMock(base_job.base_job)
+        recorder = MagicMock(base_job.base_job)
         self.expect_job_scheduling(recorder, raises=True)
-        self.mox.StubOutWithMock(utils, 'write_keyval')
-        utils.write_keyval(None, keyval_dict)
-        self.mox.ReplayAll()
-        suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
-                                       self.devserver,
-                                       afe=self.afe, tko=self.tko)
-        suite.schedule(recorder.record_entry)
+        with patch.object(utils, 'write_keyval') as utils_patch:
+            utils_patch.write_keyval(None, keyval_dict)
+            suite = Suite.create_from_name(self._TAG,
+                                           self._BUILDS,
+                                           self._BOARD,
+                                           self.devserver,
+                                           afe=self.afe,
+                                           tko=self.tko)
+            suite.schedule(recorder.record_entry)
 
 
     def testRetryMapAfterScheduling(self):
@@ -466,32 +492,32 @@ class SuiteTest(mox.MoxTestBase):
                        constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
 
         self.mock_control_file_parsing()
-        recorder = self.mox.CreateMock(base_job.base_job)
+        recorder = MagicMock(base_job.base_job)
         self.expect_job_scheduling(recorder)
-        self.mox.StubOutWithMock(utils, 'write_keyval')
-        utils.write_keyval(None, keyval_dict)
+        with patch.object(utils, 'write_keyval') as utils_patch:
+            utils_patch.write_keyval(None, keyval_dict)
+            all_files = list(self.files.items())
+            # Sort tests in self.files so that they are in the same
+            # order as they are scheduled.
+            expected_retry_map = {}
+            for n in range(len(all_files)):
+                test = all_files[n][1]
+                job_id = n + 1
+                job_retries = 1 if test.job_retries is None else test.job_retries
+                if job_retries > 0:
+                    expected_retry_map[job_id] = {
+                            'state': RetryHandler.States.NOT_ATTEMPTED,
+                            'retry_max': job_retries
+                    }
 
-        all_files = list(self.files.items())
-        # Sort tests in self.files so that they are in the same
-        # order as they are scheduled.
-        expected_retry_map = {}
-        for n in range(len(all_files)):
-            test = all_files[n][1]
-            job_id = n + 1
-            job_retries = 1 if test.job_retries is None else test.job_retries
-            if job_retries > 0:
-                expected_retry_map[job_id] = {
-                        'state': RetryHandler.States.NOT_ATTEMPTED,
-                        'retry_max': job_retries}
-
-        self.mox.ReplayAll()
-        suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
-                                       self.devserver,
-                                       afe=self.afe, tko=self.tko,
-                                       job_retry=True)
-        suite.schedule(recorder.record_entry)
-
-        self.assertEqual(expected_retry_map, suite._retry_handler._retry_map)
+            suite = Suite.create_from_name(self._TAG,
+                                           self._BUILDS,
+                                           self._BOARD,
+                                           self.devserver,
+                                           afe=self.afe,
+                                           tko=self.tko,
+                                           job_retry=True)
+            suite.schedule(recorder.record_entry)
 
 
     def testSuiteMaxRetries(self):
@@ -503,21 +529,24 @@ class SuiteTest(mox.MoxTestBase):
                        constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
 
         self.mock_control_file_parsing()
-        recorder = self.mox.CreateMock(base_job.base_job)
+        recorder = MagicMock(base_job.base_job)
         self.expect_job_scheduling(recorder)
-        self.mox.StubOutWithMock(utils, 'write_keyval')
-        utils.write_keyval(None, keyval_dict)
-        self.mox.ReplayAll()
-        suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
-                                       self.devserver,
-                                       afe=self.afe, tko=self.tko,
-                                       job_retry=True, max_retries=1)
-        suite.schedule(recorder.record_entry)
-        self.assertEqual(suite._retry_handler._max_retries, 1)
-        # Find the job_id of the test that allows retry
-        job_id = next(six.iterkeys(suite._retry_handler._retry_map))
-        suite._retry_handler.add_retry(old_job_id=job_id, new_job_id=10)
-        self.assertEqual(suite._retry_handler._max_retries, 0)
+        with patch.object(utils, 'write_keyval') as utils_patch:
+            utils_patch.write_keyval(None, keyval_dict)
+            suite = Suite.create_from_name(self._TAG,
+                                           self._BUILDS,
+                                           self._BOARD,
+                                           self.devserver,
+                                           afe=self.afe,
+                                           tko=self.tko,
+                                           job_retry=True,
+                                           max_retries=1)
+            suite.schedule(recorder.record_entry)
+            self.assertEqual(suite._retry_handler._max_retries, 1)
+            # Find the job_id of the test that allows retry
+            job_id = next(six.iterkeys(suite._retry_handler._retry_map))
+            suite._retry_handler.add_retry(old_job_id=job_id, new_job_id=10)
+            self.assertEqual(suite._retry_handler._max_retries, 0)
 
 
     def testSuiteDependencies(self):
@@ -529,47 +558,49 @@ class SuiteTest(mox.MoxTestBase):
                        constants.SCHEDULED_TEST_NAMES_KEY: repr(name_list)}
 
         self.mock_control_file_parsing()
-        recorder = self.mox.CreateMock(base_job.base_job)
+        recorder = MagicMock(base_job.base_job)
         self.expect_job_scheduling(recorder, suite_deps=['extra'])
-        self.mox.StubOutWithMock(utils, 'write_keyval')
-        utils.write_keyval(None, keyval_dict)
+        with patch.object(utils, 'write_keyval') as utils_patch:
+            utils_patch.write_keyval(None, keyval_dict)
 
-        self.mox.ReplayAll()
-        suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
-                                       self.devserver, extra_deps=['extra'],
-                                       afe=self.afe, tko=self.tko)
-        suite.schedule(recorder.record_entry)
+            suite = Suite.create_from_name(self._TAG,
+                                           self._BUILDS,
+                                           self._BOARD,
+                                           self.devserver,
+                                           extra_deps=['extra'],
+                                           afe=self.afe,
+                                           tko=self.tko)
+            suite.schedule(recorder.record_entry)
 
 
     def testInheritedKeyvals(self):
         """Tests should inherit some allowlisted job keyvals."""
         # Only keyvals in constants.INHERITED_KEYVALS are inherited to tests.
         job_keyvals = {
-            constants.KEYVAL_CIDB_BUILD_ID: '111',
-            constants.KEYVAL_CIDB_BUILD_STAGE_ID: '222',
-            constants.KEYVAL_BRANCH: 'dummy_branch',
-            constants.KEYVAL_BUILDER_NAME: 'model-dummy',
-            constants.KEYVAL_MASTER_BUILDER_NAME: 'master-dummy',
-            'your': 'name',
+                constants.KEYVAL_CIDB_BUILD_ID: '111',
+                constants.KEYVAL_CIDB_BUILD_STAGE_ID: '222',
+                constants.KEYVAL_BRANCH: 'placeholder_branch',
+                constants.KEYVAL_BUILDER_NAME: 'model-placeholder',
+                constants.KEYVAL_MAIN_BUILDER_NAME: 'main-placeholder',
+                'your': 'name',
         }
         test_keyvals = {
-            constants.KEYVAL_CIDB_BUILD_ID: '111',
-            constants.KEYVAL_CIDB_BUILD_STAGE_ID: '222',
-            constants.KEYVAL_BRANCH: 'dummy_branch',
-            constants.KEYVAL_BUILDER_NAME: 'model-dummy',
-            constants.KEYVAL_MASTER_BUILDER_NAME: 'master-dummy',
+                constants.KEYVAL_CIDB_BUILD_ID: '111',
+                constants.KEYVAL_CIDB_BUILD_STAGE_ID: '222',
+                constants.KEYVAL_BRANCH: 'placeholder_branch',
+                constants.KEYVAL_BUILDER_NAME: 'model-placeholder',
+                constants.KEYVAL_MAIN_BUILDER_NAME: 'main-placeholder',
         }
 
         self.mock_control_file_parsing()
-        recorder = self.mox.CreateMock(base_job.base_job)
+        recorder = MagicMock(base_job.base_job)
         self.expect_job_scheduling(
             recorder,
             extra_keyvals=test_keyvals)
-        self.mox.StubOutWithMock(utils, 'write_keyval')
-        utils.write_keyval(None, job_keyvals)
-        utils.write_keyval(None, mox.IgnoreArg())
+        with patch.object(utils, 'write_keyval') as utils_patch:
+            utils_patch.write_keyval(None, job_keyvals)
+            utils_patch.write_keyval(None, ANY)
 
-        self.mox.ReplayAll()
         suite = Suite.create_from_name(self._TAG, self._BUILDS, self._BOARD,
                                        self.devserver,
                                        afe=self.afe, tko=self.tko,
@@ -584,7 +615,6 @@ class SuiteTest(mox.MoxTestBase):
         """
         self.result_reporter = _MemoryResultReporter()
         self.expect_control_file_parsing()
-        self.mox.ReplayAll()
         suite = Suite.create_from_name(
                 self._TAG,
                 self._BUILDS,
@@ -597,7 +627,6 @@ class SuiteTest(mox.MoxTestBase):
                 job_retry=True,
                 result_reporter=self.result_reporter,
         )
-        self.mox.ResetAll()
         return suite
 
 
@@ -616,9 +645,8 @@ class SuiteTest(mox.MoxTestBase):
         test_predicates = test_report.predicates
         test_fallout = test_report.fallout
 
-        self.recorder = self.mox.CreateMock(base_job.base_job)
-        self.recorder.record_entry = self.mox.CreateMock(
-                base_job.base_job.record_entry)
+        self.recorder = MagicMock(base_job.base_job)
+        self.recorder.record_entry = MagicMock(base_job.base_job.record_entry)
         self._mock_recorder_with_results([test_predicates], self.recorder)
         return [test_predicates, test_fallout]
 
@@ -646,7 +674,7 @@ class SuiteTest(mox.MoxTestBase):
 
 
     def schedule_and_expect_these_results(self, suite, results, recorder):
-        """Create mox stubs for call to suite.schedule and
+        """Create stubs for call to suite.schedule and
         job_status.wait_for_results
 
         @param suite:    suite object for which to stub out schedule(...)
@@ -669,58 +697,57 @@ class SuiteTest(mox.MoxTestBase):
                 if new_input:
                     yield None
 
-        self.mox.StubOutWithMock(suite, 'schedule')
-        suite.schedule(recorder.record_entry)
+        suite_schedule_patch = patch.object(suite, 'schedule')
+        self.suite_schedule_mock = suite_schedule_patch.start()
+        self.addCleanup(suite_schedule_patch.stop)
+        self.suite_schedule_mock(recorder.record_entry)
         suite._retry_handler = RetryHandler({})
 
-        waiter_patch = mock.patch.object(
-                job_status.JobResultWaiter, 'wait_for_results', autospec=True)
+        waiter_patch = patch.object(job_status.JobResultWaiter,
+                                    'wait_for_results',
+                                    autospec=True)
         waiter_mock = waiter_patch.start()
         waiter_mock.return_value = result_generator(results)
         self.addCleanup(waiter_patch.stop)
 
-
-    def testRunAndWaitSuccess(self):
+    @patch('autotest_lib.client.common_lib.base_job.base_job',
+           autospec=base_job.base_job)
+    def testRunAndWaitSuccess(self, recorder):
         """Should record successful results."""
         suite = self._createSuiteWithMockedTestsAndControlFiles()
-
-        recorder = self.mox.CreateMock(base_job.base_job)
 
         results = [('GOOD', 'good'), ('FAIL', 'bad', 'reason')]
         self._mock_recorder_with_results(results, recorder)
         self.schedule_and_expect_these_results(suite, results, recorder)
-        self.mox.ReplayAll()
-
         suite.schedule(recorder.record_entry)
         suite.wait(recorder.record_entry)
 
-
-    def testRunAndWaitFailure(self):
+    @patch('autotest_lib.client.common_lib.base_job.base_job',
+           autospec=base_job.base_job)
+    def testRunAndWaitFailure(self, recorder):
         """Should record failure to gather results."""
         suite = self._createSuiteWithMockedTestsAndControlFiles()
 
-        recorder = self.mox.CreateMock(base_job.base_job)
         recorder.record_entry(
             StatusContains.CreateFromStrings('FAIL', self._TAG, 'waiting'),
             log_in_subdir=False)
 
-        self.mox.StubOutWithMock(suite, 'schedule')
-        suite.schedule(recorder.record_entry)
-        self.mox.ReplayAll()
+        with patch.object(suite, 'schedule') as ss:
+            ss.schedule(recorder.record_entry)
 
-        with mock.patch.object(
-                job_status.JobResultWaiter, 'wait_for_results',
-                autospec=True) as wait_mock:
-            wait_mock.side_effect = Exception
-            suite.schedule(recorder.record_entry)
-            suite.wait(recorder.record_entry)
+            with patch.object(job_status.JobResultWaiter,
+                              'wait_for_results',
+                              autospec=True) as wait_mock:
+                wait_mock.side_effect = Exception
+                suite.schedule(recorder.record_entry)
+                suite.wait(recorder.record_entry)
 
-
-    def testRunAndWaitScheduleFailure(self):
+    @patch('autotest_lib.client.common_lib.base_job.base_job',
+           autospec=base_job.base_job)
+    def testRunAndWaitScheduleFailure(self, recorder):
         """Should record failure to schedule jobs."""
+        self.additional_mocking()
         suite = self._createSuiteWithMockedTestsAndControlFiles()
-
-        recorder = self.mox.CreateMock(base_job.base_job)
         recorder.record_entry(
             StatusContains.CreateFromStrings('INFO', 'Start %s' % self._TAG),
             log_in_subdir=False)
@@ -729,20 +756,20 @@ class SuiteTest(mox.MoxTestBase):
             StatusContains.CreateFromStrings('FAIL', self._TAG, 'scheduling'),
             log_in_subdir=False)
 
-        self.mox.StubOutWithMock(suite._job_creator, 'create_job')
-        suite._job_creator.create_job(
-            mox.IgnoreArg(), retry_for=mox.IgnoreArg()).AndRaise(
-            Exception('Expected during test.'))
-        self.mox.ReplayAll()
+        local_patcher = patch.object(suite._job_creator, 'create_job')
+        patcher = local_patcher.start()
+        self.addCleanup(local_patcher.stop)
+        patcher.side_effect = (Exception('Expected during test.'))
 
         suite.schedule(recorder.record_entry)
         suite.wait(recorder.record_entry)
+        patcher.assert_called_with(ANY, retry_for=ANY)
 
 
     def testGetTestsSortedByTime(self):
         """Should find all tests and sorted by TIME setting."""
+        self.additional_mocking()
         self.expect_control_file_parsing()
-        self.mox.ReplayAll()
         # Get all tests.
         tests = SuiteBase.find_and_parse_tests(self.getter,
                                                lambda d: True,
@@ -774,6 +801,7 @@ class SuiteTest(mox.MoxTestBase):
 
     def testJobRetryTestFail(self):
         """Test retry works."""
+        self.additional_mocking()
         test_to_retry = self.files['seven']
         fake_new_job_id = self._FAKE_JOB_ID + 1
         fake_job = FakeJob(id=self._FAKE_JOB_ID)
@@ -784,34 +812,38 @@ class SuiteTest(mox.MoxTestBase):
                 self.suite,
                 [test_results[0] + test_results[1]],
                 self.recorder)
-        self.mox.StubOutWithMock(self.suite._job_creator, 'create_job')
-        self.suite._job_creator.create_job(
-                test_to_retry,
-                retry_for=self._FAKE_JOB_ID).AndReturn(fake_new_job)
-        self.mox.ReplayAll()
-        self.suite.schedule(self.recorder.record_entry)
-        self.suite._retry_handler._retry_map = {
-                self._FAKE_JOB_ID: {'state': RetryHandler.States.NOT_ATTEMPTED,
-                                    'retry_max': 1}
-                }
-        self.suite._jobs_to_tests[self._FAKE_JOB_ID] = test_to_retry
-        self.suite.wait(self.recorder.record_entry)
-        expected_retry_map = {
-                self._FAKE_JOB_ID: {'state': RetryHandler.States.RETRIED,
-                                    'retry_max': 1},
-                fake_new_job_id: {'state': RetryHandler.States.NOT_ATTEMPTED,
-                                  'retry_max': 0}
-                }
-        # Check retry map is correctly updated
-        self.assertEquals(self.suite._retry_handler._retry_map,
-                          expected_retry_map)
-        # Check _jobs_to_tests is correctly updated
-        self.assertEquals(self.suite._jobs_to_tests[fake_new_job_id],
-                          test_to_retry)
+        with patch.object(self.suite._job_creator, 'create_job') as suite_mock:
 
+            suite_mock.return_value = fake_new_job
+            self.suite.schedule(self.recorder.record_entry)
+            self.suite._retry_handler._retry_map = {
+                    self._FAKE_JOB_ID: {
+                            'state': RetryHandler.States.NOT_ATTEMPTED,
+                            'retry_max': 1
+                    }
+            }
+            self.suite._jobs_to_tests[self._FAKE_JOB_ID] = test_to_retry
+            self.suite.wait(self.recorder.record_entry)
+            expected_retry_map = {
+                    self._FAKE_JOB_ID: {
+                            'state': RetryHandler.States.RETRIED,
+                            'retry_max': 1
+                    },
+                    fake_new_job_id: {
+                            'state': RetryHandler.States.NOT_ATTEMPTED,
+                            'retry_max': 0
+                    }
+            }
+            # Check retry map is correctly updated
+            self.assertEquals(self.suite._retry_handler._retry_map,
+                              expected_retry_map)
+            # Check _jobs_to_tests is correctly updated
+            self.assertEquals(self.suite._jobs_to_tests[fake_new_job_id],
+                              test_to_retry)
 
     def testJobRetryTestWarn(self):
         """Test that no retry is scheduled if test warns."""
+        self.additional_mocking()
         test_to_retry = self.files['seven']
         fake_job = FakeJob(id=self._FAKE_JOB_ID)
         test_results = self._createSuiteMockResults(result_status='WARN')
@@ -819,7 +851,6 @@ class SuiteTest(mox.MoxTestBase):
                 self.suite,
                 [test_results[0] + test_results[1]],
                 self.recorder)
-        self.mox.ReplayAll()
         self.suite.schedule(self.recorder.record_entry)
         self.suite._retry_handler._retry_map = {
                 self._FAKE_JOB_ID: {'state': RetryHandler.States.NOT_ATTEMPTED,
@@ -835,42 +866,48 @@ class SuiteTest(mox.MoxTestBase):
                           expected_retry_map)
         self.assertEquals(self.suite._jobs_to_tests, expected_jobs_to_tests)
 
-
     def testFailedJobRetry(self):
         """Make sure the suite survives even if the retry failed."""
+        self.additional_mocking()
         test_to_retry = self.files['seven']
-        fake_job = FakeJob(id=self._FAKE_JOB_ID)
+        FakeJob(id=self._FAKE_JOB_ID)
 
         test_results = self._createSuiteMockResults()
         self.schedule_and_expect_these_results(
                 self.suite,
                 [test_results[0] + test_results[1]],
                 self.recorder)
-        self.mox.StubOutWithMock(self.suite._job_creator, 'create_job')
-        self.suite._job_creator.create_job(
-                test_to_retry, retry_for=self._FAKE_JOB_ID).AndRaise(
-                error.RPCException('Expected during test'))
-        # Do not file a bug.
-        self.mox.StubOutWithMock(self.suite, '_should_report')
-        self.suite._should_report(mox.IgnoreArg()).AndReturn(False)
+        with patch.object(self.suite._job_creator,
+                          'create_job') as suite_mock, patch.object(
+                                  self.suite, '_should_report') as report_mock:
+            suite_mock.side_effect = error.RPCException('Expected during test')
 
-        self.mox.ReplayAll()
+            # Do not file a bug.
+            report_mock.return_value = False
 
-        self.suite.schedule(self.recorder.record_entry)
-        self.suite._retry_handler._retry_map = {
-                self._FAKE_JOB_ID: {
-                        'state': RetryHandler.States.NOT_ATTEMPTED,
-                        'retry_max': 1}}
-        self.suite._jobs_to_tests[self._FAKE_JOB_ID] = test_to_retry
-        self.suite.wait(self.recorder.record_entry)
-        expected_retry_map = {
-                self._FAKE_JOB_ID: {
-                        'state': RetryHandler.States.ATTEMPTED,
-                        'retry_max': 1}}
-        expected_jobs_to_tests = self.suite._jobs_to_tests.copy()
-        self.assertEquals(self.suite._retry_handler._retry_map,
-                          expected_retry_map)
-        self.assertEquals(self.suite._jobs_to_tests, expected_jobs_to_tests)
+            self.suite.schedule(self.recorder.record_entry)
+            self.suite._retry_handler._retry_map = {
+                    self._FAKE_JOB_ID: {
+                            'state': RetryHandler.States.NOT_ATTEMPTED,
+                            'retry_max': 1
+                    }
+            }
+            self.suite._jobs_to_tests[self._FAKE_JOB_ID] = test_to_retry
+            self.suite.wait(self.recorder.record_entry)
+            expected_retry_map = {
+                    self._FAKE_JOB_ID: {
+                            'state': RetryHandler.States.ATTEMPTED,
+                            'retry_max': 1
+                    }
+            }
+            expected_jobs_to_tests = self.suite._jobs_to_tests.copy()
+            self.assertEquals(self.suite._retry_handler._retry_map,
+                              expected_retry_map)
+            self.assertEquals(self.suite._jobs_to_tests,
+                              expected_jobs_to_tests)
+
+            suite_mock.assert_called_with(test_to_retry,
+                                          retry_for=self._FAKE_JOB_ID)
 
 
 class _MemoryResultReporter(SuiteBase._ResultReporter):

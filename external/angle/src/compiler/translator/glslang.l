@@ -281,6 +281,11 @@ O           [0-7]
 "sample" { return ES3_reserved_ES3_extension_ES3_2_keyword(context, TExtension::OES_shader_multisample_interpolation, SAMPLE); }
 "precise" { return ES3_1_reserved_ES3_1_extension_ES3_2_keyword(context, TExtension::EXT_gpu_shader5, PRECISE); }
 
+    /* ANGLE_shader_pixel_local_storage */
+"pixelLocalANGLE" { return ES3_extension(context, TExtension::ANGLE_shader_pixel_local_storage, PIXELLOCALANGLE); }
+"ipixelLocalANGLE" { return ES3_extension(context, TExtension::ANGLE_shader_pixel_local_storage, IPIXELLOCALANGLE); }
+"upixelLocalANGLE" { return ES3_extension(context, TExtension::ANGLE_shader_pixel_local_storage, UPIXELLOCALANGLE); }
+
     /* Reserved keywords for GLSL ES 3.00 that are not reserved for GLSL ES 1.00 */
 "resource"          |
 "subroutine"        |
@@ -295,10 +300,6 @@ O           [0-7]
 "image1DArray"      |
 "iimage1DArray"     |
 "uimage1DArray"     |
-"image1DShadow"     |
-"image2DShadow"     |
-"image1DArrayShadow" |
-"image2DArrayShadow" |
 
 "sampler1DArray"    |
 "sampler1DArrayShadow" |
@@ -318,6 +319,20 @@ O           [0-7]
     /* Reserved keywords in GLSL ES 1.00 that are not reserved in GLSL ES 3.00 */
 "packed"  {
     if (context->getShaderVersion() >= 300)
+    {
+        yylval->lex.string = AllocatePoolCharArray(yytext, yyleng);
+        return check_type(yyscanner);
+    }
+
+    return reserved_word(yyscanner);
+}
+
+   /* Reserved keywords in WebGL that not reserved in GL */
+"image1DShadow"      |
+"image2DShadow"      |
+"image1DArrayShadow" |
+"image2DArrayShadow" {
+    if(!IsWebGLBasedSpec(context->getShaderSpec()))
     {
         yylval->lex.string = AllocatePoolCharArray(yytext, yyleng);
         return check_type(yyscanner);
@@ -924,17 +939,6 @@ int glslang_scan(size_t count, const char* const string[], const int length[],
     if (!preprocessor->init(count, string, length))
         return 1;
 
-    // Define extension macros.
-    const TExtensionBehavior& extBehavior = context->extensionBehavior();
-    for (TExtensionBehavior::const_iterator iter = extBehavior.begin();
-         iter != extBehavior.end(); ++iter) {
-        // OVR_multiview should not be defined for WebGL spec'ed shaders.
-        if (sh::IsWebGLBasedSpec(context->getShaderSpec()) &&
-            iter->first == TExtension::OVR_multiview) {
-            continue;
-        }
-        preprocessor->predefineMacro(GetExtensionNameString(iter->first), 1);
-    }
     if (context->getFragmentPrecisionHigh())
         preprocessor->predefineMacro("GL_FRAGMENT_PRECISION_HIGH", 1);
 

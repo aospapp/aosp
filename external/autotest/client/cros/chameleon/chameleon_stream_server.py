@@ -178,7 +178,7 @@ class ChameleonStreamServer(object):
             content += recv_content
 
         if error_code != ErrorCode.OK:
-            logging.warn('Receive error code %d, %r', error_code, content)
+            logging.warning('Receive error code %d, %r', error_code, content)
 
         return (message_type, error_code, length, content)
 

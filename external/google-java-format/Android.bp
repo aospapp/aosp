@@ -48,7 +48,6 @@ java_library_host {
     srcs: ["core/src/main/java/**/*.java"],
     exclude_srcs: [
         ":google_java_format_main_srcs",
-        "core/src/main/java/com/google/googlejavaformat/java/java14/Java14InputAstVisitor.java",
         "core/src/main/java/com/google/googlejavaformat/java/GoogleJavaFormatToolProvider.java",
     ],
     libs: [

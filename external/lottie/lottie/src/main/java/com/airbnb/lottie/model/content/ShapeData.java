@@ -1,6 +1,7 @@
 package com.airbnb.lottie.model.content;
 
 import android.graphics.PointF;
+
 import androidx.annotation.FloatRange;
 
 import com.airbnb.lottie.model.CubicCurveData;
@@ -25,7 +26,7 @@ public class ShapeData {
     curves = new ArrayList<>();
   }
 
-  private void setInitialPoint(float x, float y) {
+  public void setInitialPoint(float x, float y) {
     if (initialPoint == null) {
       initialPoint = new PointF();
     }
@@ -34,6 +35,10 @@ public class ShapeData {
 
   public PointF getInitialPoint() {
     return initialPoint;
+  }
+
+  public void setClosed(boolean closed) {
+    this.closed = closed;
   }
 
   public boolean isClosed() {
@@ -56,7 +61,7 @@ public class ShapeData {
       Logger.warning("Curves must have the same number of control points. Shape 1: " +
           shapeData1.getCurves().size() + "\tShape 2: " + shapeData2.getCurves().size());
     }
-    
+
     int points = Math.min(shapeData1.getCurves().size(), shapeData2.getCurves().size());
     if (curves.size() < points) {
       for (int i = curves.size(); i < points; i++) {

@@ -16,12 +16,22 @@
 
 package dagger.internal.codegen.compileroption;
 
-import javax.lang.model.element.TypeElement;
+import androidx.room.compiler.processing.XTypeElement;
 import javax.tools.Diagnostic;
 
 /** A collection of options that dictate how the compiler will run. */
 public abstract class CompilerOptions {
   public abstract boolean usesProducers();
+
+  /**
+   * Returns true if the experimental Android mode is enabled.
+   *
+   * <p><b>Warning: Do Not use! This flag is for internal, experimental use only!</b>
+   *
+   * <p>Issues related to this flag will not be supported. This flag could break your build, cause
+   * memory leaks in your app, or cause other unknown issues at runtime.
+   */
+  public abstract boolean experimentalMergedMode(XTypeElement element);
 
   /**
    * Returns true if the fast initialization flag, {@code fastInit}, is enabled.
@@ -31,7 +41,7 @@ public abstract class CompilerOptions {
    * number of eagerly initialized fields at the cost of potential memory leaks and higher
    * per-provision instantiation time.
    */
-  public abstract boolean fastInit(TypeElement element);
+  public abstract boolean fastInit(XTypeElement element);
 
   public abstract boolean formatGeneratedSource();
 
@@ -46,6 +56,15 @@ public abstract class CompilerOptions {
   public abstract Diagnostic.Kind privateMemberValidationKind();
 
   public abstract Diagnostic.Kind staticMemberValidationKind();
+
+  /**
+   * Returns {@code true} if the stacktrace should be included in the deferred error message.
+   *
+   * <p>The default for this option is {@code false}. The stacktrace is mostly useful for special
+   * debugging purposes to gather more information about where the exception was thrown from within
+   * Dagger's own processors.
+   */
+  public abstract boolean includeStacktraceWithDeferredErrorMessages();
 
   /**
    * If {@code true}, Dagger will generate factories and components even if some members-injected
@@ -83,7 +102,7 @@ public abstract class CompilerOptions {
    *
    * @throws IllegalArgumentException if {@code element} is not a module or (sub)component
    */
-  public abstract boolean pluginsVisitFullBindingGraphs(TypeElement element);
+  public abstract boolean pluginsVisitFullBindingGraphs(XTypeElement element);
 
   public abstract Diagnostic.Kind moduleHasDifferentScopesDiagnosticKind();
 
@@ -91,8 +110,27 @@ public abstract class CompilerOptions {
 
   public abstract boolean experimentalDaggerErrorMessages();
 
+  /**
+   * Returns {@code true} if strict superficial validation is enabled.
+   *
+   * <p>This option is enabled by default and allows Dagger to detect and fail if an element that
+   * supports being annotated with a scope or qualifier annotation is annotated with any
+   * unresolvable annotation types. This option is considered "strict" because in most cases we must
+   * fail for any unresolvable annotation types, not just scopes and qualifiers. In particular, if
+   * an annotation type is not resolvable, we don't have enough information to tell if it's a scope
+   * or qualifier, so we must fail for all unresolvable annotations.
+   *
+   * <p>This option can be disabled to allow easier migration from the legacy behavior of Dagger
+   * (i.e. versions less than or equal to 2.40.5). However, we will remove this option in a future
+   * version of Dagger.
+   *
+   * <p>Warning:Disabling this option means that Dagger may miss a scope or qualifier on a binding,
+   * leading to a (wrong) unscoped binding or a (wrong) unqualified binding, respectively.
+   */
+  public abstract boolean strictSuperficialValidation();
+
   /** Returns the number of bindings allowed per shard. */
-  public int keysPerComponentShard(TypeElement component) {
+  public int keysPerComponentShard(XTypeElement component) {
     return 3500;
   }
 

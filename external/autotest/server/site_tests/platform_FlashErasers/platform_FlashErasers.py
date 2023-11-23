@@ -130,8 +130,9 @@ class platform_FlashErasers(FirmwareTest):
 
             # Now program the corrupted image, this would involve erasing the
             # section of test_size bytes.
-            self.run_cmd('flashrom -w %s --diff %s --fast-verify' %
+            self.run_cmd('flashrom -w %s --flash-contents %s --noverify-all' %
                          (junk_image, bios_image))
 
             # Now restore the image.
-            self.run_cmd('flashrom -w %s --diff %s' % (bios_image, junk_image))
+            self.run_cmd('flashrom -w %s --flash-contents %s' %
+                         (bios_image, junk_image))

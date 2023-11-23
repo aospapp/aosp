@@ -1,8 +1,10 @@
+# Lint as: python2, python3
 # Copyright (c) 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import logging
+import time
 
 from contextlib import contextmanager
 
@@ -17,6 +19,8 @@ from autotest_lib.client.cros.power import power_utils
 class power_SuspendToIdle(test.test):
     """class for power_SuspendToIdle test."""
     version = 1
+    _pch_powergating_max_retry = 5
+    _pch_powergating_retry_delay_secs = 1
 
     @contextmanager
     def _log_error_message(self):
@@ -55,9 +59,20 @@ class power_SuspendToIdle(test.test):
 
         with self._log_error_message():
             pch_powergating_stats = power_status.PCHPowergatingStats()
-            pch_powergating_stats.read_pch_powergating_info()
-            on_pch = pch_powergating_stats.check_s0ix_requirement()
-            if on_pch:
+
+            on_pch = None
+            # Allow |_pch_powergating_max_retry| tries of PCH powergating
+            # because we check this in S0 idle instead of S0ix and background
+            # process may make this flakiness.
+            for try_count in range(1, self._pch_powergating_max_retry + 1):
+                pch_powergating_stats.read_pch_powergating_info()
+                on_pch = pch_powergating_stats.check_s0ix_requirement()
+                if not on_pch:
+                    break
+                logging.info('PCH powergating check#%d  failed: %s', try_count,
+                             ', '.join(on_pch))
+                time.sleep(self._pch_powergating_retry_delay_secs)
+            else:
                 raise error.TestFail('PCH powergating check failed: ',
                                      ', '.join(on_pch))
 

@@ -8,6 +8,7 @@ TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:camera-postsubmit'
 MAX_RESULT_SIZE_KB = 50 * 1024
+PY_VERSION = 3
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True
@@ -24,7 +25,12 @@ This test runs group of camera tests in the postsubmit framework.
 
 def run(machine):
     job.run_test('tast',
-                 host=hosts.create_host(machine), max_run_sec=10800,
-                 test_exprs=['("group:camera-postsubmit")'], command_args=args)
+                 host=hosts.create_host(machine),
+                 max_run_sec=10800,
+                 test_exprs=['('
+                             '("group:camera-postsubmit") || '
+                             '("group:mainline" && !informational && "name:camera.*")'
+                             ')'],
+                 command_args=args)
 
 parallel_simple(run, machines)

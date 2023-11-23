@@ -101,7 +101,7 @@ class ServerRole(dbmodels.Model, model_logic.ModelExtensions):
             'afe',
             'crash_server',
             'database',
-            'database_slave',
+            'database_slave', # nocheck
             'devserver',
             'drone',
             'golo_proxy',

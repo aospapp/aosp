@@ -6,12 +6,6 @@
 
 #include "base/time/time.h"
 
-namespace base {
-bool operator==(const TimeTicks& t1, const TimeTicks& t2) {
-  return t1.since_origin() == t2.since_origin();
-}
-}  // namespace base
-
 namespace gfx {
 
 // clang-format off

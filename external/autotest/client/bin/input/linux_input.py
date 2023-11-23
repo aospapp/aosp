@@ -12,7 +12,14 @@ from __future__ import division
 from __future__ import print_function
 from six.moves import range
 
-from linux_ioctl import *
+# Try to import from the autotest_lib structure. If it fails try the default.
+# If this script was run outside of autotest the "except" would be the flow.
+# If run within, the "try" is the flow.
+try:
+    from autotest_lib.client.bin.input.linux_ioctl import *
+except ImportError:
+    from linux_ioctl import *
+
 # The event structure itself
 #   struct input_event {
 #       struct timeval time;

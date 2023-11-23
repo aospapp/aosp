@@ -153,20 +153,12 @@ static void sighdl2(int sig PTS_ATTRIBUTE_UNUSED)
 #endif
 }
 
-static int init_ctl;
-/* Init function */
-static void initializer(void)
-{
-	init_ctl++;
-	return;
-}
-
 /* Test function -- calls pthread_sigmask() and checks that EINTR is never returned. */
 static void *test(void *arg PTS_ATTRIBUTE_UNUSED)
 {
 	int ret = 0;
 	sigset_t set;
-	int i, j = 0;
+	unsigned int i, j = 0;
 	int signals[] = { SIGBUS, SIGKILL, SIGABRT, SIGCHLD, SIGHUP };
 #define NSIG (sizeof(signals)/sizeof(int))
 	int operation[] = { SIG_SETMASK, SIG_BLOCK, SIG_UNBLOCK };

@@ -15,6 +15,11 @@ java_library_host {
     name: "Robolectric_shadowapi",
     libs: ["jsr305"],
     srcs: ["src/main/java/**/*.java"],
+    openjdk9: {
+        javacflags: [
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        ],
+    },
 }
 
 //#############################################

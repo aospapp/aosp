@@ -58,7 +58,9 @@ license {
 
 java_library {
     name: "jacocoagent",
+    host_supported: true,
     installable: true,
+    manifest: "org.jacoco.agent/src/MANIFEST.MF",
 
     apex_available: [
         "//apex_available:anyapex",
@@ -79,12 +81,24 @@ java_library {
     // system apps.
     // Note: we still may need to update the source code to cut dependencies in
     // mandatory jacoco classes.
-    exclude_srcs: [
-        "org.jacoco.core/src/org/jacoco/core/runtime/ModifiedSystemClassRuntime.java",
-        "org.jacoco.agent.rt/src/org/jacoco/agent/rt/internal/PreMain.java",
-        "org.jacoco.agent.rt/src/org/jacoco/agent/rt/internal/CoverageTransformer.java",
-        "org.jacoco.agent.rt/src/org/jacoco/agent/rt/internal/JmxRegistration.java",
-    ],
+    target: {
+        android: {
+            exclude_srcs: [
+                "org.jacoco.core/src/org/jacoco/core/runtime/ModifiedSystemClassRuntime.java",
+                "org.jacoco.agent.rt/src/org/jacoco/agent/rt/internal/PreMain.java",
+                "org.jacoco.agent.rt/src/org/jacoco/agent/rt/internal/CoverageTransformer.java",
+                "org.jacoco.agent.rt/src/org/jacoco/agent/rt/internal/JmxRegistration.java",
+            ],
+        },
+        host: {
+            dist: {
+                targets: [
+                    "dist_files",
+                    "apps_only",
+                ],
+            },
+        }
+    },
 
     // In order to include Jacoco in core libraries, we cannot depend on
     // anything in the bootclasspath (or we would create dependency cycle).
@@ -99,6 +113,12 @@ java_library {
         "asm-commons-9.2",
         "asm-tree-9.2",
     ],
+    errorprone: {
+        javacflags: [
+            "-Xep:EqualsHashCode:WARN",
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
+    },
 }
 
 // Generates stubs containing the classes that will be referenced by instrumented bytecode.
@@ -127,14 +147,34 @@ java_library_host {
     manifest: "org.jacoco.cli/src/MANIFEST.MF",
 
     srcs: [
-        "org.jacoco.core/src/**/*.java",
-        "org.jacoco.report/src/**/*.java",
         "org.jacoco.cli/src/**/*.java",
+    ],
+
+    static_libs: [
+        "jacoco-report",
+        "jacoco-core",
+    ],
+
+    dist: {
+        targets: [
+            "dist_files",
+            "apps_only",
+        ],
+    },
+
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
+}
+
+java_library_host {
+    name: "jacoco-core",
+
+    srcs: [
+        "org.jacoco.core/src/**/*.java",
     ],
 
     java_resource_dirs: [
         "org.jacoco.core/src",
-        "org.jacoco.report/src",
     ],
 
     static_libs: [
@@ -144,10 +184,32 @@ java_library_host {
         "args4j-2.0.28",
     ],
 
-    dist: {
-        targets: [
-            "dist_files",
-            "apps_only",
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
+
+    errorprone: {
+        javacflags: [
+            "-Xep:EqualsHashCode:WARN",
+            "-Xep:ReturnValueIgnored:WARN",
         ],
     },
+}
+
+java_library_host {
+    name: "jacoco-report",
+
+    srcs: [
+        "org.jacoco.report/src/**/*.java",
+    ],
+
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
+
+    java_resource_dirs: [
+        "org.jacoco.report/src",
+    ],
+
+    static_libs: [
+        "jacoco-core",
+    ],
 }

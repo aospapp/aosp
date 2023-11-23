@@ -1,3 +1,16 @@
+name: "grpc-grpc-java"
+description: "An RPC library and framework"
+
 third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://grpc.io/"
+  }
+  url {
+    type: GIT
+    value: "https://github.com/grpc/grpc-java"
+  }
+  version: "v1.16.1"
+  last_upgrade_date: { year: 2020 month: 07 day: 24 }
   license_type: NOTICE
 }

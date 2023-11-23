@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/utils.c		Utility Functions
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2012 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -475,7 +468,7 @@ static void get_psched_settings(void)
 		else if ((ev = getenv("PROC_ROOT")))
 			snprintf(name, sizeof(name), "%s/net/psched", ev);
 		else
-			strncpy(name, "/proc/net/psched", sizeof(name) - 1);
+			_nl_strncpy_assert(name, "/proc/net/psched", sizeof(name));
 
 		if ((fd = fopen(name, "re"))) {
 			unsigned int ns_per_usec, ns_per_tick, nom, denom;
@@ -1224,6 +1217,15 @@ int nl_has_capability (int capability)
 			NL_CAPABILITY_VERSION_3_4_0,
 			NL_CAPABILITY_ROUTE_FIX_VLAN_SET_EGRESS_MAP,
 			NL_CAPABILITY_VERSION_3_5_0,
+			NL_CAPABILITY_NL_OBJECT_IDENTICAL_PARTIAL,
+			NL_CAPABILITY_VERSION_3_6_0),
+		_NL_SET (4,
+			NL_CAPABILITY_VERSION_3_7_0,
+			0,
+			0,
+			0,
+			0,
+			0,
 			0,
 			0),
 		/* IMPORTANT: these capability numbers are intended to be universal and stable

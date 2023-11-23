@@ -1,6 +1,7 @@
 NAME = 'platform_MemCheck'
 PURPOSE = 'Verify memory values look reasonable.'
 CRITERIA = """
+
 This test will fail if unexpected values are found for:
   - Total Memory
   - Free Memory
@@ -14,10 +15,12 @@ TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'platform'
 TEST_TYPE = 'client'
 JOB_RETRIES = 2
-ATTRIBUTES = "suite:bvt-perbuild"
+ATTRIBUTES = "suite:bvt-perbuild, suite:memory_qual2"
 DEPENDENCIES = 'cleanup-reboot'
+PY_VERSION = 3
+
 DOC = """
-Verifies that memory levels look sane.
+Verifies that memory levels look valid.
 
 The resources being verified are:
 

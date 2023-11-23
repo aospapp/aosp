@@ -35,7 +35,7 @@ impl target::ext::extended_mode::ExtendedMode for Emu {
         Err(().into()) // non-specific failure
     }
 
-    fn run(&mut self, filename: Option<&[u8]>, args: Args) -> TargetResult<Pid, Self> {
+    fn run(&mut self, filename: Option<&[u8]>, args: Args<'_, '_>) -> TargetResult<Pid, Self> {
         // simplified example: assume UTF-8 filenames / args
         //
         // To be 100% pedantically correct, consider converting to an `OsStr` in the
@@ -70,26 +70,30 @@ impl target::ext::extended_mode::ExtendedMode for Emu {
     }
 
     #[inline(always)]
-    fn configure_aslr(&mut self) -> Option<target::ext::extended_mode::ConfigureAslrOps<Self>> {
-        Some(self)
-    }
-
-    #[inline(always)]
-    fn configure_env(&mut self) -> Option<target::ext::extended_mode::ConfigureEnvOps<Self>> {
-        Some(self)
-    }
-
-    #[inline(always)]
-    fn configure_startup_shell(
+    fn support_configure_aslr(
         &mut self,
-    ) -> Option<target::ext::extended_mode::ConfigureStartupShellOps<Self>> {
+    ) -> Option<target::ext::extended_mode::ConfigureAslrOps<'_, Self>> {
         Some(self)
     }
 
     #[inline(always)]
-    fn configure_working_dir(
+    fn support_configure_env(
         &mut self,
-    ) -> Option<target::ext::extended_mode::ConfigureWorkingDirOps<Self>> {
+    ) -> Option<target::ext::extended_mode::ConfigureEnvOps<'_, Self>> {
+        Some(self)
+    }
+
+    #[inline(always)]
+    fn support_configure_startup_shell(
+        &mut self,
+    ) -> Option<target::ext::extended_mode::ConfigureStartupShellOps<'_, Self>> {
+        Some(self)
+    }
+
+    #[inline(always)]
+    fn support_configure_working_dir(
+        &mut self,
+    ) -> Option<target::ext::extended_mode::ConfigureWorkingDirOps<'_, Self>> {
         Some(self)
     }
 }

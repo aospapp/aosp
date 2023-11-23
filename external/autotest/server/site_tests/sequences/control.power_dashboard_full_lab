@@ -8,6 +8,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "suite"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 Sequence for upload common power test data to dashboard.
@@ -51,7 +52,7 @@ def run_client_test(machine):
 
     wlan_ip = client.get_wlan_ip()
     if not wlan_ip:
-        autotest.Autotest(client).run_test('dummy_Pass')
+        autotest.Autotest(client).run_test('stub_Pass')
         if not client.connect_to_wifi(WIFI_SSID):
             raise error.TestFail('Can not connect to wifi.')
         wlan_ip = client.get_wlan_ip()

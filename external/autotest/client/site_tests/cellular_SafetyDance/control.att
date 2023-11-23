@@ -14,6 +14,7 @@ TEST_CATEGORY = "Stress"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
 DEPENDENCIES = "carrier:att"
+PY_VERSION = 3
 
 DOC = """
   Stress-tests all connman 3G operations.

@@ -15,7 +15,7 @@
 import {RecordConfig} from '../controller/record_config_types';
 
 export const BUCKET_NAME = 'perfetto-ui-data';
-import * as uuidv4 from 'uuid/v4';
+import {v4 as uuidv4} from 'uuid';
 import {State} from './state';
 
 export async function saveTrace(trace: File|ArrayBuffer): Promise<string> {
@@ -34,9 +34,53 @@ export async function saveTrace(trace: File|ArrayBuffer): Promise<string> {
   return `https://storage.googleapis.com/${BUCKET_NAME}/${name}`;
 }
 
+// Bigint's are not serializable using JSON.stringify, so we use a special
+// object when serialising
+export type SerializedBigint = {
+  __kind: 'bigint',
+  value: string
+};
+
+// Check if a value looks like a serialized bigint
+export function isSerializedBigint(value: unknown): value is SerializedBigint {
+  if (value === null) {
+    return false;
+  }
+  if (typeof value !== 'object') {
+    return false;
+  }
+  if ('__kind' in value && 'value' in value) {
+    return value.__kind === 'bigint' && typeof value.value === 'string';
+  }
+  return false;
+}
+
+export function serializeStateObject(object: unknown): string {
+  const json = JSON.stringify(object, (key, value) => {
+    if (typeof value === 'bigint') {
+      return {
+        __kind: 'bigint',
+        value: value.toString(),
+      };
+    }
+    return key === 'nonSerializableState' ? undefined : value;
+  });
+  return json;
+}
+
+export function deserializeStateObject(json: string): any {
+  const object = JSON.parse(json, (_key, value) => {
+    if (isSerializedBigint(value)) {
+      return BigInt(value.value);
+    }
+    return value;
+  });
+  return object;
+}
+
 export async function saveState(stateOrConfig: State|
                                 RecordConfig): Promise<string> {
-  const text = JSON.stringify(stateOrConfig);
+  const text = serializeStateObject(stateOrConfig);
   const hash = await toSha256(text);
   const url = 'https://www.googleapis.com/upload/storage/v1/b/' +
       `${BUCKET_NAME}/o?uploadType=media` +
@@ -52,10 +96,26 @@ export async function saveState(stateOrConfig: State|
   return hash;
 }
 
-export async function toSha256(str: string): Promise<string> {
-  // TODO(hjd): TypeScript bug with definition of TextEncoder.
-  // tslint:disable-next-line no-any
-  const buffer = new (TextEncoder as any)('utf-8').encode(str);
+// This has a bug:
+// x.toString(16) doesn't zero pad so if the digest is:
+// [23, 7, 42, ...]
+// You get:
+// ['17', '7', '2a', ...] = 1772a...
+// Rather than:
+// ['17', '07', '2a', ...] = 17072a...
+// As you ought to (and as the hexdigest is computed by e.g. Python).
+// Unfortunately there are a lot of old permalinks out there so we
+// still need this broken implementation to check their hashes.
+export async function buggyToSha256(str: string): Promise<string> {
+  const buffer = new TextEncoder().encode(str);
   const digest = await crypto.subtle.digest('SHA-256', buffer);
-  return Array.from(new Uint8Array(digest)).map(x => x.toString(16)).join('');
+  return Array.from(new Uint8Array(digest)).map((x) => x.toString(16)).join('');
+}
+
+export async function toSha256(str: string): Promise<string> {
+  const buffer = new TextEncoder().encode(str);
+  const digest = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(digest))
+      .map((x) => x.toString(16).padStart(2, '0'))
+      .join('');
 }

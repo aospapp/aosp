@@ -51,6 +51,21 @@ public:
         return _client.CallApp(_appId, arg, request, response);
     }
 
+    /**
+     * Call the app.
+     *
+     * @param arg      Argument to pass to the app.
+     * @param req_ptr  Data to send to the app.
+     * @param req_len  Number of bytes to send to the app.
+     * @param resp_ptr Buffer to receive data from the app.
+     * @param resp_len In: Max number of bytes to receive from the app.
+     *                 Out: Actual number of bytes received from the app.
+     */
+    uint32_t Call(uint16_t arg, const void* req_ptr, uint32_t req_len,
+                  void* resp_ptr, uint32_t* resp_len) {
+        return _client.CallApp(_appId, arg, req_ptr, req_len, resp_ptr,
+                               resp_len);
+    }
 
 private:
     NuggetClientInterface& _client;

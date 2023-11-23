@@ -13,7 +13,7 @@ class firmware_SelfSignedBoot(FirmwareTest):
     """
     Servo based developer mode boot only test to Self signed Kernels.
 
-    This test requires a USB disk plugged-in, which contains a Chrome OS test
+    This test requires a USB disk plugged-in, which contains a ChromeOS test
     image (built by 'build_image test'). On runtime, this test first switches
     DUT to dev mode. When dev_boot_usb=1 and dev_boot_signed_only=1, pressing
     Ctrl-U on developer screen should not boot the USB disk(recovery mode boot

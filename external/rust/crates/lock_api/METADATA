@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/lock_api
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "lock_api"
 description: "Wrappers to create fully-featured Mutex and RwLock types. Compatible with no_std."
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/lock_api/lock_api-0.4.6.crate"
+    value: "https://static.crates.io/crates/lock_api/lock_api-0.4.9.crate"
   }
-  version: "0.4.6"
+  version: "0.4.9"
   license_type: NOTICE
   last_upgrade_date {
     year: 2022
-    month: 3
-    day: 1
+    month: 12
+    day: 12
   }
 }

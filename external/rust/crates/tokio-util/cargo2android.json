@@ -1,0 +1,7 @@
+{
+  "device": true,
+  "features": "full",
+  "min-sdk-version": "29",
+  "vendor-available": true,
+  "run": true
+}

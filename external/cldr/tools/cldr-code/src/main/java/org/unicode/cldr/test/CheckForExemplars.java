@@ -18,6 +18,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.unicode.cldr.test.CheckCLDR.CheckStatus.Subtype;
+import org.unicode.cldr.util.CLDRConfig;
 import org.unicode.cldr.util.CLDRFile;
 import org.unicode.cldr.util.CLDRFile.Status;
 import org.unicode.cldr.util.Factory;
@@ -47,6 +48,7 @@ import com.ibm.icu.text.Normalizer2;
 import com.ibm.icu.text.PluralRules;
 import com.ibm.icu.text.Transform;
 import com.ibm.icu.text.UnicodeSet;
+import com.ibm.icu.text.PluralRules.PluralType;
 import com.ibm.icu.util.ULocale;
 
 public class CheckForExemplars extends FactoryCheckCLDR {
@@ -101,6 +103,11 @@ public class CheckForExemplars extends FactoryCheckCLDR {
 
     // Hack until cldrbug 6566 is fixed. TODO
     private static final Pattern IGNORE_PLACEHOLDER_PARENTHESES = PatternCache.get("\\p{Ps}#\\p{Pe}");
+    // For the following: traditional placeholders just have {0}, {1}, {2}, ...
+    // But personName namePattern placeHolders start with [a-z], then continue with [0-9a-zA-Z-]+
+    // They need to be distinguished from non-placeholder patterns using {} in UnicodeSets
+    public static final Pattern PLACEHOLDER= PatternCache.get("\\{[0-9a-zA-Z-]+\\}");
+
 
     // private UnicodeSet currencySymbolExemplars;
     private boolean skip;
@@ -108,7 +115,7 @@ public class CheckForExemplars extends FactoryCheckCLDR {
     private Collator spaceCol;
     UnicodeSetPrettyPrinter prettyPrint;
     private Status otherPathStatus = new Status();
-    private Matcher patternMatcher = ExampleGenerator.PARAMETER.matcher("");
+    private Matcher patternMatcher = PLACEHOLDER.matcher("");
     private boolean errorDefaultOption;
 
     // for extracting date pattern text
@@ -453,7 +460,7 @@ public class CheckForExemplars extends FactoryCheckCLDR {
 
         // check for spaces
 
-        if (!value.equals(value.trim())) {
+        if (!value.equals(value.trim())  && !path.contains("/foreignSpaceReplacement")) { // foreignSpaceReplacement value can be just space
             if (!leadOrTrailWhitespaceOk.reset(path).find()) {
                 result.add(new CheckStatus().setCause(this).setMainType(CheckStatus.errorType)
                     .setSubtype(Subtype.mustNotStartOrEndWithSpace)
@@ -480,13 +487,16 @@ public class CheckForExemplars extends FactoryCheckCLDR {
 
         if (placeholderStatus == PlaceholderStatus.LOCALE_DEPENDENT || placeholderStatus == PlaceholderStatus.MULTIPLE) {
             // if locale dependent, it is because of count= or ordinal=. Figure out what the values are, and whether we are allowed to have none or one
-            PluralRules rules = PluralRules.forLocale(new ULocale(getCldrFileToCheck().getLocaleID()));
+            XPathParts parts = XPathParts.getFrozenInstance(path);
+            PluralRules.PluralType ptype = PluralType.CARDINAL;
+            String keyword = parts.getAttributeValue(-1, "count");
+            if (keyword == null) {
+                keyword = parts.getAttributeValue(-1, "ordinal");
+                ptype = PluralType.ORDINAL;
+            }
+            SupplementalDataInfo sdi = CLDRConfig.getInstance().getSupplementalDataInfo();
+            PluralRules rules =  sdi.getPluralRules(new ULocale(getCldrFileToCheck().getLocaleID()), ptype);
             if (rules != null) {
-                XPathParts parts = XPathParts.getFrozenInstance(path);
-                String keyword = parts.getAttributeValue(-1, "count");
-                if (keyword == null) {
-                    keyword = parts.getAttributeValue(-1, "ordinal");
-                }
                 try {
                     if (rules.getUniqueKeywordValue(keyword) != PluralRules.NO_UNIQUE_VALUE) {
                         minimum = 0;
@@ -495,6 +505,8 @@ public class CheckForExemplars extends FactoryCheckCLDR {
                     // internal error, skip
                 }
             }
+        } else if (placeholderStatus == PlaceholderStatus.OPTIONAL) {
+            minimum = 1;
         }
 
         // TODO: move these tests to CheckPlaceholder
@@ -508,7 +520,7 @@ public class CheckForExemplars extends FactoryCheckCLDR {
         final Set<String> distinctPlaceholders = matchList.elementSet();
         int countDistinctPlaceholders = distinctPlaceholders.size();
 
-        if (countDistinctPlaceholders > 0) {
+        if (countDistinctPlaceholders > 0 && placeholderStatus != PlaceholderStatus.OPTIONAL ) {
             // Verify that all placeholders are monotonically increasing from zero.
             int expected = 0;
             for (String element : distinctPlaceholders) {

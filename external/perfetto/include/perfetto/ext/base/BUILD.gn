@@ -32,13 +32,14 @@ source_set("base") {
     "metatrace.h",
     "metatrace_events.h",
     "no_destructor.h",
-    "optional.h",
     "paged_memory.h",
     "periodic_task.h",
     "pipe.h",
+    "platform.h",
     "scoped_file.h",
     "small_set.h",
     "small_vector.h",
+    "status_or.h",
     "string_splitter.h",
     "string_utils.h",
     "string_view.h",
@@ -53,7 +54,6 @@ source_set("base") {
     "unix_task_runner.h",
     "utils.h",
     "uuid.h",
-    "version.h",
     "waitable_event.h",
     "watchdog.h",
     "watchdog_noop.h",
@@ -65,4 +65,8 @@ source_set("base") {
   }
   public_configs = [ "../../../../gn:asan_instrumentation" ]
   public_deps = [ "../../base" ]
+}
+
+source_set("version") {
+  sources = [ "version.h" ]
 }

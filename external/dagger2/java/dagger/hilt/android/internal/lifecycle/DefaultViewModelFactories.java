@@ -17,12 +17,12 @@
 package dagger.hilt.android.internal.lifecycle;
 
 import android.app.Application;
-import androidx.lifecycle.SavedStateViewModelFactory;
-import androidx.lifecycle.ViewModelProvider;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.activity.ComponentActivity;
+import androidx.lifecycle.SavedStateViewModelFactory;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.savedstate.SavedStateRegistryOwner;
 import dagger.Module;
 import dagger.hilt.EntryPoint;

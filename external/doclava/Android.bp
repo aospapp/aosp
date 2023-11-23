@@ -39,6 +39,7 @@ license {
         "SPDX-license-identifier-CC-BY",
         "SPDX-license-identifier-GPL",
         "SPDX-license-identifier-GPL-2.0",
+        "SPDX-license-identifier-GPL-2.0-with-classpath-exception",
         "SPDX-license-identifier-LGPL",
         "SPDX-license-identifier-MIT",
     ],
@@ -52,38 +53,54 @@ droiddoc_exported_dir {
     path: "res/assets/templates-sdk",
 }
 
-java_library_host {
-    name: "doclava",
-    java_version: "1.8",
-    srcs: [
-        "src/**/*.java",
-    ],
+java_defaults {
+    name: "doclava_defaults",
+    java_resource_dirs: ["res"],
+    errorprone: {
+        javacflags: [
+            "-Xep:FormatString:WARN",
+            "-Xep:ComparableType:WARN",
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
+    },
     static_libs: [
         "jsilver",
-        "guava",
         "antlr-runtime",
         "tagsoup",
+        "doclava-doclet-adapter",
     ],
-    use_tools_jar: true,
-    java_resource_dirs: ["res"],
 }
 
 java_library_host {
-    name: "doclava-no-guava",
-    java_version: "1.8",
+    name: "doclava-doclet-adapter",
     srcs: [
-        "src/**/*.java",
+        "doclet_adapter/src/main/java/**/*.java",
     ],
     libs: [
         "guava",
     ],
-    static_libs: [
-        "jsilver",
-        "antlr-runtime",
-        "tagsoup",
+}
+
+java_library_host {
+    name: "doclava",
+    defaults: ["doclava_defaults"],
+    srcs: [
+        "src/com/google/doclava/**/*.java",
     ],
-    use_tools_jar: true,
-    java_resource_dirs: ["res"],
+    static_libs: [
+        "guava",
+    ],
+}
+
+java_library_host {
+    name: "doclava-no-guava",
+    defaults: ["doclava_defaults"],
+    srcs: [
+        "src/com/google/doclava/**/*.java",
+    ],
+    libs: [
+        "guava",
+    ],
 }
 
 

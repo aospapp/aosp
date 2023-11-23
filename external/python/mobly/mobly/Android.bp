@@ -21,14 +21,6 @@ python_library {
     srcs: [
         "**/*.py",
     ],
-    version: {
-        py2: {
-            enabled: false,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     libs: [
         "py-portpicker",
         "py-timeout-decorator",

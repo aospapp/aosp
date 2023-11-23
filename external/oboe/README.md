@@ -10,12 +10,12 @@ Oboe is a C++ library which makes it easy to build high-performance audio apps o
 - Automatic latency tuning
 - Modern C++ allowing you to write clean, elegant code
 - Workarounds for some known issues
-- [Used by popular apps and frameworks](docs/AppsUsingOboe.md)
+- [Used by popular apps and frameworks](https://github.com/google/oboe/wiki/AppsUsingOboe)
 
 ## Documentation
 - [Getting Started Guide](docs/GettingStarted.md)
 - [Full Guide to Oboe](docs/FullGuide.md)
-- [API reference](https://google.github.io/oboe/reference)
+- [API reference](https://google.github.io/oboe)
 - [Tech Notes](docs/notes/)
 - [History of Audio features/bugs by Android version](docs/AndroidAudioHistory.md)
 - [Migration guide for apps using OpenSL ES](docs/OpenSLESMigration.md)
@@ -27,8 +27,8 @@ Oboe is a C++ library which makes it easy to build high-performance audio apps o
 - StackOverflow: [#oboe](https://stackoverflow.com/questions/tagged/oboe)
 
 ## Testing
-- [**OboeTester** app for measuring latency, glitches, etc.](https://github.com/google/oboe/tree/master/apps/OboeTester/docs)
-- [Oboe unit tests](https://github.com/google/oboe/tree/master/tests)
+- [**OboeTester** app for measuring latency, glitches, etc.](apps/OboeTester/docs)
+- [Oboe unit tests](tests)
 
 ## Videos
 - [Getting started with Oboe](https://www.youtube.com/playlist?list=PLWz5rJ2EKKc_duWv9IPNvx9YBudNMmLSa)
@@ -38,7 +38,7 @@ Oboe is a C++ library which makes it easy to build high-performance audio apps o
 ## Sample code and apps
 - Sample apps can be found in the [samples directory](samples). 
 - A complete "effects processor" app called FXLab can  be found in the [apps/fxlab folder](apps/fxlab). 
-- Also check out the [Rhythm Game codelab](https://codelabs.developers.google.com/codelabs/musicalgame-using-oboe/index.html#0).
+- Also check out the [Rhythm Game codelab](https://developer.android.com/codelabs/musicalgame-using-oboe?hl=en#0).
 
 ### Third party sample code
 - [Ableton Link integration demo](https://github.com/jbloit/AndroidLinkAudio) (author: jbloit)

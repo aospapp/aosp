@@ -21,7 +21,7 @@ from autotest_lib.server.cros.dynamic_suite import constants as ds_constants
 from autotest_lib.server.cros.dynamic_suite import tools
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
@@ -44,7 +44,7 @@ PROVISION_FAILED = '/var/tmp/provision_failed'
 # parts of the system in Chromium OS test images will behave in ways
 # convenient to the test lab when this file is present.  Generally,
 # we create this immediately after any update completes.
-_LAB_MACHINE_FILE = '/mnt/stateful_partition/.labmachine'
+LAB_MACHINE_FILE = '/mnt/stateful_partition/.labmachine'
 
 # _TARGET_VERSION - A file containing the new version to which we plan
 # to update.  This file is used by the CrOS shutdown code to detect and
@@ -162,7 +162,7 @@ def _url_to_version(update_url):
     @param update_url: url to the image to update to.
 
     """
-    # The Chrome OS version is generally the last element in the URL. The only
+    # The ChromeOS version is generally the last element in the URL. The only
     # exception is delta update URLs, which are rooted under the version; e.g.,
     # http://.../update/.../0.14.755.0/au/0.14.754.0. In this case we want to
     # strip off the au section of the path before reading the version.
@@ -218,7 +218,8 @@ class ChromiumOSProvisioner(object):
                  host=None,
                  interactive=True,
                  is_release_bucket=None,
-                 is_servohost=False):
+                 is_servohost=False,
+                 public_bucket=False):
         """Initializes the object.
 
         @param update_url: The URL we want the update to use.
@@ -227,6 +228,9 @@ class ChromiumOSProvisioner(object):
         @param is_release_bucket: If True, use release bucket
             gs://chromeos-releases.
         @param is_servohost: Bool whether the update target is a servohost.
+        @param public_bucket: True to copy payloads to a public throwaway GS
+            bucket. This avoids using a lab cache server, so local test runs
+            can provision without any special setup.
         """
         self.update_url = update_url
         self.host = host
@@ -234,6 +238,7 @@ class ChromiumOSProvisioner(object):
         self.update_version = _url_to_version(update_url)
         self._is_release_bucket = is_release_bucket
         self._is_servohost = is_servohost
+        self._public_bucket = public_bucket
 
     def _run(self, cmd, *args, **kwargs):
         """Abbreviated form of self.host.run(...)"""
@@ -404,6 +409,20 @@ class ChromiumOSProvisioner(object):
                         'gs_cache': False
                 })
 
+    def _quick_provision_with_public_bucket(self, provision_command,
+                                            image_name):
+        """Run quick_provision using public GS bucket.
+
+        @param provision_command: The path of quick_provision command.
+        @param image_name: The image to be installed.
+        """
+        logging.info('Try quick provision with public bucket.')
+
+        bucket_url = self.update_url[:self.update_url.find(image_name) - 1]
+        command = '%s --noreboot %s %s' % (provision_command, image_name,
+                                           bucket_url)
+        self._run(command)
+
     def _install_update(self):
         """Install an updating using the `quick-provision` script.
 
@@ -415,20 +434,27 @@ class ChromiumOSProvisioner(object):
         logging.info('Installing image at %s onto %s', self.update_url,
                      self.host.hostname)
         server_name = six.moves.urllib.parse.urlparse(self.update_url)[1]
-        image_name = url_to_image_name(self.update_url)
+        if self._public_bucket:
+            image_name = self.update_url.partition('provision/')[2]
+        else:
+            image_name = url_to_image_name(self.update_url)
 
         logging.info('Installing image using quick-provision.')
         provision_command = self._get_remote_script(_QUICK_PROVISION_SCRIPT)
         try:
-            try:
-                self._quick_provision_with_gs_cache(provision_command,
-                                                    server_name, image_name)
-            except Exception as e:
-                logging.error(
-                        'Failed to quick-provision with gscache with '
-                        'error %s', e)
-                self._quick_provision_with_devserver(provision_command,
-                                                     server_name, image_name)
+            if self._public_bucket:
+                self._quick_provision_with_public_bucket(
+                        provision_command, image_name)
+            else:
+                try:
+                    self._quick_provision_with_gs_cache(
+                            provision_command, server_name, image_name)
+                except Exception as e:
+                    logging.error(
+                            'Failed to quick-provision with gscache with '
+                            'error %s', e)
+                    self._quick_provision_with_devserver(
+                            provision_command, server_name, image_name)
 
             self._set_target_version()
             return kernel_utils.verify_kernel_state_after_update(self.host)
@@ -468,10 +494,10 @@ class ChromiumOSProvisioner(object):
         # Touch the lab machine file to leave a marker that
         # distinguishes this image from other test images.
         # Afterwards, we must re-run the autoreboot script because
-        # it depends on the _LAB_MACHINE_FILE.
+        # it depends on the LAB_MACHINE_FILE.
         autoreboot_cmd = ('FILE="%s" ; [ -f "$FILE" ] || '
                           '( touch "$FILE" ; start autoreboot )')
-        self._run(autoreboot_cmd % _LAB_MACHINE_FILE)
+        self._run(autoreboot_cmd % LAB_MACHINE_FILE)
         try:
             kernel_utils.verify_boot_expectations(
                     expected_kernel, NewBuildUpdateError.ROLLBACK_FAILURE,
@@ -506,9 +532,11 @@ class ChromiumOSProvisioner(object):
             `image_name` is the name of the image installed, and
             `attributes` is new attributes to be applied to the DUT.
         """
-        server_name = dev_server.get_resolved_hostname(self.update_url)
-        metrics.Counter(_metric_name('install')).increment(
-                fields={'devserver': server_name})
+        server_name = ""
+        if not self._public_bucket:
+            server_name = dev_server.get_resolved_hostname(self.update_url)
+            metrics.Counter(_metric_name('install')).increment(
+                    fields={'devserver': server_name})
 
         try:
             self._prepare_host()

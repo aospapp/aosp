@@ -56,6 +56,7 @@ enum stm32mp1_parent_id {
 	_HSI_KER = NB_OSC,
 	_HSE_KER,
 	_HSE_KER_DIV2,
+	_HSE_RTC,
 	_CSI_KER,
 	_PLL1_P,
 	_PLL1_Q,
@@ -107,7 +108,7 @@ enum stm32mp1_parent_sel {
 	_USBPHY_SEL,
 	_USBO_SEL,
 	_MPU_SEL,
-	_PER_SEL,
+	_CKPER_SEL,
 	_RTC_SEL,
 	_PARENT_SEL_NB,
 	_UNKNOWN_SEL = 0xff,
@@ -125,6 +126,7 @@ static const uint8_t parent_id_clock_id[_PARENT_NB] = {
 	[_HSI_KER] = CK_HSI,
 	[_HSE_KER] = CK_HSE,
 	[_HSE_KER_DIV2] = CK_HSE_DIV2,
+	[_HSE_RTC] = _UNKNOWN_ID,
 	[_CSI_KER] = CK_CSI,
 	[_PLL1_P] = PLL1_P,
 	[_PLL1_Q] = PLL1_Q,
@@ -465,12 +467,12 @@ static const uint8_t fmc_parents[] = {
 	_ACLK, _PLL3_R, _PLL4_P, _CK_PER
 };
 
-static const uint8_t ass_parents[] = {
-	_HSI, _HSE, _PLL2
+static const uint8_t axiss_parents[] = {
+	_HSI, _HSE, _PLL2_P
 };
 
-static const uint8_t mss_parents[] = {
-	_HSI, _HSE, _CSI, _PLL3
+static const uint8_t mcuss_parents[] = {
+	_HSI, _HSE, _CSI, _PLL3_P
 };
 
 static const uint8_t usbphy_parents[] = {
@@ -490,7 +492,7 @@ static const uint8_t per_parents[] = {
 };
 
 static const uint8_t rtc_parents[] = {
-	_UNKNOWN_ID, _LSE, _LSI, _HSE
+	_UNKNOWN_ID, _LSE, _LSI, _HSE_RTC
 };
 
 static const struct stm32mp1_clk_sel stm32mp1_clk_sel[_PARENT_SEL_NB] = {
@@ -502,7 +504,7 @@ static const struct stm32mp1_clk_sel stm32mp1_clk_sel[_PARENT_SEL_NB] = {
 	_CLK_PARENT_SEL(UART1, RCC_UART1CKSELR, usart1_parents),
 	_CLK_PARENT_SEL(RNG1, RCC_RNG1CKSELR, rng1_parents),
 	_CLK_PARENT_SEL(MPU, RCC_MPCKSELR, mpu_parents),
-	_CLK_PARENT_SEL(PER, RCC_CPERCKSELR, per_parents),
+	_CLK_PARENT_SEL(CKPER, RCC_CPERCKSELR, per_parents),
 	_CLK_PARENT_SEL(RTC, RCC_BDCR, rtc_parents),
 	_CLK_PARENT_SEL(UART6, RCC_UART6CKSELR, uart6_parents),
 	_CLK_PARENT_SEL(UART24, RCC_UART24CKSELR, uart234578_parents),
@@ -512,8 +514,8 @@ static const struct stm32mp1_clk_sel stm32mp1_clk_sel[_PARENT_SEL_NB] = {
 	_CLK_PARENT_SEL(SDMMC3, RCC_SDMMC3CKSELR, sdmmc3_parents),
 	_CLK_PARENT_SEL(QSPI, RCC_QSPICKSELR, qspi_parents),
 	_CLK_PARENT_SEL(FMC, RCC_FMCCKSELR, fmc_parents),
-	_CLK_PARENT_SEL(AXIS, RCC_ASSCKSELR, ass_parents),
-	_CLK_PARENT_SEL(MCUS, RCC_MSSCKSELR, mss_parents),
+	_CLK_PARENT_SEL(AXIS, RCC_ASSCKSELR, axiss_parents),
+	_CLK_PARENT_SEL(MCUS, RCC_MSSCKSELR, mcuss_parents),
 	_CLK_PARENT_SEL(USBPHY, RCC_USBCKSELR, usbphy_parents),
 	_CLK_PARENT_SEL(USBO, RCC_USBCKSELR, usbo_parents),
 };
@@ -587,6 +589,7 @@ static const char * const stm32mp1_clk_parent_name[_PARENT_NB] __unused = {
 	[_HSI_KER] = "HSI_KER",
 	[_HSE_KER] = "HSE_KER",
 	[_HSE_KER_DIV2] = "HSE_KER_DIV2",
+	[_HSE_RTC] = "HSE_RTC",
 	[_CSI_KER] = "CSI_KER",
 	[_PLL1_P] = "PLL1_P",
 	[_PLL1_Q] = "PLL1_Q",
@@ -847,9 +850,7 @@ static unsigned long get_clock_rate(int p)
 
 			reg = mmio_read_32(rcc_base + RCC_MPCKDIVR);
 			clkdiv = reg & RCC_MPUDIV_MASK;
-			if (clkdiv != 0U) {
-				clock /= stm32mp1_mpu_div[clkdiv];
-			}
+			clock >>= stm32mp1_mpu_div[clkdiv];
 			break;
 		default:
 			break;
@@ -969,6 +970,10 @@ static unsigned long get_clock_rate(int p)
 	case _HSE_KER_DIV2:
 		clock = stm32mp1_clk_get_fixed(_HSE) >> 1;
 		break;
+	case _HSE_RTC:
+		clock = stm32mp1_clk_get_fixed(_HSE);
+		clock /= (mmio_read_32(rcc_base + RCC_RTCDIVR) & RCC_DIVR_DIV_MASK) + 1U;
+		break;
 	case _LSI:
 		clock = stm32mp1_clk_get_fixed(_LSI);
 		break;
@@ -1086,6 +1091,10 @@ static bool clock_is_always_on(unsigned long id)
 	case PLL3_P:
 	case PLL3_Q:
 	case PLL3_R:
+	case CK_AXI:
+	case CK_MPU:
+	case CK_MCU:
+	case RTC:
 		return true;
 	default:
 		return false;
@@ -1652,7 +1661,7 @@ static void stm32mp1_set_rtcsrc(unsigned int clksrc, bool lse_css)
 	    (clksrc != (uint32_t)CLK_RTC_DISABLED)) {
 		mmio_clrsetbits_32(address,
 				   RCC_BDCR_RTCSRC_MASK,
-				   clksrc << RCC_BDCR_RTCSRC_SHIFT);
+				   (clksrc & RCC_SELR_SRC_MASK) << RCC_BDCR_RTCSRC_SHIFT);
 
 		mmio_setbits_32(address, RCC_BDCR_RTCCKEN);
 	}
@@ -2152,6 +2161,7 @@ static void secure_parent_clocks(unsigned long parent_id)
 	case _HSE:
 	case _HSE_KER:
 	case _HSE_KER_DIV2:
+	case _HSE_RTC:
 	case _LSE:
 		break;
 
@@ -2210,6 +2220,7 @@ static void sync_earlyboot_clocks_state(void)
 		DDRC2, DDRC2LP,
 		DDRCAPB, DDRPHYCAPB, DDRPHYCAPBLP,
 		DDRPHYC, DDRPHYCLP,
+		RTCAPB,
 		TZC1, TZC2,
 		TZPC,
 		STGEN_K,
@@ -2217,10 +2228,6 @@ static void sync_earlyboot_clocks_state(void)
 
 	for (idx = 0U; idx < ARRAY_SIZE(secure_enable); idx++) {
 		stm32mp_clk_enable(secure_enable[idx]);
-	}
-
-	if (!stm32mp_is_single_core()) {
-		stm32mp1_clk_enable_secure(RTCAPB);
 	}
 }
 

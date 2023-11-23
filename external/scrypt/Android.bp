@@ -53,6 +53,11 @@ cc_library_static {
     sdk_version: "17",
     host_supported: true,
     vendor_available: true,
+    target: {
+        windows: {
+            enabled: true,
+        },
+    },
 }
 
 cc_test {

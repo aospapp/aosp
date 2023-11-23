@@ -184,7 +184,7 @@ func tryProcCaps() {
 		}
 	}
 
-	// The current process is now without any access to privelege.
+	// The current process is now without any access to privilege.
 }
 
 func main() {
@@ -257,12 +257,12 @@ func main() {
 	}
 
 	// Validate that it can be imported in binary in C
-	iC := C.cap_copy_int(unsafe.Pointer(&iE[0]))
+	iC := C.cap_copy_int_check(unsafe.Pointer(&iE[0]), C.ssize_t(len(iE)))
 	if iC == nil {
 		log.Fatal("c failed to import go binary")
 	}
 	defer C.cap_free(unsafe.Pointer(iC))
-	fC := C.cap_to_text(cC, &tCLen)
+	fC := C.cap_to_text(iC, &tCLen)
 	if fC == nil {
 		log.Fatal("basic c init caps -> text failure")
 	}

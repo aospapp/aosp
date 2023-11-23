@@ -1,10 +1,12 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #pylint: disable-msg=C0111
 __author__ = "raphtee@google.com (Travis Miller)"
 
+from six.moves import StringIO
 import unittest, os, tempfile, logging
 
 import common
+
 from autotest_lib.server import autotest, utils, hosts, server_job, profilers
 from autotest_lib.client.bin import sysinfo
 from autotest_lib.client.common_lib import packages
@@ -212,7 +214,7 @@ class TestAutotest(unittest.TestCase):
         c.get_config_value.expect_call("PACKAGES",
             'fetch_location', type=list, default=[]).and_return(['repo'])
 
-        cfile = self.god.create_mock_class(file, "file")
+        cfile = self.god.create_mock_class(StringIO, "StringIO")
         cfile_orig = "original control file"
         cfile_new = "args = []\njob.add_repository(['repo'])\n"
         cfile_new += cfile_orig
@@ -250,8 +252,8 @@ class TestAutotest(unittest.TestCase):
 
 
     def _expect_failed_run(self, command):
-        (self.host.run.expect_call(command)
-         .and_raises(error.AutoservRunError('dummy', object())))
+        (self.host.run.expect_call(command).and_raises(
+                error.AutoservRunError('placeholder', object())))
 
 
     def test_get_installed_autodir(self):

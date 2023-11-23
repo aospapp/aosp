@@ -15,7 +15,7 @@
 #if !UCONFIG_NO_FORMATTING
 
 /**
- * @addtogroup ICU4C
+ * @addtogroup icu4c ICU4C
  * @{
  * \file
  * \brief C API: Display context types (enum values)

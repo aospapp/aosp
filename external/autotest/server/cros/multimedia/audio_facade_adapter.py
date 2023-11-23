@@ -287,6 +287,14 @@ class AudioFacadeRemoteAdapter(object):
         """
         self._audio_proxy.set_chrome_mute(mute)
 
+    def set_chrome_active_input_gain(self, gain):
+        """Sets the active audio input gain using chrome.audio API.
+
+        @param volume: Gain to set (0~100).
+
+        """
+        self._audio_proxy.set_chrome_active_input_gain(gain)
+
     def check_audio_stream_at_selected_device(self):
         """Checks the audio output is at expected node"""
         self._audio_proxy.check_audio_stream_at_selected_device()
@@ -318,6 +326,32 @@ class AudioFacadeRemoteAdapter(object):
         self._audio_proxy.set_chrome_active_node_type(
                 output_node_type, input_node_type)
 
+
+    def get_noise_cancellation_supported(self):
+        """Gets whether the device supports Noise Cancellation.
+
+        @returns: True is supported; False otherwise.
+
+        """
+        return self._audio_proxy.get_noise_cancellation_supported()
+
+
+    def set_bypass_block_noise_cancellation(self, bypass):
+        """Sets CRAS to bypass the blocking logic of Noise Cancellation.
+
+        @param bypass: True for bypass; False for un-bypass.
+
+        """
+        self._audio_proxy.set_bypass_block_noise_cancellation(bypass)
+
+
+    def set_noise_cancellation_enabled(self, enabled):
+        """Sets the state to enable or disable Noise Cancellation.
+
+        @param enabled: True to enable; False to disable.
+
+        """
+        self._audio_proxy.set_noise_cancellation_enabled(enabled)
 
     def start_arc_recording(self):
         """Starts recording using microphone app in container."""

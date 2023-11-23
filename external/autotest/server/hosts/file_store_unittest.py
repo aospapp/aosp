@@ -2,16 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import mock
 import os
 import stat
 import unittest
+from unittest import mock
 
 import common
 from autotest_lib.client.common_lib import autotemp
 from autotest_lib.server.hosts import file_store
 from autotest_lib.server.hosts import host_info
-from chromite.lib import locking
+from autotest_lib.utils.frozen_chromite.lib import locking
 
 class FileStoreTestCase(unittest.TestCase):
     """Test file_store.FileStore functionality."""
@@ -119,7 +119,8 @@ class FileStoreTestCase(unittest.TestCase):
             store.get(force_refresh=True)
 
 
-    @mock.patch('chromite.lib.locking.FileLock', autospec=True)
+    @mock.patch('autotest_lib.utils.frozen_chromite.lib.locking.FileLock',
+                autospec=True)
     def test_commit_succeeds_after_lock_retry(self, mock_file_lock_class):
         """Tests that commit succeeds when locking requires retries.
 
@@ -139,7 +140,8 @@ class FileStoreTestCase(unittest.TestCase):
         self.assertEqual(2, mock_file_lock.write_lock.call_count)
 
 
-    @mock.patch('chromite.lib.locking.FileLock', autospec=True)
+    @mock.patch('autotest_lib.utils.frozen_chromite.lib.locking.FileLock',
+                autospec=True)
     def test_refresh_succeeds_after_lock_retry(self, mock_file_lock_class):
         """Tests that refresh succeeds when locking requires retries.
 
@@ -164,7 +166,8 @@ class FileStoreTestCase(unittest.TestCase):
         self.assertEqual(4, mock_file_lock.write_lock.call_count)
 
 
-    @mock.patch('chromite.lib.locking.FileLock', autospec=True)
+    @mock.patch('autotest_lib.utils.frozen_chromite.lib.locking.FileLock',
+                autospec=True)
     def test_commit_with_negative_timeout_clips(self, mock_file_lock_class):
         """Commit request with negative timeout is same as 0 timeout.
 
@@ -184,7 +187,7 @@ class FileStoreTestCase(unittest.TestCase):
 
 
     def test_str(self):
-        """Sanity tests the __str__ implementaiton"""
+        """Tests the __str__ implementaiton"""
         store = file_store.FileStore('/foo/path')
         self.assertEqual(str(store), 'FileStore[/foo/path]')
 

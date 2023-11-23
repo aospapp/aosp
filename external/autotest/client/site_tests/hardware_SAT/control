@@ -22,9 +22,10 @@ For more information, see:
 http://code.google.com/p/stressapptest/
 """
 NAME = 'hardware_SAT'
-ATTRIBUTES = "suite:kernel_per-build_regression"
+ATTRIBUTES = "suite:kernel_per-build_regression, suite:pvs-kernel"
 TEST_CLASS = "hardware"
 TEST_CATEGORY = 'Stress'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 job.run_test('hardware_SAT')

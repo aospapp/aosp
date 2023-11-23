@@ -152,7 +152,7 @@ static const char * const dont_quote[] = {
 #ifdef CONFIG_INTERWORKING
 	"roaming_consortium", "required_roaming_consortium",
 #endif /* CONFIG_INTERWORKING */
-	NULL
+	"mac_value", NULL
 };
 
 static dbus_bool_t should_quote_opt(const char *key)
@@ -206,6 +206,8 @@ dbus_bool_t set_network_properties(struct wpa_supplicant *wpa_s,
 	struct wpa_dbus_dict_entry entry = { .type = DBUS_TYPE_STRING };
 	DBusMessageIter	iter_dict;
 	char *value = NULL;
+	bool mac_addr3_set = false;
+	bool mac_value_set = false;
 
 	if (!wpa_dbus_dict_open_read(iter, &iter_dict, error))
 		return FALSE;
@@ -315,10 +317,28 @@ dbus_bool_t set_network_properties(struct wpa_supplicant *wpa_s,
 		else if (os_strcmp(entry.key, "priority") == 0)
 			wpa_config_update_prio_list(wpa_s->conf);
 
+		/*
+		 * MAC address policy "3" needs to come with mac_value in
+		 * the message so make sure that it is present (checked after
+		 * the loop - here we just note what has been supplied).
+		 */
+		if (os_strcmp(entry.key, "mac_addr") == 0 &&
+		    atoi(value) == 3)
+			mac_addr3_set = true;
+		if (os_strcmp(entry.key, "mac_value") == 0)
+			mac_value_set = true;
+
 	skip_update:
 		os_free(value);
 		value = NULL;
 		wpa_dbus_dict_entry_clear(&entry);
+	}
+
+	if (mac_addr3_set && !mac_value_set) {
+		wpa_printf(MSG_INFO, "dbus: Invalid mac_addr policy config");
+		dbus_set_error_const(error, DBUS_ERROR_INVALID_ARGS,
+				     "Invalid mac_addr policy config");
+		return FALSE;
 	}
 
 	return TRUE;
@@ -329,6 +349,118 @@ error:
 	dbus_set_error_const(error, DBUS_ERROR_INVALID_ARGS,
 			     "invalid message format");
 	return FALSE;
+}
+
+
+static int set_cred_property(struct wpa_cred *cred,
+			     struct wpa_dbus_dict_entry *entry)
+{
+	size_t size;
+	int ret;
+	char *value;
+
+	if (entry->type == DBUS_TYPE_ARRAY &&
+	    entry->array_type == DBUS_TYPE_STRING) {
+		dbus_uint32_t i;
+
+		if (entry->array_len <= 0)
+			return -1;
+
+		for (i = 0; i < entry->array_len; i++) {
+			if (should_quote_opt(entry->key)) {
+				size = os_strlen(entry->strarray_value[i]);
+
+				size += 3;
+				value = os_zalloc(size);
+				if (!value)
+					return -1;
+
+				ret = os_snprintf(value, size, "\"%s\"",
+						  entry->strarray_value[i]);
+				if (os_snprintf_error(size, ret)) {
+					os_free(value);
+					return -1;
+				}
+			} else {
+				value = os_strdup(entry->strarray_value[i]);
+				if (!value)
+					return -1;
+			}
+
+			ret = wpa_config_set_cred(cred, entry->key, value, 0);
+			os_free(value);
+			if (ret < 0)
+				return -1;
+		}
+		return 0;
+	}
+
+	if (entry->type == DBUS_TYPE_ARRAY &&
+	    entry->array_type == DBUS_TYPE_BYTE) {
+		if (entry->array_len <= 0)
+			return -1;
+
+		size = entry->array_len * 2 + 1;
+		value = os_zalloc(size);
+		if (!value)
+			return -1;
+
+		ret = wpa_snprintf_hex(value, size,
+				       (u8 *) entry->bytearray_value,
+				       entry->array_len);
+		if (ret <= 0) {
+			os_free(value);
+			return -1;
+		}
+	} else if (entry->type == DBUS_TYPE_STRING) {
+		if (should_quote_opt(entry->key)) {
+			size = os_strlen(entry->str_value);
+
+			size += 3;
+			value = os_zalloc(size);
+			if (!value)
+				return -1;
+
+			ret = os_snprintf(value, size, "\"%s\"",
+					  entry->str_value);
+			if (os_snprintf_error(size, ret)) {
+				os_free(value);
+				return -1;
+			}
+		} else {
+			value = os_strdup(entry->str_value);
+			if (!value)
+				return -1;
+		}
+	} else if (entry->type == DBUS_TYPE_UINT32) {
+		size = 50;
+		value = os_zalloc(size);
+		if (!value)
+			return -1;
+
+		ret = os_snprintf(value, size, "%u", entry->uint32_value);
+		if (os_snprintf_error(size, ret)) {
+			os_free(value);
+			return -1;
+		}
+	} else if (entry->type == DBUS_TYPE_INT32) {
+		size = 50;
+		value = os_zalloc(size);
+		if (!value)
+			return -1;
+
+		ret = os_snprintf(value, size, "%d", entry->int32_value);
+		if (os_snprintf_error(size, ret)) {
+			os_free(value);
+			return -1;
+		}
+	} else {
+		return -1;
+	}
+
+	ret = wpa_config_set_cred(cred, entry->key, value, 0);
+	os_free(value);
+	return ret;
 }
 
 
@@ -348,91 +480,28 @@ static dbus_bool_t set_cred_properties(struct wpa_supplicant *wpa_s,
 {
 	struct wpa_dbus_dict_entry entry = { .type = DBUS_TYPE_STRING };
 	DBusMessageIter	iter_dict;
-	char *value = NULL;
 
 	if (!wpa_dbus_dict_open_read(iter, &iter_dict, error))
 		return FALSE;
 
 	while (wpa_dbus_dict_has_dict_entry(&iter_dict)) {
-		size_t size = 50;
-		int ret;
+		int res;
 
-		if (!wpa_dbus_dict_get_entry(&iter_dict, &entry))
-			goto error;
-
-		value = NULL;
-		if (entry.type == DBUS_TYPE_ARRAY &&
-		    entry.array_type == DBUS_TYPE_BYTE) {
-			if (entry.array_len <= 0)
-				goto error;
-
-			size = entry.array_len * 2 + 1;
-			value = os_zalloc(size);
-			if (!value)
-				goto error;
-
-			ret = wpa_snprintf_hex(value, size,
-					       (u8 *) entry.bytearray_value,
-					       entry.array_len);
-			if (ret <= 0)
-				goto error;
-		} else if (entry.type == DBUS_TYPE_STRING) {
-			if (should_quote_opt(entry.key)) {
-				size = os_strlen(entry.str_value);
-
-				size += 3;
-				value = os_zalloc(size);
-				if (!value)
-					goto error;
-
-				ret = os_snprintf(value, size, "\"%s\"",
-						  entry.str_value);
-				if (os_snprintf_error(size, ret))
-					goto error;
-			} else {
-				value = os_strdup(entry.str_value);
-				if (!value)
-					goto error;
-			}
-		} else if (entry.type == DBUS_TYPE_UINT32) {
-			value = os_zalloc(size);
-			if (!value)
-				goto error;
-
-			ret = os_snprintf(value, size, "%u",
-					  entry.uint32_value);
-			if (os_snprintf_error(size, ret))
-				goto error;
-		} else if (entry.type == DBUS_TYPE_INT32) {
-			value = os_zalloc(size);
-			if (!value)
-				goto error;
-
-			ret = os_snprintf(value, size, "%d",
-					  entry.int32_value);
-			if (os_snprintf_error(size, ret))
-				goto error;
+		if (!wpa_dbus_dict_get_entry(&iter_dict, &entry)) {
+			res = -1;
 		} else {
-			goto error;
+			res = set_cred_property(cred, &entry);
+			wpa_dbus_dict_entry_clear(&entry);
 		}
 
-		ret = wpa_config_set_cred(cred, entry.key, value, 0);
-		if (ret < 0)
-			goto error;
-
-		os_free(value);
-		value = NULL;
-		wpa_dbus_dict_entry_clear(&entry);
+		if (res < 0) {
+			dbus_set_error_const(error, DBUS_ERROR_INVALID_ARGS,
+					     "invalid message format");
+			return FALSE;
+		}
 	}
 
 	return TRUE;
-
-error:
-	os_free(value);
-	wpa_dbus_dict_entry_clear(&entry);
-	dbus_set_error_const(error, DBUS_ERROR_INVALID_ARGS,
-			     "invalid message format");
-	return FALSE;
 }
 
 
@@ -704,6 +773,9 @@ DBusMessage * wpas_dbus_handler_create_interface(DBusMessage *message,
 	char *ifname = NULL;
 	char *confname = NULL;
 	char *bridge_ifname = NULL;
+	bool create_iface = false;
+	u8 *if_addr = NULL;
+	enum wpa_driver_if_type if_type = WPA_IF_STATION;
 
 	dbus_message_iter_init(message, &iter);
 
@@ -740,6 +812,33 @@ DBusMessage * wpas_dbus_handler_create_interface(DBusMessage *message,
 			wpa_dbus_dict_entry_clear(&entry);
 			if (bridge_ifname == NULL)
 				goto oom;
+		} else if (os_strcmp(entry.key, "Create") == 0 &&
+			   entry.type == DBUS_TYPE_BOOLEAN) {
+			create_iface = entry.bool_value;
+			wpa_dbus_dict_entry_clear(&entry);
+		} else if (os_strcmp(entry.key, "Type") == 0 &&
+			   entry.type == DBUS_TYPE_STRING) {
+			if (os_strcmp(entry.str_value, "sta") == 0) {
+				if_type = WPA_IF_STATION;
+			} else if (os_strcmp(entry.str_value, "ap") == 0) {
+				if_type = WPA_IF_AP_BSS;
+			} else {
+				wpa_dbus_dict_entry_clear(&entry);
+				goto error;
+			}
+			wpa_dbus_dict_entry_clear(&entry);
+		} else if (os_strcmp(entry.key, "Address") == 0 &&
+			   entry.type == DBUS_TYPE_STRING) {
+			if_addr = os_malloc(ETH_ALEN);
+			if (if_addr == NULL) {
+				wpa_dbus_dict_entry_clear(&entry);
+				goto oom;
+			}
+			if (hwaddr_aton(entry.str_value, if_addr)) {
+				wpa_dbus_dict_entry_clear(&entry);
+				goto error;
+			}
+			wpa_dbus_dict_entry_clear(&entry);
 		} else {
 			wpa_dbus_dict_entry_clear(&entry);
 			goto error;
@@ -761,6 +860,23 @@ DBusMessage * wpas_dbus_handler_create_interface(DBusMessage *message,
 		struct wpa_supplicant *wpa_s;
 		struct wpa_interface iface;
 
+		if (create_iface) {
+			u8 mac_addr[ETH_ALEN];
+
+			wpa_printf(MSG_DEBUG,
+				   "%s[dbus]: creating an interface '%s'",
+				   __func__, ifname);
+			if (!global->ifaces ||
+			    wpa_drv_if_add(global->ifaces, if_type, ifname,
+					   if_addr, NULL, NULL, mac_addr,
+					   NULL) < 0) {
+				reply = wpas_dbus_error_unknown_error(
+					message,
+					"interface creation failed.");
+				goto out;
+			}
+		}
+
 		os_memset(&iface, 0, sizeof(iface));
 		iface.driver = driver;
 		iface.ifname = ifname;
@@ -771,6 +887,7 @@ DBusMessage * wpas_dbus_handler_create_interface(DBusMessage *message,
 		if (wpa_s && wpa_s->dbus_new_path) {
 			const char *path = wpa_s->dbus_new_path;
 
+			wpa_s->added_vif = create_iface;
 			reply = dbus_message_new_method_return(message);
 			dbus_message_append_args(reply, DBUS_TYPE_OBJECT_PATH,
 						 &path, DBUS_TYPE_INVALID);
@@ -778,6 +895,13 @@ DBusMessage * wpas_dbus_handler_create_interface(DBusMessage *message,
 			reply = wpas_dbus_error_unknown_error(
 				message,
 				"wpa_supplicant couldn't grab this interface.");
+			if (create_iface) {
+				/* wpa_supplicant does not create multi-BSS AP,
+				 * so collapse to WPA_IF_STATION to avoid
+				 * unwanted clean up in the driver. */
+				wpa_drv_if_remove(global->ifaces,
+						  WPA_IF_STATION, ifname);
+			}
 		}
 	}
 
@@ -786,6 +910,7 @@ out:
 	os_free(ifname);
 	os_free(confname);
 	os_free(bridge_ifname);
+	os_free(if_addr);
 	return reply;
 
 error:
@@ -814,19 +939,38 @@ DBusMessage * wpas_dbus_handler_remove_interface(DBusMessage *message,
 	struct wpa_supplicant *wpa_s;
 	char *path;
 	DBusMessage *reply = NULL;
+	bool delete_iface;
 
 	dbus_message_get_args(message, NULL, DBUS_TYPE_OBJECT_PATH, &path,
 			      DBUS_TYPE_INVALID);
 
 	wpa_s = get_iface_by_dbus_path(global, path);
-	if (wpa_s == NULL)
+	if (!wpa_s) {
 		reply = wpas_dbus_error_iface_unknown(message);
-	else if (wpa_supplicant_remove_iface(global, wpa_s, 0)) {
+		goto out;
+	}
+	delete_iface = wpa_s->added_vif;
+	if (wpa_supplicant_remove_iface(global, wpa_s, 0)) {
 		reply = wpas_dbus_error_unknown_error(
 			message,
 			"wpa_supplicant couldn't remove this interface.");
+		goto out;
 	}
 
+	if (delete_iface) {
+		wpa_printf(MSG_DEBUG, "%s[dbus]: deleting the interface '%s'",
+			   __func__, wpa_s->ifname);
+		/* wpa_supplicant does not create multi-BSS AP, so collapse to
+		 * WPA_IF_STATION to avoid unwanted clean up in the driver. */
+		if (wpa_drv_if_remove(global->ifaces, WPA_IF_STATION,
+				      wpa_s->ifname)) {
+			reply = wpas_dbus_error_unknown_error(
+				message,
+				"wpa_supplicant couldn't delete this interface.");
+		}
+	}
+
+out:
 	return reply;
 }
 
@@ -908,8 +1052,10 @@ dbus_bool_t wpas_dbus_getter_debug_timestamp(
 	const struct wpa_dbus_property_desc *property_desc,
 	DBusMessageIter *iter, DBusError *error, void *user_data)
 {
+	dbus_bool_t b = wpa_debug_timestamp ? TRUE : FALSE;
+
 	return wpas_dbus_simple_property_getter(iter, DBUS_TYPE_BOOLEAN,
-						&wpa_debug_timestamp, error);
+						&b, error);
 
 }
 
@@ -927,8 +1073,10 @@ dbus_bool_t wpas_dbus_getter_debug_show_keys(
 	const struct wpa_dbus_property_desc *property_desc,
 	DBusMessageIter *iter, DBusError *error, void *user_data)
 {
+	dbus_bool_t b = wpa_debug_show_keys ? TRUE : FALSE;
+
 	return wpas_dbus_simple_property_getter(iter, DBUS_TYPE_BOOLEAN,
-						&wpa_debug_show_keys, error);
+						&b, error);
 
 }
 
@@ -1121,7 +1269,7 @@ dbus_bool_t wpas_dbus_getter_global_capabilities(
 	const struct wpa_dbus_property_desc *property_desc,
 	DBusMessageIter *iter, DBusError *error, void *user_data)
 {
-	const char *capabilities[13];
+	const char *capabilities[14];
 	size_t num_items = 0;
 	struct wpa_global *global = user_data;
 	struct wpa_supplicant *wpa_s;
@@ -1177,6 +1325,9 @@ dbus_bool_t wpas_dbus_getter_global_capabilities(
 #endif /* CONFIG_SUITEB192 */
 	if (ext_key_id_supported)
 		capabilities[num_items++] = "extended_key_id";
+#ifndef CONFIG_WEP
+	capabilities[num_items++] = "wep_disabled";
+#endif /* !CONFIG_WEP */
 
 	return wpas_dbus_simple_array_property_getter(iter,
 						      DBUS_TYPE_STRING,
@@ -1819,7 +1970,7 @@ DBusMessage * wpas_dbus_handler_signal_poll(DBusMessage *message,
 {
 	struct wpa_signal_info si;
 	DBusMessage *reply = NULL;
-	DBusMessageIter iter, iter_dict, variant_iter;
+	DBusMessageIter iter;
 	int ret;
 
 	ret = wpa_drv_signal_poll(wpa_s, &si);
@@ -1834,31 +1985,7 @@ DBusMessage * wpas_dbus_handler_signal_poll(DBusMessage *message,
 
 	dbus_message_iter_init_append(reply, &iter);
 
-	if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT,
-					      "a{sv}", &variant_iter) ||
-	    !wpa_dbus_dict_open_write(&variant_iter, &iter_dict) ||
-	    !wpa_dbus_dict_append_int32(&iter_dict, "rssi",
-					si.current_signal) ||
-	    !wpa_dbus_dict_append_int32(&iter_dict, "linkspeed",
-					si.current_txrate / 1000) ||
-	    !wpa_dbus_dict_append_int32(&iter_dict, "noise",
-					si.current_noise) ||
-	    !wpa_dbus_dict_append_uint32(&iter_dict, "frequency",
-					 si.frequency) ||
-	    (si.chanwidth != CHAN_WIDTH_UNKNOWN &&
-	     !wpa_dbus_dict_append_string(
-		     &iter_dict, "width",
-		     channel_width_to_string(si.chanwidth))) ||
-	    (si.center_frq1 > 0 && si.center_frq2 > 0 &&
-	     (!wpa_dbus_dict_append_int32(&iter_dict, "center-frq1",
-					  si.center_frq1) ||
-	      !wpa_dbus_dict_append_int32(&iter_dict, "center-frq2",
-					  si.center_frq2))) ||
-	    (si.avg_signal &&
-	     !wpa_dbus_dict_append_int32(&iter_dict, "avg-rssi",
-					 si.avg_signal)) ||
-	    !wpa_dbus_dict_close_write(&variant_iter, &iter_dict) ||
-	    !dbus_message_iter_close_container(&iter, &variant_iter))
+	if (wpas_dbus_new_from_signal_information(&iter, &si) != 0)
 		goto nomem;
 
 	return reply;
@@ -3128,11 +3255,15 @@ dbus_bool_t wpas_dbus_getter_capabilities(
 		if (capa.key_mgmt & (WPA_DRIVER_CAPA_KEY_MGMT_WPA |
 				     WPA_DRIVER_CAPA_KEY_MGMT_WPA2)) {
 			if (!wpa_dbus_dict_string_array_add_element(
-				    &iter_array, "wpa-eap") ||
-			    ((capa.key_mgmt & WPA_DRIVER_CAPA_KEY_MGMT_FT) &&
-			     !wpa_dbus_dict_string_array_add_element(
-				     &iter_array, "wpa-ft-eap")))
+				    &iter_array, "wpa-eap"))
 				goto nomem;
+
+#ifdef CONFIG_IEEE80211R
+			if ((capa.key_mgmt & WPA_DRIVER_CAPA_KEY_MGMT_FT) &&
+			     !wpa_dbus_dict_string_array_add_element(
+				     &iter_array, "wpa-ft-eap"))
+				goto nomem;
+#endif /* CONFIG_IEEE80211R */
 
 /* TODO: Ensure that driver actually supports sha256 encryption. */
 			if (!wpa_dbus_dict_string_array_add_element(
@@ -3143,12 +3274,16 @@ dbus_bool_t wpas_dbus_getter_capabilities(
 		if (capa.key_mgmt & (WPA_DRIVER_CAPA_KEY_MGMT_WPA_PSK |
 				     WPA_DRIVER_CAPA_KEY_MGMT_WPA2_PSK)) {
 			if (!wpa_dbus_dict_string_array_add_element(
-				    &iter_array, "wpa-psk") ||
-			    ((capa.key_mgmt &
+				    &iter_array, "wpa-psk"))
+				goto nomem;
+
+#ifdef CONFIG_IEEE80211R
+			if ((capa.key_mgmt &
 			      WPA_DRIVER_CAPA_KEY_MGMT_FT_PSK) &&
 			     !wpa_dbus_dict_string_array_add_element(
-				     &iter_array, "wpa-ft-psk")))
+				     &iter_array, "wpa-ft-psk"))
 				goto nomem;
+#endif /* CONFIG_IEEE80211R */
 
 /* TODO: Ensure that driver actually supports sha256 encryption. */
 			if (!wpa_dbus_dict_string_array_add_element(
@@ -3951,7 +4086,7 @@ dbus_bool_t wpas_dbus_getter_current_auth_mode(
 	const char *auth_mode;
 	char eap_mode_buf[WPAS_DBUS_AUTH_MODE_MAX];
 
-	if (wpa_s->wpa_state != WPA_COMPLETED) {
+	if (wpa_s->wpa_state <= WPA_SCANNING) {
 		auth_mode = "INACTIVE";
 	} else if (wpa_s->key_mgmt == WPA_KEY_MGMT_IEEE8021X ||
 	    wpa_s->key_mgmt == WPA_KEY_MGMT_IEEE8021X_NO_WPA) {
@@ -4309,6 +4444,7 @@ dbus_bool_t wpas_dbus_setter_iface_global(
 	const char *new_value = NULL;
 	char buf[250];
 	size_t combined_len;
+	int wpa_sm_param;
 	int ret;
 
 	if (!wpas_dbus_simple_property_setter(iter, error, DBUS_TYPE_STRING,
@@ -4326,6 +4462,35 @@ dbus_bool_t wpas_dbus_setter_iface_global(
 
 	if (!new_value[0])
 		new_value = "NULL";
+
+	wpa_sm_param = -1;
+	if (os_strcmp(property_desc->data, "dot11RSNAConfigPMKLifetime") == 0)
+		wpa_sm_param = RSNA_PMK_LIFETIME;
+	else if (os_strcmp(property_desc->data,
+			   "dot11RSNAConfigPMKReauthThreshold") == 0)
+		wpa_sm_param = RSNA_PMK_REAUTH_THRESHOLD;
+	else if (os_strcmp(property_desc->data, "dot11RSNAConfigSATimeout") == 0)
+		wpa_sm_param = RSNA_SA_TIMEOUT;
+
+	if (wpa_sm_param != -1) {
+		char *end;
+		int val;
+
+		val = strtol(new_value, &end, 0);
+		if (*end) {
+			dbus_set_error(error, DBUS_ERROR_INVALID_ARGS,
+				       "Invalid value for property %s",
+				       property_desc->dbus_property);
+			return FALSE;
+		}
+
+		if (wpa_sm_set_param(wpa_s->wpa, wpa_sm_param, val)) {
+			dbus_set_error(error, DBUS_ERROR_INVALID_ARGS,
+				       "Failed to apply interface property %s",
+				       property_desc->dbus_property);
+			return FALSE;
+		}
+	}
 
 	ret = os_snprintf(buf, combined_len, "%s=%s", property_desc->data,
 			  new_value);
@@ -4581,6 +4746,27 @@ dbus_bool_t wpas_dbus_getter_mac_address_randomization_mask(
 	}
 
 	return TRUE;
+}
+
+
+/**
+ * wpas_dbus_getter_mac_address - Get MAC address of an interface
+ * @iter: Pointer to incoming dbus message iter
+ * @error: Location to store error on failure
+ * @user_data: Function specific data
+ * Returns: a list of stations
+ *
+ * Getter for "MACAddress" property.
+ */
+dbus_bool_t wpas_dbus_getter_mac_address(
+	const struct wpa_dbus_property_desc *property_desc,
+	DBusMessageIter *iter, DBusError *error, void *user_data)
+{
+	struct wpa_supplicant *wpa_s = user_data;
+
+	return wpas_dbus_simple_array_property_getter(iter, DBUS_TYPE_BYTE,
+						      wpa_s->own_addr, ETH_ALEN,
+						      error);
 }
 
 
@@ -5092,7 +5278,7 @@ static dbus_bool_t wpas_dbus_get_bss_security_prop(
 	DBusMessageIter iter_dict, variant_iter;
 	const char *group;
 	const char *pairwise[5]; /* max 5 pairwise ciphers is supported */
-	const char *key_mgmt[16]; /* max 16 key managements may be supported */
+	const char *key_mgmt[18]; /* max 18 key managements may be supported */
 	int n;
 
 	if (!dbus_message_iter_open_container(iter, DBUS_TYPE_VARIANT,
@@ -5142,8 +5328,12 @@ static dbus_bool_t wpas_dbus_get_bss_security_prop(
 #ifdef CONFIG_SAE
 	if (ie_data->key_mgmt & WPA_KEY_MGMT_SAE)
 		key_mgmt[n++] = "sae";
+	if (ie_data->key_mgmt & WPA_KEY_MGMT_SAE_EXT_KEY)
+		key_mgmt[n++] = "sae-ext-key";
 	if (ie_data->key_mgmt & WPA_KEY_MGMT_FT_SAE)
 		key_mgmt[n++] = "ft-sae";
+	if (ie_data->key_mgmt & WPA_KEY_MGMT_FT_SAE_EXT_KEY)
+		key_mgmt[n++] = "ft-sae-ext-key";
 #endif /* CONFIG_SAE */
 #ifdef CONFIG_OWE
 	if (ie_data->key_mgmt & WPA_KEY_MGMT_OWE)
@@ -5926,3 +6116,28 @@ dbus_bool_t wpas_dbus_getter_mesh_group(
 }
 
 #endif /* CONFIG_MESH */
+
+
+/**
+ * wpas_dbus_getter_signal_change - Get signal change
+ * @iter: Pointer to incoming dbus message iter
+ * @error: Location to store error on failure
+ * @user_data: Function specific data
+ * Returns: TRUE on success, FALSE on failure
+ *
+ * Getter for "SignalChange" property.
+ */
+dbus_bool_t wpas_dbus_getter_signal_change(
+	const struct wpa_dbus_property_desc *property_desc,
+	DBusMessageIter *iter, DBusError *error, void *user_data)
+{
+	struct wpa_supplicant *wpa_s = user_data;
+	struct wpa_signal_info si = wpa_s->last_signal_info;
+
+	if (wpas_dbus_new_from_signal_information(iter, &si) != 0) {
+		dbus_set_error(error, DBUS_ERROR_FAILED,
+			       "%s: error constructing reply", __func__);
+		return FALSE;
+	}
+	return TRUE;
+}

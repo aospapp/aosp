@@ -20,8 +20,10 @@
 #include <drm/drm_fourcc.h>
 #include <hardware/gralloc.h>
 
+#include <optional>
+
+#include "BufferInfo.h"
 #include "drm/DrmDevice.h"
-#include "drmhwcgralloc.h"
 
 #ifndef DRM_FORMAT_INVALID
 #define DRM_FORMAT_INVALID 0
@@ -29,13 +31,16 @@
 
 namespace android {
 
+using BufferUniqueId = uint64_t;
+
 class BufferInfoGetter {
  public:
   virtual ~BufferInfoGetter() = default;
 
-  virtual int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) = 0;
+  virtual auto GetBoInfo(buffer_handle_t handle)
+      -> std::optional<BufferInfo> = 0;
 
-  bool IsHandleUsable(buffer_handle_t handle);
+  virtual std::optional<BufferUniqueId> GetUniqueId(buffer_handle_t handle);
 
   static BufferInfoGetter *GetInstance();
 

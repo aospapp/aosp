@@ -14,3 +14,4 @@ class Config(object):
     rpc_quit_call = 'quit'
     rpc_timeout = 120
     rpc_logfile = '/var/log/faft_xmlrpc_server.log'
+    rpc_request_timeout = 180

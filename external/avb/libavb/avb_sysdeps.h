@@ -48,6 +48,7 @@ extern "C" {
  */
 #define AVB_ATTR_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
 #define AVB_ATTR_PACKED __attribute__((packed))
+#define AVB_ATTR_PRINTF(x, y) __attribute__((format(printf, x, y)))
 #define AVB_ATTR_NO_RETURN __attribute__((noreturn))
 #define AVB_ATTR_SENTINEL __attribute__((__sentinel__))
 
@@ -95,9 +96,15 @@ void* avb_memset(void* dest, const int c, size_t n);
 void avb_print(const char* message);
 
 /* Prints out a vector of strings. Each argument must point to a
- * NUL-terminated UTF-8 string and NULL should be the last argument.
+ * NUL-terminated UTF-8 string and NULL must be the last argument.
  */
 void avb_printv(const char* message, ...) AVB_ATTR_SENTINEL;
+
+/* Prints out a formatted string.
+ *
+ * Replaces avb_printv when AVB_USE_PRINTF_LOGS is enabled.
+ */
+void avb_printf(const char* fmt, ...) AVB_ATTR_PRINTF(1, 2);
 
 /* Aborts the program or reboots the device. */
 void avb_abort(void) AVB_ATTR_NO_RETURN;

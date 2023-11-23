@@ -2,11 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import collections
 import json
 import logging
 import os
 import re
+import shutil
 import tempfile
 import time
 
@@ -16,13 +21,12 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.site_utils.lxc import constants
 from autotest_lib.site_utils.lxc import lxc
 from autotest_lib.site_utils.lxc import utils as lxc_utils
+import six
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
-
-ISOLATESERVER = 'https://isolateserver.appspot.com'
 
 # Naming convention of test container, e.g., test_300_1422862512_2424, where:
 # 300:        The test job ID.
@@ -43,6 +47,9 @@ class ContainerId(collections.namedtuple('ContainerId',
 
 
     def __str__(self):
+        # NOTE: The `creation_time` is a float, but we format it as an integer.
+        # Internally we still use the float value to do comparing, hashing,
+        # etc.
         return _TEST_CONTAINER_NAME_FMT % self
 
 
@@ -55,6 +62,10 @@ class ContainerId(collections.namedtuple('ContainerId',
         dst = os.path.join(path, _CONTAINER_ID_FILENAME)
         with open(dst, 'w') as f:
             json.dump(self, f)
+
+        with open(dst) as f:
+            logging.debug('Container id saved to %s (content: %s)', dst,
+                          f.read())
 
     @classmethod
     def load(cls, path):
@@ -74,9 +85,10 @@ class ContainerId(collections.namedtuple('ContainerId',
         try:
             with open(src, 'r') as f:
                 job_id, ctime, pid = json.load(f)
-        except IOError:
+        except IOError as err:
             # File not found, or couldn't be opened for some other reason.
             # Treat all these cases as no ID.
+            logging.warning('Load container id file "%s" error: %s', src, err)
             return None
         # TODO(pprabhu, crbug.com/842343) Remove this once all persistent
         # container ids have migrated to str.
@@ -151,7 +163,7 @@ class Container(object):
         # property rootfs is retrieved.
         self._rootfs = None
         self.name = name
-        for attribute, value in attribute_values.iteritems():
+        for attribute, value in six.iteritems(attribute_values):
             setattr(self, attribute, value)
 
         # Clone the container
@@ -166,6 +178,7 @@ class Container(object):
             try:
                 self._id = ContainerId.load(
                         os.path.join(self.container_path, self.name))
+                logging.debug('Container %s has id: "%s"', self.name, self._id)
             except (ValueError, TypeError):
                 # Ignore load errors.  ContainerBucket currently queries every
                 # container quite frequently, and emitting exceptions here would
@@ -176,7 +189,7 @@ class Container(object):
                 self._id = None
 
         if not Container._LXC_VERSION:
-          Container._LXC_VERSION = lxc_utils.get_lxc_version()
+            Container._LXC_VERSION = lxc_utils.get_lxc_version()
 
 
     @classmethod
@@ -239,7 +252,7 @@ class Container(object):
                 except error.CmdError as e:
                     # The container could be created in a incompleted
                     # state. Delete the container folder instead.
-                    logging.warn('Failed to destroy container %s, error: %s',
+                    logging.warning('Failed to destroy container %s, error: %s',
                                  new_name, e)
                     utils.run('sudo rm -rf "%s"' % container_folder)
             # Create the directory prior to creating the new container.  This
@@ -263,7 +276,7 @@ class Container(object):
                     'No container found in directory %s with name of %s.' %
                     (self.container_path, self.name))
         attribute_values = containers[0]
-        for attribute, value in attribute_values.iteritems():
+        for attribute, value in six.iteritems(attribute_values):
             setattr(self, attribute, value)
 
 
@@ -332,8 +345,18 @@ class Container(object):
 
         @return: True if the network is up, otherwise False.
         """
+        # TODO(b/184304822) Remove the extra logging.
         try:
-            self.attach_run('curl --head %s' % constants.CONTAINER_BASE_URL)
+            with open('/proc/net/udp') as f:
+                logging.debug('Checking UDP on drone:\n %s', f.read())
+        except Exception as e:
+            logging.debug(e)
+
+        try:
+            self.attach_run('ifconfig eth0 ;'
+                            'ping -c 1 8.8.8.8 ;'
+                            'cat /proc/net/udp ;'
+                            'curl --head %s' % constants.CONTAINER_BASE_URL)
             return True
         except error.CmdError as e:
             logging.debug(e)
@@ -342,7 +365,7 @@ class Container(object):
 
     @metrics.SecondsTimerDecorator(
         '%s/container_start_duration' % constants.STATS_KEY)
-    def start(self, wait_for_network=True):
+    def start(self, wait_for_network=True, log_dir=None):
         """Start the container.
 
         @param wait_for_network: True to wait for network to be up. Default is
@@ -350,7 +373,14 @@ class Container(object):
 
         @raise ContainerError: If container does not exist, or fails to start.
         """
-        cmd = 'sudo lxc-start -P %s -n %s -d' % (self.container_path, self.name)
+        log_addendum = ""
+        if log_dir:
+            log_addendum = "--logpriority=DEBUG --logfile={} --console-log={}".format(
+                    os.path.join(log_dir, 'ssp_logs/debug/lxc-start.log'),
+                    os.path.join(log_dir, 'ssp_logs/debug/lxc-console.log'))
+
+        cmd = 'sudo lxc-start -P %s -n %s -d %s' % (self.container_path,
+                                                    self.name, log_addendum)
         output = utils.run(cmd).stdout
         if not self.is_running():
             raise error.ContainerError(
@@ -361,11 +391,17 @@ class Container(object):
         if wait_for_network:
             logging.debug('Wait for network to be up.')
             start_time = time.time()
-            utils.poll_for_condition(
-                condition=self.is_network_up,
-                timeout=constants.NETWORK_INIT_TIMEOUT,
-                sleep_interval=constants.NETWORK_INIT_CHECK_INTERVAL,
-                desc='network is up')
+            try:
+                utils.poll_for_condition(
+                        condition=self.is_network_up,
+                        timeout=constants.NETWORK_INIT_TIMEOUT,
+                        sleep_interval=constants.NETWORK_INIT_CHECK_INTERVAL,
+                        desc='network is up')
+            except Exception:
+                # Save and upload syslog for network issues debugging.
+                shutil.copy('/var/log/syslog',
+                            os.path.join(log_dir, 'ssp_logs', 'debug'))
+                raise
             logging.debug('Network is up after %.2f seconds.',
                           time.time() - start_time)
 
@@ -517,35 +553,6 @@ class Container(object):
         utils.run('sudo mkdir -p %s'% usr_local_path)
 
         lxc.download_extract(ssp_url, autotest_pkg_path, usr_local_path)
-
-    def install_ssp_isolate(self, isolate_hash, dest_path=None):
-        """Downloads and install the contents of the given isolate.
-        This places the isolate contents under /usr/local or a provided path.
-        Most commonly this is a copy of a specific autotest version, in which
-        case:
-          /usr/local/autotest contains the autotest code
-          /usr/local/logs contains logs from the installation process.
-
-        @param isolate_hash: The hash string which serves as a key to retrieve
-                             the desired isolate
-        @param dest_path: Path to the directory to place the isolate in.
-                          Defaults to /usr/local/
-
-        @return: Exit status of the installation command.
-        """
-        dest_path = dest_path or os.path.join(self.rootfs, 'usr', 'local')
-        isolate_log_path = os.path.join(
-            self.rootfs, 'usr', 'local', 'logs', 'isolate')
-        log_file = os.path.join(isolate_log_path,
-            'contents.' + time.strftime('%Y-%m-%d-%H.%M.%S'))
-
-        utils.run('sudo mkdir -p %s' % isolate_log_path)
-        _command = ("sudo isolated download -isolated {sha} -I {server}"
-                    " -output-dir {dest_dir} -output-files {log_file}")
-
-        return utils.run(_command.format(
-            sha=isolate_hash, dest_dir=dest_path,
-            log_file=log_file, server=ISOLATESERVER))
 
 
     def install_control_file(self, control_file):

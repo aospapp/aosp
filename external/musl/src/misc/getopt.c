@@ -25,7 +25,7 @@ void __getopt_msg(const char *a, const char *b, const char *c, size_t l)
 	FUNLOCK(f);
 }
 
-int getopt(int argc, char * const argv[], const char *optstring)
+int __posix_getopt(int argc, char * const argv[], const char *optstring)
 {
 	int i;
 	wchar_t c, d;
@@ -101,5 +101,3 @@ int getopt(int argc, char * const argv[], const char *optstring)
 	}
 	return c;
 }
-
-weak_alias(getopt, __posix_getopt);

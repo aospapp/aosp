@@ -1,13 +1,12 @@
-#!/usr/bin/python2
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import cellular_logging
 import dbus, os, subprocess, time
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import flimflam_test_path
+from autotest_lib.client.cros.cellular import cellular_logging
 from autotest_lib.client.cros.cellular import modem
 
 log = cellular_logging.SetupCellularLogging('mm_test')

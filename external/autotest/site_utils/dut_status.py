@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -445,7 +445,7 @@ def _parse_command(argv):
                         nargs='*',
                         help='Host names of DUTs to report on')
     parser.add_argument('--web',
-                        help='Master autotest frontend hostname. If no value '
+                        help='Autotest frontend hostname. If no value '
                              'is given, the one in global config will be used.',
                         default=None)
     arguments = parser.parse_args(argv[1:])

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -11,6 +12,16 @@ import array
 from autotest_lib.client.bin import utils
 from autotest_lib.server.cros.bluetooth import bluetooth_adapter_tests
 from autotest_lib.client.common_lib import error
+
+
+# List of the controllers that does not support Adv Monitor HW offloading.
+ADVMON_UNSUPPORTED_CHIPSETS = [
+        'BCM-43540', 'BCM-43560',
+        'Intel-AC7260', 'Intel-AC7265',
+        'MVL-8797', 'MVL-8887', 'MVL-8897', 'MVL-8997',
+        'Realtek-RTL8822C-USB', 'Realtek-RTL8822C-UART', 'Realtek-RTL8852A-USB',
+        'QCA-6174A-3-UART', 'QCA-6174A-5-USB'
+]
 
 
 class TestMonitor():
@@ -32,6 +43,7 @@ class TestMonitor():
         """
         self.type = None
         self.rssi = []
+        self.sampling_period = 256  # unset Sampling Period
         self.patterns = []
         self.monitor_id = None
         self.app_id = app_id
@@ -45,7 +57,7 @@ class TestMonitor():
         @returns: the byte array.
 
         """
-        return [b for b in array.array('B', str_data)]
+        return [b for b in array.array('B', str_data.encode())]
 
 
     def update_type(self, monitor_type):
@@ -64,6 +76,15 @@ class TestMonitor():
 
         """
         self.rssi = monitor_rssi
+
+
+    def update_sampling_period(self, monitor_sampling_period):
+        """Update the sampling period value.
+
+        @param monitor_sampling_period: sampling period value.
+
+        """
+        self.sampling_period = monitor_sampling_period
 
 
     def update_patterns(self, monitor_patterns):
@@ -96,7 +117,7 @@ class TestMonitor():
         @returns: List containing the monitor data.
 
         """
-        return [self.type, self.rssi, self.patterns]
+        return [self.type, self.rssi + [self.sampling_period], self.patterns]
 
 
     def get_monitor_id(self):
@@ -132,6 +153,11 @@ class BluetoothAdapterAdvMonitorTests(
     ADD_MONITOR_POLLING_SLEEP_SECS = 1
     PAIR_TEST_SLEEP_SECS = 5
 
+    # Refer doc/advertisement-monitor-api.txt for more info about unset values.
+    UNSET_RSSI = 127
+    UNSET_TIMEOUT = 0
+    UNSET_SAMPLING_PERIOD = 256
+
     # Non-zero count value is used to indicate the case where multiple
     # DeviceFound/DeviceLost events are expected to occur.
     MULTIPLE_EVENTS = -1
@@ -147,6 +173,12 @@ class BluetoothAdapterAdvMonitorTests(
 
     # Duration of kernel perform 'start discovery', in sec
     DISCOVERY_DURATION = 10.24
+
+    # Acceptable difference between the first RSSI sample and following one.
+    # LOW_RSSI_THRESHOLD_TOLERANCE must be larger than
+    # HIGH_RSSI_THRESHOLD_TOLERANCE
+    HIGH_RSSI_THRESHOLD_TOLERANCE = 20
+    LOW_RSSI_THRESHOLD_TOLERANCE = 40
 
     test_case_log = bluetooth_adapter_tests.test_case_log
     test_retry_and_log = bluetooth_adapter_tests.test_retry_and_log
@@ -286,6 +318,21 @@ class BluetoothAdapterAdvMonitorTests(
                                                               monitor_id,
                                                               event)
 
+    def set_target_devices(self, app_id, monitor_id, devices):
+        """Set the target devices to the given monitor.
+
+        DeviceFound and DeviceLost will only be counted if it is triggered by a
+        target device.
+
+        @param app_id: the app id.
+        @param monitor_id: the monitor id.
+        @param devices: a list of devices in MAC address
+
+        @returns: True on success, False otherwise.
+
+        """
+        return self.bluetooth_facade.advmon_set_target_devices(
+                app_id, monitor_id, devices)
 
     def interleave_logger_start(self):
         """ Start interleave logger recording
@@ -330,6 +377,15 @@ class BluetoothAdapterAdvMonitorTests(
                 logging.warning('More than one cancel events found %s', events)
         return event
 
+    def interleave_scan_get_durations(self):
+        """Get durations of allowlist scan and no filter scan
+
+        @returns: a dict of {'allowlist': allowlist_duration,
+                             'no filter': no_filter_duration},
+                  or None if something went wrong
+        """
+        return self.bluetooth_facade.advmon_interleave_scan_get_durations()
+
     @test_retry_and_log(False)
     def test_supported_types(self):
         """Test supported monitor types.
@@ -361,42 +417,38 @@ class BluetoothAdapterAdvMonitorTests(
 
 
     def test_is_controller_offloading_supported(self):
-        """Check if controller based RSSI filtering is supported.
+        """Check if the controller supports HW offloading.
 
-            By default the LE_SCAN_FILTER_DUP flag is enabled on all platforms.
-            Due to this, the host does not receive as many advertisements during
-            passive scanning, which causes SW based RSSI filtering not to work
-            as intended. So, if the controller offloading is not supported, skip
-            the tests that involves RSSI filtering and raise TEST_NA.
-
-            @raises: TestNA if controller based RSSI filtering is not supported.
+        @raises: TestFail if the controller is expected to support Monitor
+                 Offloading but the support is missing.
 
         """
-        supported_features = self.read_supported_features()
-        if not supported_features:
-            logging.info('Controller offloading not supported')
-            raise error.TestNAError('Controller offloading not supported')
+        chipset = self.bluetooth_facade.get_chipset_name()
+        if chipset in ADVMON_UNSUPPORTED_CHIPSETS:
+            logging.warning('Controller support check skipped for %s', chipset)
+        else:
+            supported_features = self.read_supported_features()
+            if not supported_features:
+                logging.error('Controller support missing on %s', chipset)
+                raise error.TestFail('Controller offloading not supported')
+            logging.info('Controller offloading supported on %s', chipset)
 
 
-    def test_is_adv_monitoring_supported(self, require_rssi_filtering = False):
+    def test_is_adv_monitoring_supported(self):
         """Check if Adv Monitor API is supported.
 
             If AdvMonitor API is not supported by the platform,
             AdvertisementMonitorManager1 interface won't be exposed by
             bluetoothd. In such case, skip the test and raise TestNA.
 
-            @param require_rssi_filtering: True if test requires RSSI filtering.
-
-            @raises: TestNA if Adv Monitor API is not supported or if controller
-                     based RSSI filtering is not supported.
+            @raises: TestNA if Adv Monitor API is not supported.
 
         """
         if not self.advmon_check_manager_interface_exist():
             logging.info('Advertisement Monitor API not supported')
             raise error.TestNAError('Advertisement Monitor API not supported')
 
-        if require_rssi_filtering:
-            self.test_is_controller_offloading_supported()
+        self.test_is_controller_offloading_supported()
 
 
     @test_retry_and_log(False)
@@ -543,7 +595,17 @@ class BluetoothAdapterAdvMonitorTests(
         checked_count = self.get_event_count(app_id, monitor_id, 'DeviceFound')
 
         if count == self.MULTIPLE_EVENTS:
+            self.results = {
+                    'Found events': checked_count,
+                    'Expected events': 'multiple'
+            }
+
             return checked_count > 0
+
+        self.results = {
+                'Found events': checked_count,
+                'Expected events': count
+        }
 
         return checked_count == count
 
@@ -570,7 +632,17 @@ class BluetoothAdapterAdvMonitorTests(
         checked_count = self.get_event_count(app_id, monitor_id, 'DeviceLost')
 
         if count == self.MULTIPLE_EVENTS:
+            self.results = {
+                    'Found events': checked_count,
+                    'Expected events': 'multiple'
+            }
+
             return checked_count > 1
+
+        self.results = {
+                'Found events': checked_count,
+                'Expected events': count
+        }
 
         return checked_count == count
 
@@ -622,6 +694,17 @@ class BluetoothAdapterAdvMonitorTests(
             self.remove_monitor(app_id, monitor_id)
             monitor.update_monitor_id(None)
 
+        # Set the target devices so that AdvMon ignores Adv from other devices
+        target_devices = []
+
+        if hasattr(self, 'peer_mouse'):
+            target_devices.append(self.peer_mouse.address)
+
+        if hasattr(self, 'peer_keybd'):
+            target_devices.append(self.peer_keybd.address)
+
+        self.set_target_devices(app_id, monitor_id, target_devices)
+
         self.results = {
                 'activated': checked_activate,
                 'released': checked_release
@@ -662,6 +745,9 @@ class BluetoothAdapterAdvMonitorTests(
         self.peer_keybd = None
         self.peer_mouse = None
 
+        self.LOW_RSSI = None
+        self.HIGH_RSSI = None
+
         for device_type, device_list in self.devices.items():
             for device in device_list:
                 if device_type is 'BLE_KEYBOARD':
@@ -669,15 +755,27 @@ class BluetoothAdapterAdvMonitorTests(
                 elif device_type is 'BLE_MOUSE':
                     self.peer_mouse = device
 
-        if self.peer_keybd is not None and self.peer_mouse is not None:
-            self.test_stop_peer_device_adv(self.peer_keybd)
-            self.test_stop_peer_device_adv(self.peer_mouse)
+        if self.peer_keybd is None or self.peer_mouse is None:
+            raise error.TestNAError('some peer device is not found')
 
-        self.results = {
-                'keybd': self.peer_keybd is not None,
-                'mouse': self.peer_mouse is not None
-        }
-        return all(self.results.values())
+        # Setup default RSSI threshold based on real RSSI range
+        keybd_rssi = self.get_device_sample_rssi(self.peer_keybd)
+        mouse_rssi = self.get_device_sample_rssi(self.peer_mouse)
+
+        if mouse_rssi is None or keybd_rssi is None:
+            raise error.TestNAError('failed to examine peer RSSI')
+
+        min_rssi = min(mouse_rssi, keybd_rssi)
+
+        # Make RSSI threshold tolerable.
+        self.HIGH_RSSI = max(min_rssi - self.HIGH_RSSI_THRESHOLD_TOLERANCE,
+                             -126)
+        self.LOW_RSSI = max(min_rssi - self.LOW_RSSI_THRESHOLD_TOLERANCE, -127)
+
+        self.test_stop_peer_device_adv(self.peer_keybd)
+        self.test_stop_peer_device_adv(self.peer_mouse)
+
+        return True
 
 
     @test_retry_and_log(False)
@@ -728,7 +826,7 @@ class BluetoothAdapterAdvMonitorTests(
 
         """
 
-        actual_cycle = len(records) / len(durations.keys())
+        actual_cycle = len(records) // len(list(durations.keys()))
         offset = self.INTERLEAVE_SCAN_CYCLE_NUM_TOLERANCE
         expect_cycle_lowerbound = max(1, expect_cycles - offset)
         expect_cycle_upperbound = expect_cycles + offset
@@ -835,12 +933,14 @@ class BluetoothAdapterAdvMonitorTests(
 
         """
 
-        # TODO(b/171844106): get this parameters via
-        #                    MGMT_OP_READ_DEF_SYSTEM_CONFIG
-        durations = {'allowlist': 300, 'no filter': 500}
+        durations = self.interleave_scan_get_durations()
+        if durations is None:
+            raise error.TestFail(
+                    'Unexpected error: failed to get interleave durations')
 
         # Change the unit from msec to second for future convenience.
         durations = {key: value * 0.001 for key, value in durations.items()}
+
         return durations
 
     @test_retry_and_log(False)
@@ -875,7 +975,7 @@ class BluetoothAdapterAdvMonitorTests(
         return all(self.results.values())
 
     @test_retry_and_log(False)
-    def test_interleaving_suspend_resume(self):
+    def test_interleaving_suspend_resume(self, expect_true):
         """ Test for checking if kernel paused interleave scan during system
             suspended.
 
@@ -904,15 +1004,19 @@ class BluetoothAdapterAdvMonitorTests(
         logging.debug(records)
         logging.debug(cancel_event)
 
-        # Currently resume time is not very reliable. It is likely the actual
-        # time in sleeping is less than expect_suspend_time.
-        # Check the interleave scan paused for at least one cycle long instead.
-        self.results = self.check_records_paused(records, cancel_event,
-                                                 interleave_period, True)
+        if not expect_true:
+            self.results = {'No records': len(records) == 0}
+        else:
+            # Currently resume time is not very reliable. It is likely the
+            # actual time in sleeping is less than expect_suspend_time.
+            # Check the interleave scan paused for at least one cycle long
+            # instead.
+            self.results = self.check_records_paused(records, cancel_event,
+                                                     interleave_period, True)
         return all(self.results.values())
 
     @test_retry_and_log(False)
-    def test_interleaving_active_scan_cycle(self):
+    def test_interleaving_active_scan_cycle(self, expect_true):
         """ Test for checking if kernel paused interleave scan during active
             scan.
 
@@ -936,12 +1040,15 @@ class BluetoothAdapterAdvMonitorTests(
         logging.debug(records)
         logging.debug(cancel_event)
 
-        # BlueZ pauses discovery for every DISCOVERY_DURATION then restarts it
-        # 5 seconds later. Interleave scan also get restarted during the paused
-        # time.
-        self.results = self.check_records_paused(records, cancel_event,
-                                                 self.DISCOVERY_DURATION,
-                                                 False)
+        if not expect_true:
+            self.results = {'No records': len(records) == 0}
+        else:
+            # BlueZ pauses discovery for every DISCOVERY_DURATION then restarts
+            # it 5 seconds later. Interleave scan also get restarted during the
+            # paused time.
+            self.results = self.check_records_paused(records, cancel_event,
+                                                     self.DISCOVERY_DURATION,
+                                                     False)
         self.test_stop_discovery()
         return all(self.results.values())
 
@@ -1043,12 +1150,6 @@ class BluetoothAdapterAdvMonitorTests(
         self.test_add_monitor(monitor1, expected_release=True)
 
         # Incorrect rssi parameters, release should get called.
-        monitor2.update_rssi([-40, 0, -60, 10])
-        self.test_add_monitor(monitor2, expected_release=True)
-
-        monitor2.update_rssi([-40, 10, -60, 0])
-        self.test_add_monitor(monitor2, expected_release=True)
-
         monitor2.update_rssi([40, 10, -60, 10])
         self.test_add_monitor(monitor2, expected_release=True)
 
@@ -1064,8 +1165,57 @@ class BluetoothAdapterAdvMonitorTests(
         monitor2.update_rssi([-60, 10, -40, 10])
         self.test_add_monitor(monitor2, expected_release=True)
 
-        # Unset the rssi filter parameters.
-        monitor2.update_rssi([127, 0, 127, 0])
+        # Correct rssi parameters, activate should get called.
+        monitor2.update_rssi([self.UNSET_RSSI, 10, -60, 10])
+        self.test_add_monitor(monitor2, expected_activate=True)
+        self.test_remove_monitor(monitor2)
+
+        monitor2.update_rssi([-40, self.UNSET_TIMEOUT, -60, 10])
+        self.test_add_monitor(monitor2, expected_activate=True)
+        self.test_remove_monitor(monitor2)
+
+        monitor2.update_rssi([-40, 10, self.UNSET_RSSI, 10])
+        self.test_add_monitor(monitor2, expected_activate=True)
+        self.test_remove_monitor(monitor2)
+
+        monitor2.update_rssi([-40, 10, -60, self.UNSET_TIMEOUT])
+        self.test_add_monitor(monitor2, expected_activate=True)
+        self.test_remove_monitor(monitor2)
+
+        # Incorrect sampling period, release should get called.
+        monitor2.update_sampling_period(257)
+        self.test_add_monitor(monitor2, expected_release=True)
+
+        # Partial RSSI filter and sampling period, activate should get called.
+        monitor2.update_rssi([-40, 10, self.UNSET_RSSI, self.UNSET_TIMEOUT])
+        monitor2.update_sampling_period(self.UNSET_SAMPLING_PERIOD)
+        self.test_add_monitor(monitor2, expected_activate=True)
+        self.test_remove_monitor(monitor2)
+
+        monitor2.update_rssi([-40, 10, self.UNSET_RSSI, self.UNSET_TIMEOUT])
+        monitor2.update_sampling_period(5)
+        self.test_add_monitor(monitor2, expected_activate=True)
+        self.test_remove_monitor(monitor2)
+
+        monitor2.update_rssi([self.UNSET_RSSI, self.UNSET_TIMEOUT, -60, 10])
+        monitor2.update_sampling_period(self.UNSET_SAMPLING_PERIOD)
+        self.test_add_monitor(monitor2, expected_activate=True)
+        self.test_remove_monitor(monitor2)
+
+        monitor2.update_rssi([self.UNSET_RSSI, self.UNSET_TIMEOUT, -60, 10])
+        monitor2.update_sampling_period(10)
+        self.test_add_monitor(monitor2, expected_activate=True)
+        self.test_remove_monitor(monitor2)
+
+        monitor2.update_rssi([
+                self.UNSET_RSSI,
+                self.UNSET_TIMEOUT,
+                self.UNSET_RSSI,
+                self.UNSET_TIMEOUT
+        ])
+        monitor2.update_sampling_period(self.UNSET_SAMPLING_PERIOD)
+        self.test_add_monitor(monitor2, expected_activate=True)
+        self.test_remove_monitor(monitor2)
 
         # Incorrect pattern parameters, release should get called.
         monitor2.update_patterns([
@@ -1122,118 +1272,14 @@ class BluetoothAdapterAdvMonitorTests(
         self.test_exit_app(app1)
 
 
-    def advmon_test_pattern_filter_only(self):
-        """Test case: PATTERN_FILTER_ONLY
+    def advmon_test_pattern_filter(self):
+        """Test case: PATTERN_FILTER
 
         Verify matching of advertisements w.r.t. various pattern values and
         different AD Data Types - Local Name Service UUID and Device Type.
-        Test working of patterns filter matching with multiple clients,
-        multiple monitors and suspend/resume, without RSSI filtering.
 
         """
         self.test_is_adv_monitoring_supported()
-        self.test_setup_peer_devices()
-
-        # Create two test app instances.
-        app1 = self.create_app()
-        app2 = self.create_app()
-
-        # Register both apps, should not fail.
-        self.test_register_app(app1)
-        self.test_register_app(app2)
-
-        # Add monitors in both apps.
-        monitor1 = TestMonitor(app1)
-        monitor1.update_type('or_patterns')
-        monitor1.update_patterns([
-                [5, 0x09, '_REF'],
-        ])
-        monitor1.update_rssi([127, 0, 127, 0])
-
-        monitor2 = TestMonitor(app1)
-        monitor2.update_type('or_patterns')
-        monitor2.update_patterns([
-                [0, 0x03, [0x12, 0x18]],
-        ])
-        monitor2.update_rssi([127, 0, 127, 0])
-
-        monitor3 = TestMonitor(app2)
-        monitor3.update_type('or_patterns')
-        monitor3.update_patterns([
-                [0, 0x19, [0xc1, 0x03]],
-                [0, 0x09, 'MOUSE'],
-        ])
-        monitor3.update_rssi([127, 0, 127, 0])
-
-        monitor4 = TestMonitor(app2)
-        monitor4.update_type('or_patterns')
-        monitor4.update_patterns([
-                [0, 0x19, [0xc1, 0x03]],
-                [0, 0x19, [0xc3, 0x03]],
-        ])
-        monitor4.update_rssi([127, 0, 127, 0])
-
-        # Activate should get invoked.
-        self.test_add_monitor(monitor1, expected_activate=True)
-        self.test_add_monitor(monitor2, expected_activate=True)
-        self.test_add_monitor(monitor3, expected_activate=True)
-        self.test_add_monitor(monitor4, expected_activate=True)
-
-        # DeviceFound for mouse should get triggered only for monitors
-        # matching the adv pattern filter.
-        self.test_start_peer_device_adv(self.peer_mouse, duration=5)
-        self.test_device_found(monitor1, count=self.MULTIPLE_EVENTS)
-        self.test_device_found(monitor2, count=self.MULTIPLE_EVENTS)
-        self.test_device_found(monitor3, count=self.MULTIPLE_EVENTS)
-        # Device type 0xc203 should not match.
-        self.test_device_found(monitor4, count=0)
-        self.test_stop_peer_device_adv(self.peer_mouse)
-
-        # Initiate suspend/resume.
-        self.suspend_resume()
-
-        # Remove a monitor from one app, shouldn't affect working of other
-        # monitors or apps.
-        self.test_remove_monitor(monitor1)
-
-        # Reset event counts before next test.
-        self.test_reset_event_count(monitor2)
-        self.test_reset_event_count(monitor3)
-
-        # DeviceFound for mouse should get triggered again for monitors
-        # matching the adv pattern filter.
-        self.test_start_peer_device_adv(self.peer_mouse, duration=5)
-        self.test_device_found(monitor2, count=self.MULTIPLE_EVENTS)
-        self.test_device_found(monitor3, count=self.MULTIPLE_EVENTS)
-        self.test_stop_peer_device_adv(self.peer_mouse)
-
-        # Terminate an app, shouldn't affect working of monitors in other apps.
-        self.test_exit_app(app1)
-
-        # Reset event counts before next test.
-        self.test_reset_event_count(monitor3)
-
-        # DeviceFound should get triggered for keyboard.
-        self.test_start_peer_device_adv(self.peer_keybd, duration=5)
-        self.test_device_found(monitor3, count=self.MULTIPLE_EVENTS)
-        self.test_device_found(monitor4, count=self.MULTIPLE_EVENTS)
-        self.test_stop_peer_device_adv(self.peer_keybd)
-
-        # Unregister the running app, should not fail.
-        self.test_unregister_app(app2)
-
-        # Terminate the running test app instance.
-        self.test_exit_app(app2)
-
-
-    def advmon_test_pattern_filter_1(self):
-        """Test case: PATTERN_FILTER_1
-
-        Verify matching of advertisements w.r.t. various pattern values and
-        different AD Data Types - Local Name Service UUID and Device Type.
-
-        """
-        self.test_is_adv_monitoring_supported(require_rssi_filtering = True)
         self.test_setup_peer_devices()
 
         # Create a test app instance.
@@ -1241,7 +1287,7 @@ class BluetoothAdapterAdvMonitorTests(
 
         monitor1 = TestMonitor(app1)
         monitor1.update_type('or_patterns')
-        monitor1.update_rssi([-60, 3, -80, 3])
+        monitor1.update_rssi([self.HIGH_RSSI, 3, self.LOW_RSSI, 3])
 
         # Register the app, should not fail.
         self.test_register_app(app1)
@@ -1323,13 +1369,13 @@ class BluetoothAdapterAdvMonitorTests(
         self.test_exit_app(app1)
 
 
-    def advmon_test_rssi_filter_1(self):
-        """Test case: RSSI_FILTER_1
+    def advmon_test_rssi_filter_range(self):
+        """Test case: RSSI_FILTER_RANGE
 
         Verify unset RSSI filter and filter with no matching RSSI values.
 
         """
-        self.test_is_adv_monitoring_supported(require_rssi_filtering = True)
+        self.test_is_adv_monitoring_supported()
         self.test_setup_peer_devices()
 
         # Create a test app instance.
@@ -1344,7 +1390,12 @@ class BluetoothAdapterAdvMonitorTests(
         # Register the app, should not fail.
         self.test_register_app(app1)
 
-        monitor1.update_rssi([127, 0, 127, 0])
+        monitor1.update_rssi([
+                self.UNSET_RSSI,
+                self.UNSET_TIMEOUT,
+                self.UNSET_RSSI,
+                self.UNSET_TIMEOUT
+        ])
         self.test_add_monitor(monitor1, expected_activate=True)
 
         # Unset RSSI filter, adv should match multiple times.
@@ -1377,13 +1428,13 @@ class BluetoothAdapterAdvMonitorTests(
         self.test_exit_app(app1)
 
 
-    def advmon_test_rssi_filter_2(self):
-        """Test case: RSSI_FILTER_2
+    def advmon_test_rssi_filter_multi_peers(self):
+        """Test case: RSSI_FILTER_MULTI_PEERS
 
         Verify RSSI filter matching with multiple peer devices.
 
         """
-        self.test_is_adv_monitoring_supported(require_rssi_filtering = True)
+        self.test_is_adv_monitoring_supported()
         self.test_setup_peer_devices()
 
         # Create a test app instance.
@@ -1398,7 +1449,9 @@ class BluetoothAdapterAdvMonitorTests(
         # Register the app, should not fail.
         self.test_register_app(app1)
 
-        monitor1.update_rssi([-60, 3, -80, 3])
+        monitor1.update_rssi([
+                self.HIGH_RSSI, self.UNSET_TIMEOUT, self.LOW_RSSI, 3,
+        ])
         self.test_add_monitor(monitor1, expected_activate=True)
 
         # DeviceFound should get triggered only once per device.
@@ -1419,22 +1472,6 @@ class BluetoothAdapterAdvMonitorTests(
 
         self.test_remove_monitor(monitor1)
 
-        monitor1.update_rssi([-60, 10, -80, 10])
-        self.test_add_monitor(monitor1, expected_activate=True)
-
-        # Device was online for short period of time, so DeviceFound should
-        # not get triggered.
-        self.test_start_peer_device_adv(self.peer_keybd, duration=5)
-        self.test_device_found(monitor1, count=0)
-
-        # Device did not come back online, DeviceFound should not get triggered.
-        # No device was found earlier, so DeviceLost should not get triggered.
-        self.test_stop_peer_device_adv(self.peer_keybd, duration=15)
-        self.test_device_found(monitor1, count=0)
-        self.test_device_lost(monitor1, count=0)
-
-        self.test_remove_monitor(monitor1)
-
         # Unregister the app, should not fail.
         self.test_unregister_app(app1)
 
@@ -1442,13 +1479,13 @@ class BluetoothAdapterAdvMonitorTests(
         self.test_exit_app(app1)
 
 
-    def advmon_test_rssi_filter_3(self):
-        """Test case: RSSI_FILTER_3
+    def advmon_test_rssi_filter_reset(self):
+        """Test case: RSSI_FILTER_RESET
 
         Verify reset of RSSI timers based on advertisements.
 
         """
-        self.test_is_adv_monitoring_supported(require_rssi_filtering = True)
+        self.test_is_adv_monitoring_supported()
         self.test_setup_peer_devices()
 
         # Create a test app instance.
@@ -1463,25 +1500,14 @@ class BluetoothAdapterAdvMonitorTests(
         # Register the app, should not fail.
         self.test_register_app(app1)
 
-        monitor1.update_rssi([-60, 10, -80, 10])
+        monitor1.update_rssi([
+                self.HIGH_RSSI, self.UNSET_TIMEOUT, self.LOW_RSSI, 10,
+        ])
         self.test_add_monitor(monitor1, expected_activate=True)
 
-        # DeviceFound should not get triggered before timeout.
+        # DeviceFound should get triggered once the peer starts advertising.
         self.test_start_peer_device_adv(self.peer_keybd, duration=5)
-        self.test_device_found(monitor1, count=0)
-
-        # DeviceFound should not get triggered as device went offline.
-        # No device was found earlier, so DeviceLost should not get triggered.
-        self.test_stop_peer_device_adv(self.peer_keybd, duration=10)
-        self.test_device_found(monitor1, count=0)
-        self.test_device_lost(monitor1, count=0)
-
-        # Timer should get reset, so DeviceFound should not get triggered.
-        self.test_start_peer_device_adv(self.peer_keybd, duration=5)
-        self.test_device_found(monitor1, count=0)
-
-        # DeviceFound should get triggered once timer completes.
-        self.test_device_found(monitor1, count=1, delay=10)
+        self.test_device_found(monitor1, count=1)
 
         # DeviceLost should not get triggered before timeout.
         self.test_stop_peer_device_adv(self.peer_keybd, duration=5)
@@ -1516,7 +1542,7 @@ class BluetoothAdapterAdvMonitorTests(
         clients and multiple monitors.
 
         """
-        self.test_is_adv_monitoring_supported(require_rssi_filtering = True)
+        self.test_is_adv_monitoring_supported()
         self.test_setup_peer_devices()
 
         # Create two test app instances.
@@ -1534,7 +1560,9 @@ class BluetoothAdapterAdvMonitorTests(
                 [0, 0x03, [0x12, 0x18]],
                 [0, 0x19, [0xc1, 0x03]],
         ])
-        monitor1.update_rssi([-60, 3, -80, 3])
+        monitor1.update_rssi([
+                self.HIGH_RSSI, self.UNSET_TIMEOUT, self.LOW_RSSI, 3,
+        ])
 
         monitor2 = TestMonitor(app2)
         monitor2.update_type('or_patterns')
@@ -1542,7 +1570,9 @@ class BluetoothAdapterAdvMonitorTests(
                 [0, 0x03, [0x12, 0x18]],
                 [0, 0x19, [0xc1, 0x03]],
         ])
-        monitor2.update_rssi([-60, 3, -80, 3])
+        monitor2.update_rssi([
+                self.HIGH_RSSI, self.UNSET_TIMEOUT, self.LOW_RSSI, 3,
+        ])
 
         # Activate should get invoked.
         self.test_add_monitor(monitor1, expected_activate=True)
@@ -1563,14 +1593,18 @@ class BluetoothAdapterAdvMonitorTests(
         monitor3.update_patterns([
                 [0, 0x19, [0xc2, 0x03]],
         ])
-        monitor3.update_rssi([-60, 3, -80, 3])
+        monitor3.update_rssi([
+                self.HIGH_RSSI, self.UNSET_TIMEOUT, self.LOW_RSSI, 3,
+        ])
 
         monitor4 = TestMonitor(app2)
         monitor4.update_type('or_patterns')
         monitor4.update_patterns([
                 [0, 0x19, [0xc2, 0x03]],
         ])
-        monitor4.update_rssi([-60, 10, -80, 10])
+        monitor4.update_rssi([
+                self.HIGH_RSSI, self.UNSET_TIMEOUT, self.LOW_RSSI, 10,
+        ])
 
         # Activate should get invoked.
         self.test_add_monitor(monitor3, expected_activate=True)
@@ -1580,11 +1614,7 @@ class BluetoothAdapterAdvMonitorTests(
         self.test_start_peer_device_adv(self.peer_mouse, duration=5)
         self.test_device_found(monitor2, count=2)
         self.test_device_found(monitor3, count=1)
-
-        # Since the RSSI timeouts are different for monitor4, DeviceFound
-        # event should get triggered after total of 10 seconds.
-        self.test_device_found(monitor4, count=0)
-        self.test_device_found(monitor4, count=1, delay=5)
+        self.test_device_found(monitor4, count=1)
         self.test_stop_peer_device_adv(self.peer_mouse)
 
         # Unregister both apps, should not fail.
@@ -1614,7 +1644,9 @@ class BluetoothAdapterAdvMonitorTests(
         monitor1.update_patterns([
                 [0, 0x03, [0x12, 0x18]],
         ])
-        monitor1.update_rssi([127, 0, 127, 0])
+        monitor1.update_rssi([
+                self.HIGH_RSSI, self.UNSET_TIMEOUT, self.LOW_RSSI, 3,
+        ])
 
         # Register the app, should not fail.
         self.test_register_app(app1)
@@ -1636,7 +1668,7 @@ class BluetoothAdapterAdvMonitorTests(
         self.test_reset_event_count(monitor1)
         self.test_start_peer_device_adv(self.peer_keybd, duration=5)
         self.test_device_found(monitor1, count=self.MULTIPLE_EVENTS)
-        self.test_stop_peer_device_adv(self.peer_keybd)
+        self.test_stop_peer_device_adv(self.peer_keybd, duration=5)
 
         # Start foreground scanning.
         self.test_start_discovery()
@@ -1657,7 +1689,7 @@ class BluetoothAdapterAdvMonitorTests(
         self.test_reset_event_count(monitor1)
         self.test_start_peer_device_adv(self.peer_keybd, duration=10)
         self.test_device_found(monitor1, count=self.MULTIPLE_EVENTS)
-        self.test_stop_peer_device_adv(self.peer_keybd)
+        self.test_stop_peer_device_adv(self.peer_keybd, duration=5)
 
         # Stop foreground scanning.
         self.test_stop_discovery()
@@ -1690,7 +1722,7 @@ class BluetoothAdapterAdvMonitorTests(
         Verify working of background scanning with suspend/resume.
 
         """
-        self.test_is_adv_monitoring_supported(require_rssi_filtering = True)
+        self.test_is_adv_monitoring_supported()
         self.test_setup_peer_devices()
 
         # Create two test app instances.
@@ -1705,22 +1737,30 @@ class BluetoothAdapterAdvMonitorTests(
         monitor1 = TestMonitor(app1)
         monitor1.update_type('or_patterns')
         monitor1.update_patterns([ [0, 0x03, [0x12, 0x18]], ])
-        monitor1.update_rssi([-60, 3, -80, 3])
+        monitor1.update_rssi([
+                self.HIGH_RSSI, self.UNSET_TIMEOUT, self.LOW_RSSI, 3,
+        ])
 
         monitor2 = TestMonitor(app1)
         monitor2.update_type('or_patterns')
         monitor2.update_patterns([ [0, 0x19, [0xc2, 0x03]], ])
-        monitor2.update_rssi([-60, 10, -80, 10])
+        monitor2.update_rssi([
+                self.HIGH_RSSI, self.UNSET_TIMEOUT, self.LOW_RSSI, 10,
+        ])
 
         monitor3 = TestMonitor(app2)
         monitor3.update_type('or_patterns')
         monitor3.update_patterns([ [0, 0x03, [0x12, 0x18]], ])
-        monitor3.update_rssi([-60, 3, -80, 3])
+        monitor3.update_rssi([
+                self.HIGH_RSSI, self.UNSET_TIMEOUT, self.LOW_RSSI, 3,
+        ])
 
         monitor4 = TestMonitor(app2)
         monitor4.update_type('or_patterns')
-        monitor4.update_patterns([ [0, 0x19, [0xc2, 0x03]], ])
-        monitor4.update_rssi([-60, 15, -80, 15])
+        monitor4.update_patterns([ [0, 0x19, [0xc1, 0x03]], ])
+        monitor4.update_rssi([
+                self.HIGH_RSSI, self.UNSET_TIMEOUT, self.LOW_RSSI, 15,
+        ])
 
         # Activate should get invoked.
         self.test_add_monitor(monitor1, expected_activate=True)
@@ -1728,32 +1768,40 @@ class BluetoothAdapterAdvMonitorTests(
         self.test_add_monitor(monitor3, expected_activate=True)
         self.test_add_monitor(monitor4, expected_activate=True)
 
-        # DeviceFound for mouse should get triggered only for monitors
-        # satisfying the RSSI timers.
+        # DeviceFound for mouse should get triggered only for matched monitors
         self.test_start_peer_device_adv(self.peer_mouse, duration=5)
         self.test_device_found(monitor1, count=1)
-        self.test_device_found(monitor2, count=0)
+        self.test_device_found(monitor2, count=1)
         self.test_device_found(monitor3, count=1)
         self.test_device_found(monitor4, count=0)
 
         # Initiate suspend/resume.
         self.suspend_resume()
 
+        # DeviceLost should get triggered for tracked devices on resume.
+        self.test_device_lost(monitor1, count=1)
+        self.test_device_lost(monitor2, count=1)
+        self.test_device_lost(monitor3, count=1)
+        self.test_device_lost(monitor4, count=0)
+
+        # DeviceFound should get triggered again for matched monitors on resume.
+        self.test_device_found(monitor1, count=2)
+        self.test_device_found(monitor2, count=2)
+        self.test_device_found(monitor3, count=2)
+        self.test_device_found(monitor4, count=0)
+        self.test_stop_peer_device_adv(self.peer_mouse)
+
         # Remove a monitor from one app, shouldn't affect working of other
         # monitors or apps.
         self.test_remove_monitor(monitor1)
-
-        # DeviceFound should get triggered for monitors with higher RSSI timers.
-        self.test_device_found(monitor2, count=1, delay=10)
-        self.test_device_found(monitor4, count=1, delay=5)
-        self.test_stop_peer_device_adv(self.peer_mouse)
 
         # Terminate an app, shouldn't affect working of monitors in other apps.
         self.test_exit_app(app1)
 
         # DeviceFound should get triggered for keyboard.
         self.test_start_peer_device_adv(self.peer_keybd, duration=5)
-        self.test_device_found(monitor3, count=2)
+        self.test_device_found(monitor3, count=3)
+        self.test_device_found(monitor4, count=1)
         self.test_stop_peer_device_adv(self.peer_keybd)
 
         # Unregister the running app, should not fail.
@@ -1771,6 +1819,15 @@ class BluetoothAdapterAdvMonitorTests(
         # cycles to collect logs for tests expect no interleave scan
         EXPECT_FALSE_TEST_CYCLE = 3
 
+        supported_features = self.read_supported_features()
+
+        if 'controller-patterns' in supported_features:
+            # For device supporting hardware filtering, software interleave
+            # scan shall not be used.
+            sw_interleave_scan = False
+        else:
+            sw_interleave_scan = True
+
         # Create a test app instance.
         app1 = self.create_app()
 
@@ -1779,7 +1836,12 @@ class BluetoothAdapterAdvMonitorTests(
         monitor1.update_patterns([
                 [0, 0x03, [0x12, 0x18]],
         ])
-        monitor1.update_rssi([127, 0, 127, 0])
+        monitor1.update_rssi([
+                self.UNSET_RSSI,
+                self.UNSET_TIMEOUT,
+                self.UNSET_RSSI,
+                self.UNSET_TIMEOUT
+        ])
 
         # Register the app, should not fail.
         self.test_register_app(app1)
@@ -1814,18 +1876,18 @@ class BluetoothAdapterAdvMonitorTests(
         device.AdapterPowerOff()
         # Make sure the peer is disconnected
         self.test_device_is_not_connected(device.address)
-        self.test_interleaving_state(True)
+        self.test_interleaving_state(sw_interleave_scan)
 
         # Interleaving with allowlist should get paused during active scan
-        self.test_interleaving_active_scan_cycle()
+        self.test_interleaving_active_scan_cycle(sw_interleave_scan)
 
         # Interleaving with allowlist should get resumed after stopping scan
-        self.test_interleaving_state(True)
+        self.test_interleaving_state(sw_interleave_scan)
 
         # Interleaving with allowlist should get paused during system suspend,
         # get resumed after system awake
-        self.test_interleaving_suspend_resume()
-        self.test_interleaving_state(True)
+        self.test_interleaving_suspend_resume(sw_interleave_scan)
+        self.test_interleaving_state(sw_interleave_scan)
 
         self.test_remove_monitor(monitor1)
         self.test_interleaving_state(False, cycles=EXPECT_FALSE_TEST_CYCLE)
@@ -1835,3 +1897,5 @@ class BluetoothAdapterAdvMonitorTests(
 
         # Terminate the test app instance.
         self.test_exit_app(app1)
+
+        device.AdapterPowerOn()

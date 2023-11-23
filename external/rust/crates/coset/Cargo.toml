@@ -12,13 +12,21 @@
 [package]
 edition = "2018"
 name = "coset"
-version = "0.3.1"
-authors = ["David Drysdale <drysdale@google.com>", "Paul Crowley <paulcrowley@google.com>"]
+version = "0.3.4"
+authors = [
+    "David Drysdale <drysdale@google.com>",
+    "Paul Crowley <paulcrowley@google.com>",
+]
 description = "Set of types for supporting COSE"
-keywords = ["cryptography", "cose"]
+readme = "README.md"
+keywords = [
+    "cryptography",
+    "cose",
+]
 categories = ["cryptography"]
 license = "Apache-2.0"
 repository = "https://github.com/google/coset"
+
 [dependencies.ciborium]
 version = "^0.2.0"
 default-features = false
@@ -26,5 +34,10 @@ default-features = false
 [dependencies.ciborium-io]
 version = "^0.2.0"
 features = ["alloc"]
+
 [dev-dependencies.hex]
 version = "^0.4.2"
+
+[features]
+default = []
+std = []

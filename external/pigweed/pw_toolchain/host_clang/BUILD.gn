@@ -106,6 +106,15 @@ config("xcode_sysroot") {
   }
 }
 
+config("linux_sysroot") {
+  if (current_os == "linux") {
+    cflags = [ "--sysroot=" +
+               rebase_path(pw_env_setup_CIPD_PIGWEED, root_build_dir) +
+               "/clang_sysroot/" ]
+    ldflags = cflags
+  }
+}
+
 # The CIPD provided Clang/LLVM toolchain must link against the matched
 # libc++ which is also from CIPD. However, by default, Clang on Mac (but
 # not on Linux) will fall back to the system libc++, which is
@@ -114,7 +123,7 @@ config("xcode_sysroot") {
 # Pull the appropriate paths from our Pigweed env setup.
 config("no_system_libcpp") {
   if (current_os == "mac") {
-    install_dir = dir_cipd_pigweed
+    install_dir = pw_env_setup_CIPD_PIGWEED
     assert(install_dir != "",
            "You forgot to activate the Pigweed environment; " +
                "did you source pw_env_setup/setup.sh?")
@@ -123,7 +132,7 @@ config("no_system_libcpp") {
       "-nostdlib++",
 
       # Use the libc++ from CIPD.
-      dir_cipd_pigweed + "/lib/libc++.a",
+      rebase_path(pw_env_setup_CIPD_PIGWEED + "/lib/libc++.a", root_build_dir),
     ]
   }
 }

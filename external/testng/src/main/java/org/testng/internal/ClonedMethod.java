@@ -146,7 +146,7 @@ public class ClonedMethod implements ITestNGMethod {
 
   @Override
   public Class getRealClass() {
-    return m_javaMethod.getClass();
+    return m_javaMethod.getDeclaringClass();
   }
 
   @Override

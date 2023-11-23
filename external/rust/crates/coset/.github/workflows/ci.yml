@@ -28,6 +28,7 @@ jobs:
           components: rustfmt
           override: true
       - run: cargo build --release --workspace
+      - run: cargo build --release --workspace --features=std
 
   test:
     runs-on: ubuntu-latest
@@ -48,6 +49,28 @@ jobs:
           components: rustfmt
           override: true
       - run: cargo test --workspace -- --nocapture
+      - run: cargo test --workspace --features=std -- --nocapture
+
+  examples:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - stable
+          - beta
+          - nightly-2022-01-01
+    steps:
+      - uses: actions/checkout@629c2de402a417ea7690ca6ce3f33229e27606a5 # v2
+        with:
+          submodules: true
+      - uses: actions-rs/toolchain@63eb9591781c46a70274cb3ebdf190fce92702e8 # v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt
+          override: true
+      - run: cargo test --examples
+      - run: cargo test --features=std --examples
 
   no_std:
     name: Build for a no_std target
@@ -87,6 +110,7 @@ jobs:
           components: rustfmt
           override: true
       - run: rustc --version
+      - run: cargo build --release --workspace
       - run: cargo build --release --workspace --all-features
 
   formatting:
@@ -94,7 +118,7 @@ jobs:
     steps:
       - uses: actions/checkout@629c2de402a417ea7690ca6ce3f33229e27606a5 # v2
       - uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2
-      - run: go get github.com/campoy/embedmd
+      - run: go install github.com/campoy/embedmd@97c13d6
       - uses: actions/setup-ruby@b007fae6f1ffbe3a51c00a6df6f5ff01184d5340 # v1
       - run: gem install mdl
       - uses: actions-rs/toolchain@63eb9591781c46a70274cb3ebdf190fce92702e8 # v1
@@ -175,6 +199,7 @@ jobs:
       - uses: actions-rs/install@69ec87709ffb5b19a7b5ddbf610cb221498bb1eb # v0.1.2
         with:
           crate: cargo-tarpaulin
+          version: 0.20.1
           use-tool-cache: true
       - run: cargo tarpaulin --verbose --ignore-tests --all-features --timeout=600 --out Xml
       - name: Upload to codecov.io

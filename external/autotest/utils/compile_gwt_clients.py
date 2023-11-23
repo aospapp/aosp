@@ -1,11 +1,22 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
 import common
 import sys, os, shutil, optparse, logging
+import six
+
 from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.common_lib import logging_config, logging_manager
+
+
 """
 Compile All Autotest GWT Clients Living in autotest/frontend/client/src
 """
+
+
 
 _AUTOTEST_DIR = common.autotest_dir
 _DEFAULT_GWT_DIRS = ['/usr/local/lib/gwt', '/opt/google-web-toolkit']
@@ -76,7 +87,7 @@ def install_completed_client(compiled_dir, project_client):
         try:
             os.rename(tmp_client_dir, install_dir)
             return True
-        except Exception, err:
+        except Exception as err:
             # If we can't rename the client raise an exception
             # and put the old client back
             shutil.rmtree(install_dir)
@@ -122,7 +133,7 @@ def compile_all_projects(extra_args=''):
        @returns list of failed client installations
     """
     failed_clients = []
-    for project,clients in enumerate_projects().iteritems():
+    for project,clients in six.iteritems(enumerate_projects()):
         for client in clients:
             project_client = '%s.%s' % (project, client)
             if not compile_and_install_client(project_client, extra_args):
@@ -133,7 +144,7 @@ def compile_all_projects(extra_args=''):
 
 def print_projects():
     logging.info('Projects that can be compiled:')
-    for project,clients in enumerate_projects().iteritems():
+    for project,clients in six.iteritems(enumerate_projects()):
         for client in clients:
             logging.info('%s.%s', project, client)
 

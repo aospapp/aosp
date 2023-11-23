@@ -1,15 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/addr.c		Addresses
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2012 Thomas Graf <tgraf@suug.ch>
- * Copyright (c) 2003-2006 Baruch Even <baruch@ev-en.org>,
- *                         Mediatrix Telecom, inc. <ericb@mediatrix.com>
+ * Copyright (c) 2003-2006 Baruch Even <baruch@ev-en.org>
+ * Copyright (c) 2003-2006 Mediatrix Telecom, inc. <ericb@mediatrix.com>
  */
 
 /**
@@ -160,6 +153,13 @@ static int addr_clone(struct nl_object *_dst, struct nl_object *_src)
 	struct rtnl_addr *dst = nl_object_priv(_dst);
 	struct rtnl_addr *src = nl_object_priv(_src);
 
+	dst->a_peer = NULL;
+	dst->a_local = NULL;
+	dst->a_bcast = NULL;
+	dst->a_anycast = NULL;
+	dst->a_multicast = NULL;
+	dst->a_link = NULL;
+
 	if (src->a_link) {
 		nl_object_get(OBJ_CAST(src->a_link));
 		dst->a_link = src->a_link;
@@ -168,7 +168,7 @@ static int addr_clone(struct nl_object *_dst, struct nl_object *_src)
 	if (src->a_peer)
 		if (!(dst->a_peer = nl_addr_clone(src->a_peer)))
 			return -NLE_NOMEM;
-	
+
 	if (src->a_local)
 		if (!(dst->a_local = nl_addr_clone(src->a_local)))
 			return -NLE_NOMEM;
@@ -1136,6 +1136,7 @@ static const struct trans_tbl addr_flags[] = {
 	__ADD(IFA_F_SECONDARY, secondary),
 	__ADD(IFA_F_NODAD, nodad),
 	__ADD(IFA_F_OPTIMISTIC, optimistic),
+	__ADD(IFA_F_DADFAILED, dadfailed),
 	__ADD(IFA_F_HOMEADDRESS, homeaddress),
 	__ADD(IFA_F_DEPRECATED, deprecated),
 	__ADD(IFA_F_TENTATIVE, tentative),

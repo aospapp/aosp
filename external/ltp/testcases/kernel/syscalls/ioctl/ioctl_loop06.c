@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2020 FUJITSU LIMITED. All rights reserved.
+ * Copyright (c) Linux Test Project, 2022
  * Author: Yang Xu <xuyang2018.jy@cn.jujitsu.com>
+ */
+
+/*\
+ * [Description]
  *
- * This is a basic error test about the invalid block size of loopdevice
- * by using LOOP_SET_BLOCK_SIZE or LOOP_CONFIGURE ioctl.
+ * Tests invalid block size of loopdevice by using ioctl() with
+ * LOOP_SET_BLOCK_SIZE and LOOP_CONFIGURE flags.
  */
 
 #include <stdio.h>

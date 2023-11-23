@@ -18,6 +18,7 @@ package com.google.android.enterprise.connectedapps.robotests;
 import static com.google.android.enterprise.connectedapps.SharedTestUtilities.INTERACT_ACROSS_USERS;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 import static org.robolectric.annotation.LooperMode.Mode.LEGACY;
 
 import android.app.Application;
@@ -27,6 +28,7 @@ import android.os.IBinder;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.android.enterprise.connectedapps.RobolectricTestUtilities;
 import com.google.android.enterprise.connectedapps.TestScheduledExecutorService;
+import com.google.android.enterprise.connectedapps.exceptions.ProfileRuntimeException;
 import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfileException;
 import com.google.android.enterprise.connectedapps.testapp.NotReallySerializableObject;
 import com.google.android.enterprise.connectedapps.testapp.ParcelableObject;
@@ -75,13 +77,13 @@ public class OtherProfileSynchronousTest {
     testUtilities.setRunningOnPersonalProfile();
     testUtilities.setRequestsPermissions(INTERACT_ACROSS_USERS);
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
   }
 
   @Test
   public void other_synchronous_isBound_callsMethod() throws UnavailableProfileException {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     assertThat(profileTestCrossProfileType.other().identityStringMethod(STRING)).isEqualTo(STRING);
   }
@@ -106,19 +108,6 @@ public class OtherProfileSynchronousTest {
   }
 
   @Test
-  public void
-      other_synchronous_isBound_automaticConnectionManagement_throwsUnavailableProfileException() {
-    testUtilities.turnOnWorkProfile();
-    testProfileConnector.stopManualConnectionManagement();
-    ListenableFuture<Void> ignored =
-        profileTestCrossProfileType.other().listenableFutureVoidMethod(); // Causes it to bind
-
-    assertThrows(
-        UnavailableProfileException.class,
-        () -> profileTestCrossProfileType.other().voidMethod());
-  }
-
-  @Test
   public void other_serializableObjectParameterIsNotReallySerializable_throwsException() {
     assertThrows(
         RuntimeException.class,
@@ -140,6 +129,18 @@ public class OtherProfileSynchronousTest {
                 .other()
                 .identityStringMethodDeclaresButDoesNotThrowIOException(STRING))
         .isEqualTo(STRING);
+  }
+
+  @Test
+  public void other_synchronous_declaresExceptionButThrowsRuntimeException_wrapsException() throws Exception {
+    try {
+      profileTestCrossProfileType
+          .other()
+          .methodWhichThrowsRuntimeExceptionAndDeclaresException();
+      fail();
+    } catch (ProfileRuntimeException expected) {
+      // Expected
+    }
   }
 
   @Test

@@ -12,50 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {Actions} from '../../common/actions';
 import {ColumnDef} from '../../common/aggregation_data';
 import {Engine} from '../../common/engine';
-import {
-  SLICE_AGGREGATION_PIVOT_TABLE_ID
-} from '../../common/pivot_table_common';
 import {Area, Sorting} from '../../common/state';
-import {toNs} from '../../common/time';
-import {PIVOT_TABLE_FLAG} from '../../frontend/keyboard_event_handler';
+import {globals} from '../../frontend/globals';
 import {
   ASYNC_SLICE_TRACK_KIND,
-  Config as AsyncSliceConfig
-} from '../../tracks/async_slices/common';
+  Config as AsyncSliceConfig,
+} from '../../tracks/async_slices';
 import {
   Config as SliceConfig,
-  SLICE_TRACK_KIND
-} from '../../tracks/chrome_slices/common';
-import {globals} from '../globals';
+  SLICE_TRACK_KIND,
+} from '../../tracks/chrome_slices';
 
 import {AggregationController} from './aggregation_controller';
-
-function addPivotTableOnAreaSelection(
-    selectedTrackIds: number[], startSec: number, endSec: number) {
-  const selectedPivots =
-      [{tableName: 'slice', columnName: 'name', isStackPivot: false}];
-
-  const selectedAggregations = [
-    {tableName: 'slice', columnName: 'dur', aggregation: 'SUM', order: 'DESC'},
-    {tableName: 'slice', columnName: 'dur', aggregation: 'AVG', order: 'DESC'},
-    {tableName: 'slice', columnName: 'id', aggregation: 'COUNT', order: 'DESC'}
-  ];
-
-  globals.dispatch(Actions.addNewPivotTable({
-    name: 'Pivot Table - Slices',
-    pivotTableId: SLICE_AGGREGATION_PIVOT_TABLE_ID,
-    selectedPivots,
-    selectedAggregations,
-    traceTime: {startSec, endSec},
-    selectedTrackIds
-  }));
-
-  globals.dispatch(Actions.setPivotTableRequest(
-      {pivotTableId: SLICE_AGGREGATION_PIVOT_TABLE_ID, action: 'QUERY'}));
-}
 
 export function getSelectedTrackIds(area: Area): number[] {
   const selectedTrackIds = [];
@@ -85,11 +55,6 @@ export class SliceAggregationController extends AggregationController {
 
     if (selectedTrackIds.length === 0) return false;
 
-    if (PIVOT_TABLE_FLAG.get()) {
-      addPivotTableOnAreaSelection(
-          selectedTrackIds, area.startSec, area.endSec);
-    }
-
     const query = `create view ${this.kind} as
         SELECT
         name,
@@ -98,8 +63,8 @@ export class SliceAggregationController extends AggregationController {
         count(1) as occurrences
         FROM slices
         WHERE track_id IN (${selectedTrackIds}) AND
-        ts + dur > ${toNs(area.startSec)} AND
-        ts < ${toNs(area.endSec)} group by name`;
+        ts + dur > ${area.start} AND
+        ts < ${area.end} group by name`;
 
     await engine.query(query);
     return true;
@@ -120,7 +85,7 @@ export class SliceAggregationController extends AggregationController {
       {
         title: 'Name',
         kind: 'STRING',
-        columnConstructor: Uint16Array,
+        columnConstructor: Uint32Array,
         columnId: 'name',
       },
       {
@@ -128,21 +93,21 @@ export class SliceAggregationController extends AggregationController {
         kind: 'TIMESTAMP_NS',
         columnConstructor: Float64Array,
         columnId: 'total_dur',
-        sum: true
+        sum: true,
       },
       {
         title: 'Avg Wall duration (ms)',
         kind: 'TIMESTAMP_NS',
         columnConstructor: Float64Array,
-        columnId: 'avg_dur'
+        columnId: 'avg_dur',
       },
       {
         title: 'Occurrences',
         kind: 'NUMBER',
-        columnConstructor: Uint16Array,
+        columnConstructor: Uint32Array,
         columnId: 'occurrences',
-        sum: true
-      }
+        sum: true,
+      },
     ];
   }
 }

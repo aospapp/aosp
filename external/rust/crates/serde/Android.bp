@@ -43,21 +43,50 @@ rust_library {
     host_supported: true,
     crate_name: "serde",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.0.136",
+    cargo_pkg_version: "1.0.152",
     srcs: ["src/lib.rs"],
     edition: "2015",
     features: [
         "default",
         "derive",
+        "rc",
         "serde_derive",
         "std",
     ],
     proc_macros: ["libserde_derive"],
     apex_available: [
         "//apex_available:platform",
-        "com.android.virt",
+        "//apex_available:anyapex",
     ],
+    product_available: true,
     vendor_available: true,
+    min_sdk_version: "29",
+}
+
+rust_library_rlib {
+    name: "libserde_nostd",
+    crate_name: "serde",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.0.152",
+    srcs: ["src/lib.rs"],
+    edition: "2015",
+    prefer_rlib: true,
+    no_stdlibs: true,
+    stdlibs: [
+        "liballoc.rust_sysroot",
+        "libcompiler_builtins.rust_sysroot",
+        "libcore.rust_sysroot",
+    ],
+    features: [
+        "alloc",
+        "derive",
+        "serde_derive",
+    ],
+    proc_macros: ["libserde_derive"],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
 }
 
 rust_test {
@@ -65,7 +94,7 @@ rust_test {
     host_supported: true,
     crate_name: "serde",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.0.136",
+    cargo_pkg_version: "1.0.152",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
@@ -76,6 +105,7 @@ rust_test {
     features: [
         "default",
         "derive",
+        "rc",
         "serde_derive",
         "std",
     ],

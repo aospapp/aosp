@@ -16,7 +16,7 @@ class firmware_TPMNotCorruptedDevMode(FirmwareTest):
     to USB and checks the firmware version and kernel version via crossystem for
     corruption.
 
-    This test requires a USB disk plugged-in, which contains a Chrome OS test
+    This test requires a USB disk plugged-in, which contains a ChromeOS test
     image (built by "build_image test").
     """
     version = 1

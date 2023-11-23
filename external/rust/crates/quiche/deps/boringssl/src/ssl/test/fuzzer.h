@@ -20,17 +20,19 @@
 #include <string.h>
 
 #include <algorithm>
+#include <vector>
 
 #include <openssl/bio.h>
 #include <openssl/bytestring.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
+#include <openssl/hpke.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
 
-#include "../internal.h"
+#include "../../crypto/internal.h"
 #include "./fuzzer_tags.h"
 
 namespace {
@@ -229,6 +231,22 @@ const uint8_t kALPNProtocols[] = {
     0x01, 'a', 0x02, 'a', 'a', 0x03, 'a', 'a', 'a',
 };
 
+const uint8_t kECHConfig[] = {
+    0xfe, 0x0a, 0x00, 0x47, 0x2a, 0x00, 0x20, 0x00, 0x20, 0x6c, 0x55,
+    0x96, 0x41, 0x3d, 0x12, 0x4e, 0x63, 0x3d, 0x39, 0x7a, 0xe9, 0xbc,
+    0xec, 0xb2, 0x55, 0xd0, 0xe6, 0xaa, 0xbd, 0xa9, 0x79, 0xb8, 0x86,
+    0x9a, 0x13, 0x61, 0xc6, 0x69, 0xac, 0xb4, 0x21, 0x00, 0x0c, 0x00,
+    0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x01, 0x00, 0x03,
+    0x00, 0x10, 0x00, 0x0e, 0x70, 0x75, 0x62, 0x6c, 0x69, 0x63, 0x2e,
+    0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x00, 0x00,
+};
+
+const uint8_t kECHKey[] = {
+    0x35, 0x6d, 0x45, 0x06, 0xb3, 0x88, 0x89, 0x2e, 0xd6, 0x87, 0x84,
+    0xd2, 0x2d, 0x6f, 0x83, 0x48, 0xad, 0xf2, 0xfd, 0x08, 0x51, 0x73,
+    0x10, 0xa0, 0xb8, 0xdd, 0xe9, 0x96, 0x6a, 0xde, 0xbc, 0x82,
+};
+
 int ALPNSelectCallback(SSL *ssl, const uint8_t **out, uint8_t *out_len,
                        const uint8_t *in, unsigned in_len, void *arg) {
   static const uint8_t kProtocol[] = {'a', 'a'};
@@ -324,7 +342,7 @@ class TLSFuzzer {
         MoveBIOs(ssl_handoff.get(), ssl.get());
         // Ordinarily we would call SSL_serialize_handoff(ssl.get().  But for
         // fuzzing, use the serialized handoff that's getting fuzzed.
-        if (!SSL_apply_handoff(ssl_handoff.get(), handoff_)) {
+        if (!bssl::SSL_apply_handoff(ssl_handoff.get(), handoff_)) {
           if (debug_) {
             fprintf(stderr, "Handoff failed.\n");
           }
@@ -334,7 +352,7 @@ class TLSFuzzer {
       } else if (ret < 0 &&
                  SSL_get_error(ssl_handshake, ret) == SSL_ERROR_HANDBACK) {
         MoveBIOs(ssl_handback.get(), ssl_handoff.get());
-        if (!SSL_apply_handback(ssl_handback.get(), handback_)) {
+        if (!bssl::SSL_apply_handback(ssl_handback.get(), handback_)) {
           if (debug_) {
             fprintf(stderr, "Handback failed.\n");
           }
@@ -437,6 +455,19 @@ class TLSFuzzer {
     }
     SSL_CTX_set_tls_channel_id_enabled(ctx_.get(), 1);
 
+    if (role_ == kServer) {
+      bssl::UniquePtr<SSL_ECH_KEYS> keys(SSL_ECH_KEYS_new());
+      bssl::ScopedEVP_HPKE_KEY key;
+      if (!keys ||
+          !EVP_HPKE_KEY_init(key.get(), EVP_hpke_x25519_hkdf_sha256(), kECHKey,
+                             sizeof(kECHKey)) ||
+          !SSL_ECH_KEYS_add(keys.get(), /*is_retry_config=*/true, kECHConfig,
+                            sizeof(kECHConfig), key.get()) ||
+          !SSL_CTX_set1_ech_keys(ctx_.get(), keys.get())) {
+        return false;
+      }
+    }
+
     return true;
   }
 
@@ -497,7 +528,8 @@ class TLSFuzzer {
           if (!CBS_get_u24_length_prefixed(cbs, &handoff)) {
             return nullptr;
           }
-          handoff_.CopyFrom(handoff);
+          handoff_.assign(CBS_data(&handoff),
+                          CBS_data(&handoff) + CBS_len(&handoff));
           bssl::SSL_set_handoff_mode(ssl.get(), 1);
           break;
         }
@@ -507,8 +539,18 @@ class TLSFuzzer {
           if (!CBS_get_u24_length_prefixed(cbs, &handback)) {
             return nullptr;
           }
-          handback_.CopyFrom(handback);
+          handback_.assign(CBS_data(&handback),
+                           CBS_data(&handback) + CBS_len(&handback));
           bssl::SSL_set_handoff_mode(ssl.get(), 1);
+          break;
+        }
+
+        case kHintsTag: {
+          CBS hints;
+          if (!CBS_get_u24_length_prefixed(cbs, &hints)) {
+            return nullptr;
+          }
+          SSL_set_handshake_hints(ssl.get(), CBS_data(&hints), CBS_len(&hints));
           break;
         }
 
@@ -567,7 +609,7 @@ class TLSFuzzer {
   Protocol protocol_;
   Role role_;
   bssl::UniquePtr<SSL_CTX> ctx_;
-  bssl::Array<uint8_t> handoff_, handback_;
+  std::vector<uint8_t> handoff_, handback_;
 };
 
 const BIO_METHOD TLSFuzzer::kBIOMethod = {

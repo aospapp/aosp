@@ -36,7 +36,7 @@ class HloModuleGroupTest : public HloTestBase {
 };
 
 TEST_F(HloModuleGroupTest, SingleModule) {
-  const string text = R"(
+  const std::string text = R"(
 HloModule simple_module
 
 ENTRY %entry (x: f32[], y: f32[]) -> f32[] {
@@ -68,7 +68,7 @@ ENTRY %entry (x: f32[], y: f32[]) -> f32[] {
 }
 
 TEST_F(HloModuleGroupTest, MultipleModules) {
-  const string text_0 = R"(
+  const std::string text_0 = R"(
 HloModule module0
 
 ENTRY %entry (x: f32[], y: f32[]) -> f32[] {
@@ -77,7 +77,7 @@ ENTRY %entry (x: f32[], y: f32[]) -> f32[] {
   ROOT %add = f32[] add(%x, %y)
 }
 )";
-  const string text_1 = R"(
+  const std::string text_1 = R"(
 HloModule module1
 
 ENTRY %entry (a: f32[]) -> f32[] {
@@ -107,7 +107,7 @@ ENTRY %entry (a: f32[]) -> f32[] {
 }
 
 TEST_F(HloModuleGroupTest, BuildModuleGroupByPushBack) {
-  const string text_0 = R"(
+  const std::string text_0 = R"(
 HloModule module0
 
 ENTRY %entry (x: f32[], y: f32[]) -> f32[] {
@@ -116,7 +116,7 @@ ENTRY %entry (x: f32[], y: f32[]) -> f32[] {
   ROOT %add = f32[] add(%x, %y)
 }
 )";
-  const string text_1 = R"(
+  const std::string text_1 = R"(
 HloModule module1
 
 ENTRY %entry (a: f32[]) -> f32[] {
@@ -172,7 +172,7 @@ ENTRY entry {
   // companion instructions remain in the same order.
   const int64_t kTrialCount = 5;
   const int64_t kDeviceCount = 10;
-  std::vector<int64> companion_order;
+  std::vector<int64_t> companion_order;
 
   for (int64_t t = 0; t < kTrialCount; ++t) {
     HloModuleGroup group(TestName());
@@ -191,8 +191,10 @@ ENTRY entry {
                             HloModuleGroupMetadata::Build(group.modules()));
     ASSERT_EQ(metadata->companion_sets().size(), 1);
 
-    std::vector<int64> module_ids;
-    for (HloInstruction* companion : *metadata->companion_sets()[0]) {
+    std::vector<int64_t> module_ids;
+    const auto& companion_sets = *metadata->companion_sets()[0];
+    module_ids.reserve(companion_sets.size());
+    for (HloInstruction* companion : companion_sets) {
       module_ids.push_back(metadata->GetModuleId(companion->GetModule()));
     }
 

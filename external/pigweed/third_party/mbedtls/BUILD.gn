@@ -107,7 +107,11 @@ if (dir_pw_third_party_mbedtls != "") {
     "library/xtea.c",
   ]
 
-  config("mbedtls_config") {
+  config("public_config") {
+    include_dirs = [ "$dir_pw_third_party_mbedtls/include" ]
+  }
+
+  config("internal_config") {
     include_dirs = [
       "$dir_pw_third_party_mbedtls",
       "$dir_pw_third_party_mbedtls/include",
@@ -118,8 +122,8 @@ if (dir_pw_third_party_mbedtls != "") {
       "-Wno-error=redundant-decls",
       "-w",
     ]
-
-    config_header_file = rebase_path(pw_third_party_mbedtls_CONFIG_HEADER)
+    config_header_file = rebase_path(pw_third_party_mbedtls_CONFIG_HEADER,
+                                     get_label_info(":mbedtls", "dir"))
     defines = [ "MBEDTLS_CONFIG_FILE=\"$config_header_file\"" ]
   }
 
@@ -135,7 +139,8 @@ if (dir_pw_third_party_mbedtls != "") {
     ]
 
     public_deps = [ "$dir_pw_tls_client:time" ]
-    public_configs = [ ":mbedtls_config" ]
+    public_configs = [ ":public_config" ]
+    configs = [ ":internal_config" ]
   }
 } else {
   group("mbedtls") {

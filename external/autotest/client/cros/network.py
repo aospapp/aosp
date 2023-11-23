@@ -4,70 +4,58 @@
 # found in the LICENSE file.
 
 import logging
-import re
 from six.moves import urllib
 import socket
 import time
-
-import common
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 
 
-def CheckInterfaceForDestination(host, expected_interface,
-                                 family=socket.AF_UNSPEC):
+def CheckThatInterfaceCanAccessDestination(host,
+                                           interface,
+                                           families=[socket.AF_UNSPEC]):
     """
-    Checks that routes for host go through a given interface.
-
-    The concern here is that our network setup may have gone wrong
-    and our test connections may go over some other network than
-    the one we're trying to test.  So we take all the IP addresses
-    for the supplied host and make sure they go through the given
-    network interface.
+    Checks that we can access a host using a specific interface.
 
     @param host: Destination host
-    @param expected_interface: Expected interface name
-    @raises: error.TestFail if the routes for the given host go through
-            a different interface than the expected one.
+    @param interface: Name of the network interface to be used
+    @raises: error.TestFail if the interface cannot access the specified host.
 
     """
-    def _MatchesRoute(address, expected_interface):
-        """
-        Returns whether or not |expected_interface| is used to reach |address|.
-
-        @param address: string containing an IP (v4 or v6) address.
-        @param expected_interface: string containing an interface name.
-
-        """
-        output = utils.run('ip route get %s' % address).stdout
-
-        if re.search(r'unreachable', output):
-            return False
-
-        match = re.search(r'\sdev\s(\S+)', output)
-        if match is None:
-            return False
-        interface = match.group(1)
-
-        logging.info('interface for %s: %s', address, interface)
-        if interface != expected_interface:
-            raise error.TestFail('Target server %s uses interface %s'
-                                 '(%s expected).' %
-                                 (address, interface, expected_interface))
-        return True
-
+    logging.debug('Check connection to %s', host)
     # addrinfo records: (family, type, proto, canonname, (addr, port))
-    server_addresses = [record[4][0]
-                        for record in socket.getaddrinfo(host, 80, family)]
-    for address in server_addresses:
+    server_addresses = []
+    for family in families:
+        try:
+            records = socket.getaddrinfo(host, 80, family)
+        except:
+            # Just ignore this family.
+            continue
+        server_addresses.extend(record[4][0] for record in records)
+
+    found_route = False
+    failing_addresses = []
+    for address in set(server_addresses):
         # Routes may not always be up by this point. Note that routes for v4 or
         # v6 may come up before the other, so we simply do this poll for all
         # addresses.
-        utils.poll_for_condition(
-            condition=lambda: _MatchesRoute(address, expected_interface),
-            exception=error.TestFail('No route to %s' % address),
-            timeout=1)
+        try:
+            utils.poll_for_condition(condition=lambda: utils.ping(
+                    address, interface=interface, tries=2, timeout=3) == 0,
+                                     exception=Exception('No route to %s' %
+                                                         address),
+                                     timeout=2)
+        except Exception as e:
+            logging.info(e)
+            failing_addresses.append(address)
+        else:
+            found_route = True
+
+    if not found_route:
+        raise error.TestFail('Interface %s cannot connect to %s' % (interface,
+                             failing_addresses))
+
 
 FETCH_URL_PATTERN_FOR_TEST = \
     'http://testing-chargen.appspot.com/download?size=%d'

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright (c) 2012-2020 Linux Test Project.  All Rights Reserved.
  * Author: Jan Kara, November 2013
@@ -7,15 +7,14 @@
 #ifndef	__FANOTIFY_H__
 #define	__FANOTIFY_H__
 
-#include "config.h"
 #include <sys/statfs.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
-#include <sys/fanotify.h>
+#include "lapi/fanotify.h"
 #include "lapi/fcntl.h"
 
-int safe_fanotify_init(const char *file, const int lineno,
+static inline int safe_fanotify_init(const char *file, const int lineno,
 	unsigned int flags, unsigned int event_f_flags)
 {
 	int rval;
@@ -48,7 +47,9 @@ static inline int safe_fanotify_mark(const char *file, const int lineno,
 	rval = fanotify_mark(fd, flags, mask, dfd, pathname);
 
 	if (rval == -1) {
-		tst_brk_(file, lineno, TBROK | TERRNO, "fanotify_mark() failed");
+		tst_brk_(file, lineno, TBROK | TERRNO,
+			 "fanotify_mark(%d, 0x%x, 0x%lx, ..., %s) failed",
+			 fd, flags, mask, pathname);
 	}
 
 	if (rval < -1) {
@@ -64,129 +65,6 @@ static inline int safe_fanotify_mark(const char *file, const int lineno,
 
 #define SAFE_FANOTIFY_INIT(fan, mode)  \
 	safe_fanotify_init(__FILE__, __LINE__, (fan), (mode))
-
-#ifndef FAN_REPORT_TID
-#define FAN_REPORT_TID		0x00000100
-#endif
-#ifndef FAN_REPORT_FID
-#define FAN_REPORT_FID		0x00000200
-#endif
-#ifndef FAN_REPORT_DIR_FID
-#define FAN_REPORT_DIR_FID	0x00000400
-#endif
-#ifndef FAN_REPORT_NAME
-#define FAN_REPORT_NAME		0x00000800
-#define FAN_REPORT_DFID_NAME     (FAN_REPORT_DIR_FID | FAN_REPORT_NAME)
-#endif
-
-/* Non-uapi convenience macros */
-#ifndef FAN_REPORT_DFID_NAME_FID
-#define FAN_REPORT_DFID_NAME_FID (FAN_REPORT_DFID_NAME | FAN_REPORT_FID)
-#endif
-#ifndef FAN_REPORT_DFID_FID
-#define FAN_REPORT_DFID_FID      (FAN_REPORT_DIR_FID | FAN_REPORT_FID)
-#endif
-
-#ifndef FAN_MARK_INODE
-#define FAN_MARK_INODE		0
-#endif
-#ifndef FAN_MARK_FILESYSTEM
-#define FAN_MARK_FILESYSTEM	0x00000100
-#endif
-/* New dirent event masks */
-#ifndef FAN_ATTRIB
-#define FAN_ATTRIB		0x00000004
-#endif
-#ifndef FAN_MOVED_FROM
-#define FAN_MOVED_FROM		0x00000040
-#endif
-#ifndef FAN_MOVED_TO
-#define FAN_MOVED_TO		0x00000080
-#endif
-#ifndef FAN_CREATE
-#define FAN_CREATE		0x00000100
-#endif
-#ifndef FAN_DELETE
-#define FAN_DELETE		0x00000200
-#endif
-#ifndef FAN_DELETE_SELF
-#define FAN_DELETE_SELF		0x00000400
-#endif
-#ifndef FAN_MOVE_SELF
-#define FAN_MOVE_SELF		0x00000800
-#endif
-#ifndef FAN_MOVE
-#define FAN_MOVE		(FAN_MOVED_FROM | FAN_MOVED_TO)
-#endif
-#ifndef FAN_OPEN_EXEC
-#define FAN_OPEN_EXEC		0x00001000
-#endif
-#ifndef FAN_OPEN_EXEC_PERM
-#define FAN_OPEN_EXEC_PERM	0x00040000
-#endif
-
-/* Flags required for unprivileged user group */
-#define FANOTIFY_REQUIRED_USER_INIT_FLAGS    (FAN_REPORT_FID)
-
-/*
- * FAN_ALL_PERM_EVENTS has been deprecated, so any new permission events
- * are not to be added to it. To cover the instance where a new permission
- * event is defined, we create a new macro that is to include all
- * permission events. Any new permission events should be added to this
- * macro.
- */
-#define LTP_ALL_PERM_EVENTS	(FAN_OPEN_PERM | FAN_OPEN_EXEC_PERM | \
-				 FAN_ACCESS_PERM)
-
-struct fanotify_group_type {
-	unsigned int flag;
-	const char * name;
-};
-
-struct fanotify_mark_type {
-	unsigned int flag;
-	const char * name;
-};
-
-#ifndef __kernel_fsid_t
-typedef struct {
-	int	val[2];
-} lapi_fsid_t;
-#define __kernel_fsid_t lapi_fsid_t
-#endif /* __kernel_fsid_t */
-
-#ifndef FAN_EVENT_INFO_TYPE_FID
-#define FAN_EVENT_INFO_TYPE_FID		1
-#endif
-#ifndef FAN_EVENT_INFO_TYPE_DFID_NAME
-#define FAN_EVENT_INFO_TYPE_DFID_NAME	2
-#endif
-#ifndef FAN_EVENT_INFO_TYPE_DFID
-#define FAN_EVENT_INFO_TYPE_DFID	3
-#endif
-
-#ifndef HAVE_STRUCT_FANOTIFY_EVENT_INFO_HEADER
-struct fanotify_event_info_header {
-	uint8_t info_type;
-	uint8_t pad;
-	uint16_t len;
-};
-#endif /* HAVE_STRUCT_FANOTIFY_EVENT_INFO_HEADER */
-
-#ifndef HAVE_STRUCT_FANOTIFY_EVENT_INFO_FID
-struct fanotify_event_info_fid {
-	struct fanotify_event_info_header hdr;
-	__kernel_fsid_t fsid;
-	unsigned char handle[0];
-};
-#endif /* HAVE_STRUCT_FANOTIFY_EVENT_INFO_FID */
-
-/* NOTE: only for struct fanotify_event_info_fid */
-#ifdef HAVE_STRUCT_FANOTIFY_EVENT_INFO_FID_FSID___VAL
-# define FSID_VAL_MEMBER(fsid, i) (fsid.__val[i])
-#else
-# define FSID_VAL_MEMBER(fsid, i) (fsid.val[i])
-#endif /* HAVE_STRUCT_FANOTIFY_EVENT_INFO_FID_FSID___VAL */
 
 #ifdef HAVE_NAME_TO_HANDLE_AT
 
@@ -219,6 +97,10 @@ static inline void fanotify_get_fid(const char *path, __kernel_fsid_t *fsid,
 			"name_to_handle_at(AT_FDCWD, %s, ...) failed", path);
 	}
 }
+
+#ifndef FILEID_INVALID
+#define FILEID_INVALID		0xff
+#endif
 
 struct fanotify_fid_t {
 	__kernel_fsid_t fsid;
@@ -266,14 +148,16 @@ static inline void require_fanotify_access_permissions_supported_by_kernel(void)
 	SAFE_CLOSE(fd);
 }
 
-static inline int fanotify_events_supported_by_kernel(uint64_t mask)
+static inline int fanotify_events_supported_by_kernel(uint64_t mask,
+						      unsigned int init_flags,
+						      unsigned int mark_flags)
 {
 	int fd;
 	int rval = 0;
 
-	fd = SAFE_FANOTIFY_INIT(FAN_CLASS_CONTENT, O_RDONLY);
+	fd = SAFE_FANOTIFY_INIT(init_flags, O_RDONLY);
 
-	if (fanotify_mark(fd, FAN_MARK_ADD, mask, AT_FDCWD, ".") < 0) {
+	if (fanotify_mark(fd, FAN_MARK_ADD | mark_flags, mask, AT_FDCWD, ".") < 0) {
 		if (errno == EINVAL) {
 			rval = -1;
 		} else {
@@ -347,10 +231,13 @@ static inline void fanotify_init_flags_err_msg(const char *flags_str,
 #define FANOTIFY_INIT_FLAGS_ERR_MSG(flags, fail) \
 	fanotify_init_flags_err_msg(#flags, __FILE__, __LINE__, tst_res_, (fail))
 
-#define REQUIRE_FANOTIFY_INIT_FLAGS_SUPPORTED_ON_FS(flags, fname) do { \
+#define REQUIRE_FANOTIFY_INIT_FLAGS_SUPPORTED_ON_FS(flags, fname) \
 	fanotify_init_flags_err_msg(#flags, __FILE__, __LINE__, tst_brk_, \
-		fanotify_init_flags_supported_on_fs(flags, fname)); \
-	} while (0)
+		fanotify_init_flags_supported_on_fs(flags, fname))
+
+#define REQUIRE_FANOTIFY_INIT_FLAGS_SUPPORTED_BY_KERNEL(flags) \
+	fanotify_init_flags_err_msg(#flags, __FILE__, __LINE__, tst_brk_, \
+		fanotify_init_flags_supported_by_kernel(flags))
 
 static inline int fanotify_mark_supported_by_kernel(uint64_t flag)
 {
@@ -372,5 +259,43 @@ static inline int fanotify_mark_supported_by_kernel(uint64_t flag)
 
 	return rval;
 }
+
+#define REQUIRE_MARK_TYPE_SUPPORTED_BY_KERNEL(mark_type) \
+	fanotify_init_flags_err_msg(#mark_type, __FILE__, __LINE__, tst_brk_, \
+				    fanotify_mark_supported_by_kernel(mark_type))
+
+#define REQUIRE_FANOTIFY_EVENTS_SUPPORTED_ON_FS(init_flags, mark_type, mask, fname) do { \
+	if (mark_type)							\
+		REQUIRE_MARK_TYPE_SUPPORTED_BY_KERNEL(mark_type);	\
+	if (init_flags)							\
+		REQUIRE_FANOTIFY_INIT_FLAGS_SUPPORTED_ON_FS(init_flags, fname); \
+	fanotify_init_flags_err_msg(#mask, __FILE__, __LINE__, tst_brk_, \
+		fanotify_events_supported_by_kernel(mask, init_flags, mark_type)); \
+} while (0)
+
+static inline struct fanotify_event_info_header *get_event_info(
+					struct fanotify_event_metadata *event,
+					int info_type)
+{
+	struct fanotify_event_info_header *hdr = NULL;
+	char *start = (char *) event;
+	int off;
+
+	for (off = event->metadata_len; (off+sizeof(*hdr)) < event->event_len;
+	     off += hdr->len) {
+		hdr = (struct fanotify_event_info_header *) &(start[off]);
+		if (hdr->info_type == info_type)
+			return hdr;
+	}
+	return NULL;
+}
+
+#define get_event_info_error(event)					\
+	((struct fanotify_event_info_error *)				\
+	 get_event_info((event), FAN_EVENT_INFO_TYPE_ERROR))
+
+#define get_event_info_fid(event)					\
+	((struct fanotify_event_info_fid *)				\
+	 get_event_info((event), FAN_EVENT_INFO_TYPE_FID))
 
 #endif /* __FANOTIFY_H__ */

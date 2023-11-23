@@ -23,7 +23,7 @@
 #endif   // U_SHOW_CPLUSPLUS_API
 
 /**
- * @addtogroup ICU4C
+ * @addtogroup icu4c ICU4C
  * @{
  * \file
  * \brief C API: Collator 

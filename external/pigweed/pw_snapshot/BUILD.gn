@@ -30,6 +30,7 @@ pw_source_set("uuid") {
   public_deps = [
     dir_pw_bytes,
     dir_pw_result,
+    dir_pw_span,
     dir_pw_status,
   ]
   deps = [
@@ -62,6 +63,7 @@ pw_proto_library("snapshot_proto") {
   sources = [ "pw_snapshot_protos/snapshot.proto" ]
   deps = [
     ":metadata_proto",
+    "$dir_pw_chrono:protos",
     "$dir_pw_cpu_exception_cortex_m:cpu_state_protos",
     "$dir_pw_log:protos",
     "$dir_pw_thread:protos",

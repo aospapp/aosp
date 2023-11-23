@@ -16,8 +16,6 @@
 package com.google.android.enterprise.connectedapps.robotests;
 
 import static com.google.android.enterprise.connectedapps.SharedTestUtilities.INTERACT_ACROSS_USERS;
-import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
 import static org.robolectric.Shadows.shadowOf;
 import static org.robolectric.annotation.LooperMode.Mode.LEGACY;
 
@@ -28,7 +26,6 @@ import android.os.IBinder;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.android.enterprise.connectedapps.RobolectricTestUtilities;
 import com.google.android.enterprise.connectedapps.TestScheduledExecutorService;
-import com.google.android.enterprise.connectedapps.exceptions.ProfileRuntimeException;
 import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfileException;
 import com.google.android.enterprise.connectedapps.testapp.configuration.TestApplication;
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
@@ -69,7 +66,7 @@ public class CrossProfileServiceTest {
     testUtilities.setRunningOnPersonalProfile();
     testUtilities.setRequestsPermissions(INTERACT_ACROSS_USERS);
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
   }
 
   @After
@@ -79,7 +76,7 @@ public class CrossProfileServiceTest {
 
   @Test
   public void crossProfileMethodCall_doesNotThrowException() throws UnavailableProfileException {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType.other().voidMethod();
   }
@@ -90,23 +87,8 @@ public class CrossProfileServiceTest {
     ShadowBinder.setCallingUid(10);
     shadowOf(context.getPackageManager())
         .setPackagesForUid(10, DIFFERENT_PACKAGE_NAME, context.getPackageName());
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType.other().voidMethod();
-  }
-
-  @Test
-  public void crossProfileMethodCall_callingFromInvalidPackage_throwsWrappedIllegalStateException()
-      throws UnavailableProfileException {
-    testUtilities.startConnectingAndWait();
-    ShadowBinder.setCallingUid(10);
-    shadowOf(context.getPackageManager()).setPackagesForUid(10, DIFFERENT_PACKAGE_NAME);
-
-    try {
-      profileTestCrossProfileType.other().voidMethod();
-      fail();
-    } catch (ProfileRuntimeException expected) {
-      assertThat(expected).hasCauseThat().isInstanceOf(IllegalStateException.class);
-    }
   }
 }

@@ -1,0 +1,19 @@
+name: "aarch64-paging"
+description: "A library to manipulate AArch64 VMSA EL1 page tables."
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://crates.io/crates/aarch64-paging"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://static.crates.io/crates/aarch64-paging/aarch64-paging-0.3.0.crate"
+  }
+  version: "0.3.0"
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2022
+    month: 8
+    day: 15
+  }
+}

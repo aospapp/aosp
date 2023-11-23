@@ -43,6 +43,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 
+    <include layout="@layout/sud_glif_profile" />
+
     <ViewStub
         android:id="@+id/sud_layout_progress_stub"
         android:layout_width="match_parent"

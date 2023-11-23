@@ -18,26 +18,33 @@
 #include <string_view>
 #include <vector>
 
-#include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "icing/proto/search.pb.h"
+#include "icing/schema/schema-store.h"
 
 namespace icing {
 namespace lib {
 
 class ProjectionTree {
  public:
-  static constexpr std::string_view kSchemaTypeWildcard = "*";
-
   struct Node {
-    explicit Node(std::string_view name = "") : name(name) {}
+    explicit Node(std::string name = "") : name(std::move(name)) {}
 
-    std::string_view name;
+    std::string name;
     std::vector<Node> children;
+
+    bool operator==(const Node& other) const {
+      return name == other.name && children == other.children;
+    }
   };
 
-  explicit ProjectionTree(const TypePropertyMask& type_field_mask);
+  explicit ProjectionTree(
+      const SchemaStore::ExpandedTypePropertyMask& type_field_mask);
 
   const Node& root() const { return root_; }
+
+  bool operator==(const ProjectionTree& other) const {
+    return root_ == other.root_;
+  }
 
  private:
   // Add a child node with property_name to current_children and returns a

@@ -1,0 +1,6 @@
+{
+  "device": true,
+  "run": true,
+  "features": "parser",
+  "tests": true
+}

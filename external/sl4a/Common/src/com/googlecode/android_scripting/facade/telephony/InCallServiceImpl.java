@@ -16,11 +16,21 @@
 
 package com.googlecode.android_scripting.facade.telephony;
 
+import static com.googlecode.android_scripting.facade.telephony.InCallServiceImpl.HandleVoiceThreadState.TERMINATE;
+import static com.googlecode.android_scripting.facade.telephony.InCallServiceImpl.HandleVoiceThreadState.RUN;
+import static com.googlecode.android_scripting.facade.telephony.RecordVoiceInCall.MONO_CHANNEL;
+import static com.googlecode.android_scripting.facade.telephony.RecordVoiceInCall.SAMPLE_RATE_16K;
+import static com.googlecode.android_scripting.facade.telephony.RecordVoiceInCall.SAMPLE_RATE_48K;
+import static com.googlecode.android_scripting.facade.telephony.RecordVoiceInCall.STEREO_CHANNEL;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.io.File;
 
+import android.content.Context;
 import android.telecom.Call;
 import android.telecom.Call.Details;
 import android.telecom.CallAudioState;
@@ -30,6 +40,8 @@ import android.telecom.Phone;
 import android.telecom.TelecomManager;
 import android.telecom.VideoProfile;
 import android.telecom.VideoProfile.CameraCapabilities;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 
 import com.googlecode.android_scripting.Log;
 
@@ -38,6 +50,27 @@ import com.googlecode.android_scripting.facade.EventFacade;
 public class InCallServiceImpl extends InCallService {
 
     private static InCallServiceImpl sService = null;
+
+    private static PlayAudioInCall playAudioInCall;
+    private static RecordVoiceInCall recordVoiceInCall;
+
+    // The call is to play an audio file or record voice.
+    private static Call playRecordCall = null;
+
+    // A telephony device to route voice through mobile telphony network
+    private static AudioDeviceInfo audioTelephonyInfo = null;
+
+    // Indicates if the call is playing audio or not
+    private static HandleVoiceThreadState playAudioInCallState = TERMINATE;
+    // Indicates if the call is recording voice or not
+    private static HandleVoiceThreadState recordVoiceInCallState = TERMINATE;
+
+    private static AudioManager mAudioManager = null;
+
+    // The audio file is to play audio on the route of telephony network
+    private static File playAudioFile;
+    // The audio file is to store voice wav data on the route of telephony network
+    private static File recordVoiceFile;
 
     public static InCallServiceImpl getService() {
         return sService;
@@ -542,6 +575,14 @@ public class InCallServiceImpl extends InCallService {
         }
     }
 
+    /** Indicates and controls the state of the audio playing or voice recording thread. */
+    enum HandleVoiceThreadState {
+        /** The audio playing/voice recording thread is terminated. */
+        TERMINATE,
+        /** The audio playing/voice recording thread is running. */
+        RUN
+    }
+
     /*
      * TODO: b/26272583 Refactor so that these are instance members of the
      * incallservice. Then we can perform null checks using the design pattern
@@ -560,6 +601,10 @@ public class InCallServiceImpl extends InCallService {
         CallCallback callCallback = new CallCallback(id, CallCallback.EVENT_NONE);
 
         call.registerCallback(callCallback);
+        // Make sure the first call is used to play or record voice
+        if (playRecordCall == null) {
+            playRecordCall = call;
+        }
 
         VideoCall videoCall = call.getVideoCall();
         VideoCallCallback videoCallCallback = null;
@@ -590,6 +635,7 @@ public class InCallServiceImpl extends InCallService {
          */
         if (sService == null) {
             sService = this;
+            mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         }
         else if (sService != this) {
             Log.e("Multiple InCall Services Active in SL4A!");
@@ -605,6 +651,14 @@ public class InCallServiceImpl extends InCallService {
         Log.d("Removing " + id);
 
         mCallContainerMap.remove(id);
+
+        if (getCallId(call).equals(getCallId(playRecordCall))) {
+            Log.d("Terminate the call for playing/recording.");
+            playAudioInCallState = TERMINATE;
+            playRecordCall = null;
+            recordVoiceInCallState = TERMINATE;
+            recordVoiceInCall = null;
+        }
 
         CallListener.onCallRemoved(id, call);
 
@@ -1448,6 +1502,140 @@ public class InCallServiceImpl extends InCallService {
         }
 
         return propertyList;
+    }
+
+    /**
+     * Plays an audio file specified by {@code audioFileName} during a phone call.
+     *
+     * The method first checks if {@link #Call}, {@code audioFileName} and {@link #AudioDeviceInfo}
+     * exist. Finally, it creates a {@link #PlayAudioInCall} which creates a thread to perform
+     * audio playing.
+     * The method is called by {@link TelephonyManagerFacade#telephonyPlayAudioFile()}.
+     *
+     * @return {@code true} if the audio file is successfully played. Otherwise, {@code false}
+     */
+    public static boolean playAudioFile(String audioFileName) {
+        Log.d(String.format("Playing audio file \"%s\"...", audioFileName));
+        if (playAudioInCallState.equals(RUN)) {
+            Log.d("Playing is ongoing!");
+            return false;
+        }
+        if (getService() == null) {
+            Log.d("InCallService isn't activated yet");
+            return false;
+        }
+        audioTelephonyInfo = getAudioDeviceInfo();
+        if (audioTelephonyInfo == null) {
+            Log.d("No Telephony AudioDeviceInfo!");
+            return false;
+        }
+        playAudioFile = new File(getService().getFilesDir(), audioFileName);
+        if (!playAudioFile.exists()) {
+            Log.d(String.format("%s not found in files folder!",audioFileName));
+            return false;
+        }
+        playAudioInCall = new PlayAudioInCall(mEventFacade,
+            playRecordCall, playAudioFile, audioTelephonyInfo);
+        return playAudioInCall.playAudioFile();
+    }
+
+    /** Gets the audio telephony device during in a call.
+     *
+     * @return null if not found audio telephony device. Otherwise, an instance of
+     * {@link #AudioDeviceInfo}
+     * */
+    public static AudioDeviceInfo getAudioDeviceInfo() {
+        AudioDeviceInfo[] audioDeviceInfoList = mAudioManager.getDevices(
+            AudioManager.GET_DEVICES_OUTPUTS);
+        for (AudioDeviceInfo info : audioDeviceInfoList) {
+            if (info.getType() == AudioDeviceInfo.TYPE_TELEPHONY) {
+                Log.d(String.format("Found audio telephony device: %d", info.getType()));
+                return info;
+            }
+        }
+        return null;
+    }
+
+    public static HandleVoiceThreadState getPlayAudioInCallState() {
+        return playAudioInCallState;
+    }
+
+    public static void setPlayAudioInCallState(HandleVoiceThreadState state) {
+        playAudioInCallState = state;
+    }
+
+    public static void stopPlayAudioFile() {
+        if (playAudioInCallState.equals(RUN) && playAudioInCall != null) {
+            Log.d("Stop playing audio successfully!");
+            playAudioInCallState = TERMINATE;
+        }
+    }
+
+    /**
+     * Records voice during a phone call.
+     *
+     * The method checks the following items before creating a thread to record voice.
+     * <ol>
+     *   <li>Check recoding state. If there is already a voice recording, ignore the request.</li>
+     *   <li>Check if call has been established.</li>
+     *   <li>Check the input sample rate and channel count to meet constraints.</li>
+     *   <li>Check if the record wav file is created successfully.</li>
+     * </ol>
+     * @param recordWavFile indicates the wav file name of the recording voice
+     * @param sampleRate indicates sampling rate of the recording voice
+     * @param channelCount indicates voice channel number to be recorded
+     * @return {@code true} if voice is successfully recorded. Otherwise, {@code false}
+     */
+    public static boolean recordVoice(
+        String recordWavFile, int sampleRate, int channelCount, boolean cancelNoiseEcho) {
+        Log.d(String.format("Recording voice to  the \"%s\" file...", recordWavFile));
+        if (getRecordVoiceInCallState().equals(RUN)) {
+            Log.d("Recording is ongoing!");
+            return false;
+        }
+        if (getService() == null) {
+            Log.d("InCallService isn't activated yet");
+            return false;
+        }
+        if (sampleRate != SAMPLE_RATE_16K && sampleRate != SAMPLE_RATE_48K) {
+            Log.e(String.format("Don't support sample rate: %d", sampleRate));
+            return false;
+        }
+        if (channelCount != MONO_CHANNEL && channelCount != STEREO_CHANNEL) {
+            Log.e(String.format("Don't support channel count: %d", channelCount));
+            return false;
+        }
+        recordVoiceFile = new File(getService().getFilesDir(), recordWavFile);
+        if (!recordVoiceFile.exists()) {
+            try {
+                Log.d(String.format("Creates a empty %s wav file to store voice data!",
+                    recordWavFile));
+                recordVoiceFile.createNewFile();
+            } catch (IOException e) {
+                Log.e(String.format("Failed to create %s wav file!", recordWavFile));
+                return false;
+            }
+        }
+        Log.d(String.format("The voice recording info: wav file: %s, Sampling rate: %d, channel count: %d",
+            recordWavFile, sampleRate, channelCount));
+        recordVoiceInCall = new RecordVoiceInCall(mEventFacade, playRecordCall, recordVoiceFile,
+            sampleRate, channelCount, cancelNoiseEcho);
+        return recordVoiceInCall.recordVoice();
+    }
+
+    public static void stopRecordVoice() {
+        if (getRecordVoiceInCallState().equals(RUN) && playAudioInCall != null) {
+            Log.d("Stop recording voice successfully!");
+            setRecordVoiceInCallState(TERMINATE);
+        }
+    }
+
+    public static HandleVoiceThreadState getRecordVoiceInCallState() {
+        return recordVoiceInCallState;
+    }
+
+    public static void setRecordVoiceInCallState(HandleVoiceThreadState state) {
+        recordVoiceInCallState = state;
     }
 
     public static String getCallPresentationInfoString(int presentation) {

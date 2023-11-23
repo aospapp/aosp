@@ -35,11 +35,16 @@ class firmware_Cr50OpenWhileAPOff(Cr50Test):
             raise error.TestNAError('Test can only be run on devices with '
                                     'access to the Cr50 console')
 
+        # c2d2 uses cr50 for ec reset. The setting doesn't survive deep sleep.
+        # This test needs ec reset to survive deep sleep to keep the AP off.
+        if 'c2d2' in self.servo.get_servo_type():
+            raise error.TestNAError('Cannot rely on ecrst with c2d2')
+
         # TODO(mruthven): replace with dependency on servo v4 with servo micro
         # and type c cable.
-        if (self.servo.get_servo_version(active=True) !=
-            'servo_v4_with_servo_micro'):
-            raise error.TestNAError('Run using servo v4 with servo micro')
+        if ('servo_v4' not in self.servo.get_servo_type()
+                    or not self.servo.main_device_is_flex()):
+            raise error.TestNAError('Must use servo v4 with servo_micro')
 
         if not self.cr50.servo_dts_mode_is_valid():
             raise error.TestNAError('Plug in servo v4 type c cable into ccd '
@@ -47,7 +52,7 @@ class firmware_Cr50OpenWhileAPOff(Cr50Test):
 
         self.fast_ccd_open(enable_testlab=True)
         # make sure password is cleared.
-        self.cr50.send_command('ccd reset')
+        self.cr50.ccd_reset()
         # Set GscFullConsole to Always, so we can always use gpioset.
         self.cr50.set_cap('GscFullConsole', 'Always')
         # You can only open cr50 from the console if a password is set. Set
@@ -141,7 +146,7 @@ class firmware_Cr50OpenWhileAPOff(Cr50Test):
         # ccdstate which is useful for debugging. Do that first, so it always
         # happens.
         if not self.cr50.ap_is_on() and state == 'on':
-            self.servo.power_short_press()
+            self.servo.power_normal_press()
             time.sleep(self.SHORT_DELAY)
 
 

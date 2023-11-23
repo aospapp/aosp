@@ -547,6 +547,7 @@ public class Parser {
       switch (token) {
         case IDENT:
           {
+            String javadoc = lexer.javadoc();
             Ident name = eatIdent();
             if (token == Token.LPAREN) {
               dropParens();
@@ -569,7 +570,7 @@ public class Parser {
                         ImmutableList.of()),
                     name,
                     Optional.<Expression>empty(),
-                    null));
+                    javadoc));
             annos = ImmutableList.builder();
             break;
           }
@@ -719,6 +720,11 @@ public class Parser {
 
         case IDENT:
           Ident ident = ident();
+          if (ident.value().equals("sealed")) {
+            next();
+            access.add(TurbineModifier.SEALED);
+            break;
+          }
           if (ident.value().equals("non")) {
             int pos = position;
             next();

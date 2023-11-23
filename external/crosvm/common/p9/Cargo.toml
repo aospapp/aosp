@@ -1,15 +1,15 @@
 [package]
 name = "p9"
 version = "0.1.0"
-authors = ["The Chromium OS Authors"]
+authors = ["The ChromiumOS Authors"]
 edition = "2021"
 
-[dependencies]
+[target.'cfg(unix)'.dependencies]
 libc = "*"
-sys_util = { path = "../sys_util" } # provided by ebuild
+serde = { version = "*", features = [ "derive" ] }
 wire_format_derive = { path = "wire_format_derive", version = "*" }
 
 [features]
 trace = []
 
-[workspace]
+

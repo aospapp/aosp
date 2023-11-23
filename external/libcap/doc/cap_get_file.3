@@ -1,24 +1,21 @@
 .\"
 .\" written by Andrew Main <zefram@dcs.warwick.ac.uk>
 .\"
-.TH CAP_GET_FILE 3 "2008-05-11" "" "Linux Programmer's Manual"
+.TH CAP_GET_FILE 3 "2021-03-06" "" "Linux Programmer's Manual"
 .SH NAME
 cap_get_file, cap_set_file, cap_get_fd, cap_set_fd \- capability
 manipulation on files
 .SH SYNOPSIS
-.B #include <sys/capability.h>
-.sp
-.BI "cap_t cap_get_file(const char *" path_p );
-.sp
-.BI "int cap_set_file(const char *" path_p ", cap_t " cap_p );
-.sp
-.BI "cap_t cap_get_fd(int " fd );
-.sp
-.BI "int cap_set_fd(int " fd ", cap_t " caps );
-.sp
-.BI "uid_t cap_get_nsowner(cap_t " caps );
-.sp
-.BI "int cap_set_nsowner(cap_t " caps ", uid_t " rootuid );
+.nf
+#include <sys/capability.h>
+
+cap_t cap_get_file(const char *path_p);
+int cap_set_file(const char *path_p, cap_t cap_p);
+cap_t cap_get_fd(int fd);
+int cap_set_fd(int fd, cap_t caps);
+uid_t cap_get_nsowner(cap_t caps);
+int cap_set_nsowner(cap_t caps, uid_t rootuid);
+.fi
 .sp
 Link with \fI\-lcap\fP.
 .SH DESCRIPTION

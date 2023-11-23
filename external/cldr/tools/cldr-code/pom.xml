@@ -7,7 +7,7 @@
 
 	<artifactId>cldr-code</artifactId>
 
-	<name>CLDR Java Tools</name>
+	<name>CLDR Code</name>
 
 	<url>https://unicode.org/cldr</url>
 
@@ -22,7 +22,7 @@
 	<parent>
 		<groupId>org.unicode.cldr</groupId>
 		<artifactId>cldr-all</artifactId>
-		<version>40.0-SNAPSHOT</version>
+		<version>42.0</version>
 	</parent>
 
 	<dependencies>
@@ -50,16 +50,6 @@
 		<dependency>
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
-		</dependency>
-
-		<dependency>
-			<groupId>xml-apis</groupId>
-			<artifactId>xml-apis</artifactId>
-		</dependency>
-
-		<dependency>
-			<groupId>xerces</groupId>
-			<artifactId>xercesImpl</artifactId>
 		</dependency>
 
 		<dependency>
@@ -121,8 +111,8 @@
 						<manifestEntries>
 							<Built-By>${user.name}</Built-By>
 							<Build-Time>${maven.build.timestamp}</Build-Time>
-							<CLDR-Tools-Git-Commit>${buildNumber}</CLDR-Tools-Git-Commit>
-							<CLDR-Tools-Git-Branch>${scmBranch}</CLDR-Tools-Git-Branch>
+							<CLDR-Code-Git-Commit>${buildNumber}</CLDR-Code-Git-Commit>
+							<CLDR-Code-Git-Branch>${scmBranch}</CLDR-Code-Git-Branch>
 						</manifestEntries>
 					</archive>
 				</configuration>
@@ -157,8 +147,8 @@
 										<Main-Class>${mainClass}</Main-Class>
 										<Built-By>${user.name}</Built-By>
 										<Build-Time>${maven.build.timestamp}</Build-Time>
-										<CLDR-Tools-Git-Commit>${buildNumber}</CLDR-Tools-Git-Commit>
-										<CLDR-Tools-Git-Branch>${scmBranch}</CLDR-Tools-Git-Branch>
+										<CLDR-Code-Git-Commit>${buildNumber}</CLDR-Code-Git-Commit>
+										<CLDR-Code-Git-Branch>${scmBranch}</CLDR-Code-Git-Branch>
 									</manifestEntries>
 								</transformer>
 								<transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">

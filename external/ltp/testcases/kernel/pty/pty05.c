@@ -67,7 +67,7 @@ static void run(void)
 		}
 
 		SAFE_IOCTL(ptmx, TCXONC, TCOOFF);
-		SAFE_WRITE(1, ptmx, buf, BUF_SIZE);
+		SAFE_WRITE(SAFE_WRITE_ALL, ptmx, buf, BUF_SIZE);
 
 		tst_fzsync_start_race_a(&fzsync_pair);
 		ioctl(ptmx, TCXONC, TCOON);
@@ -97,6 +97,7 @@ static struct tst_test test = {
 	.setup = setup,
 	.cleanup = cleanup,
 	.taint_check = TST_TAINT_W | TST_TAINT_D,
+	.max_runtime = 150,
 	.tags = (const struct tst_tag[]) {
 		{"linux-git", "82f2341c94d27"},
 		{"CVE", "2017-2636"},

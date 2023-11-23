@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
+ *
+ * SPDX-License-Identifier: curl
  *
  * RFC2195 CRAM-MD5 authentication
  * RFC2595 Using TLS with IMAP, POP3 and ACAP
@@ -54,11 +56,6 @@
 #include <inet.h>
 #endif
 
-#if (defined(NETWARE) && defined(__NOVELL_LIBC__))
-#undef in_addr_t
-#define in_addr_t unsigned long
-#endif
-
 #include <curl/curl.h>
 #include "urldata.h"
 #include "sendf.h"
@@ -73,14 +70,15 @@
 #include "strtoofft.h"
 #include "strcase.h"
 #include "vtls/vtls.h"
+#include "cfilters.h"
 #include "connect.h"
 #include "select.h"
 #include "multiif.h"
 #include "url.h"
-#include "strcase.h"
 #include "bufref.h"
 #include "curl_sasl.h"
 #include "warnless.h"
+#include "curl_ctype.h"
 
 /* The last 3 #include files should be in this order */
 #include "curl_printf.h"
@@ -329,7 +327,7 @@ static bool imap_endofresp(struct Curl_easy *data, struct connectdata *conn,
   /* Do we have a continuation response? This should be a + symbol followed by
      a space and optionally some text as per RFC-3501 for the AUTHENTICATE and
      APPEND commands and as outlined in Section 4. Examples of RFC-4959 but
-     some e-mail servers ignore this and only send a single + instead. */
+     some email servers ignore this and only send a single + instead. */
   if(imap && !imap->custom && ((len == 3 && line[0] == '+') ||
      (len >= 2 && !memcmp("+ ", line, 2)))) {
     switch(imapc->state) {
@@ -476,10 +474,18 @@ static CURLcode imap_perform_upgrade_tls(struct Curl_easy *data,
 {
   /* Start the SSL connection */
   struct imap_conn *imapc = &conn->proto.imapc;
-  CURLcode result = Curl_ssl_connect_nonblocking(data, conn, FALSE,
-                                                 FIRSTSOCKET, &imapc->ssldone);
+  CURLcode result;
+  bool ssldone = FALSE;
 
+  if(!Curl_conn_is_ssl(conn, FIRSTSOCKET)) {
+    result = Curl_ssl_cfilter_add(data, conn, FIRSTSOCKET);
+    if(result)
+      goto out;
+  }
+
+  result = Curl_conn_connect(data, FIRSTSOCKET, FALSE, &ssldone);
   if(!result) {
+    imapc->ssldone = ssldone;
     if(imapc->state != IMAP_UPGRADETLS)
       state(data, IMAP_UPGRADETLS);
 
@@ -488,7 +494,7 @@ static CURLcode imap_perform_upgrade_tls(struct Curl_easy *data,
       result = imap_perform_capability(data, conn);
     }
   }
-
+out:
   return result;
 }
 
@@ -507,7 +513,7 @@ static CURLcode imap_perform_login(struct Curl_easy *data,
 
   /* Check we have a username and password to authenticate with and end the
      connect phase if we don't */
-  if(!conn->bits.user_passwd) {
+  if(!data->state.aptr.user) {
     state(data, IMAP_STOP);
 
     return result;
@@ -608,7 +614,7 @@ static CURLcode imap_perform_authentication(struct Curl_easy *data,
   /* Check if already authenticated OR if there is enough data to authenticate
      with and end the connect phase if we don't */
   if(imapc->preauth ||
-     !Curl_sasl_can_authenticate(&imapc->sasl, conn)) {
+     !Curl_sasl_can_authenticate(&imapc->sasl, data)) {
     state(data, IMAP_STOP);
     return result;
   }
@@ -624,7 +630,7 @@ static CURLcode imap_perform_authentication(struct Curl_easy *data,
       result = imap_perform_login(data, conn);
     else {
       /* Other mechanisms not supported */
-      infof(data, "No known authentication mechanisms supported!");
+      infof(data, "No known authentication mechanisms supported");
       result = CURLE_LOGIN_DENIED;
     }
   }
@@ -773,11 +779,11 @@ static CURLcode imap_perform_append(struct Curl_easy *data)
 
     /* Add external headers and mime version. */
     curl_mime_headers(&data->set.mimepost, data->set.headers, 0);
-    result = Curl_mime_prepare_headers(&data->set.mimepost, NULL,
+    result = Curl_mime_prepare_headers(data, &data->set.mimepost, NULL,
                                        NULL, MIMESTRATEGY_MAIL);
 
     if(!result)
-      if(!Curl_checkheaders(data, "Mime-Version"))
+      if(!Curl_checkheaders(data, STRCONST("Mime-Version")))
         result = Curl_mime_add_header(&data->set.mimepost.curlheaders,
                                       "Mime-Version: 1.0");
 
@@ -874,7 +880,7 @@ static CURLcode imap_state_servergreet_resp(struct Curl_easy *data,
     /* PREAUTH */
     struct imap_conn *imapc = &conn->proto.imapc;
     imapc->preauth = TRUE;
-    infof(data, "PREAUTH connection, already authenticated!");
+    infof(data, "PREAUTH connection, already authenticated");
   }
   else if(imapcode != IMAP_RESP_OK) {
     failf(data, "Got unexpected imap-server response");
@@ -948,7 +954,7 @@ static CURLcode imap_state_capability_resp(struct Curl_easy *data,
       line += wordlen;
     }
   }
-  else if(data->set.use_ssl && !conn->ssl[FIRSTSOCKET].use) {
+  else if(data->set.use_ssl && !Curl_conn_is_ssl(conn, FIRSTSOCKET)) {
     /* PREAUTH is not compatible with STARTTLS. */
     if(imapcode == IMAP_RESP_OK && imapc->tls_supported && !imapc->preauth) {
       /* Switch to TLS connection now */
@@ -1382,9 +1388,10 @@ static CURLcode imap_multi_statemach(struct Curl_easy *data, bool *done)
   struct imap_conn *imapc = &conn->proto.imapc;
 
   if((conn->handler->flags & PROTOPT_SSL) && !imapc->ssldone) {
-    result = Curl_ssl_connect_nonblocking(data, conn, FALSE,
-                                          FIRSTSOCKET, &imapc->ssldone);
-    if(result || !imapc->ssldone)
+    bool ssldone = FALSE;
+    result = Curl_conn_connect(data, FIRSTSOCKET, FALSE, &ssldone);
+    imapc->ssldone = ssldone;
+    if(result || !ssldone)
       return result;
   }
 
@@ -1558,7 +1565,7 @@ static CURLcode imap_perform(struct Curl_easy *data, bool *connected,
 
   DEBUGF(infof(data, "DO phase starts"));
 
-  if(data->set.opt_no_body) {
+  if(data->req.no_body) {
     /* Requested no body means no transfer */
     imap->transfer = PPTRANSFER_INFO;
   }
@@ -1600,7 +1607,7 @@ static CURLcode imap_perform(struct Curl_easy *data, bool *connected,
   /* Run the state-machine */
   result = imap_multi_statemach(data, dophase_done);
 
-  *connected = conn->bits.tcpconnect[FIRSTSOCKET];
+  *connected = Curl_conn_is_connected(conn, FIRSTSOCKET);
 
   if(*dophase_done)
     DEBUGF(infof(data, "DO phase is complete"));
@@ -1771,7 +1778,7 @@ static CURLcode imap_sendf(struct Curl_easy *data, const char *fmt, ...)
   /* Calculate the tag based on the connection ID and command ID */
   msnprintf(imapc->resptag, sizeof(imapc->resptag), "%c%03d",
             'A' + curlx_sltosi(data->conn->connection_id % 26),
-            (++imapc->cmdid)%1000);
+            ++imapc->cmdid);
 
   /* start with a blank buffer */
   Curl_dyn_reset(&imapc->dyn);
@@ -1883,22 +1890,17 @@ static char *imap_atom(const char *str, bool escape_only)
  */
 static bool imap_is_bchar(char ch)
 {
+  /* Performing the alnum check with this macro is faster because of ASCII
+     arithmetic */
+  if(ISALNUM(ch))
+    return true;
+
   switch(ch) {
     /* bchar */
     case ':': case '@': case '/':
     /* bchar -> achar */
     case '&': case '=':
-    /* bchar -> achar -> uchar -> unreserved */
-    case '0': case '1': case '2': case '3': case '4': case '5': case '6':
-    case '7': case '8': case '9':
-    case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
-    case 'H': case 'I': case 'J': case 'K': case 'L': case 'M': case 'N':
-    case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U':
-    case 'V': case 'W': case 'X': case 'Y': case 'Z':
-    case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g':
-    case 'h': case 'i': case 'j': case 'k': case 'l': case 'm': case 'n':
-    case 'o': case 'p': case 'q': case 'r': case 's': case 't': case 'u':
-    case 'v': case 'w': case 'x': case 'y': case 'z':
+    /* bchar -> achar -> uchar -> unreserved (without alphanumeric) */
     case '-': case '.': case '_': case '~':
     /* bchar -> achar -> uchar -> sub-delims-sh */
     case '!': case '$': case '\'': case '(': case ')': case '*':
@@ -1986,7 +1988,7 @@ static CURLcode imap_parse_url_path(struct Curl_easy *data)
     if(end > begin && end[-1] == '/')
       end--;
 
-    result = Curl_urldecode(data, begin, end - begin, &imap->mailbox, NULL,
+    result = Curl_urldecode(begin, end - begin, &imap->mailbox, NULL,
                             REJECT_CTRL);
     if(result)
       return result;
@@ -2009,7 +2011,7 @@ static CURLcode imap_parse_url_path(struct Curl_easy *data)
       return CURLE_URL_MALFORMAT;
 
     /* Decode the name parameter */
-    result = Curl_urldecode(data, begin, ptr - begin, &name, NULL,
+    result = Curl_urldecode(begin, ptr - begin, &name, NULL,
                             REJECT_CTRL);
     if(result)
       return result;
@@ -2020,7 +2022,7 @@ static CURLcode imap_parse_url_path(struct Curl_easy *data)
       ptr++;
 
     /* Decode the value parameter */
-    result = Curl_urldecode(data, begin, ptr - begin, &value, &valuelen,
+    result = Curl_urldecode(begin, ptr - begin, &value, &valuelen,
                             REJECT_CTRL);
     if(result) {
       free(name);
@@ -2108,7 +2110,7 @@ static CURLcode imap_parse_custom_request(struct Curl_easy *data)
 
   if(custom) {
     /* URL decode the custom request */
-    result = Curl_urldecode(data, custom, 0, &imap->custom, NULL, REJECT_CTRL);
+    result = Curl_urldecode(custom, 0, &imap->custom, NULL, REJECT_CTRL);
 
     /* Extract the parameters if specified */
     if(!result) {

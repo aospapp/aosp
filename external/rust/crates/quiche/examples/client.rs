@@ -44,7 +44,7 @@ fn main() {
     let cmd = &args.next().unwrap();
 
     if args.len() != 1 {
-        println!("Usage: {} URL", cmd);
+        println!("Usage: {cmd} URL");
         println!("\nSee tools/apps/ for more complete implementations.");
         return;
     }
@@ -52,7 +52,7 @@ fn main() {
     let url = url::Url::parse(&args.next().unwrap()).unwrap();
 
     // Setup the event loop.
-    let poll = mio::Poll::new().unwrap();
+    let mut poll = mio::Poll::new().unwrap();
     let mut events = mio::Events::with_capacity(1024);
 
     // Resolve server address.
@@ -68,16 +68,11 @@ fn main() {
 
     // Create the UDP socket backing the QUIC connection, and register it with
     // the event loop.
-    let socket = std::net::UdpSocket::bind(bind_addr).unwrap();
-
-    let socket = mio::net::UdpSocket::from_socket(socket).unwrap();
-    poll.register(
-        &socket,
-        mio::Token(0),
-        mio::Ready::readable(),
-        mio::PollOpt::edge(),
-    )
-    .unwrap();
+    let mut socket =
+        mio::net::UdpSocket::bind(bind_addr.parse().unwrap()).unwrap();
+    poll.registry()
+        .register(&mut socket, mio::Token(0), mio::Interest::READABLE)
+        .unwrap();
 
     // Create the configuration for the QUIC connection.
     let mut config = quiche::Config::new(quiche::PROTOCOL_VERSION).unwrap();
@@ -86,9 +81,13 @@ fn main() {
     config.verify_peer(false);
 
     config
-        .set_application_protos(
-            b"\x0ahq-interop\x05hq-29\x05hq-28\x05hq-27\x08http/0.9",
-        )
+        .set_application_protos(&[
+            b"hq-interop",
+            b"hq-29",
+            b"hq-28",
+            b"hq-27",
+            b"http/0.9",
+        ])
         .unwrap();
 
     config.set_max_idle_timeout(5000);
@@ -107,9 +106,13 @@ fn main() {
 
     let scid = quiche::ConnectionId::from_ref(&scid);
 
+    // Get local address.
+    let local_addr = socket.local_addr().unwrap();
+
     // Create a QUIC connection and initiate handshake.
     let mut conn =
-        quiche::connect(url.domain(), &scid, peer_addr, &mut config).unwrap();
+        quiche::connect(url.domain(), &scid, local_addr, peer_addr, &mut config)
+            .unwrap();
 
     info!(
         "connecting to {:} from {:} with scid {}",
@@ -120,7 +123,7 @@ fn main() {
 
     let (write, send_info) = conn.send(&mut out).expect("initial send failed");
 
-    while let Err(e) = socket.send_to(&out[..write], &send_info.to) {
+    while let Err(e) = socket.send_to(&out[..write], send_info.to) {
         if e.kind() == std::io::ErrorKind::WouldBlock {
             debug!("send() would block");
             continue;
@@ -168,7 +171,10 @@ fn main() {
 
             debug!("got {} bytes", len);
 
-            let recv_info = quiche::RecvInfo { from };
+            let recv_info = quiche::RecvInfo {
+                to: socket.local_addr().unwrap(),
+                from,
+            };
 
             // Process potentially coalesced packets.
             let read = match conn.recv(&mut buf[..len], recv_info) {
@@ -216,7 +222,7 @@ fn main() {
                 );
 
                 print!("{}", unsafe {
-                    std::str::from_utf8_unchecked(&stream_buf)
+                    std::str::from_utf8_unchecked(stream_buf)
                 });
 
                 // The server reported that it has no more data to send, which
@@ -251,7 +257,7 @@ fn main() {
                 },
             };
 
-            if let Err(e) = socket.send_to(&out[..write], &send_info.to) {
+            if let Err(e) = socket.send_to(&out[..write], send_info.to) {
                 if e.kind() == std::io::ErrorKind::WouldBlock {
                     debug!("send() would block");
                     break;
@@ -271,7 +277,7 @@ fn main() {
 }
 
 fn hex_dump(buf: &[u8]) -> String {
-    let vec: Vec<String> = buf.iter().map(|b| format!("{:02x}", b)).collect();
+    let vec: Vec<String> = buf.iter().map(|b| format!("{b:02x}")).collect();
 
     vec.join("")
 }

@@ -52,12 +52,12 @@ d3d11::BlendStateKey RenderStateCache::GetBlendStateKey(const gl::Context *conte
     // All fields of the BlendStateExt inside the key should be initialized for the caching to
     // work correctly. Due to mrt_perf_workaround, the actual indices of active draw buffers may be
     // different, so both arrays should be tracked.
-    key.blendStateExt                      = gl::BlendStateExt(blendStateExt.mMaxDrawBuffers);
+    key.blendStateExt                      = gl::BlendStateExt(blendStateExt.getDrawBufferCount());
     const gl::AttachmentList &colorbuffers = framebuffer11->getColorAttachmentsForRender(context);
     const gl::DrawBufferMask colorAttachmentsForRenderMask =
         framebuffer11->getLastColorAttachmentsForRenderMask();
 
-    ASSERT(blendStateExt.mMaxDrawBuffers <= colorAttachmentsForRenderMask.size());
+    ASSERT(blendStateExt.getDrawBufferCount() <= colorAttachmentsForRenderMask.size());
     ASSERT(colorbuffers.size() == colorAttachmentsForRenderMask.count());
 
     size_t keyBlendIndex = 0;
@@ -89,7 +89,7 @@ d3d11::BlendStateKey RenderStateCache::GetBlendStateKey(const gl::Context *conte
         // Some D3D11 drivers produce unexpected results when blending is enabled for integer
         // attachments. Per OpenGL ES spec, it must be ignored anyway. When blending is disabled,
         // the state remains default to reduce the number of unique keys.
-        if (blendStateExt.mEnabledMask.test(sourceIndex) && !internalFormat.isInt())
+        if (blendStateExt.getEnabledMask().test(sourceIndex) && !internalFormat.isInt())
         {
             key.blendStateExt.setEnabledIndexed(keyBlendIndex, true);
             key.blendStateExt.setEquationsIndexed(keyBlendIndex, sourceIndex, blendStateExt);
@@ -127,11 +127,11 @@ angle::Result RenderStateCache::getBlendState(const gl::Context *context,
     // feature level. Given that we do not expose GL entrypoints that set per-buffer blend states on
     // systems lower than FL10_1, this array will be always valid.
 
-    for (size_t i = 0; i < blendStateExt.mMaxDrawBuffers; i++)
+    for (size_t i = 0; i < blendStateExt.getDrawBufferCount(); i++)
     {
         D3D11_RENDER_TARGET_BLEND_DESC &rtDesc = blendDesc.RenderTarget[i];
 
-        if (blendStateExt.mEnabledMask.test(i))
+        if (blendStateExt.getEnabledMask().test(i))
         {
             rtDesc.BlendEnable = true;
             rtDesc.SrcBlend =
@@ -193,22 +193,22 @@ angle::Result RenderStateCache::getRasterizerState(const gl::Context *context,
     rasterDesc.FillMode              = D3D11_FILL_SOLID;
     rasterDesc.CullMode              = cullMode;
     rasterDesc.FrontCounterClockwise = (rasterState.frontFace == GL_CCW) ? FALSE : TRUE;
-    rasterDesc.DepthBiasClamp = 0.0f;  // MSDN documentation of DepthBiasClamp implies a value of
-                                       // zero will preform no clamping, must be tested though.
-    rasterDesc.DepthClipEnable       = TRUE;
+    rasterDesc.DepthClipEnable       = !rasterState.depthClamp;
     rasterDesc.ScissorEnable         = scissorEnabled ? TRUE : FALSE;
     rasterDesc.MultisampleEnable     = rasterState.multiSample;
     rasterDesc.AntialiasedLineEnable = FALSE;
 
     if (rasterState.polygonOffsetFill)
     {
-        rasterDesc.SlopeScaledDepthBias = rasterState.polygonOffsetFactor;
         rasterDesc.DepthBias            = (INT)rasterState.polygonOffsetUnits;
+        rasterDesc.DepthBiasClamp       = rasterState.polygonOffsetClamp;
+        rasterDesc.SlopeScaledDepthBias = rasterState.polygonOffsetFactor;
     }
     else
     {
-        rasterDesc.SlopeScaledDepthBias = 0.0f;
         rasterDesc.DepthBias            = 0;
+        rasterDesc.DepthBiasClamp       = 0.0f;
+        rasterDesc.SlopeScaledDepthBias = 0.0f;
     }
 
     d3d11::RasterizerState dx11RasterizerState;
@@ -287,15 +287,10 @@ angle::Result RenderStateCache::getSamplerState(const gl::Context *context,
     samplerDesc.MaxAnisotropy =
         gl_d3d11::ConvertMaxAnisotropy(samplerState.getMaxAnisotropy(), featureLevel);
     samplerDesc.ComparisonFunc = gl_d3d11::ConvertComparison(samplerState.getCompareFunc());
-    angle::ColorF borderColor;
-    if (samplerState.getBorderColor().type == angle::ColorGeneric::Type::Float)
-    {
-        borderColor = samplerState.getBorderColor().colorF;
-    }
-    samplerDesc.BorderColor[0] = borderColor.red;
-    samplerDesc.BorderColor[1] = borderColor.green;
-    samplerDesc.BorderColor[2] = borderColor.blue;
-    samplerDesc.BorderColor[3] = borderColor.alpha;
+    samplerDesc.BorderColor[0] = samplerState.getBorderColor().colorF.red;
+    samplerDesc.BorderColor[1] = samplerState.getBorderColor().colorF.green;
+    samplerDesc.BorderColor[2] = samplerState.getBorderColor().colorF.blue;
+    samplerDesc.BorderColor[3] = samplerState.getBorderColor().colorF.alpha;
     samplerDesc.MinLOD         = samplerState.getMinLod();
     samplerDesc.MaxLOD         = samplerState.getMaxLod();
 

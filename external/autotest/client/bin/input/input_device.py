@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -25,10 +25,15 @@ import struct
 import time
 
 from collections import OrderedDict
-
-from linux_input import *
 from six.moves import range
 
+# Try to import from the autotest_lib structure. If it fails try the default.
+# If this script was run outside of autotest the "except" would be the flow.
+# If run within, the "try" is the flow.
+try:
+    from autotest_lib.client.bin.input.linux_input import *
+except ImportError:
+    from linux_input import *
 
 # The regular expression of possible keyboard types.
 KEYBOARD_TYPES = '(keyboard|chromeos-ec-i2c|cros-ec-spi|cros-ec-i2c|cros_ec)'
@@ -411,7 +416,7 @@ class InputDevice:
         elif code == ABS_PRESSURE:
             return ABS_MT_PRESSURE
         elif code == ABS_TOOL_WIDTH:
-            return ABS_TOUCH_MAJOR
+            return ABS_MT_TOUCH_MAJOR
         else:
             return code
 

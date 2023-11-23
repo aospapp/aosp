@@ -31,6 +31,6 @@
     <pointer-type-def type-id='type-id-3' size-in-bits='64' alignment-in-bits='64' id='type-id-7'/>
     <pointer-type-def type-id='type-id-4' size-in-bits='64' alignment-in-bits='64' id='type-id-8'/>
     <pointer-type-def type-id='type-id-6' size-in-bits='64' alignment-in-bits='64' id='type-id-11'/>
-    <var-decl name='t' type-id='type-id-11' mangled-name='t' visibility='default'/>
+    <var-decl name='t' type-id='type-id-11' mangled-name='t' visibility='default' elf-symbol-id='t'/>
   </abi-instr>
 </abi-corpus>

@@ -14,7 +14,7 @@
 
 include($ENV{PW_ROOT}/pw_build/pigweed.cmake)
 
-pw_add_module_library(pw_result
+pw_add_library(pw_result INTERFACE
   HEADERS
     public/pw_result/result.h
   PUBLIC_INCLUDES
@@ -31,7 +31,7 @@ endif()
 pw_add_test(pw_result.result_test
   SOURCES
     result_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_result
     pw_status
   GROUPS

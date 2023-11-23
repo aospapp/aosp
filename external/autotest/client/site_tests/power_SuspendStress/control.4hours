@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_SuspendStress.4hours"
 ATTRIBUTES = "suite:jailed_build"
 PURPOSE = "Run repeated iterations of suspend/resume to find rare errors."
@@ -10,6 +10,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 Runs four hours of bare suspend/resume cycles without additional workload.

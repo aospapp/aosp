@@ -9,6 +9,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
+PY_VERSION = 3
 DOC = """
 Change the various arguments to the test to test different things in the
 omaha response. Example:

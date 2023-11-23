@@ -16,73 +16,59 @@
 
 package dagger.internal.codegen;
 
-import com.google.auto.common.MoreElements;
+import static androidx.room.compiler.processing.XElementKt.isConstructor;
+import static androidx.room.compiler.processing.XElementKt.isField;
+import static androidx.room.compiler.processing.XElementKt.isMethod;
+import static dagger.internal.codegen.xprocessing.XElements.asConstructor;
+import static dagger.internal.codegen.xprocessing.XElements.asField;
+import static dagger.internal.codegen.xprocessing.XElements.asMethod;
+
+import androidx.room.compiler.processing.XElement;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import dagger.assisted.AssistedInject;
+import com.squareup.javapoet.ClassName;
 import dagger.internal.codegen.binding.InjectBindingRegistry;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.validation.TypeCheckingProcessingStep;
-import java.lang.annotation.Annotation;
 import java.util.Set;
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementVisitor;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.VariableElement;
-import javax.lang.model.util.ElementKindVisitor8;
 
 /**
  * An annotation processor for generating Dagger implementation code based on the {@link Inject}
  * annotation.
  */
 // TODO(gak): add some error handling for bad source files
-final class InjectProcessingStep extends TypeCheckingProcessingStep<Element> {
-  private final ElementVisitor<Void, Void> visitor;
-  private final Set<Element> processedElements = Sets.newLinkedHashSet();
+// TODO(bcorso): Add support in TypeCheckingProcessingStep to perform custom validation and use
+// SuperficialInjectValidator rather than SuperficialValidator.
+final class InjectProcessingStep extends TypeCheckingProcessingStep<XElement> {
+  private final InjectBindingRegistry injectBindingRegistry;
+  private final Set<XElement> processedElements = Sets.newHashSet();
 
   @Inject
   InjectProcessingStep(InjectBindingRegistry injectBindingRegistry) {
-    super(e -> e);
-    this.visitor =
-        new ElementKindVisitor8<Void, Void>() {
-          @Override
-          public Void visitExecutableAsConstructor(
-              ExecutableElement constructorElement, Void aVoid) {
-            injectBindingRegistry.tryRegisterConstructor(constructorElement);
-            return null;
-          }
-
-          @Override
-          public Void visitVariableAsField(VariableElement fieldElement, Void aVoid) {
-            injectBindingRegistry.tryRegisterMembersInjectedType(
-                MoreElements.asType(fieldElement.getEnclosingElement()));
-            return null;
-          }
-
-          @Override
-          public Void visitExecutableAsMethod(ExecutableElement methodElement, Void aVoid) {
-            injectBindingRegistry.tryRegisterMembersInjectedType(
-                MoreElements.asType(methodElement.getEnclosingElement()));
-            return null;
-          }
-        };
+    this.injectBindingRegistry = injectBindingRegistry;
   }
 
   @Override
-  public Set<Class<? extends Annotation>> annotations() {
-    return ImmutableSet.of(Inject.class, AssistedInject.class);
+  public ImmutableSet<ClassName> annotationClassNames() {
+    return ImmutableSet.of(TypeNames.INJECT, TypeNames.INJECT_JAVAX, TypeNames.ASSISTED_INJECT);
   }
 
   @Override
-  protected void process(
-      Element injectElement, ImmutableSet<Class<? extends Annotation>> annotations) {
+  protected void process(XElement injectElement, ImmutableSet<ClassName> annotations) {
     // Only process an element once to avoid getting duplicate errors when an element is annotated
     // with multiple inject annotations.
     if (processedElements.contains(injectElement)) {
       return;
     }
 
-    injectElement.accept(visitor, null);
+    if (isConstructor(injectElement)) {
+      injectBindingRegistry.tryRegisterInjectConstructor(asConstructor(injectElement));
+    } else if (isField(injectElement)) {
+      injectBindingRegistry.tryRegisterInjectField(asField(injectElement));
+    } else if (isMethod(injectElement)) {
+      injectBindingRegistry.tryRegisterInjectMethod(asMethod(injectElement));
+    }
 
     processedElements.add(injectElement);
   }

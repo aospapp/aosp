@@ -1,6 +1,6 @@
-.\" Copyright 2011-2018 Roderick W. Smith (rodsmith@rodsbooks.com)
+.\" Copyright 2011-2022 Roderick W. Smith (rodsmith@rodsbooks.com)
 .\" May be distributed under the GNU General Public License
-.TH "SGDISK" "8" "1.0.4" "Roderick W. Smith" "GPT fdisk Manual"
+.TH "SGDISK" "8" "1.0.9" "Roderick W. Smith" "GPT fdisk Manual"
 .SH "NAME"
 sgdisk \- Command\-line GUID partition table (GPT) manipulator for Linux and Unix
 .SH "SYNOPSIS"
@@ -23,7 +23,7 @@ recovery options require you to understand the distinctions between the
 main and backup data, as well as between the GPT headers and the partition
 tables. For information on MBR vs. GPT, as well as GPT terminology and
 structure, see the extended \fBgdisk\fR documentation at
-\fIhttp://www.rodsbooks.com/gdisk/\fR or consult Wikipedia.
+\fIhttps://www.rodsbooks.com/gdisk/\fR or consult Wikipedia.
 
 The \fBsgdisk\fR program employs a user interface that's based entirely on
 the command line, making it suitable for use in scripts or by experts who
@@ -154,7 +154,10 @@ to sectors that are multiples of this value, which defaults to 1 MiB (2048
 on disks with 512-byte sectors) on freshly formatted disks. This alignment
 value is necessary to obtain optimum performance with Western Digital
 Advanced Format and similar drives with larger physical than logical sector
-sizes, with some types of RAID arrays, and with SSD devices.
+sizes, with some types of RAID arrays, and with SSD devices. When the
+\fI\-I\fR option is used, this same alignment value is used to determine
+partition end points; but partitions end at one less than a multiple of this
+value, to keep the partition length a multiple of this value.
 
 .TP
 .B \-A, \-\-attributes=list|[partnum:show|or|nand|xor|=|set|clear|toggle|get[:bitnum|hexbitmask]]
@@ -167,7 +170,7 @@ when using this option. The others require a partition number. The
 \fItoggle\fR options enable you to change the attribute bit value. The
 \fIset\fR, \fIclear\fR, \fItoggle\fR, and \fIget\fR options work on a
 bit number; the others work on a hexadecimal bit mask. For example, type 
-\fBsgdisk -A 4:set:2 /dev/sdc\fR to set the bit 2 attribute (legacy BIOS
+\fBsgdisk \-A 4:set:2 /dev/sdc\fR to set the bit 2 attribute (legacy BIOS
 bootable) on partition 4 on \fI/dev/sdc\fR.
 
 .TP 
@@ -181,6 +184,14 @@ if you launch the program, make changes, and then use this option, the
 backup will reflect your changes. If the GPT data structures are damaged,
 the backup may not accurately reflect the damaged state; instead, they
 will reflect GPT fdisk's first\-pass interpretation of the GPT.
+
+.TP 
+.B \-B, \-\-byte\-swap\-name=partnum
+Swap the byte order for the name of the specified partition. Some
+partitioning tools, including GPT fdisk 1.0.7 and earlier, can write the
+partition name in the wrong byte order on big-endian computers, such as the
+IBM s390 mainframes and PowerPC-based Macs. This feature corrects this
+problem.
 
 .TP 
 .B \-c, \-\-change\-name=partnum:name
@@ -272,13 +283,25 @@ is usually correct for Windows partitions. If the active/bootable flag should
 be set, you must do so in another program, such as \fBfdisk\fR. The \fBgdisk\fR
 program offers additional hybrid MBR creation options.
 
-.TP 
+.TP
 .B \-i, \-\-info=partnum
 Show detailed partition information. The summary information produced by
 the \fI\-p\fR command necessarily omits many details, such as the partition's
 unique GUID and the translation of \fBsgdisk\fR's
 internal partition type code to a plain type name. The \fI\-i\fR option
 displays this information for a single partition.
+
+.TP
+.B \-I, \-\-align\-end
+When possible, align the end points of partitions to one less than a
+multiple of the alignment value. When both start and end points are aligned,
+partitions should be multiples of the alignment value in size, which is
+necessary for some partition encryption tools to function correctly. This
+option applies to all partitions created \fBafter\fR this option on the
+command line. Note that this alignment is not always possible; for instance,
+if the free space at the end of a disk is less than the alignment value,
+with the current final partition being aligned, and if \fBsgdisk\fR is asked
+to create a partition in that space, then it will \fBnot\fR be end\-aligned.
 
 .TP
 .B \-j, \-\-adjust\-main\-table=sector
@@ -339,22 +362,26 @@ sector. A start or end value of 0 specifies the default value, which is the
 start of the largest available block for the start sector and the end of
 the same block for the end sector. A partnum value of 0 causes the program
 to use the first available partition number. Subsequent uses of the
-\fI\-A\fR, \fI\-c\fR, \fI\-t\fR, and \fI\-u\fR options may also use
+\fI\-A\fR (\fI\-\-attributes\fR), \fI\-c\fR (\fI\-\-change\-name\fR), \fI\-t\fR
+(\fI\-\-typecode\fR), and \fI\-u\fR (\fI\-\-partition\-guid\fR) options may also use
 \fI0\fR to refer to the same partition.
 
 .TP
 .B \-N, \-\-largest\-new=num
 Create a new partition that fills the largest available block of space on
 the disk. You can use the \fI\-a\fR (\fI\-\-set\-alignment\fR) option to
-adjust the alignment, if desired. A num value of 0 causes the program to
-use the first available partition number.
+adjust the alignment, if desired. A num value of 0 causes the program to use
+the first available partition number. Subsequent uses of the \fI\-A\fR
+(\fI\-\-attributes\fR), \fI\-c\fR (\fI\-\-change\-name\fR), \fI\-t\fR
+(\fI\-\-typecode\fR), and \fI\-u\fR (\fI\-\-partition\-guid\fR) options may
+also use \fI0\fR to refer to the same partition.
 
 .TP 
 .B \-o, \-\-clear
 Clear out all partition data. This includes GPT header data, all partition
 definitions, and the protective MBR. Note that this operation will, like
 most other operations, fail on a damaged disk. If you want to prepare a
-disk you know to be damaged for GPT use, you should first wipe it with -Z
+disk you know to be damaged for GPT use, you should first wipe it with \-Z
 and then partition it normally. This option will work even if the
 disk's original partition table is bad; however, most other options on the
 same command line will be ignored.
@@ -504,7 +531,7 @@ sgdisk, but may with gdisk)
 
 .TP
 .B 8
-Disk replication operation (-R) failed
+Disk replication operation (\-R) failed
 
 .SH "BUGS"
 Known bugs and limitations include:
@@ -593,7 +620,7 @@ Contributors:
 
 * Justin Maggard (justin.maggard@netgear.com)
 
-* Dwight Schauer (dschauer@gmail.com)
+* Dwight Schauer (das@teegra.net)
 
 * Florian Zumbiehl (florz@florz.de)
 
@@ -608,11 +635,11 @@ Contributors:
 .BR sfdisk (8),
 .BR fixparts (8).
 
-\fIhttp://en.wikipedia.org/wiki/GUID_Partition_Table\fR
+\fIhttps://en.wikipedia.org/wiki/GUID_Partition_Table\fR
 
-\fIhttp://developer.apple.com/technotes/tn2006/tn2166.html\fR
+\fIhttps://developer.apple.com/technotes/tn2006/tn2166.html\fR
 
-\fIhttp://www.rodsbooks.com/gdisk/\fR
+\fIhttps://www.rodsbooks.com/gdisk/\fR
 
 .SH "AVAILABILITY"
 The \fBsgdisk\fR command is part of the \fIGPT fdisk\fR package and is

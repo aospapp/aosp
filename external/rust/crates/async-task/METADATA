@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/async-task
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "async_task"
 description: "Task abstraction for building executors"
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/async_task/async_task-4.1.0.crate"
+    value: "https://static.crates.io/crates/async_task/async_task-4.3.0.crate"
   }
-  version: "4.1.0"
+  version: "4.3.0"
   license_type: NOTICE
   last_upgrade_date {
     year: 2022
-    month: 3
-    day: 1
+    month: 12
+    day: 6
   }
 }

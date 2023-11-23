@@ -1,31 +1,28 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # pylint: disable=missing-docstring
 
-import datetime
-import mox
-import unittest
+from __future__ import absolute_import
 
-import common
-from autotest_lib.client.common_lib import control_data
-from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib import priorities
+import datetime
+import unittest
+from unittest.mock import patch
+from unittest.mock import MagicMock
+
+import six
+from autotest_lib.client.common_lib import (control_data, error, global_config,
+                                            priorities)
 from autotest_lib.client.common_lib.cros import dev_server
-from autotest_lib.client.common_lib.test_utils import mock
 from autotest_lib.frontend import setup_django_environment
-from autotest_lib.frontend.afe import frontend_test_utils
-from autotest_lib.frontend.afe import model_logic
-from autotest_lib.frontend.afe import models
-from autotest_lib.frontend.afe import rpc_interface
-from autotest_lib.frontend.afe import rpc_utils
-from autotest_lib.server import frontend
+from autotest_lib.frontend.afe import (frontend_test_utils, model_logic,
+                                       models, rpc_interface, rpc_utils)
 from autotest_lib.server import utils as server_utils
 from autotest_lib.server.cros import provision
-from autotest_lib.server.cros.dynamic_suite import constants
-from autotest_lib.server.cros.dynamic_suite import control_file_getter
-from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
-from autotest_lib.server.cros.dynamic_suite import suite_common
+from autotest_lib.server.cros.dynamic_suite import (constants,
+                                                    control_file_getter,
+                                                    frontend_wrappers,
+                                                    suite_common)
 
+import common
 
 CLIENT = control_data.CONTROL_TYPE_NAMES.CLIENT
 SERVER = control_data.CONTROL_TYPE_NAMES.SERVER
@@ -33,7 +30,7 @@ SERVER = control_data.CONTROL_TYPE_NAMES.SERVER
 _hqe_status = models.HostQueueEntry.Status
 
 
-class ShardHeartbeatTest(mox.MoxTestBase, unittest.TestCase):
+class ShardHeartbeatTest(unittest.TestCase):
 
     _PRIORITY = priorities.Priority.DEFAULT
 
@@ -88,7 +85,7 @@ class ShardHeartbeatTest(mox.MoxTestBase, unittest.TestCase):
 
 
     def _createJobForLabel(self, label):
-        job_id = rpc_interface.create_job(name='dummy', priority=self._PRIORITY,
+        job_id = rpc_interface.create_job(name='stub', priority=self._PRIORITY,
                                           control_file='foo',
                                           control_type=CLIENT,
                                           meta_hosts=[label.name],
@@ -123,17 +120,17 @@ class ShardHeartbeatTest(mox.MoxTestBase, unittest.TestCase):
         self.assertEqual(host2.shard, None)
 
         # In the middle of the assign_to_shard call, remove label1 from shard1.
-        self.mox.StubOutWithMock(models.Host, '_assign_to_shard_nothing_helper')
-        def remove_label():
-            rpc_interface.remove_board_from_shard(shard1.hostname, label1.name)
+        with patch.object(
+                models.Host,
+                '_assign_to_shard_nothing_helper',
+                side_effect=lambda: rpc_interface.remove_board_from_shard(
+                        shard1.hostname, label1.name)):
+            self._do_heartbeat_and_assert_response(
+                    known_hosts=[host1],
+                    hosts=[],
+                    incorrect_host_ids=[host1.id])
+            host2 = models.Host.smart_get(host2.id)
 
-        models.Host._assign_to_shard_nothing_helper().WithSideEffects(
-            remove_label)
-        self.mox.ReplayAll()
-
-        self._do_heartbeat_and_assert_response(
-            known_hosts=[host1], hosts=[], incorrect_host_ids=[host1.id])
-        host2 = models.Host.smart_get(host2.id)
         self.assertEqual(host2.shard, None)
 
 
@@ -223,18 +220,18 @@ class ShardHeartbeatTest(mox.MoxTestBase, unittest.TestCase):
 
         models.Test.objects.create(name='platform_BootPerfServer:shard',
                                    test_type=1)
-        self.mox.StubOutWithMock(server_utils, 'read_file')
-        self.mox.ReplayAll()
-        rpc_interface.delete_shard(hostname=shard1.hostname)
+        with patch.object(server_utils, 'read_file'):
+            rpc_interface.delete_shard(hostname=shard1.hostname)
 
-        self.assertRaises(
-            models.Shard.DoesNotExist, models.Shard.objects.get, pk=shard1.id)
+            self.assertRaises(models.Shard.DoesNotExist,
+                              models.Shard.objects.get,
+                              pk=shard1.id)
 
-        job1 = models.Job.objects.get(pk=job1.id)
-        label1 = models.Label.objects.get(pk=label1.id)
+            job1 = models.Job.objects.get(pk=job1.id)
+            label1 = models.Label.objects.get(pk=label1.id)
 
-        self.assertIsNone(job1.shard)
-        self.assertEqual(len(label1.shard_set.all()), 0)
+            self.assertIsNone(job1.shard)
+            self.assertEqual(len(label1.shard_set.all()), 0)
 
 
     def _testResendHostsAfterFailedHeartbeatHelper(self, host1):
@@ -249,21 +246,19 @@ class ShardHeartbeatTest(mox.MoxTestBase, unittest.TestCase):
         self._do_heartbeat_and_assert_response(known_hosts=[host1])
 
 
-class RpcInterfaceTestWithStaticAttribute(
-        mox.MoxTestBase, unittest.TestCase,
-        frontend_test_utils.FrontendTestMixin):
+class RpcInterfaceTestWithStaticAttribute(unittest.TestCase,
+                                          frontend_test_utils.FrontendTestMixin
+                                          ):
 
     def setUp(self):
         super(RpcInterfaceTestWithStaticAttribute, self).setUp()
         self._frontend_common_setup()
-        self.god = mock.mock_god()
         self.old_respect_static_config = rpc_interface.RESPECT_STATIC_ATTRIBUTES
         rpc_interface.RESPECT_STATIC_ATTRIBUTES = True
         models.RESPECT_STATIC_ATTRIBUTES = True
 
 
     def tearDown(self):
-        self.god.unstub_all()
         self._frontend_common_teardown()
         global_config.global_config.reset_config_values()
         rpc_interface.RESPECT_STATIC_ATTRIBUTES = self.old_respect_static_config
@@ -363,14 +358,12 @@ class RpcInterfaceTestWithStaticLabel(ShardHeartbeatTest,
     def setUp(self):
         super(RpcInterfaceTestWithStaticLabel, self).setUp()
         self._frontend_common_setup()
-        self.god = mock.mock_god()
         self.old_respect_static_config = rpc_interface.RESPECT_STATIC_LABELS
         rpc_interface.RESPECT_STATIC_LABELS = True
         models.RESPECT_STATIC_LABELS = True
 
 
     def tearDown(self):
-        self.god.unstub_all()
         self._frontend_common_teardown()
         global_config.global_config.reset_config_values()
         rpc_interface.RESPECT_STATIC_LABELS = self.old_respect_static_config
@@ -424,15 +417,10 @@ class RpcInterfaceTestWithStaticLabel(ShardHeartbeatTest,
         host2.labels.add(label1)
         host2.save()
 
-        mock_afe = self.god.create_mock_class_obj(frontend_wrappers.RetryingAFE,
-                                                  'MockAFE')
-        self.god.stub_with(frontend_wrappers, 'RetryingAFE', mock_afe)
+        with patch.object(frontend_wrappers, 'RetryingAFE') as mock_afe:
+            self.assertRaises(error.UnmodifiableLabelException,
+                              rpc_interface.delete_label, label1.id)
 
-        self.assertRaises(error.UnmodifiableLabelException,
-                          rpc_interface.delete_label,
-                          label1.id)
-
-        self.god.check_playback()
 
 
     def test_modify_static_label(self):
@@ -445,17 +433,13 @@ class RpcInterfaceTestWithStaticLabel(ShardHeartbeatTest,
         host2.labels.add(label1)
         host2.save()
 
-        mock_afe = self.god.create_mock_class_obj(frontend_wrappers.RetryingAFE,
-                                                  'MockAFE')
-        self.god.stub_with(frontend_wrappers, 'RetryingAFE', mock_afe)
-
-        self.assertRaises(error.UnmodifiableLabelException,
-                          rpc_interface.modify_label,
-                          label1.id,
-                          invalid=1)
+        with patch.object(frontend_wrappers, 'RetryingAFE') as mock_afe:
+            self.assertRaises(error.UnmodifiableLabelException,
+                              rpc_interface.modify_label,
+                              label1.id,
+                              invalid=1)
 
         self.assertEqual(models.Label.smart_get('static').invalid, 0)
-        self.god.check_playback()
 
 
     def test_multiple_platforms_add_non_static_to_static(self):
@@ -565,7 +549,7 @@ class RpcInterfaceTestWithStaticLabel(ShardHeartbeatTest,
         host1 = models.Host.smart_get(host.id)
         shard1 = models.Shard.smart_get(shard.id)
         self.assertEqual(host1.shard, None)
-        self.assertItemsEqual(shard1.labels.all(), [])
+        six.assertCountEqual(self, shard1.labels.all(), [])
 
 
     def test_check_job_dependencies_success(self):
@@ -695,11 +679,9 @@ class RpcInterfaceTest(unittest.TestCase,
                        frontend_test_utils.FrontendTestMixin):
     def setUp(self):
         self._frontend_common_setup()
-        self.god = mock.mock_god()
 
 
     def tearDown(self):
-        self.god.unstub_all()
         self._frontend_common_teardown()
         global_config.global_config.reset_config_values()
 
@@ -798,7 +780,7 @@ class RpcInterfaceTest(unittest.TestCase,
 
 
     def test_get_jobs_summary(self):
-        job = self._create_job(hosts=xrange(1, 4))
+        job = self._create_job(hosts=range(1, 4))
         entries = list(job.hostqueueentry_set.all())
         entries[1].status = _hqe_status.FAILED
         entries[1].save()
@@ -807,15 +789,16 @@ class RpcInterfaceTest(unittest.TestCase,
         entries[2].save()
 
         # Mock up tko_rpc_interface.get_status_counts.
-        self.god.stub_function_to_return(rpc_interface.tko_rpc_interface,
-                                         'get_status_counts',
-                                         None)
-
-        job_summaries = rpc_interface.get_jobs_summary(id=job.id)
-        self.assertEquals(len(job_summaries), 1)
-        summary = job_summaries[0]
-        self.assertEquals(summary['status_counts'], {'Queued': 1,
-                                                     'Failed': 2})
+        with patch.object(rpc_interface.tko_rpc_interface,
+                          'get_status_counts',
+                          return_value=None):
+            job_summaries = rpc_interface.get_jobs_summary(id=job.id)
+            self.assertEquals(len(job_summaries), 1)
+            summary = job_summaries[0]
+            self.assertEquals(summary['status_counts'], {
+                    'Queued': 1,
+                    'Failed': 2
+            })
 
 
     def _check_job_ids(self, actual_job_dicts, expected_jobs):
@@ -1142,40 +1125,40 @@ class RpcInterfaceTest(unittest.TestCase,
 
         self.assertFalse(host.locked)
 
-        self.god.stub_class_method(frontend.AFE, 'run')
+        with MagicMock() as afe_instance, patch.object(
+                frontend_wrappers, 'RetryingAFE',
+                return_value=afe_instance) as mock_afe:
+            rpc_interface.modify_host(id=host.id,
+                                      locked=True,
+                                      lock_reason='_modify_host_helper lock',
+                                      lock_time=datetime.datetime(
+                                              2015, 12, 15))
 
-        if host_on_shard and not on_shard:
-            mock_afe = self.god.create_mock_class_obj(
-                    frontend_wrappers.RetryingAFE, 'MockAFE')
-            self.god.stub_with(frontend_wrappers, 'RetryingAFE', mock_afe)
-
-            mock_afe2 = frontend_wrappers.RetryingAFE.expect_new(
-                    server=shard_hostname, user=None)
-            mock_afe2.run.expect_call('modify_host_local', id=host.id,
-                    locked=True, lock_reason='_modify_host_helper lock',
-                    lock_time=datetime.datetime(2015, 12, 15))
-        elif on_shard:
-            mock_afe = self.god.create_mock_class_obj(
-                    frontend_wrappers.RetryingAFE, 'MockAFE')
-            self.god.stub_with(frontend_wrappers, 'RetryingAFE', mock_afe)
-
-            mock_afe2 = frontend_wrappers.RetryingAFE.expect_new(
-                    server=server_utils.get_global_afe_hostname(), user=None)
-            mock_afe2.run.expect_call('modify_host', id=host.id,
-                    locked=True, lock_reason='_modify_host_helper lock',
-                    lock_time=datetime.datetime(2015, 12, 15))
-
-        rpc_interface.modify_host(id=host.id, locked=True,
-                                  lock_reason='_modify_host_helper lock',
-                                  lock_time=datetime.datetime(2015, 12, 15))
-
-        host = models.Host.objects.get(pk=host.id)
-        if on_shard:
-            # modify_host on shard does nothing but routing the RPC to main.
-            self.assertFalse(host.locked)
-        else:
-            self.assertTrue(host.locked)
-        self.god.check_playback()
+            host = models.Host.objects.get(pk=host.id)
+            if on_shard:
+                # modify_host on shard does nothing but routing the RPC to
+                # main.
+                self.assertFalse(host.locked)
+            else:
+                self.assertTrue(host.locked)
+            if host_on_shard and not on_shard:
+                mock_afe.assert_called_with(server=shard_hostname, user=None)
+                afe_instance.run.assert_called_with(
+                        'modify_host_local',
+                        id=host.id,
+                        locked=True,
+                        lock_reason='_modify_host_helper lock',
+                        lock_time=datetime.datetime(2015, 12, 15))
+            elif on_shard:
+                mock_afe.assert_called_with(
+                        server=server_utils.get_global_afe_hostname(),
+                        user=None)
+                afe_instance.run.assert_called_with(
+                        'modify_host',
+                        id=host.id,
+                        locked=True,
+                        lock_reason='_modify_host_helper lock',
+                        lock_time=datetime.datetime(2015, 12, 15))
 
 
     def test_modify_host_on_main_host_on_main(self):
@@ -1209,44 +1192,46 @@ class RpcInterfaceTest(unittest.TestCase,
         self.assertFalse(host1.locked)
         self.assertFalse(host2.locked)
 
-        mock_afe = self.god.create_mock_class_obj(frontend_wrappers.RetryingAFE,
-                                                  'MockAFE')
-        self.god.stub_with(frontend_wrappers, 'RetryingAFE', mock_afe)
+        with MagicMock() as mock_afe1, MagicMock() as mock_afe2, patch.object(
+                frontend_wrappers,
+                'RetryingAFE',
+                side_effect=(lambda server='', user=None: mock_afe1 if server
+                             == 'shard1' else mock_afe2)) as mock_afe:
+            # The statuses of one host might differ on main and shard.
+            # Filters are always applied on the main. So the host on the shard
+            # will be affected no matter what the host status is.
+            filters_to_use = {'status': 'Ready'}
 
-        # The statuses of one host might differ on main and shard.
-        # Filters are always applied on the main. So the host on the shard
-        # will be affected no matter what his status is.
-        filters_to_use = {'status': 'Ready'}
+            rpc_interface.modify_hosts(host_filter_data={'status': 'Ready'},
+                                       update_data={
+                                               'locked':
+                                               True,
+                                               'lock_reason':
+                                               'Testing forward to shard',
+                                               'lock_time':
+                                               datetime.datetime(2015, 12, 15)
+                                       })
 
-        mock_afe2 = frontend_wrappers.RetryingAFE.expect_new(
-                server='shard2', user=None)
-        mock_afe2.run.expect_call(
-            'modify_hosts_local',
-            host_filter_data={'id__in': [shard1.id, shard2.id]},
-            update_data={'locked': True,
-                         'lock_reason': 'Testing forward to shard',
-                         'lock_time' : datetime.datetime(2015, 12, 15) })
-
-        mock_afe1 = frontend_wrappers.RetryingAFE.expect_new(
-                server='shard1', user=None)
-        mock_afe1.run.expect_call(
-            'modify_hosts_local',
-            host_filter_data={'id__in': [shard1.id, shard2.id]},
-            update_data={'locked': True,
-                         'lock_reason': 'Testing forward to shard',
-                         'lock_time' : datetime.datetime(2015, 12, 15)})
-
-        rpc_interface.modify_hosts(
-                host_filter_data={'status': 'Ready'},
-                update_data={'locked': True,
-                             'lock_reason': 'Testing forward to shard',
-                             'lock_time' : datetime.datetime(2015, 12, 15) })
-
-        host1 = models.Host.objects.get(pk=host1.id)
-        self.assertTrue(host1.locked)
-        host2 = models.Host.objects.get(pk=host2.id)
-        self.assertTrue(host2.locked)
-        self.god.check_playback()
+            host1 = models.Host.objects.get(pk=host1.id)
+            self.assertTrue(host1.locked)
+            host2 = models.Host.objects.get(pk=host2.id)
+            self.assertTrue(host2.locked)
+            mock_afe1.run.assert_called_with(
+                    'modify_hosts_local',
+                    host_filter_data={'id__in': [shard1.id, shard2.id]},
+                    update_data={
+                            'locked': True,
+                            'lock_reason': 'Testing forward to shard',
+                            'lock_time': datetime.datetime(2015, 12, 15)
+                    })
+            mock_afe2.run.assert_called_with(
+                    'modify_hosts_local',
+                    host_filter_data={'id__in': [shard1.id, shard2.id]},
+                    update_data={
+                            'locked': True,
+                            'lock_reason': 'Testing forward to shard',
+                            'lock_time': datetime.datetime(2015, 12, 15)
+                    })
 
 
     def test_delete_host(self):
@@ -1257,20 +1242,16 @@ class RpcInterfaceTest(unittest.TestCase,
         host1.save()
         host1_id = host1.id
 
-        mock_afe = self.god.create_mock_class_obj(frontend_wrappers.RetryingAFE,
-                                                 'MockAFE')
-        self.god.stub_with(frontend_wrappers, 'RetryingAFE', mock_afe)
+        with MagicMock() as mock_afe1, patch.object(
+                frontend_wrappers, 'RetryingAFE',
+                return_value=mock_afe1) as mock_afe:
+            rpc_interface.delete_host(id=host1.id)
 
-        mock_afe1 = frontend_wrappers.RetryingAFE.expect_new(
-                server='shard1', user=None)
-        mock_afe1.run.expect_call('delete_host', id=host1.id)
+            self.assertRaises(models.Host.DoesNotExist, models.Host.smart_get,
+                              host1_id)
 
-        rpc_interface.delete_host(id=host1.id)
-
-        self.assertRaises(models.Host.DoesNotExist,
-                          models.Host.smart_get, host1_id)
-
-        self.god.check_playback()
+            mock_afe.assert_called_with(server='shard1', user=None)
+            mock_afe1.run.assert_called_with('delete_host', id=host1.id)
 
 
     def test_delete_shard(self):
@@ -1298,18 +1279,16 @@ class RpcInterfaceTest(unittest.TestCase,
         host2.labels.add(label1)
         host2.save()
 
-        mock_afe = self.god.create_mock_class_obj(frontend_wrappers.RetryingAFE,
-                                                  'MockAFE')
-        self.god.stub_with(frontend_wrappers, 'RetryingAFE', mock_afe)
+        with MagicMock() as mock_afe1, patch.object(
+                frontend_wrappers, 'RetryingAFE',
+                return_value=mock_afe1) as mock_afe:
+            rpc_interface.modify_label(label1.id, invalid=1)
 
-        mock_afe1 = frontend_wrappers.RetryingAFE.expect_new(
-                server='shard1', user=None)
-        mock_afe1.run.expect_call('modify_label', id=label1.id, invalid=1)
-
-        rpc_interface.modify_label(label1.id, invalid=1)
-
-        self.assertEqual(models.Label.objects.all()[0].invalid, 1)
-        self.god.check_playback()
+            self.assertEqual(models.Label.objects.all()[0].invalid, 1)
+            mock_afe.assert_called_with(server='shard1', user=None)
+            mock_afe1.run.assert_called_with('modify_label',
+                                             id=label1.id,
+                                             invalid=1)
 
 
     def test_delete_label(self):
@@ -1321,19 +1300,15 @@ class RpcInterfaceTest(unittest.TestCase,
         host2.labels.add(label1)
         host2.save()
 
-        mock_afe = self.god.create_mock_class_obj(frontend_wrappers.RetryingAFE,
-                                                  'MockAFE')
-        self.god.stub_with(frontend_wrappers, 'RetryingAFE', mock_afe)
+        with MagicMock() as mock_afe1, patch.object(
+                frontend_wrappers, 'RetryingAFE',
+                return_value=mock_afe1) as mock_afe:
+            rpc_interface.delete_label(id=label1.id)
 
-        mock_afe1 = frontend_wrappers.RetryingAFE.expect_new(
-                server='shard1', user=None)
-        mock_afe1.run.expect_call('delete_label', id=label1.id)
-
-        rpc_interface.delete_label(id=label1.id)
-
-        self.assertRaises(models.Label.DoesNotExist,
-                          models.Label.smart_get, label1.id)
-        self.god.check_playback()
+            self.assertRaises(models.Label.DoesNotExist,
+                              models.Label.smart_get, label1.id)
+            mock_afe.assert_called_with(server='shard1', user=None)
+            mock_afe1.run.assert_called_with('delete_label', id=label1.id)
 
 
     def test_get_image_for_job_with_keyval_build(self):
@@ -1415,28 +1390,30 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
         super(ExtraRpcInterfaceTest, self).setUp()
         self._SUITE_NAME = suite_common.canonicalize_suite_name(
             self._NAME)
-        self.dev_server = self.mox.CreateMock(dev_server.ImageServer)
+        patcher = patch.object(dev_server, 'ImageServer')
+        self.dev_server = patcher.start()
+        self.addCleanup(patcher.stop)
         self._frontend_common_setup(fill_data=False)
 
 
     def tearDown(self):
         self._frontend_common_teardown()
-
+        if self.dev_server.resolve.call_count > 0:
+            self.dev_server.resolve.assert_called_with(self._BUILD,
+                                                       None,
+                                                       ban_list=None)
 
     def _setupDevserver(self):
-        self.mox.StubOutClassWithMocks(dev_server, 'ImageServer')
-        dev_server.resolve(self._BUILD).AndReturn(self.dev_server)
+        self.dev_server.resolve.return_value = self.dev_server
 
 
     def _mockDevServerGetter(self, get_control_file=True):
         self._setupDevserver()
         if get_control_file:
-          self.getter = self.mox.CreateMock(
-              control_file_getter.DevServerGetter)
-          self.mox.StubOutWithMock(control_file_getter.DevServerGetter,
-                                   'create')
-          control_file_getter.DevServerGetter.create(
-              mox.IgnoreArg(), mox.IgnoreArg()).AndReturn(self.getter)
+            patcher = patch.object(control_file_getter, 'DevServerGetter')
+            self.getter = patcher.start()
+            self.getter.create.return_value = self.getter
+            self.addCleanup(patcher.stop)
 
 
     def _mockRpcUtils(self, to_return, control_file_substring=''):
@@ -1451,39 +1428,27 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
         """
         download_started_time = constants.DOWNLOAD_STARTED_TIME
         payload_finished_time = constants.PAYLOAD_FINISHED_TIME
-        self.mox.StubOutWithMock(rpc_utils, 'create_job_common')
-        rpc_utils.create_job_common(mox.And(mox.StrContains(self._NAME),
-                                    mox.StrContains(self._BUILD)),
-                            priority=self._PRIORITY,
-                            timeout_mins=self._TIMEOUT*60,
-                            max_runtime_mins=self._TIMEOUT*60,
-                            control_type='Server',
-                            control_file=mox.And(mox.StrContains(self._BOARD),
-                                                 mox.StrContains(self._BUILD),
-                                                 mox.StrContains(
-                                                     control_file_substring)),
-                            hostless=True,
-                            keyvals=mox.And(mox.In(download_started_time),
-                                            mox.In(payload_finished_time))
-                            ).AndReturn(to_return)
-
+        patcher = patch.object(rpc_utils,
+                               'create_job_common',
+                               return_value=to_return)
+        self.rpc_utils = patcher.start()
+        self.addCleanup(patcher.stop)
 
     def testStageBuildFail(self):
         """Ensure that a failure to stage the desired build fails the RPC."""
         self._setupDevserver()
 
         self.dev_server.hostname = 'mox_url'
-        self.dev_server.stage_artifacts(
-                image=self._BUILD,
-                artifacts=['test_suites', 'control_files']).AndRaise(
+        self.dev_server.stage_artifacts.side_effect = (
                 dev_server.DevServerException())
-        self.mox.ReplayAll()
         self.assertRaises(error.StageControlFileFailure,
                           rpc_interface.create_suite_job,
                           name=self._NAME,
                           board=self._BOARD,
                           builds=self._BUILDS,
                           pool=None)
+        self.dev_server.stage_artifacts.assert_called_with(
+                image=self._BUILD, artifacts=['test_suites', 'control_files'])
 
 
     def testGetControlFileFail(self):
@@ -1491,19 +1456,19 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
         self._mockDevServerGetter()
 
         self.dev_server.hostname = 'mox_url'
-        self.dev_server.stage_artifacts(
-                image=self._BUILD,
-                artifacts=['test_suites', 'control_files']).AndReturn(True)
+        self.dev_server.stage_artifacts.return_value = True
+        self.getter.get_control_file_contents_by_name.return_value = None
 
-        self.getter.get_control_file_contents_by_name(
-            self._SUITE_NAME).AndReturn(None)
-        self.mox.ReplayAll()
         self.assertRaises(error.ControlFileEmpty,
                           rpc_interface.create_suite_job,
                           name=self._NAME,
                           board=self._BOARD,
                           builds=self._BUILDS,
                           pool=None)
+        self.dev_server.stage_artifacts.assert_called_with(
+                image=self._BUILD, artifacts=['test_suites', 'control_files'])
+        self.getter.get_control_file_contents_by_name.assert_called_with(
+                self._SUITE_NAME)
 
 
     def testGetControlFileListFail(self):
@@ -1511,19 +1476,20 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
         self._mockDevServerGetter()
 
         self.dev_server.hostname = 'mox_url'
-        self.dev_server.stage_artifacts(
-                image=self._BUILD,
-                artifacts=['test_suites', 'control_files']).AndReturn(True)
+        self.dev_server.stage_artifacts.return_value = True
+        self.getter.get_control_file_contents_by_name.side_effect = (
+                error.NoControlFileList())
 
-        self.getter.get_control_file_contents_by_name(
-            self._SUITE_NAME).AndRaise(error.NoControlFileList())
-        self.mox.ReplayAll()
         self.assertRaises(error.NoControlFileList,
                           rpc_interface.create_suite_job,
                           name=self._NAME,
                           board=self._BOARD,
                           builds=self._BUILDS,
                           pool=None)
+        self.dev_server.stage_artifacts.assert_called_with(
+                image=self._BUILD, artifacts=['test_suites', 'control_files'])
+        self.getter.get_control_file_contents_by_name.assert_called_with(
+                self._SUITE_NAME)
 
 
     def testCreateSuiteJobFail(self):
@@ -1531,21 +1497,20 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
         self._mockDevServerGetter()
 
         self.dev_server.hostname = 'mox_url'
-        self.dev_server.stage_artifacts(
-                image=self._BUILD,
-                artifacts=['test_suites', 'control_files']).AndReturn(True)
-
-        self.getter.get_control_file_contents_by_name(
-            self._SUITE_NAME).AndReturn('f')
-
-        self.dev_server.url().AndReturn('mox_url')
+        self.dev_server.stage_artifacts.return_value = True
+        self.getter.get_control_file_contents_by_name.return_value = 'f'
+        self.dev_server.url.return_value = 'mox_url'
         self._mockRpcUtils(-1)
-        self.mox.ReplayAll()
+
         self.assertEquals(
             rpc_interface.create_suite_job(name=self._NAME,
                                            board=self._BOARD,
                                            builds=self._BUILDS, pool=None),
             -1)
+        self.dev_server.stage_artifacts.assert_called_with(
+                image=self._BUILD, artifacts=['test_suites', 'control_files'])
+        self.getter.get_control_file_contents_by_name.assert_called_with(
+                self._SUITE_NAME)
 
 
     def testCreateSuiteJobSuccess(self):
@@ -1553,23 +1518,22 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
         self._mockDevServerGetter()
 
         self.dev_server.hostname = 'mox_url'
-        self.dev_server.stage_artifacts(
-                image=self._BUILD,
-                artifacts=['test_suites', 'control_files']).AndReturn(True)
-
-        self.getter.get_control_file_contents_by_name(
-            self._SUITE_NAME).AndReturn('f')
-
-        self.dev_server.url().AndReturn('mox_url')
+        self.dev_server.stage_artifacts.return_value = True
+        self.getter.get_control_file_contents_by_name.return_value = 'f'
+        self.dev_server.url.return_value = 'mox_url'
         job_id = 5
         self._mockRpcUtils(job_id)
-        self.mox.ReplayAll()
+
         self.assertEquals(
             rpc_interface.create_suite_job(name=self._NAME,
                                            board=self._BOARD,
                                            builds=self._BUILDS,
                                            pool=None),
             job_id)
+        self.dev_server.stage_artifacts.assert_called_with(
+                image=self._BUILD, artifacts=['test_suites', 'control_files'])
+        self.getter.get_control_file_contents_by_name.assert_called_with(
+                self._SUITE_NAME)
 
 
     def testCreateSuiteJobNoHostCheckSuccess(self):
@@ -1577,23 +1541,22 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
         self._mockDevServerGetter()
 
         self.dev_server.hostname = 'mox_url'
-        self.dev_server.stage_artifacts(
-                image=self._BUILD,
-                artifacts=['test_suites', 'control_files']).AndReturn(True)
-
-        self.getter.get_control_file_contents_by_name(
-            self._SUITE_NAME).AndReturn('f')
-
-        self.dev_server.url().AndReturn('mox_url')
+        self.dev_server.stage_artifacts.return_value = True
+        self.getter.get_control_file_contents_by_name.return_value = 'f'
+        self.dev_server.url.return_value = 'mox_url'
         job_id = 5
         self._mockRpcUtils(job_id)
-        self.mox.ReplayAll()
+
         self.assertEquals(
-          rpc_interface.create_suite_job(name=self._NAME,
-                                         board=self._BOARD,
-                                         builds=self._BUILDS,
-                                         pool=None, check_hosts=False),
-          job_id)
+                rpc_interface.create_suite_job(name=self._NAME,
+                                               board=self._BOARD,
+                                               builds=self._BUILDS,
+                                               pool=None,
+                                               check_hosts=False), job_id)
+        self.getter.get_control_file_contents_by_name.assert_called_with(
+                self._SUITE_NAME)
+        self.dev_server.stage_artifacts.assert_called_with(
+                image=self._BUILD, artifacts=['test_suites', 'control_files'])
 
 
     def testCreateSuiteJobControlFileSupplied(self):
@@ -1601,13 +1564,10 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
         self._mockDevServerGetter(get_control_file=False)
 
         self.dev_server.hostname = 'mox_url'
-        self.dev_server.stage_artifacts(
-                image=self._BUILD,
-                artifacts=['test_suites', 'control_files']).AndReturn(True)
-        self.dev_server.url().AndReturn('mox_url')
+        self.dev_server.stage_artifacts.return_value = True
+        self.dev_server.url.return_value = 'mox_url'
         job_id = 5
         self._mockRpcUtils(job_id)
-        self.mox.ReplayAll()
         self.assertEquals(
             rpc_interface.create_suite_job(name='%s/%s' % (self._NAME,
                                                            self._BUILD),
@@ -1616,6 +1576,8 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
                                            pool=None,
                                            control_file='CONTROL FILE'),
             job_id)
+        self.dev_server.stage_artifacts.assert_called_with(
+                image=self._BUILD, artifacts=['test_suites', 'control_files'])
 
 
     def _get_records_for_sending_to_main(self):
@@ -1626,7 +1588,7 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
                  'email_list': '',
                  'max_runtime_hrs': 72,
                  'max_runtime_mins': 1440,
-                 'name': 'dummy',
+                 'name': 'stub',
                  'owner': 'autotest_system',
                  'parse_failed_repair': True,
                  'priority': 40,
@@ -1656,7 +1618,7 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
         self, jobs, hqes, shard_hostname='host1',
         exception_to_throw=error.UnallowedRecordsSentToMain, aborted=False):
         job_id = rpc_interface.create_job(
-                name='dummy',
+                name='stub',
                 priority=self._PRIORITY,
                 control_file='foo',
                 control_type=SERVER,
@@ -1792,14 +1754,13 @@ class ExtraRpcInterfaceTest(frontend_test_utils.FrontendTestMixin,
         shard1, host1, lumpy_label = self._createShardAndHostWithLabel()
 
         self.assertEqual(host1.shard, shard1)
-        self.assertItemsEqual(shard1.labels.all(), [lumpy_label])
+        six.assertCountEqual(self, shard1.labels.all(), [lumpy_label])
         rpc_interface.remove_board_from_shard(
                 shard1.hostname, lumpy_label.name)
         host1 = models.Host.smart_get(host1.id)
         shard1 = models.Shard.smart_get(shard1.id)
         self.assertEqual(host1.shard, None)
-        self.assertItemsEqual(shard1.labels.all(), [])
-
+        six.assertCountEqual(self, shard1.labels.all(), [])
 
     def testCreateListShard(self):
         """Retrieve a list of all shards."""

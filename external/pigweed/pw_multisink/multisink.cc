@@ -66,8 +66,12 @@ Status MultiSink::PopEntry(Drain& drain, const Drain::PeekedEntry& entry) {
     // still held, there shouldn't be any modifications to the multisink in
     // between peeking and popping.
     PW_CHECK_OK(drain.reader_.PopFront());
-    drain.last_handled_sequence_id_ = next_entry_sequence_id;
   }
+  // If the entry's sequence id is not the next one it means that the
+  // multisink advanced since PeekEntry() was called. Advance the last handled
+  // sequence id to the passed entry anyway to mark the fact that the dropped
+  // messages reported on PeekEntry() are handled.
+  drain.last_handled_sequence_id_ = entry.sequence_id();
   return OkStatus();
 }
 
@@ -75,12 +79,12 @@ Result<ConstByteSpan> MultiSink::PeekOrPopEntry(
     Drain& drain,
     ByteSpan buffer,
     Request request,
-    uint32_t& drop_count_out,
+    uint32_t& drain_drop_count_out,
     uint32_t& ingress_drop_count_out,
     uint32_t& entry_sequence_id_out) {
   size_t bytes_read = 0;
   entry_sequence_id_out = 0;
-  drop_count_out = 0;
+  drain_drop_count_out = 0;
   ingress_drop_count_out = 0;
 
   std::lock_guard lock(lock_);
@@ -108,18 +112,19 @@ Result<ConstByteSpan> MultiSink::PeekOrPopEntry(
   // current and last sequence IDs. Consecutive successful reads will always
   // differ by one at least, so it is subtracted out. If the read was not
   // successful, the difference is not adjusted.
-  drop_count_out = entry_sequence_id_out - drain.last_handled_sequence_id_ -
-                   (peek_status.ok() ? 1 : 0);
+  drain_drop_count_out = entry_sequence_id_out -
+                         drain.last_handled_sequence_id_ -
+                         (peek_status.ok() ? 1 : 0);
 
   // Only report the ingress drop count when the drain catches up to where the
   // drop happened, accounting only for the drops found and no more, as
   // indicated by the gap in sequence IDs.
-  if (drop_count_out > 0) {
+  if (drain_drop_count_out > 0) {
     ingress_drop_count_out =
-        std::min(drop_count_out,
+        std::min(drain_drop_count_out,
                  total_ingress_drops_ - drain.last_handled_ingress_drop_count_);
-    // Remove the ingress drop count duplicated in drop_count_out.
-    drop_count_out -= ingress_drop_count_out;
+    // Remove the ingress drop count duplicated in drain_drop_count_out.
+    drain_drop_count_out -= ingress_drop_count_out;
     // Check if all the ingress drops were reported.
     drain.last_handled_ingress_drop_count_ =
         total_ingress_drops_ > ingress_drop_count_out
@@ -138,7 +143,7 @@ Result<ConstByteSpan> MultiSink::PeekOrPopEntry(
     PW_CHECK(drain.reader_.PopFront().ok());
     drain.last_handled_sequence_id_ = entry_sequence_id_out;
   }
-  return std::as_bytes(buffer.first(bytes_read));
+  return as_bytes(buffer.first(bytes_read));
 }
 
 void MultiSink::AttachDrain(Drain& drain) {
@@ -225,7 +230,7 @@ Status MultiSink::Drain::PopEntry(const PeekedEntry& entry) {
 
 Result<MultiSink::Drain::PeekedEntry> MultiSink::Drain::PeekEntry(
     ByteSpan buffer,
-    uint32_t& drop_count_out,
+    uint32_t& drain_drop_count_out,
     uint32_t& ingress_drop_count_out) {
   PW_DCHECK_NOTNULL(multisink_);
   uint32_t entry_sequence_id_out;
@@ -233,7 +238,7 @@ Result<MultiSink::Drain::PeekedEntry> MultiSink::Drain::PeekEntry(
       multisink_->PeekOrPopEntry(*this,
                                  buffer,
                                  Request::kPeek,
-                                 drop_count_out,
+                                 drain_drop_count_out,
                                  ingress_drop_count_out,
                                  entry_sequence_id_out);
   if (!peek_result.ok()) {
@@ -244,14 +249,14 @@ Result<MultiSink::Drain::PeekedEntry> MultiSink::Drain::PeekEntry(
 
 Result<ConstByteSpan> MultiSink::Drain::PopEntry(
     ByteSpan buffer,
-    uint32_t& drop_count_out,
+    uint32_t& drain_drop_count_out,
     uint32_t& ingress_drop_count_out) {
   PW_DCHECK_NOTNULL(multisink_);
   uint32_t entry_sequence_id_out;
   return multisink_->PeekOrPopEntry(*this,
                                     buffer,
                                     Request::kPop,
-                                    drop_count_out,
+                                    drain_drop_count_out,
                                     ingress_drop_count_out,
                                     entry_sequence_id_out);
 }

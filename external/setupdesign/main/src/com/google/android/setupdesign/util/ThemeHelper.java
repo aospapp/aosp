@@ -19,6 +19,8 @@ package com.google.android.setupdesign.util;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build.VERSION;
+import android.os.Build.VERSION_CODES;
 import androidx.annotation.NonNull;
 import androidx.annotation.StyleRes;
 import com.google.android.setupcompat.PartnerCustomizationLayout;
@@ -199,7 +201,7 @@ public final class ThemeHelper {
     boolean isSetupFlow = WizardManagerHelper.isAnySetupWizard(activity.getIntent());
     boolean isDayNightEnabled = isSetupWizardDayNightEnabled(context);
 
-    if (isSetupFlow) {
+    if (isSetupFlow && !BuildCompatUtils.isAtLeastU()) {
       // return theme for inside setup flow
       resId =
           isDayNightEnabled
@@ -233,6 +235,39 @@ public final class ThemeHelper {
                 : "n/a"));
 
     return resId;
+  }
+
+  /** Returns a default theme resource id which provides by setup wizard. */
+  @StyleRes
+  public static int getSuwDefaultTheme(@NonNull Context context) {
+    String themeName = PartnerConfigHelper.getSuwDefaultThemeString(context);
+    @StyleRes int defaultTheme;
+    if (VERSION.SDK_INT < VERSION_CODES.O) {
+      defaultTheme =
+          ThemeHelper.isSetupWizardDayNightEnabled(context)
+              ? R.style.SudThemeGlif_DayNight
+              : R.style.SudThemeGlif_Light;
+    } else if (VERSION.SDK_INT < VERSION_CODES.P) {
+      defaultTheme =
+          ThemeHelper.isSetupWizardDayNightEnabled(context)
+              ? R.style.SudThemeGlifV2_DayNight
+              : R.style.SudThemeGlifV2_Light;
+    } else if (VERSION.SDK_INT < VERSION_CODES.TIRAMISU) {
+      defaultTheme =
+          ThemeHelper.isSetupWizardDayNightEnabled(context)
+              ? R.style.SudThemeGlifV3_DayNight
+              : R.style.SudThemeGlifV3_Light;
+    } else {
+      defaultTheme =
+          ThemeHelper.isSetupWizardDayNightEnabled(context)
+              ? R.style.SudThemeGlifV4_DayNight
+              : R.style.SudThemeGlifV4_Light;
+    }
+    return new ThemeResolver.Builder()
+        .setDefaultTheme(defaultTheme)
+        .setUseDayNight(isSetupWizardDayNightEnabled(context))
+        .build()
+        .resolve(themeName, /* suppressDayNight= */ !isSetupWizardDayNightEnabled(context));
   }
 
   /** Returns {@code true} if the dynamic color is set. */

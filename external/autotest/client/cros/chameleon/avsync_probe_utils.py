@@ -417,13 +417,13 @@ class AVSyncProbeDataParser(object):
                 # Treat the frame as corrupted frame if the frame duration is
                 # less than 2 video frame duration.
                 if v[TIME_DIFF_INDEX] < 2 * self._video_duration:
-                    logging.warn('Corrupted frame near %s', str(v))
+                    logging.warning('Corrupted frame near %s', str(v))
                     # Correct the code.
                     code = current_code + 1
                     corrupted_frame_count += 1
                     frame_diff = 1
                 else:
-                    logging.warn('Dropped frame near %s', str(v))
+                    logging.warning('Dropped frame near %s', str(v))
                     dropped_frame_count += (frame_diff - 1)
 
             cumulative_frame_count += frame_diff

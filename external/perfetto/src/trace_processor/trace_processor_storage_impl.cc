@@ -19,26 +19,28 @@
 #include "perfetto/base/logging.h"
 #include "perfetto/ext/base/uuid.h"
 #include "src/trace_processor/forwarding_trace_parser.h"
-#include "src/trace_processor/importers/chrome_track_event.descriptor.h"
 #include "src/trace_processor/importers/common/args_tracker.h"
 #include "src/trace_processor/importers/common/args_translation_table.h"
+#include "src/trace_processor/importers/common/async_track_set_tracker.h"
+#include "src/trace_processor/importers/common/clock_converter.h"
 #include "src/trace_processor/importers/common/clock_tracker.h"
 #include "src/trace_processor/importers/common/event_tracker.h"
 #include "src/trace_processor/importers/common/flow_tracker.h"
+#include "src/trace_processor/importers/common/metadata_tracker.h"
 #include "src/trace_processor/importers/common/process_tracker.h"
 #include "src/trace_processor/importers/common/slice_tracker.h"
 #include "src/trace_processor/importers/common/slice_translation_table.h"
 #include "src/trace_processor/importers/common/track_tracker.h"
-#include "src/trace_processor/importers/default_modules.h"
-#include "src/trace_processor/importers/proto/async_track_set_tracker.h"
+#include "src/trace_processor/importers/proto/chrome_track_event.descriptor.h"
+#include "src/trace_processor/importers/proto/default_modules.h"
 #include "src/trace_processor/importers/proto/heap_profile_tracker.h"
-#include "src/trace_processor/importers/proto/metadata_tracker.h"
+#include "src/trace_processor/importers/proto/packet_analyzer.h"
 #include "src/trace_processor/importers/proto/perf_sample_tracker.h"
 #include "src/trace_processor/importers/proto/proto_importer_module.h"
 #include "src/trace_processor/importers/proto/proto_trace_reader.h"
 #include "src/trace_processor/importers/proto/stack_profile_tracker.h"
-#include "src/trace_processor/importers/track_event.descriptor.h"
-#include "src/trace_processor/trace_sorter.h"
+#include "src/trace_processor/importers/proto/track_event.descriptor.h"
+#include "src/trace_processor/sorter/trace_sorter.h"
 #include "src/trace_processor/util/descriptors.h"
 
 namespace perfetto {
@@ -60,11 +62,13 @@ TraceProcessorStorageImpl::TraceProcessorStorageImpl(const Config& cfg) {
   context_.event_tracker.reset(new EventTracker(&context_));
   context_.process_tracker.reset(new ProcessTracker(&context_));
   context_.clock_tracker.reset(new ClockTracker(&context_));
+  context_.clock_converter.reset(new ClockConverter(&context_));
   context_.heap_profile_tracker.reset(new HeapProfileTracker(&context_));
   context_.perf_sample_tracker.reset(new PerfSampleTracker(&context_));
   context_.global_stack_profile_tracker.reset(new GlobalStackProfileTracker());
-  context_.metadata_tracker.reset(new MetadataTracker(&context_));
-  context_.global_args_tracker.reset(new GlobalArgsTracker(&context_));
+  context_.metadata_tracker.reset(new MetadataTracker(context_.storage.get()));
+  context_.global_args_tracker.reset(
+      new GlobalArgsTracker(context_.storage.get()));
   {
     context_.descriptor_pool_.reset(new DescriptorPool());
     auto status = context_.descriptor_pool_->AddFromFileDescriptorSet(
@@ -117,21 +121,43 @@ util::Status TraceProcessorStorageImpl::Parse(TraceBlobView blob) {
   return status;
 }
 
+void TraceProcessorStorageImpl::Flush() {
+  if (unrecoverable_parse_error_)
+    return;
+
+  if (context_.sorter)
+    context_.sorter->ExtractEventsForced();
+}
+
 void TraceProcessorStorageImpl::NotifyEndOfFile() {
   if (unrecoverable_parse_error_ || !context_.chunk_reader)
     return;
-
+  Flush();
   context_.chunk_reader->NotifyEndOfFile();
-  if (context_.sorter)
-    context_.sorter->ExtractEventsForced();
-  context_.event_tracker->FlushPendingEvents();
-  context_.slice_tracker->FlushPendingSlices();
-  context_.heap_profile_tracker->NotifyEndOfFile();
-  context_.process_tracker->NotifyEndOfFile();
   for (std::unique_ptr<ProtoImporterModule>& module : context_.modules) {
     module->NotifyEndOfFile();
   }
+  if (context_.content_analyzer) {
+    PacketAnalyzer::Get(&context_)->NotifyEndOfFile();
+  }
+  context_.event_tracker->FlushPendingEvents();
+  context_.slice_tracker->FlushPendingSlices();
+  context_.heap_profile_tracker->NotifyEndOfFile();
   context_.args_tracker->Flush();
+  context_.process_tracker->NotifyEndOfFile();
+}
+
+void TraceProcessorStorageImpl::DestroyContext() {
+  TraceProcessorContext context;
+  context.storage = std::move(context_.storage);
+  context.heap_graph_tracker = std::move(context_.heap_graph_tracker);
+  context.clock_converter = std::move(context_.clock_converter);
+  // "to_ftrace" textual converter of the "raw" table requires remembering the
+  // kernel version (inside system_info_tracker) to know how to textualise
+  // sched_switch.prev_state bitflags.
+  context.system_info_tracker = std::move(context_.system_info_tracker);
+
+  context_ = std::move(context);
 }
 
 }  // namespace trace_processor

@@ -20,8 +20,8 @@
 #include <queue>
 #include <string>
 
-#include "icing/jni/jni-cache.h"
 #include "icing/text_classifier/lib3/utils/java/jni-base.h"
+#include "icing/jni/jni-cache.h"
 
 namespace icing {
 namespace lib {

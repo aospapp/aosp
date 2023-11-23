@@ -17,77 +17,64 @@
 package dagger.internal.codegen;
 
 import static dagger.internal.codegen.binding.MapKeys.getUnwrappedMapKeyType;
-import static javax.lang.model.element.ElementKind.ANNOTATION_TYPE;
+import static dagger.internal.codegen.xprocessing.XTypes.isDeclared;
 
-import com.google.auto.common.MoreElements;
-import com.google.auto.common.MoreTypes;
+import androidx.room.compiler.processing.XMessager;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.collect.ImmutableSet;
+import com.squareup.javapoet.ClassName;
 import dagger.MapKey;
-import dagger.internal.codegen.langmodel.DaggerTypes;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.validation.MapKeyValidator;
 import dagger.internal.codegen.validation.TypeCheckingProcessingStep;
 import dagger.internal.codegen.validation.ValidationReport;
 import dagger.internal.codegen.writing.AnnotationCreatorGenerator;
 import dagger.internal.codegen.writing.UnwrappedMapKeyGenerator;
-import java.lang.annotation.Annotation;
-import java.util.Set;
-import javax.annotation.processing.Messager;
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
 
 /**
  * The annotation processor responsible for validating the mapKey annotation and auto-generate
  * implementation of annotations marked with {@link MapKey @MapKey} where necessary.
  */
-final class MapKeyProcessingStep extends TypeCheckingProcessingStep<TypeElement> {
-  private final Messager messager;
-  private final DaggerTypes types;
+final class MapKeyProcessingStep extends TypeCheckingProcessingStep<XTypeElement> {
+  private final XMessager messager;
   private final MapKeyValidator mapKeyValidator;
   private final AnnotationCreatorGenerator annotationCreatorGenerator;
   private final UnwrappedMapKeyGenerator unwrappedMapKeyGenerator;
 
   @Inject
   MapKeyProcessingStep(
-      Messager messager,
-      DaggerTypes types,
+      XMessager messager,
       MapKeyValidator mapKeyValidator,
       AnnotationCreatorGenerator annotationCreatorGenerator,
       UnwrappedMapKeyGenerator unwrappedMapKeyGenerator) {
-    super(MoreElements::asType);
     this.messager = messager;
-    this.types = types;
     this.mapKeyValidator = mapKeyValidator;
     this.annotationCreatorGenerator = annotationCreatorGenerator;
     this.unwrappedMapKeyGenerator = unwrappedMapKeyGenerator;
   }
 
   @Override
-  public Set<Class<? extends Annotation>> annotations() {
-    return ImmutableSet.<Class<? extends Annotation>>of(MapKey.class);
+  public ImmutableSet<ClassName> annotationClassNames() {
+    return ImmutableSet.of(TypeNames.MAP_KEY);
   }
 
   @Override
-  protected void process(
-      TypeElement mapKeyAnnotationType, ImmutableSet<Class<? extends Annotation>> annotations) {
-    ValidationReport<Element> mapKeyReport = mapKeyValidator.validate(mapKeyAnnotationType);
+  protected void process(XTypeElement mapAnnotation, ImmutableSet<ClassName> annotations) {
+    ValidationReport mapKeyReport = mapKeyValidator.validate(mapAnnotation);
     mapKeyReport.printMessagesTo(messager);
 
     if (mapKeyReport.isClean()) {
-      MapKey mapkey = mapKeyAnnotationType.getAnnotation(MapKey.class);
-      if (!mapkey.unwrapValue()) {
-        annotationCreatorGenerator.generate(mapKeyAnnotationType, messager);
-      } else if (unwrappedValueKind(mapKeyAnnotationType).equals(ANNOTATION_TYPE)) {
-        unwrappedMapKeyGenerator.generate(mapKeyAnnotationType, messager);
+      if (!mapAnnotation.getAnnotation(TypeNames.MAP_KEY).getAsBoolean("unwrapValue")) {
+        annotationCreatorGenerator.generate(mapAnnotation, messager);
+      } else if (isAnnotationType(getUnwrappedMapKeyType(mapAnnotation.getType()))) {
+        unwrappedMapKeyGenerator.generate(mapAnnotation, messager);
       }
     }
   }
 
-  private ElementKind unwrappedValueKind(TypeElement mapKeyAnnotationType) {
-    DeclaredType unwrappedMapKeyType =
-        getUnwrappedMapKeyType(MoreTypes.asDeclared(mapKeyAnnotationType.asType()), types);
-    return unwrappedMapKeyType.asElement().getKind();
+  private boolean isAnnotationType(XType type) {
+    return isDeclared(type) && type.getTypeElement().isAnnotationClass();
   }
 }

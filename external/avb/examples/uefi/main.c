@@ -103,10 +103,9 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle,
       }
       boot_result =
           uefi_avb_boot_kernel(ImageHandle, slot_data, additional_cmdline);
-      avb_fatalv("uefi_avb_boot_kernel() failed with error ",
-                 uefi_avb_boot_kernel_result_to_string(boot_result),
-                 "\n",
-                 NULL);
+      avb_fatal("uefi_avb_boot_kernel() failed with error ",
+                uefi_avb_boot_kernel_result_to_string(boot_result),
+                "\n");
       avb_slot_verify_data_free(slot_data);
       avb_free(additional_cmdline);
       break;

@@ -4,6 +4,7 @@ import static android.os.Build.VERSION_CODES.M;
 import static android.os.Build.VERSION_CODES.N;
 import static android.os.Build.VERSION_CODES.N_MR1;
 import static android.os.Build.VERSION_CODES.P;
+import static android.os.Build.VERSION_CODES.TIRAMISU;
 import static org.robolectric.RuntimeEnvironment.application;
 import static org.robolectric.util.ReflectionHelpers.ClassParameter.from;
 import static org.robolectric.util.ReflectionHelpers.callConstructor;
@@ -261,6 +262,15 @@ public class ShadowUsbManager {
           from(UsbManager.class, usbManager),
           from(String.class, id),
           from(int.class, supportedModes));
+    } else if (RuntimeEnvironment.getApiLevel() <= TIRAMISU) {
+      return new UsbPort(
+        usbManager,
+        id,
+        supportedModes,
+        0,
+        false,
+        false
+      );
     }
     // BEGIN-INTERNAL
     return new UsbPort(
@@ -269,7 +279,9 @@ public class ShadowUsbManager {
         supportedModes,
         0,
         false,
-        false
+        false,
+        false,
+        0
     );
     // END-INTERNAL
   }

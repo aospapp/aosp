@@ -857,19 +857,31 @@ open class JavaLayoutHtmlFormatOutputBuilder(
 
     protected open fun FlowContent.apiAndDeprecatedVersions(node: DocumentationNode) {
         val apiLevelExists = node.apiLevel.name.isNotEmpty()
+        val sdkExtSinceExists = node.sdkExtSince.name.isNotEmpty()
         val deprecatedLevelExists = node.deprecatedLevel.name.isNotEmpty()
-        if (apiLevelExists || deprecatedLevelExists) {
+        if (apiLevelExists || sdkExtSinceExists || deprecatedLevelExists) {
             div(classes = "api-level") {
                 if (apiLevelExists) {
                     +"Added in "
                     a(href = "https://developer.android.com/guide/topics/manifest/uses-sdk-element.html#ApiLevels") {
                         +"API level ${node.apiLevel.name}"
                     }
-                    if (deprecatedLevelExists) {
+                }
+                if (sdkExtSinceExists) {
+                    if (apiLevelExists) {
                         br
+                        +"Also in "
+                    } else {
+                        +"Added in "
+                    }
+                    a(href = "https://developer.android.com/sdkExtensions") {
+                        +"${node.sdkExtSince.name}"
                     }
                 }
                 if (deprecatedLevelExists) {
+                    if (apiLevelExists || sdkExtSinceExists) {
+                        br
+                    }
                     +"Deprecated in "
                     a(href = "https://developer.android.com/guide/topics/manifest/uses-sdk-element.html#ApiLevels") {
                         +"API level ${node.deprecatedLevel.name}"

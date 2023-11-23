@@ -33,7 +33,7 @@ enum AlphaCodecStream {
 
 class MultiplexEncoderAdapter : public VideoEncoder {
  public:
-  // |factory| is not owned and expected to outlive this class.
+  // `factory` is not owned and expected to outlive this class.
   MultiplexEncoderAdapter(VideoEncoderFactory* factory,
                           const SdpVideoFormat& associated_format,
                           bool supports_augmenting_data = false);
@@ -57,8 +57,7 @@ class MultiplexEncoderAdapter : public VideoEncoder {
   EncodedImageCallback::Result OnEncodedImage(
       AlphaCodecStream stream_idx,
       const EncodedImage& encodedImage,
-      const CodecSpecificInfo* codecSpecificInfo,
-      const RTPFragmentationHeader* fragmentation);
+      const CodecSpecificInfo* codecSpecificInfo);
 
  private:
   // Wrapper class that redirects OnEncodedImage() calls.

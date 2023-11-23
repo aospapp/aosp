@@ -1151,4 +1151,4 @@ angle::Result VertexArrayMtl::convertVertexBufferGPU(const gl::Context *glContex
 
     return angle::Result::Continue;
 }
-}
+}  // namespace rx

@@ -58,7 +58,7 @@ class NumberAnnotator {
 
   // Finds all number instances in the input text. Returns true in any case.
   bool FindAll(const UnicodeText& context_unicode,
-               AnnotationUsecase annotation_usecase,
+               AnnotationUsecase annotation_usecase, ModeFlag mode,
                std::vector<AnnotatedSpan>* result) const;
 
  private:

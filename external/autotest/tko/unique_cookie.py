@@ -1,3 +1,6 @@
+# Lint as: python2, python3
+from __future__ import division
+from __future__ import print_function
 import os, random
 
 
@@ -25,6 +28,6 @@ def unique_id(cookie_key):
         uid = str(random.random())[2:16] # random string of 14 digits
         set_cookie_statement = 'Set-Cookie:%s=%s;' % (cookie_key, uid)
         set_cookie_statement += 'expires=Thu, 26-Dec-2013 22:03:25 GMT;'
-        print set_cookie_statement
+        print(set_cookie_statement)
 
     return uid

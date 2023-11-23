@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 import logging
 import os
 import time
@@ -8,7 +9,7 @@ from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.common_lib.cros import system_metrics_collector
 from autotest_lib.client.common_lib.cros import webrtc_utils
 from autotest_lib.client.cros.graphics import graphics_utils
-from autotest_lib.client.cros.multimedia import system_facade_native
+from autotest_lib.client.cros.multimedia import system_facade
 from autotest_lib.client.cros.video import helper_logger
 from telemetry.util import image_util
 
@@ -232,8 +233,8 @@ class WebRtcPeerConnectionTest(object):
         try:
             full_filename = screenshot_name + '_graphics_utils'
             graphics_utils.take_screenshot(self.debugdir, full_filename)
-        except StandardError as e:
-            logging.warn('Screenshot using graphics_utils failed', exc_info = e)
+        except Exception as e:
+            logging.warning('Screenshot using graphics_utils failed', exc_info = e)
 
     def take_browser_tab_screenshot(self, screenshot_name):
         """
@@ -250,11 +251,11 @@ class WebRtcPeerConnectionTest(object):
             except Exception:
                 # This can for example occur if Chrome crashes. It will
                 # cause the Screenshot call to timeout.
-                logging.warn(
+                logging.warning(
                         'Screenshot using telemetry tab.Screenshot failed',
                         exc_info=True)
         else:
-            logging.warn(
+            logging.warning(
                     'Screenshot using telemetry tab.Screenshot() not supported')
 
 
@@ -298,7 +299,7 @@ class WebRtcPeerConnectionPerformanceTest(WebRtcPeerConnectionTest):
                   iteration_delay_millis,
                   perf_before_start_hook)
           self.collector = system_metrics_collector.SystemMetricsCollector(
-                system_facade_native.SystemFacadeNative())
+                system_facade.SystemFacadeLocal())
           # TODO(crbug/784365): If this proves to work fine, move to a separate
           # module and make more generic.
           delay = 5

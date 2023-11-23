@@ -51,7 +51,7 @@ public abstract class Type {
   }
 
   public boolean canBeBundled() {
-    return getWriteToParcelCode().isPresent() && getReadFromParcelCode().isPresent();
+    return getPutIntoBundleCode().isPresent() && getGetFromBundleCode().isPresent();
   }
 
   public boolean isPrimitive() {
@@ -96,6 +96,10 @@ public abstract class Type {
   // (e.g. ParcelableList)
   public abstract Optional<ParcelableWrapper> getParcelableWrapper();
 
+  public abstract Optional<String> getPutIntoBundleCode();
+
+  public abstract Optional<String> getGetFromBundleCode();
+
   public abstract Optional<String> getWriteToParcelCode();
 
   public abstract Optional<String> getReadFromParcelCode();
@@ -124,6 +128,10 @@ public abstract class Type {
 
     public abstract Builder setCrossProfileCallbackInterface(
         CrossProfileCallbackInterfaceInfo crossProfileCallbackInterface);
+
+    public abstract Builder setPutIntoBundleCode(String putIntoBundleCode);
+
+    public abstract Builder setGetFromBundleCode(String getFromBundleCode);
 
     public abstract Builder setWriteToParcelCode(String writeToParcelCode);
 

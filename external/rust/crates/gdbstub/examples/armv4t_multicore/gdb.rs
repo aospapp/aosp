@@ -1,34 +1,14 @@
 use armv4t_emu::{reg, Memory};
 
-use gdbstub::common::Tid;
+use gdbstub::common::{Signal, Tid};
 use gdbstub::target;
-use gdbstub::target::ext::base::multithread::{
-    GdbInterrupt, MultiThreadOps, ResumeAction, ThreadStopReason,
-};
+use gdbstub::target::ext::base::multithread::{MultiThreadBase, MultiThreadResume};
 use gdbstub::target::ext::breakpoints::WatchKind;
 use gdbstub::target::{Target, TargetError, TargetResult};
 
-use crate::emu::{CpuId, Emu, Event};
+use crate::emu::{CpuId, Emu, ExecMode};
 
-fn event_to_stopreason(e: Event, id: CpuId) -> ThreadStopReason<u32> {
-    let tid = cpuid_to_tid(id);
-    match e {
-        Event::Halted => ThreadStopReason::Terminated(19), // SIGSTOP
-        Event::Break => ThreadStopReason::SwBreak(tid),
-        Event::WatchWrite(addr) => ThreadStopReason::Watch {
-            tid,
-            kind: WatchKind::Write,
-            addr,
-        },
-        Event::WatchRead(addr) => ThreadStopReason::Watch {
-            tid,
-            kind: WatchKind::Read,
-            addr,
-        },
-    }
-}
-
-fn cpuid_to_tid(id: CpuId) -> Tid {
+pub fn cpuid_to_tid(id: CpuId) -> Tid {
     match id {
         CpuId::Cpu => Tid::new(1).unwrap(),
         CpuId::Cop => Tid::new(2).unwrap(),
@@ -48,83 +28,19 @@ impl Target for Emu {
     type Error = &'static str;
 
     #[inline(always)]
-    fn base_ops(&mut self) -> target::ext::base::BaseOps<Self::Arch, Self::Error> {
+    fn base_ops(&mut self) -> target::ext::base::BaseOps<'_, Self::Arch, Self::Error> {
         target::ext::base::BaseOps::MultiThread(self)
     }
 
     #[inline(always)]
-    fn breakpoints(&mut self) -> Option<target::ext::breakpoints::BreakpointsOps<Self>> {
+    fn support_breakpoints(
+        &mut self,
+    ) -> Option<target::ext::breakpoints::BreakpointsOps<'_, Self>> {
         Some(self)
     }
 }
 
-impl MultiThreadOps for Emu {
-    fn resume(
-        &mut self,
-        default_resume_action: ResumeAction,
-        gdb_interrupt: GdbInterrupt<'_>,
-    ) -> Result<ThreadStopReason<u32>, Self::Error> {
-        // In general, the behavior of multi-threaded systems during debugging is
-        // determined by the system scheduler. On certain systems, this behavior can be
-        // configured using the GDB command `set scheduler-locking _mode_`, but at the
-        // moment, `gdbstub` doesn't plumb-through that configuration command.
-
-        let default_resume_action_is_step = match default_resume_action {
-            ResumeAction::Step => true,
-            ResumeAction::Continue => false,
-            _ => return Err("no support for resuming with signal"),
-        };
-
-        match self
-            .resume_action_is_step
-            .unwrap_or(default_resume_action_is_step)
-        {
-            true => match self.step() {
-                Some((event, id)) => Ok(event_to_stopreason(event, id)),
-                None => Ok(ThreadStopReason::DoneStep),
-            },
-            false => {
-                let mut gdb_interrupt = gdb_interrupt.no_async();
-                let mut cycles: usize = 0;
-                loop {
-                    // check for GDB interrupt every 1024 instructions
-                    if cycles % 1024 == 0 && gdb_interrupt.pending() {
-                        return Ok(ThreadStopReason::GdbInterrupt);
-                    }
-                    cycles += 1;
-
-                    if let Some((event, id)) = self.step() {
-                        return Ok(event_to_stopreason(event, id));
-                    };
-                }
-            }
-        }
-    }
-
-    // FIXME: properly handle multiple actions
-    fn clear_resume_actions(&mut self) -> Result<(), Self::Error> {
-        self.resume_action_is_step = None;
-        Ok(())
-    }
-
-    // FIXME: properly handle multiple actions
-    fn set_resume_action(&mut self, _tid: Tid, action: ResumeAction) -> Result<(), Self::Error> {
-        // in this emulator, each core runs in lock-step, so we don't actually care
-        // about the specific tid. In real integrations, you very much should!
-
-        if self.resume_action_is_step.is_some() {
-            return Ok(());
-        }
-
-        self.resume_action_is_step = match action {
-            ResumeAction::Step => Some(true),
-            ResumeAction::Continue => Some(false),
-            _ => return Err("no support for resuming with signal"),
-        };
-
-        Ok(())
-    }
-
+impl MultiThreadBase for Emu {
     fn read_registers(
         &mut self,
         regs: &mut gdbstub_arch::arm::reg::ArmCoreRegs,
@@ -203,14 +119,95 @@ impl MultiThreadOps for Emu {
         register_thread(cpuid_to_tid(CpuId::Cop));
         Ok(())
     }
-}
 
-impl target::ext::breakpoints::Breakpoints for Emu {
-    fn sw_breakpoint(&mut self) -> Option<target::ext::breakpoints::SwBreakpointOps<Self>> {
+    #[inline(always)]
+    fn support_resume(
+        &mut self,
+    ) -> Option<target::ext::base::multithread::MultiThreadResumeOps<'_, Self>> {
         Some(self)
     }
 
-    fn hw_watchpoint(&mut self) -> Option<target::ext::breakpoints::HwWatchpointOps<Self>> {
+    #[inline(always)]
+    fn support_thread_extra_info(
+        &mut self,
+    ) -> Option<gdbstub::target::ext::thread_extra_info::ThreadExtraInfoOps<'_, Self>> {
+        Some(self)
+    }
+}
+
+impl MultiThreadResume for Emu {
+    fn resume(&mut self) -> Result<(), Self::Error> {
+        // Upon returning from the `resume` method, the target being debugged should be
+        // configured to run according to whatever resume actions the GDB client has
+        // specified (as specified by `set_resume_action`, `set_resume_range_step`,
+        // `set_reverse_{step, continue}`, etc...)
+        //
+        // In this basic `armv4t_multicore` example, the `resume` method is actually a
+        // no-op, as the execution mode of the emulator's interpreter loop has already
+        // been modified via the various `set_X` methods.
+        //
+        // In more complex implementations, it's likely that the target being debugged
+        // will be running in another thread / process, and will require some kind of
+        // external "orchestration" to set it's execution mode (e.g: modifying the
+        // target's process state via platform specific debugging syscalls).
+
+        Ok(())
+    }
+
+    fn clear_resume_actions(&mut self) -> Result<(), Self::Error> {
+        self.exec_mode.clear();
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn support_single_step(
+        &mut self,
+    ) -> Option<target::ext::base::multithread::MultiThreadSingleStepOps<'_, Self>> {
+        Some(self)
+    }
+
+    fn set_resume_action_continue(
+        &mut self,
+        tid: Tid,
+        signal: Option<Signal>,
+    ) -> Result<(), Self::Error> {
+        if signal.is_some() {
+            return Err("no support for continuing with signal");
+        }
+
+        self.exec_mode
+            .insert(tid_to_cpuid(tid)?, ExecMode::Continue);
+
+        Ok(())
+    }
+}
+
+impl target::ext::base::multithread::MultiThreadSingleStep for Emu {
+    fn set_resume_action_step(
+        &mut self,
+        tid: Tid,
+        signal: Option<Signal>,
+    ) -> Result<(), Self::Error> {
+        if signal.is_some() {
+            return Err("no support for stepping with signal");
+        }
+
+        self.exec_mode.insert(tid_to_cpuid(tid)?, ExecMode::Step);
+
+        Ok(())
+    }
+}
+
+impl target::ext::breakpoints::Breakpoints for Emu {
+    fn support_sw_breakpoint(
+        &mut self,
+    ) -> Option<target::ext::breakpoints::SwBreakpointOps<'_, Self>> {
+        Some(self)
+    }
+
+    fn support_hw_watchpoint(
+        &mut self,
+    ) -> Option<target::ext::breakpoints::HwWatchpointOps<'_, Self>> {
         Some(self)
     }
 }
@@ -240,7 +237,12 @@ impl target::ext::breakpoints::SwBreakpoint for Emu {
 }
 
 impl target::ext::breakpoints::HwWatchpoint for Emu {
-    fn add_hw_watchpoint(&mut self, addr: u32, kind: WatchKind) -> TargetResult<bool, Self> {
+    fn add_hw_watchpoint(
+        &mut self,
+        addr: u32,
+        _len: u32, // TODO: properly handle `len` parameter
+        kind: WatchKind,
+    ) -> TargetResult<bool, Self> {
         self.watchpoints.push(addr);
 
         let entry = self.watchpoint_kind.entry(addr).or_insert((false, false));
@@ -253,7 +255,12 @@ impl target::ext::breakpoints::HwWatchpoint for Emu {
         Ok(true)
     }
 
-    fn remove_hw_watchpoint(&mut self, addr: u32, kind: WatchKind) -> TargetResult<bool, Self> {
+    fn remove_hw_watchpoint(
+        &mut self,
+        addr: u32,
+        _len: u32, // TODO: properly handle `len` parameter
+        kind: WatchKind,
+    ) -> TargetResult<bool, Self> {
         let entry = self.watchpoint_kind.entry(addr).or_insert((false, false));
         match kind {
             WatchKind::Write => entry.1 = false,
@@ -271,4 +278,21 @@ impl target::ext::breakpoints::HwWatchpoint for Emu {
 
         Ok(true)
     }
+}
+
+impl target::ext::thread_extra_info::ThreadExtraInfo for Emu {
+    fn thread_extra_info(&self, tid: Tid, buf: &mut [u8]) -> Result<usize, Self::Error> {
+        let cpu_id = tid_to_cpuid(tid)?;
+        let info = format!("CPU {:?}", cpu_id);
+
+        Ok(copy_to_buf(info.as_bytes(), buf))
+    }
+}
+
+/// Copy all bytes of `data` to `buf`.
+/// Return the size of data copied.
+pub fn copy_to_buf(data: &[u8], buf: &mut [u8]) -> usize {
+    let len = buf.len().min(data.len());
+    buf[..len].copy_from_slice(&data[..len]);
+    len
 }

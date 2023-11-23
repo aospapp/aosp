@@ -63,7 +63,8 @@ class firmware_PDProtocol(FirmwareTest):
 
     def cleanup(self):
         """Cleanup the test"""
-        self.ensure_dev_internal_boot(self.original_dev_boot_usb)
+        if hasattr(self, 'original_dev_boot_usb'):
+            self.ensure_dev_internal_boot(self.original_dev_boot_usb)
         super(firmware_PDProtocol, self).cleanup()
 
     def check_if_pd_supported(self):
@@ -115,7 +116,7 @@ class firmware_PDProtocol(FirmwareTest):
 
         return False
 
-    def run_once(self):
+    def run_once(self, host):
         """Main test logic"""
         # TODO(b/35573842): Refactor to use PDPortPartner to probe the port
         self.pdtester_port = 1 if 'servo_v4' in self.pdtester.servo_type else 0
@@ -126,7 +127,7 @@ class firmware_PDProtocol(FirmwareTest):
 
         # Check servo_v4 is negotiated
         if self.pdtester_pd_utils.is_disconnected(self.pdtester_port):
-            raise error.TestFail('PD not connected')
+            raise error.TestNAError('PD not connected')
 
         # TODO(b:152148025): Directly set role as pdsnkdts might fail the
         # PD communication. In short term, we could use PR SWAP instead, and
@@ -135,11 +136,14 @@ class firmware_PDProtocol(FirmwareTest):
         self.boot_to_recovery()
 
         # Check PD is not negotiated
-        if (not
-            self.pdtester_pd_utils.is_snk_discovery_state(self.pdtester_port)):
-            raise error.TestFail(
-                'Expect PD to be disabled, WP (HW/SW) %s/%s',
-                   self.hw_wp, self.sw_wp)
+        # We allow the chromebox/chromebase, to enable the PD in the
+        # recovery mode.
+        if (host.get_board_type() != 'CHROMEBOX'
+                    and host.get_board_type() != 'CHROMEBASE'
+                    and not self.pdtester_pd_utils.is_snk_discovery_state(
+                            self.pdtester_port)):
+            raise error.TestFail('Expect PD to be disabled, WP (HW/SW) %s/%s' %
+                                 (self.hw_wp, self.sw_wp))
 
         # Check WP status. Only both SW/HW WP on should pass the test.
         if (not self.sw_wp) or ('off' in self.hw_wp):

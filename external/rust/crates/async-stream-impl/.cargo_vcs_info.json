@@ -1,5 +1,6 @@
 {
   "git": {
-    "sha1": "b28da881695e3c66e1782f0c2c330d4e162eb7c2"
-  }
+    "sha1": "bf41b9645fe39b8865da2f25edc286eb42d49ec8"
+  },
+  "path_in_vcs": "async-stream-impl"
 }

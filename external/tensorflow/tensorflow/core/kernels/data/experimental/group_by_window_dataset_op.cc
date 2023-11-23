@@ -92,7 +92,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
 
     std::unique_ptr<IteratorBase> MakeIteratorInternal(
         const string& prefix) const override {
-      return absl::make_unique<Iterator>(
+      return std::make_unique<Iterator>(
           Iterator::Params{this, strings::StrCat(prefix, "::GroupByWindow")});
     }
 
@@ -107,7 +107,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
       return "GroupByWindowDatasetOp::Dataset";
     }
 
-    int64 Cardinality() const override {
+    int64_t CardinalityInternal() const override {
       int64_t n = input_->Cardinality();
       if (n == kInfiniteCardinality) {
         return n;
@@ -118,7 +118,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
     Status InputDatasets(
         std::vector<const DatasetBase*>* inputs) const override {
       inputs->push_back(input_);
-      return Status::OK();
+      return OkStatus();
     }
 
     Status CheckExternalState() const override {
@@ -184,7 +184,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
            {"Twindow_size_func_other_arguments",
             window_size_func_other_arguments_types_attr}},
           output));
-      return Status::OK();
+      return OkStatus();
     }
 
    private:
@@ -202,7 +202,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
             ctx, &instantiated_reduce_func_));
         TF_RETURN_IF_ERROR(dataset()->captured_window_size_func_->Instantiate(
             ctx, &instantiated_window_size_func_));
-        return Status::OK();
+        return OkStatus();
       }
 
       Status GetNextInternal(IteratorContext* ctx,
@@ -215,11 +215,11 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
             // next element.
             bool end_of_group;
             TF_RETURN_IF_ERROR(current_group_iterator_->GetNext(
-                ctx, out_tensors, &end_of_group));
+                MakeNestedIteratorContext(ctx), out_tensors, &end_of_group));
             if (!end_of_group) {
               // Produce the subelement as output.
               *end_of_sequence = false;
-              return Status::OK();
+              return OkStatus();
             }
             // We have reached the end of the current group, so maybe move on
             // to the next group.
@@ -232,7 +232,8 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
           while (!end_of_input_) {
             std::vector<Tensor> next_input_element;
             TF_RETURN_IF_ERROR(
-                input_impl_->GetNext(ctx, &next_input_element, &end_of_input_));
+                input_impl_->GetNext(MakeNestedIteratorContext(ctx),
+                                     &next_input_element, &end_of_input_));
 
             if (!end_of_input_) {
               // Run the key function on the input element to identify its
@@ -248,7 +249,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
                 return errors::InvalidArgument(
                     "`key_func` must return a scalar int64.");
               }
-              const int64_t key = key_func_output[0].scalar<int64>()();
+              const int64_t key = key_func_output[0].scalar<int64_t>()();
 
               if (window_sizes_.find(key) == window_sizes_.end()) {
                 // Run the window size function on the key to identify its
@@ -266,7 +267,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
                       "`window_size_func` must return a scalar int64.");
                 }
                 const int64_t window_size =
-                    window_size_func_output[0].scalar<int64>()();
+                    window_size_func_output[0].scalar<int64_t>()();
                 if (window_size <= 0) {
                   return errors::InvalidArgument(
                       "Window size must be greater than zero, but got ",
@@ -300,7 +301,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
         } while (current_group_iterator_ || !end_of_input_);
 
         *end_of_sequence = true;
-        return Status::OK();
+        return OkStatus();
       }
 
      protected:
@@ -370,7 +371,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
         }
         TF_RETURN_IF_ERROR(writer->WriteScalar(full_name("group_counter"),
                                                group_counter_ - 1));
-        return Status::OK();
+        return OkStatus();
       }
 
       Status RestoreInternal(IteratorContext* ctx,
@@ -430,7 +431,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
           TF_RETURN_IF_ERROR(
               RestoreInput(ctx, reader, current_group_iterator_));
         }
-        return Status::OK();
+        return OkStatus();
       }
 
      private:
@@ -447,7 +448,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
                 strings::StrCat(name, "[", i, "][", j, "]"), group[i][j]));
           }
         }
-        return Status::OK();
+        return OkStatus();
       }
 
       Status RestoreGroup(IteratorContext* ctx, IteratorStateReader* reader,
@@ -469,7 +470,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
                 &group->at(i)[j]));
           }
         }
-        return Status::OK();
+        return OkStatus();
       }
 
       Status StartFlushingGroup(IteratorContext* ctx, int64_t key)
@@ -480,7 +481,7 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
                       dataset()->input_->output_shapes(), &group_dataset));
 
         Tensor key_arg(DT_INT64, TensorShape({}));
-        key_arg.scalar<int64>()() = key;
+        key_arg.scalar<int64_t>()() = key;
 
         Tensor group_dataset_arg(DT_VARIANT, TensorShape({}));
         TF_RETURN_IF_ERROR(
@@ -489,8 +490,14 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
         std::vector<Tensor> args(
             {std::move(key_arg), std::move(group_dataset_arg)});
         std::vector<Tensor> return_values;
+        // If not restoring, pass the model node of this iterator in order to
+        // exclude captured function run time from being added to the processing
+        // time of the node. If restoring, pass nullptr to not record processing
+        // time because iterator modeling is only used to model Iterator's
+        // GetNext() resource usage.
         TF_RETURN_IF_ERROR(instantiated_reduce_func_->Run(
-            ctx, std::move(args), &return_values, model_node()));
+            ctx, std::move(args), &return_values,
+            ctx->is_restoring() ? nullptr : model_node()));
 
         if (!(return_values.size() == 1 &&
               return_values[0].dtype() == DT_VARIANT &&
@@ -508,20 +515,21 @@ class GroupByWindowDatasetOp : public UnaryDatasetOpKernel {
 
         // Create an iterator for the dataset that was returned by `f`.
         return returned_dataset->MakeIterator(
-            ctx, this, strings::StrCat(prefix(), "[", group_counter_++, "]"),
+            MakeNestedIteratorContext(ctx), this,
+            strings::StrCat(prefix(), "[", group_counter_++, "]"),
             &current_group_iterator_);
       }
 
       mutex mu_;
-      int64 group_counter_ TF_GUARDED_BY(mu_) = 0;
+      int64_t group_counter_ TF_GUARDED_BY(mu_) = 0;
       std::unique_ptr<IteratorBase> input_impl_ TF_GUARDED_BY(mu_);
       // TODO(mrry): Optimize for dense key space if appropriate.
       bool end_of_input_ TF_GUARDED_BY(mu_) = false;
-      int64 current_key_ TF_GUARDED_BY(mu_);
-      std::map<int64, std::vector<std::vector<Tensor>>> groups_
+      int64_t current_key_ TF_GUARDED_BY(mu_);
+      std::map<int64_t, std::vector<std::vector<Tensor>>> groups_
           TF_GUARDED_BY(mu_);
       std::unique_ptr<IteratorBase> current_group_iterator_ TF_GUARDED_BY(mu_);
-      std::map<int64, int64> window_sizes_ TF_GUARDED_BY(mu_);
+      std::map<int64_t, int64_t> window_sizes_ TF_GUARDED_BY(mu_);
       std::unique_ptr<InstantiatedCapturedFunction> instantiated_key_func_;
       std::unique_ptr<InstantiatedCapturedFunction> instantiated_reduce_func_;
       std::unique_ptr<InstantiatedCapturedFunction>

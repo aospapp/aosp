@@ -15,9 +15,11 @@
  */
 package com.google.android.enterprise.connectedapps;
 
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
+import com.google.android.enterprise.connectedapps.internal.Bundler;
 
 /**
  * An implementation of {@link ICrossProfileCallback} which just redirects call to a given {@link
@@ -38,13 +40,18 @@ public class TestICrossProfileCallback implements ICrossProfileCallback {
       throws RemoteException {}
 
   @Override
+  public void prepareBundle(long callId, int bundleId, Bundle bundle) {}
+
+  @Override
   public void onResult(long callId, int blockId, int methodIdentifier, byte[] params)
       throws RemoteException {
     Parcel p = Parcel.obtain(); // Recycled in this method
     p.unmarshall(params, 0, params.length);
     p.setDataPosition(0);
-    localCallback.onResult(methodIdentifier, p);
+    Bundle bundle = new Bundle(Bundler.class.getClassLoader());
+    bundle.readFromParcel(p);
     p.recycle();
+    localCallback.onResult(methodIdentifier, bundle);
   }
 
   @Override
@@ -52,8 +59,10 @@ public class TestICrossProfileCallback implements ICrossProfileCallback {
     Parcel p = Parcel.obtain(); // Recycled in this method
     p.unmarshall(params, 0, params.length);
     p.setDataPosition(0);
-    localCallback.onException(p);
+    Bundle bundle = new Bundle(Bundler.class.getClassLoader());
+    bundle.readFromParcel(p);
     p.recycle();
+    localCallback.onException(bundle);
   }
 
   @Override

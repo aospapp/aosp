@@ -12,6 +12,6 @@ class platform_KernelVersion(test.test):
     def run_once(self, kernel_version='3.8'):
         try:
             utils.check_kernel_ver(kernel_version)
-        except error.TestError, e:
+        except error.TestError as e:
             logging.debug(e)
             raise error.TestFail(e)

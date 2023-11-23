@@ -26,6 +26,7 @@ static enum xnn_status create_resize_bilinear2d_nhwc(
     size_t input_pixel_stride,
     size_t output_pixel_stride,
     uint32_t flags,
+    uint32_t datatype_init_flags,
     enum xnn_operator_type operator_type,
     xnn_operator_t* resize_op_out)
 {
@@ -34,6 +35,14 @@ static enum xnn_status create_resize_bilinear2d_nhwc(
 
   if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
     xnn_log_error("failed to create %s operator: XNNPACK is not initialized",
+      xnn_operator_type_to_string(operator_type));
+    goto error;
+  }
+
+  status = xnn_status_unsupported_hardware;
+
+  if ((xnn_params.init_flags & datatype_init_flags) != datatype_init_flags) {
+    xnn_log_error("failed to create %s operator: operations on data type are not supported",
       xnn_operator_type_to_string(operator_type));
     goto error;
   }
@@ -90,6 +99,23 @@ error:
   return status;
 }
 
+enum xnn_status xnn_create_resize_bilinear2d_nhwc_f16(
+    size_t channels,
+    size_t input_pixel_stride,
+    size_t output_pixel_stride,
+    uint32_t flags,
+    xnn_operator_t* resize_op_out)
+{
+  return create_resize_bilinear2d_nhwc(
+    channels,
+    input_pixel_stride,
+    output_pixel_stride,
+    flags,
+    XNN_INIT_FLAG_F16,
+    xnn_operator_type_resize_bilinear_nhwc_f16,
+    resize_op_out);
+}
+
 enum xnn_status xnn_create_resize_bilinear2d_nhwc_f32(
     size_t channels,
     size_t input_pixel_stride,
@@ -102,6 +128,7 @@ enum xnn_status xnn_create_resize_bilinear2d_nhwc_f32(
     input_pixel_stride,
     output_pixel_stride,
     flags,
+    XNN_INIT_FLAG_F32,
     xnn_operator_type_resize_bilinear_nhwc_f32,
     resize_op_out);
 }
@@ -118,6 +145,7 @@ enum xnn_status xnn_create_resize_bilinear2d_nhwc_s8(
     input_pixel_stride,
     output_pixel_stride,
     flags,
+    XNN_INIT_FLAG_S8,
     xnn_operator_type_resize_bilinear_nhwc_s8,
     resize_op_out);
 }
@@ -134,6 +162,7 @@ enum xnn_status xnn_create_resize_bilinear2d_nhwc_u8(
     input_pixel_stride,
     output_pixel_stride,
     flags,
+    XNN_INIT_FLAG_U8,
     xnn_operator_type_resize_bilinear_nhwc_u8,
     resize_op_out);
 }
@@ -215,9 +244,9 @@ static enum xnn_status setup_resize_bilinear2d_nhwc(
     resize_op->indirection_buffer = indirection_buffer;
 
     // Note: packed weights must be SIMD-aligned, so we can't use xnn_reallocate_memory
-    xnn_release_simd_memory(resize_op->packed_weights);
-    resize_op->packed_weights = xnn_allocate_simd_memory(packed_weights_size);
-    if (resize_op->packed_weights == NULL) {
+    xnn_release_simd_memory(resize_op->packed_weights.pointer);
+    resize_op->packed_weights.pointer = xnn_allocate_simd_memory(packed_weights_size);
+    if (resize_op->packed_weights.pointer == NULL) {
       xnn_log_error(
         "failed to allocate %zu bytes for %s operator packed weights",
         packed_weights_size, xnn_operator_type_to_string(resize_op->type));
@@ -236,7 +265,7 @@ static enum xnn_status setup_resize_bilinear2d_nhwc(
       input_pixel_stride_in_bytes,
       input_height, input_width,
       output_height, output_width,
-      input, resize_op->indirection_buffer, resize_op->packed_weights,
+      input, resize_op->indirection_buffer, resize_op->packed_weights.pointer,
       !!(flags & XNN_FLAG_ALIGN_CORNERS),
       !!(flags & XNN_FLAG_TENSORFLOW_LEGACY_MODE));
 
@@ -248,12 +277,14 @@ static enum xnn_status setup_resize_bilinear2d_nhwc(
   }
 
   const size_t output_pixel_stride_in_bytes = resize_op->output_pixel_stride << log2_element_size;
+  // Resize bilinear packed weights can change when the operator is resized, we will not use weights cache.
+  assert(resize_op->weights_cache == NULL);
   resize_op->context.resize_bilinear = (struct resize_bilinear_context) {
     .scaled_channels = resize_op->channels << log2_element_size,
     .indirect_input = resize_op->indirection_buffer,
     .input_offset = (size_t) ((uintptr_t) input - (uintptr_t) resize_op->last_input),
     .input_batch_stride = input_pixel_stride_in_bytes * input_height * input_width,
-    .packed_weights = resize_op->packed_weights,
+    .packed_weights = resize_op->packed_weights.pointer,
     .output = output,
     .output_pixel_stride = output_pixel_stride_in_bytes,
     .output_batch_stride = output_pixel_stride_in_bytes * output_height * output_width,
@@ -262,17 +293,21 @@ static enum xnn_status setup_resize_bilinear2d_nhwc(
   };
 
   const size_t output_size = output_height * output_width;
-  size_t output_size_tile = output_size;
-  if (num_threads > 1) {
-    const size_t target_tiles_per_thread = 5;
-    const size_t max_output_size_tile = divide_round_up(output_size, num_threads * target_tiles_per_thread);
-    if (max_output_size_tile < output_size_tile) {
-      const uint32_t output_size_subtile = ibilinear->pixel_tile;
-      output_size_tile =
-        min(output_size_tile,
-          divide_round_up(output_size_tile, max_output_size_tile * output_size_subtile) * output_size_subtile);
+  #if XNN_TEST_MODE
+    const size_t output_size_tile = ibilinear->pixel_tile;
+  #else
+    size_t output_size_tile = output_size;
+    if (num_threads > 1) {
+      const size_t target_tiles_per_thread = 5;
+      const size_t max_output_size_tile = divide_round_up(output_size, num_threads * target_tiles_per_thread);
+      if (max_output_size_tile < output_size_tile) {
+        const uint32_t output_size_subtile = ibilinear->pixel_tile;
+        output_size_tile =
+          min(output_size_tile,
+            divide_round_up(output_size_tile, max_output_size_tile * output_size_subtile) * output_size_subtile);
+      }
     }
-  }
+  #endif
   resize_op->compute.type = xnn_parallelization_type_2d_tile_1d;
   resize_op->compute.task_2d_tile_1d = (pthreadpool_task_2d_tile_1d_t) xnn_compute_resize_bilinear;
   resize_op->compute.range[0] = batch_size;
@@ -281,6 +316,34 @@ static enum xnn_status setup_resize_bilinear2d_nhwc(
   resize_op->state = xnn_run_state_ready;
 
   return xnn_status_success;
+}
+
+enum xnn_status xnn_setup_resize_bilinear2d_nhwc_f16(
+    xnn_operator_t resize_op,
+    size_t batch_size,
+    size_t input_height,
+    size_t input_width,
+    size_t output_height,
+    size_t output_width,
+    const void* input,
+    void* output,
+    pthreadpool_t threadpool)
+{
+  return setup_resize_bilinear2d_nhwc(
+    resize_op,
+    xnn_operator_type_resize_bilinear_nhwc_f16,
+    batch_size,
+    input_height,
+    input_width,
+    output_height,
+    output_width,
+    input,
+    output,
+    1 /* log2(element size) == log2(sizeof(uint16_t)) */,
+    1 /* log2(weight element size) == log2(sizeof(uint16_t)) */,
+    (xnn_indirection_init_resize_bilinear2d_hwc_fn) xnn_indirection_init_resize_bilinear2d_hwc_f16,
+    &xnn_params.f16.ibilinear,
+    pthreadpool_get_threads_count(threadpool));
 }
 
 enum xnn_status xnn_setup_resize_bilinear2d_nhwc_f32(

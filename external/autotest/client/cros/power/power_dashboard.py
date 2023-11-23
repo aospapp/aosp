@@ -1,6 +1,11 @@
+# Lint as: python2, python3
 # Copyright (c) 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import collections
 import json
@@ -10,8 +15,8 @@ import operator
 import os
 import re
 import time
-import urllib
-import urllib2
+from six.moves import range
+from six.moves import urllib
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
@@ -19,6 +24,7 @@ from autotest_lib.client.common_lib import lsbrelease_utils
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.client.cros.power import power_status
 from autotest_lib.client.cros.power import power_utils
+from six.moves import zip
 
 _HTML_CHART_STR = '''
 <!DOCTYPE html>
@@ -27,12 +33,13 @@ _HTML_CHART_STR = '''
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js">
 </script>
 <script type="text/javascript">
-    google.charts.load('current', {{'packages':['corechart']}});
+    google.charts.load('current', {{'packages':['corechart', 'table']}});
     google.charts.setOnLoadCallback(drawChart);
     function drawChart() {{
-        var data = google.visualization.arrayToDataTable([
+        var dataArray = [
 {data}
-        ]);
+        ];
+        var data = google.visualization.arrayToDataTable(dataArray);
         var numDataCols = data.getNumberOfColumns() - 1;
         var unit = '{unit}';
         var options = {{
@@ -56,6 +63,15 @@ _HTML_CHART_STR = '''
                         '#f0f4c3', '#c8e6c9', '#cddc39', '#81c784', '#43a047'];
             }}
             chart = new google.visualization.SteppedAreaChart(element);
+        }} else if (data.getNumberOfRows() == 2 && unit == 'point') {{
+            var newArray = [['key', 'value']];
+            for (var i = 1; i < dataArray[0].length; i++) {{
+                newArray.push([dataArray[0][i], dataArray[1][i]]);
+            }}
+            data = google.visualization.arrayToDataTable(newArray);
+            delete options.width;
+            delete options.height;
+            chart = new google.visualization.Table(element);
         }} else {{
             chart = new google.visualization.LineChart(element);
         }}
@@ -69,16 +85,26 @@ _HTML_CHART_STR = '''
 </html>
 '''
 
-_HTML_LINK_STR = '''
-<!DOCTYPE html>
-<html>
-<body>
-<a href="http://chrome-power.appspot.com/dashboard?board={board}&test={test}&datetime={datetime}">
-  Link to power dashboard
-</a>
-</body>
-</html>
+_HWID_LINK_STR = '''
+<a href="http://goto.google.com/pdash-hwid?query={hwid}">
+  Link to hwid lookup.
+</a><br />
 '''
+
+_PDASH_LINK_STR = '''
+<a href="http://chrome-power.appspot.com/dashboard?board={board}&test={test}&datetime={datetime}">
+  Link to power dashboard.
+</a><br />
+'''
+
+_TDASH_LINK_STR = '''
+<a href="http://chrome-power.appspot.com/thermal_dashboard?note={note}">
+  Link to thermal dashboard.
+</a><br />
+'''
+
+# Global variable to avoid duplicate dashboard link in BaseDashboard._save_html
+generated_dashboard_link = False
 
 
 class BaseDashboard(object):
@@ -115,11 +141,12 @@ class BaseDashboard(object):
             A dictionary of powerlog
         """
         powerlog_dict = {
-            'format_version': 5,
-            'timestamp': self._start_ts,
-            'test': self._testname,
-            'dut': self._create_dut_info_dict(raw_measurement['data'].keys()),
-            'power': raw_measurement,
+                'format_version': 6,
+                'timestamp': self._start_ts,
+                'test': self._testname,
+                'dut': self._create_dut_info_dict(
+                        list(raw_measurement['data'].keys())),
+                'power': raw_measurement,
         }
 
         return powerlog_dict
@@ -152,8 +179,36 @@ class BaseDashboard(object):
         json_str = json.dumps(powerlog_dict, indent=4, separators=(',', ': '),
                               ensure_ascii=False)
         json_str = utils.strip_non_printable(json_str)
-        with file(filename, 'a') as f:
+        with open(filename, 'a') as f:
             f.write(json_str)
+
+    def _generate_dashboard_link(self, powerlog_dict):
+        """Generate link to power and thermal dashboard"""
+        # Use global variable to generate this only once.
+        global generated_dashboard_link
+        if generated_dashboard_link:
+            return ''
+        generated_dashboard_link = True
+
+        board = powerlog_dict['dut']['board']
+        test = powerlog_dict['test']
+        datetime = time.strftime('%Y%m%d%H%M',
+                                 time.gmtime(powerlog_dict['timestamp']))
+        hwid = powerlog_dict['dut']['sku']['hwid']
+        note = powerlog_dict['dut']['note']
+
+        html_str = '<!DOCTYPE html><html><body>'
+        html_str += _HWID_LINK_STR.format(hwid=hwid)
+        html_str += _PDASH_LINK_STR.format(board=board,
+                                           test=test,
+                                           datetime=datetime)
+
+        if re.match('ThermalQual.(full|lab).*', note):
+            html_str += _TDASH_LINK_STR.format(note=note)
+
+        html_str += '</body></html>'
+
+        return html_str
 
     def _save_html(self, powerlog_dict, resultsdir, filename='power_log.html'):
         """Convert powerlog dict to chart in HTML page and append to
@@ -167,19 +222,11 @@ class BaseDashboard(object):
             resultsdir: directory to save HTML page
             filename: filename to append to
         """
-        # Generate link to power dashboard,
-        board = powerlog_dict['dut']['board']
-        test = powerlog_dict['test']
-        datetime = time.strftime('%Y%m%d%H%M',
-                                 time.gmtime(powerlog_dict['timestamp']))
-
-        html_str = _HTML_LINK_STR.format(board=board,
-                                         test=test,
-                                         datetime=datetime)
+        html_str = self._generate_dashboard_link(powerlog_dict)
 
         # Create dict from type to sorted list of rail names.
         rail_type = collections.defaultdict(list)
-        for r, t in powerlog_dict['power']['type'].iteritems():
+        for r, t in powerlog_dict['power']['type'].items():
             rail_type[t].append(r)
         for t in rail_type:
             rail_type[t] = sorted(rail_type[t])
@@ -208,7 +255,7 @@ class BaseDashboard(object):
         if not os.path.exists(resultsdir):
             raise error.TestError('resultsdir %s does not exist.' % resultsdir)
         filename = os.path.join(resultsdir, filename)
-        with file(filename, 'a') as f:
+        with open(filename, 'a') as f:
             f.write(html_str)
 
     def _upload(self, powerlog_dict, uploadurl):
@@ -220,13 +267,16 @@ class BaseDashboard(object):
         """
         json_str = json.dumps(powerlog_dict, ensure_ascii=False)
         data_obj = {'data': utils.strip_non_printable(json_str)}
-        encoded = urllib.urlencode(data_obj)
-        req = urllib2.Request(uploadurl, encoded)
+        encoded = urllib.parse.urlencode(data_obj).encode('utf-8')
+        req = urllib.request.Request(uploadurl, encoded)
 
-        @retry.retry(urllib2.URLError, raiselist=[urllib2.HTTPError],
-                     timeout_min=5.0, delay_sec=1, backoff=2)
+        @retry.retry(urllib.error.URLError,
+                     raiselist=[urllib.error.HTTPError],
+                     timeout_min=5.0,
+                     delay_sec=1,
+                     backoff=2)
         def _do_upload():
-            urllib2.urlopen(req)
+            urllib.request.urlopen(req)
 
         _do_upload()
 
@@ -257,7 +307,7 @@ class BaseDashboard(object):
         # Create list of check point event tuple.
         # Tuple format: (checkpoint_name:str, event_time:float, is_start:bool)
         checkpoint_event_list = []
-        for name, intervals in checkpoint_dict.iteritems():
+        for name, intervals in checkpoint_dict.items():
             for start, finish in intervals:
                 checkpoint_event_list.append((name, start, True))
                 checkpoint_event_list.append((name, finish, False))
@@ -265,7 +315,7 @@ class BaseDashboard(object):
         checkpoint_event_list = sorted(checkpoint_event_list,
                                        key=operator.itemgetter(1))
 
-        # Add dummy check point at 1e9 seconds.
+        # Add placeholder check point at 1e9 seconds.
         checkpoint_event_list.append(('dummy', 1e9, True))
 
         interval_set = set()
@@ -352,27 +402,30 @@ class ClientTestDashboard(BaseDashboard):
             board += '_hammer'
 
         dut_info_dict = {
-            'board': board,
-            'version': {
-                'hw': utils.get_hardware_revision(),
-                'milestone': lsbrelease_utils.get_chromeos_release_milestone(),
-                'os': lsbrelease_utils.get_chromeos_release_version(),
-                'channel': lsbrelease_utils.get_chromeos_channel(),
-                'firmware': utils.get_firmware_version(),
-                'ec': utils.get_ec_version(),
-                'kernel': utils.get_kernel_version(),
-            },
-            'sku': {
-                'cpu': utils.get_cpu_name(),
-                'memory_size': utils.get_mem_total_gb(),
-                'storage_size': utils.get_disk_size_gb(utils.get_root_device()),
-                'display_resolution': utils.get_screen_resolution(),
-            },
-            'ina': {
-                'version': 0,
-                'ina': power_rails,
-            },
-            'note': self._note,
+                'board': board,
+                'version': {
+                        'hw': utils.get_hardware_revision(),
+                        'milestone':
+                        lsbrelease_utils.get_chromeos_release_milestone(),
+                        'os': lsbrelease_utils.get_chromeos_release_version(),
+                        'channel': lsbrelease_utils.get_chromeos_channel(),
+                        'firmware': utils.get_firmware_version(),
+                        'ec': utils.get_ec_version(),
+                        'kernel': utils.get_kernel_version(),
+                },
+                'sku': {
+                        'cpu': utils.get_cpu_name(),
+                        'memory_size': utils.get_mem_total_gb(),
+                        'storage_size':
+                        utils.get_disk_size_gb(utils.get_root_device()),
+                        'display_resolution': utils.get_screen_resolution(),
+                        'hwid': utils.get_hardware_id(),
+                },
+                'ina': {
+                        'version': 0,
+                        'ina': power_rails,
+                },
+                'note': self._note,
         }
 
         if power_utils.has_battery():
@@ -437,7 +490,7 @@ class MeasurementLoggerDashboard(ClientTestDashboard):
             raw measurement dictionary or None if no readings
         """
         if len(self._logger.readings) == 0:
-            logging.warn('No readings in logger ... ignoring')
+            logging.warning('No readings in logger ... ignoring')
             return None
 
         power_dict = collections.defaultdict(dict, {
@@ -498,10 +551,12 @@ class KeyvalLogger(power_status.MeasurementLogger):
     See power_SpeedoMeter2 for implementation example.
     """
 
-    def __init__(self, start_ts, end_ts):
+    def __init__(self, start_ts, end_ts=None):
         # Do not call parent constructor to avoid making a new thread.
         self.times = [start_ts]
-        self._duration_secs = end_ts - start_ts
+        self._start_ts = start_ts
+        self._fixed_end_ts = end_ts  # prefer this (end time set by tests)
+        self._updating_end_ts = time.time()  # updated when a new item is added
         self.keys = []
         self.values = []
         self.units = []
@@ -529,6 +584,17 @@ class KeyvalLogger(power_status.MeasurementLogger):
         self.values.append(value)
         self.units.append(unit)
         self.types.append(type_)
+        self._updating_end_ts = time.time()
+
+    def set_end(self, end_ts):
+        """Set the end timestamp.
+
+        If the end timestamp is not set explicitly by tests, use the timestamp
+        of the last added item instead.
+
+        @param end_ts: end timestamp for KeyvalLogger.
+        """
+        self._fixed_end_ts = end_ts
 
     def calc(self, mtype=None):
         return {}
@@ -542,16 +608,26 @@ class KeyvalLoggerDashboard(MeasurementLoggerDashboard):
 
     def _convert(self):
         """Convert KeyvalLogger data to power dict."""
-        power_dict =  {
-            # 2 samples to show flat value spanning across duration of the test.
-            'sample_count': 2,
-            'sample_duration': self._logger._duration_secs,
-            'average': dict(zip(self._logger.keys, self._logger.values)),
-            'data': dict(zip(self._logger.keys,
-                             ([v, v] for v in self._logger.values))),
-            'unit': dict(zip(self._logger.keys, self._logger.units)),
-            'type': dict(zip(self._logger.keys, self._logger.types)),
-            'checkpoint': [[self._testname], [self._testname]],
+        power_dict = {
+                # 2 samples to show flat value spanning across duration of the test.
+                'sample_count':
+                2,
+                'sample_duration':
+                (self._logger._fixed_end_ts -
+                 self._logger._start_ts) if self._logger._fixed_end_ts else
+                (self._logger._updating_end_ts - self._logger._start_ts),
+                'average':
+                dict(list(zip(self._logger.keys, self._logger.values))),
+                'data':
+                dict(
+                        list(
+                                zip(self._logger.keys,
+                                    ([v, v] for v in self._logger.values)))),
+                'unit':
+                dict(list(zip(self._logger.keys, self._logger.units))),
+                'type':
+                dict(list(zip(self._logger.keys, self._logger.types))),
+                'checkpoint': [[self._testname], [self._testname]],
         }
         return power_dict
 
@@ -583,6 +659,8 @@ class CPUStatsLoggerDashboard(MeasurementLoggerDashboard):
 
     def _convert(self):
         power_dict = super(CPUStatsLoggerDashboard, self)._convert()
+        if not power_dict or not power_dict['data']:
+            return None
         remove_rail = []
         for rail in power_dict['data']:
             if rail.startswith('wavg_cpu'):
@@ -663,6 +741,19 @@ class FanRpmLoggerDashboard(MeasurementLoggerDashboard):
         self._unit = 'rpm'
         self._type = 'fan'
 
+
+class FreeMemoryLoggerDashboard(MeasurementLoggerDashboard):
+    """Dashboard class for power_status.FreeMemoryLogger."""
+
+    def __init__(self, logger, testname, resultsdir, uploadurl, note):
+        # Don't upload to dashboard
+        uploadurl = None
+        super(FreeMemoryLoggerDashboard,
+              self).__init__(logger, testname, resultsdir, uploadurl, note)
+        self._unit = 'point'
+        self._type = 'mem'
+
+
 dashboard_factory = None
 def get_dashboard_factory():
     global dashboard_factory
@@ -674,12 +765,13 @@ class LoggerDashboardFactory(object):
     """Class to generate client test dashboard object from logger."""
 
     loggerToDashboardDict = {
-        power_status.CPUStatsLogger: CPUStatsLoggerDashboard,
-        power_status.PowerLogger:    PowerLoggerDashboard,
-        power_status.TempLogger:     TempLoggerDashboard,
-        power_status.VideoFpsLogger: VideoFpsLoggerDashboard,
-        power_status.FanRpmLogger:   FanRpmLoggerDashboard,
-        KeyvalLogger:                KeyvalLoggerDashboard,
+            power_status.CPUStatsLogger: CPUStatsLoggerDashboard,
+            power_status.PowerLogger: PowerLoggerDashboard,
+            power_status.TempLogger: TempLoggerDashboard,
+            power_status.VideoFpsLogger: VideoFpsLoggerDashboard,
+            power_status.FanRpmLogger: FanRpmLoggerDashboard,
+            power_status.FreeMemoryLogger: FreeMemoryLoggerDashboard,
+            KeyvalLogger: KeyvalLoggerDashboard,
     }
 
     def registerDataType(self, logger_type, dashboard_type):
@@ -697,3 +789,33 @@ class LoggerDashboardFactory(object):
             uploadurl = 'http://chrome-power.appspot.com/rapl'
         dashboard = self.loggerToDashboardDict[type(logger)]
         return dashboard(logger, testname, resultsdir, uploadurl, note)
+
+
+def generate_parallax_report(output_dir):
+    """Generate parallax report in the result directory."""
+    parallax_url = 'http://crospower.page.link/parallax'
+    local_dir = '/usr/local'
+    parallax_tar = os.path.join(local_dir, 'parallax.tar.xz')
+    parallax_dir = os.path.join(local_dir, 'report_analysis')
+    parallax_exe = os.path.join(parallax_dir, 'process.py')
+    results_dir = os.path.join(output_dir, 'results')
+    parallax_html = os.path.join(results_dir, 'parallax.html')
+
+    # Download the source
+    cmd = ' '.join(['wget', parallax_url, '-O', parallax_tar])
+    utils.run(cmd)
+
+    # Extract the tool
+    cmd = ' '.join(['tar', 'xf', parallax_tar, '-C', local_dir])
+    utils.run(cmd)
+
+    # Run the tool
+    cmd = ' '.join([
+            'python', parallax_exe, '-t', 'PowerQual', '-p', output_dir, '-o',
+            parallax_html
+    ])
+    utils.run(cmd)
+
+    # Clean up the tool
+    cmd = ' '.join(['rm', '-rf', parallax_tar, parallax_dir])
+    utils.run(cmd)

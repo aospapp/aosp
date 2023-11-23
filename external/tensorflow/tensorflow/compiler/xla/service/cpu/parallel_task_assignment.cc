@@ -15,7 +15,8 @@ limitations under the License.
 
 #include "tensorflow/compiler/xla/service/cpu/parallel_task_assignment.h"
 
-#include "absl/memory/memory.h"
+#include <memory>
+
 #include "absl/strings/str_cat.h"
 #include "tensorflow/compiler/xla/service/cpu/dot_op_emitter.h"
 #include "tensorflow/compiler/xla/service/cpu/ir_emission_utils.h"
@@ -35,17 +36,18 @@ class SimpleCostModel : public ParallelCostModel {
       : max_parallelism_(max_parallelism), shape_size_(shape_size) {}
   ~SimpleCostModel() override {}
 
-  int64 GetParallelTaskCount(HloInstruction* instruction) override {
+  int64_t GetParallelTaskCount(HloInstruction* instruction) override {
     // Simple cost model based on hlo size and typical L2 cache size.
     const int64_t instruction_cost = shape_size_(instruction->shape());
     const int64_t min_cost_per_thread = 256LL << 10;  // 256KB L2 Cache size.
     // Return target parallel task count in [1, max_parallelism_].
-    return std::min(max_parallelism_,
-                    std::max(int64{1}, instruction_cost / min_cost_per_thread));
+    return std::min(
+        max_parallelism_,
+        std::max(int64_t{1}, instruction_cost / min_cost_per_thread));
   }
 
  private:
-  const int64 max_parallelism_;
+  const int64_t max_parallelism_;
   const HloCostAnalysis::ShapeSizeFunction shape_size_;
 };
 
@@ -59,14 +61,14 @@ class DefaultCostModel : public ParallelCostModel {
         cost_analysis_(std::move(cost_analysis)) {}
   ~DefaultCostModel() override {}
 
-  int64 GetParallelTaskCount(HloInstruction* instruction) override {
+  int64_t GetParallelTaskCount(HloInstruction* instruction) override {
     // Parameters for parallel task count computation.
     int64_t instruction_cost;
     int64_t min_cost_per_thread;
     int64_t max_parallelism;
     // Calculate flops-to-bytes-ratio for 'instruction'.
     const int64_t bytes_accessed =
-        std::max(int64{1}, cost_analysis_->bytes_accessed(*instruction));
+        std::max(int64_t{1}, cost_analysis_->bytes_accessed(*instruction));
     const float flops_to_bytes_ratio =
         cost_analysis_->flop_count(*instruction) /
         static_cast<float>(bytes_accessed);
@@ -75,7 +77,7 @@ class DefaultCostModel : public ParallelCostModel {
       // Limit max parallelism for I/O bound instructions by assuming a
       // sub-linear scaling function (fit based on empirical benchmark results).
       // TODO(b/29630486) Develop system bandwidth model.
-      max_parallelism = std::min<int64>(
+      max_parallelism = std::min<int64_t>(
           max_parallelism_,
           std::ceil(std::sqrt(tensorflow::port::MaxParallelism())));
       // Use shape size instruction cost and L2 cache size min per-thread cost.
@@ -96,12 +98,13 @@ class DefaultCostModel : public ParallelCostModel {
       min_cost_per_thread = 100000;
     }
     // Return target parallel task count in [1, max_parallelism_].
-    return std::min(max_parallelism,
-                    std::max(int64{1}, instruction_cost / min_cost_per_thread));
+    return std::min(
+        max_parallelism,
+        std::max(int64_t{1}, instruction_cost / min_cost_per_thread));
   }
 
  private:
-  const int64 max_parallelism_;
+  const int64_t max_parallelism_;
   const HloCostAnalysis::ShapeSizeFunction shape_size_;
   const std::unique_ptr<HloCostAnalysis> cost_analysis_;
 };
@@ -113,7 +116,7 @@ ParallelTaskAssignment::ParallelTaskAssignment(
     : target_machine_features_(*target_machine_features) {
   VLOG(1) << "ParallelTaskAssignment max_parallelism: " << max_parallelism;
   // Run cost analysis on 'module'.
-  auto cost_analysis = absl::make_unique<HloCostAnalysis>(shape_size);
+  auto cost_analysis = std::make_unique<HloCostAnalysis>(shape_size);
   HloComputation* computation = module->entry_computation();
   Status status = computation->root_instruction()->Accept(cost_analysis.get());
   if (status.ok()) {
@@ -128,7 +131,7 @@ ParallelTaskAssignment::ParallelTaskAssignment(
   }
 }
 
-int64 ParallelTaskAssignment::GetTargetParallelTaskCount(
+int64_t ParallelTaskAssignment::GetTargetParallelTaskCount(
     HloInstruction* instruction) {
   // Currently, we do not assign parallel tasks to instructions with at least
   // one of the following properties:
@@ -148,7 +151,8 @@ int64 ParallelTaskAssignment::GetTargetParallelTaskCount(
     return 1;
   }
 
-  // Only allow known good instructions.
+  // Only allow instructions that can be trivially parallelized (where all
+  // outputs can be computed independently of each other).
   if (instruction->IsElementwise() || instruction->IsLoopFusion() ||
       opcode == HloOpcode::kBroadcast || opcode == HloOpcode::kConcatenate ||
       opcode == HloOpcode::kDynamicSlice ||
@@ -168,7 +172,9 @@ int64 ParallelTaskAssignment::GetTargetParallelTaskCount(
   return 1;
 }
 
-StatusOr<bool> ParallelTaskAssigner::Run(HloModule* module) {
+StatusOr<bool> ParallelTaskAssigner::Run(
+    HloModule* module,
+    const absl::flat_hash_set<absl::string_view>& execution_threads) {
   XLA_VLOG_LINES(2, "ParallelTaskAssigner ENTRY");
   XLA_VLOG_LINES(3, module->ToString());
   // Compute target parallel task counts for all instructions in 'module'.

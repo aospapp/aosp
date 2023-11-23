@@ -23,7 +23,7 @@ java_library(
         "AndroidClassNames.java",
     ],
     deps = [
-        "@google_bazel_common//third_party/java/javapoet",
+        "//third_party/java/javapoet",
     ],
 )
 
@@ -34,8 +34,8 @@ java_library(
         "MoreTypes.java",
     ],
     deps = [
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
     ],
 )
 

@@ -49,4 +49,6 @@ rust_proc_macro {
         "libquote",
         "libsyn",
     ],
+    product_available: true,
+    vendor_available: true,
 }

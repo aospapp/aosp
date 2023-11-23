@@ -8,6 +8,8 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <inttypes.h>
+#include <stdint.h>
 #include <string.h>
 
 #include <libfdt.h>
@@ -35,7 +37,7 @@ int fdt_read_uint32_array(const void *dtb, int node, const char *prop_name,
 	/* Access property and obtain its length (in bytes) */
 	prop = fdt_getprop(dtb, node, prop_name, &value_len);
 	if (prop == NULL) {
-		WARN("Couldn't find property %s in dtb\n", prop_name);
+		VERBOSE("Couldn't find property %s in dtb\n", prop_name);
 		return -FDT_ERR_NOTFOUND;
 	}
 
@@ -402,7 +404,7 @@ static bool fdtw_xlat_hit(const uint32_t *value, int child_addr_size,
 	addr_range = fdt_read_prop_cells(value + child_addr_size +
 				parent_addr_size,
 				range_size);
-	VERBOSE("DT: Address %llx mapped to %llx with range %llx\n",
+	VERBOSE("DT: Address %" PRIx64 " mapped to %" PRIx64 " with range %" PRIx64 "\n",
 		local_address, parent_address, addr_range);
 
 	/* Perform range check */
@@ -413,8 +415,8 @@ static bool fdtw_xlat_hit(const uint32_t *value, int child_addr_size,
 
 	/* Found hit for the addr range that needs to be translated */
 	*translated_addr = parent_address + (base_address - local_address);
-	VERBOSE("DT: child address %llx mapped to %llx in parent bus\n",
-			local_address, parent_address);
+	VERBOSE("DT: child address %" PRIx64 "mapped to %" PRIx64 " in parent bus\n",
+		local_address, parent_address);
 	return true;
 }
 
@@ -470,8 +472,8 @@ static uint64_t fdtw_search_all_xlat_entries(const void *dtb,
 		next_entry = next_entry + ncells_xlat;
 	}
 
-	INFO("DT: No translation found for address %llx in node %s\n",
-		base_address, fdt_get_name(dtb, local_bus, NULL));
+	INFO("DT: No translation found for address %" PRIx64 " in node %s\n",
+	     base_address, fdt_get_name(dtb, local_bus, NULL));
 	return ILLEGAL_ADDR;
 }
 
@@ -571,4 +573,48 @@ uint64_t fdtw_translate_address(const void *dtb, int node,
 
 	/* Translate the local device address recursively */
 	return fdtw_translate_address(dtb, local_bus_node, global_address);
+}
+
+/*
+ * For every CPU node (`/cpus/cpu@n`) in an FDT, execute a callback passing a
+ * pointer to the FDT and the offset of the CPU node. If the return value of the
+ * callback is negative, it is treated as an error and the loop is aborted. In
+ * this situation, the value of the callback is returned from the function.
+ *
+ * Returns `0` on success, or a negative integer representing an error code.
+ */
+int fdtw_for_each_cpu(const void *dtb,
+		      int (*callback)(const void *dtb, int node, uintptr_t mpidr))
+{
+	int ret = 0;
+	int parent, node = 0;
+
+	parent = fdt_path_offset(dtb, "/cpus");
+	if (parent < 0) {
+		return parent;
+	}
+
+	fdt_for_each_subnode(node, dtb, parent) {
+		const char *name;
+		int len;
+
+		uintptr_t mpidr = 0U;
+
+		name = fdt_get_name(dtb, node, &len);
+		if (strncmp(name, "cpu@", 4) != 0) {
+			continue;
+		}
+
+		ret = fdt_get_reg_props_by_index(dtb, node, 0, &mpidr, NULL);
+		if (ret < 0) {
+			break;
+		}
+
+		ret = callback(dtb, node, mpidr);
+		if (ret < 0) {
+			break;
+		}
+	}
+
+	return ret;
 }

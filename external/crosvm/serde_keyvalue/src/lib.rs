@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium OS Authors. All rights reserved.
+// Copyright 2022 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -122,8 +122,9 @@
 //! assert_eq!(config, Config { active: true, delayed: false, pooled: true });
 //! ```
 //!
-//! Strings can be quoted, which is useful if they e.g. need to include a comma. Quoted strings can
-//! also contain escaped characters, where any character after a `\` is repeated as-is:
+//! Strings can be quoted, which is useful if they need to include a comma or a bracket, which are
+//! considered separators for unquoted strings. Quoted strings can also contain escaped characters,
+//! where any character after a `\` is repeated as-is:
 //!
 //! ```
 //! # use serde_keyvalue::from_key_values;
@@ -135,6 +136,21 @@
 //!
 //! let config: Config = from_key_values(r#"path="/some/\"strange\"/pa,th""#).unwrap();
 //! assert_eq!(config, Config { path: r#"/some/"strange"/pa,th"#.into() });
+//! ```
+//!
+//! Tuples and vectors are allowed and must be specified between `[` and `]`:
+//!
+//! ```
+//! # use serde_keyvalue::from_key_values;
+//! # use serde::Deserialize;
+//! #[derive(Debug, PartialEq, Deserialize)]
+//! struct Layout {
+//!     resolution: (u16, u16),
+//!     scanlines: Vec<u16>,
+//! }
+//!
+//! let layout: Layout = from_key_values("resolution=[320,200],scanlines=[0,64,128]").unwrap();
+//! assert_eq!(layout, Layout { resolution: (320, 200), scanlines: vec![0, 64, 128] });
 //! ```
 //!
 //! Enums can be directly specified by name. It is recommended to use the `rename_all` serde
@@ -165,8 +181,35 @@
 //! assert_eq!(config, Config { mode: Mode::LudicrousSpeed });
 //! ```
 //!
-//! Enums taking a single value should use the `flatten` field attribute in order to be inferred
-//! from their variant key directly:
+//! A nice use of enums is along with sets, where it allows to e.g. easily specify flags:
+//!
+//! ```
+//! # use std::collections::BTreeSet;
+//! # use serde_keyvalue::from_key_values;
+//! # use serde::Deserialize;
+//! #[derive(Deserialize, PartialEq, Eq, Debug, PartialOrd, Ord)]
+//! #[serde(rename_all = "kebab-case")]
+//! enum Flags {
+//!     Awesome,
+//!     Fluffy,
+//!     Transparent,
+//! }
+//! #[derive(Deserialize, PartialEq, Debug)]
+//! struct TestStruct {
+//!     flags: BTreeSet<Flags>,
+//! }
+//!
+//! let res: TestStruct = from_key_values("flags=[awesome,fluffy]").unwrap();
+//! assert_eq!(
+//!     res,
+//!     TestStruct {
+//!         flags: BTreeSet::from([Flags::Awesome, Flags::Fluffy]),
+//!     }
+//! );
+//! ```
+//!
+//! Enums taking a single value can use the `flatten` field attribute in order to be inferred from
+//! their variant key directly:
 //!
 //! ```
 //! # use serde_keyvalue::from_key_values;
@@ -225,8 +268,8 @@
 //! );
 //! ```
 //!
-//! If an enum's variants are made of structs, it should take the `untagged` container attribute so
-//! it can be inferred directly from the fields of the embedded structs:
+//! If an enum's variants are made of structs, it can take the `untagged` container attribute to be
+//! inferred directly from the fields of the embedded structs:
 //!
 //! ```
 //! # use serde_keyvalue::from_key_values;
@@ -283,13 +326,31 @@
 //! error if an unknown field is met in the input, and
 //! [`deserialize_with`](https://serde.rs/field-attrs.html#deserialize_with) to use a custom
 //! deserialization function for a specific field.
+//!
+//! Be aware that the use of `flatten` comes with some severe limitations. Because type information
+//! is not available to the deserializer, it will try to determine the type of fields using the
+//! input as its sole hint. For instance, any number will be returned as an integer type, and if the
+//! parsed structure was actually expecting a number as a string, then an error will occur.
+//! Struct enums also cannot be flattened and won't be recognized at all.
+//!
+//! For these reasons, it is discouraged to use `flatten` except when neither the embedding not the
+//! flattened structs has a member of string type.
+//!
+//! Most of the time, similar functionality can be obtained by implementing a custom deserializer
+//! that parses the embedding struct's member and then the flattened struct in a specific order
+//! using the [`key_values::KeyValueDeserializer`] interface directly.
+//!
+//! Another limitation of using `flatten` that is inherent to serde is that it won't allow
+//! `deny_unknown_fields` to be used in either the embedding or the flattened struct.
 #![deny(missing_docs)]
 
 mod key_values;
 
-pub use key_values::{from_key_values, ErrorKind, ParseError};
-
 #[cfg(feature = "argh_derive")]
 pub use argh;
+pub use key_values::from_key_values;
+pub use key_values::ErrorKind;
+pub use key_values::KeyValueDeserializer;
+pub use key_values::ParseError;
 #[cfg(feature = "argh_derive")]
 pub use serde_keyvalue_derive::FromKeyValues;

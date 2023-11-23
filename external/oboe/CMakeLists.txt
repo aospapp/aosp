@@ -18,8 +18,11 @@ set (oboe_sources
     src/common/FixedBlockReader.cpp
     src/common/FixedBlockWriter.cpp
     src/common/LatencyTuner.cpp
+    src/common/OboeExtensions.cpp
     src/common/SourceFloatCaller.cpp
     src/common/SourceI16Caller.cpp
+    src/common/SourceI24Caller.cpp
+    src/common/SourceI32Caller.cpp
     src/common/Utilities.cpp
     src/common/QuirksManager.cpp
     src/fifo/FifoBuffer.cpp
@@ -29,17 +32,22 @@ set (oboe_sources
     src/flowgraph/FlowGraphNode.cpp
     src/flowgraph/ChannelCountConverter.cpp
     src/flowgraph/ClipToRange.cpp
+    src/flowgraph/Limiter.cpp
     src/flowgraph/ManyToMultiConverter.cpp
+    src/flowgraph/MonoBlend.cpp
     src/flowgraph/MonoToMultiConverter.cpp
+    src/flowgraph/MultiToManyConverter.cpp
     src/flowgraph/MultiToMonoConverter.cpp
     src/flowgraph/RampLinear.cpp
     src/flowgraph/SampleRateConverter.cpp
     src/flowgraph/SinkFloat.cpp
     src/flowgraph/SinkI16.cpp
     src/flowgraph/SinkI24.cpp
+    src/flowgraph/SinkI32.cpp
     src/flowgraph/SourceFloat.cpp
     src/flowgraph/SourceI16.cpp
     src/flowgraph/SourceI24.cpp
+    src/flowgraph/SourceI32.cpp
     src/flowgraph/resampler/IntegerRatio.cpp
     src/flowgraph/resampler/LinearResampler.cpp
     src/flowgraph/resampler/MultiChannelResampler.cpp
@@ -72,12 +80,13 @@ target_include_directories(oboe
 #     Enable -Ofast
 target_compile_options(oboe
         PRIVATE
-        -std=c++14
+        -std=c++17
         -Wall
         -Wextra-semi
         -Wshadow
         -Wshadow-field
-        -Ofast
+        "$<$<CONFIG:RELEASE>:-Ofast>"
+        "$<$<CONFIG:DEBUG>:-O3>"
         "$<$<CONFIG:DEBUG>:-Werror>")
 
 # Enable logging of D,V for debug builds

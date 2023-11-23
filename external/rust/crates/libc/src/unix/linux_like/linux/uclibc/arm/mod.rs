@@ -10,7 +10,6 @@ pub type fsfilcnt_t = ::c_ulong;
 pub type ino_t = ::c_ulong;
 pub type off_t = ::c_long;
 pub type pthread_t = ::c_ulong;
-pub type rlim_t = ::c_ulong;
 pub type suseconds_t = ::c_long;
 
 pub type nlink_t = ::c_uint;
@@ -20,6 +19,7 @@ pub type blkcnt_t = ::c_long;
 pub type fsblkcnt64_t = u64;
 pub type fsfilcnt64_t = u64;
 pub type __u64 = ::c_ulonglong;
+pub type __s64 = ::c_longlong;
 
 s! {
     pub struct cmsghdr {
@@ -244,7 +244,6 @@ s! {
 }
 
 pub const O_CLOEXEC: ::c_int = 0o2000000;
-pub const RLIM_INFINITY: rlim_t = !0;
 pub const __SIZEOF_PTHREAD_ATTR_T: usize = 36;
 pub const __SIZEOF_PTHREAD_MUTEX_T: usize = 24;
 pub const __SIZEOF_PTHREAD_MUTEXATTR_T: usize = 4;
@@ -885,8 +884,10 @@ pub const SYS_pkey_mprotect: ::c_long = 394;
 pub const SYS_pkey_alloc: ::c_long = 395;
 pub const SYS_pkey_free: ::c_long = 396;
 pub const SYS_statx: ::c_int = 397;
+pub const SYS_pidfd_send_signal: ::c_long = 424;
 pub const SYS_pidfd_open: ::c_long = 434;
 pub const SYS_clone3: ::c_long = 435;
+pub const SYS_pidfd_getfd: ::c_long = 438;
 
 cfg_if! {
     if #[cfg(libc_align)] {

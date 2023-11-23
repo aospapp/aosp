@@ -1,0 +1,16 @@
+package {
+    default_applicable_licenses: ["arm_trusted_firmware_license"],
+}
+
+// See: http://go/android-license-faq
+license {
+    name: "arm_trusted_firmware_license",
+    visibility: [":__subpackages__"],
+    license_kinds: ["SPDX-license-identifier-BSD"],
+    license_text: ["LICENSE"],
+}
+
+filegroup {
+    name: "arm_dt_bindings_headers",
+    srcs: ["include/dt-bindings/**/*.h"],
+}

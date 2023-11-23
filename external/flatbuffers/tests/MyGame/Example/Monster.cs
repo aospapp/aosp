@@ -14,7 +14,7 @@ public struct Monster : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_1_12_0(); }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_2_0_0(); }
   public static Monster GetRootAsMonster(ByteBuffer _bb) { return GetRootAsMonster(_bb, new Monster()); }
   public static Monster GetRootAsMonster(ByteBuffer _bb, Monster obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
   public static bool MonsterBufferHasIdentifier(ByteBuffer _bb) { return Table.__has_identifier(_bb, "MONS"); }
@@ -46,6 +46,9 @@ public struct Monster : IFlatbufferObject
   public bool MutateColor(MyGame.Example.Color color) { int o = __p.__offset(16); if (o != 0) { __p.bb.Put(o + __p.bb_pos, (byte)color); return true; } else { return false; } }
   public MyGame.Example.Any TestType { get { int o = __p.__offset(18); return o != 0 ? (MyGame.Example.Any)__p.bb.Get(o + __p.bb_pos) : MyGame.Example.Any.NONE; } }
   public TTable? Test<TTable>() where TTable : struct, IFlatbufferObject { int o = __p.__offset(20); return o != 0 ? (TTable?)__p.__union<TTable>(o + __p.bb_pos) : null; }
+  public MyGame.Example.Monster TestAsMonster() { return Test<MyGame.Example.Monster>().Value; }
+  internal MyGame.Example.TestSimpleTableWithEnum TestAsTestSimpleTableWithEnum() { return Test<MyGame.Example.TestSimpleTableWithEnum>().Value; }
+  public MyGame.Example2.Monster TestAsMyGame_Example2_Monster() { return Test<MyGame.Example2.Monster>().Value; }
   public MyGame.Example.Test? Test4(int j) { int o = __p.__offset(22); return o != 0 ? (MyGame.Example.Test?)(new MyGame.Example.Test()).__assign(__p.__vector(o) + j * 4, __p.bb) : null; }
   public int Test4Length { get { int o = __p.__offset(22); return o != 0 ? __p.__vector_len(o) : 0; } }
   public string Testarrayofstring(int j) { int o = __p.__offset(24); return o != 0 ? __p.__string(__p.__vector(o) + j * 4) : null; }
@@ -175,8 +178,14 @@ public struct Monster : IFlatbufferObject
   public bool MutateVectorOfNonOwningReferences(int j, ulong vector_of_non_owning_references) { int o = __p.__offset(88); if (o != 0) { __p.bb.PutUlong(__p.__vector(o) + j * 8, vector_of_non_owning_references); return true; } else { return false; } }
   public MyGame.Example.AnyUniqueAliases AnyUniqueType { get { int o = __p.__offset(90); return o != 0 ? (MyGame.Example.AnyUniqueAliases)__p.bb.Get(o + __p.bb_pos) : MyGame.Example.AnyUniqueAliases.NONE; } }
   public TTable? AnyUnique<TTable>() where TTable : struct, IFlatbufferObject { int o = __p.__offset(92); return o != 0 ? (TTable?)__p.__union<TTable>(o + __p.bb_pos) : null; }
+  public MyGame.Example.Monster AnyUniqueAsM() { return AnyUnique<MyGame.Example.Monster>().Value; }
+  internal MyGame.Example.TestSimpleTableWithEnum AnyUniqueAsTS() { return AnyUnique<MyGame.Example.TestSimpleTableWithEnum>().Value; }
+  public MyGame.Example2.Monster AnyUniqueAsM2() { return AnyUnique<MyGame.Example2.Monster>().Value; }
   public MyGame.Example.AnyAmbiguousAliases AnyAmbiguousType { get { int o = __p.__offset(94); return o != 0 ? (MyGame.Example.AnyAmbiguousAliases)__p.bb.Get(o + __p.bb_pos) : MyGame.Example.AnyAmbiguousAliases.NONE; } }
   public TTable? AnyAmbiguous<TTable>() where TTable : struct, IFlatbufferObject { int o = __p.__offset(96); return o != 0 ? (TTable?)__p.__union<TTable>(o + __p.bb_pos) : null; }
+  public MyGame.Example.Monster AnyAmbiguousAsM1() { return AnyAmbiguous<MyGame.Example.Monster>().Value; }
+  public MyGame.Example.Monster AnyAmbiguousAsM2() { return AnyAmbiguous<MyGame.Example.Monster>().Value; }
+  public MyGame.Example.Monster AnyAmbiguousAsM3() { return AnyAmbiguous<MyGame.Example.Monster>().Value; }
   public MyGame.Example.Color VectorOfEnums(int j) { int o = __p.__offset(98); return o != 0 ? (MyGame.Example.Color)__p.bb.Get(__p.__vector(o) + j * 1) : (MyGame.Example.Color)0; }
   public int VectorOfEnumsLength { get { int o = __p.__offset(98); return o != 0 ? __p.__vector_len(o) : 0; } }
 #if ENABLE_SPAN_T
@@ -188,8 +197,137 @@ public struct Monster : IFlatbufferObject
   public bool MutateVectorOfEnums(int j, MyGame.Example.Color vector_of_enums) { int o = __p.__offset(98); if (o != 0) { __p.bb.Put(__p.__vector(o) + j * 1, (byte)vector_of_enums); return true; } else { return false; } }
   public MyGame.Example.Race SignedEnum { get { int o = __p.__offset(100); return o != 0 ? (MyGame.Example.Race)__p.bb.GetSbyte(o + __p.bb_pos) : MyGame.Example.Race.None; } }
   public bool MutateSignedEnum(MyGame.Example.Race signed_enum) { int o = __p.__offset(100); if (o != 0) { __p.bb.PutSbyte(o + __p.bb_pos, (sbyte)signed_enum); return true; } else { return false; } }
+  public byte Testrequirednestedflatbuffer(int j) { int o = __p.__offset(102); return o != 0 ? __p.bb.Get(__p.__vector(o) + j * 1) : (byte)0; }
+  public int TestrequirednestedflatbufferLength { get { int o = __p.__offset(102); return o != 0 ? __p.__vector_len(o) : 0; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetTestrequirednestedflatbufferBytes() { return __p.__vector_as_span<byte>(102, 1); }
+#else
+  public ArraySegment<byte>? GetTestrequirednestedflatbufferBytes() { return __p.__vector_as_arraysegment(102); }
+#endif
+  public byte[] GetTestrequirednestedflatbufferArray() { return __p.__vector_as_array<byte>(102); }
+  public MyGame.Example.Monster? GetTestrequirednestedflatbufferAsMonster() { int o = __p.__offset(102); return o != 0 ? (MyGame.Example.Monster?)(new MyGame.Example.Monster()).__assign(__p.__indirect(__p.__vector(o)), __p.bb) : null; }
+  public bool MutateTestrequirednestedflatbuffer(int j, byte testrequirednestedflatbuffer) { int o = __p.__offset(102); if (o != 0) { __p.bb.Put(__p.__vector(o) + j * 1, testrequirednestedflatbuffer); return true; } else { return false; } }
+  public MyGame.Example.Stat? ScalarKeySortedTables(int j) { int o = __p.__offset(104); return o != 0 ? (MyGame.Example.Stat?)(new MyGame.Example.Stat()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int ScalarKeySortedTablesLength { get { int o = __p.__offset(104); return o != 0 ? __p.__vector_len(o) : 0; } }
+  public MyGame.Example.Stat? ScalarKeySortedTablesByKey(ushort key) { int o = __p.__offset(104); return o != 0 ? MyGame.Example.Stat.__lookup_by_key(__p.__vector(o), key, __p.bb) : null; }
+  public MyGame.Example.Test? NativeInline { get { int o = __p.__offset(106); return o != 0 ? (MyGame.Example.Test?)(new MyGame.Example.Test()).__assign(o + __p.bb_pos, __p.bb) : null; } }
+  public MyGame.Example.LongEnum LongEnumNonEnumDefault { get { int o = __p.__offset(108); return o != 0 ? (MyGame.Example.LongEnum)__p.bb.GetUlong(o + __p.bb_pos) : 0; } }
+  public bool MutateLongEnumNonEnumDefault(MyGame.Example.LongEnum long_enum_non_enum_default) { int o = __p.__offset(108); if (o != 0) { __p.bb.PutUlong(o + __p.bb_pos, (ulong)long_enum_non_enum_default); return true; } else { return false; } }
+  public MyGame.Example.LongEnum LongEnumNormalDefault { get { int o = __p.__offset(110); return o != 0 ? (MyGame.Example.LongEnum)__p.bb.GetUlong(o + __p.bb_pos) : MyGame.Example.LongEnum.LongOne; } }
+  public bool MutateLongEnumNormalDefault(MyGame.Example.LongEnum long_enum_normal_default) { int o = __p.__offset(110); if (o != 0) { __p.bb.PutUlong(o + __p.bb_pos, (ulong)long_enum_normal_default); return true; } else { return false; } }
 
-  public static void StartMonster(FlatBufferBuilder builder) { builder.StartTable(49); }
+  public static Offset<MyGame.Example.Monster> CreateMonster(FlatBufferBuilder builder,
+      MyGame.Example.Vec3T pos = null,
+      short mana = 150,
+      short hp = 100,
+      StringOffset nameOffset = default(StringOffset),
+      VectorOffset inventoryOffset = default(VectorOffset),
+      MyGame.Example.Color color = MyGame.Example.Color.Blue,
+      MyGame.Example.Any test_type = MyGame.Example.Any.NONE,
+      int testOffset = 0,
+      VectorOffset test4Offset = default(VectorOffset),
+      VectorOffset testarrayofstringOffset = default(VectorOffset),
+      VectorOffset testarrayoftablesOffset = default(VectorOffset),
+      Offset<MyGame.Example.Monster> enemyOffset = default(Offset<MyGame.Example.Monster>),
+      VectorOffset testnestedflatbufferOffset = default(VectorOffset),
+      Offset<MyGame.Example.Stat> testemptyOffset = default(Offset<MyGame.Example.Stat>),
+      bool testbool = false,
+      int testhashs32_fnv1 = 0,
+      uint testhashu32_fnv1 = 0,
+      long testhashs64_fnv1 = 0,
+      ulong testhashu64_fnv1 = 0,
+      int testhashs32_fnv1a = 0,
+      uint testhashu32_fnv1a = 0,
+      long testhashs64_fnv1a = 0,
+      ulong testhashu64_fnv1a = 0,
+      VectorOffset testarrayofboolsOffset = default(VectorOffset),
+      float testf = 3.14159f,
+      float testf2 = 3.0f,
+      float testf3 = 0.0f,
+      VectorOffset testarrayofstring2Offset = default(VectorOffset),
+      VectorOffset testarrayofsortedstructOffset = default(VectorOffset),
+      VectorOffset flexOffset = default(VectorOffset),
+      VectorOffset test5Offset = default(VectorOffset),
+      VectorOffset vector_of_longsOffset = default(VectorOffset),
+      VectorOffset vector_of_doublesOffset = default(VectorOffset),
+      Offset<MyGame.InParentNamespace> parent_namespace_testOffset = default(Offset<MyGame.InParentNamespace>),
+      VectorOffset vector_of_referrablesOffset = default(VectorOffset),
+      ulong single_weak_reference = 0,
+      VectorOffset vector_of_weak_referencesOffset = default(VectorOffset),
+      VectorOffset vector_of_strong_referrablesOffset = default(VectorOffset),
+      ulong co_owning_reference = 0,
+      VectorOffset vector_of_co_owning_referencesOffset = default(VectorOffset),
+      ulong non_owning_reference = 0,
+      VectorOffset vector_of_non_owning_referencesOffset = default(VectorOffset),
+      MyGame.Example.AnyUniqueAliases any_unique_type = MyGame.Example.AnyUniqueAliases.NONE,
+      int any_uniqueOffset = 0,
+      MyGame.Example.AnyAmbiguousAliases any_ambiguous_type = MyGame.Example.AnyAmbiguousAliases.NONE,
+      int any_ambiguousOffset = 0,
+      VectorOffset vector_of_enumsOffset = default(VectorOffset),
+      MyGame.Example.Race signed_enum = MyGame.Example.Race.None,
+      VectorOffset testrequirednestedflatbufferOffset = default(VectorOffset),
+      VectorOffset scalar_key_sorted_tablesOffset = default(VectorOffset),
+      MyGame.Example.TestT native_inline = null,
+      MyGame.Example.LongEnum long_enum_non_enum_default = 0,
+      MyGame.Example.LongEnum long_enum_normal_default = MyGame.Example.LongEnum.LongOne) {
+    builder.StartTable(54);
+    Monster.AddLongEnumNormalDefault(builder, long_enum_normal_default);
+    Monster.AddLongEnumNonEnumDefault(builder, long_enum_non_enum_default);
+    Monster.AddNonOwningReference(builder, non_owning_reference);
+    Monster.AddCoOwningReference(builder, co_owning_reference);
+    Monster.AddSingleWeakReference(builder, single_weak_reference);
+    Monster.AddTesthashu64Fnv1a(builder, testhashu64_fnv1a);
+    Monster.AddTesthashs64Fnv1a(builder, testhashs64_fnv1a);
+    Monster.AddTesthashu64Fnv1(builder, testhashu64_fnv1);
+    Monster.AddTesthashs64Fnv1(builder, testhashs64_fnv1);
+    Monster.AddNativeInline(builder, MyGame.Example.Test.Pack(builder, native_inline));
+    Monster.AddScalarKeySortedTables(builder, scalar_key_sorted_tablesOffset);
+    Monster.AddTestrequirednestedflatbuffer(builder, testrequirednestedflatbufferOffset);
+    Monster.AddVectorOfEnums(builder, vector_of_enumsOffset);
+    Monster.AddAnyAmbiguous(builder, any_ambiguousOffset);
+    Monster.AddAnyUnique(builder, any_uniqueOffset);
+    Monster.AddVectorOfNonOwningReferences(builder, vector_of_non_owning_referencesOffset);
+    Monster.AddVectorOfCoOwningReferences(builder, vector_of_co_owning_referencesOffset);
+    Monster.AddVectorOfStrongReferrables(builder, vector_of_strong_referrablesOffset);
+    Monster.AddVectorOfWeakReferences(builder, vector_of_weak_referencesOffset);
+    Monster.AddVectorOfReferrables(builder, vector_of_referrablesOffset);
+    Monster.AddParentNamespaceTest(builder, parent_namespace_testOffset);
+    Monster.AddVectorOfDoubles(builder, vector_of_doublesOffset);
+    Monster.AddVectorOfLongs(builder, vector_of_longsOffset);
+    Monster.AddTest5(builder, test5Offset);
+    Monster.AddFlex(builder, flexOffset);
+    Monster.AddTestarrayofsortedstruct(builder, testarrayofsortedstructOffset);
+    Monster.AddTestarrayofstring2(builder, testarrayofstring2Offset);
+    Monster.AddTestf3(builder, testf3);
+    Monster.AddTestf2(builder, testf2);
+    Monster.AddTestf(builder, testf);
+    Monster.AddTestarrayofbools(builder, testarrayofboolsOffset);
+    Monster.AddTesthashu32Fnv1a(builder, testhashu32_fnv1a);
+    Monster.AddTesthashs32Fnv1a(builder, testhashs32_fnv1a);
+    Monster.AddTesthashu32Fnv1(builder, testhashu32_fnv1);
+    Monster.AddTesthashs32Fnv1(builder, testhashs32_fnv1);
+    Monster.AddTestempty(builder, testemptyOffset);
+    Monster.AddTestnestedflatbuffer(builder, testnestedflatbufferOffset);
+    Monster.AddEnemy(builder, enemyOffset);
+    Monster.AddTestarrayoftables(builder, testarrayoftablesOffset);
+    Monster.AddTestarrayofstring(builder, testarrayofstringOffset);
+    Monster.AddTest4(builder, test4Offset);
+    Monster.AddTest(builder, testOffset);
+    Monster.AddInventory(builder, inventoryOffset);
+    Monster.AddName(builder, nameOffset);
+    Monster.AddPos(builder, MyGame.Example.Vec3.Pack(builder, pos));
+    Monster.AddHp(builder, hp);
+    Monster.AddMana(builder, mana);
+    Monster.AddSignedEnum(builder, signed_enum);
+    Monster.AddAnyAmbiguousType(builder, any_ambiguous_type);
+    Monster.AddAnyUniqueType(builder, any_unique_type);
+    Monster.AddTestbool(builder, testbool);
+    Monster.AddTestType(builder, test_type);
+    Monster.AddColor(builder, color);
+    return Monster.EndMonster(builder);
+  }
+
+  public static void StartMonster(FlatBufferBuilder builder) { builder.StartTable(54); }
   public static void AddPos(FlatBufferBuilder builder, Offset<MyGame.Example.Vec3> posOffset) { builder.AddStruct(0, posOffset.Value, 0); }
   public static void AddMana(FlatBufferBuilder builder, short mana) { builder.AddShort(1, mana, 150); }
   public static void AddHp(FlatBufferBuilder builder, short hp) { builder.AddShort(2, hp, 100); }
@@ -197,6 +335,8 @@ public struct Monster : IFlatbufferObject
   public static void AddInventory(FlatBufferBuilder builder, VectorOffset inventoryOffset) { builder.AddOffset(5, inventoryOffset.Value, 0); }
   public static VectorOffset CreateInventoryVector(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); for (int i = data.Length - 1; i >= 0; i--) builder.AddByte(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateInventoryVectorBlock(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateInventoryVectorBlock(FlatBufferBuilder builder, ArraySegment<byte> data) { builder.StartVector(1, data.Count, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateInventoryVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<byte>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartInventoryVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(1, numElems, 1); }
   public static void AddColor(FlatBufferBuilder builder, MyGame.Example.Color color) { builder.AddByte(6, (byte)color, 8); }
   public static void AddTestType(FlatBufferBuilder builder, MyGame.Example.Any testType) { builder.AddByte(7, (byte)testType, 0); }
@@ -206,15 +346,21 @@ public struct Monster : IFlatbufferObject
   public static void AddTestarrayofstring(FlatBufferBuilder builder, VectorOffset testarrayofstringOffset) { builder.AddOffset(10, testarrayofstringOffset.Value, 0); }
   public static VectorOffset CreateTestarrayofstringVector(FlatBufferBuilder builder, StringOffset[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
   public static VectorOffset CreateTestarrayofstringVectorBlock(FlatBufferBuilder builder, StringOffset[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateTestarrayofstringVectorBlock(FlatBufferBuilder builder, ArraySegment<StringOffset> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateTestarrayofstringVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<StringOffset>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartTestarrayofstringVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddTestarrayoftables(FlatBufferBuilder builder, VectorOffset testarrayoftablesOffset) { builder.AddOffset(11, testarrayoftablesOffset.Value, 0); }
   public static VectorOffset CreateTestarrayoftablesVector(FlatBufferBuilder builder, Offset<MyGame.Example.Monster>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
   public static VectorOffset CreateTestarrayoftablesVectorBlock(FlatBufferBuilder builder, Offset<MyGame.Example.Monster>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateTestarrayoftablesVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<MyGame.Example.Monster>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateTestarrayoftablesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<MyGame.Example.Monster>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartTestarrayoftablesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddEnemy(FlatBufferBuilder builder, Offset<MyGame.Example.Monster> enemyOffset) { builder.AddOffset(12, enemyOffset.Value, 0); }
   public static void AddTestnestedflatbuffer(FlatBufferBuilder builder, VectorOffset testnestedflatbufferOffset) { builder.AddOffset(13, testnestedflatbufferOffset.Value, 0); }
   public static VectorOffset CreateTestnestedflatbufferVector(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); for (int i = data.Length - 1; i >= 0; i--) builder.AddByte(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateTestnestedflatbufferVectorBlock(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateTestnestedflatbufferVectorBlock(FlatBufferBuilder builder, ArraySegment<byte> data) { builder.StartVector(1, data.Count, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateTestnestedflatbufferVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<byte>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartTestnestedflatbufferVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(1, numElems, 1); }
   public static void AddTestempty(FlatBufferBuilder builder, Offset<MyGame.Example.Stat> testemptyOffset) { builder.AddOffset(14, testemptyOffset.Value, 0); }
   public static void AddTestbool(FlatBufferBuilder builder, bool testbool) { builder.AddBool(15, testbool, false); }
@@ -229,6 +375,8 @@ public struct Monster : IFlatbufferObject
   public static void AddTestarrayofbools(FlatBufferBuilder builder, VectorOffset testarrayofboolsOffset) { builder.AddOffset(24, testarrayofboolsOffset.Value, 0); }
   public static VectorOffset CreateTestarrayofboolsVector(FlatBufferBuilder builder, bool[] data) { builder.StartVector(1, data.Length, 1); for (int i = data.Length - 1; i >= 0; i--) builder.AddBool(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateTestarrayofboolsVectorBlock(FlatBufferBuilder builder, bool[] data) { builder.StartVector(1, data.Length, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateTestarrayofboolsVectorBlock(FlatBufferBuilder builder, ArraySegment<bool> data) { builder.StartVector(1, data.Count, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateTestarrayofboolsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<bool>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartTestarrayofboolsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(1, numElems, 1); }
   public static void AddTestf(FlatBufferBuilder builder, float testf) { builder.AddFloat(25, testf, 3.14159f); }
   public static void AddTestf2(FlatBufferBuilder builder, float testf2) { builder.AddFloat(26, testf2, 3.0f); }
@@ -236,46 +384,64 @@ public struct Monster : IFlatbufferObject
   public static void AddTestarrayofstring2(FlatBufferBuilder builder, VectorOffset testarrayofstring2Offset) { builder.AddOffset(28, testarrayofstring2Offset.Value, 0); }
   public static VectorOffset CreateTestarrayofstring2Vector(FlatBufferBuilder builder, StringOffset[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
   public static VectorOffset CreateTestarrayofstring2VectorBlock(FlatBufferBuilder builder, StringOffset[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateTestarrayofstring2VectorBlock(FlatBufferBuilder builder, ArraySegment<StringOffset> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateTestarrayofstring2VectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<StringOffset>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartTestarrayofstring2Vector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddTestarrayofsortedstruct(FlatBufferBuilder builder, VectorOffset testarrayofsortedstructOffset) { builder.AddOffset(29, testarrayofsortedstructOffset.Value, 0); }
   public static void StartTestarrayofsortedstructVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(8, numElems, 4); }
   public static void AddFlex(FlatBufferBuilder builder, VectorOffset flexOffset) { builder.AddOffset(30, flexOffset.Value, 0); }
   public static VectorOffset CreateFlexVector(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); for (int i = data.Length - 1; i >= 0; i--) builder.AddByte(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateFlexVectorBlock(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateFlexVectorBlock(FlatBufferBuilder builder, ArraySegment<byte> data) { builder.StartVector(1, data.Count, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateFlexVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<byte>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartFlexVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(1, numElems, 1); }
   public static void AddTest5(FlatBufferBuilder builder, VectorOffset test5Offset) { builder.AddOffset(31, test5Offset.Value, 0); }
   public static void StartTest5Vector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 2); }
   public static void AddVectorOfLongs(FlatBufferBuilder builder, VectorOffset vectorOfLongsOffset) { builder.AddOffset(32, vectorOfLongsOffset.Value, 0); }
   public static VectorOffset CreateVectorOfLongsVector(FlatBufferBuilder builder, long[] data) { builder.StartVector(8, data.Length, 8); for (int i = data.Length - 1; i >= 0; i--) builder.AddLong(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateVectorOfLongsVectorBlock(FlatBufferBuilder builder, long[] data) { builder.StartVector(8, data.Length, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfLongsVectorBlock(FlatBufferBuilder builder, ArraySegment<long> data) { builder.StartVector(8, data.Count, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfLongsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<long>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartVectorOfLongsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(8, numElems, 8); }
   public static void AddVectorOfDoubles(FlatBufferBuilder builder, VectorOffset vectorOfDoublesOffset) { builder.AddOffset(33, vectorOfDoublesOffset.Value, 0); }
   public static VectorOffset CreateVectorOfDoublesVector(FlatBufferBuilder builder, double[] data) { builder.StartVector(8, data.Length, 8); for (int i = data.Length - 1; i >= 0; i--) builder.AddDouble(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateVectorOfDoublesVectorBlock(FlatBufferBuilder builder, double[] data) { builder.StartVector(8, data.Length, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfDoublesVectorBlock(FlatBufferBuilder builder, ArraySegment<double> data) { builder.StartVector(8, data.Count, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfDoublesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<double>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartVectorOfDoublesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(8, numElems, 8); }
   public static void AddParentNamespaceTest(FlatBufferBuilder builder, Offset<MyGame.InParentNamespace> parentNamespaceTestOffset) { builder.AddOffset(34, parentNamespaceTestOffset.Value, 0); }
   public static void AddVectorOfReferrables(FlatBufferBuilder builder, VectorOffset vectorOfReferrablesOffset) { builder.AddOffset(35, vectorOfReferrablesOffset.Value, 0); }
   public static VectorOffset CreateVectorOfReferrablesVector(FlatBufferBuilder builder, Offset<MyGame.Example.Referrable>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
   public static VectorOffset CreateVectorOfReferrablesVectorBlock(FlatBufferBuilder builder, Offset<MyGame.Example.Referrable>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfReferrablesVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<MyGame.Example.Referrable>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfReferrablesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<MyGame.Example.Referrable>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartVectorOfReferrablesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddSingleWeakReference(FlatBufferBuilder builder, ulong singleWeakReference) { builder.AddUlong(36, singleWeakReference, 0); }
   public static void AddVectorOfWeakReferences(FlatBufferBuilder builder, VectorOffset vectorOfWeakReferencesOffset) { builder.AddOffset(37, vectorOfWeakReferencesOffset.Value, 0); }
   public static VectorOffset CreateVectorOfWeakReferencesVector(FlatBufferBuilder builder, ulong[] data) { builder.StartVector(8, data.Length, 8); for (int i = data.Length - 1; i >= 0; i--) builder.AddUlong(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateVectorOfWeakReferencesVectorBlock(FlatBufferBuilder builder, ulong[] data) { builder.StartVector(8, data.Length, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfWeakReferencesVectorBlock(FlatBufferBuilder builder, ArraySegment<ulong> data) { builder.StartVector(8, data.Count, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfWeakReferencesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<ulong>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartVectorOfWeakReferencesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(8, numElems, 8); }
   public static void AddVectorOfStrongReferrables(FlatBufferBuilder builder, VectorOffset vectorOfStrongReferrablesOffset) { builder.AddOffset(38, vectorOfStrongReferrablesOffset.Value, 0); }
   public static VectorOffset CreateVectorOfStrongReferrablesVector(FlatBufferBuilder builder, Offset<MyGame.Example.Referrable>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
   public static VectorOffset CreateVectorOfStrongReferrablesVectorBlock(FlatBufferBuilder builder, Offset<MyGame.Example.Referrable>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfStrongReferrablesVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<MyGame.Example.Referrable>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfStrongReferrablesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<MyGame.Example.Referrable>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartVectorOfStrongReferrablesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddCoOwningReference(FlatBufferBuilder builder, ulong coOwningReference) { builder.AddUlong(39, coOwningReference, 0); }
   public static void AddVectorOfCoOwningReferences(FlatBufferBuilder builder, VectorOffset vectorOfCoOwningReferencesOffset) { builder.AddOffset(40, vectorOfCoOwningReferencesOffset.Value, 0); }
   public static VectorOffset CreateVectorOfCoOwningReferencesVector(FlatBufferBuilder builder, ulong[] data) { builder.StartVector(8, data.Length, 8); for (int i = data.Length - 1; i >= 0; i--) builder.AddUlong(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateVectorOfCoOwningReferencesVectorBlock(FlatBufferBuilder builder, ulong[] data) { builder.StartVector(8, data.Length, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfCoOwningReferencesVectorBlock(FlatBufferBuilder builder, ArraySegment<ulong> data) { builder.StartVector(8, data.Count, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfCoOwningReferencesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<ulong>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartVectorOfCoOwningReferencesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(8, numElems, 8); }
   public static void AddNonOwningReference(FlatBufferBuilder builder, ulong nonOwningReference) { builder.AddUlong(41, nonOwningReference, 0); }
   public static void AddVectorOfNonOwningReferences(FlatBufferBuilder builder, VectorOffset vectorOfNonOwningReferencesOffset) { builder.AddOffset(42, vectorOfNonOwningReferencesOffset.Value, 0); }
   public static VectorOffset CreateVectorOfNonOwningReferencesVector(FlatBufferBuilder builder, ulong[] data) { builder.StartVector(8, data.Length, 8); for (int i = data.Length - 1; i >= 0; i--) builder.AddUlong(data[i]); return builder.EndVector(); }
   public static VectorOffset CreateVectorOfNonOwningReferencesVectorBlock(FlatBufferBuilder builder, ulong[] data) { builder.StartVector(8, data.Length, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfNonOwningReferencesVectorBlock(FlatBufferBuilder builder, ArraySegment<ulong> data) { builder.StartVector(8, data.Count, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfNonOwningReferencesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<ulong>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartVectorOfNonOwningReferencesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(8, numElems, 8); }
   public static void AddAnyUniqueType(FlatBufferBuilder builder, MyGame.Example.AnyUniqueAliases anyUniqueType) { builder.AddByte(43, (byte)anyUniqueType, 0); }
   public static void AddAnyUnique(FlatBufferBuilder builder, int anyUniqueOffset) { builder.AddOffset(44, anyUniqueOffset, 0); }
@@ -284,8 +450,25 @@ public struct Monster : IFlatbufferObject
   public static void AddVectorOfEnums(FlatBufferBuilder builder, VectorOffset vectorOfEnumsOffset) { builder.AddOffset(47, vectorOfEnumsOffset.Value, 0); }
   public static VectorOffset CreateVectorOfEnumsVector(FlatBufferBuilder builder, MyGame.Example.Color[] data) { builder.StartVector(1, data.Length, 1); for (int i = data.Length - 1; i >= 0; i--) builder.AddByte((byte)data[i]); return builder.EndVector(); }
   public static VectorOffset CreateVectorOfEnumsVectorBlock(FlatBufferBuilder builder, MyGame.Example.Color[] data) { builder.StartVector(1, data.Length, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfEnumsVectorBlock(FlatBufferBuilder builder, ArraySegment<MyGame.Example.Color> data) { builder.StartVector(1, data.Count, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateVectorOfEnumsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<MyGame.Example.Color>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartVectorOfEnumsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(1, numElems, 1); }
   public static void AddSignedEnum(FlatBufferBuilder builder, MyGame.Example.Race signedEnum) { builder.AddSbyte(48, (sbyte)signedEnum, -1); }
+  public static void AddTestrequirednestedflatbuffer(FlatBufferBuilder builder, VectorOffset testrequirednestedflatbufferOffset) { builder.AddOffset(49, testrequirednestedflatbufferOffset.Value, 0); }
+  public static VectorOffset CreateTestrequirednestedflatbufferVector(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); for (int i = data.Length - 1; i >= 0; i--) builder.AddByte(data[i]); return builder.EndVector(); }
+  public static VectorOffset CreateTestrequirednestedflatbufferVectorBlock(FlatBufferBuilder builder, byte[] data) { builder.StartVector(1, data.Length, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateTestrequirednestedflatbufferVectorBlock(FlatBufferBuilder builder, ArraySegment<byte> data) { builder.StartVector(1, data.Count, 1); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateTestrequirednestedflatbufferVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<byte>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartTestrequirednestedflatbufferVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(1, numElems, 1); }
+  public static void AddScalarKeySortedTables(FlatBufferBuilder builder, VectorOffset scalarKeySortedTablesOffset) { builder.AddOffset(50, scalarKeySortedTablesOffset.Value, 0); }
+  public static VectorOffset CreateScalarKeySortedTablesVector(FlatBufferBuilder builder, Offset<MyGame.Example.Stat>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateScalarKeySortedTablesVectorBlock(FlatBufferBuilder builder, Offset<MyGame.Example.Stat>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateScalarKeySortedTablesVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<MyGame.Example.Stat>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateScalarKeySortedTablesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<MyGame.Example.Stat>>(dataPtr, sizeInBytes); return builder.EndVector(); }
+  public static void StartScalarKeySortedTablesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
+  public static void AddNativeInline(FlatBufferBuilder builder, Offset<MyGame.Example.Test> nativeInlineOffset) { builder.AddStruct(51, nativeInlineOffset.Value, 0); }
+  public static void AddLongEnumNonEnumDefault(FlatBufferBuilder builder, MyGame.Example.LongEnum longEnumNonEnumDefault) { builder.AddUlong(52, (ulong)longEnumNonEnumDefault, 0); }
+  public static void AddLongEnumNormalDefault(FlatBufferBuilder builder, MyGame.Example.LongEnum longEnumNormalDefault) { builder.AddUlong(53, (ulong)longEnumNormalDefault, 2); }
   public static Offset<MyGame.Example.Monster> EndMonster(FlatBufferBuilder builder) {
     int o = builder.EndTable();
     builder.Required(o, 10);  // name
@@ -295,18 +478,21 @@ public struct Monster : IFlatbufferObject
   public static void FinishSizePrefixedMonsterBuffer(FlatBufferBuilder builder, Offset<MyGame.Example.Monster> offset) { builder.FinishSizePrefixed(offset.Value, "MONS"); }
 
   public static VectorOffset CreateSortedVectorOfMonster(FlatBufferBuilder builder, Offset<Monster>[] offsets) {
-    Array.Sort(offsets, (Offset<Monster> o1, Offset<Monster> o2) => Table.CompareStrings(Table.__offset(10, o1.Value, builder.DataBuffer), Table.__offset(10, o2.Value, builder.DataBuffer), builder.DataBuffer));
+    Array.Sort(offsets,
+      (Offset<Monster> o1, Offset<Monster> o2) =>
+        new Monster().__assign(builder.DataBuffer.Length - o1.Value, builder.DataBuffer).Name.CompareTo(new Monster().__assign(builder.DataBuffer.Length - o2.Value, builder.DataBuffer).Name));
     return builder.CreateVectorOfTables(offsets);
   }
 
   public static Monster? __lookup_by_key(int vectorLocation, string key, ByteBuffer bb) {
-    byte[] byteKey = System.Text.Encoding.UTF8.GetBytes(key);
+    Monster obj_ = new Monster();
     int span = bb.GetInt(vectorLocation - 4);
     int start = 0;
     while (span != 0) {
       int middle = span / 2;
       int tableOffset = Table.__indirect(vectorLocation + 4 * (start + middle), bb);
-      int comp = Table.CompareStrings(Table.__offset(10, bb.Length - tableOffset, bb), byteKey, bb);
+      obj_.__assign(tableOffset, bb);
+      int comp = obj_.Name.CompareTo(key);
       if (comp > 0) {
         span = middle;
       } else if (comp < 0) {
@@ -314,7 +500,7 @@ public struct Monster : IFlatbufferObject
         start += middle;
         span -= middle;
       } else {
-        return new Monster().__assign(tableOffset, bb);
+        return obj_;
       }
     }
     return null;
@@ -427,6 +613,13 @@ public struct Monster : IFlatbufferObject
     _o.VectorOfEnums = new List<MyGame.Example.Color>();
     for (var _j = 0; _j < this.VectorOfEnumsLength; ++_j) {_o.VectorOfEnums.Add(this.VectorOfEnums(_j));}
     _o.SignedEnum = this.SignedEnum;
+    _o.Testrequirednestedflatbuffer = new List<byte>();
+    for (var _j = 0; _j < this.TestrequirednestedflatbufferLength; ++_j) {_o.Testrequirednestedflatbuffer.Add(this.Testrequirednestedflatbuffer(_j));}
+    _o.ScalarKeySortedTables = new List<MyGame.Example.StatT>();
+    for (var _j = 0; _j < this.ScalarKeySortedTablesLength; ++_j) {_o.ScalarKeySortedTables.Add(this.ScalarKeySortedTables(_j).HasValue ? this.ScalarKeySortedTables(_j).Value.UnPack() : null);}
+    _o.NativeInline = this.NativeInline.HasValue ? this.NativeInline.Value.UnPack() : null;
+    _o.LongEnumNonEnumDefault = this.LongEnumNonEnumDefault;
+    _o.LongEnumNormalDefault = this.LongEnumNormalDefault;
   }
   public static Offset<MyGame.Example.Monster> Pack(FlatBufferBuilder builder, MonsterT _o) {
     if (_o == null) return default(Offset<MyGame.Example.Monster>);
@@ -538,58 +731,74 @@ public struct Monster : IFlatbufferObject
       var __vector_of_enums = _o.VectorOfEnums.ToArray();
       _vector_of_enums = CreateVectorOfEnumsVector(builder, __vector_of_enums);
     }
-    StartMonster(builder);
-    AddPos(builder, MyGame.Example.Vec3.Pack(builder, _o.Pos));
-    AddMana(builder, _o.Mana);
-    AddHp(builder, _o.Hp);
-    AddName(builder, _name);
-    AddInventory(builder, _inventory);
-    AddColor(builder, _o.Color);
-    AddTestType(builder, _test_type);
-    AddTest(builder, _test);
-    AddTest4(builder, _test4);
-    AddTestarrayofstring(builder, _testarrayofstring);
-    AddTestarrayoftables(builder, _testarrayoftables);
-    AddEnemy(builder, _enemy);
-    AddTestnestedflatbuffer(builder, _testnestedflatbuffer);
-    AddTestempty(builder, _testempty);
-    AddTestbool(builder, _o.Testbool);
-    AddTesthashs32Fnv1(builder, _o.Testhashs32Fnv1);
-    AddTesthashu32Fnv1(builder, _o.Testhashu32Fnv1);
-    AddTesthashs64Fnv1(builder, _o.Testhashs64Fnv1);
-    AddTesthashu64Fnv1(builder, _o.Testhashu64Fnv1);
-    AddTesthashs32Fnv1a(builder, _o.Testhashs32Fnv1a);
-    AddTesthashu32Fnv1a(builder, _o.Testhashu32Fnv1a);
-    AddTesthashs64Fnv1a(builder, _o.Testhashs64Fnv1a);
-    AddTesthashu64Fnv1a(builder, _o.Testhashu64Fnv1a);
-    AddTestarrayofbools(builder, _testarrayofbools);
-    AddTestf(builder, _o.Testf);
-    AddTestf2(builder, _o.Testf2);
-    AddTestf3(builder, _o.Testf3);
-    AddTestarrayofstring2(builder, _testarrayofstring2);
-    AddTestarrayofsortedstruct(builder, _testarrayofsortedstruct);
-    AddFlex(builder, _flex);
-    AddTest5(builder, _test5);
-    AddVectorOfLongs(builder, _vector_of_longs);
-    AddVectorOfDoubles(builder, _vector_of_doubles);
-    AddParentNamespaceTest(builder, _parent_namespace_test);
-    AddVectorOfReferrables(builder, _vector_of_referrables);
-    AddSingleWeakReference(builder, _o.SingleWeakReference);
-    AddVectorOfWeakReferences(builder, _vector_of_weak_references);
-    AddVectorOfStrongReferrables(builder, _vector_of_strong_referrables);
-    AddCoOwningReference(builder, _o.CoOwningReference);
-    AddVectorOfCoOwningReferences(builder, _vector_of_co_owning_references);
-    AddNonOwningReference(builder, _o.NonOwningReference);
-    AddVectorOfNonOwningReferences(builder, _vector_of_non_owning_references);
-    AddAnyUniqueType(builder, _any_unique_type);
-    AddAnyUnique(builder, _any_unique);
-    AddAnyAmbiguousType(builder, _any_ambiguous_type);
-    AddAnyAmbiguous(builder, _any_ambiguous);
-    AddVectorOfEnums(builder, _vector_of_enums);
-    AddSignedEnum(builder, _o.SignedEnum);
-    return EndMonster(builder);
+    var _testrequirednestedflatbuffer = default(VectorOffset);
+    if (_o.Testrequirednestedflatbuffer != null) {
+      var __testrequirednestedflatbuffer = _o.Testrequirednestedflatbuffer.ToArray();
+      _testrequirednestedflatbuffer = CreateTestrequirednestedflatbufferVector(builder, __testrequirednestedflatbuffer);
+    }
+    var _scalar_key_sorted_tables = default(VectorOffset);
+    if (_o.ScalarKeySortedTables != null) {
+      var __scalar_key_sorted_tables = new Offset<MyGame.Example.Stat>[_o.ScalarKeySortedTables.Count];
+      for (var _j = 0; _j < __scalar_key_sorted_tables.Length; ++_j) { __scalar_key_sorted_tables[_j] = MyGame.Example.Stat.Pack(builder, _o.ScalarKeySortedTables[_j]); }
+      _scalar_key_sorted_tables = CreateScalarKeySortedTablesVector(builder, __scalar_key_sorted_tables);
+    }
+    return CreateMonster(
+      builder,
+      _o.Pos,
+      _o.Mana,
+      _o.Hp,
+      _name,
+      _inventory,
+      _o.Color,
+      _test_type,
+      _test,
+      _test4,
+      _testarrayofstring,
+      _testarrayoftables,
+      _enemy,
+      _testnestedflatbuffer,
+      _testempty,
+      _o.Testbool,
+      _o.Testhashs32Fnv1,
+      _o.Testhashu32Fnv1,
+      _o.Testhashs64Fnv1,
+      _o.Testhashu64Fnv1,
+      _o.Testhashs32Fnv1a,
+      _o.Testhashu32Fnv1a,
+      _o.Testhashs64Fnv1a,
+      _o.Testhashu64Fnv1a,
+      _testarrayofbools,
+      _o.Testf,
+      _o.Testf2,
+      _o.Testf3,
+      _testarrayofstring2,
+      _testarrayofsortedstruct,
+      _flex,
+      _test5,
+      _vector_of_longs,
+      _vector_of_doubles,
+      _parent_namespace_test,
+      _vector_of_referrables,
+      _o.SingleWeakReference,
+      _vector_of_weak_references,
+      _vector_of_strong_referrables,
+      _o.CoOwningReference,
+      _vector_of_co_owning_references,
+      _o.NonOwningReference,
+      _vector_of_non_owning_references,
+      _any_unique_type,
+      _any_unique,
+      _any_ambiguous_type,
+      _any_ambiguous,
+      _vector_of_enums,
+      _o.SignedEnum,
+      _testrequirednestedflatbuffer,
+      _scalar_key_sorted_tables,
+      _o.NativeInline,
+      _o.LongEnumNonEnumDefault,
+      _o.LongEnumNormalDefault);
   }
-};
+}
 
 public class MonsterT
 {
@@ -730,6 +939,16 @@ public class MonsterT
   public List<MyGame.Example.Color> VectorOfEnums { get; set; }
   [Newtonsoft.Json.JsonProperty("signed_enum")]
   public MyGame.Example.Race SignedEnum { get; set; }
+  [Newtonsoft.Json.JsonProperty("testrequirednestedflatbuffer")]
+  public List<byte> Testrequirednestedflatbuffer { get; set; }
+  [Newtonsoft.Json.JsonProperty("scalar_key_sorted_tables")]
+  public List<MyGame.Example.StatT> ScalarKeySortedTables { get; set; }
+  [Newtonsoft.Json.JsonProperty("native_inline")]
+  public MyGame.Example.TestT NativeInline { get; set; }
+  [Newtonsoft.Json.JsonProperty("long_enum_non_enum_default")]
+  public MyGame.Example.LongEnum LongEnumNonEnumDefault { get; set; }
+  [Newtonsoft.Json.JsonProperty("long_enum_normal_default")]
+  public MyGame.Example.LongEnum LongEnumNormalDefault { get; set; }
 
   public MonsterT() {
     this.Pos = new MyGame.Example.Vec3T();
@@ -777,6 +996,11 @@ public class MonsterT
     this.AnyAmbiguous = null;
     this.VectorOfEnums = null;
     this.SignedEnum = MyGame.Example.Race.None;
+    this.Testrequirednestedflatbuffer = null;
+    this.ScalarKeySortedTables = null;
+    this.NativeInline = new MyGame.Example.TestT();
+    this.LongEnumNonEnumDefault = 0;
+    this.LongEnumNormalDefault = MyGame.Example.LongEnum.LongOne;
   }
 
   public static MonsterT DeserializeFromJson(string jsonText) {
@@ -790,7 +1014,7 @@ public class MonsterT
   }
   public byte[] SerializeToBinary() {
     var fbb = new FlatBufferBuilder(0x10000);
-    fbb.Finish(Monster.Pack(fbb, this).Value);
+    Monster.FinishMonsterBuffer(fbb, Monster.Pack(fbb, this));
     return fbb.DataBuffer.ToSizedArray();
   }
 }

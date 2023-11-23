@@ -1,25 +1,21 @@
-.TH CAP_CLEAR 3 "2008-05-11" "" "Linux Programmer's Manual"
+.TH CAP_CLEAR 3 "2021-03-06" "" "Linux Programmer's Manual"
 .SH NAME
-cap_clear, cap_clear_flag, cap_get_flag, cap_set_flag, cap_compare \- capability data object manipulation
+cap_clear, cap_clear_flag, cap_get_flag, cap_set_flag, cap_fill, cap_compare \- capability data object manipulation
 .SH SYNOPSIS
 .nf
-.B #include <sys/capability.h>
-.sp
-.BI "int cap_clear(cap_t " cap_p );
-.sp
-.BI "int cap_clear_flag(cap_t " cap_p ", cap_flag_t " flag ");"
-.sp
-.BI "int cap_get_flag(cap_t " cap_p ", cap_value_t " cap ,
-.BI "                 cap_flag_t " flag ", cap_flag_value_t *" value_p ");"
-.sp
-.BI "int cap_set_flag(cap_t " cap_p ", cap_flag_t " flag ", int " ncap ,
-.BI "                 const cap_value_t *" caps \
-", cap_flag_value_t " value ");"
-.sp
-.BI "int cap_compare(cap_t " cap_a ", cap_t " cap_b ");"
+#include <sys/capability.h>
+
+int cap_clear(cap_t cap_p);
+int cap_clear_flag(cap_t cap_p, cap_flag_t flag);
+int cap_get_flag(cap_t cap_p, cap_value_t cap,
+                 cap_flag_t flag, cap_flag_value_t *value_p);
+int cap_set_flag(cap_t cap_p, cap_flag_t flag, int ncap,
+                 const cap_value_t *caps, cap_flag_value_t value);
+int cap_fill(cap_t cap_p, cap_flag_t to, cap_flag_t from);
+int cap_compare(cap_t cap_a, cap_t cap_b);
+.fi
 .sp
 Link with \fI\-lcap\fP.
-.fi
 .SH DESCRIPTION
 These functions work on a capability state held in working storage.
 A
@@ -84,6 +80,9 @@ The argument,
 .IR ncap ,
 is used to specify the number of capabilities in the array,
 .IR caps .
+.PP
+.BR cap_fill ()
+fills the to flag values by copying all of the from flag values.
 .PP
 .BR cap_compare ()
 compares two full capability sets and, in the spirit of

@@ -14,6 +14,13 @@
 #pragma GCC diagnostic ignored "-Wpointer-arith"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
+/*
+ * These structs/unions/commands are not included
+ *
+ *   vkGetSemaphoreFdKHR
+ *   vkImportSemaphoreFdKHR
+ */
+
 /* struct VkExportSemaphoreCreateInfo chain */
 
 static inline void *
@@ -247,30 +254,6 @@ vn_replace_VkSemaphoreWaitInfo_handle(VkSemaphoreWaitInfo *val)
 
 /* struct VkSemaphoreSignalInfo chain */
 
-static inline void
-vn_encode_VkSemaphoreSignalInfo_pnext(struct vn_cs_encoder *enc, const void *val)
-{
-    /* no known/supported struct */
-    vn_encode_simple_pointer(enc, NULL);
-}
-
-static inline void
-vn_encode_VkSemaphoreSignalInfo_self(struct vn_cs_encoder *enc, const VkSemaphoreSignalInfo *val)
-{
-    /* skip val->{sType,pNext} */
-    vn_encode_VkSemaphore(enc, &val->semaphore);
-    vn_encode_uint64_t(enc, &val->value);
-}
-
-static inline void
-vn_encode_VkSemaphoreSignalInfo(struct vn_cs_encoder *enc, const VkSemaphoreSignalInfo *val)
-{
-    assert(val->sType == VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO);
-    vn_encode_VkStructureType(enc, &(VkStructureType){ VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO });
-    vn_encode_VkSemaphoreSignalInfo_pnext(enc, val->pNext);
-    vn_encode_VkSemaphoreSignalInfo_self(enc, val);
-}
-
 static inline void *
 vn_decode_VkSemaphoreSignalInfo_pnext_temp(struct vn_cs_decoder *dec)
 {
@@ -319,6 +302,65 @@ vn_replace_VkSemaphoreSignalInfo_handle(VkSemaphoreSignalInfo *val)
         switch ((int32_t)pnext->sType) {
         case VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO:
             vn_replace_VkSemaphoreSignalInfo_handle_self((VkSemaphoreSignalInfo *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkImportSemaphoreResourceInfo100000MESA chain */
+
+static inline void *
+vn_decode_VkImportSemaphoreResourceInfo100000MESA_pnext_temp(struct vn_cs_decoder *dec)
+{
+    /* no known/supported struct */
+    if (vn_decode_simple_pointer(dec))
+        vn_cs_decoder_set_fatal(dec);
+    return NULL;
+}
+
+static inline void
+vn_decode_VkImportSemaphoreResourceInfo100000MESA_self_temp(struct vn_cs_decoder *dec, VkImportSemaphoreResourceInfo100000MESA *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_VkSemaphore_lookup(dec, &val->semaphore);
+    vn_decode_uint32_t(dec, &val->resourceId);
+}
+
+static inline void
+vn_decode_VkImportSemaphoreResourceInfo100000MESA_temp(struct vn_cs_decoder *dec, VkImportSemaphoreResourceInfo100000MESA *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_RESOURCE_INFO_100000_MESA)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkImportSemaphoreResourceInfo100000MESA_pnext_temp(dec);
+    vn_decode_VkImportSemaphoreResourceInfo100000MESA_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkImportSemaphoreResourceInfo100000MESA_handle_self(VkImportSemaphoreResourceInfo100000MESA *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    vn_replace_VkSemaphore_handle(&val->semaphore);
+    /* skip val->resourceId */
+}
+
+static inline void
+vn_replace_VkImportSemaphoreResourceInfo100000MESA_handle(VkImportSemaphoreResourceInfo100000MESA *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_RESOURCE_INFO_100000_MESA:
+            vn_replace_VkImportSemaphoreResourceInfo100000MESA_handle_self((VkImportSemaphoreResourceInfo100000MESA *)pnext);
             break;
         default:
             /* ignore unknown/unsupported struct */
@@ -494,6 +536,54 @@ static inline void vn_encode_vkSignalSemaphore_reply(struct vn_cs_encoder *enc, 
     /* skip args->pSignalInfo */
 }
 
+static inline void vn_decode_vkWaitSemaphoreResource100000MESA_args_temp(struct vn_cs_decoder *dec, struct vn_command_vkWaitSemaphoreResource100000MESA *args)
+{
+    vn_decode_VkDevice_lookup(dec, &args->device);
+    vn_decode_VkSemaphore_lookup(dec, &args->semaphore);
+}
+
+static inline void vn_replace_vkWaitSemaphoreResource100000MESA_args_handle(struct vn_command_vkWaitSemaphoreResource100000MESA *args)
+{
+    vn_replace_VkDevice_handle(&args->device);
+    vn_replace_VkSemaphore_handle(&args->semaphore);
+}
+
+static inline void vn_encode_vkWaitSemaphoreResource100000MESA_reply(struct vn_cs_encoder *enc, const struct vn_command_vkWaitSemaphoreResource100000MESA *args)
+{
+    vn_encode_VkCommandTypeEXT(enc, &(VkCommandTypeEXT){VK_COMMAND_TYPE_vkWaitSemaphoreResource100000MESA_EXT});
+
+    /* skip args->device */
+    /* skip args->semaphore */
+}
+
+static inline void vn_decode_vkImportSemaphoreResource100000MESA_args_temp(struct vn_cs_decoder *dec, struct vn_command_vkImportSemaphoreResource100000MESA *args)
+{
+    vn_decode_VkDevice_lookup(dec, &args->device);
+    if (vn_decode_simple_pointer(dec)) {
+        args->pImportSemaphoreResourceInfo = vn_cs_decoder_alloc_temp(dec, sizeof(*args->pImportSemaphoreResourceInfo));
+        if (!args->pImportSemaphoreResourceInfo) return;
+        vn_decode_VkImportSemaphoreResourceInfo100000MESA_temp(dec, (VkImportSemaphoreResourceInfo100000MESA *)args->pImportSemaphoreResourceInfo);
+    } else {
+        args->pImportSemaphoreResourceInfo = NULL;
+        vn_cs_decoder_set_fatal(dec);
+    }
+}
+
+static inline void vn_replace_vkImportSemaphoreResource100000MESA_args_handle(struct vn_command_vkImportSemaphoreResource100000MESA *args)
+{
+    vn_replace_VkDevice_handle(&args->device);
+    if (args->pImportSemaphoreResourceInfo)
+        vn_replace_VkImportSemaphoreResourceInfo100000MESA_handle((VkImportSemaphoreResourceInfo100000MESA *)args->pImportSemaphoreResourceInfo);
+}
+
+static inline void vn_encode_vkImportSemaphoreResource100000MESA_reply(struct vn_cs_encoder *enc, const struct vn_command_vkImportSemaphoreResource100000MESA *args)
+{
+    vn_encode_VkCommandTypeEXT(enc, &(VkCommandTypeEXT){VK_COMMAND_TYPE_vkImportSemaphoreResource100000MESA_EXT});
+
+    /* skip args->device */
+    /* skip args->pImportSemaphoreResourceInfo */
+}
+
 static inline void vn_dispatch_vkCreateSemaphore(struct vn_dispatch_context *ctx, VkCommandFlagsEXT flags)
 {
     struct vn_command_vkCreateSemaphore args;
@@ -631,6 +721,56 @@ static inline void vn_dispatch_vkSignalSemaphore(struct vn_dispatch_context *ctx
 
     if (!vn_cs_decoder_get_fatal(ctx->decoder) && (flags & VK_COMMAND_GENERATE_REPLY_BIT_EXT))
        vn_encode_vkSignalSemaphore_reply(ctx->encoder, &args);
+
+    vn_cs_decoder_reset_temp_pool(ctx->decoder);
+}
+
+static inline void vn_dispatch_vkWaitSemaphoreResource100000MESA(struct vn_dispatch_context *ctx, VkCommandFlagsEXT flags)
+{
+    struct vn_command_vkWaitSemaphoreResource100000MESA args;
+
+    if (!ctx->dispatch_vkWaitSemaphoreResource100000MESA) {
+        vn_cs_decoder_set_fatal(ctx->decoder);
+        return;
+    }
+
+    vn_decode_vkWaitSemaphoreResource100000MESA_args_temp(ctx->decoder, &args);
+    if (!args.device) {
+        vn_cs_decoder_set_fatal(ctx->decoder);
+        return;
+    }
+
+    if (!vn_cs_decoder_get_fatal(ctx->decoder))
+        ctx->dispatch_vkWaitSemaphoreResource100000MESA(ctx, &args);
+
+
+    if (!vn_cs_decoder_get_fatal(ctx->decoder) && (flags & VK_COMMAND_GENERATE_REPLY_BIT_EXT))
+       vn_encode_vkWaitSemaphoreResource100000MESA_reply(ctx->encoder, &args);
+
+    vn_cs_decoder_reset_temp_pool(ctx->decoder);
+}
+
+static inline void vn_dispatch_vkImportSemaphoreResource100000MESA(struct vn_dispatch_context *ctx, VkCommandFlagsEXT flags)
+{
+    struct vn_command_vkImportSemaphoreResource100000MESA args;
+
+    if (!ctx->dispatch_vkImportSemaphoreResource100000MESA) {
+        vn_cs_decoder_set_fatal(ctx->decoder);
+        return;
+    }
+
+    vn_decode_vkImportSemaphoreResource100000MESA_args_temp(ctx->decoder, &args);
+    if (!args.device) {
+        vn_cs_decoder_set_fatal(ctx->decoder);
+        return;
+    }
+
+    if (!vn_cs_decoder_get_fatal(ctx->decoder))
+        ctx->dispatch_vkImportSemaphoreResource100000MESA(ctx, &args);
+
+
+    if (!vn_cs_decoder_get_fatal(ctx->decoder) && (flags & VK_COMMAND_GENERATE_REPLY_BIT_EXT))
+       vn_encode_vkImportSemaphoreResource100000MESA_reply(ctx->encoder, &args);
 
     vn_cs_decoder_reset_temp_pool(ctx->decoder);
 }

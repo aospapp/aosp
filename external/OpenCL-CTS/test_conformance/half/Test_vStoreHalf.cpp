@@ -18,6 +18,9 @@
 #include "harness/testHarness.h"
 
 #include <string.h>
+
+#include <algorithm>
+
 #include "cl_utils.h"
 #include "tests.h"
 
@@ -78,7 +81,7 @@ ReferenceF(cl_uint jid, cl_uint tid, void *userInfo)
     cl_ushort *r = cri->r + off;
     f2h f = cri->f;
     cl_ulong i = cri->i + off;
-    cl_uint j, rr;
+    cl_uint j;
 
     if (off + count > lim)
         count = lim - off;
@@ -114,8 +117,7 @@ CheckF(cl_uint jid, cl_uint tid, void *userInfo)
         return 0;
 
     for (j = 0; j < count; j++) {
-    if (s[j] == r[j])
-        continue;
+        if (s[j] == r[j]) continue;
 
         // Pass any NaNs
         if ((s[j] & 0x7fff) > 0x7c00 && (r[j] & 0x7fff) > 0x7c00 )
@@ -186,8 +188,7 @@ CheckD(cl_uint jid, cl_uint tid, void *userInfo)
         return 0;
 
     for (j = 0; j < count; j++) {
-    if (s[j] == r[j])
-        continue;
+        if (s[j] == r[j]) continue;
 
         // Pass any NaNs
         if ((s[j] & 0x7fff) > 0x7c00 && (r[j] & 0x7fff) > 0x7c00)
@@ -419,7 +420,9 @@ int Test_vStoreHalf_private( cl_device_id device, f2h referenceFunc, d2h doubleR
             "__kernel void test( __global float *p, __global half *f,\n"
             "                   uint extra_last_thread )\n"
             "{\n"
-            "   __local ushort data[3*(", local_buf_size, "+1)];\n"
+            "   __local ushort data[3*(",
+            local_buf_size,
+            "+1)];\n"
             "   size_t i = get_global_id(0);\n"
             "   size_t lid = get_local_id(0);\n"
             "   size_t last_i = get_global_size(0)-1;\n"
@@ -429,9 +432,18 @@ int Test_vStoreHalf_private( cl_device_id device, f2h referenceFunc, d2h doubleR
             "   if(last_i == i && extra_last_thread != 0) {\n"
             "     adjust = 3-extra_last_thread;\n"
             "   } "
-            "   vstore_half3",roundName,"( vload3(i,p-adjust), lid, (__local half *)(&data[0]) );\n"
+            "   vstore_half3",
+            roundName,
+            "( vload3(i,p-adjust), lid, (__local half *)(&data[0]) );\n"
             "   barrier( CLK_LOCAL_MEM_FENCE ); \n"
-            "   async_event = async_work_group_copy((__global ushort *)(f+3*(i-lid)), (__local ushort *)(&data[adjust]), lsize*3-adjust, 0);\n" // investigate later
+            "   if (get_group_id(0) == (get_num_groups(0) - 1) &&\n"
+            "       extra_last_thread != 0) {\n"
+            "     adjust = 3-extra_last_thread;\n"
+            "   }\n"
+            "   async_event = async_work_group_copy(\n"
+            "       (__global ushort*)(f+3*(i-lid)),\n"
+            "       (__local ushort *)(&data[adjust]),\n"
+            "       lsize*3-adjust, 0);\n" // investigate later
             "   wait_group_events(1, &async_event);\n"
             "}\n"
         };
@@ -521,7 +533,9 @@ int Test_vStoreHalf_private( cl_device_id device, f2h referenceFunc, d2h doubleR
             "__kernel void test( __global double *p, __global half *f,\n"
             "                   uint extra_last_thread )\n"
             "{\n"
-            "   __local ushort data[3*(", local_buf_size, "+1)];\n"
+            "   __local ushort data[3*(",
+            local_buf_size,
+            "+1)];\n"
             "   size_t i = get_global_id(0);\n"
             "   size_t lid = get_local_id(0);\n"
             "   size_t last_i = get_global_size(0)-1;\n"
@@ -531,13 +545,21 @@ int Test_vStoreHalf_private( cl_device_id device, f2h referenceFunc, d2h doubleR
             "   if(last_i == i && extra_last_thread != 0) {\n"
             "     adjust = 3-extra_last_thread;\n"
             "   }\n "
-            "   vstore_half3",roundName,"( vload3(i,p-adjust), lid, (__local half *)(&data[0]) );\n"
+            "   vstore_half3",
+            roundName,
+            "( vload3(i,p-adjust), lid, (__local half *)(&data[0]) );\n"
             "   barrier( CLK_LOCAL_MEM_FENCE ); \n"
-            "   async_event = async_work_group_copy((__global ushort *)(f+3*(i-lid)), (__local ushort *)(&data[adjust]), lsize*3-adjust, 0);\n" // investigate later
+            "   if (get_group_id(0) == (get_num_groups(0) - 1) &&\n"
+            "       extra_last_thread != 0) {\n"
+            "     adjust = 3-extra_last_thread;\n"
+            "   }\n"
+            "   async_event = async_work_group_copy(\n"
+            "       (__global ushort *)(f+3*(i-lid)),\n"
+            "       (__local ushort *)(&data[adjust]),\n"
+            "       lsize*3-adjust, 0);\n" // investigate later
             "   wait_group_events(1, &async_event);\n"
             "}\n"
         };
-
 
 
         if(g_arrVecSizes[vectorSize] == 3) {
@@ -674,7 +696,7 @@ int Test_vStoreHalf_private( cl_device_id device, f2h referenceFunc, d2h doubleR
     } // end for vector size
 
     // Figure out how many elements are in a work block
-    size_t elementSize = MAX( sizeof(cl_ushort), sizeof(float));
+    size_t elementSize = std::max(sizeof(cl_ushort), sizeof(float));
     size_t blockCount = BUFFER_SIZE / elementSize; // elementSize is power of 2
     uint64_t lastCase = 1ULL << (8*sizeof(float)); // number of floats.
     size_t stride = blockCount;
@@ -726,7 +748,7 @@ int Test_vStoreHalf_private( cl_device_id device, f2h referenceFunc, d2h doubleR
 
     for( i = 0; i < lastCase; i += stride )
     {
-        count = (cl_uint) MIN( blockCount, lastCase - i );
+        count = (cl_uint)std::min((uint64_t)blockCount, lastCase - i);
         fref.i = i;
         dref.i = i;
 
@@ -1272,7 +1294,7 @@ int Test_vStoreaHalf_private( cl_device_id device, f2h referenceFunc, d2h double
     }
 
     // Figure out how many elements are in a work block
-    size_t elementSize = MAX( sizeof(cl_ushort), sizeof(float));
+    size_t elementSize = std::max(sizeof(cl_ushort), sizeof(float));
     size_t blockCount = BUFFER_SIZE / elementSize;
     uint64_t lastCase = 1ULL << (8*sizeof(float));
     size_t stride = blockCount;
@@ -1323,7 +1345,7 @@ int Test_vStoreaHalf_private( cl_device_id device, f2h referenceFunc, d2h double
 
     for( i = 0; i < (uint64_t)lastCase; i += stride )
     {
-        count = (cl_uint) MIN( blockCount, lastCase - i );
+        count = (cl_uint)std::min((uint64_t)blockCount, lastCase - i);
         fref.i = i;
         dref.i = i;
 

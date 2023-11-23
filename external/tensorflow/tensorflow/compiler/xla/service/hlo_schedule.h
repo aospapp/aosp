@@ -16,9 +16,12 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_XLA_SERVICE_HLO_SCHEDULE_H_
 #define TENSORFLOW_COMPILER_XLA_SERVICE_HLO_SCHEDULE_H_
 
+#include <string>
 #include <vector>
 
+#include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "tensorflow/compiler/xla/service/hlo_computation.h"
 #include "tensorflow/compiler/xla/service/hlo_instruction.h"
@@ -79,7 +82,7 @@ class HloInstructionSequence {
     id_sequence_.clear();
   }
 
-  int64 size() const { return instruction_sequence_.size(); }
+  int64_t size() const { return instruction_sequence_.size(); }
 
   // Returns the sequence of HLO instructions.
   const std::vector<HloInstruction*>& instructions() const {
@@ -130,9 +133,13 @@ class HloSchedule {
 
   // Returns a map from HloComputation unique ID to instruction sequence. The
   // map contains all sequences in the schedule.
-  const absl::flat_hash_map<int64, HloInstructionSequence>& sequences() const {
+  const absl::flat_hash_map<int64_t, HloInstructionSequence>& sequences()
+      const {
     return sequences_;
   }
+
+  absl::flat_hash_map<std::string, int64_t> num_sequences_by_execution_thread()
+      const;
 
   // Returns true if the schedule has a sequence for the given computation.
   bool is_computation_scheduled(const HloComputation* computation) const {
@@ -144,6 +151,7 @@ class HloSchedule {
     auto it = sequences_.find(computation->unique_id());
     CHECK(it != sequences_.end());
     sequences_.erase(it);
+    execution_threads_.erase(computation->unique_id());
   }
 
   // Removes the instruction from the computation's sequence.
@@ -161,19 +169,20 @@ class HloSchedule {
                                                              new_instruction);
   }
 
-  // Updates the schedule such that it is (again) a valid schedule for the
-  // module. This is used to update a schedule after the HLO module has been
-  // transformed in some way. In general, the only transformations to the module
-  // for which a schedule can be updated is the addition or removal of
-  // instructions and removal of computations. Updating the schedule after new
-  // dependencies between existing instructions in the module is not supported
-  // and may result in an error status returned.
+  // Updates the schedule for specified threads such that it is (again) a valid
+  // schedule for the module. This is used to update a schedule after the HLO
+  // module has been transformed in some way. In general, the only
+  // transformations to the module for which a schedule can be updated is the
+  // addition or removal of instructions and removal of computations. Updating
+  // the schedule after new dependencies between existing instructions in the
+  // module is not supported and may result in an error status returned.
   //
   // Instructions in the module which also exist in the given schedule will
   // remain in the same order in the updated schedule. Instructions which exist
   // in the module but not in the given schedule will be placed as early as
   // possible in the updated schedule.
-  Status Update();
+  Status Update(
+      const absl::flat_hash_set<absl::string_view>& execution_threads = {});
 
   // Verifies that the given schedule is valid for the given module.
   // Specifically, the schedule contains exactly the instructions in the
@@ -181,7 +190,7 @@ class HloSchedule {
   // satisfied in the schedule.
   Status Verify() const;
 
-  string ToString() const;
+  std::string ToString() const;
 
   bool empty() const { return sequences_.empty(); }
 
@@ -196,7 +205,13 @@ class HloSchedule {
   // A map from computation unique ID to instruction sequence. Unique IDs are
   // used rather than HloComputation pointers because HLO pointers are not
   // unique across HLO transformations because pointers may be recycled.
-  absl::flat_hash_map<int64, HloInstructionSequence> sequences_;
+  absl::flat_hash_map<int64_t, HloInstructionSequence> sequences_;
+
+  // A corresponding map of `sequences_`, mapping the computation unique ID
+  // included in the shedule to execution threads. We need to store this since
+  // sometimes, computation could be removed while we still need the execution
+  // thread info for the remaining sequences.
+  absl::flat_hash_map<int64_t, std::string> execution_threads_;
 };
 
 std::ostream& operator<<(std::ostream& out, const HloSchedule& schedule);

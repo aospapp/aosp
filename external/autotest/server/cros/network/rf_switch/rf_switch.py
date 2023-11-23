@@ -221,7 +221,7 @@ class RfSwitch(scpi.Scpi):
 
         """
         attenuations = []
-        for x in xrange(self._MIN_ENCLOSURE, self._MAX_ENCLOSURE + 1):
+        for x in range(self._MIN_ENCLOSURE, self._MAX_ENCLOSURE + 1):
             attenuations.append(self.get_attenuation(x))
         return tuple(attenuations)
 
@@ -236,7 +236,7 @@ class RfSwitch(scpi.Scpi):
         """
         if ap_enclosure == self._ALL_ENCLOSURE:
             # set attenuation on all
-            for x in xrange(self._MIN_ENCLOSURE, self._MAX_ENCLOSURE + 1):
+            for x in range(self._MIN_ENCLOSURE, self._MAX_ENCLOSURE + 1):
                 self.set_attenuation(x, attenuation)
         elif (ap_enclosure < self._MIN_ENCLOSURE or
               ap_enclosure > self._MAX_ENCLOSURE):

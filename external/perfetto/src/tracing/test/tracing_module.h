@@ -20,6 +20,7 @@
 // Note: No non-client API header includes are allowed here.
 
 namespace perfetto {
+class TrackEventSessionObserver;
 namespace internal {
 struct TrackEventIncrementalState;
 }  // namespace internal
@@ -28,8 +29,12 @@ struct TrackEventIncrementalState;
 namespace tracing_module {
 
 void InitializeCategories();
+void AddSessionObserver(perfetto::TrackEventSessionObserver* observer);
+void RemoveSessionObserver(perfetto::TrackEventSessionObserver* observer);
+bool IsEnabled();
 void EmitTrackEvents();
 void EmitTrackEvents2();
+void EmitTrackEventsFromAllNamespaces();
 perfetto::internal::TrackEventIncrementalState* GetIncrementalState();
 
 // These functions are used to check the instruction size overhead track events.
@@ -45,5 +50,7 @@ void FunctionWithOneLegacyEvent();
 void FunctionWithOneScopedLegacyEvent();
 
 }  // namespace tracing_module
+
+void TestDeprecatedNamespacing();
 
 #endif  // SRC_TRACING_TEST_TRACING_MODULE_H_

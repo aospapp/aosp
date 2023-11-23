@@ -1,9 +1,13 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import os
+
 PROFILE_FILE_DIR = '/var/lib/device_health_profile/'
+PROFILE_DIR_CONTAINER = os.environ.get("SERVOD_PROFILES_DIR",
+                                       '/var/servod/profile/')
 
 # Constants that will be used as key name in device health profile.
 BOARD_KEY = 'board'

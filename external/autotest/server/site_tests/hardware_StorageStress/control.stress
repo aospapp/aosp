@@ -9,6 +9,7 @@ ATTRIBUTES = "suite:stress"
 TIME = 'LONG'
 TEST_CLASS = 'stress'
 TEST_TYPE = 'server'
+PY_VERSION = 3
 
 DOC = """
 Variants of the test are run to simulate a number of scenarios while execising

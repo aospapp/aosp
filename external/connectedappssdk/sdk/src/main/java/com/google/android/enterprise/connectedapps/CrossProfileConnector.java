@@ -45,6 +45,9 @@ public interface CrossProfileConnector extends ProfileConnector {
      * Use an alternative {@link ScheduledExecutorService}.
      *
      * <p>Defaults to {@link Executors#newSingleThreadScheduledExecutor()}.
+     *
+     * <p>This {@link ScheduledExecutorService} must be single threaded or sequential. Failure to do
+     * so will result in undefined behavior when using the SDK.
      */
     public Builder setScheduledExecutorService(ScheduledExecutorService scheduledExecutorService) {
       implBuilder.setScheduledExecutorService(scheduledExecutorService);

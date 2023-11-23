@@ -52,6 +52,7 @@ public class BindsTest {
     assertThat(component.foosOfNumbers()).hasSize(2);
     assertThat(component.objects()).hasSize(3);
     assertThat(component.charSequences()).hasSize(5);
+    assertThat(component.notExposedString()).isEqualTo("not exposed");
 
     assertThat(component.integerObjectMap())
         .containsExactly(123, "123-string", 456, "456-string", 789, "789-string");

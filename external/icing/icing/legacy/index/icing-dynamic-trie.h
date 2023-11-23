@@ -41,6 +41,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "icing/text_classifier/lib3/utils/base/status.h"
+#include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "icing/legacy/core/icing-compat.h"
 #include "icing/legacy/core/icing-packed-pod.h"
 #include "icing/legacy/index/icing-filesystem.h"
@@ -312,23 +314,6 @@ class IcingDynamicTrie : public IIcingStorage {
   // Potentially about to get nuked.
   void OnSleep() override;
 
-  // Compact trie into out for value indices present in old_tvi_to_new_value.
-  class NewValueMap {
-   public:
-    virtual ~NewValueMap();
-
-    // Returns the new value we want to assign to the entry at old
-    // value index. We don't take ownership of the pointer.
-    virtual const void *GetNewValue(uint32_t old_value_index) const = 0;
-  };
-  // Compacts this trie. This drops all deleted keys, drops all keys for which
-  // old_tvi_to_new_value returns nullptr, updates values to be the values
-  // returned by old_tvi_to_new_value, rewrites tvis, and saves the results into
-  // the trie given in 'out'. 'old_to_new_tvi' is be populated with a mapping of
-  // old value_index to new value_index.
-  bool Compact(const NewValueMap &old_tvi_to_new_value, IcingDynamicTrie *out,
-               std::unordered_map<uint32_t, uint32_t> *old_to_new_tvi) const;
-
   // Insert value at key. If key already exists and replace == true,
   // replaces old value with value. We take a copy of value.
   //
@@ -336,18 +321,22 @@ class IcingDynamicTrie : public IIcingStorage {
   // value_index. This can then be used with SetValueAtIndex
   // below. value_index is not valid past a Clear/Read/Write.
   //
-  // Returns false if there is no space left in the trie.
-  //
   // REQUIRES: value a buffer of size value_size()
-  bool Insert(const char *key, const void *value) {
+  //
+  // Returns:
+  //   OK on success
+  //   RESOURCE_EXHAUSTED if no disk space is available
+  //   INTERNAL_ERROR if there are inconsistencies in the dynamic trie.
+  libtextclassifier3::Status Insert(const char *key, const void *value) {
     return Insert(key, value, nullptr, true, nullptr);
   }
-  bool Insert(const char *key, const void *value, uint32_t *value_index,
-              bool replace) {
+  libtextclassifier3::Status Insert(const char *key, const void *value,
+                                    uint32_t *value_index, bool replace) {
     return Insert(key, value, value_index, replace, nullptr);
   }
-  bool Insert(const char *key, const void *value, uint32_t *value_index,
-              bool replace, bool *pnew_key);
+  libtextclassifier3::Status Insert(const char *key, const void *value,
+                                    uint32_t *value_index, bool replace,
+                                    bool *pnew_key);
 
   // Get a value returned by Insert value_index. This points to the
   // value in the trie. The pointer is immutable and always valid
@@ -399,6 +388,13 @@ class IcingDynamicTrie : public IIcingStorage {
   // Find all prefixes of key where the trie branches. Excludes the key
   // itself. If utf8 is true, does not cut key mid-utf8.
   std::vector<int> FindBranchingPrefixLengths(const char *key, bool utf8) const;
+
+  // Check if key is a branching term.
+  //
+  // key is a branching term, if and only if there exists terms s1 and s2 in the
+  // trie such that key is the maximum common prefix of s1 and s2, but s1 and s2
+  // are not prefixes of each other.
+  bool IsBranchingTerm(const char *key) const;
 
   void GetDebugInfo(int verbosity, std::string *out) const override;
 
@@ -508,9 +504,13 @@ class IcingDynamicTrie : public IIcingStorage {
   // Not thread-safe.
   //
   // Change in underlying trie invalidates iterator.
+  //
+  // TODO(b/241784804): change IcingDynamicTrie::Iterator to follow the common
+  //                    iterator pattern in our codebase.
   class Iterator {
    public:
-    Iterator(const IcingDynamicTrie &trie, const char *prefix);
+    Iterator(const IcingDynamicTrie &trie, const char *prefix,
+             bool reverse = false);
     void Reset();
     bool Advance();
 
@@ -527,9 +527,10 @@ class IcingDynamicTrie : public IIcingStorage {
     Iterator();
     // Copy is ok.
 
-    // Helper function that takes the left-most branch down
-    // intermediate nodes to a leaf.
-    void LeftBranchToLeaf(uint32_t node_index);
+    enum class BranchType { kLeftMost = 0, kRightMost = 1 };
+    // Helper function that takes the left-most or the right-most branch down
+    // intermediate nodes to a leaf, based on branch_type.
+    void BranchToLeaf(uint32_t node_index, BranchType branch_type);
 
     std::string cur_key_;
     const char *cur_suffix_;
@@ -538,10 +539,12 @@ class IcingDynamicTrie : public IIcingStorage {
       uint32_t node_idx;
       int child_idx;
 
-      explicit Branch(uint32_t ni) : node_idx(ni), child_idx(0) {}
+      explicit Branch(uint32_t node_index, int child_index)
+          : node_idx(node_index), child_idx(child_index) {}
     };
     std::vector<Branch> branch_stack_;
     bool single_leaf_match_;
+    bool reverse_;
 
     const IcingDynamicTrie &trie_;
   };
@@ -612,8 +615,11 @@ class IcingDynamicTrie : public IIcingStorage {
 
   // Helpers for Find and Insert.
   const Next *GetNextByChar(const Node *node, uint8_t key_char) const;
-  const Next *LowerBound(const Next *start, const Next *end,
-                         uint8_t key_char) const;
+  const Next *LowerBound(const Next *start, const Next *end, uint8_t key_char,
+                         uint32_t node_index = 0) const;
+  // Returns the number of valid nexts in the array.
+  int GetValidNextsSize(const IcingDynamicTrie::Next *next_array_start,
+                        int next_array_length) const;
   void FindBestNode(const char *key, uint32_t *best_node_index, int *key_offset,
                     bool prefix, bool utf8 = false) const;
 

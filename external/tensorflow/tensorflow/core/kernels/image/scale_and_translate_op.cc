@@ -93,8 +93,8 @@ Status ComputeSpansCore(OpKernelContext* context, const Kernel& kernel,
         std::ceil(sample_f - kernel.Radius() * kernel_scale - 0.5f);
     int64_t span_end =
         std::floor(sample_f + kernel.Radius() * kernel_scale - 0.5f);
-    span_start = Clamp(static_cast<int64>(0), input_size - 1, span_start);
-    span_end = Clamp(static_cast<int64>(0), input_size - 1, span_end) + 1;
+    span_start = Clamp(static_cast<int64_t>(0), input_size - 1, span_start);
+    span_end = Clamp(static_cast<int64_t>(0), input_size - 1, span_end) + 1;
     const int this_span_size = span_end - span_start;
     if (this_span_size > spans->span_size) {
       return errors::Internal(Printf("Span is too large: %d vs %d.",
@@ -120,7 +120,7 @@ Status ComputeSpansCore(OpKernelContext* context, const Kernel& kernel,
     }
     starts_vec(x) = span_start;
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status ComputeGradSpansCore(OpKernelContext* context, const Spans& spans,
@@ -180,7 +180,7 @@ Status ComputeGradSpansCore(OpKernelContext* context, const Spans& spans,
       grad_starts_vec(input_index) = 0;
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 // Computes the spans for the passed kernel, for a input dimension of length
@@ -229,7 +229,7 @@ Status ComputeSpans(OpKernelContext* context,
       return errors::InvalidArgument(Printf("Unrecognized kernel type: %d",
                                             static_cast<int>(kernel_type)));
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 // Computes the grad spans for the passed kernel.

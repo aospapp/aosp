@@ -19,10 +19,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <optional>
 
 #include "perfetto/base/build_config.h"
 #include "perfetto/ext/base/file_utils.h"
-#include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/scoped_file.h"
 #include "perfetto/ext/base/subprocess.h"
 #include "perfetto/ext/base/thread_task_runner.h"
@@ -40,6 +40,8 @@
 #if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
 #include "src/tracing/ipc/shared_memory_windows.h"
 #else
+#include <signal.h>
+
 #include "src/traced/probes/probes_producer.h"
 #include "src/tracing/ipc/posix_shared_memory.h"
 #endif
@@ -64,6 +66,54 @@ inline const char* GetTestProducerSockName() {
 #endif
 }
 
+// Captures the values of some environment variables when constructed and
+// restores them when destroyed.
+class TestEnvCleaner {
+ public:
+  TestEnvCleaner() {}
+  TestEnvCleaner(std::initializer_list<const char*> env_vars) {
+    prev_state_.reserve(env_vars.size());
+    for (const char* name : env_vars) {
+      prev_state_.emplace_back();
+      Var& var = prev_state_.back();
+      var.name = name;
+      const char* prev_value = getenv(name);
+      if (prev_value) {
+        var.value.emplace(prev_value);
+      }
+    }
+  }
+  ~TestEnvCleaner() { Clean(); }
+
+  TestEnvCleaner(const TestEnvCleaner&) = delete;
+  TestEnvCleaner(TestEnvCleaner&& obj) noexcept { *this = std::move(obj); }
+  TestEnvCleaner& operator=(const TestEnvCleaner&) = delete;
+  TestEnvCleaner& operator=(TestEnvCleaner&& obj) noexcept {
+    PERFETTO_CHECK(prev_state_.empty());
+    this->prev_state_ = std::move(obj.prev_state_);
+    obj.prev_state_.clear();
+    return *this;
+  }
+
+  void Clean() {
+    for (const Var& var : prev_state_) {
+      if (var.value) {
+        base::SetEnv(var.name, *var.value);
+      } else {
+        base::UnsetEnv(var.name);
+      }
+    }
+    prev_state_.clear();
+  }
+
+ private:
+  struct Var {
+    const char* name;
+    std::optional<std::string> value;
+  };
+  std::vector<Var> prev_state_;
+};
+
 // This is used only in daemon starting integrations tests.
 class ServiceThread {
  public:
@@ -71,13 +121,11 @@ class ServiceThread {
                 const std::string& consumer_socket)
       : producer_socket_(producer_socket), consumer_socket_(consumer_socket) {}
 
-  ~ServiceThread() {
-    if (!runner_)
-      return;
-    runner_->PostTaskAndWaitForTesting([this]() { svc_.reset(); });
-  }
+  ~ServiceThread() { Stop(); }
 
-  void Start() {
+  TestEnvCleaner Start() {
+    TestEnvCleaner env_cleaner(
+        {"PERFETTO_PRODUCER_SOCK_NAME", "PERFETTO_CONSUMER_SOCK_NAME"});
     runner_ = base::ThreadTaskRunner::CreateAndStart("perfetto.svc");
     runner_->PostTaskAndWaitForTesting([this]() {
       svc_ = ServiceIPCHost::CreateInstance(runner_->get());
@@ -98,12 +146,20 @@ class ServiceThread {
                        producer_socket_.c_str(), consumer_socket_.c_str());
       }
     });
+    return env_cleaner;
+  }
+
+  void Stop() {
+    if (!runner_)
+      return;
+    runner_->PostTaskAndWaitForTesting([this]() { svc_.reset(); });
+    runner_.reset();
   }
 
   base::ThreadTaskRunner* runner() { return runner_ ? &*runner_ : nullptr; }
 
  private:
-  base::Optional<base::ThreadTaskRunner> runner_;  // Keep first.
+  std::optional<base::ThreadTaskRunner> runner_;  // Keep first.
 
   std::string producer_socket_;
   std::string consumer_socket_;
@@ -140,7 +196,7 @@ class ProbesProducerThread {
   }
 
  private:
-  base::Optional<base::ThreadTaskRunner> runner_;  // Keep first.
+  std::optional<base::ThreadTaskRunner> runner_;  // Keep first.
 
   std::string producer_socket_;
   std::unique_ptr<ProbesProducer> producer_;
@@ -197,7 +253,7 @@ class FakeProducerThread {
   }
 
  private:
-  base::Optional<base::ThreadTaskRunner> runner_;  // Keep first.
+  std::optional<base::ThreadTaskRunner> runner_;  // Keep first.
 
   std::string producer_socket_;
   std::unique_ptr<FakeProducer> producer_;
@@ -234,9 +290,13 @@ class TestHelper : public Consumer {
   void OnAttach(bool, const TraceConfig&) override;
   void OnTraceStats(bool, const TraceStats&) override;
   void OnObservableEvents(const ObservableEvents&) override;
+  void OnSessionCloned(const OnSessionClonedArgs&) override;
 
   // Starts the tracing service if in kStartDaemons mode.
   void StartServiceIfRequired();
+
+  // Restarts the tracing service. Only valid in kStartDaemons mode.
+  void RestartService();
 
   // Connects the producer and waits that the service has seen the
   // RegisterDataSource() call.
@@ -251,7 +311,6 @@ class TestHelper : public Consumer {
   void FreeBuffers();
   void DetachConsumer(const std::string& key);
   bool AttachConsumer(const std::string& key);
-  bool SaveTraceForBugreportAndWait();
   void CreateProducerProvidedSmb();
   bool IsShmemProvidedByProducer();
   void ProduceStartupEventBatch(const protos::gen::TestConfig& config);
@@ -293,6 +352,13 @@ class TestHelper : public Consumer {
   }
   const std::vector<protos::gen::TracePacket>& trace() { return trace_; }
 
+  // Some fixtures want to reuse a global TestHelper in different testcases
+  // without destroying and recreating it, but they still need to avoid
+  // polluting environment variables.
+  //
+  // This restores the previous environment variables.
+  void CleanEnv() { env_cleaner_.Clean(); }
+
  private:
   static uint64_t next_instance_num_;
   uint64_t instance_num_;
@@ -314,6 +380,8 @@ class TestHelper : public Consumer {
   const char* consumer_socket_;
   ServiceThread service_thread_;
   FakeProducerThread fake_producer_thread_;
+
+  TestEnvCleaner env_cleaner_;
 
   std::unique_ptr<TracingService::ConsumerEndpoint> endpoint_;  // Keep last.
 };
@@ -360,6 +428,12 @@ class Exec {
     constexpr bool kUseSystemBinaries = true;
 #endif
 
+    auto pass_env = [](const std::string& var, base::Subprocess* proc) {
+      const char* val = getenv(var.c_str());
+      if (val)
+        proc->args.env.push_back(var + "=" + val);
+    };
+
     std::vector<std::string>& cmd = subprocess_.args.exec_cmd;
     if (kUseSystemBinaries) {
       PERFETTO_CHECK(TestHelper::kDefaultMode ==
@@ -375,6 +449,9 @@ class Exec {
       subprocess_.args.env.push_back(
           std::string("PERFETTO_CONSUMER_SOCK_NAME=") +
           TestHelper::GetDefaultModeConsumerSocketName());
+      pass_env("TMPDIR", &subprocess_);
+      pass_env("TMP", &subprocess_);
+      pass_env("TEMP", &subprocess_);
       cmd.push_back(base::GetCurExecutableDir() + "/" + argv0);
       cmd.insert(cmd.end(), args.begin(), args.end());
     }
@@ -410,6 +487,16 @@ class Exec {
 
     subprocess_.Start();
     sync_pipe_.rd.reset();
+  }
+
+  void SendSigterm() {
+#ifdef SIGTERM
+    kill(subprocess_.pid(), SIGTERM);
+#else
+    // This code is never used on Windows tests, not bothering.
+    if (subprocess_.pid())  // Always true, but avoids Wnoreturn compile errors.
+      PERFETTO_FATAL("SendSigterm() not implemented on this platform");
+#endif
   }
 
  private:

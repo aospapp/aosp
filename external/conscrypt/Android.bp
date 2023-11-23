@@ -100,7 +100,6 @@ cc_defaults {
         "common/src/jni/main/cpp/conscrypt/jniutil.cc",
         "common/src/jni/main/cpp/conscrypt/native_crypto.cc",
         "common/src/jni/main/cpp/conscrypt/netutil.cc",
-        "common/src/jni/main/cpp/conscrypt/trace.cc",
     ],
 
     header_libs: ["jni_headers"],
@@ -233,7 +232,6 @@ java_library {
     name: "conscrypt",
     visibility: [
         "//device:__subpackages__",
-        "//system/apex/tests",
         ":__subpackages__",
     ],
     apex_available: [
@@ -263,8 +261,14 @@ java_library {
 
     target: {
         // boringssl_self_test needed in both /system/bin and /apex/com.android.conscrypt/bin
+        // prng_seeder is only needed in /system/bin
+        // The required directive is here rather than under boringssl to avoid circular
+        // dependencies.
         android: {
-            required: ["boringssl_self_test"],
+            required: [
+                "boringssl_self_test",
+                "prng_seeder",
+            ],
         },
     },
 
@@ -272,8 +276,6 @@ java_library {
         "android.net.ssl",
         "com.android.org.conscrypt",
     ],
-
-    plugins: ["java_api_finder"],
 }
 
 // Java library for use on host, e.g. by robolectric.
@@ -282,6 +284,7 @@ java_library {
     visibility: [
         "//art/build",
         "//external/robolectric-shadows",
+        "//external/robolectric",
         "//frameworks/layoutlib",
     ],
     static_libs: [
@@ -336,6 +339,10 @@ java_sdk_library {
         // TODO(b/155921753): Restrict this when prebuilts are in their proper
         // locations.
         "//prebuilts:__subpackages__",
+
+        // DO NOT REMOVE: Legacy visibility, needed for snapshots that are
+        // generated for the S build.
+        "//libcore/mmodules/core_platform_api",
     ],
     srcs: [
         ":conscrypt_java_files",
@@ -375,6 +382,10 @@ java_sdk_library {
         // TODO(b/155921753): Restrict this when prebuilts are in their proper
         // locations.
         "//prebuilts:__subpackages__",
+
+        // DO NOT REMOVE: Legacy visibility, needed for snapshots that are
+        // generated for the S build.
+        "//libcore",
     ],
     srcs: [
         ":conscrypt_public_api_files",
@@ -494,11 +505,7 @@ cc_library_shared {
 
     cflags: ["-DJNI_JARJAR_PREFIX=com/android/"],
     header_libs: ["libnativehelper_header_only"],
-    shared_libs: [
-        "libcrypto",
-        "liblog",
-        "libssl",
-    ],
+    shared_libs: ["liblog"],
 
     target: {
         darwin: {
@@ -506,9 +513,19 @@ cc_library_shared {
         },
         android: {
             runtime_libs: ["libandroidio"],
+            shared_libs: [
+                "libcrypto",
+                "libssl",
+            ],
         },
         not_windows: {
             runtime_libs: ["libandroidio"],
+            // Link libcrypto and libssl statically on host, to ensure they stay current in
+            // the prebuilt that's included in conscrypt-module-test-exports.
+            static_libs: [
+                "libcrypto",
+                "libssl",
+            ],
         },
     },
     apex_available: [
@@ -521,12 +538,19 @@ cc_library_shared {
 // Unbundled Conscrypt jar for use by signapk and apksigner tool
 //
 // Builds against standard host libraries.
-java_library_host {
+//
+// This does not use java_library_host as that does not support the
+// min_sdk_version property which needs to be set to make sure that this
+// library is added to the sdk snapshot correctly.
+java_library {
     name: "conscrypt-unbundled",
     visibility: [
         "//build/make/tools/signapk",
         "//tools/apksig",
+        "//external/robolectric:__subpackages__",
     ],
+    device_supported: false,
+    host_supported: true,
     srcs: [
         "common/src/main/java/**/*.java",
         "openjdk/src/main/java/**/*.java",
@@ -539,6 +563,8 @@ java_library_host {
             enabled: true,
         },
     },
+    // Make sure that this will be added to the sdk snapshot for S.
+    min_sdk_version: "S",
 }
 
 // Static unbundled Conscrypt crypto JNI library
@@ -655,13 +681,13 @@ java_test {
 // Device SDK exposed by the Conscrypt module.
 sdk {
     name: "conscrypt-module-sdk",
-    bootclasspath_fragments: [
-        "com.android.conscrypt-bootclasspath-fragment",
+    apexes: [
+        // Adds exportable dependencies of the APEX to the sdk,
+        // e.g. *classpath_fragments.
+        "com.android.conscrypt",
     ],
     java_sdk_libs: [
-        "conscrypt.module.public.api",
         "conscrypt.module.intra.core.api",
-        "conscrypt.module.platform.api",
     ],
     native_shared_libs: [
         "libconscrypt_jni",
@@ -695,7 +721,6 @@ module_exports {
                 // For use by CTS
                 "conscrypt-tests",
             ],
-            // TODO: Remove this when we resolve b/151303681.
             native_shared_libs: [
                 "libjavacrypto",
             ],
@@ -710,4 +735,40 @@ module_exports {
             ],
         },
     },
+}
+
+java_api_contribution {
+    name: "conscrypt-module-intra-core-stubs",
+    api_surface: "intra-core",
+    api_file: "api/intra/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+java_api_contribution {
+    name: "conscrypt-module-public-stubs",
+    api_surface: "public",
+    api_file: "api/public/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+java_api_contribution {
+    name: "conscrypt-module-platform-stubs",
+    api_surface: "core-platform",
+    api_file: "api/platform/current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
+}
+
+java_api_contribution {
+    name: "conscrypt-module-lib-stubs",
+    api_surface: "module-lib",
+    api_file: "api/public/module-lib-current.txt",
+    visibility: [
+        "//build/orchestrator/apis",
+    ],
 }

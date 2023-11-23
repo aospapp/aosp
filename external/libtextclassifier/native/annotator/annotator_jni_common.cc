@@ -279,6 +279,23 @@ StatusOr<ClassificationOptions> FromJavaClassificationOptions(
       JniHelper::CallBooleanMethod(env, joptions,
                                    get_trigger_dictionary_on_beginner_words));
 
+  // .getEnableAddContactIntent()
+  TC3_ASSIGN_OR_RETURN(
+      jmethodID get_enable_add_contact_intent,
+      JniHelper::GetMethodID(env, options_class.get(),
+                             "getEnableAddContactIntent", "()Z"));
+  TC3_ASSIGN_OR_RETURN(classifier_options.enable_add_contact_intent,
+                       JniHelper::CallBooleanMethod(
+                           env, joptions, get_enable_add_contact_intent));
+
+  // .getEnableSearchIntent()
+  TC3_ASSIGN_OR_RETURN(jmethodID get_enable_search_intent,
+                       JniHelper::GetMethodID(env, options_class.get(),
+                                              "getEnableSearchIntent", "()Z"));
+  TC3_ASSIGN_OR_RETURN(
+      classifier_options.enable_search_intent,
+      JniHelper::CallBooleanMethod(env, joptions, get_enable_search_intent));
+
   return classifier_options;
 }
 

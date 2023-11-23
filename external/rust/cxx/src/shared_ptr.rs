@@ -101,6 +101,10 @@ where
     }
 }
 
+// SharedPtr is not a self-referential type and is safe to move out of a Pin,
+// regardless whether the pointer's target is Unpin.
+impl<T> Unpin for SharedPtr<T> where T: SharedPtrTarget {}
+
 impl<T> Drop for SharedPtr<T>
 where
     T: SharedPtrTarget,
@@ -204,11 +208,9 @@ pub unsafe trait SharedPtrTarget {
 macro_rules! impl_shared_ptr_target {
     ($segment:expr, $name:expr, $ty:ty) => {
         unsafe impl SharedPtrTarget for $ty {
-            #[doc(hidden)]
             fn __typename(f: &mut fmt::Formatter) -> fmt::Result {
                 f.write_str($name)
             }
-            #[doc(hidden)]
             unsafe fn __null(new: *mut c_void) {
                 extern "C" {
                     attr! {
@@ -218,7 +220,6 @@ macro_rules! impl_shared_ptr_target {
                 }
                 unsafe { __null(new) }
             }
-            #[doc(hidden)]
             unsafe fn __new(value: Self, new: *mut c_void) {
                 extern "C" {
                     attr! {
@@ -228,7 +229,6 @@ macro_rules! impl_shared_ptr_target {
                 }
                 unsafe { __uninit(new).cast::<$ty>().write(value) }
             }
-            #[doc(hidden)]
             unsafe fn __clone(this: *const c_void, new: *mut c_void) {
                 extern "C" {
                     attr! {
@@ -238,7 +238,6 @@ macro_rules! impl_shared_ptr_target {
                 }
                 unsafe { __clone(this, new) }
             }
-            #[doc(hidden)]
             unsafe fn __get(this: *const c_void) -> *const Self {
                 extern "C" {
                     attr! {
@@ -248,7 +247,6 @@ macro_rules! impl_shared_ptr_target {
                 }
                 unsafe { __get(this) }.cast()
             }
-            #[doc(hidden)]
             unsafe fn __drop(this: *mut c_void) {
                 extern "C" {
                     attr! {

@@ -230,11 +230,11 @@ static bool
 crc_changed(const function_or_var_decl_sptr& f,
 	    const function_or_var_decl_sptr& s)
 {
-  const auto symbol_f  = f->get_symbol(), symbol_s = s->get_symbol();
+  const auto& symbol_f = f->get_symbol();
+  const auto& symbol_s = s->get_symbol();
   if (!symbol_f || !symbol_s)
     return false;
-  const auto crc_f = symbol_f->get_crc(), crc_s = symbol_s->get_crc();
-  return (crc_f != 0 && crc_s != 0 && crc_f != crc_s);
+  return symbol_f->get_crc() != symbol_s->get_crc();
 }
 
 /// Test if the current diff tree node carries a CRC change in either a
@@ -251,6 +251,43 @@ crc_changed(const diff* diff)
     return crc_changed(d->first_function_decl(), d->second_function_decl());
   if (const var_diff* d = dynamic_cast<const var_diff*>(diff))
     return crc_changed(d->first_var(), d->second_var());
+  return false;
+}
+
+/// Test if there was a function or variable namespace change.
+///
+/// @param f the first function or variable to consider.
+///
+/// @param s the second function or variable to consider.
+///
+/// @return true if the test is positive, false otherwise.
+template <typename function_or_var_decl_sptr>
+static bool
+namespace_changed(const function_or_var_decl_sptr& f,
+		  const function_or_var_decl_sptr& s)
+{
+  const auto& symbol_f = f->get_symbol();
+  const auto& symbol_s = s->get_symbol();
+  if (!symbol_f || !symbol_s)
+    return false;
+  return symbol_f->get_namespace() != symbol_s->get_namespace();
+}
+
+/// Test if the current diff tree node carries a namespace change in
+/// either a function or a variable.
+///
+/// @param diff the diff tree node to consider.
+///
+/// @return true if the test is positive, false otherwise.
+static bool
+namespace_changed(const diff* diff)
+{
+  if (const function_decl_diff* d =
+	dynamic_cast<const function_decl_diff*>(diff))
+    return namespace_changed(d->first_function_decl(),
+			     d->second_function_decl());
+  if (const var_diff* d = dynamic_cast<const var_diff*>(diff))
+    return namespace_changed(d->first_var(), d->second_var());
   return false;
 }
 
@@ -1781,7 +1818,8 @@ categorize_harmful_diff_node(diff *d, bool pre)
 	      || non_static_data_member_added_or_removed(d)
 	      || base_classes_added_or_removed(d)
 	      || has_harmful_enum_change(d)
-	      || crc_changed(d)))
+	      || crc_changed(d)
+	      || namespace_changed(d)))
 	category |= SIZE_OR_OFFSET_CHANGE_CATEGORY;
 
       if (has_virtual_mem_fn_change(d))

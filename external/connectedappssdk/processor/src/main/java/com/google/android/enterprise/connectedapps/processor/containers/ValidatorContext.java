@@ -34,8 +34,11 @@ import javax.lang.model.util.Types;
 @AutoValue
 public abstract class ValidatorContext extends Context {
 
-  public static Builder builder() {
-    return new AutoValue_ValidatorContext.Builder();
+  public static Builder builderFromPreValidatorContext(PreValidatorContext preValidatorContext) {
+    return new AutoValue_ValidatorContext.Builder()
+        .setProcessingEnv(preValidatorContext.processingEnv())
+        .setElements(preValidatorContext.elements())
+        .setTypes(preValidatorContext.types());
   }
 
   public abstract SupportedTypes globalSupportedTypes();

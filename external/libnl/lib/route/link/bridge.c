@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/link/bridge.c	AF_BRIDGE link support
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2010-2013 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -464,12 +458,11 @@ static int bridge_compare(struct rtnl_link *_a, struct rtnl_link *_b,
 struct rtnl_link *rtnl_link_bridge_alloc(void)
 {
 	struct rtnl_link *link;
-	int err;
 
 	if (!(link = rtnl_link_alloc()))
 		return NULL;
 
-	if ((err = rtnl_link_set_type(link, "bridge")) < 0) {
+	if (rtnl_link_set_type(link, "bridge") < 0) {
 		rtnl_link_put(link);
 		return NULL;
 	}

@@ -1,18 +1,28 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from ctypes import c_size_t
 import datetime
+import json
 import logging
 import os
 import re
 import shutil
 import time
-import urlparse
+import six
+from six.moves import range
+import six.moves.urllib_parse as urlparse
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib.cros import kernel_utils
+from autotest_lib.client.cros.update_engine import nebraska_wrapper
 from autotest_lib.client.cros.update_engine import update_engine_event
 
 _DEFAULT_RUN = utils.run
@@ -59,6 +69,7 @@ class UpdateEngineUtil(object):
     _UPDATE_ENGINE_LOG_DIR = '/var/log/update_engine/'
     _CUSTOM_LSB_RELEASE = '/mnt/stateful_partition/etc/lsb-release'
     _UPDATE_ENGINE_PREFS_DIR = '/var/lib/update_engine/prefs/'
+    _STATEFUL_MOUNT_DIR = '/mnt/stateful_partition/'
 
     # Update engine prefs
     _UPDATE_CHECK_RESPONSE_HASH = 'update-check-response-hash'
@@ -78,6 +89,15 @@ class UpdateEngineUtil(object):
     _BEFORE_INTERRUPT_FILENAME = 'before_interrupt.png'
     _AFTER_INTERRUPT_FILENAME = 'after_interrupt.png'
 
+    # Test name
+    _CLIENT_TEST = 'autoupdate_CannedOmahaUpdate'
+
+    # Feature name
+    _REPEATED_UPDATES_FEATURE = 'feature-repeated-updates'
+
+    # Credentials to use for the fake login in login tests.
+    _LOGIN_TEST_USERNAME = 'autotest'
+    _LOGIN_TEST_PASSWORD = 'password'
 
     def __init__(self, run_func=_DEFAULT_RUN, get_file=_DEFAULT_COPY):
         """
@@ -188,9 +208,31 @@ class UpdateEngineUtil(object):
         """
         self._wait_for_update_status(self._UPDATE_STATUS_UPDATED_NEED_REBOOT)
         if check_kernel_after_update:
-          kernel_utils.verify_kernel_state_after_update(
-              self._host if hasattr(self, '_host') else None)
+            kernel_utils.verify_kernel_state_after_update(
+                    self._host if hasattr(self, '_host') else None)
 
+
+    def _wait_for_update_to_idle(self,
+                                 check_kernel_after_update=False,
+                                 inactive_kernel=False):
+        """
+        Wait for update status to reach IDLE.
+
+        @param check_kernel_after_update: True to also verify kernel state after
+                                          the update is the expected kernel.
+        @param inactive_kernel: True to indicate the expected kernel is the
+                                inactive kernel.
+
+        """
+        while True:
+            status = self._get_update_engine_status()
+            if self._is_update_engine_idle(status):
+                break
+            time.sleep(1)
+        if check_kernel_after_update:
+            kernel_utils.verify_kernel_state_after_update(
+                    self._host if hasattr(self, '_host') else None,
+                    inactive_kernel)
 
     def _wait_for_update_status(self, status_to_wait_for):
         """
@@ -245,8 +287,11 @@ class UpdateEngineUtil(object):
         return status_dict
 
 
-    def _check_update_engine_log_for_entry(self, entry, raise_error=False,
+    def _check_update_engine_log_for_entry(self,
+                                           entry,
+                                           raise_error=False,
                                            err_str=None,
+                                           min_count=1,
                                            update_engine_log=None):
         """
         Checks for entries in the update_engine log.
@@ -254,6 +299,8 @@ class UpdateEngineUtil(object):
         @param entry: String or tuple of strings to search for.
         @param raise_error: Fails tests if log doesn't contain entry.
         @param err_str: The error string to raise if we cannot find entry.
+        @param min_count: The minimum number of times each item should be
+                          found in the log. Default one.
         @param update_engine_log: Update engine log string you want to
                                   search. If None, we will read from the
                                   current update engine log.
@@ -268,7 +315,7 @@ class UpdateEngineUtil(object):
         if not update_engine_log:
             update_engine_log = self._get_update_engine_log()
 
-        if all(msg in update_engine_log for msg in entry):
+        if all(update_engine_log.count(msg) >= min_count for msg in entry):
             return True
 
         if not raise_error:
@@ -278,6 +325,20 @@ class UpdateEngineUtil(object):
                      '%s' % entry)
         logging.debug(error_str)
         raise error.TestFail(err_str if err_str else error_str)
+
+
+    def _set_feature(self, feature_name, enable=True):
+        """
+        Enables or disables feature from update engine client.
+        @param feature_name: Name of the feature to enable or disable
+        @param enable: Enables feature if true, disables if false.
+                       Default True.
+        """
+        if not enable:
+            feature_request = '--disable_feature=' + feature_name
+        else:
+            feature_request = '--enable_feature=' + feature_name
+        self._run([self._UPDATE_ENGINE_CLIENT_CMD, feature_request])
 
 
     def _is_update_finished_downloading(self, status=None):
@@ -379,7 +440,7 @@ class UpdateEngineUtil(object):
             logging.debug('Comparing %d and %d', int(before_match[i]),
                           int(after_match[i]))
             if int(before_match[i]) > int(after_match[i]):
-              return False
+                return False
         return True
 
 
@@ -525,20 +586,34 @@ class UpdateEngineUtil(object):
 
         @param update_url: String of url to use for update check.
         @param build: String of the build number to use. Represents the
-                      Chrome OS build this device thinks it is on.
+                      ChromeOS build this device thinks it is on.
         @param kwargs: A dictionary of key/values to be made into a query string
                        and appended to the update_url
 
         """
         update_url = self._append_query_to_url(update_url, kwargs)
+        release_version = 'CHROMEOS_RELEASE_VERSION=%s' % build
+        auserver = 'CHROMEOS_AUSERVER=%s' % update_url
 
         self._run(['mkdir', os.path.dirname(self._CUSTOM_LSB_RELEASE)],
                   ignore_status=True)
         self._run(['touch', self._CUSTOM_LSB_RELEASE])
-        self._run(['echo', 'CHROMEOS_RELEASE_VERSION=%s' % build, '>',
-                   self._CUSTOM_LSB_RELEASE])
-        self._run(['echo', 'CHROMEOS_AUSERVER=%s' % update_url, '>>',
-                   self._CUSTOM_LSB_RELEASE])
+        self._run(['echo', release_version, '>', self._CUSTOM_LSB_RELEASE])
+        self._run(['echo', auserver, '>>', self._CUSTOM_LSB_RELEASE])
+
+        # Confirm the custom lsb-release file was created successfully.
+        def custom_lsb_created():
+            """
+            Checks if the custom lsb-release file exists and has the correct
+            contents.
+
+            @returns: True if the file exists with the expected contents
+                      False otherwise
+            """
+            contents = self._run(['cat', self._CUSTOM_LSB_RELEASE]).stdout
+            return auserver in contents and release_version in contents
+
+        utils.poll_for_condition(condition=custom_lsb_created)
 
 
     def _clear_custom_lsb_release(self):
@@ -551,16 +626,34 @@ class UpdateEngineUtil(object):
         self._run(['rm', self._CUSTOM_LSB_RELEASE], ignore_status=True)
 
 
-    def _remove_update_engine_pref(self, pref):
+    def _remove_update_engine_pref(self, pref, is_dir=False):
         """
-        Delete an update_engine pref file.
+        Delete an update_engine pref file or directory.
 
         @param pref: The pref file to delete
+        @param is_dir: True for removing a whole pref subdirectory.
 
         """
         pref_file = os.path.join(self._UPDATE_ENGINE_PREFS_DIR, pref)
-        self._run(['rm', pref_file], ignore_status=True)
+        self._run(['rm', '-r' if is_dir else '', pref_file],
+                  ignore_status=True)
 
+    def _create_update_engine_pref(self, pref_name, pref_val="", sub_dir=None):
+        """
+        Create an update_engine pref file.
+
+        @param pref_name: The name of pref file to create.
+        @param pref_val: The content string in pref file.
+        @param sub_dir: The sub directory for the pref.
+
+        """
+        pref_dir = self._UPDATE_ENGINE_PREFS_DIR
+        if sub_dir:
+            pref_dir = os.path.join(pref_dir, sub_dir)
+            self._run(['mkdir', '-p', pref_dir], ignore_status=True)
+
+        pref_file = os.path.join(pref_dir, pref_name)
+        self._run(['echo', '-n', pref_val, '>', pref_file])
 
     def _get_update_requests(self):
         """
@@ -586,22 +679,43 @@ class UpdateEngineUtil(object):
         """
         update_log = self._get_update_engine_log()
 
-        # Matches any single line with "MMDD/HHMMSS ... Request ... xml", e.g.
-        # "[0723/133526:INFO:omaha_request_action.cc(794)] Request: <?xml".
-        result = re.findall(r'([0-9]{4}/[0-9]{6}).*Request.*xml', update_log)
-        if not result:
-            return None
+        # Matches any line with "YYYY-MM-DDTHH:MM:SS ... Request ... xml",
+        # e.g.
+        # "2021-01-28T10:14:33.998217Z INFO update_engine: \
+        # [omaha_request_action.cc(794)] Request: <?xml"
+        pattern = r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}).* Request:.*xml'
+        LOG_TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%S'
 
-        LOG_TIMESTAMP_FORMAT = '%m%d/%H%M%S'
-        match = result[-1]
+        result = re.findall(pattern, update_log)
 
-        # The log does not include the year, so set it as this year.
-        # This assumption could cause incorrect behavior, but is unlikely to.
-        current_year = datetime.datetime.now().year
-        log_datetime = datetime.datetime.strptime(match, LOG_TIMESTAMP_FORMAT)
-        log_datetime = log_datetime.replace(year=current_year)
+        if result:
+            match = result[-1]
+            log_datetime = datetime.datetime.strptime(match,
+                                                      LOG_TIMESTAMP_FORMAT)
+            epoch = datetime.datetime(1970, 1, 1)
 
-        return time.mktime(log_datetime.timetuple())
+            # Since log_datetime is in UTC, simply take the diff from epoch.
+            return (log_datetime - epoch).total_seconds()
+        else:
+            # If no match for new timestamp, try old timestamp format.
+            # "[0723/133526:INFO:omaha_request_action.cc(794)] Request: <?xml".
+            pattern_old = r'([0-9]{4}/[0-9]{6}).*Request.*xml'
+            LOG_TIMESTAMP_FORMAT_OLD = '%m%d/%H%M%S'
+
+            result = re.findall(pattern_old, update_log)
+            if not result:
+                return None
+
+            match = result[-1]
+
+            # The old format does not include the year, so set it as this year.
+            # This could cause incorrect behavior, but is unlikely to.
+            current_year = datetime.datetime.now().year
+            log_datetime = datetime.datetime.strptime(
+                    match, LOG_TIMESTAMP_FORMAT_OLD)
+            log_datetime = log_datetime.replace(year=current_year)
+
+            return time.mktime(log_datetime.timetuple())
 
 
     def _take_screenshot(self, filename):
@@ -643,9 +757,9 @@ class UpdateEngineUtil(object):
         targets = [line for line in log if err_str in line]
         logging.debug('Error lines found: %s', targets)
         if not targets:
-          return None
+            return None
         else:
-          return targets[-1].rpartition(err_str)[2]
+            return targets[-1].rpartition(err_str)[2]
 
 
     def _get_latest_initial_request(self):
@@ -669,7 +783,7 @@ class UpdateEngineUtil(object):
             return None
 
         MATCH_STR = r'eventtype="(.*?)"'
-        for i in xrange(len(requests) - 1, -1, -1):
+        for i in range(len(requests) - 1, -1, -1):
             search = re.search(MATCH_STR, requests[i])
             if (not search or
                 (search.group(1) ==
@@ -677,3 +791,54 @@ class UpdateEngineUtil(object):
                 return requests[i]
 
         return None
+
+    def _edit_nebraska_startup_config(self, **kwargs):
+        """
+        Edits an existing nebraska startup config file.
+
+        @param kwargs: A dictionary of key/values for nebraska config options.
+                       See platform/dev/nebraska/nebraska.py for more info.
+
+        """
+        conf = json.loads(
+                self._run(['cat', nebraska_wrapper.NEBRASKA_CONFIG]).stdout)
+        for k, v in six.iteritems(kwargs):
+            conf[k] = v
+        self._run([
+                'echo',
+                json.dumps(conf), '>', nebraska_wrapper.NEBRASKA_CONFIG
+        ])
+
+    def _clear_nebraska_dir(self):
+        """
+        Clears the nebraska dir on the DUT where the nebraska config and payload
+        metadata files are stored.
+
+        """
+        self._run(['rm', '-rf', '/usr/local/nebraska'])
+
+    def _get_nebraska_update_url(self):
+        """
+        Gets the update URL for an active nebraska server. Assumes nebraska is
+        up and running.
+
+        @returns: string of the update URL for the active nebraska.
+
+        """
+        nebraska_port = self._run(['cat', '/run/nebraska/port']).stdout
+        return 'http://localhost:%s/update' % nebraska_port
+
+    def _get_exclusion_name(self, payload_url):
+        """
+        Get the exclusion name of a payload url by calculating its hash in the
+        same way of base::StringPieceHash in libchrome.
+
+        @param payload_url: The payload url to be excluded.
+
+        @returns: The payload URL hash string as the exclusion name.
+
+        """
+        result = c_size_t(0)
+        for c in payload_url:
+            result = c_size_t((result.value * 131) + ord(c))
+        return str(result.value)

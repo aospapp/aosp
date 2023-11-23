@@ -3,13 +3,13 @@
 /* Copyright (c) 2018 Netronome Systems, Inc. */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <linux/magic.h>
-#include <sys/fcntl.h>
 #include <sys/vfs.h>
 
 #include "main.h"

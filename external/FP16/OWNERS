@@ -1,9 +1,2 @@
-butlermichael@google.com
-dgross@google.com
-galarragas@google.com
-jeanluc@google.com
+include platform/packages/modules/NeuralNetworks:/NNAPI_OWNERS
 maratek@google.com
-miaowang@google.com
-pszczepaniak@google.com
-xusongw@google.com
-ianhua@google.com

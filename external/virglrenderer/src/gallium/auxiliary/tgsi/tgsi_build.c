@@ -379,6 +379,8 @@ tgsi_default_full_declaration( void )
 {
    struct tgsi_full_declaration  full_declaration;
 
+   full_declaration.Dim.Index2D = 0;
+   full_declaration.Dim.Padding = 0;
    full_declaration.Declaration  = tgsi_default_declaration();
    full_declaration.Range = tgsi_default_declaration_range();
    full_declaration.Semantic = tgsi_default_declaration_semantic();

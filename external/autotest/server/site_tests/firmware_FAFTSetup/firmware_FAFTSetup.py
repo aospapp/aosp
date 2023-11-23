@@ -5,6 +5,7 @@
 import logging
 from threading import Timer
 
+from autotest_lib.client.bin.input import linux_input
 from autotest_lib.client.common_lib import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
@@ -55,7 +56,10 @@ class firmware_FAFTSetup(FirmwareTest):
         Timer(self.KEY_PRESS_DELAY, press_action).start()
 
         # Invoke client side script to monitor keystrokes
-        if not self.faft_client.system.check_keys([28, 29, 32]):
+        if self.faft_client.system.check_keys([
+                linux_input.KEY_LEFTCTRL, linux_input.KEY_D,
+                linux_input.KEY_ENTER
+        ]) < 0:
             result = False
 
         # Turn UI back on
@@ -63,10 +67,10 @@ class firmware_FAFTSetup(FirmwareTest):
         return result
 
     def keyboard_checker(self):
-        """Press 'd', Ctrl, ENTER by servo and check from DUT."""
+        """Press '<ctrl_l>', 'd', '<enter>' by servo and check from DUT."""
 
         def keypress():
-            """Press 'd', Ctrl, ENTER"""
+            """Press <ctrl_l>, 'd', '<enter>'"""
             self.servo.ctrl_d()
             self.servo.enter_key()
 
@@ -91,7 +95,7 @@ class firmware_FAFTSetup(FirmwareTest):
 
         if self.faft_config.mode_switcher_type in (
                 'menu_switcher',
-                'keyboard_dev_switcher'):
+                'keyboard_dev_switcher') and not self.faft_config.is_detachable:
             logging.info("Check keyboard simulation")
             self.check_state(self.keyboard_checker)
         else:

@@ -158,8 +158,9 @@ public class TestDtdData extends TestFmwk {
                     if (!dtdTypeFromPath.directories.contains(dir.getName())) {
                         errln("Mismatch in " + file.toString()
                         + ": " + dtdTypeFromPath + ", " + dtdTypeFromPath.directories);
+                    } else {
+                        logln("\t" + file.getName() + "\t" + dtdTypeFromPath);
                     }
-                    logln("\t" + file.getName() + "\t" + dtdTypeFromPath);
                     break;
                 }
                 if (--maxFiles < 0) break;
@@ -211,6 +212,7 @@ public class TestDtdData extends TestFmwk {
 
         HashSet<Attribute> valueAttributes = new LinkedHashSet<>();
         HashSet<Attribute> distAttributes = new LinkedHashSet<>();
+        HashSet<Attribute> metadataAttributes = new LinkedHashSet<>();  // TODO: not used currently, ignored
         for (Attribute attribute : element.getAttributes().keySet()) {
             if (attribute.isDeprecated()) continue;
             switch (attribute.getStatus()) {
@@ -220,6 +222,9 @@ public class TestDtdData extends TestFmwk {
                 break;
             case distinguished:
                 distAttributes.add(attribute);
+                break;
+            case metadata:
+                metadataAttributes.add(attribute);
                 break;
             }
         }
@@ -268,7 +273,7 @@ public class TestDtdData extends TestFmwk {
                     logKnownIssue("cldrbug:9982", "Lower priority fixes to bad xml");
                     break;
                 default:
-                    m.put("error", "\t||" + showPath(parents) + "||path has both children AND value attributes"
+                    m.put("error", "\t||" + showPath(parents) + "||DTD has both children AND value attributes: tr35.md#XML_Format"
                         + "||" + valueAttributes
                         + "||" + children + "||");
                     break;
@@ -468,6 +473,12 @@ public class TestDtdData extends TestFmwk {
                 || (elementName.equals("compoundUnitPattern1") && (attribute.equals("case") || attribute.equals("gender")))
                 || (elementName.equals("genderMinimalPairs") && attribute.equals("gender"))
                 || (elementName.equals("caseMinimalPairs") && attribute.equals("case"))
+                || (elementName.equals("nameOrderLocales") && attribute.equals("order"))
+                || (elementName.equals("initialPattern") && attribute.equals("type"))
+                || (elementName.equals("personName") && (attribute.equals("order") || attribute.equals("length") ||
+                                                         attribute.equals("usage") || attribute.equals("formality")))
+                || (elementName.equals("sampleName") && attribute.equals("item"))
+                || (elementName.equals("nameField") && attribute.equals("type"))
                 ;
 
         case ldmlBCP47:
@@ -575,6 +586,8 @@ public class TestDtdData extends TestFmwk {
                 && (attribute.equals("inLanguage") || attribute.equals("inScript") || attribute.equals("inTerritory") || attribute.equals("match"))
                 || elementName.equals("languageMatch")
                 && (attribute.equals("desired") || attribute.equals("supported"))
+                || elementName.equals("pathMatch")
+                && (attribute.equals("id"))
                 || (elementName.equals("transform") && (attribute.equals("source") || attribute.equals("target") || attribute.equals("direction") || attribute
                     .equals("variant")))
                 || (elementName.equals("grammaticalFeatures") && (attribute.equals("locales") || attribute.equals("targets")))
@@ -589,6 +602,7 @@ public class TestDtdData extends TestFmwk {
                 || elementName.equals("deriveComponent") && (attribute.equals("feature") || attribute.equals("structure"))
                 || elementName.equals("grammaticalDerivations") && attribute.equals("locales")
                 || elementName.equals("deriveCompound") && (attribute.equals("feature")|| attribute.equals("structure"))
+                || (elementName.equals("nameOrderLocalesDefault") && attribute.equals("order"))
                 ;
 
         case keyboard:

@@ -1,11 +1,11 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 //! Types for volatile access to memory.
 //!
 //! Two of the core rules for safe rust is no data races and no aliased mutable references.
-//! `VolatileRef` and `VolatileSlice`, along with types that produce those which implement
+//! `VolatileSlice`, along with types that produce it which implement
 //! `VolatileMemory`, allow us to sidestep that rule by wrapping pointers that absolutely have to be
 //! accessed volatile. Some systems really do need to operate on shared memory and can't have the
 //! compiler reordering or eliding access because it has no visibility into what other systems are
@@ -18,19 +18,27 @@
 //! violate pointer aliasing. The second is because unvolatile accesses are inherently undefined if
 //! done concurrently without synchronization. With volatile access we know that the compiler has
 //! not reordered or elided the access.
+#![allow(deprecated)]
 
 use std::cmp::min;
 use std::marker::PhantomData;
 use std::mem::size_of;
-use std::ptr::{copy, read_volatile, write_bytes, write_volatile};
+use std::ptr::copy;
+use std::ptr::read_volatile;
+use std::ptr::write_bytes;
+use std::ptr::write_volatile;
 use std::result;
 use std::slice;
 use std::usize;
 
 use remain::sorted;
 use thiserror::Error;
+use zerocopy::AsBytes;
+use zerocopy::FromBytes;
+use zerocopy::LayoutVerified;
 
-use crate::{sys::IoBufMut, DataInit};
+use crate::sys::IoBufMut;
+use crate::DataInit;
 
 #[sorted]
 #[derive(Error, Eq, PartialEq, Debug)]
@@ -76,19 +84,10 @@ pub trait VolatileMemory {
     /// Gets a slice of memory at `offset` that is `count` bytes in length and supports volatile
     /// access.
     fn get_slice(&self, offset: usize, count: usize) -> Result<VolatileSlice>;
-
-    /// Gets a `VolatileRef` at `offset`.
-    fn get_ref<T: DataInit>(&self, offset: usize) -> Result<VolatileRef<T>> {
-        let slice = self.get_slice(offset, size_of::<T>())?;
-        Ok(VolatileRef {
-            addr: slice.as_mut_ptr() as *mut T,
-            phantom: PhantomData,
-        })
-    }
 }
 
-/// A slice of raw memory that supports volatile access. Like `std::io::IoBufMut`, this type is
-/// guaranteed to be ABI-compatible with `libc::iovec` but unlike `IoBufMut`, it doesn't
+/// A slice of raw memory that supports volatile access. Like `std::io::IoSliceMut`, this type is
+/// guaranteed to be ABI-compatible with `libc::iovec` but unlike `IoSliceMut`, it doesn't
 /// automatically deref to `&mut [u8]`.
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
@@ -290,24 +289,79 @@ impl<'a> VolatileSlice<'a> {
     /// let vslice = VolatileSlice::new(&mut mem[..]);
     /// let buf = [5u8; 64];
     /// vslice.copy_from(&buf[..]);
+    /// let mut copy_buf = [0u32; 4];
+    /// vslice.copy_to(&mut copy_buf);
     /// for i in 0..4 {
-    ///     assert_eq!(vslice.get_ref::<u32>(i * 4).map_err(|_| ())?.load(), 0x05050505);
+    ///     assert_eq!(copy_buf[i], 0x05050505);
     /// }
     /// # Ok(())
     /// # }
     /// ```
     pub fn copy_from<T>(&self, buf: &[T])
     where
-        T: DataInit,
+        T: FromBytes + AsBytes,
     {
         let mut addr = self.as_mut_ptr();
-        for &v in buf.iter().take(self.size() / size_of::<T>()) {
+        for v in buf.iter().take(self.size() / size_of::<T>()) {
             unsafe {
-                write_volatile(addr as *mut T, v);
+                write_volatile(
+                    addr as *mut T,
+                    LayoutVerified::<_, T>::new(v.as_bytes()).unwrap().read(),
+                );
                 addr = addr.add(size_of::<T>());
             }
         }
     }
+
+    /// Returns whether all bytes in this slice are zero or not.
+    ///
+    /// This is optimized for [VolatileSlice] aligned with 16 bytes.
+    ///
+    /// TODO(b/274840085): Use SIMD for better performance.
+    pub fn is_all_zero(&self) -> bool {
+        const MASK_4BIT: usize = 0x0f;
+        let head_addr = self.as_ptr() as usize;
+        // Round up by 16
+        let aligned_head_addr = (head_addr + MASK_4BIT) & !MASK_4BIT;
+        let tail_addr = head_addr + self.size();
+        // Round down by 16
+        let aligned_tail_addr = tail_addr & !MASK_4BIT;
+
+        // Check 16 bytes at once. The addresses should be 16 bytes aligned for better performance.
+        // SAFETY: Each aligned_addr is within VolatileSlice
+        if (aligned_head_addr..aligned_tail_addr)
+            .step_by(16)
+            .any(|aligned_addr| unsafe { *(aligned_addr as *const u128) } != 0)
+        {
+            return false;
+        }
+
+        if head_addr == aligned_head_addr && tail_addr == aligned_tail_addr {
+            // If head_addr and tail_addr are aligned, we can skip the unaligned part which contains
+            // at least 2 conditional branches.
+            true
+        } else {
+            // Check unaligned part.
+            // SAFETY: The range [head_addr, aligned_head_addr) and [aligned_tail_addr, tail_addr)
+            // are within VolatileSlice.
+            unsafe {
+                is_all_zero_naive(head_addr, aligned_head_addr)
+                    && is_all_zero_naive(aligned_tail_addr, tail_addr)
+            }
+        }
+    }
+}
+
+/// Check whether every byte is zero.
+///
+/// This checks byte by byte.
+///
+/// ## Safety
+///
+/// * `head_addr` <= `tail_addr`
+/// * Bytes between `head_addr` and `tail_addr` is valid to access.
+unsafe fn is_all_zero_naive(head_addr: usize, tail_addr: usize) -> bool {
+    (head_addr..tail_addr).all(|addr| *(addr as *const u8) == 0)
 }
 
 impl<'a> VolatileMemory for VolatileSlice<'a> {
@@ -315,6 +369,23 @@ impl<'a> VolatileMemory for VolatileSlice<'a> {
         self.sub_slice(offset, count)
     }
 }
+
+impl PartialEq<VolatileSlice<'_>> for VolatileSlice<'_> {
+    fn eq(&self, other: &VolatileSlice) -> bool {
+        let size = self.size();
+        if size != other.size() {
+            return false;
+        }
+
+        // SAFETY: We pass pointers into valid VolatileSlice regions, and size is checked above.
+        let cmp = unsafe { libc::memcmp(self.as_ptr() as _, other.as_ptr() as _, size) };
+
+        cmp == 0
+    }
+}
+
+/// The `PartialEq` implementation for `VolatileSlice` is reflexive, symmetric, and transitive.
+impl Eq for VolatileSlice<'_> {}
 
 /// A memory location that supports volatile access of a `T`.
 ///
@@ -328,6 +399,11 @@ impl<'a> VolatileMemory for VolatileSlice<'a> {
 ///   assert_eq!(v_ref.load(), 5);
 ///   v_ref.store(500);
 ///   assert_eq!(v, 500);
+#[deprecated(
+    note = "This is an unsafe abstraction. Users should use alternatives such as read_obj() and 
+    write_obj() that do not create a long-lived mutable reference that could easily alias other 
+    slices"
+)]
 #[derive(Debug)]
 pub struct VolatileRef<'a, T: DataInit>
 where
@@ -350,11 +426,6 @@ impl<'a, T: DataInit> VolatileRef<'a, T> {
             addr,
             phantom: PhantomData,
         }
-    }
-
-    /// Gets the address of this slice's memory.
-    pub fn as_mut_ptr(&self) -> *mut T {
-        self.addr
     }
 
     /// Gets the size of this slice.
@@ -385,19 +456,15 @@ impl<'a, T: DataInit> VolatileRef<'a, T> {
         // unsafe { *(self.addr as *const T) }
         unsafe { read_volatile(self.addr) }
     }
-
-    /// Converts this `T` reference to a raw slice with the same size and address.
-    pub fn to_slice(&self) -> VolatileSlice<'a> {
-        unsafe { VolatileSlice::from_raw_parts(self.as_mut_ptr() as *mut u8, self.size()) }
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use std::sync::{Arc, Barrier};
+    use std::sync::Arc;
+    use std::sync::Barrier;
     use std::thread::spawn;
+
+    use super::*;
 
     #[derive(Clone)]
     struct VecMem {
@@ -431,49 +498,10 @@ mod tests {
     }
 
     #[test]
-    fn ref_store() {
-        let mut a = [0u8; 1];
-        let a_ref = VolatileSlice::new(&mut a[..]);
-        let v_ref = a_ref.get_ref(0).unwrap();
-        v_ref.store(2u8);
-        assert_eq!(a[0], 2);
-    }
-
-    #[test]
-    fn ref_load() {
-        let mut a = [5u8; 1];
-        {
-            let a_ref = VolatileSlice::new(&mut a[..]);
-            let c = {
-                let v_ref = a_ref.get_ref::<u8>(0).unwrap();
-                assert_eq!(v_ref.load(), 5u8);
-                v_ref
-            };
-            // To make sure we can take a v_ref out of the scope we made it in:
-            c.load();
-            // but not too far:
-            // c
-        } //.load()
-        ;
-    }
-
-    #[test]
-    fn ref_to_slice() {
-        let mut a = [1u8; 5];
-        let a_ref = VolatileSlice::new(&mut a[..]);
-        let v_ref = a_ref.get_ref(1).unwrap();
-        v_ref.store(0x12345678u32);
-        let ref_slice = v_ref.to_slice();
-        assert_eq!(v_ref.as_mut_ptr() as usize, ref_slice.as_mut_ptr() as usize);
-        assert_eq!(v_ref.size(), ref_slice.size());
-    }
-
-    #[test]
     fn observe_mutate() {
         let a = VecMem::new(1);
         let a_clone = a.clone();
-        let v_ref = a.get_ref::<u8>(0).unwrap();
-        v_ref.store(99);
+        a.get_slice(0, 1).unwrap().write_bytes(99);
 
         let start_barrier = Arc::new(Barrier::new(2));
         let thread_start_barrier = start_barrier.clone();
@@ -481,17 +509,19 @@ mod tests {
         let thread_end_barrier = end_barrier.clone();
         spawn(move || {
             thread_start_barrier.wait();
-            let clone_v_ref = a_clone.get_ref::<u8>(0).unwrap();
-            clone_v_ref.store(0);
+            a_clone.get_slice(0, 1).unwrap().write_bytes(0);
             thread_end_barrier.wait();
         });
 
-        assert_eq!(v_ref.load(), 99);
+        let mut byte = [0u8; 1];
+        a.get_slice(0, 1).unwrap().copy_to(&mut byte);
+        assert_eq!(byte[0], 99);
 
         start_barrier.wait();
         end_barrier.wait();
 
-        assert_eq!(v_ref.load(), 0);
+        a.get_slice(0, 1).unwrap().copy_to(&mut byte);
+        assert_eq!(byte[0], 0);
     }
 
     #[test]
@@ -530,31 +560,59 @@ mod tests {
     }
 
     #[test]
-    fn ref_overflow_error() {
-        use std::usize::MAX;
-        let a = VecMem::new(1);
-        let res = a.get_ref::<u8>(MAX).unwrap_err();
-        assert_eq!(
-            res,
-            Error::Overflow {
-                base: MAX,
-                offset: 1,
-            }
-        );
+    fn is_all_zero_16bytes_aligned() {
+        let a = VecMem::new(1024);
+        let slice = a.get_slice(0, 1024).unwrap();
+
+        assert!(slice.is_all_zero());
+        a.get_slice(129, 1).unwrap().write_bytes(1);
+        assert!(!slice.is_all_zero());
     }
 
     #[test]
-    fn ref_oob_error() {
-        let a = VecMem::new(100);
-        a.get_ref::<u8>(99).unwrap();
-        let res = a.get_ref::<u16>(99).unwrap_err();
-        assert_eq!(res, Error::OutOfBounds { addr: 101 });
+    fn is_all_zero_head_not_aligned() {
+        let a = VecMem::new(1024);
+        let slice = a.get_slice(1, 1023).unwrap();
+
+        assert!(slice.is_all_zero());
+        a.get_slice(0, 1).unwrap().write_bytes(1);
+        assert!(slice.is_all_zero());
+        a.get_slice(1, 1).unwrap().write_bytes(1);
+        assert!(!slice.is_all_zero());
+        a.get_slice(1, 1).unwrap().write_bytes(0);
+        a.get_slice(129, 1).unwrap().write_bytes(1);
+        assert!(!slice.is_all_zero());
     }
 
     #[test]
-    fn ref_oob_too_large() {
-        let a = VecMem::new(3);
-        let res = a.get_ref::<u32>(0).unwrap_err();
-        assert_eq!(res, Error::OutOfBounds { addr: 4 });
+    fn is_all_zero_tail_not_aligned() {
+        let a = VecMem::new(1024);
+        let slice = a.get_slice(0, 1023).unwrap();
+
+        assert!(slice.is_all_zero());
+        a.get_slice(1023, 1).unwrap().write_bytes(1);
+        assert!(slice.is_all_zero());
+        a.get_slice(1022, 1).unwrap().write_bytes(1);
+        assert!(!slice.is_all_zero());
+        a.get_slice(1022, 1).unwrap().write_bytes(0);
+        a.get_slice(0, 1).unwrap().write_bytes(1);
+        assert!(!slice.is_all_zero());
+    }
+
+    #[test]
+    fn is_all_zero_no_aligned_16bytes() {
+        let a = VecMem::new(1024);
+        let slice = a.get_slice(1, 16).unwrap();
+
+        assert!(slice.is_all_zero());
+        a.get_slice(0, 1).unwrap().write_bytes(1);
+        assert!(slice.is_all_zero());
+        for i in 1..17 {
+            a.get_slice(i, 1).unwrap().write_bytes(1);
+            assert!(!slice.is_all_zero());
+            a.get_slice(i, 1).unwrap().write_bytes(0);
+        }
+        a.get_slice(17, 1).unwrap().write_bytes(1);
+        assert!(slice.is_all_zero());
     }
 }

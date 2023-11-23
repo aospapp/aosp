@@ -14,8 +14,9 @@
 
 include($ENV{PW_ROOT}/pw_build/pigweed.cmake)
 
-pw_add_module_library(pw_containers
+pw_add_library(pw_containers INTERFACE
   PUBLIC_DEPS
+    pw_containers.algorithm
     pw_containers.flat_map
     pw_containers.intrusive_list
     pw_containers.vector
@@ -24,44 +25,63 @@ if(Zephyr_FOUND AND CONFIG_PIGWEED_CONTAINERS)
   zephyr_link_libraries(pw_containers)
 endif()
 
-pw_add_module_library(pw_containers.filtered_view
+pw_add_library(pw_containers.algorithm INTERFACE
   HEADERS
-    public/pw_containers/filtered_view.h
+    public/pw_containers/algorithm.h
+    public/pw_containers/internal/algorithm_internal.h
   PUBLIC_INCLUDES
     public
 )
 
-pw_add_module_library(pw_containers.flat_map
+pw_add_library(pw_containers.filtered_view INTERFACE
+  HEADERS
+    public/pw_containers/filtered_view.h
+  PUBLIC_INCLUDES
+    public
+  PUBLIC_DEPS
+    pw_assert
+    pw_preprocessor
+)
+
+pw_add_library(pw_containers.flat_map INTERFACE
   HEADERS
     public/pw_containers/flat_map.h
   PUBLIC_INCLUDES
     public
 )
 
-pw_add_module_library(pw_containers.to_array
+pw_add_library(pw_containers.iterator INTERFACE
+  HEADERS
+    public/pw_containers/iterator.h
+  PUBLIC_INCLUDES
+    public
+)
+
+pw_add_library(pw_containers.to_array INTERFACE
   HEADERS
     public/pw_containers/to_array.h
   PUBLIC_INCLUDES
     public
 )
 
-pw_add_module_library(pw_containers.vector
+pw_add_library(pw_containers.vector INTERFACE
   HEADERS
     public/pw_containers/vector.h
   PUBLIC_INCLUDES
     public
   PUBLIC_DEPS
     pw_assert
+    pw_polyfill
 )
 
-pw_add_module_library(pw_containers.wrapped_iterator
+pw_add_library(pw_containers.wrapped_iterator INTERFACE
   HEADERS
     public/pw_containers/wrapped_iterator.h
   PUBLIC_INCLUDES
     public
 )
 
-pw_add_module_library(pw_containers.intrusive_list
+pw_add_library(pw_containers.intrusive_list STATIC
   HEADERS
     public/pw_containers/internal/intrusive_list_impl.h
     public/pw_containers/intrusive_list.h
@@ -73,13 +93,26 @@ pw_add_module_library(pw_containers.intrusive_list
     pw_assert
 )
 
+pw_add_test(pw_containers.algorithm_test
+  SOURCES
+    algorithm_test.cc
+  PRIVATE_DEPS
+    pw_containers.algorithm
+    pw_containers.intrusive_list
+    pw_containers.vector
+    pw_span
+  GROUPS
+    modules
+    pw_containers
+)
+
 pw_add_test(pw_containers.filtered_view_test
   SOURCES
     filtered_view_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_containers.filtered_view
     pw_containers.intrusive_list
-    pw_polyfill.span
+    pw_span
   GROUPS
     modules
     pw_containers
@@ -88,7 +121,7 @@ pw_add_test(pw_containers.filtered_view_test
 pw_add_test(pw_containers.flat_map_test
   SOURCES
     flat_map_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_containers.flat_map
   GROUPS
     modules
@@ -98,7 +131,7 @@ pw_add_test(pw_containers.flat_map_test
 pw_add_test(pw_containers.to_array_test
   SOURCES
     to_array_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_containers.to_array
   GROUPS
     modules
@@ -108,7 +141,7 @@ pw_add_test(pw_containers.to_array_test
 pw_add_test(pw_containers.vector_test
   SOURCES
     vector_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_containers.vector
   GROUPS
     modules
@@ -118,7 +151,7 @@ pw_add_test(pw_containers.vector_test
 pw_add_test(pw_containers.wrapped_iterator_test
   SOURCES
     wrapped_iterator_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_containers.wrapped_iterator
   GROUPS
     modules
@@ -128,7 +161,8 @@ pw_add_test(pw_containers.wrapped_iterator_test
 pw_add_test(pw_containers.intrusive_list_test
   SOURCES
     intrusive_list_test.cc
-  DEPS
+  PRIVATE_DEPS
+    pw_compilation_testing._pigweed_only_negative_compilation
     pw_containers.intrusive_list
     pw_preprocessor
   GROUPS

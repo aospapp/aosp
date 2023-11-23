@@ -9,6 +9,7 @@ TEST_CATEGORY = "General"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:bvt-perbuild"
+PY_VERSION = 3
 
 DOC = """
 This test runs ImageLoader through its various dbus and command line

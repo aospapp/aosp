@@ -4,9 +4,9 @@ name = "crossbeam-utils"
 # - Update CHANGELOG.md
 # - Update README.md
 # - Create "crossbeam-utils-X.Y.Z" git tag
-version = "0.8.7"
+version = "0.8.15"
 edition = "2018"
-rust-version = "1.36"
+rust-version = "1.38"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/crossbeam-rs/crossbeam"
 homepage = "https://github.com/crossbeam-rs/crossbeam/tree/master/crossbeam-utils"
@@ -19,7 +19,7 @@ default = ["std"]
 
 # Enable to use APIs that require `std`.
 # This is enabled by default.
-std = ["lazy_static"]
+std = []
 
 # These features are no longer used.
 # TODO: remove in the next major version.
@@ -32,7 +32,6 @@ nightly = []
 
 [dependencies]
 cfg-if = "1"
-lazy_static = { version = "1.4.0", optional = true }
 
 # Enable the use of loom for concurrency testing.
 #

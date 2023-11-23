@@ -53,6 +53,11 @@ cc_defaults {
     sanitize: {
         hwaddress: false, // code size b/112437884
     },
+    arch: {
+        riscv64: {
+            enabled: false,
+        },
+    },
 }
 
 // This module defines all of the defaults used to compiled llvm, except for

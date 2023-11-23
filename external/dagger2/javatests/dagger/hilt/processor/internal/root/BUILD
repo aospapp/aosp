@@ -40,11 +40,11 @@ compiler_test(
         "@maven//:androidx_test_core",
     ],
     deps = [
-        "//java/dagger/internal/guava:collect",
-        "//javatests/dagger/hilt/android/processor:android_compilers",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//java/dagger/hilt/android/testing/compile",
+        "//third_party/java/compile_testing",
+        "//third_party/java/guava/collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -71,11 +71,11 @@ compiler_test(
         "@maven//:androidx_test_core",
     ],
     deps = [
-        "//java/dagger/internal/guava:collect",
-        "//javatests/dagger/hilt/android/processor:android_compilers",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//java/dagger/hilt/android/testing/compile",
+        "//third_party/java/compile_testing",
+        "//third_party/java/guava/collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -92,11 +92,11 @@ compiler_test(
         "@maven//:androidx_test_core",
     ],
     deps = [
-        "//java/dagger/internal/guava:collect",
-        "//javatests/dagger/hilt/android/processor:android_compilers",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//java/dagger/hilt/android/testing/compile",
+        "//third_party/java/compile_testing",
+        "//third_party/java/guava/collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -113,11 +113,11 @@ compiler_test(
         "@maven//:androidx_test_core",
     ],
     deps = [
-        "//java/dagger/internal/guava:base",
-        "//javatests/dagger/hilt/android/processor:android_compilers",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//java/dagger/hilt/android/testing/compile",
+        "//third_party/java/compile_testing",
+        "//third_party/java/guava/base",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

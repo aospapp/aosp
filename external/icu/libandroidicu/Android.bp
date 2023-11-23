@@ -27,6 +27,7 @@ package {
     //   SPDX-license-identifier-Apache-2.0
     //   SPDX-license-identifier-Unicode-DFS
     default_applicable_licenses: ["external_icu_license"],
+    default_visibility: ["//external/icu:__subpackages__"],
 }
 
 cc_library_shared {
@@ -70,9 +71,6 @@ cc_library_shared {
             "1",
         ],
     },
-    cppflags: [
-        "-std=c++11", // Use the same C++ version as libicuuc
-    ],
     cflags: [
         "-Wall",
         "-Werror",
@@ -84,20 +82,23 @@ cc_library_shared {
             ],
             version_script: "libandroidicu.map.txt",
         },
-        native_bridge: {
-            exclude_shared_libs: [
-                "libicuuc",
-                "libicui18n",
-            ],
-            shared_libs: [
-                "libnative_bridge_guest_libicuuc",
-                "libnative_bridge_guest_libicui18n",
-            ],
-        },
         windows: {
             enabled: true,
         },
     },
+    // Only add a new path below if your project needs UConverter or URegularExpression from ICU.
+    visibility: [
+        "//build/orchestrator/apis",
+        "//external/icu:__subpackages__",
+        "//packages/modules/RuntimeI18n:__subpackages__",
+        // The following dependencies can't use libicu instead, because it depends on UConverter
+        // or URegularExpression or statically linking libsqlite / libxml2.
+        "//external/libxml2",
+        "//external/robolectric/nativeruntime/external/sqlite/android",
+        "//external/sqlite:__subpackages__",
+        "//external/sfntly",
+        "//frameworks/av/media/libmedia",
+    ],
 }
 
 cc_library_headers {

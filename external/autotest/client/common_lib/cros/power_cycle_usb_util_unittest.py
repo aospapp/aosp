@@ -1,11 +1,11 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import unittest
 
-import power_cycle_usb_util
+from autotest_lib.client.common_lib.cros import power_cycle_usb_util
 
 
 class PowerCycleUsbUtilTest(unittest.TestCase):
@@ -58,4 +58,4 @@ class PowerCycleUsbUtilTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+    unittest.main()

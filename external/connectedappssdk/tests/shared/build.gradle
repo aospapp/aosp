@@ -11,8 +11,9 @@ plugins {
 dependencies {
     api deps.checkerFramework
     api project(path: ':connectedapps-testapp')
+    api project(path: ':connectedapps-testapp_crossuser')
     implementation project(path: ':connectedapps-annotations')
-    implementation 'org.robolectric:robolectric:4.4'
+    implementation deps.robolectric
     implementation 'junit:junit:4.13.1'
     implementation 'com.google.truth:truth:1.1.2'
     implementation 'androidx.test:core:1.3.0'

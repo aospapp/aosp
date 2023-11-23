@@ -41,7 +41,8 @@ namespace metadata {
   F(benchmark_story_run_index,         KeyType::kSingle,  Variadic::kInt),    \
   F(benchmark_story_run_time_us,       KeyType::kSingle,  Variadic::kInt),    \
   F(benchmark_story_tags,              KeyType::kMulti,   Variadic::kString), \
-  F(ftrace_setup_errors,               KeyType::kSingle,  Variadic::kString), \
+  F(ftrace_setup_errors,               KeyType::kMulti,   Variadic::kString), \
+  F(range_of_interest_start_us,        KeyType::kSingle,  Variadic::kInt),    \
   F(statsd_triggering_subscription_id, KeyType::kSingle,  Variadic::kInt),    \
   F(system_machine,                    KeyType::kSingle,  Variadic::kString), \
   F(system_name,                       KeyType::kSingle,  Variadic::kString), \
@@ -49,6 +50,8 @@ namespace metadata {
   F(system_version,                    KeyType::kSingle,  Variadic::kString), \
   F(trace_config_pbtxt,                KeyType::kSingle,  Variadic::kString), \
   F(trace_size_bytes,                  KeyType::kSingle,  Variadic::kInt),    \
+  F(trace_time_clock_id,               KeyType::kSingle,  Variadic::kInt),    \
+  F(trace_type,                        KeyType::kSingle,  Variadic::kString), \
   F(trace_uuid,                        KeyType::kSingle,  Variadic::kString), \
   F(tracing_disabled_ns,               KeyType::kSingle,  Variadic::kInt),    \
   F(tracing_started_ns,                KeyType::kSingle,  Variadic::kInt),    \

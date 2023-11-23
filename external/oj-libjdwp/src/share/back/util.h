@@ -343,6 +343,7 @@ jvmtiError objectReferrers(jobject obj, ObjectBatch *referrers, int maxObjects);
 
 // ANDROID-CHANGED: Helper function to get current time in milliseconds on CLOCK_MONOTONIC
 jlong milliTime(void);
+jlong nsTime(void);
 
 /*
  * Command handling helpers shared among multiple command sets

@@ -73,7 +73,6 @@
 #ifndef CSO_CACHE_H
 #define CSO_CACHE_H
 
-#include "pipe/p_context.h"
 #include "pipe/p_state.h"
 
 /* cso_hash.h is necessary for cso_hash_iter, as MSVC requires structures

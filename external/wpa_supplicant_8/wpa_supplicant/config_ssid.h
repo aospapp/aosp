@@ -46,7 +46,7 @@
 #define DEFAULT_MAX_OPER_CHWIDTH -1
 
 /* Consider global sae_pwe for SAE mechanism for PWE derivation */
-#define DEFAULT_SAE_PWE 4
+#define DEFAULT_SAE_PWE SAE_PWE_NOT_SET
 
 struct psk_list_entry {
 	struct dl_list list;
@@ -68,6 +68,14 @@ enum sae_pk_mode {
 	SAE_PK_MODE_AUTOMATIC = 0,
 	SAE_PK_MODE_ONLY = 1,
 	SAE_PK_MODE_DISABLED = 2,
+};
+
+enum wpas_mac_addr_style {
+	WPAS_MAC_ADDR_STYLE_NOT_SET = -1,
+	WPAS_MAC_ADDR_STYLE_PERMANENT = 0,
+	WPAS_MAC_ADDR_STYLE_RANDOM = 1,
+	WPAS_MAC_ADDR_STYLE_RANDOM_SAME_OUI = 2,
+	WPAS_MAC_ADDR_STYLE_DEDICATED_PER_ESS = 3,
 };
 
 /**
@@ -105,6 +113,21 @@ struct wpa_ssid {
 	 * file or when a new network is added through the control interface.
 	 */
 	int id;
+
+	/**
+	 * ro - Whether a network is declared as read-only
+	 *
+	 * Every network which is defined in a config file that is passed to
+	 * wpa_supplicant using the -I option will be marked as read-only
+	 * using this flag. It has the effect that it won't be written to
+	 * /etc/wpa_supplicant.conf (from -c argument) if, e.g., wpa_gui tells
+	 * the daemon to save all changed configs.
+	 *
+	 * This is necessary because networks from /etc/wpa_supplicant.conf
+	 * have a higher priority and changes from an alternative file would be
+	 * silently overwritten without this.
+	 */
+	bool ro;
 
 	/**
 	 * priority - Priority group
@@ -560,7 +583,9 @@ struct wpa_ssid {
 
 	int he;
 
-	int max_oper_chwidth;
+	int eht;
+
+	enum oper_chan_width max_oper_chwidth;
 
 	unsigned int vht_center_freq1;
 	unsigned int vht_center_freq2;
@@ -837,6 +862,14 @@ struct wpa_ssid {
 	struct os_reltime disabled_until;
 
 	/**
+	 * disabled_due_to - BSSID of the disabling failure
+	 *
+	 * This identifies the BSS that failed the connection attempt that
+	 * resulted in the network being temporarily disabled.
+	 */
+	u8 disabled_due_to[ETH_ALEN];
+
+	/**
 	 * parent_cred - Pointer to parent wpa_cred entry
 	 *
 	 * This pointer can be used to delete temporary networks when a wpa_cred
@@ -895,6 +928,18 @@ struct wpa_ssid {
 	u32 macsec_replay_window;
 
 	/**
+	 * macsec_offload - Enable MACsec hardware offload
+	 *
+	 * This setting applies only when MACsec is in use, i.e.,
+	 *  - the key server has decided to enable MACsec
+	 *
+	 * 0 = MACSEC_OFFLOAD_OFF (default)
+	 * 1 = MACSEC_OFFLOAD_PHY
+	 * 2 = MACSEC_OFFLOAD_MAC
+	 */
+	int macsec_offload;
+
+	/**
 	 * macsec_port - MACsec port (in SCI)
 	 *
 	 * Port component of the SCI.
@@ -909,6 +954,13 @@ struct wpa_ssid {
 	 * Range: 0-255 (default: 255)
 	 */
 	int mka_priority;
+
+	/**
+	 * macsec_csindex - Cipher suite index for MACsec
+	 *
+	 * Range: 0-1 (default: 0)
+	 */
+	int macsec_csindex;
 
 	/**
 	 * mka_ckn - MKA pre-shared CKN
@@ -958,12 +1010,21 @@ struct wpa_ssid {
 	 * 0 = use permanent MAC address
 	 * 1 = use random MAC address for each ESS connection
 	 * 2 = like 1, but maintain OUI (with local admin bit set)
+	 * 3 = use dedicated/pregenerated MAC address (see mac_value)
 	 *
 	 * Internally, special value -1 is used to indicate that the parameter
 	 * was not specified in the configuration (i.e., default behavior is
 	 * followed).
 	 */
-	int mac_addr;
+	enum wpas_mac_addr_style mac_addr;
+
+	/**
+	 * mac_value - Specific MAC address to be used
+	 *
+	 * When mac_addr policy is equal to 3 this is the value of the MAC
+	 * address that should be used.
+	 */
+	u8 mac_value[ETH_ALEN];
 
 	/**
 	 * no_auto_peer - Do not automatically peer with compatible mesh peers
@@ -1055,6 +1116,14 @@ struct wpa_ssid {
 	 * configuration) to track state of the DPP PFS fallback mechanism.
 	 */
 	int dpp_pfs_fallback;
+
+	/**
+	 * dpp_connector_privacy - Network introduction type
+	 * 0: unprotected variant from DPP R1
+	 * 1: privacy protecting (station Connector encrypted) variant from
+	 *    DPP R3
+	 */
+	int dpp_connector_privacy;
 
 	/**
 	 * owe_group - OWE DH Group
@@ -1175,7 +1244,26 @@ struct wpa_ssid {
 	 * 1 = hash-to-element only
 	 * 2 = both hunting-and-pecking loop and hash-to-element enabled
 	 */
-	int sae_pwe;
+	enum sae_pwe sae_pwe;
+
+	/**
+	 * disable_eht - Disable EHT (IEEE 802.11be) for this network
+	 *
+	 * By default, use it if it is available, but this can be configured
+	 * to 1 to have it disabled.
+	 */
+	int disable_eht;
+
+	/**
+	 * enable_4addr_mode - Set 4addr mode after association
+	 * 0 = Do not attempt to set 4addr mode
+	 * 1 = Try to set 4addr mode after association
+	 *
+	 * Linux requires that an interface is set to 4addr mode before it can
+	 * be added to a bridge. Set this to 1 for networks where you intent
+	 * to use the interface in a bridge.
+	 */
+	int enable_4addr_mode;
 };
 
 #endif /* CONFIG_SSID_H */

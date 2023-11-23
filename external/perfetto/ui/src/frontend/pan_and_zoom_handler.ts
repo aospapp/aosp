@@ -46,15 +46,32 @@ const EDITING_RANGE_CURSOR = 'ew-resize';
 const DRAG_CURSOR = 'default';
 const PAN_CURSOR = 'move';
 
+// Use key mapping based on the 'KeyboardEvent.code' property vs the
+// 'KeyboardEvent.key', because the former corresponds to the physical key
+// position rather than the glyph printed on top of it, and is unaffected by
+// the user's keyboard layout.
+// For example, 'KeyW' always corresponds to the key at the physical location of
+// the 'w' key on an English QWERTY keyboard, regardless of the user's keyboard
+// layout, or at least the layout they have configured in their OS.
+// Seeing as most users use the keys in the English QWERTY "WASD" position for
+// controlling kb+mouse applications like games, it's a good bet that these are
+// the keys most poeple are going to find natural for navigating the UI.
+// See https://www.w3.org/TR/uievents-code/#key-alphanumeric-writing-system
+export enum KeyMapping {
+  KEY_PAN_LEFT = 'KeyA',
+  KEY_PAN_RIGHT = 'KeyD',
+  KEY_ZOOM_IN = 'KeyW',
+  KEY_ZOOM_OUT = 'KeyS',
+}
+
 enum Pan {
   None = 0,
   Left = -1,
   Right = 1
 }
 function keyToPan(e: KeyboardEvent): Pan {
-  const key = e.key.toLowerCase();
-  if (['a'].includes(key)) return Pan.Left;
-  if (['d', 'e'].includes(key)) return Pan.Right;
+  if (e.code === KeyMapping.KEY_PAN_LEFT) return Pan.Left;
+  if (e.code === KeyMapping.KEY_PAN_RIGHT) return Pan.Right;
   return Pan.None;
 }
 
@@ -64,9 +81,8 @@ enum Zoom {
   Out = -1
 }
 function keyToZoom(e: KeyboardEvent): Zoom {
-  const key = e.key.toLowerCase();
-  if (['w', ','].includes(key)) return Zoom.In;
-  if (['s', 'o'].includes(key)) return Zoom.Out;
+  if (e.code === KeyMapping.KEY_ZOOM_IN) return Zoom.In;
+  if (e.code === KeyMapping.KEY_ZOOM_OUT) return Zoom.Out;
   return Zoom.None;
 }
 
@@ -106,7 +122,7 @@ export class PanAndZoomHandler {
     onZoomed,
     editSelection,
     onSelection,
-    endSelection
+    endSelection,
   }: {
     element: HTMLElement,
     contentOffsetX: number,
@@ -211,7 +227,9 @@ export class PanAndZoomHandler {
   }
 
   private onMouseMove(e: MouseEvent) {
-    const pageOffset = globals.state.sidebarVisible ? this.contentOffsetX : 0;
+    const pageOffset = globals.state.sidebarVisible && !globals.hideSidebar ?
+        this.contentOffsetX :
+        0;
     // We can't use layerX here because there are many layers in this element.
     this.mousePositionX = e.clientX - pageOffset;
     // Only change the cursor when hovering, the DragGestureHandler handles
@@ -241,6 +259,10 @@ export class PanAndZoomHandler {
 
   private onKeyDown(e: KeyboardEvent) {
     this.updateShift(e.shiftKey);
+
+    // Handle key events that are not pan or zoom.
+    if (handleKey(e, true)) return;
+
     if (keyToPan(e) !== Pan.None) {
       if (this.panning !== keyToPan(e)) {
         this.panAnimation.stop();
@@ -260,22 +282,20 @@ export class PanAndZoomHandler {
       this.zooming = keyToZoom(e);
       this.zoomAnimation.start(DEFAULT_ANIMATION_DURATION);
     }
-
-    // Handle key events that are not pan or zoom.
-    handleKey(e, true);
   }
 
   private onKeyUp(e: KeyboardEvent) {
     this.updateShift(e.shiftKey);
+
+    // Handle key events that are not pan or zoom.
+    if (handleKey(e, false)) return;
+
     if (keyToPan(e) === this.panning) {
       this.panning = Pan.None;
     }
     if (keyToZoom(e) === this.zooming) {
       this.zooming = Zoom.None;
     }
-
-    // Handle key events that are not pan or zoom.
-    handleKey(e, false);
   }
 
   // TODO(hjd): Move this shift handling into the viewer page.

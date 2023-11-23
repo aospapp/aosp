@@ -833,13 +833,13 @@ public class TestCharset extends TestFmwk {
             } catch (CharacterCodingException ex) {
                 errln("Unexpected CharacterCodingException: " + ex.getMessage());
                 return;
-            } catch (RuntimeException ex) {
+            // Android patch: Skip tests that fail with customized data.
+            } catch (RuntimeException | CoderMalfunctionError ex) {
                 if (!currentlybad) {currentlybad = true; badcount++; logln(""); }
-                // Android patch: Skip tests that fail with customized data.
                 logln(converter + " " + ex.getClass().getName() + ": " + ex.getMessage());
-                // Android patch end.
                 continue outer;
             }
+            // Android patch end.
 
             encoder.onUnmappableCharacter(CodingErrorAction.REPORT);
             encoder.onMalformedInput(CodingErrorAction.REPORT);

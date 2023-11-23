@@ -65,7 +65,8 @@ class firmware_SysfsVPD(FirmwareTest):
 
         self.host = host
         self.backup_firmware()
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
 
     def cleanup(self):
         """Cleanup the test"""

@@ -1,0 +1,19 @@
+name: "tracing-attributes"
+description: "Macro attributes for application-level tracing."
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://crates.io/crates/tracing-attributes"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://static.crates.io/crates/tracing-attributes/tracing-attributes-0.1.23.crate"
+  }
+  version: "0.1.23"
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2023
+    month: 3
+    day: 3
+  }
+}

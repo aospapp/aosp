@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2015 Google Inc.
+# Copyright 2015 Google LLC
 #
 # This is a pre-push hook that does the following before uploading a
 # CL for review:

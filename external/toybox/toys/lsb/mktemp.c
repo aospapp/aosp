@@ -48,7 +48,7 @@ void mktemp_main(void)
   if (!template) template = "tmp.XXXXXXXXXX";
   else {
     if (*template == '/' && TT.p && *TT.p) perror_exit("-p + /template");
-    if (!FLAG(p)&&!FLAG(t)) dir = 0;
+    if (!FLAG(p) && !FLAG(t)) dir = 0;
   }
 
   // TODO: coreutils cleans paths, so -p /t/// would result in /t/xxx...
@@ -62,14 +62,8 @@ void mktemp_main(void)
     long long rr;
     char *s = template+len;
 
-    // Fall back to random-ish if xgetrandom fails.
-    if (!xgetrandom(&rr, sizeof(rr), WARN_ONLY)) {
-      struct timespec ts;
-
-      clock_gettime(CLOCK_REALTIME, &ts);
-      rr = ts.tv_nsec*65537+(long)template+getpid()+(long)&template;
-    }
     // Replace X with 64 chars from posix portable character set (all but "_").
+    xgetrandom(&rr, sizeof(rr));
     while (--s>template) {
       if (*s != 'X') break;
       *s = '-'+(rr&63);

@@ -30,7 +30,6 @@
     <type-decl name='unsigned long int' size-in-bits='64' alignment-in-bits='64' id='7359adad'/>
     <pointer-type-def type-id='3ed987a4' size-in-bits='64' alignment-in-bits='64' id='84d5ac12'/>
     <pointer-type-def type-id='1c12b755' size-in-bits='64' alignment-in-bits='64' id='55cd64e8'/>
-    <var-decl name='a' type-id='3ed987a4' mangled-name='a' visibility='default'/>
-    <var-decl name='foo' type-id='55cd64e8' mangled-name='foo' visibility='default'/>
+    <var-decl name='foo' type-id='55cd64e8' mangled-name='foo' visibility='default' elf-symbol-id='foo'/>
   </abi-instr>
 </abi-corpus>

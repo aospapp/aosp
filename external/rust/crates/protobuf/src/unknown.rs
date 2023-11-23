@@ -7,10 +7,12 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::slice;
 
-use crate::clear::Clear;
-use crate::wire_format;
+use crate::reflect::ReflectValueRef;
+use crate::rt;
+use crate::wire_format::WireType;
 use crate::zigzag::encode_zig_zag_32;
 use crate::zigzag::encode_zig_zag_64;
+use crate::CodedOutputStream;
 
 /// Unknown value.
 ///
@@ -29,7 +31,7 @@ pub enum UnknownValue {
 
 impl UnknownValue {
     /// Wire type for this unknown
-    pub fn wire_type(&self) -> wire_format::WireType {
+    pub fn wire_type(&self) -> WireType {
         self.get_ref().wire_type()
     }
 
@@ -43,6 +45,16 @@ impl UnknownValue {
         }
     }
 
+    /// Construct unknown value from `int64` value.
+    pub fn int32(i: i32) -> UnknownValue {
+        UnknownValue::int64(i as i64)
+    }
+
+    /// Construct unknown value from `int64` value.
+    pub fn int64(i: i64) -> UnknownValue {
+        UnknownValue::Varint(i as u64)
+    }
+
     /// Construct unknown value from `sint32` value.
     pub fn sint32(i: i32) -> UnknownValue {
         UnknownValue::Varint(encode_zig_zag_32(i) as u64)
@@ -52,11 +64,32 @@ impl UnknownValue {
     pub fn sint64(i: i64) -> UnknownValue {
         UnknownValue::Varint(encode_zig_zag_64(i))
     }
+
+    /// Construct unknown value from `float` value.
+    pub fn float(f: f32) -> UnknownValue {
+        UnknownValue::Fixed32(f.to_bits())
+    }
+
+    /// Construct unknown value from `double` value.
+    pub fn double(f: f64) -> UnknownValue {
+        UnknownValue::Fixed64(f.to_bits())
+    }
+
+    /// Construct unknown value from `sfixed32` value.
+    pub fn sfixed32(i: i32) -> UnknownValue {
+        UnknownValue::Fixed32(i as u32)
+    }
+
+    /// Construct unknown value from `sfixed64` value.
+    pub fn sfixed64(i: i64) -> UnknownValue {
+        UnknownValue::Fixed64(i as u64)
+    }
 }
 
 /// Reference to unknown value.
 ///
 /// See [`UnknownFields`](crate::UnknownFields) for explanations.
+#[derive(Debug, PartialEq)]
 pub enum UnknownValueRef<'o> {
     /// 32-bit unknown
     Fixed32(u32),
@@ -70,12 +103,21 @@ pub enum UnknownValueRef<'o> {
 
 impl<'o> UnknownValueRef<'o> {
     /// Wire-type to serialize this unknown
-    pub fn wire_type(&self) -> wire_format::WireType {
+    pub fn wire_type(&self) -> WireType {
         match *self {
-            UnknownValueRef::Fixed32(_) => wire_format::WireTypeFixed32,
-            UnknownValueRef::Fixed64(_) => wire_format::WireTypeFixed64,
-            UnknownValueRef::Varint(_) => wire_format::WireTypeVarint,
-            UnknownValueRef::LengthDelimited(_) => wire_format::WireTypeLengthDelimited,
+            UnknownValueRef::Fixed32(_) => WireType::Fixed32,
+            UnknownValueRef::Fixed64(_) => WireType::Fixed64,
+            UnknownValueRef::Varint(_) => WireType::Varint,
+            UnknownValueRef::LengthDelimited(_) => WireType::LengthDelimited,
+        }
+    }
+
+    pub(crate) fn to_reflect_value_ref(&'o self) -> ReflectValueRef<'o> {
+        match self {
+            UnknownValueRef::Fixed32(v) => ReflectValueRef::U32(*v),
+            UnknownValueRef::Fixed64(v) => ReflectValueRef::U64(*v),
+            UnknownValueRef::Varint(v) => ReflectValueRef::U64(*v),
+            UnknownValueRef::LengthDelimited(v) => ReflectValueRef::Bytes(v),
         }
     }
 }
@@ -84,15 +126,15 @@ impl<'o> UnknownValueRef<'o> {
 ///
 /// See [`UnknownFields`](crate::UnknownFields) for explanations.
 #[derive(Clone, PartialEq, Eq, Debug, Default, Hash)]
-pub struct UnknownValues {
+pub(crate) struct UnknownValues {
     /// 32-bit unknowns
-    pub fixed32: Vec<u32>,
+    pub(crate) fixed32: Vec<u32>,
     /// 64-bit unknowns
-    pub fixed64: Vec<u64>,
+    pub(crate) fixed64: Vec<u64>,
     /// Varint unknowns
-    pub varint: Vec<u64>,
+    pub(crate) varint: Vec<u64>,
     /// Length-delimited unknowns
-    pub length_delimited: Vec<Vec<u8>>,
+    pub(crate) length_delimited: Vec<Vec<u8>>,
 }
 
 impl UnknownValues {
@@ -117,6 +159,20 @@ impl UnknownValues {
             length_delimited: self.length_delimited.iter(),
         }
     }
+
+    pub(crate) fn any(&self) -> Option<UnknownValueRef> {
+        if let Some(last) = self.fixed32.last() {
+            Some(UnknownValueRef::Fixed32(*last))
+        } else if let Some(last) = self.fixed64.last() {
+            Some(UnknownValueRef::Fixed64(*last))
+        } else if let Some(last) = self.varint.last() {
+            Some(UnknownValueRef::Varint(*last))
+        } else if let Some(last) = self.length_delimited.last() {
+            Some(UnknownValueRef::LengthDelimited(last))
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a> IntoIterator for &'a UnknownValues {
@@ -129,7 +185,7 @@ impl<'a> IntoIterator for &'a UnknownValues {
 }
 
 /// Iterator over unknown values
-pub struct UnknownValuesIter<'o> {
+pub(crate) struct UnknownValuesIter<'o> {
     fixed32: slice::Iter<'o, u32>,
     fixed64: slice::Iter<'o, u64>,
     varint: slice::Iter<'o, u64>,
@@ -140,21 +196,17 @@ impl<'o> Iterator for UnknownValuesIter<'o> {
     type Item = UnknownValueRef<'o>;
 
     fn next(&mut self) -> Option<UnknownValueRef<'o>> {
-        let fixed32 = self.fixed32.next();
-        if fixed32.is_some() {
-            return Some(UnknownValueRef::Fixed32(*fixed32.unwrap()));
+        if let Some(fixed32) = self.fixed32.next() {
+            return Some(UnknownValueRef::Fixed32(*fixed32));
         }
-        let fixed64 = self.fixed64.next();
-        if fixed64.is_some() {
-            return Some(UnknownValueRef::Fixed64(*fixed64.unwrap()));
+        if let Some(fixed64) = self.fixed64.next() {
+            return Some(UnknownValueRef::Fixed64(*fixed64));
         }
-        let varint = self.varint.next();
-        if varint.is_some() {
-            return Some(UnknownValueRef::Varint(*varint.unwrap()));
+        if let Some(varint) = self.varint.next() {
+            return Some(UnknownValueRef::Varint(*varint));
         }
-        let length_delimited = self.length_delimited.next();
-        if length_delimited.is_some() {
-            return Some(UnknownValueRef::LengthDelimited(&length_delimited.unwrap()));
+        if let Some(length_delimited) = self.length_delimited.next() {
+            return Some(UnknownValueRef::LengthDelimited(&length_delimited));
         }
         None
     }
@@ -182,8 +234,7 @@ pub struct UnknownFields {
     // Note, Google Protobuf C++ simply uses linear map (which can exploitable the same way),
     // and Google Protobuf Java uses tree map to store unknown fields
     // (which is more expensive than hashmap).
-    // TODO: hide
-    pub fields: Option<Box<HashMap<u32, UnknownValues, BuildHasherDefault<DefaultHasher>>>>,
+    fields: Option<Box<HashMap<u32, UnknownValues, BuildHasherDefault<DefaultHasher>>>>,
 }
 
 /// Very simple hash implementation of `Hash` for `UnknownFields`.
@@ -207,9 +258,16 @@ impl Hash for UnknownFields {
 }
 
 impl UnknownFields {
-    /// Empty unknown fields
-    pub fn new() -> UnknownFields {
-        Default::default()
+    /// Empty unknown fields.
+    pub const fn new() -> UnknownFields {
+        UnknownFields { fields: None }
+    }
+
+    /// Clear all unknown fields.
+    pub fn clear(&mut self) {
+        if let Some(ref mut fields) = self.fields {
+            fields.clear();
+        }
     }
 
     fn init_map(&mut self) {
@@ -264,29 +322,35 @@ impl UnknownFields {
     /// Iterate over all unknowns
     pub fn iter<'s>(&'s self) -> UnknownFieldsIter<'s> {
         UnknownFieldsIter {
-            entries: self.fields.as_ref().map(|m| m.iter()),
+            entries: self.fields.as_ref().map(|m| UnknownFieldsNotEmptyIter {
+                fields: m.iter(),
+                current: None,
+            }),
         }
     }
 
-    /// Find unknown field by number
-    pub fn get(&self, field_number: u32) -> Option<&UnknownValues> {
-        match self.fields {
-            Some(ref map) => map.get(&field_number),
+    /// Get any value for unknown fields.
+    pub fn get(&self, field_number: u32) -> Option<UnknownValueRef> {
+        match &self.fields {
+            Some(map) => map.get(&field_number).and_then(|v| v.any()),
             None => None,
         }
     }
-}
 
-impl Clear for UnknownFields {
-    fn clear(&mut self) {
-        if let Some(ref mut fields) = self.fields {
-            fields.clear();
-        }
+    #[doc(hidden)]
+    pub fn write_to_bytes(&self) -> Vec<u8> {
+        let mut r = Vec::with_capacity(rt::unknown_fields_size(self) as usize);
+        let mut stream = CodedOutputStream::vec(&mut r);
+        // Do we need it stable everywhere?
+        stream.write_unknown_fields_sorted(self).unwrap();
+        stream.flush().unwrap();
+        drop(stream);
+        r
     }
 }
 
 impl<'a> IntoIterator for &'a UnknownFields {
-    type Item = (u32, &'a UnknownValues);
+    type Item = (u32, UnknownValueRef<'a>);
     type IntoIter = UnknownFieldsIter<'a>;
 
     fn into_iter(self) -> UnknownFieldsIter<'a> {
@@ -294,19 +358,37 @@ impl<'a> IntoIterator for &'a UnknownFields {
     }
 }
 
+struct UnknownFieldsNotEmptyIter<'s> {
+    fields: hash_map::Iter<'s, u32, UnknownValues>,
+    current: Option<(u32, UnknownValuesIter<'s>)>,
+}
+
 /// Iterator over [`UnknownFields`](crate::UnknownFields)
 pub struct UnknownFieldsIter<'s> {
-    entries: Option<hash_map::Iter<'s, u32, UnknownValues>>,
+    entries: Option<UnknownFieldsNotEmptyIter<'s>>,
+}
+
+impl<'s> Iterator for UnknownFieldsNotEmptyIter<'s> {
+    type Item = (u32, UnknownValueRef<'s>);
+
+    fn next(&mut self) -> Option<(u32, UnknownValueRef<'s>)> {
+        loop {
+            if let Some((field_number, values)) = &mut self.current {
+                if let Some(value) = values.next() {
+                    return Some((*field_number, value));
+                }
+            }
+            let (field_number, values) = self.fields.next()?;
+            self.current = Some((*field_number, values.iter()));
+        }
+    }
 }
 
 impl<'s> Iterator for UnknownFieldsIter<'s> {
-    type Item = (u32, &'s UnknownValues);
+    type Item = (u32, UnknownValueRef<'s>);
 
-    fn next(&mut self) -> Option<(u32, &'s UnknownValues)> {
-        match self.entries {
-            Some(ref mut entries) => entries.next().map(|(&number, values)| (number, values)),
-            None => None,
-        }
+    fn next(&mut self) -> Option<(u32, UnknownValueRef<'s>)> {
+        self.entries.as_mut().and_then(|entries| entries.next())
     }
 }
 

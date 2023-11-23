@@ -41,7 +41,7 @@ rust_proc_macro {
     name: "libremain",
     crate_name: "remain",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.2.2",
+    cargo_pkg_version: "0.2.6",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
@@ -49,4 +49,43 @@ rust_proc_macro {
         "libquote",
         "libsyn",
     ],
+    product_available: true,
+    vendor_available: true,
+}
+
+rust_defaults {
+    name: "remain_test_defaults",
+    crate_name: "remain",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.6",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    edition: "2018",
+    rustlibs: [
+        "libproc_macro2",
+        "libquote",
+        "libsyn",
+    ],
+    proc_macros: [
+        "libremain",
+        "librustversion",
+    ],
+}
+
+rust_test_host {
+    name: "remain_test_tests_stable",
+    defaults: ["remain_test_defaults"],
+    srcs: ["tests/stable.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_test_host {
+    name: "remain_test_tests_unstable",
+    defaults: ["remain_test_defaults"],
+    srcs: ["tests/unstable.rs"],
+    test_options: {
+        unit_test: true,
+    },
 }

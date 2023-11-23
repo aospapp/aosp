@@ -50,10 +50,18 @@ static jvmtiError (JNICALL *ext_RawMonitorExitNoSuspend) (jvmtiEnv* env, jrawMon
 jlong
 milliTime(void)
 {
+    return nsTime() / 1000000L;
+}
+
+// ANDROID-CHANGED: Implement a helper to get the current time in nanoseconds according to
+// CLOCK_MONOTONIC.
+jlong
+nsTime(void)
+{
   struct timespec now;
   memset(&now, 0, sizeof(now));
   (void)clock_gettime(CLOCK_MONOTONIC, &now);
-  return ((jlong)now.tv_sec) * 1000LL + ((jlong)now.tv_nsec) / 1000000LL;
+  return ((jlong)now.tv_sec) * 1000000000LL + ((jlong)now.tv_nsec);
 }
 
 /* Save an object reference for use later (create a NewGlobalRef) */

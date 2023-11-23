@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # Copyright (c) 2020 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -11,10 +11,12 @@ import sys
 import tempfile
 import unittest
 
-import seven
+from autotest_lib.client.common_lib import seven
 
 
 class TestExecCompileFile(unittest.TestCase):
+    """Unittests for Seven helpers."""
+
     def _remove_tempfile(self):
         if hasattr(self, "tempfile"):
             try:

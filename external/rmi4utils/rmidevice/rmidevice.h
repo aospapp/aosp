@@ -38,7 +38,7 @@ class RMIDevice
 public:
 	RMIDevice() : m_functionList(), m_sensorID(0), m_bCancel(false), m_bytesPerReadRequest(0), m_page(-1),
 		      m_deviceType(RMI_DEVICE_TYPE_ANY)
-	{}
+	{ m_hasDebug = false; }
 	virtual ~RMIDevice() {}
 	virtual int Open(const char * filename) = 0;
 	virtual int Read(unsigned short addr, unsigned char *data,
@@ -46,6 +46,7 @@ public:
 	virtual int Write(unsigned short addr, const unsigned char *data,
 				 unsigned short len) = 0;
 	virtual int SetMode(int mode) { return -1; /* Unsupported */ }
+	virtual int ToggleInterruptMask(bool enable) = 0;
 	virtual int WaitForAttention(struct timeval * timeout = NULL,
 			unsigned int source_mask = RMI_INTERUPT_SOURCES_ALL_MASK) = 0;
 	virtual int GetAttentionReport(struct timeval * timeout, unsigned int source_mask,
@@ -61,6 +62,7 @@ public:
 	int GetFirmwareVersionMajor() { return m_firmwareVersionMajor; }
 	int GetFirmwareVersionMinor() { return m_firmwareVersionMinor; }
 	virtual int QueryBasicProperties();
+	char *GetProductID() { return (char *)m_productID; }
 	
 	int SetRMIPage(unsigned char page);
 	
@@ -80,6 +82,8 @@ public:
 
 	virtual bool FindDevice(enum RMIDeviceType type = RMI_DEVICE_TYPE_ANY) = 0;
 	enum RMIDeviceType GetDeviceType() { return m_deviceType; }
+
+	bool m_hasDebug;
 
 protected:
 	std::vector<RMIFunction> m_functionList;

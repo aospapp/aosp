@@ -35,9 +35,7 @@
 
 #include "instructions-aarch64.h"
 
-
 // List macro containing all visitors needed by the decoder class.
-
 #define VISITOR_LIST_THAT_RETURN(V)                              \
   V(AddSubExtended)                                              \
   V(AddSubImmediate)                                             \
@@ -231,8 +229,8 @@
   V(SVEIntMulImm_Unpredicated)                                   \
   V(SVEIntMulVectors_Predicated)                                 \
   V(SVELoadAndBroadcastElement)                                  \
-  V(SVELoadAndBroadcastQuadword_ScalarPlusImm)                   \
-  V(SVELoadAndBroadcastQuadword_ScalarPlusScalar)                \
+  V(SVELoadAndBroadcastQOWord_ScalarPlusImm)                     \
+  V(SVELoadAndBroadcastQOWord_ScalarPlusScalar)                  \
   V(SVELoadMultipleStructures_ScalarPlusImm)                     \
   V(SVELoadMultipleStructures_ScalarPlusScalar)                  \
   V(SVELoadPredicateRegister)                                    \
@@ -259,7 +257,7 @@
   V(SVETableLookup)                                              \
   V(SVEUnpackPredicateElements)                                  \
   V(SVEUnpackVectorElements)                                     \
-  V(SVEVectorSplice_Destructive)                                 \
+  V(SVEVectorSplice)                                             \
   V(System)                                                      \
   V(TestBranch)                                                  \
   V(Unallocated)                                                 \
@@ -276,14 +274,12 @@
 namespace vixl {
 namespace aarch64 {
 
-// The Visitor interface. Disassembler and simulator (and other tools)
-// must provide implementations for all of these functions.
-//
-// Note that this class must change in breaking ways with even minor additions
-// to VIXL, and so its API should be considered unstable. User classes that
-// inherit from this one should be expected to break even on minor version
-// updates. If this is a problem, consider using DecoderVisitorWithDefaults
-// instead.
+using Metadata = std::map<std::string, std::string>;
+
+// The Visitor interface consists only of the Visit() method. User classes
+// that inherit from this one must provide an implementation of the method.
+// Information about the instruction encountered by the Decoder is available
+// via the metadata pointer.
 class DecoderVisitor {
  public:
   enum VisitorConstness { kConstVisitor, kNonConstVisitor };
@@ -292,9 +288,7 @@ class DecoderVisitor {
 
   virtual ~DecoderVisitor() {}
 
-#define DECLARE(A) virtual void Visit##A(const Instruction* instr) = 0;
-  VISITOR_LIST(DECLARE)
-#undef DECLARE
+  virtual void Visit(Metadata* metadata, const Instruction* instr) = 0;
 
   bool IsConstVisitor() const { return constness_ == kConstVisitor; }
   Instruction* MutableInstruction(const Instruction* instr) {
@@ -304,25 +298,6 @@ class DecoderVisitor {
 
  private:
   const VisitorConstness constness_;
-};
-
-// As above, but a default (no-op) implementation for each visitor is provided.
-// This is useful for derived class that only care about specific visitors.
-//
-// A minor version update may add a visitor, but will never remove one, so it is
-// safe (and recommended) to use `override` in derived classes.
-class DecoderVisitorWithDefaults : public DecoderVisitor {
- public:
-  explicit DecoderVisitorWithDefaults(
-      VisitorConstness constness = kConstVisitor)
-      : DecoderVisitor(constness) {}
-
-  virtual ~DecoderVisitorWithDefaults() {}
-
-#define DECLARE(A) \
-  virtual void Visit##A(const Instruction* instr) VIXL_OVERRIDE { USE(instr); }
-  VISITOR_LIST(DECLARE)
-#undef DECLARE
 };
 
 class DecodeNode;
@@ -389,9 +364,7 @@ class Decoder {
   // of visitors stored by the decoder.
   void RemoveVisitor(DecoderVisitor* visitor);
 
-#define DECLARE(A) void Visit##A(const Instruction* instr);
-  VISITOR_LIST(DECLARE)
-#undef DECLARE
+  void VisitNamedInstruction(const Instruction* instr, const std::string& name);
 
   std::list<DecoderVisitor*>* visitors() { return &visitors_; }
 
@@ -421,8 +394,6 @@ class Decoder {
   std::map<std::string, DecodeNode> decode_nodes_;
 };
 
-const int kMaxDecodeSampledBits = 16;
-const int kMaxDecodeMappings = 100;
 typedef void (Decoder::*DecodeFnPtr)(const Instruction*);
 typedef uint32_t (Instruction::*BitExtractFn)(void) const;
 
@@ -436,10 +407,14 @@ struct VisitorNode {
 // compilation stage. After compilation, the decoder is embodied in the graph
 // of CompiledDecodeNodes pointer to by compiled_decoder_root_.
 
-// A DecodePattern maps a pattern of set/unset/don't care (1, 0, x) bits as a
-// string to the name of its handler.
+// A DecodePattern maps a pattern of set/unset/don't care (1, 0, x) bits encoded
+// as uint32_t to its handler.
+// The encoding uses two bits per symbol: 0 => 0b00, 1 => 0b01, x => 0b10.
+// 0b11 marks the edge of the most-significant bits of the pattern, which is
+// required to determine the length. For example, the pattern "1x01"_b is
+// encoded in a uint32_t as 0b11_01_10_00_01.
 struct DecodePattern {
-  const char* pattern;
+  uint32_t pattern;
   const char* handler;
 };
 
@@ -448,8 +423,8 @@ struct DecodePattern {
 // sampled bits match to the corresponding name of a node.
 struct DecodeMapping {
   const char* name;
-  const uint8_t sampled_bits[kMaxDecodeSampledBits];
-  const DecodePattern mapping[kMaxDecodeMappings];
+  const std::vector<uint8_t> sampled_bits;
+  const std::vector<DecodePattern> mapping;
 };
 
 // For speed, before nodes can be used for decoding instructions, they must
@@ -463,7 +438,7 @@ class CompiledDecodeNode {
   // function that extracts the bits to be sampled.
   CompiledDecodeNode(BitExtractFn bit_extract_fn, size_t decode_table_size)
       : bit_extract_fn_(bit_extract_fn),
-        visitor_fn_(NULL),
+        instruction_name_("node"),
         decode_table_size_(decode_table_size),
         decoder_(NULL) {
     decode_table_ = new CompiledDecodeNode*[decode_table_size_];
@@ -472,9 +447,9 @@ class CompiledDecodeNode {
 
   // Constructor for wrappers around visitor functions. These require no
   // decoding, so no bit extraction function or decode table is assigned.
-  explicit CompiledDecodeNode(DecodeFnPtr visitor_fn, Decoder* decoder)
+  explicit CompiledDecodeNode(std::string iname, Decoder* decoder)
       : bit_extract_fn_(NULL),
-        visitor_fn_(visitor_fn),
+        instruction_name_(iname),
         decode_table_(NULL),
         decode_table_size_(0),
         decoder_(decoder) {}
@@ -494,9 +469,9 @@ class CompiledDecodeNode {
 
   // A leaf node is a wrapper for a visitor function.
   bool IsLeafNode() const {
-    VIXL_ASSERT(((visitor_fn_ == NULL) && (bit_extract_fn_ != NULL)) ||
-                ((visitor_fn_ != NULL) && (bit_extract_fn_ == NULL)));
-    return visitor_fn_ != NULL;
+    VIXL_ASSERT(((instruction_name_ == "node") && (bit_extract_fn_ != NULL)) ||
+                ((instruction_name_ != "node") && (bit_extract_fn_ == NULL)));
+    return instruction_name_ != "node";
   }
 
   // Get a pointer to the next node required in the decode process, based on the
@@ -521,7 +496,7 @@ class CompiledDecodeNode {
 
   // Visitor function that handles the instruction identified. Set only for
   // leaf nodes, where no extra decoding is required, otherwise NULL.
-  const DecodeFnPtr visitor_fn_;
+  std::string instruction_name_;
 
   // Mapping table from instruction bits to next decode stage.
   CompiledDecodeNode** decode_table_;
@@ -535,30 +510,35 @@ class CompiledDecodeNode {
 class DecodeNode {
  public:
   // Default constructor needed for map initialisation.
-  DecodeNode() : compiled_node_(NULL) {}
+  DecodeNode()
+      : sampled_bits_(DecodeNode::kEmptySampledBits),
+        pattern_table_(DecodeNode::kEmptyPatternTable),
+        compiled_node_(NULL) {}
 
   // Constructor for DecodeNode wrappers around visitor functions. These are
   // marked as "compiled", as there is no decoding left to do.
-  explicit DecodeNode(const VisitorNode& visitor, Decoder* decoder)
-      : name_(visitor.name),
-        visitor_fn_(visitor.visitor_fn),
+  explicit DecodeNode(const std::string& iname, Decoder* decoder)
+      : name_(iname),
+        sampled_bits_(DecodeNode::kEmptySampledBits),
+        instruction_name_(iname),
+        pattern_table_(DecodeNode::kEmptyPatternTable),
         decoder_(decoder),
         compiled_node_(NULL) {}
 
   // Constructor for DecodeNodes that map bit patterns to other DecodeNodes.
   explicit DecodeNode(const DecodeMapping& map, Decoder* decoder = NULL)
       : name_(map.name),
-        visitor_fn_(NULL),
+        sampled_bits_(map.sampled_bits),
+        instruction_name_("node"),
+        pattern_table_(map.mapping),
         decoder_(decoder),
         compiled_node_(NULL) {
-    // The length of the bit string in the first mapping determines the number
-    // of sampled bits. When adding patterns later, we assert that all mappings
-    // sample the same number of bits.
-    VIXL_CHECK(strcmp(map.mapping[0].pattern, "otherwise") != 0);
-    int bit_count = static_cast<int>(strlen(map.mapping[0].pattern));
-    VIXL_CHECK((bit_count > 0) && (bit_count <= 32));
-    SetSampledBits(map.sampled_bits, bit_count);
-    AddPatterns(map.mapping);
+    // With the current two bits per symbol encoding scheme, the maximum pattern
+    // length is (32 - 2) / 2 = 15 bits.
+    VIXL_CHECK(GetPatternLength(map.mapping[0].pattern) <= 15);
+    for (const DecodePattern& p : map.mapping) {
+      VIXL_CHECK(GetPatternLength(p.pattern) == map.sampled_bits.size());
+    }
   }
 
   ~DecodeNode() {
@@ -568,21 +548,15 @@ class DecodeNode {
     }
   }
 
-  // Set the bits sampled from the instruction by this node.
-  void SetSampledBits(const uint8_t* bits, int bit_count);
-
   // Get the bits sampled from the instruction by this node.
-  std::vector<uint8_t> GetSampledBits() const;
+  const std::vector<uint8_t>& GetSampledBits() const { return sampled_bits_; }
 
   // Get the number of bits sampled from the instruction by this node.
-  size_t GetSampledBitsCount() const;
-
-  // Add patterns to this node's internal pattern table.
-  void AddPatterns(const DecodePattern* patterns);
+  size_t GetSampledBitsCount() const { return sampled_bits_.size(); }
 
   // A leaf node is a DecodeNode that wraps the visitor function for the
   // identified instruction class.
-  bool IsLeafNode() const { return visitor_fn_ != NULL; }
+  bool IsLeafNode() const { return instruction_name_ != "node"; }
 
   std::string GetName() const { return name_; }
 
@@ -597,7 +571,7 @@ class DecodeNode {
   // Create a CompiledDecodeNode wrapping a visitor function. No decoding is
   // required for this node; the visitor function is called instead.
   void CreateVisitorNode() {
-    compiled_node_ = new CompiledDecodeNode(visitor_fn_, decoder_);
+    compiled_node_ = new CompiledDecodeNode(instruction_name_, decoder_);
   }
 
   // Find and compile the DecodeNode named "name", and set it as the node for
@@ -609,12 +583,16 @@ class DecodeNode {
   // contiguous sequence, suitable for indexing an array.
   // For example, a mask of 0b1010 returns a function that, given an instruction
   // 0bXYZW, will return 0bXZ.
-  BitExtractFn GetBitExtractFunction(uint32_t mask);
+  BitExtractFn GetBitExtractFunction(uint32_t mask) {
+    return GetBitExtractFunctionHelper(mask, 0);
+  }
 
   // Get a pointer to an Instruction method that applies a mask to the
   // instruction bits, and tests if the result is equal to value. The returned
   // function gives a 1 result if (inst & mask == value), 0 otherwise.
-  BitExtractFn GetBitExtractFunction(uint32_t mask, uint32_t value);
+  BitExtractFn GetBitExtractFunction(uint32_t mask, uint32_t value) {
+    return GetBitExtractFunctionHelper(value, mask);
+  }
 
   // Compile this DecodeNode into a new CompiledDecodeNode and returns a pointer
   // to it. This pointer is also stored inside the DecodeNode itself. Destroying
@@ -626,22 +604,53 @@ class DecodeNode {
   CompiledDecodeNode* GetCompiledNode() const { return compiled_node_; }
   bool IsCompiled() const { return GetCompiledNode() != NULL; }
 
- private:
-  // Generate a mask and value pair from a string constructed from 0, 1 and x
-  // (don't care) characters.
-  // For example "10x1" should return mask = 0b1101, value = 0b1001.
-  typedef std::pair<Instr, Instr> MaskValuePair;
-  MaskValuePair GenerateMaskValuePair(std::string pattern) const;
+  enum class PatternSymbol { kSymbol0 = 0, kSymbol1 = 1, kSymbolX = 2 };
+  static const uint32_t kEndOfPattern = 3;
+  static const uint32_t kPatternSymbolMask = 3;
 
-  // Generate a pattern string ordered by the bit positions sampled by this
-  // node. The first character in the string corresponds to the lowest sampled
-  // bit.
-  // For example, a pattern of "1x0" expected when sampling bits 31, 1 and 30
-  // returns the pattern "x01"; bit 1 should be 'x', bit 30 '0' and bit 31 '1'.
+  size_t GetPatternLength(uint32_t pattern) const {
+    uint32_t hsb = HighestSetBitPosition(pattern);
+    // The pattern length is signified by two set bits in a two bit-aligned
+    // position. Ensure that the pattern has a highest set bit, it's at an odd
+    // bit position, and that the bit to the right of the hsb is also set.
+    VIXL_ASSERT(((hsb % 2) == 1) && (pattern >> (hsb - 1)) == kEndOfPattern);
+    return hsb / 2;
+  }
+
+  bool PatternContainsSymbol(uint32_t pattern, PatternSymbol symbol) const {
+    while ((pattern & kPatternSymbolMask) != kEndOfPattern) {
+      if (static_cast<PatternSymbol>(pattern & kPatternSymbolMask) == symbol)
+        return true;
+      pattern >>= 2;
+    }
+    return false;
+  }
+
+  PatternSymbol GetSymbolAt(uint32_t pattern, size_t pos) const {
+    size_t len = GetPatternLength(pattern);
+    VIXL_ASSERT((pos < 15) && (pos < len));
+    uint32_t shift = static_cast<uint32_t>(2 * (len - pos - 1));
+    uint32_t sym = (pattern >> shift) & kPatternSymbolMask;
+    return static_cast<PatternSymbol>(sym);
+  }
+
+ private:
+  // Generate a mask and value pair from a pattern constructed from 0, 1 and x
+  // (don't care) 2-bit symbols.
+  // For example "10x1"_b should return mask = 0b1101, value = 0b1001.
+  typedef std::pair<Instr, Instr> MaskValuePair;
+  MaskValuePair GenerateMaskValuePair(uint32_t pattern) const;
+
+  // Generate a pattern ordered by the bit positions sampled by this node.
+  // The symbol corresponding to the lowest sample position is placed in the
+  // least-significant bits of the result pattern.
+  // For example, a pattern of "1x0"_b expected when sampling bits 31, 1 and 30
+  // returns the pattern "x01"_b; bit 1 should be 'x', bit 30 '0' and bit 31
+  // '1'.
   // This output makes comparisons easier between the pattern and bits sampled
   // from an instruction using the fast "compress" algorithm. See
   // Instruction::Compress().
-  std::string GenerateOrderedPattern(std::string pattern) const;
+  uint32_t GenerateOrderedPattern(uint32_t pattern) const;
 
   // Generate a mask with a bit set at each sample position.
   uint32_t GenerateSampledBitsMask() const;
@@ -650,20 +659,26 @@ class DecodeNode {
   // true if successful.
   bool TryCompileOptimisedDecodeTable(Decoder* decoder);
 
+  // Helper function that returns a bit extracting function. If y is zero,
+  // x is a bit extraction mask. Otherwise, y is the mask, and x is the value
+  // to match after masking.
+  BitExtractFn GetBitExtractFunctionHelper(uint32_t x, uint32_t y);
+
   // Name of this decoder node, used to construct edges in the decode graph.
   std::string name_;
 
   // Vector of bits sampled from an instruction to determine which node to look
   // up next in the decode process.
-  std::vector<uint8_t> sampled_bits_;
+  const std::vector<uint8_t>& sampled_bits_;
+  static const std::vector<uint8_t> kEmptySampledBits;
 
-  // Visitor function that handles the instruction identified. Set only for leaf
-  // nodes, where no extra decoding is required. For non-leaf decoding nodes,
-  // this pointer is NULL.
-  DecodeFnPtr visitor_fn_;
+  // For leaf nodes, this is the name of the instruction form that the node
+  // represents. For other nodes, this is always set to "node".
+  std::string instruction_name_;
 
   // Source mapping from bit pattern to name of next decode stage.
-  std::vector<DecodePattern> pattern_table_;
+  const std::vector<DecodePattern>& pattern_table_;
+  static const std::vector<DecodePattern> kEmptyPatternTable;
 
   // Pointer to the decoder containing this node, used to call its visitor
   // function for leaf nodes.

@@ -4,19 +4,19 @@
 
 """Comparators for use in dynamic_suite module unit tests."""
 
-import mox
+from unittest.mock import ANY
 
-class StatusContains(mox.Comparator):
+
+class StatusContains(object):
     @staticmethod
     def CreateFromStrings(status=None, test_name=None, reason=None):
-        status_comp = mox.StrContains(status) if status else mox.IgnoreArg()
-        name_comp = mox.StrContains(test_name) if test_name else mox.IgnoreArg()
-        reason_comp = mox.StrContains(reason) if reason else mox.IgnoreArg()
+        status_comp = AnyStringWith(status) if status else ANY
+        name_comp = AnyStringWith(test_name) if test_name else ANY
+        reason_comp = AnyStringWith(reason) if reason else ANY
         return StatusContains(status_comp, name_comp, reason_comp)
 
 
-    def __init__(self, status=mox.IgnoreArg(), test_name=mox.IgnoreArg(),
-                 reason=mox.IgnoreArg()):
+    def __init__(self, status=ANY, test_name=ANY, reason=ANY):
         """Initialize.
 
         Takes mox.Comparator objects to apply to job_status.Status
@@ -46,3 +46,8 @@ class StatusContains(mox.Comparator):
         return '<Status containing \'%s\t%s\t%s\'>' % (self._status,
                                                        self._test_name,
                                                        self._reason)
+
+
+class AnyStringWith(str):
+    def __eq__(self, other):
+        return self in str(other)

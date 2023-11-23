@@ -1,9 +1,10 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import time
-import os.path
+import glob
+import os
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.bin import utils
@@ -15,7 +16,6 @@ from autotest_lib.client.cros.input_playback import input_playback
 class platform_InputScreenshot(test.test):
     """Tests if key combinations will create a screenshot."""
     version = 1
-    _WAIT = 5
     _TMP = '/tmp'
     _DOWNLOADS = '/home/chronos/user/Downloads'
     _SCREENSHOT = 'Screenshot*'
@@ -50,22 +50,29 @@ class platform_InputScreenshot(test.test):
         if not os.path.isdir(filepath):
             raise error.TestNAError("%s folder is not found" % filepath)
 
-        if not (utils.system_output('sync; sleep 2; find %s -name "%s"'
-                                    % (filepath, self._SCREENSHOT))):
-            self._ERROR.append('Screenshot was not found under:%s' % filepath)
+        try:
+            paths = utils.poll_for_condition(lambda: glob.glob(
+                    os.path.join(filepath, self._SCREENSHOT)),
+                                             timeout=20,
+                                             sleep_interval=1)
+        except utils.TimeoutError:
+            self._ERROR.append('Screenshot was not found under: %s' % filepath)
+            return
 
-        filesize = utils.system_output('ls -l %s/%s | cut -d" " -f5'
-                                       % (filepath, self._SCREENSHOT))
+        if len(paths) > 1:
+            self._ERROR.append('Found too many screenshots: %s' % paths)
+            return
+
+        filesize = os.stat(paths[0]).st_size
         if filesize < self._MIN_SIZE:
-            self._ERROR.append('Screenshot size:%s at %s is wrong'
-                               % (filesize, filepath))
+            self._ERROR.append('Screenshot size:%d at %s is wrong' %
+                               (filesize, filepath))
 
 
     def create_screenshot(self):
         """Create a screenshot."""
         self.player.blocking_playback_of_default_file(
                input_type='keyboard', filename='keyboard_ctrl+f5')
-        time.sleep(self._WAIT)
 
 
     def run_once(self):

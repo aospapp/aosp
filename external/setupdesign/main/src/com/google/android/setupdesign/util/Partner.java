@@ -33,11 +33,14 @@ import androidx.annotation.AnyRes;
 import androidx.annotation.ArrayRes;
 import androidx.annotation.BoolRes;
 import androidx.annotation.ColorRes;
+import androidx.annotation.DimenRes;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
+import androidx.annotation.RawRes;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -81,6 +84,28 @@ public class Partner {
   public static boolean getBoolean(Context context, @BoolRes int id) {
     final ResourceEntry entry = getResourceEntry(context, id);
     return entry.resources.getBoolean(entry.id);
+  }
+
+  /**
+   * Gets a dimension value from partner overlay, or if not available, gets the value from the
+   * original context instead.
+   *
+   * @see #getResourceEntry(Context, int)
+   */
+  public static int getDimensionPixelSize(Context context, @DimenRes int id) {
+    final ResourceEntry entry = getResourceEntry(context, id);
+    return entry.resources.getDimensionPixelSize(entry.id);
+  }
+
+  /**
+   * Gets a dimension value from partner overlay, or if not available, gets the value from the
+   * original context instead.
+   *
+   * @see #getResourceEntry(Context, int)
+   */
+  public static float getDimension(Context context, @DimenRes int id) {
+    final ResourceEntry entry = getResourceEntry(context, id);
+    return entry.resources.getDimension(entry.id);
   }
 
   /**
@@ -158,6 +183,17 @@ public class Partner {
       }
     }
     return new ResourceEntry(context.getPackageName(), context.getResources(), id, false);
+  }
+
+  /**
+   * Returns input stream for raw resources from overlay package provided by partners.
+   *
+   * @return an InputStream in the partner overlay's resources, if one is defined. Otherwise the
+   *     InputStream in resources from the original context is returned.
+   */
+  public static InputStream getRawResources(Context context, @RawRes int id) {
+    final ResourceEntry entry = getResourceEntry(context, id);
+    return entry.resources.openRawResource(entry.id);
   }
 
   public static class ResourceEntry {

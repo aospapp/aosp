@@ -47,7 +47,6 @@ cc_library {
     shared_libs: [
         "libbase",
         "liblog",
-        "libnos_datagram",
     ],
     export_include_dirs: ["include"],
 }

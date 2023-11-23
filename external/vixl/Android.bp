@@ -72,10 +72,10 @@ license {
 cc_defaults {
     name: "vixl-common",
     host_supported: true,
-    clang_cflags: ["-Wimplicit-fallthrough"],
     cflags: [
         "-Wall",
         "-Werror",
+        "-Wimplicit-fallthrough",
     ],
     cppflags: [
         "-DVIXL_GENERATE_SIMULATOR_INSTRUCTIONS_VALUE=0",
@@ -163,6 +163,17 @@ cc_defaults {
     srcs: ["src/*.cc"],
     export_include_dirs: ["src"],
     min_sdk_version: "S",
+
+    static: {
+        cflags: [
+            "-fvisibility=hidden",
+        ],
+    },
+    shared: {
+        cflags: [
+            "-fvisibility=protected",
+        ],
+    },
 }
 
 art_cc_library {
@@ -188,17 +199,6 @@ art_cc_library {
         "com.android.art",
         "com.android.art.debug",
     ],
-
-    static: {
-        cflags: [
-            "-fvisibility=hidden",
-        ],
-    },
-    shared: {
-        cflags: [
-            "-fvisibility=protected",
-        ],
-    },
 }
 
 art_cc_library {
@@ -232,6 +232,9 @@ cc_test_host {
     ],
     local_include_dirs: [
         "test",
+    ],
+    exclude_srcs: [
+        "test/test-donkey.cc"
     ],
     srcs: [
         "test/*.cc",

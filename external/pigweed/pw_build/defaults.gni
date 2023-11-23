@@ -25,6 +25,17 @@ declare_args() {
   default_configs = []
   default_public_deps = []
   remove_default_configs = []
+
+  # Controls the default visibility of C/C++ libraries and executables
+  # (pw_source_set, pw_static_library, pw_shared_library pw_executable). This
+  # can be "*" or a list of paths.
+  #
+  # This is useful for limiting usage of Pigweed modules via an explicit
+  # allowlist. For the GN build to work, pw_build_DEFAULT_VISIBILITY must always
+  # at least include the Pigweed repository ("$dir_pigweed/*").
+  #
+  # Explicitly setting a target's visibility overrides this default.
+  pw_build_DEFAULT_VISIBILITY = "*"
 }
 
 # Combine target-specifc and target-agnostic default variables.
@@ -38,12 +49,13 @@ _pw_build_defaults = {
     "$dir_pw_build:debugging",
     "$dir_pw_build:reduced_size",
     "$dir_pw_build:strict_warnings",
-    "$dir_pw_build:cpp17",
+    "$dir_pw_build:toolchain_cpp_standard",
     "$dir_pw_build:relative_paths",
   ]
 
-  # TODO(pwbug/602): Remove this once all uses explicitly depend on polyfills.
-  public_deps += [ "$dir_pw_polyfill:overrides" ]
+  if (pw_build_DEFAULT_VISIBILITY != "*") {
+    visibility = pw_build_DEFAULT_VISIBILITY
+  }
 }
 
 # One more pass, to remove configs

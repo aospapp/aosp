@@ -16,10 +16,8 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
 DEPENDENCIES = "carrier:tmobile"
-
-# TODO(crbug.com/932661) Fix the root cause of the flakiness and
-# remove this hack.
-JOB_RETRIES=3
+PY_VERSION = 3
+JOB_RETRIES=1
 
 DOC = """
   Tests that 3G modem can connect to the network

@@ -79,7 +79,7 @@ class InputBuffer {
   Status Hint(int64_t bytes_to_read);
 
   // Returns the position in the file.
-  int64 Tell() const { return file_pos_ - (limit_ - pos_); }
+  int64_t Tell() const { return file_pos_ - (limit_ - pos_); }
 
   // Returns the underlying RandomAccessFile.
   RandomAccessFile* file() const { return file_; }
@@ -100,7 +100,7 @@ class InputBuffer {
   Status ReadVarintFallback(T* result, int max_bytes);
 
   RandomAccessFile* file_;  // Not owned
-  int64 file_pos_;          // Next position to read from in "file_"
+  int64_t file_pos_;        // Next position to read from in "file_"
   size_t size_;             // Size of "buf_"
   char* buf_;               // The buffer itself
   // [pos_,limit_) hold the "limit_ - pos_" bytes just before "file_pos_"
@@ -124,7 +124,7 @@ inline Status InputBuffer::ReadVarint32(uint32* result) {
     const char* offset = core::GetVarint32Ptr(pos_, limit_, result);
     if (offset == nullptr) return errors::OutOfRange("Parsed past limit.");
     pos_ = const_cast<char*>(offset);
-    return Status::OK();
+    return OkStatus();
   } else {
     return ReadVarint32Fallback(result);
   }
@@ -138,7 +138,7 @@ inline Status InputBuffer::ReadVarint64(uint64* result) {
     const char* offset = core::GetVarint64Ptr(pos_, limit_, result);
     if (offset == nullptr) return errors::OutOfRange("Parsed past limit.");
     pos_ = const_cast<char*>(offset);
-    return Status::OK();
+    return OkStatus();
   } else {
     return ReadVarint64Fallback(result);
   }

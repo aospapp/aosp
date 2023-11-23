@@ -16,6 +16,9 @@
 
 package dagger.internal.codegen.javapoet;
 
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
+
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeSpec;
@@ -31,12 +34,28 @@ public final class TypeSpecs {
    * @return {@code typeBuilder}
    */
   @CanIgnoreReturnValue
+  public static TypeSpec.Builder addSupertype(
+      TypeSpec.Builder typeBuilder, XTypeElement supertype) {
+    return addSupertype(typeBuilder, toJavac(supertype));
+  }
+
+  /**
+   * If {@code supertype} is a class, adds it as a superclass for {@code typeBuilder}; if it is an
+   * interface, adds it as a superinterface.
+   *
+   * @return {@code typeBuilder}
+   */
+  @CanIgnoreReturnValue
   public static TypeSpec.Builder addSupertype(TypeSpec.Builder typeBuilder, TypeElement supertype) {
     switch (supertype.getKind()) {
       case CLASS:
-        return typeBuilder.superclass(ClassName.get(supertype));
+        return typeBuilder
+            .superclass(ClassName.get(supertype))
+            .avoidClashesWithNestedClasses(supertype);
       case INTERFACE:
-        return typeBuilder.addSuperinterface(ClassName.get(supertype));
+        return typeBuilder
+            .addSuperinterface(ClassName.get(supertype))
+            .avoidClashesWithNestedClasses(supertype);
       default:
         throw new AssertionError(supertype + " is neither a class nor an interface.");
     }

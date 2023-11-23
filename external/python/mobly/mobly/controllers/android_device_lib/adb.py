@@ -29,14 +29,15 @@ ADB_PORT_LOCK = threading.Lock()
 
 # Number of attempts to execute "adb root", and seconds for interval time of
 # this commands.
-ADB_ROOT_RETRY_ATTMEPTS = 3
+ADB_ROOT_RETRY_ATTEMPTS = 3
 ADB_ROOT_RETRY_ATTEMPT_INTERVAL_SEC = 10
 
 # Qualified class name of the default instrumentation test runner.
 DEFAULT_INSTRUMENTATION_RUNNER = 'com.android.common.support.test.runner.AndroidJUnitRunner'
 
-# Adb getprop call should never take too long.
-DEFAULT_GETPROP_TIMEOUT_SEC = 5
+# `adb shell getprop` can take surprisingly long, when the device is a
+# networked virtual device.
+DEFAULT_GETPROP_TIMEOUT_SEC = 10
 DEFAULT_GETPROPS_ATTEMPTS = 3
 DEFAULT_GETPROPS_RETRY_SLEEP_SEC = 1
 
@@ -290,7 +291,8 @@ class AdbProxy:
     out = self._exec_cmd(adb_cmd, shell=shell, timeout=timeout, stderr=stderr)
     return out
 
-  def _execute_adb_and_process_stdout(self, name, args, shell, handler) -> bytes:
+  def _execute_adb_and_process_stdout(self, name, args, shell,
+                                      handler) -> bytes:
     adb_cmd = self._construct_adb_cmd(name, args, shell=shell)
     err = self._execute_and_process_stdout(adb_cmd,
                                            shell=shell,
@@ -367,21 +369,22 @@ class AdbProxy:
                      ret_code=0)
     return stdout
 
-  def getprop(self, prop_name):
+  def getprop(self, prop_name, timeout=DEFAULT_GETPROP_TIMEOUT_SEC):
     """Get a property of the device.
 
     This is a convenience wrapper for `adb shell getprop xxx`.
 
     Args:
       prop_name: A string that is the name of the property to get.
+      timeout: float, the number of seconds to wait before timing out.
+          If not specified, the DEFAULT_GETPROP_TIMEOUT_SEC is used.
 
     Returns:
       A string that is the value of the property, or None if the property
       doesn't exist.
     """
-    return self.shell(
-        ['getprop', prop_name],
-        timeout=DEFAULT_GETPROP_TIMEOUT_SEC).decode('utf-8').strip()
+    return self.shell(['getprop', prop_name],
+                      timeout=timeout).decode('utf-8').strip()
 
   def getprops(self, prop_names):
     """Get multiple properties of the device.
@@ -439,7 +442,11 @@ class AdbProxy:
                                 timeout=None,
                                 stderr=None)
 
-  def instrument(self, package, options=None, runner=None, handler=None) -> bytes:
+  def instrument(self,
+                 package,
+                 options=None,
+                 runner=None,
+                 handler=None) -> bytes:
     """Runs an instrumentation command on the device.
 
     This is a convenience wrapper to avoid parameter formatting.
@@ -510,7 +517,8 @@ class AdbProxy:
     Raises:
       AdbError: If the command exit code is not 0.
     """
-    for attempt in range(ADB_ROOT_RETRY_ATTMEPTS):
+    retry_interval = ADB_ROOT_RETRY_ATTEMPT_INTERVAL_SEC
+    for attempt in range(ADB_ROOT_RETRY_ATTEMPTS):
       try:
         return self._exec_adb_cmd('root',
                                   args=None,
@@ -518,12 +526,13 @@ class AdbProxy:
                                   timeout=None,
                                   stderr=None)
       except AdbError as e:
-        if attempt + 1 < ADB_ROOT_RETRY_ATTMEPTS:
+        if attempt + 1 < ADB_ROOT_RETRY_ATTEMPTS:
           logging.debug('Retry the command "%s" since Error "%s" occurred.' %
                         (utils.cli_cmd_to_string(
                             e.cmd), e.stderr.decode('utf-8').strip()))
           # Buffer between "adb root" commands.
-          time.sleep(ADB_ROOT_RETRY_ATTEMPT_INTERVAL_SEC)
+          time.sleep(retry_interval)
+          retry_interval *= 2
         else:
           raise e
 

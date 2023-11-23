@@ -1,4 +1,5 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -42,7 +43,12 @@ CONFIG['CONTROLFILE_WRITE_EXTRA'] = False
 _COLLECT = 'tradefed-run-collect-tests-only-internal'
 _PUBLIC_COLLECT = 'tradefed-run-collect-tests-only'
 
-CONFIG['LAB_DEPENDENCY'] = {'x86': ['cts_abi_x86'], 'arm': ['cts_abi_arm']}
+CONFIG['LAB_DEPENDENCY'] = {
+        'arm': ['cts_abi_arm'],
+        'arm64': ['cts_abi_arm'],
+        'x86': ['cts_abi_x86'],
+        'x86_64': ['cts_abi_x86'],
+}
 
 CONFIG['CTS_JOB_RETRIES_IN_PUBLIC'] = 1
 CONFIG['CTS_QUAL_RETRIES'] = 9

@@ -15,11 +15,12 @@
 
 #include <array>
 #include <cstddef>
-#include <span>
+#include <limits>
 
 #include "pw_assert/assert.h"
 #include "pw_bytes/span.h"
 #include "pw_result/result.h"
+#include "pw_span/span.h"
 #include "pw_status/status.h"
 #include "pw_status/status_with_size.h"
 
@@ -107,7 +108,7 @@ class Stream {
     return result.status();
   }
   Result<ByteSpan> Read(void* dest, size_t size_bytes) {
-    return Read(std::span(static_cast<std::byte*>(dest), size_bytes));
+    return Read(span(static_cast<std::byte*>(dest), size_bytes));
   }
 
   // Writes data to this stream. Data is not guaranteed to be fully written out
@@ -144,7 +145,7 @@ class Stream {
     return DoWrite(data);
   }
   Status Write(const void* data, size_t size_bytes) {
-    return Write(std::span(static_cast<const std::byte*>(data), size_bytes));
+    return Write(span(static_cast<const std::byte*>(data), size_bytes));
   }
   Status Write(const std::byte b) { return Write(&b, 1); }
 
@@ -172,7 +173,7 @@ class Stream {
   //
   // Streams that support seeking from the beginning always support Tell().
   // Other streams may or may not support Tell().
-  size_t Tell() const { return DoTell(); }
+  size_t Tell() { return DoTell(); }
 
   // Liklely (not guaranteed) minimum bytes available to read at this time.
   // This number is advisory and not guaranteed to read full number of requested
@@ -250,7 +251,7 @@ class Stream {
 
   virtual Status DoSeek(ptrdiff_t offset, Whence origin) = 0;
 
-  virtual size_t DoTell() const { return kUnknownPosition; }
+  virtual size_t DoTell() { return kUnknownPosition; }
 
   virtual size_t ConservativeLimit(LimitType limit_type) const {
     if (limit_type == LimitType::kRead) {

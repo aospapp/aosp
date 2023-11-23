@@ -8,7 +8,7 @@
     <typedef-decl name='a_t' type-id='bd54fe1a' id='40acc204'/>
     <typedef-decl name='b_t' type-id='bd54fe1a' id='b3d2db81'/>
     <pointer-type-def type-id='40acc204' size-in-bits='64' alignment-in-bits='64' id='c6fd4117'/>
-    <var-decl name='a' type-id='c6fd4117' mangled-name='a' visibility='default'/>
-    <var-decl name='ignore2' type-id='b3d2db81' mangled-name='ignore2' visibility='default'/>
+    <var-decl name='a' type-id='c6fd4117' mangled-name='a' visibility='default' elf-symbol-id='a'/>
+    <var-decl name='ignore2' type-id='b3d2db81' mangled-name='ignore2' visibility='default' elf-symbol-id='ignore2'/>
   </abi-instr>
 </abi-corpus>

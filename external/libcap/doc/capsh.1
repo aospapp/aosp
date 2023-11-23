@@ -1,4 +1,4 @@
-.TH CAPSH 1 "2020-10-27" "libcap 2" "User Commands"
+.TH CAPSH 1 "2021-07-01" "libcap 2" "User Commands"
 .SH NAME
 capsh \- capability shell wrapper
 .SH SYNOPSIS
@@ -21,6 +21,9 @@ Display the list of commands supported by
 .B \-\-print
 Display prevailing capability and related state.
 .TP
+.B \-\-current
+Display prevailing capability state, 1e capabilities and IAB vector.
+.TP
 .BI \-\- " [args]"
 Execute
 .B /bin/bash
@@ -40,7 +43,7 @@ was found via the shell's PATH searching. If the
 occurs after a
 .BI \-\-chroot= /some/path
 argument the PATH located binary may not be resolve to the same binary
-as that running initially. This behavior is an intented feature as it
+as that running initially. This behavior is an intended feature as it
 can complete the chroot transition.
 .TP
 .BI \-\-caps= cap-set
@@ -214,6 +217,16 @@ If the exit status does not match the signal being used to kill it, the
 .B capsh
 program exits with status 1.
 .TP
+.BI \-\-explain= cap_xxx
+Give a brief textual description of what privileges the specified
+capability makes available to a running program. Note, instead of
+\fIcap_xxx\fP, one can provide a decimal number and \fBcapsh\fP will
+look up the corresponding capability's description.
+.TP
+.BI \-\-suggest= phrase
+Scan each of the textual descriptions of capabilities, known to
+\fBcapsh\fP, and display all descriptions that include \fIphrase\fP.
+.TP
 .BI \-\-decode= N
 This is a convenience feature. If you look at
 .B /proc/1/status
@@ -266,6 +279,11 @@ vector has capability
 .B xxx
 raised.
 .TP
+.BI \-\-iab= xxx
+Attempts to set the IAB tuple of inheritable capability vectors.
+The text conventions used for \fIxxx\fP are those of
+.BR cap_iab_from_text (3).
+.TP
 .BI \-\-addamb= xxx
 Adds the specified ambient capability to the running process.
 .TP
@@ -290,6 +308,8 @@ https://bugzilla.kernel.org/buglist.cgi?component=libcap&list_id=1047723&product
 .SH "SEE ALSO"
 .BR libcap (3),
 .BR getcap (8),
-.BR setcap (8)
+.BR setcap (8),
+.BR cap_from_text (3),
+.BR cap_iab (3)
 and
 .BR capabilities (7).

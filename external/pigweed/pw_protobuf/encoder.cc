@@ -14,23 +14,31 @@
 
 #include "pw_protobuf/encoder.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstring>
-#include <span>
+#include <optional>
 
 #include "pw_assert/check.h"
 #include "pw_bytes/span.h"
+#include "pw_protobuf/internal/codegen.h"
 #include "pw_protobuf/serialized_size.h"
+#include "pw_protobuf/stream_decoder.h"
 #include "pw_protobuf/wire_format.h"
+#include "pw_span/span.h"
 #include "pw_status/status.h"
 #include "pw_status/try.h"
 #include "pw_stream/memory_stream.h"
 #include "pw_stream/stream.h"
+#include "pw_string/string.h"
 #include "pw_varint/varint.h"
 
 namespace pw::protobuf {
 
-StreamEncoder StreamEncoder::GetNestedEncoder(uint32_t field_number) {
+using internal::VarintType;
+
+StreamEncoder StreamEncoder::GetNestedEncoder(uint32_t field_number,
+                                              bool write_when_empty) {
   PW_CHECK(!nested_encoder_open());
   PW_CHECK(ValidFieldNumber(field_number));
 
@@ -57,10 +65,10 @@ StreamEncoder StreamEncoder::GetNestedEncoder(uint32_t field_number) {
   } else {
     nested_buffer = ByteSpan();
   }
-  return StreamEncoder(*this, nested_buffer);
+  return StreamEncoder(*this, nested_buffer, write_when_empty);
 }
 
-StreamEncoder::~StreamEncoder() {
+void StreamEncoder::CloseEncoder() {
   // If this was an invalidated StreamEncoder which cannot be used, permit the
   // object to be cleanly destructed by doing nothing.
   if (nested_field_number_ == kFirstReservedNumber) {
@@ -104,6 +112,10 @@ void StreamEncoder::CloseNestedMessage(StreamEncoder& nested) {
     return;
   }
 
+  if (!nested.memory_writer_.bytes_written() && !nested.write_when_empty_) {
+    return;
+  }
+
   status_ = WriteLengthDelimitedField(temp_field_number,
                                       nested.memory_writer_.WrittenData());
 }
@@ -113,7 +125,7 @@ Status StreamEncoder::WriteVarintField(uint32_t field_number, uint64_t value) {
       field_number, WireType::kVarint, varint::EncodedSize(value)));
 
   WriteVarint(FieldKey(field_number, WireType::kVarint))
-      .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+      .IgnoreError();  // TODO(b/242598609): Handle Status properly
   return WriteVarint(value);
 }
 
@@ -168,7 +180,7 @@ Status StreamEncoder::WriteFixed(uint32_t field_number, ConstByteSpan data) {
   PW_TRY(UpdateStatusForWrite(field_number, type, data.size()));
 
   WriteVarint(FieldKey(field_number, type))
-      .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+      .IgnoreError();  // TODO(b/242598609): Handle Status properly
   if (Status status = writer_.Write(data); !status.ok()) {
     status_ = status;
   }
@@ -176,7 +188,7 @@ Status StreamEncoder::WriteFixed(uint32_t field_number, ConstByteSpan data) {
 }
 
 Status StreamEncoder::WritePackedFixed(uint32_t field_number,
-                                       std::span<const std::byte> values,
+                                       span<const std::byte> values,
                                        size_t elem_size) {
   if (values.empty()) {
     return status_;
@@ -188,21 +200,21 @@ Status StreamEncoder::WritePackedFixed(uint32_t field_number,
   PW_TRY(UpdateStatusForWrite(
       field_number, WireType::kDelimited, values.size_bytes()));
   WriteVarint(FieldKey(field_number, WireType::kDelimited))
-      .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+      .IgnoreError();  // TODO(b/242598609): Handle Status properly
   WriteVarint(values.size_bytes())
-      .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+      .IgnoreError();  // TODO(b/242598609): Handle Status properly
 
   for (auto val_start = values.begin(); val_start != values.end();
        val_start += elem_size) {
     // Allocates 8 bytes so both 4-byte and 8-byte types can be encoded as
     // little-endian for serialization.
     std::array<std::byte, sizeof(uint64_t)> data;
-    if (std::endian::native == std::endian::little) {
+    if (endian::native == endian::little) {
       std::copy(val_start, val_start + elem_size, std::begin(data));
     } else {
       std::reverse_copy(val_start, val_start + elem_size, std::begin(data));
     }
-    status_.Update(writer_.Write(std::span(data).first(elem_size)));
+    status_.Update(writer_.Write(span(data).first(elem_size)));
     PW_TRY(status_);
   }
   return status_;
@@ -224,6 +236,325 @@ Status StreamEncoder::UpdateStatusForWrite(uint32_t field_number,
 
   if (field_size.value() > writer_.ConservativeWriteLimit()) {
     status_ = Status::ResourceExhausted();
+  }
+
+  return status_;
+}
+
+Status StreamEncoder::Write(span<const std::byte> message,
+                            span<const internal::MessageField> table) {
+  PW_CHECK(!nested_encoder_open());
+  PW_TRY(status_);
+
+  for (const auto& field : table) {
+    // Calculate the span of bytes corresponding to the structure field to
+    // read from.
+    const auto values =
+        message.subspan(field.field_offset(), field.field_size());
+    PW_CHECK(values.begin() >= message.begin() &&
+             values.end() <= message.end());
+
+    // If the field is using callbacks, interpret the input field accordingly
+    // and allow the caller to provide custom handling.
+    if (field.use_callback()) {
+      const Callback<StreamEncoder, StreamDecoder>* callback =
+          reinterpret_cast<const Callback<StreamEncoder, StreamDecoder>*>(
+              values.data());
+      PW_TRY(callback->Encode(*this));
+      continue;
+    }
+
+    switch (field.wire_type()) {
+      case WireType::kFixed64:
+      case WireType::kFixed32: {
+        // Fixed fields call WriteFixed() for singular case and
+        // WritePackedFixed() for repeated fields.
+        PW_CHECK(field.elem_size() == (field.wire_type() == WireType::kFixed32
+                                           ? sizeof(uint32_t)
+                                           : sizeof(uint64_t)),
+                 "Mismatched message field type and size");
+        if (field.is_fixed_size()) {
+          PW_CHECK(field.is_repeated(), "Non-repeated fixed size field");
+          if (static_cast<size_t>(
+                  std::count(values.begin(), values.end(), std::byte{0})) <
+              values.size()) {
+            PW_TRY(WritePackedFixed(
+                field.field_number(), values, field.elem_size()));
+          }
+        } else if (field.is_repeated()) {
+          // The struct member for this field is a vector of a type
+          // corresponding to the field element size. Cast to the correct
+          // vector type so we're not performing type aliasing (except for
+          // unsigned vs signed which is explicitly allowed).
+          if (field.elem_size() == sizeof(uint64_t)) {
+            const auto* vector =
+                reinterpret_cast<const pw::Vector<const uint64_t>*>(
+                    values.data());
+            if (!vector->empty()) {
+              PW_TRY(WritePackedFixed(
+                  field.field_number(),
+                  as_bytes(span(vector->data(), vector->size())),
+                  field.elem_size()));
+            }
+          } else if (field.elem_size() == sizeof(uint32_t)) {
+            const auto* vector =
+                reinterpret_cast<const pw::Vector<const uint32_t>*>(
+                    values.data());
+            if (!vector->empty()) {
+              PW_TRY(WritePackedFixed(
+                  field.field_number(),
+                  as_bytes(span(vector->data(), vector->size())),
+                  field.elem_size()));
+            }
+          }
+        } else if (field.is_optional()) {
+          // The struct member for this field is a std::optional of a type
+          // corresponding to the field element size. Cast to the correct
+          // optional type so we're not performing type aliasing (except for
+          // unsigned vs signed which is explicitly allowed), and write from
+          // a temporary.
+          if (field.elem_size() == sizeof(uint64_t)) {
+            const auto* optional =
+                reinterpret_cast<const std::optional<uint64_t>*>(values.data());
+            if (optional->has_value()) {
+              uint64_t value = optional->value();
+              PW_TRY(
+                  WriteFixed(field.field_number(), as_bytes(span(&value, 1))));
+            }
+          } else if (field.elem_size() == sizeof(uint32_t)) {
+            const auto* optional =
+                reinterpret_cast<const std::optional<uint32_t>*>(values.data());
+            if (optional->has_value()) {
+              uint32_t value = optional->value();
+              PW_TRY(
+                  WriteFixed(field.field_number(), as_bytes(span(&value, 1))));
+            }
+          }
+        } else {
+          PW_CHECK(values.size() == field.elem_size(),
+                   "Mismatched message field type and size");
+          if (static_cast<size_t>(
+                  std::count(values.begin(), values.end(), std::byte{0})) <
+              values.size()) {
+            PW_TRY(WriteFixed(field.field_number(), values));
+          }
+        }
+        break;
+      }
+      case WireType::kVarint: {
+        // Varint fields call WriteVarintField() for singular case and
+        // WritePackedVarints() for repeated fields.
+        PW_CHECK(field.elem_size() == sizeof(uint64_t) ||
+                     field.elem_size() == sizeof(uint32_t) ||
+                     field.elem_size() == sizeof(bool),
+                 "Mismatched message field type and size");
+        if (field.is_fixed_size()) {
+          // The struct member for this field is an array of type corresponding
+          // to the field element size. Cast to a span of the correct type over
+          // the array so we're not performing type aliasing (except for
+          // unsigned vs signed which is explicitly allowed).
+          PW_CHECK(field.is_repeated(), "Non-repeated fixed size field");
+          if (static_cast<size_t>(
+                  std::count(values.begin(), values.end(), std::byte{0})) ==
+              values.size()) {
+            continue;
+          }
+          if (field.elem_size() == sizeof(uint64_t)) {
+            PW_TRY(WritePackedVarints(
+                field.field_number(),
+                span(reinterpret_cast<const uint64_t*>(values.data()),
+                     values.size() / field.elem_size()),
+                field.varint_type()));
+          } else if (field.elem_size() == sizeof(uint32_t)) {
+            PW_TRY(WritePackedVarints(
+                field.field_number(),
+                span(reinterpret_cast<const uint32_t*>(values.data()),
+                     values.size() / field.elem_size()),
+                field.varint_type()));
+          } else if (field.elem_size() == sizeof(bool)) {
+            static_assert(sizeof(bool) == sizeof(uint8_t),
+                          "bool must be same size as uint8_t");
+            PW_TRY(WritePackedVarints(
+                field.field_number(),
+                span(reinterpret_cast<const uint8_t*>(values.data()),
+                     values.size() / field.elem_size()),
+                field.varint_type()));
+          }
+        } else if (field.is_repeated()) {
+          // The struct member for this field is a vector of a type
+          // corresponding to the field element size. Cast to the correct
+          // vector type so we're not performing type aliasing (except for
+          // unsigned vs signed which is explicitly allowed).
+          if (field.elem_size() == sizeof(uint64_t)) {
+            const auto* vector =
+                reinterpret_cast<const pw::Vector<const uint64_t>*>(
+                    values.data());
+            if (!vector->empty()) {
+              PW_TRY(WritePackedVarints(field.field_number(),
+                                        span(vector->data(), vector->size()),
+                                        field.varint_type()));
+            }
+          } else if (field.elem_size() == sizeof(uint32_t)) {
+            const auto* vector =
+                reinterpret_cast<const pw::Vector<const uint32_t>*>(
+                    values.data());
+            if (!vector->empty()) {
+              PW_TRY(WritePackedVarints(field.field_number(),
+                                        span(vector->data(), vector->size()),
+                                        field.varint_type()));
+            }
+          } else if (field.elem_size() == sizeof(bool)) {
+            static_assert(sizeof(bool) == sizeof(uint8_t),
+                          "bool must be same size as uint8_t");
+            const auto* vector =
+                reinterpret_cast<const pw::Vector<const uint8_t>*>(
+                    values.data());
+            if (!vector->empty()) {
+              PW_TRY(WritePackedVarints(field.field_number(),
+                                        span(vector->data(), vector->size()),
+                                        field.varint_type()));
+            }
+          }
+        } else if (field.is_optional()) {
+          // The struct member for this field is a std::optional of a type
+          // corresponding to the field element size. Cast to the correct
+          // optional type so we're not performing type aliasing (except for
+          // unsigned vs signed which is explicitly allowed), and write from
+          // a temporary.
+          uint64_t value = 0;
+          if (field.elem_size() == sizeof(uint64_t)) {
+            if (field.varint_type() == VarintType::kUnsigned) {
+              const auto* optional =
+                  reinterpret_cast<const std::optional<uint64_t>*>(
+                      values.data());
+              if (!optional->has_value()) {
+                continue;
+              }
+              value = optional->value();
+            } else {
+              const auto* optional =
+                  reinterpret_cast<const std::optional<int64_t>*>(
+                      values.data());
+              if (!optional->has_value()) {
+                continue;
+              }
+              value = field.varint_type() == VarintType::kZigZag
+                          ? varint::ZigZagEncode(optional->value())
+                          : optional->value();
+            }
+          } else if (field.elem_size() == sizeof(uint32_t)) {
+            if (field.varint_type() == VarintType::kUnsigned) {
+              const auto* optional =
+                  reinterpret_cast<const std::optional<uint32_t>*>(
+                      values.data());
+              if (!optional->has_value()) {
+                continue;
+              }
+              value = optional->value();
+            } else {
+              const auto* optional =
+                  reinterpret_cast<const std::optional<int32_t>*>(
+                      values.data());
+              if (!optional->has_value()) {
+                continue;
+              }
+              value = field.varint_type() == VarintType::kZigZag
+                          ? varint::ZigZagEncode(optional->value())
+                          : optional->value();
+            }
+          } else if (field.elem_size() == sizeof(bool)) {
+            const auto* optional =
+                reinterpret_cast<const std::optional<bool>*>(values.data());
+            if (!optional->has_value()) {
+              continue;
+            }
+            value = optional->value();
+          }
+          PW_TRY(WriteVarintField(field.field_number(), value));
+        } else {
+          // The struct member for this field is a scalar of a type
+          // corresponding to the field element size. Cast to the correct
+          // type to retrieve the value before passing to WriteVarintField()
+          // so we're not performing type aliasing (except for unsigned vs
+          // signed which is explicitly allowed).
+          PW_CHECK(values.size() == field.elem_size(),
+                   "Mismatched message field type and size");
+          uint64_t value = 0;
+          if (field.elem_size() == sizeof(uint64_t)) {
+            if (field.varint_type() == VarintType::kZigZag) {
+              value = varint::ZigZagEncode(
+                  *reinterpret_cast<const int64_t*>(values.data()));
+            } else if (field.varint_type() == VarintType::kNormal) {
+              value = *reinterpret_cast<const int64_t*>(values.data());
+            } else {
+              value = *reinterpret_cast<const uint64_t*>(values.data());
+            }
+            if (!value) {
+              continue;
+            }
+          } else if (field.elem_size() == sizeof(uint32_t)) {
+            if (field.varint_type() == VarintType::kZigZag) {
+              value = varint::ZigZagEncode(
+                  *reinterpret_cast<const int32_t*>(values.data()));
+            } else if (field.varint_type() == VarintType::kNormal) {
+              value = *reinterpret_cast<const int32_t*>(values.data());
+            } else {
+              value = *reinterpret_cast<const uint32_t*>(values.data());
+            }
+            if (!value) {
+              continue;
+            }
+          } else if (field.elem_size() == sizeof(bool)) {
+            value = *reinterpret_cast<const bool*>(values.data());
+            if (!value) {
+              continue;
+            }
+          }
+          PW_TRY(WriteVarintField(field.field_number(), value));
+        }
+        break;
+      }
+      case WireType::kDelimited: {
+        // Delimited fields are always a singular case because of the
+        // inability to cast to a generic vector with an element of a certain
+        // size (we always need a type).
+        PW_CHECK(!field.is_repeated(),
+                 "Repeated delimited messages always require a callback");
+        if (field.nested_message_fields()) {
+          // Nested Message. Struct member is an embedded struct for the
+          // nested field. Obtain a nested encoder and recursively call Write()
+          // using the fields table pointer from this field.
+          auto nested_encoder = GetNestedEncoder(field.field_number(),
+                                                 /*write_when_empty=*/false);
+          PW_TRY(nested_encoder.Write(values, *field.nested_message_fields()));
+        } else if (field.is_fixed_size()) {
+          // Fixed-length bytes field. Struct member is a std::array<std::byte>.
+          // Call WriteLengthDelimitedField() to output it to the stream.
+          PW_CHECK(field.elem_size() == sizeof(std::byte),
+                   "Mismatched message field type and size");
+          if (static_cast<size_t>(
+                  std::count(values.begin(), values.end(), std::byte{0})) <
+              values.size()) {
+            PW_TRY(WriteLengthDelimitedField(field.field_number(), values));
+          }
+        } else {
+          // bytes or string field with a maximum size. Struct member is
+          // pw::Vector<std::byte> for bytes or pw::InlineString<> for string.
+          // Use the contents as a span and call WriteLengthDelimitedField() to
+          // output it to the stream.
+          PW_CHECK(field.elem_size() == sizeof(std::byte),
+                   "Mismatched message field type and size");
+          if (field.is_string()) {
+            PW_TRY(WriteStringOrBytes<const InlineString<>>(
+                field.field_number(), values.data()));
+          } else {
+            PW_TRY(WriteStringOrBytes<const Vector<const std::byte>>(
+                field.field_number(), values.data()));
+          }
+        }
+        break;
+      }
+    }
   }
 
   return status_;

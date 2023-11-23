@@ -12,7 +12,7 @@ import java.io.IOException;
 
 class CircleShapeParser {
 
-  private static JsonReader.Options NAMES = JsonReader.Options.of(
+  private static final JsonReader.Options NAMES = JsonReader.Options.of(
       "nm",
       "p",
       "s",
@@ -20,7 +20,8 @@ class CircleShapeParser {
       "d"
   );
 
-  private CircleShapeParser() {}
+  private CircleShapeParser() {
+  }
 
   static CircleShape parse(
       JsonReader reader, LottieComposition composition, int d) throws IOException {

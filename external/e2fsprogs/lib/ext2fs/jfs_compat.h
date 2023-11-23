@@ -7,11 +7,7 @@
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
-#ifdef HAVE_WINSOCK_H
-#include <winsock.h>
-#else
 #include <arpa/inet.h>
-#endif
 #include <stdbool.h>
 
 #define printk printf
@@ -51,12 +47,6 @@ typedef unsigned int gfp_t;
 typedef __u64 u64;
 #define put_bh(x)	brelse(x)
 
-static inline __u32 jbd2_chksum(journal_t *j EXT2FS_ATTR((unused)),
-				__u32 crc, const void *address,
-				unsigned int length)
-{
-	return ext2fs_crc32c_le(crc, address, length);
-}
 #define crc32_be(x, y, z)	ext2fs_crc32_be((x), (y), (z))
 #define spin_lock_init(x)
 #define spin_lock(x)
@@ -67,7 +57,7 @@ static inline __u32 jbd2_chksum(journal_t *j EXT2FS_ATTR((unused)),
                 sizeof(struct __struct), __alignof__(struct __struct),\
                 (__flags), NULL)
 
-#define blkdev_issue_flush(kdev, a)	sync_blockdev(kdev)
+#define blkdev_issue_flush(kdev)	sync_blockdev(kdev)
 #define is_power_of_2(x)	((x) != 0 && (((x) & ((x) - 1)) == 0))
 #define pr_emerg(fmt)
 #define pr_err(...)

@@ -90,6 +90,9 @@
 #include "abg-dwarf-reader.h"
 #include "abg-reader.h"
 #include "abg-writer.h"
+#ifdef WITH_CTF
+#include "abg-ctf-reader.h"
+#endif
 
 using std::cout;
 using std::cerr;
@@ -202,6 +205,10 @@ public:
   bool		fail_if_no_debug_info;
   bool		show_identical_binaries;
   bool		self_check;
+#ifdef WITH_CTF
+  bool		use_ctf;
+#endif
+
   vector<string> kabi_whitelist_packages;
   vector<string> suppression_paths;
   vector<string> kabi_whitelist_paths;
@@ -240,6 +247,10 @@ public:
       fail_if_no_debug_info(),
       show_identical_binaries(),
       self_check()
+#ifdef WITH_CTF
+      ,
+      use_ctf()
+#endif
   {
     // set num_workers to the default number of threads of the
     // underlying maching.  This is the default value for the number
@@ -879,6 +890,9 @@ display_usage(const string& prog_name, ostream& out)
     << " --verbose                      emit verbose progress messages\n"
     << " --self-check                   perform a sanity check by comparing "
     "binaries inside the input package against their ABIXML representation\n"
+#ifdef WITH_CTF
+    << " --ctf                          use CTF instead of DWARF in ELF files\n"
+#endif
     << " --help|-h                      display this help message\n"
     << " --version|-v                   display program version information"
     " and exit\n";
@@ -1302,15 +1316,32 @@ compare(const elf_file& elf1,
       << " ...\n";
 
   corpus_sptr corpus1;
+#ifdef WITH_CTF
+  abigail::ctf_reader::read_context_sptr ctxt_ctf;
+#endif
+  read_context_sptr ctxt_dwarf;
   {
-    read_context_sptr c =
-      create_read_context(elf1.path, di_dirs1, env.get(),
-			  /*load_all_types=*/opts.show_all_types);
-    add_read_context_suppressions(*c, priv_types_supprs1);
-    if (!opts.kabi_suppressions.empty())
-      add_read_context_suppressions(*c, opts.kabi_suppressions);
+#ifdef WITH_CTF
+    if (opts.use_ctf)
+      {
+        ctxt_ctf = abigail::ctf_reader::create_read_context(elf1.path,
+							    di_dirs1,
+                                                            env.get());
+        ABG_ASSERT(ctxt_ctf);
+        corpus1 = abigail::ctf_reader::read_corpus(ctxt_ctf.get(),
+                                                   c1_status);
+      }
+    else
+#endif
+      {
+        ctxt_dwarf = create_read_context(elf1.path, di_dirs1, env.get(),
+                                         /*load_all_types=*/opts.show_all_types);
+        add_read_context_suppressions(*ctxt_dwarf, priv_types_supprs1);
+        if (!opts.kabi_suppressions.empty())
+          add_read_context_suppressions(*ctxt_dwarf, opts.kabi_suppressions);
 
-    corpus1 = read_corpus_from_elf(*c, c1_status);
+        corpus1 = read_corpus_from_elf(*ctxt_dwarf, c1_status);
+      }
 
     bool bail_out = false;
     if (!(c1_status & abigail::elf_reader::STATUS_OK))
@@ -1356,7 +1387,13 @@ compare(const elf_file& elf1,
 	    emit_prefix("abipkgdiff", cerr)
 	      << "Could not find alternate debug info file";
 	    string alt_di_path;
-	    abigail::dwarf_reader::refers_to_alt_debug_info(*c, alt_di_path);
+#ifdef WITH_CTF
+            if (opts.use_ctf)
+              ;
+            else
+#endif
+              abigail::dwarf_reader::refers_to_alt_debug_info(*ctxt_dwarf,
+                                                              alt_di_path);
 	    if (!alt_di_path.empty())
 	      cerr << ": " << alt_di_path << "\n";
 	    else
@@ -1389,15 +1426,27 @@ compare(const elf_file& elf1,
 
   corpus_sptr corpus2;
   {
-    read_context_sptr c =
-      create_read_context(elf2.path, di_dirs2, env.get(),
-			  /*load_all_types=*/opts.show_all_types);
-    add_read_context_suppressions(*c, priv_types_supprs2);
+#ifdef WITH_CTF
+    if (opts.use_ctf)
+      {
+        ctxt_ctf = abigail::ctf_reader::create_read_context(elf2.path,
+							    di_dirs2,
+							    env.get());
+        corpus2 = abigail::ctf_reader::read_corpus(ctxt_ctf.get(),
+                                                   c2_status);
+      }
+    else
+#endif
+      {
+        ctxt_dwarf = create_read_context(elf2.path, di_dirs2, env.get(),
+                                         /*load_all_types=*/opts.show_all_types);
+        add_read_context_suppressions(*ctxt_dwarf, priv_types_supprs2);
 
-    if (!opts.kabi_suppressions.empty())
-      add_read_context_suppressions(*c, opts.kabi_suppressions);
+        if (!opts.kabi_suppressions.empty())
+          add_read_context_suppressions(*ctxt_dwarf, opts.kabi_suppressions);
 
-    corpus2 = read_corpus_from_elf(*c, c2_status);
+        corpus2 = read_corpus_from_elf(*ctxt_dwarf, c2_status);
+      }
 
     bool bail_out = false;
     if (!(c2_status & abigail::elf_reader::STATUS_OK))
@@ -1443,7 +1492,13 @@ compare(const elf_file& elf1,
 	    emit_prefix("abipkgdiff", cerr)
 	      << "Could not find alternate debug info file";
 	    string alt_di_path;
-	    abigail::dwarf_reader::refers_to_alt_debug_info(*c, alt_di_path);
+#ifdef WITH_CTF
+            if (opts.use_ctf)
+              ;
+            else
+#endif
+              abigail::dwarf_reader::refers_to_alt_debug_info(*ctxt_dwarf,
+                                                              alt_di_path);
 	    if (!alt_di_path.empty())
 	      cerr << ": " << alt_di_path << "\n";
 	    else
@@ -1540,12 +1595,30 @@ compare_to_self(const elf_file& elf,
       << " ...\n";
 
   corpus_sptr corp;
+#ifdef WITH_CTF
+  abigail::ctf_reader::read_context_sptr ctxt_ctf;
+#endif
+  read_context_sptr ctxt_dwarf;
   {
-    read_context_sptr c =
-      create_read_context(elf.path, di_dirs, env.get(),
-			  /*read_all_types=*/opts.show_all_types);
+#ifdef WITH_CTF
+    if (opts.use_ctf)
+      {
+        ctxt_ctf = abigail::ctf_reader::create_read_context(elf.path,
+							    di_dirs,
+                                                            env.get());
+        ABG_ASSERT(ctxt_ctf);
+        corp = abigail::ctf_reader::read_corpus(ctxt_ctf.get(),
+                                                   c_status);
+      }
+    else
+#endif
+      {
+        ctxt_dwarf =
+         create_read_context(elf.path, di_dirs, env.get(),
+                             /*read_all_types=*/opts.show_all_types);
 
-    corp = read_corpus_from_elf(*c, c_status);
+        corp = read_corpus_from_elf(*ctxt_dwarf, c_status);
+      }
 
     if (!(c_status & abigail::elf_reader::STATUS_OK))
       {
@@ -3332,6 +3405,10 @@ parse_command_line(int argc, char* argv[], options& opts)
 	    (make_path_absolute(argv[j]).get());
 	  ++i;
 	}
+#ifdef WITH_CTF
+	else if (!strcmp(argv[i], "--ctf"))
+          opts.use_ctf = true;
+#endif
       else if (!strcmp(argv[i], "--help")
 	       || !strcmp(argv[i], "-h"))
         {

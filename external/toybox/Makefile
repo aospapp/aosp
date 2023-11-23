@@ -18,7 +18,7 @@ toybox generated/unstripped/toybox: $(KCONFIG_CONFIG) *.[ch] lib/*.[ch] toys/*/*
 
 .PHONY: clean distclean baseline bloatcheck install install_flat \
 	uninstall uninstall_flat tests help change \
-	list list_working list_pending root run_root
+	list list_example list_pending root run_root
 .SUFFIXES: # Disable legacy behavior
 
 include kconfig/Makefile
@@ -73,14 +73,14 @@ distclean: clean root_clean
 	@rm -f toybox* .config* .singlemake
 	@echo removed .config
 
-tests:
+tests: toybox
 	scripts/test.sh
 
 root:
-	scripts/mkroot.sh $(MAKEFLAGS)
+	mkroot/mkroot.sh $(MAKEFLAGS)
 
 run_root:
-	cd root/"$${CROSS:-host}" && ./qemu-*.sh
+	cd root/"$${CROSS:-host}" && ./run-qemu.sh
 
 help::
 	@cat scripts/help.txt

@@ -11,6 +11,7 @@ TEST_TYPE = 'Server'
 DEPENDENCIES = 'servo_state:WORKING'
 ATTRIBUTES = 'suite:bvt-tast-informational'
 MAX_RESULT_SIZE_KB = 1024 * 1024
+PY_VERSION = 3
 JOB_RETRIES = 0  # Do not retry informational tests.
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.

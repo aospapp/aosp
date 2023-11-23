@@ -10,7 +10,8 @@
 
 #if !defined(OPENSSL_NO_ASM)
 #if defined(__aarch64__)
-#include <GFp/arm_arch.h>
+#include "ring_core_generated/prefix_symbols_asm.h"
+#include <ring-core/arm_arch.h>
 
 .section	.rodata
 
@@ -187,11 +188,11 @@ _vpaes_encrypt_core:
 	ret
 .size	_vpaes_encrypt_core,.-_vpaes_encrypt_core
 
-.globl	GFp_vpaes_encrypt
-.hidden	GFp_vpaes_encrypt
-.type	GFp_vpaes_encrypt,%function
+.globl	vpaes_encrypt
+.hidden	vpaes_encrypt
+.type	vpaes_encrypt,%function
 .align	4
-GFp_vpaes_encrypt:
+vpaes_encrypt:
 	AARCH64_SIGN_LINK_REGISTER
 	stp	x29,x30,[sp,#-16]!
 	add	x29,sp,#0
@@ -204,7 +205,7 @@ GFp_vpaes_encrypt:
 	ldp	x29,x30,[sp],#16
 	AARCH64_VALIDATE_LINK_REGISTER
 	ret
-.size	GFp_vpaes_encrypt,.-GFp_vpaes_encrypt
+.size	vpaes_encrypt,.-vpaes_encrypt
 
 .type	_vpaes_encrypt_2x,%function
 .align	4
@@ -662,17 +663,17 @@ _vpaes_schedule_mangle:
 
 .Lschedule_mangle_both:
 	tbl	v3.16b, {v3.16b}, v1.16b	// vpshufb	%xmm1,	%xmm3,	%xmm3
-	add	x8, x8, #64-16			// add	$-16,	%r8
+	add	x8, x8, #48			// add	$-16,	%r8
 	and	x8, x8, #~(1<<6)		// and	$0x30,	%r8
 	st1	{v3.2d}, [x2]			// vmovdqu	%xmm3,	(%rdx)
 	ret
 .size	_vpaes_schedule_mangle,.-_vpaes_schedule_mangle
 
-.globl	GFp_vpaes_set_encrypt_key
-.hidden	GFp_vpaes_set_encrypt_key
-.type	GFp_vpaes_set_encrypt_key,%function
+.globl	vpaes_set_encrypt_key
+.hidden	vpaes_set_encrypt_key
+.type	vpaes_set_encrypt_key,%function
 .align	4
-GFp_vpaes_set_encrypt_key:
+vpaes_set_encrypt_key:
 	AARCH64_SIGN_LINK_REGISTER
 	stp	x29,x30,[sp,#-16]!
 	add	x29,sp,#0
@@ -691,12 +692,12 @@ GFp_vpaes_set_encrypt_key:
 	ldp	x29,x30,[sp],#16
 	AARCH64_VALIDATE_LINK_REGISTER
 	ret
-.size	GFp_vpaes_set_encrypt_key,.-GFp_vpaes_set_encrypt_key
-.globl	GFp_vpaes_ctr32_encrypt_blocks
-.hidden	GFp_vpaes_ctr32_encrypt_blocks
-.type	GFp_vpaes_ctr32_encrypt_blocks,%function
+.size	vpaes_set_encrypt_key,.-vpaes_set_encrypt_key
+.globl	vpaes_ctr32_encrypt_blocks
+.hidden	vpaes_ctr32_encrypt_blocks
+.type	vpaes_ctr32_encrypt_blocks,%function
 .align	4
-GFp_vpaes_ctr32_encrypt_blocks:
+vpaes_ctr32_encrypt_blocks:
 	AARCH64_SIGN_LINK_REGISTER
 	stp	x29,x30,[sp,#-16]!
 	add	x29,sp,#0
@@ -767,7 +768,7 @@ GFp_vpaes_ctr32_encrypt_blocks:
 	ldp	x29,x30,[sp],#16
 	AARCH64_VALIDATE_LINK_REGISTER
 	ret
-.size	GFp_vpaes_ctr32_encrypt_blocks,.-GFp_vpaes_ctr32_encrypt_blocks
+.size	vpaes_ctr32_encrypt_blocks,.-vpaes_ctr32_encrypt_blocks
 #endif
 #endif  // !OPENSSL_NO_ASM
 .section	.note.GNU-stack,"",%progbits

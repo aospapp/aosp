@@ -28,7 +28,7 @@
 
 #define FORMAT_CASE(...)                  \
   pw::string::Format(buffer, __VA_ARGS__) \
-      .IgnoreError()  // TODO(pwbug/387): Handle Status properly
+      .IgnoreError()  // TODO(b/242598609): Handle Status properly
 
 #else  // std::snprintf
 
@@ -49,7 +49,7 @@ volatile unsigned get_size;
 
 void OutputStringsToBuffer() {
 #if USE_FORMAT
-  auto buffer = std::span(get_buffer_1, get_size);
+  auto buffer = span(get_buffer_1, get_size);
 #else
   char* buffer = get_buffer_1;
   unsigned buffer_size = get_size;

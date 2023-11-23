@@ -1,18 +1,20 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 //! Definition of the trait `Device` that each backend video device must implement.
 
-use base::{PollToken, WaitContext};
+use base::EventToken;
+use base::WaitContext;
 
 use crate::virtio::video::async_cmd_desc_map::AsyncCmdDescMap;
-use crate::virtio::video::command::{QueueType, VideoCmd};
+use crate::virtio::video::command::QueueType;
+use crate::virtio::video::command::VideoCmd;
 use crate::virtio::video::error::*;
 use crate::virtio::video::event::VideoEvt;
 use crate::virtio::video::response;
 
-#[derive(PollToken, Debug)]
+#[derive(EventToken, Debug)]
 pub enum Token {
     CmdQueue,
     EventQueue,
@@ -95,7 +97,7 @@ pub trait Device {
     /// If the command expects a synchronous response, it returns a response as `VideoCmdResponseType::Sync`.
     /// Otherwise, it returns a name of the descriptor chain that will be used when a response is prepared.
     /// Implementations of this method is passed a WaitContext object which can be used to add or remove
-    /// FDs to poll. It is expected that only Token::Event items would be added. When a Token::Event
+    /// descriptors to wait on. It is expected that only Token::Event items would be added. When a Token::Event
     /// event arrives, process_event() will be invoked.
     /// TODO(b/149720783): Make this an async function.
     fn process_cmd(

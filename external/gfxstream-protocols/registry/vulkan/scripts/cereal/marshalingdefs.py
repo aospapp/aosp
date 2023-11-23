@@ -332,8 +332,6 @@ KNOWN_FUNCTION_OPCODES = {
     "vkCmdSetCheckpointNV": 20315,
     "vkGetQueueCheckpointDataNV": 20316,
     "vkMapMemoryIntoAddressSpaceGOOGLE": 20317,
-    "vkRegisterImageColorBufferGOOGLE": 20318,
-    "vkRegisterBufferColorBufferGOOGLE": 20319,
     "vkUpdateDescriptorSetWithTemplateSizedGOOGLE": 20320,
     "vkBeginCommandBufferAsyncGOOGLE": 20321,
     "vkEndCommandBufferAsyncGOOGLE": 20322,
@@ -355,6 +353,7 @@ KNOWN_FUNCTION_OPCODES = {
     "vkUseIOSurfaceMVK": 20338,
     "vkGetIOSurfaceMVK": 20339,
     "vkQueueFlushCommandsGOOGLE": 20340,
+    "vkGetBlobGOOGLE": 20341,
 }
 
 CUSTOM_MARSHAL_TYPES = {

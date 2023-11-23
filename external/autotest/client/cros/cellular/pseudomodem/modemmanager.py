@@ -5,8 +5,8 @@
 import dbus
 import dbus.service
 
-import dbus_std_ifaces
-import pm_errors
+from . import dbus_std_ifaces
+from . import pm_errors
 import utils
 
 from autotest_lib.client.cros.cellular import mm1_constants

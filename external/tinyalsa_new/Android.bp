@@ -52,14 +52,16 @@ cc_library {
         bionic: {
             system_shared_libs: ["libc", "libdl"],
         },
-    },
-
-    sanitize: {
-        integer_overflow: true,
-        misc_undefined: ["bounds"],
-        diag: {
-            integer_overflow: true,
-            misc_undefined: ["bounds"],
+        android: {
+            // TODO(b/263841853): check linking error for host
+            sanitize: {
+                integer_overflow: true,
+                misc_undefined: ["bounds"],
+                diag: {
+                    integer_overflow: true,
+                    misc_undefined: ["bounds"],
+                },
+            },
         },
     },
 }

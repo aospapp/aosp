@@ -14,5 +14,6 @@ PURPOSE = 'Client side test of the update_engine backoff mechanism.'
 TEST_CLASS = 'platform'
 TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 job.run_test('autoupdate_Backoff')

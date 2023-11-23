@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -395,3 +396,18 @@ MM_SMS_VALIDITY_TYPE_UNKNOWN = 0
 MM_SMS_VALIDITY_TYPE_RELATIVE = 1
 MM_SMS_VALIDITY_TYPE_ABSOLUTE = 2
 MM_SMS_VALIDITY_TYPE_ENHANCED = 3
+
+# enum MMSimEsimStatus
+MM_SIM_ESIM_STATUS_UNKNOWN = 0
+MM_SIM_ESIM_STATUS_NO_PROFILES = 1
+MM_SIM_ESIM_STATUS_WITH_PROFILES = 2
+
+MM_INHIBIT_PROCESSING_TIME = 30
+MM_REPROBE_PROCESSING_TIME = 90
+MM_UNINHIBIT_PROCESSING_TIME = MM_INHIBIT_PROCESSING_TIME
+
+# D-Bus path for empty sim slots
+MM_EMPTY_SLOT_PATH = '/'
+
+# Wait times for modem at Modemmanager operations
+MM_MODEM_POLL_TIME = 60

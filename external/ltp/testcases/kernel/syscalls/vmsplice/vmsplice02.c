@@ -18,9 +18,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/uio.h>
 #include <limits.h>
 
@@ -105,5 +103,4 @@ static struct tst_test test = {
 		"nfs",
 		NULL
 	},
-	.min_kver = "2.6.17",
 };

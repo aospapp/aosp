@@ -143,6 +143,12 @@ struct fuse_forget_data {
 #define FUSE_SET_ATTR_CTIME	(1 << 10)
 
 /* ----------------------------------------------------------- *
+ * structs from fuse_kernel.h                                  *
+ * ----------------------------------------------------------- */
+struct fuse_entry_out;
+struct fuse_entry_bpf_out;
+
+/* ----------------------------------------------------------- *
  * Request methods and replies				       *
  * ----------------------------------------------------------- */
 
@@ -217,6 +223,25 @@ struct fuse_lowlevel_ops {
 	 * @param name the name to look up
 	 */
 	void (*lookup) (fuse_req_t req, fuse_ino_t parent, const char *name);
+
+	/**
+	 * post filter a lookup
+	 *
+	 * Valid replies:
+	 *   fuse_reply_entry
+	 *   fuse_reply_err
+	 *
+	 * @param req request handle
+	 * @param parent inode number of the parent directory
+	 * @param error_in the error, or 0, of the lookup
+	 * @param name the name that was looked up
+	 * @param feo the fuse entry out struct from the lookup
+	 * @param febo the fuse entry bpf out struct from the lookup
+	 */
+	void (*lookup_postfilter)(fuse_req_t req, fuse_ino_t parent,
+								uint32_t error_in, const char *name,
+								struct fuse_entry_out *feo,
+								struct fuse_entry_bpf_out *febo);
 
 	/**
 	 * Forget about an inode
@@ -741,6 +766,27 @@ struct fuse_lowlevel_ops {
 	 */
 	void (*readdir) (fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
 			 struct fuse_file_info *fi);
+
+	/**
+	 * Read directory postfilter
+	 *
+	 * Valid replies:
+	 *   fuse_reply_buf
+	 *   fuse_reply_data
+	 *   fuse_reply_err
+	 *
+	 * @param req request handle
+	 * @param ino the inode number
+	 * @param error_in the error from the readdir
+	 * @param off_in offset to continue reading the directory stream before backing
+	 * @param off_out offset to continue reading the directory stream after backing
+	 * @param size_out length in bytes of dirents
+	 * @param dirents array of dirents read by backing
+	 * @param fi file information
+	 */
+	void (*readdirpostfilter)(fuse_req_t req, fuse_ino_t ino, uint32_t error_in,
+								off_t off_in, off_t off_out, size_t size_out,
+								const void *dirents, struct fuse_file_info *fi);
 
 	/**
 	 * Release an open directory

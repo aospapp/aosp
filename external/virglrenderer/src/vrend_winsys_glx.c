@@ -100,7 +100,7 @@ void virgl_glx_destroy_context(struct virgl_glx *d, virgl_renderer_gl_context vi
 
 int virgl_glx_make_context_current(struct virgl_glx *d, virgl_renderer_gl_context virglctx)
 {
-   return glXMakeContextCurrent(d->display, d->pbuffer, d->pbuffer, virglctx);
+   return glXMakeContextCurrent(d->display, d->pbuffer, d->pbuffer, virglctx) ? 0 : -1;
 }
 
 uint32_t virgl_glx_query_video_memory(struct virgl_glx *d)

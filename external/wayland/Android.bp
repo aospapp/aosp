@@ -83,7 +83,7 @@ genrule {
     name: "wayland_core_protocol_sources_static",
     cmd: "$(location wayland_scanner) -s private-code < $(in) > $(out)",
     srcs: [":wayland_core_protocol"],
-    out: ["wayland-protocol.c"],
+    out: ["wayland-protocol-private.c"],
     tools: ["wayland_scanner"],
 }
 
@@ -92,7 +92,7 @@ genrule {
     name: "wayland_core_protocol_sources_shared",
     cmd: "$(location wayland_scanner) -s public-code < $(in) > $(out)",
     srcs: [":wayland_core_protocol"],
-    out: ["wayland-protocol.c"],
+    out: ["wayland-protocol-public.c"],
     tools: ["wayland_scanner"],
 }
 
@@ -148,12 +148,6 @@ cc_library_host_shared {
     name: "libwayland_client",
     defaults: ["libwayland_client_defaults"],
     generated_sources: ["wayland_core_protocol_sources_shared"],
-    target: {
-        linux_glibc_x86: {
-            // libffi broken on x86, see b/162610242
-            enabled: false,
-        },
-    },
 }
 
 // Build wayland_server

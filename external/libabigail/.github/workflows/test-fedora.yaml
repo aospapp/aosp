@@ -1,0 +1,65 @@
+name: Libabigail ABI Diff Checks
+on:
+  pull_request: []
+
+jobs:
+  abi:
+    runs-on: ubuntu-latest
+    container: ghcr.io/woodard/libabigail
+    strategy:
+      fail-fast: false
+      matrix:
+
+        # Pairs of path and install command
+        libs: [["/lib64/libabigail.so", "libabigail"],
+               ["/lib64/libadwaitaqtpriv.so", "libadwaita-qt5"],
+               ["/lib64/libaspell.so", "aspell"],
+               ["/lib64/libboost_log.so", "boost-log"],
+               ["/lib64/libclucene-core.so", "clucene-core"],
+               ["/lib64/libdap.so", "libdap"],
+               ["/lib64/libdcerpc-samr.so", "samba-libs"],
+               ["/lib64/libdjvulibre.so", "djvulibre-libs"],
+               ["/lib64/dovecot/libdovecot-storage.so", "dovecot"],
+               ["/lib64/libexiv2.so", "exiv2-libs"],
+               ["/lib64/libgdal.so", "gdal-libs"],
+               ["/lib64/libgeos.so", "geos"],
+               ["/lib64/libglibmm-2.4.so", "glibmm24"],
+               ["/lib64/mozilla/plugins/gmp-gmpopenh264/system-installed/libgmpopenh264.so", "mozilla-openh264"],
+               ["/lib64/libhdf5_cpp.so", "hdf5"],
+               ["/lib64/libicui18n.so", "libicu67"],
+               ["/lib64/libicui18n.so", "libicu"],
+               ["/lib64/libicuuc.so", "libicu67"],
+               ["/lib64/libicuuc.so", "libicu"],
+               ["/lib64/dyninst/libinstructionAPI.so", "dyninst"],
+               ["/lib64/libjavascriptcoregtk-4.0.so", "webkit2gtk3-jsc"],
+               ["/lib64/libjxl.so", "libjxl"],
+               ["/lib64/libkmldom.so", "libkml"],
+               ["/lib64/libmusicbrainz5.so", "libmusicbrainz5"],
+               ["/lib64/libOpenEXRUtil-3_1.so", "openexr-libs"],
+               ["/lib64/libopenh264.so", "openh264"],
+               ["/lib64/libOSMesa.so", "mesa-libOSMesa"],
+               ["/lib64/libproj.so", "proj"],
+               ["/lib64/libQt5WaylandClient.so", "qt5-qtwayland"],
+               ["/lib64/libQt5WaylandCompositor.so", "qt5-qtwayland"],
+               ["/lib64/libQt5XmlPatterns.so", "qt5-qtxmlpatterns"],
+               ["/lib64/libSDL2_image-2.0.so", "SDL2_image"],
+               ["/lib64/libstdc++.so", "libstdc++"],
+               ["/lib64/libtag.so", "taglib"],
+               ["/lib64/libreoffice/program/libuno_cppuhelpergcc3.so", "libreoffice-ure"],
+               ["/lib64/libvtkRenderingCore.so", "vtk"],
+               ["/lib64/libwebrtc_audio_processing.so", "webrtc-audio-processing"]]
+    steps:
+    - name: Install Library
+      env:
+        lib: ${{ matrix.libs[1] }}
+      run: dnf install -y ${lib} findutils
+
+    - name: Run abidw abidiff
+      env:
+        libpath: ${{ matrix.libs[0] }}
+      run: |
+        for name in $(find -type f $libpath*); do
+          printf "abidw --abidiff ${name}\n"
+          abidw --abidiff ${name}
+          echo $?
+        done

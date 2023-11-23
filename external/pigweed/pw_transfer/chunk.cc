@@ -1,4 +1,4 @@
-// Copyright 2021 The Pigweed Authors
+// Copyright 2022 The Pigweed Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
 // use this file except in compliance with the License. You may obtain a copy of
@@ -14,143 +14,337 @@
 
 #include "pw_transfer/internal/chunk.h"
 
+#include "pw_assert/check.h"
 #include "pw_protobuf/decoder.h"
+#include "pw_protobuf/serialized_size.h"
 #include "pw_status/try.h"
-#include "pw_transfer/transfer.pwpb.h"
 
 namespace pw::transfer::internal {
 
-namespace ProtoChunk = transfer::Chunk;
+namespace ProtoChunk = transfer::pwpb::Chunk;
 
-Result<uint32_t> ExtractTransferId(ConstByteSpan message) {
+Result<Chunk::Identifier> Chunk::ExtractIdentifier(ConstByteSpan message) {
   protobuf::Decoder decoder(message);
+
+  uint32_t session_id = 0;
+  uint32_t resource_id = 0;
 
   while (decoder.Next().ok()) {
     ProtoChunk::Fields field =
         static_cast<ProtoChunk::Fields>(decoder.FieldNumber());
 
-    switch (field) {
-      case ProtoChunk::Fields::TRANSFER_ID: {
-        uint32_t transfer_id;
-        PW_TRY(decoder.ReadUint32(&transfer_id));
-        return transfer_id;
+    if (field == ProtoChunk::Fields::kTransferId) {
+      // Interpret a legacy transfer_id field as a session ID if an explicit
+      // session_id field has not already been seen.
+      if (session_id == 0) {
+        PW_TRY(decoder.ReadUint32(&session_id));
       }
-
-      default:
-        continue;
+    } else if (field == ProtoChunk::Fields::kSessionId) {
+      // A session_id field always takes precedence over transfer_id.
+      PW_TRY(decoder.ReadUint32(&session_id));
+    } else if (field == ProtoChunk::Fields::kResourceId) {
+      PW_TRY(decoder.ReadUint32(&resource_id));
     }
+  }
+
+  // Always prioritize a resource_id if one is set. Resource IDs should only be
+  // set in cases where the transfer session ID has not yet been negotiated.
+  if (resource_id != 0) {
+    return Identifier::Resource(resource_id);
+  }
+
+  if (session_id != 0) {
+    return Identifier::Session(session_id);
   }
 
   return Status::DataLoss();
 }
 
-Status DecodeChunk(ConstByteSpan message, Chunk& chunk) {
+Result<Chunk> Chunk::Parse(ConstByteSpan message) {
   protobuf::Decoder decoder(message);
   Status status;
   uint32_t value;
 
-  chunk = {};
+  Chunk chunk;
+
+  // Determine the protocol version of the chunk depending on field presence in
+  // the serialized message.
+  chunk.protocol_version_ = ProtocolVersion::kUnknown;
+
+  // Some older versions of the protocol set the deprecated pending_bytes field
+  // in their chunks. The newer transfer handling code does not process this
+  // field, instead working only in terms of window_end_offset. If pending_bytes
+  // is encountered in the serialized message, save its value, then calculate
+  // window_end_offset from it once parsing is complete.
+  uint32_t pending_bytes = 0;
 
   while ((status = decoder.Next()).ok()) {
     ProtoChunk::Fields field =
         static_cast<ProtoChunk::Fields>(decoder.FieldNumber());
 
     switch (field) {
-      case ProtoChunk::Fields::TRANSFER_ID:
-        PW_TRY(decoder.ReadUint32(&chunk.transfer_id));
+      case ProtoChunk::Fields::kTransferId:
+        // transfer_id is a legacy field. session_id will always take precedence
+        // over it, so it should only be read if session_id has not yet been
+        // encountered.
+        if (chunk.session_id_ == 0) {
+          PW_TRY(decoder.ReadUint32(&chunk.session_id_));
+        }
         break;
 
-      case ProtoChunk::Fields::PENDING_BYTES:
+      case ProtoChunk::Fields::kSessionId:
+        // The existence of a session_id field indicates that a newer protocol
+        // is running. Update the deduced protocol unless it was explicitly
+        // specified.
+        if (chunk.protocol_version_ == ProtocolVersion::kUnknown) {
+          chunk.protocol_version_ = ProtocolVersion::kVersionTwo;
+        }
+
+        PW_TRY(decoder.ReadUint32(&chunk.session_id_));
+        break;
+
+      case ProtoChunk::Fields::kPendingBytes:
+        PW_TRY(decoder.ReadUint32(&pending_bytes));
+        break;
+
+      case ProtoChunk::Fields::kMaxChunkSizeBytes:
         PW_TRY(decoder.ReadUint32(&value));
-        chunk.pending_bytes = value;
+        chunk.set_max_chunk_size_bytes(value);
         break;
 
-      case ProtoChunk::Fields::MAX_CHUNK_SIZE_BYTES:
+      case ProtoChunk::Fields::kMinDelayMicroseconds:
         PW_TRY(decoder.ReadUint32(&value));
-        chunk.max_chunk_size_bytes = value;
+        chunk.set_min_delay_microseconds(value);
         break;
 
-      case ProtoChunk::Fields::MIN_DELAY_MICROSECONDS:
-        PW_TRY(decoder.ReadUint32(&value));
-        chunk.min_delay_microseconds = value;
+      case ProtoChunk::Fields::kOffset:
+        PW_TRY(decoder.ReadUint32(&chunk.offset_));
         break;
 
-      case ProtoChunk::Fields::OFFSET:
-        PW_TRY(decoder.ReadUint32(&chunk.offset));
+      case ProtoChunk::Fields::kData:
+        PW_TRY(decoder.ReadBytes(&chunk.payload_));
         break;
 
-      case ProtoChunk::Fields::DATA:
-        PW_TRY(decoder.ReadBytes(&chunk.data));
-        break;
-
-      case ProtoChunk::Fields::REMAINING_BYTES: {
-        uint64_t remaining;
-        PW_TRY(decoder.ReadUint64(&remaining));
-        chunk.remaining_bytes = remaining;
+      case ProtoChunk::Fields::kRemainingBytes: {
+        uint64_t remaining_bytes;
+        PW_TRY(decoder.ReadUint64(&remaining_bytes));
+        chunk.set_remaining_bytes(remaining_bytes);
         break;
       }
 
-      case ProtoChunk::Fields::STATUS:
+      case ProtoChunk::Fields::kStatus:
         PW_TRY(decoder.ReadUint32(&value));
-        chunk.status = static_cast<Status::Code>(value);
+        chunk.set_status(static_cast<Status::Code>(value));
         break;
 
-      case ProtoChunk::Fields::WINDOW_END_OFFSET:
-        PW_TRY(decoder.ReadUint32(&chunk.window_end_offset));
+      case ProtoChunk::Fields::kWindowEndOffset:
+        PW_TRY(decoder.ReadUint32(&chunk.window_end_offset_));
         break;
 
-      case ProtoChunk::Fields::TYPE: {
+      case ProtoChunk::Fields::kType: {
         uint32_t type;
         PW_TRY(decoder.ReadUint32(&type));
-        chunk.type = static_cast<Chunk::Type>(type);
+        chunk.type_ = static_cast<Chunk::Type>(type);
         break;
       }
+
+      case ProtoChunk::Fields::kResourceId:
+        PW_TRY(decoder.ReadUint32(&value));
+        chunk.set_resource_id(value);
+        break;
+
+      case ProtoChunk::Fields::kProtocolVersion:
+        // The protocol_version field is added as part of the initial handshake
+        // starting from version 2. If provided, it should override any deduced
+        // protocol version.
+        PW_TRY(decoder.ReadUint32(&value));
+        if (!ValidProtocolVersion(value)) {
+          return Status::DataLoss();
+        }
+        chunk.protocol_version_ = static_cast<ProtocolVersion>(value);
+        break;
+
+        // Silently ignore any unrecognized fields.
     }
   }
 
-  return status.IsOutOfRange() ? OkStatus() : status;
+  if (chunk.protocol_version_ == ProtocolVersion::kUnknown) {
+    // If no fields in the chunk specified its protocol version, assume it is a
+    // legacy chunk.
+    chunk.protocol_version_ = ProtocolVersion::kLegacy;
+  }
+
+  if (pending_bytes != 0) {
+    // Compute window_end_offset if it isn't explicitly provided (in older
+    // protocol versions).
+    chunk.set_window_end_offset(chunk.offset() + pending_bytes);
+  }
+
+  if (status.ok() || status.IsOutOfRange()) {
+    return chunk;
+  }
+
+  return status;
 }
 
-Result<ConstByteSpan> EncodeChunk(const Chunk& chunk, ByteSpan buffer) {
+Result<ConstByteSpan> Chunk::Encode(ByteSpan buffer) const {
+  PW_CHECK(protocol_version_ != ProtocolVersion::kUnknown,
+           "Cannot encode a transfer chunk with an unknown protocol version");
+
   ProtoChunk::MemoryEncoder encoder(buffer);
 
-  encoder.WriteTransferId(chunk.transfer_id).IgnoreError();
-
-  if (chunk.window_end_offset != 0) {
-    encoder.WriteWindowEndOffset(chunk.window_end_offset).IgnoreError();
+  // Write the payload first to avoid clobbering it if it shares the same buffer
+  // as the encode buffer.
+  if (has_payload()) {
+    encoder.WriteData(payload_).IgnoreError();
   }
 
-  if (chunk.pending_bytes.has_value()) {
-    encoder.WritePendingBytes(chunk.pending_bytes.value()).IgnoreError();
-  }
-  if (chunk.max_chunk_size_bytes.has_value()) {
-    encoder.WriteMaxChunkSizeBytes(chunk.max_chunk_size_bytes.value())
-        .IgnoreError();
-  }
-  if (chunk.min_delay_microseconds.has_value()) {
-    encoder.WriteMinDelayMicroseconds(chunk.min_delay_microseconds.value())
-        .IgnoreError();
-  }
-  if (chunk.offset != 0) {
-    encoder.WriteOffset(chunk.offset).IgnoreError();
-  }
-  if (!chunk.data.empty()) {
-    encoder.WriteData(chunk.data).IgnoreError();
-  }
-  if (chunk.remaining_bytes.has_value()) {
-    encoder.WriteRemainingBytes(chunk.remaining_bytes.value()).IgnoreError();
-  }
-  if (chunk.status.has_value()) {
-    encoder.WriteStatus(chunk.status.value().code()).IgnoreError();
+  if (protocol_version_ >= ProtocolVersion::kVersionTwo) {
+    if (session_id_ != 0) {
+      encoder.WriteSessionId(session_id_).IgnoreError();
+    }
+
+    if (resource_id_.has_value()) {
+      encoder.WriteResourceId(resource_id_.value()).IgnoreError();
+    }
   }
 
-  if (chunk.type.has_value()) {
-    encoder.WriteType(static_cast<ProtoChunk::Type>(chunk.type.value()))
+  // During the initial handshake, the chunk's configured protocol version is
+  // explicitly serialized to the wire.
+  if (IsInitialHandshakeChunk()) {
+    encoder.WriteProtocolVersion(static_cast<uint32_t>(protocol_version_))
         .IgnoreError();
+  }
+
+  if (type_.has_value()) {
+    encoder.WriteType(static_cast<ProtoChunk::Type>(type_.value()))
+        .IgnoreError();
+  }
+
+  if (window_end_offset_ != 0) {
+    encoder.WriteWindowEndOffset(window_end_offset_).IgnoreError();
+  }
+
+  // Encode additional fields from the legacy protocol.
+  if (ShouldEncodeLegacyFields()) {
+    // The legacy protocol uses the transfer_id field instead of session_id or
+    // resource_id.
+    if (resource_id_.has_value()) {
+      encoder.WriteTransferId(resource_id_.value()).IgnoreError();
+    } else {
+      encoder.WriteTransferId(session_id_).IgnoreError();
+    }
+
+    // In the legacy protocol, the pending_bytes field must be set alongside
+    // window_end_offset, as some transfer implementations require it.
+    if (window_end_offset_ != 0) {
+      encoder.WritePendingBytes(window_end_offset_ - offset_).IgnoreError();
+    }
+  }
+
+  if (max_chunk_size_bytes_.has_value()) {
+    encoder.WriteMaxChunkSizeBytes(max_chunk_size_bytes_.value()).IgnoreError();
+  }
+  if (min_delay_microseconds_.has_value()) {
+    encoder.WriteMinDelayMicroseconds(min_delay_microseconds_.value())
+        .IgnoreError();
+  }
+
+  if (offset_ != 0) {
+    encoder.WriteOffset(offset_).IgnoreError();
+  }
+
+  if (remaining_bytes_.has_value()) {
+    encoder.WriteRemainingBytes(remaining_bytes_.value()).IgnoreError();
+  }
+
+  if (status_.has_value()) {
+    encoder.WriteStatus(status_.value().code()).IgnoreError();
   }
 
   PW_TRY(encoder.status());
   return ConstByteSpan(encoder);
+}
+
+size_t Chunk::EncodedSize() const {
+  size_t size = 0;
+
+  if (session_id_ != 0) {
+    if (protocol_version_ >= ProtocolVersion::kVersionTwo) {
+      size += protobuf::SizeOfVarintField(ProtoChunk::Fields::kSessionId,
+                                          session_id_);
+    }
+
+    if (ShouldEncodeLegacyFields()) {
+      if (resource_id_.has_value()) {
+        size += protobuf::SizeOfVarintField(ProtoChunk::Fields::kTransferId,
+                                            resource_id_.value());
+      } else {
+        size += protobuf::SizeOfVarintField(ProtoChunk::Fields::kTransferId,
+                                            session_id_);
+      }
+    }
+  }
+
+  if (IsInitialHandshakeChunk()) {
+    size +=
+        protobuf::SizeOfVarintField(ProtoChunk::Fields::kProtocolVersion,
+                                    static_cast<uint32_t>(protocol_version_));
+  }
+
+  if (protocol_version_ >= ProtocolVersion::kVersionTwo) {
+    if (resource_id_.has_value()) {
+      size += protobuf::SizeOfVarintField(ProtoChunk::Fields::kResourceId,
+                                          resource_id_.value());
+    }
+  }
+
+  if (offset_ != 0) {
+    size += protobuf::SizeOfVarintField(ProtoChunk::Fields::kOffset, offset_);
+  }
+
+  if (window_end_offset_ != 0) {
+    size += protobuf::SizeOfVarintField(ProtoChunk::Fields::kWindowEndOffset,
+                                        window_end_offset_);
+
+    if (ShouldEncodeLegacyFields()) {
+      size += protobuf::SizeOfVarintField(ProtoChunk::Fields::kPendingBytes,
+                                          window_end_offset_ - offset_);
+    }
+  }
+
+  if (type_.has_value()) {
+    size += protobuf::SizeOfVarintField(ProtoChunk::Fields::kType,
+                                        static_cast<uint32_t>(type_.value()));
+  }
+
+  if (has_payload()) {
+    size += protobuf::SizeOfDelimitedField(ProtoChunk::Fields::kData,
+                                           payload_.size());
+  }
+
+  if (max_chunk_size_bytes_.has_value()) {
+    size += protobuf::SizeOfVarintField(ProtoChunk::Fields::kMaxChunkSizeBytes,
+                                        max_chunk_size_bytes_.value());
+  }
+
+  if (min_delay_microseconds_.has_value()) {
+    size +=
+        protobuf::SizeOfVarintField(ProtoChunk::Fields::kMinDelayMicroseconds,
+                                    min_delay_microseconds_.value());
+  }
+
+  if (remaining_bytes_.has_value()) {
+    size += protobuf::SizeOfVarintField(ProtoChunk::Fields::kRemainingBytes,
+                                        remaining_bytes_.value());
+  }
+
+  if (status_.has_value()) {
+    size += protobuf::SizeOfVarintField(ProtoChunk::Fields::kStatus,
+                                        status_.value().code());
+  }
+
+  return size;
 }
 
 }  // namespace pw::transfer::internal

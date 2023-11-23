@@ -35,7 +35,11 @@
 
     <item name="sud_glif_template" type="layout">@layout/sud_glif_template_compact</item>
 
+    <item name="sud_glif_embedded_template" type="layout">@layout/sud_glif_embedded_template_compact</item>
+
     <item name="sud_glif_list_template" type="layout">@layout/sud_glif_list_template_compact</item>
+
+    <item name="sud_glif_list_embedded_template" type="layout">@layout/sud_glif_list_embedded_template_compact</item>
 
     <!-- Ignore UnusedResources: can be used by clients -->
     <item name="sud_glif_blank_template" type="layout" tools:ignore="UnusedResources">@layout/sud_glif_blank_template_compact</item>
@@ -51,5 +55,7 @@
     <!-- Ignore UnusedResources: can be used by clients -->
 
     <item name="sud_glif_preference_template" type="layout">@layout/sud_glif_blank_template_compact</item>
+    <item name="sud_glif_preference_embedded_template" type="layout">@layout/sud_glif_blank_embedded_template_compact</item>
     <item name="sud_glif_recycler_template" type="layout">@layout/sud_glif_recycler_template_compact</item>
+    <item name="sud_glif_recycler_embedded_template" type="layout">@layout/sud_glif_recycler_embedded_template_compact</item>
 </resources>

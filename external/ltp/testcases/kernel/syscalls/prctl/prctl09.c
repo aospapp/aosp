@@ -4,9 +4,10 @@
  * Author: Yang Xu <xuyang2018.jy@cn.fujitsu.com>
  */
 
-/*
- * Test Description:
- *  This is a timer sample test that timer slack is 200us.
+/*\
+ * [Description]
+ *
+ * This is a timer sample test that timer slack is 200us.
  */
 
 #include <errno.h>
@@ -14,7 +15,7 @@
 #include "lapi/prctl.h"
 #include "tst_timer_test.h"
 
-int sample_fn(int clk_id, long long usec)
+static int sample_fn(int clk_id, long long usec)
 {
 	struct timespec t = tst_timespec_from_us(usec);
 

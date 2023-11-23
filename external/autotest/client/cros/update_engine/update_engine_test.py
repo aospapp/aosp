@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,7 +6,7 @@
 import logging
 import shutil
 import time
-import urlparse
+import six.moves.urllib.parse
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
@@ -97,17 +98,16 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
             raise error.TestFail('Disabling the internet connection failed.')
 
 
-    def _disconnect_reconnect_network_test(self, update_url,
-                                          time_without_network=120,
-                                          accepted_movement=0.015):
+    def _disconnect_reconnect_network_test(self,
+                                           time_without_network=25,
+                                           accepted_movement=0.015,
+                                           ping_server='google.com'):
         """
         Disconnects the network for a period of time, verifies that the update
         pauses, reconnects the network, and ensures that the update picks up
         from where it left off. This will be used as a part of
         autoupdate_ForcedOOBEUpdate.interrupt and autoupdate_Interruptions.
 
-        @param update_url: The update url used by the test. We will ping it to
-                           check whether we are online/offline.
         @param time_without_network: Duration of the network disconnection in
                                      seconds.
         @param accepted_movement: Acceptable movement of update_engine
@@ -115,17 +115,17 @@ class UpdateEngineTest(test.test, update_engine_util.UpdateEngineUtil):
                                   Sometimes when network is disabled
                                   update_engine progress will move a little,
                                   which can cause false positives.
+        @param ping_server: The server to ping to check we are online.
 
         """
         logging.info('Starting network interruption check.')
         if self._is_update_finished_downloading():
             raise error.TestFail('The update has already finished before we '
                                  'can disconnect network.')
-        self._update_server = urlparse.urlparse(update_url).hostname
         self._disable_internet()
 
         # Check that we are offline.
-        result = utils.ping(self._update_server, deadline=5, timeout=5)
+        result = utils.ping(ping_server, deadline=5, timeout=5)
         if result != 2:
             raise error.TestFail('Ping succeeded even though we were offline.')
 

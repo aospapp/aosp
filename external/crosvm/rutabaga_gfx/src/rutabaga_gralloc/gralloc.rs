@@ -1,4 +1,4 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,17 +7,18 @@
 
 use std::collections::BTreeMap as Map;
 
-use base::{round_up_to_page_size, MappedRegion};
+#[cfg(feature = "vulkano")]
+use log::error;
 
 use crate::rutabaga_gralloc::formats::*;
-use crate::rutabaga_gralloc::system_gralloc::SystemGralloc;
-use crate::rutabaga_utils::*;
-
 #[cfg(feature = "minigbm")]
 use crate::rutabaga_gralloc::minigbm::MinigbmDevice;
-
+use crate::rutabaga_gralloc::system_gralloc::SystemGralloc;
 #[cfg(feature = "vulkano")]
 use crate::rutabaga_gralloc::vulkano_gralloc::VulkanoGralloc;
+use crate::rutabaga_os::round_up_to_page_size;
+use crate::rutabaga_os::MappedRegion;
+use crate::rutabaga_utils::*;
 
 /*
  * Rutabaga gralloc flags are copied from minigbm, but redundant legacy flags are left out.
@@ -166,7 +167,7 @@ pub struct ImageMemoryRequirements {
 ///
 ///   (1) Get memory requirements for a given allocation request.
 ///   (2) Allocate using those requirements.
-pub trait Gralloc {
+pub trait Gralloc: Send {
     /// This function must return true if the implementation can:
     ///
     ///   (1) allocate GPU memory and
@@ -238,8 +239,14 @@ impl RutabagaGralloc {
 
         #[cfg(feature = "vulkano")]
         {
-            let vulkano = VulkanoGralloc::init()?;
-            grallocs.insert(GrallocBackend::Vulkano, vulkano);
+            match VulkanoGralloc::init() {
+                Ok(vulkano) => {
+                    grallocs.insert(GrallocBackend::Vulkano, vulkano);
+                }
+                Err(e) => {
+                    error!("failed to init Vulkano gralloc: {:?}", e);
+                }
+            }
         }
 
         Ok(RutabagaGralloc { grallocs })
@@ -307,7 +314,7 @@ impl RutabagaGralloc {
             .ok_or(RutabagaError::InvalidGrallocBackend)?;
 
         let mut reqs = gralloc.get_image_memory_requirements(info)?;
-        reqs.size = round_up_to_page_size(reqs.size as usize) as u64;
+        reqs.size = round_up_to_page_size(reqs.size)?;
         Ok(reqs)
     }
 
@@ -348,6 +355,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(target_os = "windows", ignore)]
     fn create_render_target() {
         let gralloc_result = RutabagaGralloc::new();
         if gralloc_result.is_err() {
@@ -376,6 +384,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(target_os = "windows", ignore)]
     fn create_video_buffer() {
         let gralloc_result = RutabagaGralloc::new();
         if gralloc_result.is_err() {
@@ -413,6 +422,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(target_os = "windows", ignore)]
     fn export_and_map() {
         let gralloc_result = RutabagaGralloc::new();
         if gralloc_result.is_err() {

@@ -23,7 +23,7 @@ rust_library {
     host_supported: true,
     crate_name: "tokio_stream",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.1.8",
+    cargo_pkg_version: "0.1.12",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -39,7 +39,9 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }

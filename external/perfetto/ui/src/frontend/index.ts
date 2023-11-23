@@ -12,24 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Need to turn off Long
+import '../common/query_result';
+
 import {Patch, produce} from 'immer';
-import * as m from 'mithril';
+import m from 'mithril';
 
 import {defer} from '../base/deferred';
 import {assertExists, reportError, setErrorHandler} from '../base/logging';
 import {Actions, DeferredAction, StateActions} from '../common/actions';
 import {createEmptyState} from '../common/empty_state';
+import {RECORDING_V2_FLAG} from '../common/feature_flags';
 import {initializeImmerJs} from '../common/immer_init';
+import {pluginManager, pluginRegistry} from '../common/plugins';
+import {onSelectionChanged} from '../common/selection_observer';
 import {State} from '../common/state';
 import {initWasm} from '../common/wasm_engine_proxy';
-import {ControllerWorkerInitMessage} from '../common/worker_messages';
+import {initController, runControllers} from '../controller';
 import {
-  isGetCategoriesResponse
+  isGetCategoriesResponse,
 } from '../controller/chrome_proxy_record_controller';
-import {initController} from '../controller/index';
 
 import {AnalyzePage} from './analyze_page';
 import {initCssConstants} from './css_constants';
+import {registerDebugGlobals} from './debug';
 import {maybeShowErrorDialog} from './error_dialog';
 import {installFileDropHandler} from './file_drop_handler';
 import {FlagsPage} from './flags_page';
@@ -39,21 +45,21 @@ import {initLiveReloadIfLocalhost} from './live_reload';
 import {MetricsPage} from './metrics_page';
 import {postMessageHandler} from './post_message_handler';
 import {RecordPage, updateAvailableAdbDevices} from './record_page';
+import {RecordPageV2} from './record_page_v2';
 import {Router} from './router';
 import {CheckHttpRpcConnection} from './rpc_http_dialog';
 import {TraceInfoPage} from './trace_info_page';
 import {maybeOpenTraceFromRoute} from './trace_url_handler';
 import {ViewerPage} from './viewer_page';
+import {WidgetsPage} from './widgets_page';
 
 const EXTENSION_ID = 'lfmkphfpdbjijhpomgecfikhfohaoine';
 
 class FrontendApi {
-  private port: MessagePort;
   private state: State;
 
-  constructor(port: MessagePort) {
+  constructor() {
     this.state = createEmptyState();
-    this.port = port;
   }
 
   dispatchMultiple(actions: DeferredAction[]) {
@@ -81,7 +87,8 @@ class FrontendApi {
     globals.frontendLocalState.mergeState(this.state.frontendLocalState);
 
     // Only redraw if something other than the frontendLocalState changed.
-    for (const key in this.state) {
+    let key: keyof State;
+    for (key in this.state) {
       if (key !== 'frontendLocalState' && key !== 'visibleTracks' &&
           oldState[key] !== this.state[key]) {
         globals.rafScheduler.scheduleFullRedraw();
@@ -89,8 +96,21 @@ class FrontendApi {
       }
     }
 
+    if (this.state.currentSelection !== oldState.currentSelection) {
+      // TODO(altimin): Currently we are not triggering this when changing
+      // the set of selected tracks via toggling per-track checkboxes.
+      // Fix that.
+      onSelectionChanged(
+          this.state.currentSelection || undefined,
+          oldState.currentSelection || undefined);
+    }
+
     if (patches.length > 0) {
-      this.port.postMessage(patches);
+      // Need to avoid reentering the controller so move this to a
+      // separate task.
+      setTimeout(() => {
+        runControllers();
+      }, 0);
     }
   }
 
@@ -102,8 +122,7 @@ class FrontendApi {
     // immutable changes to the returned state.
     this.state = produce(
         this.state,
-        draft => {
-          // tslint:disable-next-line no-any
+        (draft) => {
           (StateActions as any)[action.type](draft, action.args);
         },
         (morePatches, _) => {
@@ -115,13 +134,18 @@ class FrontendApi {
         });
     return patches;
   }
-
 }
 
 function setExtensionAvailability(available: boolean) {
   globals.dispatch(Actions.setExtensionAvailable({
     available,
   }));
+}
+
+function initGlobalsFromQueryString() {
+  const queryString = window.location.search;
+  globals.embeddedMode = queryString.includes('mode=embedded');
+  globals.hideSidebar = queryString.includes('hideSidebar=true');
 }
 
 function setupContentSecurityPolicy() {
@@ -147,6 +171,7 @@ function setupContentSecurityPolicy() {
       `'self'`,
       'http://127.0.0.1:9001',  // For trace_processor_shell --httpd.
       'ws://127.0.0.1:9001',    // Ditto, for the websocket RPC.
+      'ws://127.0.0.1:8037',    // For the adb websocket server.
       'https://www.google-analytics.com',
       'https://*.googleapis.com',  // For Google Cloud Storage fetches.
       'blob:',
@@ -199,26 +224,14 @@ function main() {
 
   // Add Error handlers for JS error and for uncaught exceptions in promises.
   setErrorHandler((err: string) => maybeShowErrorDialog(err));
-  window.addEventListener('error', e => reportError(e));
-  window.addEventListener('unhandledrejection', e => reportError(e));
+  window.addEventListener('error', (e) => reportError(e));
+  window.addEventListener('unhandledrejection', (e) => reportError(e));
 
-  const controllerChannel = new MessageChannel();
   const extensionLocalChannel = new MessageChannel();
-  const errorReportingChannel = new MessageChannel();
-
-  errorReportingChannel.port2.onmessage = (e) =>
-      maybeShowErrorDialog(`${e.data}`);
-
-  const msg: ControllerWorkerInitMessage = {
-    controllerPort: controllerChannel.port1,
-    extensionPort: extensionLocalChannel.port1,
-    errorReportingPort: errorReportingChannel.port1,
-  };
 
   initWasm(globals.root);
   initializeImmerJs();
-
-  initController(msg);
+  initController(extensionLocalChannel.port1);
 
   const dispatch = (action: DeferredAction) => {
     frontendApi.dispatchMultiple([action]);
@@ -227,20 +240,26 @@ function main() {
   const router = new Router({
     '/': HomePage,
     '/viewer': ViewerPage,
-    '/record': RecordPage,
+    '/record': RECORDING_V2_FLAG.get() ? RecordPageV2 : RecordPage,
     '/query': AnalyzePage,
     '/flags': FlagsPage,
     '/metrics': MetricsPage,
     '/info': TraceInfoPage,
+    '/widgets': WidgetsPage,
   });
   router.onRouteChanged = (route) => {
     globals.rafScheduler.scheduleFullRedraw();
     maybeOpenTraceFromRoute(route);
   };
+
+  // This must be called before calling `globals.initialize` so that the
+  // `embeddedMode` global is set.
+  initGlobalsFromQueryString();
+
   globals.initialize(dispatch, router);
   globals.serviceWorkerController.install();
 
-  const frontendApi = new FrontendApi(controllerChannel.port2);
+  const frontendApi = new FrontendApi();
   globals.publishRedraw = () => globals.rafScheduler.scheduleFullRedraw();
 
   // We proxy messages between the extension and the controller because the
@@ -252,9 +271,8 @@ function main() {
   setExtensionAvailability(extensionPort !== undefined);
 
   if (extensionPort) {
-    extensionPort.onDisconnect.addListener(_ => {
+    extensionPort.onDisconnect.addListener((_) => {
       setExtensionAvailability(false);
-      // tslint:disable-next-line: no-unused-expression
       void chrome.runtime.lastError;  // Needed to not receive an error log.
     });
     // This forwards the messages from the extension to the controller.
@@ -273,10 +291,8 @@ function main() {
     if (extensionPort) extensionPort.postMessage(data);
   };
 
-  // Put these variables in the global scope for better debugging.
-  (window as {} as {m: {}}).m = m;
-  (window as {} as {globals: {}}).globals = globals;
-  (window as {} as {Actions: {}}).Actions = Actions;
+  // Put debug variables in the global scope for better debugging.
+  registerDebugGlobals();
 
   // Prevent pinch zoom.
   document.body.addEventListener('wheel', (e: MouseEvent) => {
@@ -287,6 +303,11 @@ function main() {
 
   if (globals.testing) {
     document.body.classList.add('testing');
+  }
+
+  // Initialize all plugins:
+  for (const plugin of pluginRegistry.values()) {
+    pluginManager.activatePlugin(plugin.pluginId);
   }
 }
 
@@ -302,14 +323,17 @@ function onCssLoaded() {
   };
 
   initLiveReloadIfLocalhost();
-  updateAvailableAdbDevices();
-  try {
-    navigator.usb.addEventListener(
-        'connect', () => updateAvailableAdbDevices());
-    navigator.usb.addEventListener(
-        'disconnect', () => updateAvailableAdbDevices());
-  } catch (e) {
-    console.error('WebUSB API not supported');
+
+  if (!RECORDING_V2_FLAG.get()) {
+    updateAvailableAdbDevices();
+    try {
+      navigator.usb.addEventListener(
+          'connect', () => updateAvailableAdbDevices());
+      navigator.usb.addEventListener(
+          'disconnect', () => updateAvailableAdbDevices());
+    } catch (e) {
+      console.error('WebUSB API not supported');
+    }
   }
 
   // Will update the chip on the sidebar footer that notifies that the RPC is
@@ -319,13 +343,14 @@ function onCssLoaded() {
   // accidentially clober the state of an open trace processor instance
   // otherwise.
   CheckHttpRpcConnection().then(() => {
-    installFileDropHandler();
+    if (!globals.embeddedMode) {
+      installFileDropHandler();
+    }
 
     // Don't allow postMessage or opening trace from route when the user says
     // that they want to reuse the already loaded trace in trace processor.
-    const values = Object.values(globals.state.engines);
-    if (values.length > 0 &&
-        globals.state.engines[values.length - 1].source.type === 'HTTP_RPC') {
+    const engine = globals.getCurrentEngine();
+    if (engine && engine.source.type === 'HTTP_RPC') {
       return;
     }
 

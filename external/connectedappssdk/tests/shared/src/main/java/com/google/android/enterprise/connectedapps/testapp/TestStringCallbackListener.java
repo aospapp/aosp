@@ -19,5 +19,5 @@ import com.google.android.enterprise.connectedapps.annotations.CrossProfileCallb
 
 @CrossProfileCallback
 public interface TestStringCallbackListener {
-  void stringCallback(String s);
+  void stringCallback(String value);
 }

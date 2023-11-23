@@ -1,15 +1,18 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 //! Events reported by VDA encode API over pipe FD.
 
-use enumn::N;
 use std::error;
-use std::fmt::{self, Display};
+use std::fmt;
+use std::fmt::Display;
+
+use enumn::N;
 
 use super::bindings;
-use super::session::{VeaInputBufferId, VeaOutputBufferId};
+use super::session::VeaInputBufferId;
+use super::session::VeaOutputBufferId;
 use crate::error::*;
 
 /// Represents an error from a libvda encode session.

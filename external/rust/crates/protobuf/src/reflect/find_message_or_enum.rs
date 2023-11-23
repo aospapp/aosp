@@ -11,12 +11,12 @@ impl<'a> MessageOrEnum<'a> {
     fn from_two_options(
         m: Option<&'a DescriptorProto>,
         e: Option<&'a EnumDescriptorProto>,
-    ) -> MessageOrEnum<'a> {
+    ) -> Option<MessageOrEnum<'a>> {
         match (m, e) {
             (Some(_), Some(_)) => panic!("enum and message with the same name"),
-            (Some(m), None) => MessageOrEnum::Message(m),
-            (None, Some(e)) => MessageOrEnum::Enum(e),
-            (None, None) => panic!("not found"),
+            (Some(m), None) => Some(MessageOrEnum::Message(m)),
+            (None, Some(e)) => Some(MessageOrEnum::Enum(e)),
+            (None, None) => None,
         }
     }
 }
@@ -24,17 +24,17 @@ impl<'a> MessageOrEnum<'a> {
 pub(crate) fn find_message_or_enum<'a>(
     file: &'a FileDescriptorProto,
     name_to_package: &str,
-) -> (String, MessageOrEnum<'a>) {
+) -> Option<(String, MessageOrEnum<'a>)> {
+    assert!(!name_to_package.starts_with("."));
+    assert!(!name_to_package.is_empty());
+
     let mut path = name_to_package.split('.');
     let first = path.next().unwrap();
-    let child_message = file
-        .get_message_type()
-        .iter()
-        .find(|m| m.get_name() == first);
-    let child_enum = file.get_enum_type().iter().find(|e| e.get_name() == first);
+    let child_message = file.message_type.iter().find(|m| m.name() == first);
+    let child_enum = file.enum_type.iter().find(|e| e.name() == first);
 
     let mut package_to_name = String::new();
-    let mut me = MessageOrEnum::from_two_options(child_message, child_enum);
+    let mut me = MessageOrEnum::from_two_options(child_message, child_enum)?;
 
     for name in path {
         let message = match me {
@@ -45,18 +45,12 @@ pub(crate) fn find_message_or_enum<'a>(
         if !package_to_name.is_empty() {
             package_to_name.push_str(".");
         }
-        package_to_name.push_str(message.get_name());
+        package_to_name.push_str(message.name());
 
-        let child_message = message
-            .get_nested_type()
-            .iter()
-            .find(|m| m.get_name() == name);
-        let child_enum = message
-            .get_enum_type()
-            .iter()
-            .find(|e| e.get_name() == name);
-        me = MessageOrEnum::from_two_options(child_message, child_enum)
+        let child_message = message.nested_type.iter().find(|m| m.name() == name);
+        let child_enum = message.enum_type.iter().find(|e| e.name() == name);
+        me = MessageOrEnum::from_two_options(child_message, child_enum)?;
     }
 
-    (package_to_name, me)
+    Some((package_to_name, me))
 }

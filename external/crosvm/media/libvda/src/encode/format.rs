@@ -1,11 +1,12 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
+use enumn::N;
 
 use super::bindings;
 use crate::error::Result;
 use crate::format::*;
-use enumn::N;
 
 /// Represents an output profile for VEA.
 #[derive(Debug, Clone, Copy)]

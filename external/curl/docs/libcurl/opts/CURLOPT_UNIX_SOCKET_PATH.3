@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -18,16 +18,19 @@
 .\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 .\" * KIND, either express or implied.
 .\" *
+.\" * SPDX-License-Identifier: curl
+.\" *
 .\" **************************************************************************
 .\"
-.TH CURLOPT_UNIX_SOCKET_PATH 3 "October 27, 2021" "libcurl 7.80.0" "curl_easy_setopt options"
-
+.TH CURLOPT_UNIX_SOCKET_PATH 3 "09 Oct 2014" "libcurl 7.40.0" "curl_easy_setopt options"
 .SH NAME
 CURLOPT_UNIX_SOCKET_PATH \- Unix domain socket
 .SH SYNOPSIS
+.nf
 #include <curl/curl.h>
 
 CURLcode curl_easy_setopt(CURL *handle, CURLOPT_UNIX_SOCKET_PATH, char *path);
+.fi
 .SH DESCRIPTION
 Enables the use of Unix domain sockets as connection endpoint and sets the path
 to \fIpath\fP. If \fIpath\fP is NULL, then Unix domain sockets are disabled. An

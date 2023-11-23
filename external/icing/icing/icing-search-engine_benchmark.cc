@@ -16,7 +16,9 @@
 
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <memory>
+#include <numeric>
 #include <ostream>
 #include <random>
 #include <sstream>
@@ -32,16 +34,21 @@
 #include "icing/document-builder.h"
 #include "icing/file/filesystem.h"
 #include "icing/icing-search-engine.h"
+#include "icing/join/join-processor.h"
 #include "icing/proto/document.pb.h"
 #include "icing/proto/initialize.pb.h"
+#include "icing/proto/reset.pb.h"
 #include "icing/proto/schema.pb.h"
 #include "icing/proto/scoring.pb.h"
 #include "icing/proto/search.pb.h"
 #include "icing/proto/status.pb.h"
 #include "icing/proto/term.pb.h"
+#include "icing/query/query-features.h"
 #include "icing/schema-builder.h"
 #include "icing/testing/common-matchers.h"
 #include "icing/testing/document-generator.h"
+#include "icing/testing/numeric/number-generator.h"
+#include "icing/testing/numeric/uniform-distribution-integer-generator.h"
 #include "icing/testing/random-string.h"
 #include "icing/testing/schema-generator.h"
 #include "icing/testing/tmp-directory.h"
@@ -51,7 +58,7 @@
 //    //icing:icing-search-engine_benchmark
 //
 //    $ blaze-bin/icing/icing-search-engine_benchmark
-//    --benchmarks=all --benchmark_memory_usage
+//    --benchmark_filter=all --benchmark_memory_usage
 //
 // Run on an Android device:
 //    $ blaze build --copt="-DGOOGLE_COMMANDLINEFLAGS_FULL_API=1"
@@ -61,7 +68,8 @@
 //    $ adb push blaze-bin/icing/icing-search-engine_benchmark
 //    /data/local/tmp/
 //
-//    $ adb shell /data/local/tmp/icing-search-engine_benchmark --benchmarks=all
+//    $ adb shell /data/local/tmp/icing-search-engine_benchmark
+//    --benchmark_filter=all
 
 namespace icing {
 namespace lib {
@@ -88,14 +96,6 @@ constexpr int kAvgDocumentSize = 300;
 // ASSUME: ~75% of the document's size comes from it's content.
 constexpr float kContentSizePct = 0.7;
 
-// Average length of word in English is 4.7 characters.
-constexpr int kAvgTokenLen = 5;
-// Made up value. This results in a fairly reasonable language - the majority of
-// generated words are 3-9 characters, ~3% of words are >=20 chars, and the
-// longest ones are 27 chars, (roughly consistent with the longest,
-// non-contrived English words
-// https://en.wikipedia.org/wiki/Longest_word_in_English)
-constexpr int kTokenStdDev = 7;
 constexpr int kLanguageSize = 1000;
 
 // Lite Index size required to fit 128k docs, each doc requires ~64 bytes of
@@ -113,22 +113,6 @@ std::vector<std::string> CreateNamespaces(int num_namespaces) {
     namespaces.push_back("comgooglepackage" + std::to_string(num_namespaces));
   }
   return namespaces;
-}
-
-// Creates a vector containing num_words randomly-generated words for use by
-// documents.
-template <typename Rand>
-std::vector<std::string> CreateLanguages(int num_words, Rand* r) {
-  std::vector<std::string> language;
-  std::normal_distribution<> norm_dist(kAvgTokenLen, kTokenStdDev);
-  while (--num_words >= 0) {
-    int word_length = 0;
-    while (word_length < 1) {
-      word_length = std::round(norm_dist(*r));
-    }
-    language.push_back(RandomString(kAlNumAlphabet, word_length, r));
-  }
-  return language;
 }
 
 SearchSpecProto CreateSearchSpec(const std::string& query,
@@ -200,6 +184,25 @@ std::vector<DocumentProto> GenerateRandomDocuments(
   return random_docs;
 }
 
+std::unique_ptr<NumberGenerator<int64_t>> CreateIntegerGenerator(
+    size_t num_documents) {
+  // Since the collision # follows poisson distribution with lambda =
+  // (num_keys / range), we set the range 10x (lambda = 0.1) to avoid too many
+  // collisions.
+  //
+  // Distribution:
+  // - keys in range being picked for 0 times: 90.5%
+  // - keys in range being picked for 1 time:  9%
+  // - keys in range being picked for 2 times: 0.45%
+  // - keys in range being picked for 3 times: 0.015%
+  //
+  // For example, num_keys = 1M, range = 10M. Then there will be ~904837 unique
+  // keys, 45242 keys being picked twice, 1508 keys being picked thrice ...
+  return std::make_unique<UniformDistributionIntegerGenerator<int64_t>>(
+      /*seed=*/12345, /*range_lower=*/0,
+      /*range_upper=*/static_cast<int64_t>(num_documents) * 10 - 1);
+}
+
 void BM_IndexLatency(benchmark::State& state) {
   // Initialize the filesystem
   std::string test_dir = GetTestTempDir() + "/icing/benchmark";
@@ -222,54 +225,23 @@ void BM_IndexLatency(benchmark::State& state) {
   std::unique_ptr<IcingSearchEngine> icing =
       std::make_unique<IcingSearchEngine>(options);
 
-  ASSERT_THAT(icing->Initialize().status(), ProtoIsOk());
-  ASSERT_THAT(icing->SetSchema(schema).status(), ProtoIsOk());
-
   int num_docs = state.range(0);
   std::vector<std::string> language = CreateLanguages(kLanguageSize, &random);
   const std::vector<DocumentProto> random_docs =
       GenerateRandomDocuments(&type_selector, num_docs, language);
-  Timer timer;
-  for (const DocumentProto& doc : random_docs) {
-    ASSERT_THAT(icing->Put(doc).status(), ProtoIsOk());
+  for (auto _ : state) {
+    state.PauseTiming();
+    ASSERT_THAT(icing->Reset().status(), ProtoIsOk());
+    ASSERT_THAT(icing->SetSchema(schema).status(), ProtoIsOk());
+    state.ResumeTiming();
+    for (const DocumentProto& doc : random_docs) {
+      ASSERT_THAT(icing->Put(doc).status(), ProtoIsOk());
+    }
   }
-  int64_t time_taken_ns = timer.GetElapsedNanoseconds();
-  int64_t time_per_doc_ns = time_taken_ns / num_docs;
-  std::cout << "Number of indexed documents:\t" << num_docs
-            << "\t\tNumber of indexed sections:\t" << state.range(1)
-            << "\t\tTime taken (ms):\t" << time_taken_ns / 1000000
-            << "\t\tTime taken per doc (us):\t" << time_per_doc_ns / 1000
-            << std::endl;
 }
 BENCHMARK(BM_IndexLatency)
     // Arguments: num_indexed_documents, num_sections
-    ->ArgPair(1, 1)
-    ->ArgPair(2, 1)
-    ->ArgPair(8, 1)
-    ->ArgPair(32, 1)
-    ->ArgPair(128, 1)
-    ->ArgPair(1 << 10, 1)
-    ->ArgPair(1 << 13, 1)
-    ->ArgPair(1 << 15, 1)
-    ->ArgPair(1 << 17, 1)
-    ->ArgPair(1, 5)
-    ->ArgPair(2, 5)
-    ->ArgPair(8, 5)
-    ->ArgPair(32, 5)
-    ->ArgPair(128, 5)
-    ->ArgPair(1 << 10, 5)
-    ->ArgPair(1 << 13, 5)
-    ->ArgPair(1 << 15, 5)
-    ->ArgPair(1 << 17, 5)
-    ->ArgPair(1, 10)
-    ->ArgPair(2, 10)
-    ->ArgPair(8, 10)
-    ->ArgPair(32, 10)
-    ->ArgPair(128, 10)
-    ->ArgPair(1 << 10, 10)
-    ->ArgPair(1 << 13, 10)
-    ->ArgPair(1 << 15, 10)
-    ->ArgPair(1 << 17, 10);
+    ->ArgPair(1000000, 5);
 
 void BM_QueryLatency(benchmark::State& state) {
   // Initialize the filesystem
@@ -306,7 +278,7 @@ void BM_QueryLatency(benchmark::State& state) {
 
   SearchSpecProto search_spec = CreateSearchSpec(
       language.at(0), std::vector<std::string>(), TermMatchType::PREFIX);
-  ResultSpecProto result_spec = CreateResultSpec(1000000, 1000000, 1000000);
+  ResultSpecProto result_spec = CreateResultSpec(1, 1000000, 1000000);
   ScoringSpecProto scoring_spec =
       CreateScoringSpec(ScoringSpecProto::RankingStrategy::CREATION_TIMESTAMP);
   for (auto _ : state) {
@@ -316,10 +288,7 @@ void BM_QueryLatency(benchmark::State& state) {
 }
 BENCHMARK(BM_QueryLatency)
     // Arguments: num_indexed_documents, num_sections
-    ->ArgPair(32, 2)
-    ->ArgPair(128, 2)
-    ->ArgPair(1 << 10, 2)
-    ->ArgPair(1 << 13, 2);
+    ->ArgPair(1000000, 2);
 
 void BM_IndexThroughput(benchmark::State& state) {
   // Initialize the filesystem
@@ -795,6 +764,455 @@ void BM_PutMaxAllowedDocuments(benchmark::State& state) {
               HasSubstr("Exceeded maximum number of documents"));
 }
 BENCHMARK(BM_PutMaxAllowedDocuments);
+
+void BM_QueryWithSnippet(benchmark::State& state) {
+  // Initialize the filesystem
+  std::string test_dir = GetTestTempDir() + "/icing/benchmark";
+  Filesystem filesystem;
+  DestructibleDirectory ddir(filesystem, test_dir);
+
+  // Create the schema.
+  SchemaProto schema =
+      SchemaBuilder()
+          .AddType(SchemaTypeConfigBuilder().SetType("Message").AddProperty(
+              PropertyConfigBuilder()
+                  .SetName("body")
+                  .SetDataTypeString(TERM_MATCH_PREFIX, TOKENIZER_PLAIN)
+                  .SetCardinality(CARDINALITY_OPTIONAL)))
+          .Build();
+
+  // Create the index.
+  IcingSearchEngineOptions options;
+  options.set_base_dir(test_dir);
+  options.set_index_merge_size(kIcingFullIndexSize);
+  std::unique_ptr<IcingSearchEngine> icing =
+      std::make_unique<IcingSearchEngine>(options);
+
+  ASSERT_THAT(icing->Initialize().status(), ProtoIsOk());
+  ASSERT_THAT(icing->SetSchema(schema).status(), ProtoIsOk());
+
+  std::string body = "message body";
+  for (int i = 0; i < 100; i++) {
+    body = body +
+           " invent invention inventory invest investigate investigation "
+           "investigator investment nvestor invisible invitation invite "
+           "involve involved involvement IraqiI rish island";
+  }
+  for (int i = 0; i < 50; i++) {
+    DocumentProto document = DocumentBuilder()
+                                 .SetKey("namespace", "uri" + std::to_string(i))
+                                 .SetSchema("Message")
+                                 .AddStringProperty("body", body)
+                                 .Build();
+    ASSERT_THAT(icing->Put(std::move(document)).status(), ProtoIsOk());
+  }
+
+  SearchSpecProto search_spec;
+  search_spec.set_term_match_type(TermMatchType::PREFIX);
+  search_spec.set_query("i");
+
+  ResultSpecProto result_spec;
+  result_spec.set_num_per_page(10000);
+  result_spec.mutable_snippet_spec()->set_max_window_utf32_length(64);
+  result_spec.mutable_snippet_spec()->set_num_matches_per_property(10000);
+  result_spec.mutable_snippet_spec()->set_num_to_snippet(10000);
+
+  for (auto s : state) {
+    SearchResultProto results = icing->Search(
+        search_spec, ScoringSpecProto::default_instance(), result_spec);
+  }
+}
+BENCHMARK(BM_QueryWithSnippet);
+
+void BM_NumericIndexing(benchmark::State& state) {
+  int num_documents = state.range(0);
+  int num_integers_per_doc = state.range(1);
+
+  // Initialize the filesystem
+  std::string test_dir = GetTestTempDir() + "/icing/benchmark";
+  Filesystem filesystem;
+
+  // Create the schema.
+  SchemaProto schema =
+      SchemaBuilder()
+          .AddType(SchemaTypeConfigBuilder()
+                       .SetType("Message")
+                       .AddProperty(PropertyConfigBuilder()
+                                        .SetName("body")
+                                        .SetDataTypeString(TERM_MATCH_PREFIX,
+                                                           TOKENIZER_PLAIN)
+                                        .SetCardinality(CARDINALITY_OPTIONAL))
+                       .AddProperty(PropertyConfigBuilder()
+                                        .SetName("integer")
+                                        .SetDataTypeInt64(NUMERIC_MATCH_RANGE)
+                                        .SetCardinality(CARDINALITY_REPEATED)))
+          .Build();
+
+  std::unique_ptr<NumberGenerator<int64_t>> integer_generator =
+      CreateIntegerGenerator(num_documents);
+  std::vector<DocumentProto> documents;
+  documents.reserve(num_documents);
+  for (int i = 0; i < num_documents; ++i) {
+    std::vector<int64_t> integers;
+    integers.reserve(num_integers_per_doc);
+    for (int j = 0; j < num_integers_per_doc; ++j) {
+      integers.push_back(integer_generator->Generate());
+    }
+
+    DocumentProto document =
+        DocumentBuilder()
+            .SetKey("namespace", "uri" + std::to_string(i))
+            .SetSchema("Message")
+            .AddStringProperty("body", "body hello world")
+            .AddInt64Property("integer", integers.begin(), integers.end())
+            .Build();
+    documents.push_back(std::move(document));
+  }
+
+  for (auto s : state) {
+    state.PauseTiming();
+    // Create the index.
+    IcingSearchEngineOptions options;
+    options.set_base_dir(test_dir);
+    options.set_index_merge_size(kIcingFullIndexSize);
+    std::unique_ptr<IcingSearchEngine> icing =
+        std::make_unique<IcingSearchEngine>(options);
+
+    ASSERT_THAT(icing->Initialize().status(), ProtoIsOk());
+    ASSERT_THAT(icing->SetSchema(schema).status(), ProtoIsOk());
+    state.ResumeTiming();
+
+    for (const DocumentProto& document : documents) {
+      ASSERT_THAT(icing->Put(document).status(), ProtoIsOk());
+    }
+
+    state.PauseTiming();
+    icing.reset();
+    ASSERT_TRUE(filesystem.DeleteDirectoryRecursively(test_dir.c_str()));
+    state.ResumeTiming();
+  }
+}
+
+BENCHMARK(BM_NumericIndexing)
+    // Arguments: num_documents, num_integers_per_doc
+    ->ArgPair(1000000, 5);
+
+void BM_NumericExactQuery(benchmark::State& state) {
+  int num_documents = state.range(0);
+  int num_integers_per_doc = state.range(1);
+
+  // Initialize the filesystem
+  std::string test_dir = GetTestTempDir() + "/icing/benchmark";
+  Filesystem filesystem;
+  DestructibleDirectory ddir(filesystem, test_dir);
+
+  // Create the schema.
+  SchemaProto schema =
+      SchemaBuilder()
+          .AddType(SchemaTypeConfigBuilder()
+                       .SetType("Message")
+                       .AddProperty(PropertyConfigBuilder()
+                                        .SetName("body")
+                                        .SetDataTypeString(TERM_MATCH_PREFIX,
+                                                           TOKENIZER_PLAIN)
+                                        .SetCardinality(CARDINALITY_OPTIONAL))
+                       .AddProperty(PropertyConfigBuilder()
+                                        .SetName("integer")
+                                        .SetDataTypeInt64(NUMERIC_MATCH_RANGE)
+                                        .SetCardinality(CARDINALITY_REPEATED)))
+          .Build();
+
+  // Create the index.
+  IcingSearchEngineOptions options;
+  options.set_base_dir(test_dir);
+  options.set_index_merge_size(kIcingFullIndexSize);
+  std::unique_ptr<IcingSearchEngine> icing =
+      std::make_unique<IcingSearchEngine>(options);
+
+  ASSERT_THAT(icing->Initialize().status(), ProtoIsOk());
+  ASSERT_THAT(icing->SetSchema(schema).status(), ProtoIsOk());
+
+  std::unique_ptr<NumberGenerator<int64_t>> integer_generator =
+      CreateIntegerGenerator(num_documents);
+  std::unordered_set<int64_t> chosen_integer_set;
+  for (int i = 0; i < num_documents; ++i) {
+    std::vector<int64_t> integers;
+    integers.reserve(num_integers_per_doc);
+    for (int j = 0; j < num_integers_per_doc; ++j) {
+      int64_t chosen_int = integer_generator->Generate();
+      integers.push_back(chosen_int);
+      chosen_integer_set.insert(chosen_int);
+    }
+
+    DocumentProto document =
+        DocumentBuilder()
+            .SetKey("namespace", "uri" + std::to_string(i))
+            .SetSchema("Message")
+            .AddStringProperty("body", "body hello world")
+            .AddInt64Property("integer", integers.begin(), integers.end())
+            .Build();
+    ASSERT_THAT(icing->Put(std::move(document)).status(), ProtoIsOk());
+  }
+
+  SearchSpecProto search_spec;
+  search_spec.set_search_type(
+      SearchSpecProto::SearchType::EXPERIMENTAL_ICING_ADVANCED_QUERY);
+  search_spec.add_enabled_features(std::string(kNumericSearchFeature));
+
+  ScoringSpecProto scoring_spec;
+  scoring_spec.set_rank_by(ScoringSpecProto::RankingStrategy::DOCUMENT_SCORE);
+
+  ResultSpecProto result_spec;
+  result_spec.set_num_per_page(1);
+
+  std::vector<int64_t> chosen_integers(chosen_integer_set.begin(),
+                                       chosen_integer_set.end());
+  std::uniform_int_distribution<> distrib(0, chosen_integers.size() - 1);
+  std::default_random_engine e(/*seed=*/12345);
+  for (auto s : state) {
+    int64_t exact = chosen_integers[distrib(e)];
+    search_spec.set_query("integer == " + std::to_string(exact));
+
+    SearchResultProto results =
+        icing->Search(search_spec, scoring_spec, result_spec);
+    ASSERT_THAT(results.status(), ProtoIsOk());
+    ASSERT_GT(results.results_size(), 0);
+    if (results.next_page_token() != kInvalidNextPageToken) {
+      icing->InvalidateNextPageToken(results.next_page_token());
+    }
+  }
+}
+BENCHMARK(BM_NumericExactQuery)
+    // Arguments: num_documents, num_integers_per_doc
+    ->ArgPair(1000000, 5);
+
+void BM_NumericRangeQueryAll(benchmark::State& state) {
+  int num_documents = state.range(0);
+  int num_integers_per_doc = state.range(1);
+
+  // Initialize the filesystem
+  std::string test_dir = GetTestTempDir() + "/icing/benchmark";
+  Filesystem filesystem;
+  DestructibleDirectory ddir(filesystem, test_dir);
+
+  // Create the schema.
+  SchemaProto schema =
+      SchemaBuilder()
+          .AddType(SchemaTypeConfigBuilder()
+                       .SetType("Message")
+                       .AddProperty(PropertyConfigBuilder()
+                                        .SetName("body")
+                                        .SetDataTypeString(TERM_MATCH_PREFIX,
+                                                           TOKENIZER_PLAIN)
+                                        .SetCardinality(CARDINALITY_OPTIONAL))
+                       .AddProperty(PropertyConfigBuilder()
+                                        .SetName("integer")
+                                        .SetDataTypeInt64(NUMERIC_MATCH_RANGE)
+                                        .SetCardinality(CARDINALITY_REPEATED)))
+          .Build();
+
+  // Create the index.
+  IcingSearchEngineOptions options;
+  options.set_base_dir(test_dir);
+  options.set_index_merge_size(kIcingFullIndexSize);
+  std::unique_ptr<IcingSearchEngine> icing =
+      std::make_unique<IcingSearchEngine>(options);
+
+  ASSERT_THAT(icing->Initialize().status(), ProtoIsOk());
+  ASSERT_THAT(icing->SetSchema(schema).status(), ProtoIsOk());
+
+  std::unique_ptr<NumberGenerator<int64_t>> integer_generator =
+      CreateIntegerGenerator(num_documents);
+  for (int i = 0; i < num_documents; ++i) {
+    std::vector<int64_t> integers;
+    integers.reserve(num_integers_per_doc);
+    for (int j = 0; j < num_integers_per_doc; ++j) {
+      integers.push_back(integer_generator->Generate());
+    }
+
+    DocumentProto document =
+        DocumentBuilder()
+            .SetKey("namespace", "uri" + std::to_string(i))
+            .SetSchema("Message")
+            .AddStringProperty("body", "body hello world")
+            .AddInt64Property("integer", integers.begin(), integers.end())
+            .Build();
+    ASSERT_THAT(icing->Put(std::move(document)).status(), ProtoIsOk());
+  }
+
+  SearchSpecProto search_spec;
+  search_spec.set_search_type(
+      SearchSpecProto::SearchType::EXPERIMENTAL_ICING_ADVANCED_QUERY);
+  search_spec.add_enabled_features(std::string(kNumericSearchFeature));
+  search_spec.set_query("integer >= " +
+                        std::to_string(std::numeric_limits<int64_t>::min()));
+
+  ScoringSpecProto scoring_spec;
+  scoring_spec.set_rank_by(ScoringSpecProto::RankingStrategy::DOCUMENT_SCORE);
+
+  ResultSpecProto result_spec;
+  result_spec.set_num_per_page(1);
+
+  for (auto s : state) {
+    SearchResultProto results =
+        icing->Search(search_spec, scoring_spec, result_spec);
+    ASSERT_THAT(results.status(), ProtoIsOk());
+    ASSERT_GT(results.results_size(), 0);
+    if (results.next_page_token() != kInvalidNextPageToken) {
+      icing->InvalidateNextPageToken(results.next_page_token());
+    }
+  }
+}
+BENCHMARK(BM_NumericRangeQueryAll)
+    // Arguments: num_documents, num_integers_per_doc
+    ->ArgPair(1000000, 5);
+
+void BM_JoinQueryQualifiedId(benchmark::State& state) {
+  // Initialize the filesystem
+  std::string test_dir = GetTestTempDir() + "/icing/benchmark";
+  Filesystem filesystem;
+  DestructibleDirectory ddir(filesystem, test_dir);
+
+  // Create the schema.
+  SchemaProto schema =
+      SchemaBuilder()
+          .AddType(SchemaTypeConfigBuilder()
+                       .SetType("Person")
+                       .AddProperty(PropertyConfigBuilder()
+                                        .SetName("firstName")
+                                        .SetDataTypeString(TERM_MATCH_PREFIX,
+                                                           TOKENIZER_PLAIN)
+                                        .SetCardinality(CARDINALITY_OPTIONAL))
+                       .AddProperty(PropertyConfigBuilder()
+                                        .SetName("lastName")
+                                        .SetDataTypeString(TERM_MATCH_PREFIX,
+                                                           TOKENIZER_PLAIN)
+                                        .SetCardinality(CARDINALITY_OPTIONAL))
+                       .AddProperty(PropertyConfigBuilder()
+                                        .SetName("emailAddress")
+                                        .SetDataTypeString(TERM_MATCH_PREFIX,
+                                                           TOKENIZER_PLAIN)
+                                        .SetCardinality(CARDINALITY_OPTIONAL)))
+          .AddType(SchemaTypeConfigBuilder()
+                       .SetType("Email")
+                       .AddProperty(PropertyConfigBuilder()
+                                        .SetName("subject")
+                                        .SetDataTypeString(TERM_MATCH_PREFIX,
+                                                           TOKENIZER_PLAIN)
+                                        .SetCardinality(CARDINALITY_OPTIONAL))
+                       .AddProperty(PropertyConfigBuilder()
+                                        .SetName("body")
+                                        .SetDataTypeString(TERM_MATCH_PREFIX,
+                                                           TOKENIZER_PLAIN)
+                                        .SetCardinality(CARDINALITY_OPTIONAL))
+                       .AddProperty(PropertyConfigBuilder()
+                                        .SetName("personQualifiedId")
+                                        .SetDataTypeJoinableString(
+                                            JOINABLE_VALUE_TYPE_QUALIFIED_ID)
+                                        .SetCardinality(CARDINALITY_OPTIONAL)))
+          .Build();
+
+  // Create the index.
+  IcingSearchEngineOptions options;
+  options.set_base_dir(test_dir);
+  options.set_index_merge_size(kIcingFullIndexSize);
+  std::unique_ptr<IcingSearchEngine> icing =
+      std::make_unique<IcingSearchEngine>(options);
+
+  ASSERT_THAT(icing->Initialize().status(), ProtoIsOk());
+  ASSERT_THAT(icing->SetSchema(schema).status(), ProtoIsOk());
+
+  // Create Person documents (parent)
+  static constexpr int kNumPersonDocuments = 1000;
+  for (int i = 0; i < kNumPersonDocuments; ++i) {
+    std::string person_id = std::to_string(i);
+    DocumentProto person =
+        DocumentBuilder()
+            .SetKey("pkg$db/namespace", "person" + person_id)
+            .SetSchema("Person")
+            .AddStringProperty("firstName", "first" + person_id)
+            .AddStringProperty("lastName", "last" + person_id)
+            .AddStringProperty("emailAddress",
+                               "person" + person_id + "@gmail.com")
+            .Build();
+    ASSERT_THAT(icing->Put(std::move(person)).status(), ProtoIsOk());
+  }
+
+  // Create Email documents (child)
+  static constexpr int kNumEmailDocuments = 10000;
+  std::uniform_int_distribution<> distrib(0, kNumPersonDocuments - 1);
+  std::default_random_engine e(/*seed=*/12345);
+  for (int i = 0; i < kNumEmailDocuments; ++i) {
+    std::string email_id = std::to_string(i);
+    std::string person_id = std::to_string(distrib(e));
+    DocumentProto email =
+        DocumentBuilder()
+            .SetKey("namespace", "email" + email_id)
+            .SetSchema("Email")
+            .AddStringProperty("subject", "test subject " + email_id)
+            .AddStringProperty("body", "message body")
+            .AddStringProperty("personQualifiedId",
+                               "pkg$db/namespace#person" + person_id)
+            .Build();
+    ASSERT_THAT(icing->Put(std::move(email)).status(), ProtoIsOk());
+  }
+
+  // Parent SearchSpec
+  SearchSpecProto search_spec;
+  search_spec.set_term_match_type(TermMatchType::PREFIX);
+  search_spec.set_query("firstName:first");
+
+  // JoinSpec
+  JoinSpecProto* join_spec = search_spec.mutable_join_spec();
+  join_spec->set_parent_property_expression(
+      std::string(JoinProcessor::kQualifiedIdExpr));
+  join_spec->set_child_property_expression("personQualifiedId");
+  join_spec->set_aggregation_scoring_strategy(
+      JoinSpecProto::AggregationScoringStrategy::MAX);
+  JoinSpecProto::NestedSpecProto* nested_spec =
+      join_spec->mutable_nested_spec();
+  SearchSpecProto* nested_search_spec = nested_spec->mutable_search_spec();
+  nested_search_spec->set_term_match_type(TermMatchType::PREFIX);
+  nested_search_spec->set_query("subject:test");
+  *nested_spec->mutable_scoring_spec() = ScoringSpecProto::default_instance();
+  *nested_spec->mutable_result_spec() = ResultSpecProto::default_instance();
+
+  static constexpr int kNumPerPage = 10;
+  ResultSpecProto result_spec;
+  result_spec.set_num_per_page(kNumPerPage);
+  result_spec.set_max_joined_children_per_parent_to_return(
+      std::numeric_limits<int32_t>::max());
+
+  ScoringSpecProto score_spec = ScoringSpecProto::default_instance();
+
+  const auto child_count_reduce_func =
+      [](int child_count, const SearchResultProto::ResultProto& result) -> int {
+    return child_count + result.joined_results_size();
+  };
+  for (auto s : state) {
+    int total_parent_count = 0;
+    int total_child_count = 0;
+    SearchResultProto results =
+        icing->Search(search_spec, score_spec, result_spec);
+    total_parent_count += results.results_size();
+    total_child_count +=
+        std::reduce(results.results().begin(), results.results().end(), 0,
+                    child_count_reduce_func);
+
+    // Get all pages.
+    while (results.next_page_token() != kInvalidNextPageToken) {
+      results = icing->GetNextPage(results.next_page_token());
+      total_parent_count += results.results_size();
+      total_child_count +=
+          std::reduce(results.results().begin(), results.results().end(), 0,
+                      child_count_reduce_func);
+    }
+
+    ASSERT_THAT(total_parent_count, Eq(kNumPersonDocuments));
+    ASSERT_THAT(total_child_count, Eq(kNumEmailDocuments));
+  }
+}
+BENCHMARK(BM_JoinQueryQualifiedId);
 
 }  // namespace
 

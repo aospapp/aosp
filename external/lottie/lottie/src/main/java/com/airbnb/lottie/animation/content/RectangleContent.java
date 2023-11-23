@@ -4,6 +4,8 @@ import android.graphics.Path;
 import android.graphics.PointF;
 import android.graphics.RectF;
 
+import androidx.annotation.Nullable;
+
 import com.airbnb.lottie.LottieDrawable;
 import com.airbnb.lottie.LottieProperty;
 import com.airbnb.lottie.animation.keyframe.BaseKeyframeAnimation;
@@ -17,8 +19,6 @@ import com.airbnb.lottie.value.LottieValueCallback;
 
 import java.util.List;
 
-import androidx.annotation.Nullable;
-
 public class RectangleContent
     implements BaseKeyframeAnimation.AnimationListener, KeyPathElementContent, PathContent {
   private final Path path = new Path();
@@ -31,7 +31,9 @@ public class RectangleContent
   private final BaseKeyframeAnimation<?, PointF> sizeAnimation;
   private final BaseKeyframeAnimation<?, Float> cornerRadiusAnimation;
 
-  private CompoundTrimPathContent trimPaths = new CompoundTrimPathContent();
+  private final CompoundTrimPathContent trimPaths = new CompoundTrimPathContent();
+  /** This corner radius is from a layer item. The first one is from the roundedness on this specific rect. */
+  @Nullable private BaseKeyframeAnimation<Float, Float> roundedCornersAnimation = null;
   private boolean isPathValid;
 
   public RectangleContent(LottieDrawable lottieDrawable, BaseLayer layer, RectangleShape rectShape) {
@@ -75,6 +77,8 @@ public class RectangleContent
         TrimPathContent trimPath = (TrimPathContent) content;
         trimPaths.addTrimPath(trimPath);
         trimPath.addListener(this);
+      } else if (content instanceof RoundedCornersContent) {
+        roundedCornersAnimation = ((RoundedCornersContent) content).getRoundedCorners();
       }
     }
   }
@@ -97,6 +101,9 @@ public class RectangleContent
     float halfHeight = size.y / 2f;
     float radius = cornerRadiusAnimation == null ?
         0f : ((FloatKeyframeAnimation) cornerRadiusAnimation).getFloatValue();
+    if (radius == 0f && this.roundedCornersAnimation != null) {
+      radius = Math.min(roundedCornersAnimation.getValue(), Math.min(halfWidth, halfHeight));
+    }
     float maxRadius = Math.min(halfWidth, halfHeight);
     if (radius > maxRadius) {
       radius = maxRadius;
@@ -156,7 +163,7 @@ public class RectangleContent
 
   @Override
   public void resolveKeyPath(KeyPath keyPath, int depth, List<KeyPath> accumulator,
-                             KeyPath currentPartialKeyPath) {
+      KeyPath currentPartialKeyPath) {
     MiscUtils.resolveKeyPath(keyPath, depth, accumulator, currentPartialKeyPath, this);
   }
 

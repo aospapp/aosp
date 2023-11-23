@@ -16,6 +16,7 @@
 
 package dagger.internal.codegen.writing;
 
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
 import static com.google.common.base.Preconditions.checkState;
 import static com.squareup.javapoet.MethodSpec.constructorBuilder;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
@@ -27,6 +28,7 @@ import static dagger.internal.codegen.binding.SourceFiles.frameworkFieldUsages;
 import static dagger.internal.codegen.binding.SourceFiles.generateBindingFieldsForDependencies;
 import static dagger.internal.codegen.binding.SourceFiles.membersInjectorNameForType;
 import static dagger.internal.codegen.binding.SourceFiles.parameterizedGeneratedTypeNameForBinding;
+import static dagger.internal.codegen.extension.DaggerStreams.presentValues;
 import static dagger.internal.codegen.javapoet.AnnotationSpecs.Suppression.RAWTYPES;
 import static dagger.internal.codegen.javapoet.AnnotationSpecs.Suppression.UNCHECKED;
 import static dagger.internal.codegen.javapoet.AnnotationSpecs.suppressWarnings;
@@ -39,8 +41,11 @@ import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XFiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -55,16 +60,17 @@ import dagger.internal.codegen.base.UniqueNameSet;
 import dagger.internal.codegen.binding.FrameworkField;
 import dagger.internal.codegen.binding.MembersInjectionBinding;
 import dagger.internal.codegen.binding.MembersInjectionBinding.InjectionSite;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.kotlin.KotlinMetadataUtil;
 import dagger.internal.codegen.langmodel.DaggerElements;
 import dagger.internal.codegen.langmodel.DaggerTypes;
 import dagger.internal.codegen.writing.InjectionMethods.InjectionSiteMethod;
-import dagger.model.DependencyRequest;
+import dagger.spi.model.DaggerAnnotation;
+import dagger.spi.model.DependencyRequest;
+import dagger.spi.model.Key;
 import java.util.Map.Entry;
-import javax.annotation.processing.Filer;
 import javax.inject.Inject;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Element;
 
 /**
  * Generates {@link MembersInjector} implementations from {@link MembersInjectionBinding} instances.
@@ -75,7 +81,7 @@ public final class MembersInjectorGenerator extends SourceFileGenerator<MembersI
 
   @Inject
   MembersInjectorGenerator(
-      Filer filer,
+      XFiler filer,
       DaggerElements elements,
       DaggerTypes types,
       SourceVersion sourceVersion,
@@ -86,7 +92,7 @@ public final class MembersInjectorGenerator extends SourceFileGenerator<MembersI
   }
 
   @Override
-  public Element originatingElement(MembersInjectionBinding binding) {
+  public XElement originatingElement(MembersInjectionBinding binding) {
     return binding.membersInjectedType();
   }
 
@@ -117,9 +123,10 @@ public final class MembersInjectorGenerator extends SourceFileGenerator<MembersI
     TypeSpec.Builder injectorTypeBuilder =
         classBuilder(generatedTypeName)
             .addModifiers(PUBLIC, FINAL)
-            .addTypeVariables(typeParameters);
+            .addTypeVariables(typeParameters)
+            .addAnnotation(qualifierMetadataAnnotation(binding));
 
-    TypeName injectedTypeName = TypeName.get(binding.key().type());
+    TypeName injectedTypeName = TypeName.get(binding.key().type().java());
     TypeName implementedType = membersInjectorOf(injectedTypeName);
     injectorTypeBuilder.addSuperinterface(implementedType);
 
@@ -159,7 +166,7 @@ public final class MembersInjectorGenerator extends SourceFileGenerator<MembersI
       // If the dependency type is not visible to this members injector, then use the raw framework
       // type for the field.
       boolean useRawFrameworkType =
-          !isTypeAccessibleFrom(dependency.key().type(), generatedTypeName.packageName());
+          !isTypeAccessibleFrom(dependency.key().type().java(), generatedTypeName.packageName());
 
       String fieldName = fieldNames.getUniqueName(bindingField.name());
       TypeName fieldType = useRawFrameworkType ? bindingField.type().rawType : bindingField.type();
@@ -198,7 +205,7 @@ public final class MembersInjectorGenerator extends SourceFileGenerator<MembersI
             binding.injectionSites(),
             generatedTypeName,
             CodeBlock.of("instance"),
-            binding.key().type(),
+            binding.key().type().java(),
             frameworkFieldUsages(binding.dependencies(), dependencyFields)::get,
             types,
             metadataUtil));
@@ -209,7 +216,10 @@ public final class MembersInjectorGenerator extends SourceFileGenerator<MembersI
     injectorTypeBuilder.addMethod(injectMembersBuilder.build());
 
     for (InjectionSite injectionSite : binding.injectionSites()) {
-      if (injectionSite.element().getEnclosingElement().equals(binding.membersInjectedType())) {
+      if (injectionSite
+          .element()
+          .getEnclosingElement()
+          .equals(toJavac(binding.membersInjectedType()))) {
         injectorTypeBuilder.addMethod(InjectionSiteMethod.create(injectionSite, metadataUtil));
       }
     }
@@ -217,5 +227,27 @@ public final class MembersInjectorGenerator extends SourceFileGenerator<MembersI
     gwtIncompatibleAnnotation(binding).ifPresent(injectorTypeBuilder::addAnnotation);
 
     return ImmutableList.of(injectorTypeBuilder);
+  }
+
+  private AnnotationSpec qualifierMetadataAnnotation(MembersInjectionBinding binding) {
+    AnnotationSpec.Builder builder = AnnotationSpec.builder(TypeNames.QUALIFIER_METADATA);
+    binding.injectionSites().stream()
+        // filter out non-local injection sites. Injection sites for super types will be in their
+        // own generated _MembersInjector class.
+        .filter(
+            injectionSite ->
+                injectionSite
+                    .element()
+                    .getEnclosingElement()
+                    .equals(toJavac(binding.membersInjectedType())))
+        .flatMap(injectionSite -> injectionSite.dependencies().stream())
+        .map(DependencyRequest::key)
+        .map(Key::qualifier)
+        .flatMap(presentValues())
+        .map(DaggerAnnotation::className)
+        .map(ClassName::canonicalName)
+        .distinct()
+        .forEach(qualifier -> builder.addMember("value", "$S", qualifier));
+    return builder.build();
   }
 }

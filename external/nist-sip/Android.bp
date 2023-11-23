@@ -55,6 +55,12 @@ java_library_static {
     errorprone: {
         javacflags: [
             "-Xep:MissingOverride:OFF",  // Ignore missing @Override.
+            "-Xep:HashtableContains:OFF",
+            "-Xep:RandomModInteger:OFF",
+            "-Xep:InvalidTimeZoneID:OFF",
         ],
+    },
+    lint: {
+        warning_checks: ["SuspiciousIndentation"],
     },
 }

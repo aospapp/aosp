@@ -1,4 +1,8 @@
-#!/usr/bin/python2 -u
+#!/usr/bin/python3 -u
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import collections
 import errno
@@ -7,7 +11,6 @@ import json
 import optparse
 import os
 import socket
-import subprocess
 import sys
 import time
 import traceback
@@ -24,14 +27,14 @@ from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.tko import models as tko_models
 from autotest_lib.server import site_utils
 from autotest_lib.server.cros.dynamic_suite import constants
-from autotest_lib.site_utils.sponge_lib import sponge_utils
 from autotest_lib.tko import db as tko_db, utils as tko_utils
 from autotest_lib.tko import models, parser_lib
 from autotest_lib.tko.perf_upload import perf_uploader
 from autotest_lib.utils.side_effects import config_loader
+import six
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
@@ -49,6 +52,9 @@ _HARDCODED_CONTROL_FILE_NAMES = (
         # All control files, as saved in skylab.
         'control.from_control_name',
 )
+
+# Max size for the parser is 350mb due to large suites getting throttled.
+DEFAULT_MAX_RESULT_SIZE_KB = 350000
 
 
 def parse_args():
@@ -96,17 +102,22 @@ def parse_args():
                       dest="suite_report", action="store_true",
                       default=False)
     parser.add_option("--datastore-creds",
-                      help=("The path to gcloud datastore credentials file, "
+                      help=("[DEPRECATED] "
+                            "The path to gcloud datastore credentials file, "
                             "which will be used to upload suite timeline "
-                            "report to gcloud. If not specified, the one "
-                            "defined in shadow_config will be used."),
-                      dest="datastore_creds", action="store", default=None)
-    parser.add_option("--export-to-gcloud-path",
-                      help=("The path to export_to_gcloud script. Please find "
-                            "chromite path on your server. The script is under "
-                            "chromite/bin/."),
-                      dest="export_to_gcloud_path", action="store",
+                            "report to gcloud."),
+                      dest="datastore_creds",
+                      action="store",
                       default=None)
+    parser.add_option(
+            "--export-to-gcloud-path",
+            help=("[DEPRECATED] "
+                  "The path to export_to_gcloud script. Please find "
+                  "chromite path on your server. The script is under "
+                  "chromite/bin/."),
+            dest="export_to_gcloud_path",
+            action="store",
+            default=None)
     parser.add_option("--disable-perf-upload",
                       help=("Do not upload perf results to chrome perf."),
                       dest="disable_perf_upload", action="store_true",
@@ -119,26 +130,6 @@ def parse_args():
                          "be provided")
         parser.print_help()
         sys.exit(1)
-
-    if not options.datastore_creds:
-        gcloud_creds = global_config.global_config.get_config_value(
-            'GCLOUD', 'cidb_datastore_writer_creds', default=None)
-        options.datastore_creds = (site_utils.get_creds_abspath(gcloud_creds)
-                                   if gcloud_creds else None)
-
-    if not options.export_to_gcloud_path:
-        export_script = 'chromiumos/chromite/bin/export_to_gcloud'
-        # If it is a lab server, the script is under ~chromeos-test/
-        if os.path.exists(os.path.expanduser('~chromeos-test/%s' %
-                                             export_script)):
-            path = os.path.expanduser('~chromeos-test/%s' % export_script)
-        # If it is a local workstation, it is probably under ~/
-        elif os.path.exists(os.path.expanduser('~/%s' % export_script)):
-            path = os.path.expanduser('~/%s' % export_script)
-        # If it is not found anywhere, the default will be set to None.
-        else:
-            path = None
-        options.export_to_gcloud_path = path
 
     # pass the options back
     return options, args
@@ -204,12 +195,12 @@ def _invalidate_original_tests(orig_job_idx, retry_job_idx):
     For example, assume Job(job_idx=105) are retried by Job(job_idx=108), after
     this method is run, their tko_tests rows will look like:
     __________________________________________________________________________
-    test_idx| job_idx | test            | ... | invalid | invalidates_test_idx
-    10      | 105     | dummy_Fail.Error| ... | 1       | NULL
-    11      | 105     | dummy_Fail.Fail | ... | 1       | NULL
+    test_idx| job_idx | test              | ... | invalid | invalidates_test_idx
+    10      | 105     | example_Fail.Error| ... | 1       | NULL
+    11      | 105     | example_Fail.Fail | ... | 1       | NULL
     ...
-    20      | 108     | dummy_Fail.Error| ... | 0       | 10
-    21      | 108     | dummy_Fail.Fail | ... | 0       | 11
+    20      | 108     | example_Fail.Error| ... | 0       | 10
+    21      | 108     | example_Fail.Fail | ... | 0       | 11
     __________________________________________________________________________
     Note the invalid bits of the rows for Job(job_idx=105) are set to '1'.
     And the 'invalidates_test_idx' fields of the rows for Job(job_idx=108)
@@ -241,11 +232,11 @@ def _invalidate_original_tests(orig_job_idx, retry_job_idx):
     # identifies a test run, but 'test' does not.
     # In a control file, one could run the same test with different
     # 'subdir_tag', for example,
-    #     job.run_test('dummy_Fail', tag='Error', subdir_tag='subdir_1')
-    #     job.run_test('dummy_Fail', tag='Error', subdir_tag='subdir_2')
+    #     job.run_test('example_Fail', tag='Error', subdir_tag='subdir_1')
+    #     job.run_test('example_Fail', tag='Error', subdir_tag='subdir_2')
     # In tko, we will get
-    #    (test='dummy_Fail.Error', subdir='dummy_Fail.Error.subdir_1')
-    #    (test='dummy_Fail.Error', subdir='dummy_Fail.Error.subdir_2')
+    #    (test='example_Fail.Error', subdir='example_Fail.Error.subdir_1')
+    #    (test='example_Fail.Error', subdir='example_Fail.Error.subdir_2')
     invalidated_tests = {(orig_test.test, orig_test.subdir): orig_test
                          for orig_test in orig_tests}
     for retry in retry_tests:
@@ -274,7 +265,7 @@ def _throttle_result_size(path):
 
     max_result_size_KB = _max_result_size_from_control(path)
     if max_result_size_KB is None:
-        max_result_size_KB = control_data.DEFAULT_MAX_RESULT_SIZE_KB
+        max_result_size_KB = DEFAULT_MAX_RESULT_SIZE_KB
 
     try:
         result_utils.execute(path, max_result_size_KB)
@@ -297,7 +288,7 @@ def _max_result_size_from_control(path):
         try:
             max_result_size_KB = control_data.parse_control(
                     control, raise_warnings=False).max_result_size_KB
-            if max_result_size_KB != control_data.DEFAULT_MAX_RESULT_SIZE_KB:
+            if max_result_size_KB != DEFAULT_MAX_RESULT_SIZE_KB:
                 return max_result_size_KB
         except IOError as e:
             tko_utils.dprint(
@@ -315,7 +306,7 @@ def export_tko_job_to_file(job, jobname, filename):
 
     @param job: database object.
     @param jobname: the job name as string.
-    @param filename: The path to the results to be parsed.
+    @param filename: the serialized binary destination path.
     """
     from autotest_lib.tko import job_serializer
 
@@ -332,19 +323,19 @@ def parse_one(db, pid_file_manager, jobname, path, parse_options):
                     e.g. '1234-chromeos-test/host1'
     @param path: The path to the results to be parsed.
     @param parse_options: _ParseOptions instance.
+
+    @return job: the parsed job object
     """
     reparse = parse_options.reparse
     mail_on_failure = parse_options.mail_on_failure
     dry_run = parse_options.dry_run
     suite_report = parse_options.suite_report
-    datastore_creds = parse_options.datastore_creds
-    export_to_gcloud_path = parse_options.export_to_gcloud_path
 
     tko_utils.dprint("\nScanning %s (%s)" % (jobname, path))
     old_job_idx = db.find_job(jobname)
     if old_job_idx is not None and not reparse:
         tko_utils.dprint("! Job is already parsed, done")
-        return
+        return None
 
     # look up the status version
     job_keyval = models.job.read_keyval(path)
@@ -356,7 +347,7 @@ def parse_one(db, pid_file_manager, jobname, path, parse_options):
     status_log_path = _find_status_log_path(path)
     if not status_log_path:
         tko_utils.dprint("! Unable to parse job, no status file")
-        return
+        return None
     _parse_status_log(parser, job, status_log_path)
 
     if old_job_idx is not None:
@@ -382,10 +373,12 @@ def parse_one(db, pid_file_manager, jobname, path, parse_options):
             job.suite = label_info.get('suite', None)
 
     if 'suite' in job.keyval_dict:
-      job.suite = job.keyval_dict['suite']
+        job.suite = job.keyval_dict['suite']
 
     result_utils_lib.LOG =  tko_utils.dprint
-    _throttle_result_size(path)
+
+    # Do not throttle results for now (b/207409280)
+    # _throttle_result_size(path)
 
     # Record test result size to job_keyvals
     start_time = time.time()
@@ -393,7 +386,7 @@ def parse_one(db, pid_file_manager, jobname, path, parse_options):
             path, log=tko_utils.dprint)
     tko_utils.dprint('Finished collecting result sizes after %s seconds' %
                      (time.time()-start_time))
-    job.keyval_dict.update(result_size_info.__dict__)
+    job.keyval_dict.update(result_size_info._asdict())
 
     # TODO(dshi): Update sizes with sponge_invocation.xml and throttle it.
 
@@ -429,11 +422,6 @@ def parse_one(db, pid_file_manager, jobname, path, parse_options):
         else:
             for test in job.tests:
                 perf_uploader.upload_test(job, test, jobname)
-
-        # Upload job details to Sponge.
-        sponge_url = sponge_utils.upload_results(job, log=tko_utils.dprint)
-        if sponge_url:
-            job.keyval_dict['sponge_url'] = sponge_url
 
         _write_job_to_db(db, jobname, job)
 
@@ -476,41 +464,6 @@ def parse_one(db, pid_file_manager, jobname, path, parse_options):
     if not dry_run:
         db.commit()
 
-    # Generate a suite report.
-    # Check whether this is a suite job, a suite job will be a hostless job, its
-    # jobname will be <JOB_ID>-<USERNAME>/hostless, the suite field will not be
-    # NULL. Only generate timeline report when datastore_parent_key is given.
-    datastore_parent_key = job_keyval.get('datastore_parent_key', None)
-    provision_job_id = job_keyval.get('provision_job_id', None)
-    if (suite_report and jobname.endswith('/hostless')
-        and job.suite and datastore_parent_key):
-        tko_utils.dprint('Start dumping suite timing report...')
-        timing_log = os.path.join(path, 'suite_timing.log')
-        dump_cmd = ("%s/site_utils/dump_suite_report.py %s "
-                    "--output='%s' --debug" %
-                    (common.autotest_dir, job.afe_job_id,
-                        timing_log))
-
-        if provision_job_id is not None:
-            dump_cmd += " --provision_job_id=%d" % int(provision_job_id)
-
-        subprocess.check_output(dump_cmd, shell=True)
-        tko_utils.dprint('Successfully finish dumping suite timing report')
-
-        if (datastore_creds and export_to_gcloud_path
-            and os.path.exists(export_to_gcloud_path)):
-            upload_cmd = [export_to_gcloud_path, datastore_creds,
-                            timing_log, '--parent_key',
-                            datastore_parent_key]
-            tko_utils.dprint('Start exporting timeline report to gcloud')
-            subprocess.check_output(upload_cmd)
-            tko_utils.dprint('Successfully export timeline report to '
-                                'gcloud')
-        else:
-            tko_utils.dprint('DEBUG: skip exporting suite timeline to '
-                                'gcloud, because either gcloud creds or '
-                                'export_to_gcloud script is not found.')
-
     # Mark GS_OFFLOADER_NO_OFFLOAD in gs_offloader_instructions at the end of
     # the function, so any failure, e.g., db connection error, will stop
     # gs_offloader_instructions being updated, and logs can be uploaded for
@@ -529,6 +482,7 @@ def parse_one(db, pid_file_manager, jobname, path, parse_options):
             gs_offloader_instructions[constants.GS_OFFLOADER_NO_OFFLOAD] = True
             with open(gs_instructions_file, 'w') as f:
                 json.dump(gs_offloader_instructions, f)
+    return job
 
 
 def _write_job_to_db(db, jobname, job):
@@ -599,7 +553,7 @@ def _match_existing_tests(db, job):
 
 
 def _delete_tests_from_db(db, tests):
-    for test_idx in tests.itervalues():
+    for test_idx in six.itervalues(tests):
         where = {'test_idx' : test_idx}
         db.delete('tko_iteration_result', where)
         db.delete('tko_iteration_perf_value', where)
@@ -617,7 +571,8 @@ def _get_job_subdirs(path):
     # if there's a .machines file, use it to get the subdirs
     machine_list = os.path.join(path, ".machines")
     if os.path.exists(machine_list):
-        subdirs = set(line.strip() for line in file(machine_list))
+        with open(machine_list, 'r') as ml:
+            subdirs = set(line.strip() for line in ml.readlines())
         existing_subdirs = set(subdir for subdir in subdirs
                                if os.path.exists(os.path.join(path, subdir)))
         if len(existing_subdirs) != 0:
@@ -763,7 +718,7 @@ def _main_with_options(options, args):
                 flags |= fcntl.LOCK_NB
             try:
                 fcntl.flock(lockfile, flags)
-            except IOError, e:
+            except IOError as e:
                 # lock is not available and nonblock has been requested
                 if e.errno == errno.EWOULDBLOCK:
                     lockfile.close()

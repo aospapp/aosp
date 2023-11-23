@@ -693,7 +693,7 @@ public class NumberRangeFormatterTest extends TestFmwk {
         FormattedNumberRange result4 = lnf.formatRange(Double.NaN, 0);
         FormattedNumberRange result5 = lnf.formatRange(0, Double.NaN);
         FormattedNumberRange result6 = lnf.formatRange(Double.NaN, Double.NaN);
-    
+
         assertEquals("0 - inf", "-∞ – 0", result1.toString());
         assertEquals("-inf - 0", "0–∞", result2.toString());
         assertEquals("-inf - inf", "-∞ – ∞", result3.toString());
@@ -804,6 +804,22 @@ public class NumberRangeFormatterTest extends TestFmwk {
                     {NumberFormat.Field.INTEGER, 11, 21}};
             FormattedValueTest.checkFormattedValue(message, fmtd, expectedString, expectedFieldPositions);
         }
+
+        {
+            String message = "Field position with approximately sign";
+            String expectedString = "~-100";
+            FormattedNumberRange fmtd = assertFormattedRangeEquals(
+                    message,
+                    NumberRangeFormatter.withLocale(ULocale.US),
+                    -100,
+                    -100,
+                    expectedString);
+            Object[][] expectedFieldPositions = new Object[][]{
+                    {NumberFormat.Field.APPROXIMATELY_SIGN, 0, 1},
+                    {NumberFormat.Field.SIGN, 1, 2},
+                    {NumberFormat.Field.INTEGER, 2, 5}};
+            FormattedValueTest.checkFormattedValue(message, fmtd, expectedString, expectedFieldPositions);
+        }
     }
 
     static final String[] allNSNames = NumberingSystem.getAvailableNames();
@@ -823,7 +839,8 @@ public class NumberRangeFormatterTest extends TestFmwk {
                 }
                 UResource.Table nsTable = value.getTable();
                 for (int j = 0; nsTable.getKeyAndValue(j, key, value); ++j) {
-                    if (!key.contentEquals("miscPatterns")) {
+                    if (!key.contentEquals("miscPatterns") || value.getType()!=UResourceBundle.TABLE) {
+                        // now miscPatterns might have an alias; for now skip alias instead of following
                         continue;
                     }
                     UResource.Table miscTable = value.getTable();
@@ -899,8 +916,8 @@ public class NumberRangeFormatterTest extends TestFmwk {
             "CHF 4’999.00–5’001.00",
             "CHF≈5’000.00",
             "CHF 5’000.00–5’000’000.00");
-    
-        // TODO(CLDR-13044): Move the sign to the inside of the number
+
+        // TODO(ICU-21420): Move the sign to the inside of the number
         assertFormatRange(
             "Approximately sign position with currency spacing",
             NumberRangeFormatter.with()
@@ -916,14 +933,14 @@ public class NumberRangeFormatterTest extends TestFmwk {
             "CHF 4,999.00–5,001.00",
             "~CHF 5,000.00",
             "CHF 5,000.00–5,000,000.00");
-    
+
         {
             LocalizedNumberRangeFormatter lnrf = NumberRangeFormatter
                 .withLocale(ULocale.forLanguageTag("de-CH"));
             String actual = lnrf.formatRange(-2, 3).toString();
             assertEquals("Negative to positive range", "-2 – 3", actual);
         }
-    
+
         {
             LocalizedNumberRangeFormatter lnrf = NumberRangeFormatter
                 .withLocale(ULocale.forLanguageTag("de-CH"))
@@ -931,7 +948,7 @@ public class NumberRangeFormatterTest extends TestFmwk {
             String actual = lnrf.formatRange(-2, 3).toString();
             assertEquals("Negative to positive percent", "-2% – 3%", actual);
         }
-    
+
         {
             // TODO(CLDR-14111): Add spacing between range separator and sign
             LocalizedNumberRangeFormatter lnrf = NumberRangeFormatter
@@ -939,7 +956,7 @@ public class NumberRangeFormatterTest extends TestFmwk {
             String actual = lnrf.formatRange(2, -3).toString();
             assertEquals("Positive to negative range", "2–-3", actual);
         }
-    
+
         {
             LocalizedNumberRangeFormatter lnrf = NumberRangeFormatter
                 .withLocale(ULocale.forLanguageTag("de-CH"))
@@ -947,6 +964,53 @@ public class NumberRangeFormatterTest extends TestFmwk {
             String actual = lnrf.formatRange(2, -3).toString();
             assertEquals("Positive to negative percent", "2% – -3%", actual);
         }
+    }
+
+    @Test
+    public void testCreateLNRFFromNumberingSystemInSkeleton() {
+        {
+            LocalizedNumberRangeFormatter lnrf = NumberRangeFormatter
+                .withLocale(ULocale.forLanguageTag("en"))
+                .numberFormatterBoth(NumberFormatter.forSkeleton(
+                    ".### rounding-mode-half-up"));
+            String actual = lnrf.formatRange(1, 234).toString();
+            assertEquals("default numbering system", "1–234", actual);
+        }
+        {
+            LocalizedNumberRangeFormatter lnrf = NumberRangeFormatter
+                .withLocale(ULocale.forLanguageTag("th"))
+                .numberFormatterBoth(NumberFormatter.forSkeleton(
+                    ".### rounding-mode-half-up numbering-system/thai"));
+            String actual = lnrf.formatRange(1, 234).toString();
+            assertEquals("Thai numbering system", "๑-๒๓๔", actual);
+        }
+        {
+            LocalizedNumberRangeFormatter lnrf = NumberRangeFormatter
+                .withLocale(ULocale.forLanguageTag("en"))
+                .numberFormatterBoth(NumberFormatter.forSkeleton(
+                    ".### rounding-mode-half-up numbering-system/arab"));
+            String actual = lnrf.formatRange(1, 234).toString();
+            assertEquals("Arabic numbering system", "١–٢٣٤", actual);
+        }
+        {
+            LocalizedNumberRangeFormatter lnrf = NumberRangeFormatter
+                .withLocale(ULocale.forLanguageTag("en"))
+                .numberFormatterFirst(NumberFormatter.forSkeleton("numbering-system/arab"))
+                .numberFormatterSecond(NumberFormatter.forSkeleton("numbering-system/arab"));
+            String actual = lnrf.formatRange(1, 234).toString();
+            assertEquals("Double Arabic numbering system", "١–٢٣٤", actual);
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testCreateLNRFFromNumberingSystemInSkeletonError() {
+        LocalizedNumberRangeFormatter lnrf = NumberRangeFormatter
+            .withLocale(ULocale.forLanguageTag("en"))
+            .numberFormatterFirst(NumberFormatter.forSkeleton("numbering-system/arab"))
+            .numberFormatterSecond(NumberFormatter.forSkeleton("numbering-system/latn"));
+        // Note: The error is not thrown until `formatRange` because this is where the
+        // formatter object gets built.
+        lnrf.formatRange(1, 234);
     }
 
     static void assertFormatRange(

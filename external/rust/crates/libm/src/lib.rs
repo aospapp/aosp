@@ -1,10 +1,7 @@
 //! libm in pure Rust
 #![deny(warnings)]
 #![no_std]
-#![cfg_attr(
-    all(target_arch = "wasm32", feature = "unstable"),
-    feature(core_intrinsics)
-)]
+#![cfg_attr(all(feature = "unstable"), feature(core_intrinsics))]
 #![allow(clippy::unreadable_literal)]
 #![allow(clippy::many_single_char_names)]
 #![allow(clippy::needless_return)]
@@ -54,5 +51,7 @@ pub fn _eq(a: f64, b: f64) -> Result<(), u64> {
     }
 }
 
+// PowerPC tests are failing on LLVM 13: https://github.com/rust-lang/rust/issues/88520
+#[cfg(not(target_arch = "powerpc64"))]
 #[cfg(all(test, feature = "musl-reference-tests"))]
 include!(concat!(env!("OUT_DIR"), "/musl-tests.rs"));

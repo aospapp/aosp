@@ -9,6 +9,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "platform"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This is the client-side test that goes through initialization and logins and

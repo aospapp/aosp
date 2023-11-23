@@ -18,6 +18,7 @@ TEST_TYPE = "server"
 ATTRIBUTES = "suite:audio_essential"
 DEPENDENCIES = 'audio_cable'
 JOB_RETRIES = 1
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests external_mic audio function against DUT after reboot.
@@ -34,6 +35,9 @@ def run(machine):
                  bind_to=chameleon_audio_ids.CrosIds.EXTERNAL_MIC,
                  audio_nodes=([audio_test_utils.get_headphone_node(host)],
                               ['MIC']),
-                 tag = "external_mic")
+                 tag = "external_mic",
+                 blocked_boards=['lars',    # Pending fix for b/147647051
+                                 'lars-kernelnext']
+                 )
 
 parallel_simple(run, machines)

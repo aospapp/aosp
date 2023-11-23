@@ -1,16 +1,16 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import logging
 import os
-import random
-import time
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.server import test
-from autotest_lib.server.cros import queue_barrier
 
+DEFAULT_AVAHI_SIZE_UPDATE_DELAY = 10
 
 # P2P_PATH is the path where the p2p server expects the sharing files.
 P2P_PATH = '/var/cache/p2p'
@@ -18,127 +18,120 @@ P2P_PATH = '/var/cache/p2p'
 # Prefix all the test files with P2P_TEST_PREFIX.
 P2P_TEST_PREFIX = 'p2p-test'
 
-# File size of the shared file in KB.
-P2P_FILE_SIZE_KB = 80 * 1000
+# Kilobyte.
+KB = 1024
+
+# File size of the shared file in MB.
+P2P_FILE_SIZE_MB = 4 * KB * KB
+P2P_FILE_SPLIT_SIZE_KB = P2P_FILE_SIZE_MB // (2 * KB)
 
 # After a peer finishes the download we need it to keep serving the file for
 # other peers. This peer will then wait up to P2P_SERVING_TIMEOUT_SECS seconds
 # for the test to conclude.
-P2P_SERVING_TIMEOUT_SECS = 600
+P2P_SERVING_TIMEOUT_SECS = 300
 
-# The file is initialy shared by the main in two parts. The first part is
-# available at the beginning of the test, while the second part of the file
-# becomes ready in the main after P2P_SHARING_GAP_SECS seconds.
-P2P_SHARING_GAP_SECS = 90
-
-# The main and clients have to initialize the p2p service and, in the case
-# of the main, generate the first part of the file on disk.
-P2P_INITIALIZE_TIMEOUT_SECS = 90
 
 class p2p_EndToEndTest(test.test):
     """Test to check that p2p works."""
     version = 1
 
 
-    def run_once(self, dut, file_id, is_main, peers, barrier):
+    def run_once(self, dut, file_id, companions):
         self._dut = dut
+        self._companion = companions[0]
 
         file_id = '%s-%s' % (P2P_TEST_PREFIX, file_id)
         file_temp_name = os.path.join(P2P_PATH, file_id + '.tmp')
         file_shared_name = os.path.join(P2P_PATH, file_id + '.p2p')
 
-        # Ensure that p2p is running.
-        dut.run('start p2p || true')
-        dut.run('status p2p | grep running')
+        logging.info('File ID: %s', file_id)
 
-        # Prepare the file - this includes specifying its final size.
+        # Setup dut and companion.
+        for host in [self._dut, self._companion]:
+            # Ensure that p2p is running.
+            host.run('start p2p || true')
+            host.run('status p2p | grep running')
+
+        # Prepare an empty file to share and specify its final size via the
+        # "user.cros-p2p-filesize" attribute.
+        logging.info('All devices setup. Generating a file on main DUT')
         dut.run('touch %s' % file_temp_name)
-        dut.run('setfattr -n user.cros-p2p-filesize -v %d %s'
-                % (P2P_FILE_SIZE_KB * 1000, file_temp_name))
+        dut.run('setfattr -n user.cros-p2p-filesize -v %d %s' %
+                (P2P_FILE_SIZE_MB, file_temp_name))
         dut.run('mv %s %s' % (file_temp_name, file_shared_name))
 
-        if is_main:
-            # The main generates a file and shares a part of it but announces
-            # the total size via the "user.cros-p2p-filesize" attribute.
-            # To ensure that the clients are retrieving this first shared part
-            # and hopefully blocking until the rest of the file is available,
-            # a sleep is included in the main side.
+        # Generate part of the files total file fize.
+        dut.run('dd if=/dev/zero of=%s bs=%d count=%d' %
+                (file_shared_name, KB, P2P_FILE_SPLIT_SIZE_KB))
 
-            logging.info('Main process running.')
+        def _wait_until_avahi_size_update():
+            ret = ''
+            try:
+                ret = self._companion.run(
+                        'p2p-client --get-url=%s --minimum-size=%d' %
+                        (file_id, P2P_FILE_SPLIT_SIZE_KB * KB))
+                ret = ret.stdout.strip()
+            except:
+                return False
+            return ret != ''
 
-            first_part_size_kb = P2P_FILE_SIZE_KB / 3
-            dut.run('dd if=/dev/urandom of=%s bs=1000 count=%d'
-                    % (file_shared_name, first_part_size_kb))
+        err = 'Shared file size did not update in time.'
+        # The actual delay is 10 seconds, so triple that to account for flakes.
+        utils.poll_for_condition(condition=_wait_until_avahi_size_update,
+                                 timeout=DEFAULT_AVAHI_SIZE_UPDATE_DELAY * 3,
+                                 exception=error.TestFail(err))
 
-            # This small sleep is to ensure that the new file size is updated
-            # by avahi daemon.
-            time.sleep(5)
+        # Now thhe companion can attempt a p2p file download.
+        logging.info('Listing all p2p peers for the companion: ')
+        logging.info(self._companion.run('p2p-client --list-all').stdout)
+        ret = self._companion.run('p2p-client --get-url=%s' % file_id,
+                                  ignore_status=True)
+        url = ret.stdout.strip()
 
-            # At this point, the main is sharing a non-empty file, signal all
-            # the clients that they can start the test. The clients should not
-            # take more and a few seconds to launch.
-            barrier.main_barrier(timeout=P2P_INITIALIZE_TIMEOUT_SECS)
-
-            # Wait some time to allow clients download a partial file.
-            time.sleep(P2P_SHARING_GAP_SECS)
-            dut.run('dd if=/dev/urandom of=%s bs=1000 count=%d'
-                    ' conv=notrunc oflag=append'
-                    % (file_shared_name, P2P_FILE_SIZE_KB - first_part_size_kb))
+        if not url:
+            raise error.TestFail(
+                    'p2p-client on companion returned an empty URL.')
         else:
-            # On the client side, first wait until the main is sharing
-            # a non-empty file, otherwise p2p-client will ignore the file.
-            # The main should not take more than a few seconds to generate
-            # the file.
-            barrier.node_barrier(timeout=P2P_INITIALIZE_TIMEOUT_SECS)
+            logging.info('Companion using URL %s.', url)
+            logging.info(
+                    'Companion downloading the file from main DUT via p2p in the background.'
+            )
+            self._companion.run_background('curl %s -o %s' %
+                                           (url, file_shared_name),
+                                           verbose=True)
 
-            # Wait a random time in order to not launch all the downloads
-            # at the same time, otherwise all devices would be seeing
-            # num-connections < $THRESHOLD .
-            r = random.Random()
-            secs_to_sleep = r.randint(1, 10)
-            logging.debug('Sleeping %d seconds', secs_to_sleep)
-            time.sleep(secs_to_sleep)
-
-            # Attempt the file download and start sharing it while
-            # downloading it.
-            ret = dut.run('p2p-client --get-url=%s' % file_id)
-            url = ret.stdout.strip()
-
-            if not url:
-                raise error.TestFail('p2p-client returned an empty URL.')
-            else:
-                logging.info('Using URL %s', url)
-                dut.run('curl %s -o %s' % (url, file_shared_name))
+        logging.info(
+                'While companion is downloading the file, we will expand it to its full size.'
+        )
+        dut.run('dd if=/dev/zero of=%s bs=%d count=%d'
+                ' conv=notrunc oflag=append' %
+                (file_shared_name, KB, P2P_FILE_SPLIT_SIZE_KB))
 
         # Calculate the SHA1 (160 bits -> 40 characters when
-        # hexencoded) of the file and report this back so the
-        # server-side test can check they're all the same.
+        # hexencoded) of the generated file.
         ret = dut.run('sha1sum %s' % file_shared_name)
-        sha1 = ret.stdout.strip()[0:40]
-        logging.info('SHA1 is %s', sha1)
+        sha1_main = ret.stdout.strip()[0:40]
+        logging.info('SHA1 of main is %s', sha1_main)
+        sha1_companion = ''
+        logging.info(
+                'Waiting for companion to finish downloading file so we can compare SHA1 values'
+        )
 
-        # Wait for all the clients to finish and check the received SHA1.
-        if is_main:
-            try:
-                client_sha1s = barrier.main_barrier(
-                        timeout=P2P_SERVING_TIMEOUT_SECS)
-            except queue_barrier.QueueBarrierTimeout:
-                raise error.TestFail("Test failed to complete in %d seconds."
-                                     % P2P_SERVING_TIMEOUT_SECS)
+        def _shas_match():
+            """Returns true when the SHA1 of the file matches on DUT and companion."""
+            ret = self._companion.run('sha1sum %s' % file_shared_name)
+            sha1_companion = ret.stdout.strip()[0:40]
+            logging.debug(sha1_companion)
+            return sha1_main == sha1_companion
 
-            for client_sha1 in client_sha1s:
-                if client_sha1 != sha1:
-                    # Wrong SHA1 received.
-                    raise error.TestFail("Received SHA1 (%s) doesn't match "
-                            "main's SHA1 (%s)." % (client_sha1, sha1))
-        else:
-            try:
-                barrier.node_barrier(sha1, timeout=P2P_SERVING_TIMEOUT_SECS)
-            except queue_barrier.QueueBarrierTimeout:
-                raise error.TestFail("Test failed to complete in %d seconds."
-                                     % P2P_SERVING_TIMEOUT_SECS)
-
+        err = "Main DUT's SHA1 (%s) doesn't match companions's SHA1 (%s)." % (
+                sha1_main, sha1_companion)
+        utils.poll_for_condition(condition=_shas_match,
+                                 timeout=P2P_SERVING_TIMEOUT_SECS,
+                                 exception=error.TestFail(err))
 
     def cleanup(self):
         # Clean the test environment and stop sharing this file.
-        self._dut.run('rm -f %s/%s-*.p2p' % (P2P_PATH, P2P_TEST_PREFIX))
+        for host in [self._dut, self._companion]:
+            host.run('rm -f %s/%s-*.p2p' % (P2P_PATH, P2P_TEST_PREFIX))
+            host.run('stop p2p')

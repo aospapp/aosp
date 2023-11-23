@@ -17,7 +17,14 @@
 namespace angle
 {
 class PoolAllocator;
+class SharedRingBufferAllocator;
 }  // namespace angle
+
+#if ANGLE_ENABLE_VULKAN_SHARED_RING_BUFFER_CMD_ALLOC
+using SecondaryCommandMemoryAllocator = angle::SharedRingBufferAllocator;
+#else
+using SecondaryCommandMemoryAllocator = angle::PoolAllocator;
+#endif
 
 namespace rx
 {
@@ -27,6 +34,7 @@ namespace vk
 {
 class Context;
 class RenderPassDesc;
+class SecondaryCommandPool;
 
 class VulkanSecondaryCommandBuffer : public priv::CommandBuffer
 {
@@ -34,23 +42,28 @@ class VulkanSecondaryCommandBuffer : public priv::CommandBuffer
     VulkanSecondaryCommandBuffer() = default;
 
     static angle::Result InitializeCommandPool(Context *context,
-                                               CommandPool *pool,
+                                               SecondaryCommandPool *pool,
                                                uint32_t queueFamilyIndex,
-                                               bool hasProtectedContent);
+                                               ProtectionType protectionType);
     static angle::Result InitializeRenderPassInheritanceInfo(
         ContextVk *contextVk,
         const Framebuffer &framebuffer,
         const RenderPassDesc &renderPassDesc,
         VkCommandBufferInheritanceInfo *inheritanceInfoOut);
 
-    angle::Result initialize(vk::Context *context,
-                             vk::CommandPool *pool,
+    angle::Result initialize(Context *context,
+                             SecondaryCommandPool *pool,
                              bool isRenderPassCommandBuffer,
-                             angle::PoolAllocator *allocator);
+                             SecondaryCommandMemoryAllocator *allocator);
 
-    angle::Result begin(vk::Context *context,
-                        const VkCommandBufferInheritanceInfo &inheritanceInfo);
-    angle::Result end(vk::Context *context);
+    void destroy();
+
+    void attachAllocator(SecondaryCommandMemoryAllocator *source) {}
+
+    void detachAllocator(SecondaryCommandMemoryAllocator *destination) {}
+
+    angle::Result begin(Context *context, const VkCommandBufferInheritanceInfo &inheritanceInfo);
+    angle::Result end(Context *context);
     VkResult reset();
 
     void executeCommands(PrimaryCommandBuffer *primary) { primary->executeCommands(1, this); }
@@ -221,9 +234,14 @@ class VulkanSecondaryCommandBuffer : public priv::CommandBuffer
 
     void open() const {}
     void close() const {}
-    bool empty() const { return !mAnyCommand; }
+    bool empty() const
+    {
+        ASSERT(valid());
+        return !mAnyCommand;
+    }
     uint32_t getRenderPassWriteCommandCount() const
     {
+        ASSERT(valid());
         return mCommandTracker.getRenderPassWriteCommandCount();
     }
     std::string dumpCommands(const char *separator) const { return ""; }
@@ -231,6 +249,7 @@ class VulkanSecondaryCommandBuffer : public priv::CommandBuffer
   private:
     void onRecordCommand() { mAnyCommand = true; }
 
+    SecondaryCommandPool *mCommandPool = nullptr;
     CommandBufferCommandTracker mCommandTracker;
     bool mAnyCommand = false;
 };

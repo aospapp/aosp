@@ -1,5 +1,3 @@
-#!/usr/bin/python2
-#
 # Copyright (c) 2010 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -36,10 +34,9 @@ class platform_FileSize(test.test):
         """
         TEXT = 'ChromeOS knows how to make your netbook run fast!\n'
         count = size * 20000
-        fh = file(fname, 'w')
-        for i in range(count):
-            fh.write(TEXT)
-        fh.close()
+        with open(fname, 'w') as fh:
+            for i in range(count):
+                fh.write(TEXT)
 
         if os.path.exists(fname):
             fsize = os.path.getsize(fname)

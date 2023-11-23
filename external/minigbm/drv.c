@@ -30,14 +30,8 @@ extern const struct backend backend_amdgpu;
 #ifdef DRV_I915
 extern const struct backend backend_i915;
 #endif
-#ifdef DRV_MEDIATEK
-extern const struct backend backend_mediatek;
-#endif
 #ifdef DRV_MSM
 extern const struct backend backend_msm;
-#endif
-#ifdef DRV_ROCKCHIP
-extern const struct backend backend_rockchip;
 #endif
 #ifdef DRV_VC4
 extern const struct backend backend_vc4;
@@ -46,14 +40,46 @@ extern const struct backend backend_vc4;
 // Dumb / generic drivers
 extern const struct backend backend_evdi;
 extern const struct backend backend_marvell;
+extern const struct backend backend_mediatek;
 extern const struct backend backend_meson;
 extern const struct backend backend_nouveau;
 extern const struct backend backend_komeda;
 extern const struct backend backend_radeon;
+extern const struct backend backend_rockchip;
+extern const struct backend backend_sun4i_drm;
 extern const struct backend backend_synaptics;
 extern const struct backend backend_virtgpu;
 extern const struct backend backend_udl;
 extern const struct backend backend_vkms;
+
+static const struct backend *drv_backend_list[] = {
+#ifdef DRV_AMDGPU
+	&backend_amdgpu,
+#endif
+#ifdef DRV_I915
+	&backend_i915,
+#endif
+#ifdef DRV_MSM
+	&backend_msm,
+#endif
+#ifdef DRV_VC4
+	&backend_vc4,
+#endif
+	&backend_evdi,	    &backend_komeda,	&backend_marvell, &backend_mediatek,
+	&backend_meson,	    &backend_nouveau,	&backend_radeon,  &backend_rockchip,
+	&backend_sun4i_drm, &backend_synaptics, &backend_udl,	  &backend_virtgpu,
+	&backend_vkms
+};
+
+void drv_preload(bool load)
+{
+	unsigned int i;
+	for (i = 0; i < ARRAY_SIZE(drv_backend_list); i++) {
+		const struct backend *b = drv_backend_list[i];
+		if (b->preload)
+			b->preload(load);
+	}
+}
 
 static const struct backend *drv_get_backend(int fd)
 {
@@ -65,32 +91,8 @@ static const struct backend *drv_get_backend(int fd)
 	if (!drm_version)
 		return NULL;
 
-	const struct backend *backend_list[] = {
-#ifdef DRV_AMDGPU
-		&backend_amdgpu,
-#endif
-#ifdef DRV_I915
-		&backend_i915,
-#endif
-#ifdef DRV_MEDIATEK
-		&backend_mediatek,
-#endif
-#ifdef DRV_MSM
-		&backend_msm,
-#endif
-#ifdef DRV_ROCKCHIP
-		&backend_rockchip,
-#endif
-#ifdef DRV_VC4
-		&backend_vc4,
-#endif
-		&backend_evdi,	   &backend_marvell, &backend_meson,	 &backend_nouveau,
-		&backend_komeda,   &backend_radeon,  &backend_synaptics, &backend_virtgpu,
-		&backend_udl,	   &backend_virtgpu, &backend_vkms
-	};
-
-	for (i = 0; i < ARRAY_SIZE(backend_list); i++) {
-		const struct backend *b = backend_list[i];
+	for (i = 0; i < ARRAY_SIZE(drv_backend_list); i++) {
+		const struct backend *b = drv_backend_list[i];
 		if (!strcmp(drm_version->name, b->name)) {
 			drmFreeVersion(drm_version);
 			return b;
@@ -258,7 +260,7 @@ static void drv_bo_mapping_destroy(struct bo *bo)
 				if (ret) {
 					pthread_mutex_unlock(&drv->mappings_lock);
 					assert(ret);
-					drv_log("munmap failed\n");
+					drv_loge("munmap failed\n");
 					return;
 				}
 
@@ -438,7 +440,7 @@ struct bo *drv_bo_import(struct driver *drv, struct drv_import_fd_data *data)
 
 		seek_end = lseek(data->fds[plane], 0, SEEK_END);
 		if (seek_end == (off_t)(-1)) {
-			drv_log("lseek() failed with %s\n", strerror(errno));
+			drv_loge("lseek() failed with %s\n", strerror(errno));
 			goto destroy_bo;
 		}
 
@@ -449,7 +451,7 @@ struct bo *drv_bo_import(struct driver *drv, struct drv_import_fd_data *data)
 			bo->meta.sizes[plane] = data->offsets[plane + 1] - data->offsets[plane];
 
 		if ((int64_t)bo->meta.offsets[plane] + bo->meta.sizes[plane] > seek_end) {
-			drv_log("buffer size is too large.\n");
+			drv_loge("buffer size is too large.\n");
 			goto destroy_bo;
 		}
 
@@ -521,7 +523,7 @@ void *drv_bo_map(struct bo *bo, const struct rectangle *rect, uint32_t map_flags
 	}
 
 	memcpy(mapping.vma->map_strides, bo->meta.strides, sizeof(mapping.vma->map_strides));
-	addr = drv->backend->bo_map(bo, mapping.vma, plane, map_flags);
+	addr = drv->backend->bo_map(bo, mapping.vma, map_flags);
 	if (addr == MAP_FAILED) {
 		*map_data = NULL;
 		free(mapping.vma);
@@ -660,7 +662,7 @@ int drv_bo_get_plane_fd(struct bo *bo, size_t plane)
 		ret = drmPrimeHandleToFD(bo->drv->fd, bo->handles[plane].u32, DRM_CLOEXEC, &fd);
 
 	if (ret)
-		drv_log("Failed to get plane fd: %s\n", strerror(errno));
+		drv_loge("Failed to get plane fd: %s\n", strerror(errno));
 
 	return (ret) ? ret : fd;
 }
@@ -744,7 +746,8 @@ uint32_t drv_num_buffers_per_bo(struct bo *bo)
 	return count;
 }
 
-void drv_log_prefix(const char *prefix, const char *file, int line, const char *format, ...)
+void drv_log_prefix(enum drv_log_level level, const char *prefix, const char *file, int line,
+		    const char *format, ...)
 {
 	char buf[50];
 	snprintf(buf, sizeof(buf), "[%s:%s(%d)]", prefix, basename(file), line);
@@ -752,10 +755,30 @@ void drv_log_prefix(const char *prefix, const char *file, int line, const char *
 	va_list args;
 	va_start(args, format);
 #ifdef __ANDROID__
-	__android_log_vprint(ANDROID_LOG_ERROR, buf, format, args);
+	int prio = ANDROID_LOG_ERROR;
+	switch (level) {
+	case DRV_LOGV:
+		prio = ANDROID_LOG_VERBOSE;
+		break;
+	case DRV_LOGD:
+		prio = ANDROID_LOG_DEBUG;
+		break;
+	case DRV_LOGI:
+		prio = ANDROID_LOG_INFO;
+		break;
+	case DRV_LOGE:
+	default:
+		break;
+	};
+	__android_log_vprint(prio, buf, format, args);
 #else
-	fprintf(stderr, "%s ", buf);
-	vfprintf(stderr, format, args);
+	if (level == DRV_LOGE) {
+		fprintf(stderr, "%s ", buf);
+		vfprintf(stderr, format, args);
+	} else {
+		fprintf(stdout, "%s ", buf);
+		vfprintf(stdout, format, args);
+	}
 #endif
 	va_end(args);
 }

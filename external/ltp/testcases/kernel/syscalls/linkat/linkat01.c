@@ -192,7 +192,7 @@ int TST_TOTAL = sizeof(test_desc) / sizeof(*test_desc);
 static int mylinkat(int olddirfd, const char *oldfilename, int newdirfd,
 		    const char *newfilename, int flags)
 {
-	return ltp_syscall(__NR_linkat, olddirfd, oldfilename, newdirfd,
+	return tst_syscall(__NR_linkat, olddirfd, oldfilename, newdirfd,
 		       newfilename, flags);
 }
 
@@ -200,12 +200,6 @@ int main(int ac, char **av)
 {
 	int lc;
 	int i;
-
-	if ((tst_kvercmp(2, 6, 16)) < 0) {
-		tst_resm(TWARN, "This test can only run on kernels that are ");
-		tst_resm(TWARN, "2.6.16 and higher");
-		exit(0);
-	}
 
 	tst_parse_opts(ac, av, NULL, NULL);
 
@@ -249,7 +243,8 @@ static void mylinkat_test(struct test_struct *desc)
 			int tnum = rand(), vnum = ~tnum;
 			fd = SAFE_OPEN(cleanup, desc->referencefn1,
 				       O_RDWR);
-			SAFE_WRITE(cleanup, 1, fd, &tnum, sizeof(tnum));
+			SAFE_WRITE(cleanup, SAFE_WRITE_ALL, fd, &tnum,
+				sizeof(tnum));
 			SAFE_CLOSE(cleanup, fd);
 
 			fd = SAFE_OPEN(cleanup, desc->referencefn2,

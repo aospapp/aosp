@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from __future__ import print_function
 
 import json
 import logging
@@ -10,6 +9,27 @@ import os
 import re
 import shlex
 import shutil
+import sys
+import tempfile
+
+
+# TODO (b/206008069), remove this when migrated to new env
+sys.path.insert(0,
+                '/usr/local/lib/python2.7/dist-packages/six-1.16.0-py2.7.egg')
+try:
+    # This is weird. But it seems something is bringing in six earlier
+    # Going to force a reload after the egg is inserted.
+    import six
+    if six.PY2:
+        reload(six)
+    else:
+        import importlib
+        importlib.reload(six)
+    logging.debug("six version is {}".format(six.__version__))
+    if six.__version__ != '1.16.0':
+        logging.debug(sys.path)
+except ImportError as e:
+    logging.warning("Could not import six due to %s", e)
 
 from contextlib import contextmanager
 
@@ -44,8 +64,10 @@ WARNING_STATUS = 'WARNING'
 FAILED_STATUS = 'FAILED'
 
 # Regex for the RESULT output lines understood by chrome buildbot.
+# TODO b:169251326 terms below are set outside of this codebase and
+# should be updated when possible ("slave"). # nocheck
 # Keep in sync with
-# chromium/tools/build/scripts/slave/performance_log_processor.py.
+# chromium/tools/build/scripts/slave/performance_log_processor.py. # nocheck
 RESULTS_REGEX = re.compile(r'(?P<IMPORTANT>\*)?RESULT '
                            r'(?P<GRAPH>[^:]*): (?P<TRACE>[^=]*)= '
                            r'(?P<VALUE>[\{\[]?[-\d\., ]+[\}\]]?)('
@@ -79,16 +101,16 @@ class telemetry_Crosperf(test.test):
         port = ''
 
         if dut:
-          port = dut.port
-          ip = dut.hostname
+            port = dut.port
+            ip = dut.hostname
         else:
-          ip_and_port = client_ip.split(':')
-          ip = ip_and_port[0]
-          if len(ip_and_port) > 1:
-            port = ip_and_port[1]
+            ip_and_port = client_ip.split(':')
+            ip = ip_and_port[0]
+            if len(ip_and_port) > 1:
+                port = ip_and_port[1]
 
         if port:
-          cmd.extend(['-P', str(port)])
+            cmd.extend(['-P', str(port)])
 
         src = 'root@%s:%s' % (ip, file_path)
         cmd.extend([src, host_dir])
@@ -106,8 +128,8 @@ class telemetry_Crosperf(test.test):
             raise
 
         if exit_code:
-          logging.error('Command "%s" returned non-zero status: %d',
-                           command, exit_code)
+            logging.error('Command "%s" returned non-zero status: %d', command,
+                          exit_code)
         return exit_code
 
     @contextmanager
@@ -153,7 +175,7 @@ class telemetry_Crosperf(test.test):
                 logging.info('Killing background process, pid %s', pid)
                 # Kill the process blindly. OK if it's already gone.
                 # There is an issue when underlying child processes stay alive
-                # while the parent master process is killed.
+                # while the parent main process is killed.
                 # The solution is to kill the chain of processes via process
                 # group id.
                 dut.run('pgid=$(cat /proc/%s/stat | cut -d")" -f2 | '
@@ -288,7 +310,7 @@ class telemetry_Crosperf(test.test):
         output_format = 'histograms'
 
         # For local runs, we set local=True and use local chrome source to run
-        # tests; for lab runs, we use devserver instead.
+        # tests; for lab runs, we use the drone instead.
         # By default to be True.
         local = args.get('local', 'true').lower() == 'true'
 
@@ -298,10 +320,6 @@ class telemetry_Crosperf(test.test):
         # TODO(zhizhouy): It is better to change the field name from "run_local"
         # to "telemetry_on_dut" in crosperf experiment files for consistency.
         telemetry_on_dut = args.get('run_local', '').lower() == 'true'
-
-        # Init TelemetryRunner.
-        tr = telemetry_runner.TelemetryRunner(
-                dut, local=local, telemetry_on_dut=telemetry_on_dut)
 
         # Run the test. And collect profile if needed.
         try:
@@ -338,17 +356,20 @@ class telemetry_Crosperf(test.test):
                 logging.debug('Telemetry Arguments: %s', arguments)
                 perf_value_writer = self
                 artifacts = True if profiler_args else False
-                result = tr.run_telemetry_benchmark(
-                        test_name,
-                        perf_value_writer,
-                        *arguments,
-                        ex_output_format=output_format,
-                        results_dir=self.resultsdir,
-                        no_verbose=True,
-                        artifacts=artifacts)
-                logging.info('Telemetry completed with exit status: %s.',
-                             result.status)
-                logging.info('output: %s\n', result.output)
+                with telemetry_runner.TelemetryRunnerFactory().get_runner(
+                        dut, local=local,
+                        telemetry_on_dut=telemetry_on_dut) as tr:
+                    result = tr.run_telemetry_benchmark(
+                            test_name,
+                            perf_value_writer,
+                            *arguments,
+                            ex_output_format=output_format,
+                            results_dir=self.resultsdir,
+                            no_verbose=True,
+                            artifacts=artifacts)
+                    logging.info('Telemetry completed with exit status: %s.',
+                                 result.status)
+                    logging.info('output: %s\n', result.output)
 
         except (error.TestFail, error.TestWarn):
             logging.debug(
@@ -383,9 +404,10 @@ class telemetry_Crosperf(test.test):
                         # perf.data files, but only if they are named exactly
                         # so. Therefore, create a subdir for each perf.data
                         # file.
-                        dst_dir = os.path.join(self.profdir, ''.join(
-                                f.split('.')[:-2]))
-                        os.makedirs(dst_dir)
+                        # Use mkdtemp to make sure a directory name is unique.
+                        dst_dir = tempfile.mkdtemp(dir=self.profdir,
+                                                   prefix=''.join(
+                                                           f.split('.')[:-2]))
                         dst_file = os.path.join(dst_dir, 'perf.data')
                         shutil.copyfile(src_file, dst_file)
             if not perf_exist:

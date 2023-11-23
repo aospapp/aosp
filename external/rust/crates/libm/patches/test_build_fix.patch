@@ -1,17 +1,8 @@
-From c18c704856ffa8b3349401300e66796d4cc8d4f5 Mon Sep 17 00:00:00 2001
-From: Jethro Beekman <jethro@fortanix.com>
-Date: Thu, 24 Jun 2021 15:58:36 +0200
-Subject: [PATCH] Fix build failure with latest nightly
-
----
- src/math/pow.rs | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
 diff --git a/src/math/pow.rs b/src/math/pow.rs
-index c7fd0df..f79680a 100644
+index 3020b1a..6a19ae6 100644
 --- a/src/math/pow.rs
 +++ b/src/math/pow.rs
-@@ -604,7 +604,7 @@ mod tests {
+@@ -608,7 +608,7 @@ mod tests {
  
          // Factoring -1 out:
          // (negative anything ^ integer should be (-1 ^ integer) * (positive anything ^ integer))
@@ -20,7 +11,7 @@ index c7fd0df..f79680a 100644
              .iter()
              .for_each(|int_set| {
                  int_set.iter().for_each(|int| {
-@@ -616,7 +616,7 @@ mod tests {
+@@ -620,7 +620,7 @@ mod tests {
  
          // Negative base (imaginary results):
          // (-anything except 0 and Infinity ^ non-integer should be NAN)

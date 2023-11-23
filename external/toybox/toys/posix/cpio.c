@@ -13,36 +13,39 @@
  * In order: magic ino mode uid gid nlink mtime filesize devmajor devminor
  * rdevmajor rdevminor namesize check
  * This is the equivalent of mode -H newc in other implementations.
+ * We always do --quiet, but accept it as a compatibility NOP.
  *
- * todo: export/import linux file list text format ala gen_initramfs_list.sh
+ * TODO: export/import linux file list text format ala gen_initramfs_list.sh
+ * TODO: hardlink support, -A, -0, -a, -L, --sparse
+ * TODO: --renumber-archives (probably always?) --ignore-devno --reproducible
 
-USE_CPIO(NEWTOY(cpio, "(ignore-devno)(renumber-inodes)(quiet)(no-preserve-owner)md(make-directories)uH:p|i|t|F:v(verbose)o|[!pio][!pot][!pF]", TOYFLAG_BIN))
+USE_CPIO(NEWTOY(cpio, "(ignore-devno)(renumber-inodes)(quiet)(no-preserve-owner)R(owner):md(make-directories)uH:p|i|t|F:v(verbose)o|[!pio][!pot][!pF]", TOYFLAG_BIN))
 
 config CPIO
   bool "cpio"
   default y
   help
-    usage: cpio -{o|t|i|p DEST} [-v] [--verbose] [-F FILE] [--no-preserve-owner]
-           [ignored: -m -H newc]
+    usage: cpio -{o|t|i|p DEST} [-v] [--verbose] [-F FILE] [-R [USER][:GROUP] [--no-preserve-owner]
 
     Copy files into and out of a "newc" format cpio archive.
 
+    -d	Create directories if needed
     -F FILE	Use archive FILE instead of stdin/stdout
-    -p DEST	Copy-pass mode, copy stdin file list to directory DEST
     -i	Extract from archive into file system (stdin=archive)
     -o	Create archive (stdin=list of files, stdout=archive)
+    -p DEST	Copy-pass mode, copy stdin file list to directory DEST
+    -R USER	Replace owner with USER[:GROUP]
     -t	Test files (list only, stdin=archive, stdout=list of files)
-    -d	Create directories if needed
-    -u	unlink existing files when extracting
+    -u	Unlink existing files when extracting
     -v	Verbose
-    --no-preserve-owner (don't set ownership during extract)
+    --no-preserve-owner     Don't set ownership during extract
 */
 
 #define FOR_cpio
 #include "toys.h"
 
 GLOBALS(
-  char *F, *H;
+  char *F, *H, *R;
 )
 
 // Read strings, tail padded to 4 byte alignment. Argument "align" is amount
@@ -80,9 +83,21 @@ static unsigned x8u(char *hex)
 
 void cpio_main(void)
 {
-  // Subtle bit: FLAG_o is 1 so we can just use it to select stdin/stdout.
-  int pipe, afd = FLAG(o), empty = 1;
+  int pipe, afd = FLAG(o), reown = !geteuid() && !FLAG(no_preserve_owner),
+      empty = 1;
   pid_t pid = 0;
+  long Ruid = -1, Rgid = -1;
+  char *tofree = 0;
+
+  if (TT.R) {
+    char *group = TT.R+strcspn(TT.R, ":.");
+
+    if (*group) {
+      Rgid = xgetgid(group+1);
+      *group = 0;
+    }
+    if (group != TT.R) Ruid = xgetuid(TT.R);
+  }
 
   // In passthrough mode, parent stays in original dir and generates archive
   // to pipe, child does chdir to new dir and reads archive from stdin (pipe).
@@ -90,7 +105,7 @@ void cpio_main(void)
     if (FLAG(d)) {
       if (!*toys.optargs) error_exit("need directory for -p");
       if (mkdir(*toys.optargs, 0700) == -1 && errno != EEXIST)
-        perror_exit("mkdir %s", *toys.optargs);
+        perror_msg("mkdir %s", *toys.optargs);
     }
     if (toys.stacktop) {
       // xpopen() doesn't return from child due to vfork(), instead restarts
@@ -113,10 +128,12 @@ void cpio_main(void)
   // read cpio archive
 
   if (FLAG(i) || FLAG(t)) for (;; empty = 0) {
-    char *name, *tofree, *data;
+    char *name, *data;
     unsigned mode, uid, gid, timestamp;
     int test = FLAG(t), err = 0, size = 0, len;
 
+    free(tofree);
+    tofree = 0;
     // read header, skipping arbitrary leading NUL bytes (concatenated archives)
     for (;;) {
       if (1>(len = readall(afd, toybuf+size, 110-size))) break;
@@ -132,12 +149,10 @@ void cpio_main(void)
       if (empty) error_exit("empty archive");
       else break;
     }
-    if (size != 110 || memcmp(toybuf, "070701", 6)) error_exit("bad header");
+    if (size != 110 || smemcmp(toybuf, "070701", 6)) error_exit("bad header");
     tofree = name = strpad(afd, x8u(toybuf+94), 110);
-    if (!strcmp("TRAILER!!!", name)) {
-      free(tofree);
-      continue;
-    }
+    // TODO: this flushes hardlink detection via major/minor/ino match
+    if (!strcmp("TRAILER!!!", name)) continue;
 
     // If you want to extract absolute paths, "cd /" and run cpio.
     while (*name == '/') name++;
@@ -145,8 +160,8 @@ void cpio_main(void)
 
     size = x8u(toybuf+54);
     mode = x8u(toybuf+14);
-    uid = x8u(toybuf+22);
-    gid = x8u(toybuf+30);
+    uid = (Ruid>=0) ? Ruid : x8u(toybuf+22);
+    gid = (Rgid>=0) ? Rgid : x8u(toybuf+30);
     timestamp = x8u(toybuf+46); // unsigned 32 bit, so year 2100 problem
 
     // (This output is unaffected by --quiet.)
@@ -163,16 +178,23 @@ void cpio_main(void)
     // properly aligned with next file.
 
     if (S_ISDIR(mode)) {
-      if (!test) err = mkdir(name, mode) && !FLAG(u);
-    } else if (S_ISLNK(mode)) {
-      data = strpad(afd, size, 0);
-      if (!test) {
-        err = symlink(data, name);
-        // Can't get a filehandle to a symlink, so do special chown
-        if (!err && !geteuid() && !FLAG(no_preserve_owner))
-          err = lchown(name, uid, gid);
+      if (test) continue;
+      err = mkdir(name, mode) && (errno != EEXIST && !FLAG(u));
+
+      // Creading dir/dev doesn't give us a filehandle, we have to refer to it
+      // by name to chown/utime, but how do we know it's the same item?
+      // Check that we at least have the right type of entity open, and do
+      // NOT restore dropped suid bit in this case.
+      if (S_ISDIR(mode) && reown) {
+        int fd = open(name, O_RDONLY|O_NOFOLLOW);
+        struct stat st;
+
+        if (fd != -1 && !fstat(fd, &st) && (st.st_mode&S_IFMT) == (mode&S_IFMT))
+          err = fchown(fd, uid, gid);
+        else err = 1;
+
+        close(fd);
       }
-      free(data);
     } else if (S_ISREG(mode)) {
       int fd = test ? 0 : open(name, O_CREAT|O_WRONLY|O_EXCL|O_NOFOLLOW, mode);
 
@@ -197,46 +219,33 @@ void cpio_main(void)
 
       if (!test) {
         // set owner, restore dropped suid bit
-        if (!geteuid() && !FLAG(no_preserve_owner)) {
-          err = fchown(fd, uid, gid);
-          if (!err) err = fchmod(fd, mode);
-        }
+        if (reown) err = fchown(fd, uid, gid) && fchmod(fd, mode);
         close(fd);
       }
-    } else if (!test)
-      err = mknod(name, mode, dev_makedev(x8u(toybuf+78), x8u(toybuf+86)));
+    } else {
+      data = S_ISLNK(mode) ? strpad(afd, size, 0) : 0;
+      if (!test) {
+        err = data ? symlink(data, name)
+          : mknod(name, mode, dev_makedev(x8u(toybuf+78), x8u(toybuf+86)));
 
-    // Set ownership and timestamp.
+        // Can't get a filehandle to a symlink or a node on nodev mount,
+        // so do special chown that at least doesn't follow symlinks.
+        // We also don't chmod after, so dropped suid bit isn't restored
+        if (!err && reown) err = lchown(name, uid, gid);
+      }
+      free(data);
+    }
+
+    // Set timestamp.
     if (!test && !err) {
-      // Creading dir/dev doesn't give us a filehandle, we have to refer to it
-      // by name to chown/utime, but how do we know it's the same item?
-      // Check that we at least have the right type of entity open, and do
-      // NOT restore dropped suid bit in this case.
-      if (!S_ISREG(mode) && !S_ISLNK(mode) && !geteuid()
-          && !FLAG(no_preserve_owner))
-      {
-        int fd = open(name, O_RDONLY|O_NOFOLLOW);
-        struct stat st;
+      struct timespec times[2];
 
-        if (fd != -1 && !fstat(fd, &st) && (st.st_mode&S_IFMT) == (mode&S_IFMT))
-          err = fchown(fd, uid, gid);
-        else err = 1;
-
-        close(fd);
-      }
-
-      // set timestamp
-      if (!err) {
-        struct timespec times[2];
-
-        memset(times, 0, sizeof(struct timespec)*2);
-        times[0].tv_sec = times[1].tv_sec = timestamp;
-        err = utimensat(AT_FDCWD, name, times, AT_SYMLINK_NOFOLLOW);
-      }
+      memset(times, 0, sizeof(struct timespec)*2);
+      times[0].tv_sec = times[1].tv_sec = timestamp;
+      err = utimensat(AT_FDCWD, name, times, AT_SYMLINK_NOFOLLOW);
     }
 
     if (err) perror_msg_raw(name);
-    free(tofree);
 
   // Output cpio archive
 
@@ -266,6 +275,8 @@ void cpio_main(void)
       // encrypted filesystems can stat the wrong link size
       if (link) st.st_size = strlen(link);
 
+      if (Ruid>=0) st.st_uid = Ruid;
+      if (Rgid>=0) st.st_gid = Rgid;
       if (FLAG(no_preserve_owner)) st.st_uid = st.st_gid = 0;
       if (!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode)) st.st_size = 0;
       if (st.st_size >> 32) perror_msg("skipping >2G file '%s'", name);

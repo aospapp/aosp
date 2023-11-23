@@ -49,15 +49,31 @@ struct nl80211_wiphy_data {
 	int wiphy_idx;
 };
 
+#define NL80211_DRV_LINK_ID_NA (-1)
+
+struct i802_link {
+	unsigned int beacon_set:1;
+
+	s8 link_id;
+	int freq;
+	int bandwidth;
+	u8 addr[ETH_ALEN];
+	void *ctx;
+};
+
 struct i802_bss {
 	struct wpa_driver_nl80211_data *drv;
 	struct i802_bss *next;
+
+	size_t n_links;
+	struct i802_link links[MAX_NUM_MLD_LINKS];
+	struct i802_link *flink;
+
 	int ifindex;
 	int br_ifindex;
 	u64 wdev_id;
 	char ifname[IFNAMSIZ + 1];
 	char brname[IFNAMSIZ];
-	unsigned int beacon_set:1;
 	unsigned int added_if_into_bridge:1;
 	unsigned int already_in_bridge:1;
 	unsigned int added_bridge:1;
@@ -68,9 +84,8 @@ struct i802_bss {
 	unsigned int use_nl_connect:1;
 
 	u8 addr[ETH_ALEN];
+	u8 prev_addr[ETH_ALEN];
 
-	int freq;
-	int bandwidth;
 	int if_dynamic;
 
 	void *ctx;
@@ -128,6 +143,7 @@ struct wpa_driver_nl80211_data {
 	u8 bssid[ETH_ALEN];
 	u8 prev_bssid[ETH_ALEN];
 	int associated;
+	struct driver_sta_mlo_info sta_mlo_info;
 	u8 ssid[SSID_MAX_LEN];
 	size_t ssid_len;
 	enum nl80211_iftype nlmode;
@@ -180,6 +196,9 @@ struct wpa_driver_nl80211_data {
 	unsigned int unsol_bcast_probe_resp:1;
 	unsigned int qca_do_acs:1;
 	unsigned int brcm_do_acs:1;
+	unsigned int uses_6ghz:1;
+	unsigned int secure_ranging_ctx_vendor_cmd_avail:1;
+	unsigned int puncturing:1;
 
 	u64 vendor_scan_cookie;
 	u64 remain_on_chan_cookie;
@@ -221,6 +240,9 @@ struct wpa_driver_nl80211_data {
 	int auth_wep_tx_keyidx;
 	int auth_local_state_change;
 	int auth_p2p;
+	bool auth_mld;
+	u8 auth_mld_link_id;
+	u8 auth_ap_mld_addr[ETH_ALEN];
 
 	/*
 	 * Tells whether the last scan issued from wpa_supplicant was a normal
@@ -228,14 +250,13 @@ struct wpa_driver_nl80211_data {
 	 * (NL80211_CMD_VENDOR). 0 if no pending scan request.
 	 */
 	int last_scan_cmd;
-#ifdef CONFIG_DRIVER_NL80211_BRCM
+#if defined(CONFIG_DRIVER_NL80211_BRCM) || defined(CONFIG_DRIVER_NL80211_SYNA)
 	unsigned int vendor_set_pmk:1; /* for legacy set_pmk method before NL80211_CMD_SET_PMK */
-#endif /* CONFIG_DRIVER_NL80211_BRCM */
+#endif /* CONFIG_DRIVER_NL80211_BRCM || CONFIG_DRIVER_NL80211_SYNA */
 #ifdef CONFIG_DRIVER_NL80211_QCA
 	bool roam_indication_done;
 	u8 *pending_roam_data;
 	size_t pending_roam_data_len;
-	struct os_reltime pending_roam_ind_time;
 #endif /* CONFIG_DRIVER_NL80211_QCA */
 };
 
@@ -269,7 +290,8 @@ int is_ap_interface(enum nl80211_iftype nlmode);
 int is_sta_interface(enum nl80211_iftype nlmode);
 int wpa_driver_nl80211_authenticate_retry(struct wpa_driver_nl80211_data *drv);
 int nl80211_get_link_signal(struct wpa_driver_nl80211_data *drv,
-			    struct wpa_signal_info *sig);
+			    const u8 *bssid,
+			    struct hostap_sta_driver_data *data);
 int nl80211_get_link_noise(struct wpa_driver_nl80211_data *drv,
 			   struct wpa_signal_info *sig_change);
 int nl80211_get_wiphy_index(struct i802_bss *bss);

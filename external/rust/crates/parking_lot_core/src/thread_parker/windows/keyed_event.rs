@@ -55,42 +55,40 @@ impl KeyedEvent {
 
     #[allow(non_snake_case)]
     pub fn create() -> Option<KeyedEvent> {
-        unsafe {
-            let ntdll = GetModuleHandleA(b"ntdll.dll\0".as_ptr());
-            if ntdll == 0 {
-                return None;
-            }
-
-            let NtCreateKeyedEvent =
-                GetProcAddress(ntdll, b"NtCreateKeyedEvent\0".as_ptr())?;
-            let NtReleaseKeyedEvent =
-                GetProcAddress(ntdll, b"NtReleaseKeyedEvent\0".as_ptr())?;
-            let NtWaitForKeyedEvent =
-                GetProcAddress(ntdll, b"NtWaitForKeyedEvent\0".as_ptr())?;
-
-            let NtCreateKeyedEvent: extern "system" fn(
-                KeyedEventHandle: *mut HANDLE,
-                DesiredAccess: u32,
-                ObjectAttributes: *mut ffi::c_void,
-                Flags: u32,
-            ) -> NTSTATUS = mem::transmute(NtCreateKeyedEvent);
-            let mut handle = MaybeUninit::uninit();
-            let status = NtCreateKeyedEvent(
-                handle.as_mut_ptr(),
-                GENERIC_READ | GENERIC_WRITE,
-                ptr::null_mut(),
-                0,
-            );
-            if status != STATUS_SUCCESS {
-                return None;
-            }
-
-            Some(KeyedEvent {
-                handle: handle.assume_init(),
-                NtReleaseKeyedEvent: mem::transmute(NtReleaseKeyedEvent),
-                NtWaitForKeyedEvent: mem::transmute(NtWaitForKeyedEvent),
-            })
+        let ntdll = unsafe { GetModuleHandleA(b"ntdll.dll\0".as_ptr()) };
+        if ntdll == 0 {
+            return None;
         }
+
+        let NtCreateKeyedEvent =
+            unsafe { GetProcAddress(ntdll, b"NtCreateKeyedEvent\0".as_ptr())? };
+        let NtReleaseKeyedEvent =
+            unsafe { GetProcAddress(ntdll, b"NtReleaseKeyedEvent\0".as_ptr())? };
+        let NtWaitForKeyedEvent =
+            unsafe { GetProcAddress(ntdll, b"NtWaitForKeyedEvent\0".as_ptr())? };
+
+        let NtCreateKeyedEvent: extern "system" fn(
+            KeyedEventHandle: *mut HANDLE,
+            DesiredAccess: u32,
+            ObjectAttributes: *mut ffi::c_void,
+            Flags: u32,
+        ) -> NTSTATUS = unsafe { mem::transmute(NtCreateKeyedEvent) };
+        let mut handle = MaybeUninit::uninit();
+        let status = NtCreateKeyedEvent(
+            handle.as_mut_ptr(),
+            GENERIC_READ | GENERIC_WRITE,
+            ptr::null_mut(),
+            0,
+        );
+        if status != STATUS_SUCCESS {
+            return None;
+        }
+
+        Some(KeyedEvent {
+            handle: unsafe { handle.assume_init() },
+            NtReleaseKeyedEvent: unsafe { mem::transmute(NtReleaseKeyedEvent) },
+            NtWaitForKeyedEvent: unsafe { mem::transmute(NtWaitForKeyedEvent) },
+        })
     }
 
     #[inline]

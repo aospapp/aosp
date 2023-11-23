@@ -85,7 +85,7 @@ class CfmBaseTest(test.test):
             self._host.servo.set('dut_hub1_rst1', 'off')
             time.sleep(SHORT_TIMEOUT)
         except error.TestFail:
-            logging.warn('Failed to configure servo. This is not fatal unless '
+            logging.warning('Failed to configure servo. This is not fatal unless '
                          'your test is explicitly using the servo.',
                          exc_info=True)
 
@@ -174,4 +174,3 @@ class CfmBaseTest(test.test):
         except Exception as e:
             logging.exception(
                 'Exception while copying file "%s"', remote_path)
-

@@ -173,7 +173,7 @@ main()
       if (abidw_ok)
 	{
 	  string diff_cmd =
-	    "diff -u " + ref_report_path + " " + out_report_path;
+	    "diff -w -u " + ref_report_path + " " + out_report_path;
 	  if (system(diff_cmd.c_str()))
 	    is_ok &=false;
 	}

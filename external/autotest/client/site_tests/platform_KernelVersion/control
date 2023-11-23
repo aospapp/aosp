@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "platform_KernelVersion"
 PURPOSE = "Ensure the running kernel is supported."
 CRITERIA = "Fails if the running kernel version is older than kernel_version."

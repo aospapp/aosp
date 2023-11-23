@@ -25,7 +25,7 @@ android_library(
     ],
     deps = [
         ":package_info",
-        "@google_bazel_common//third_party/java/jsr330_inject",
+        "//third_party/java/jsr330_inject",
     ],
 )
 

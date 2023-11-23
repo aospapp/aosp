@@ -16,6 +16,7 @@
 
 package dagger.internal.codegen.writing;
 
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static com.squareup.javapoet.TypeSpec.anonymousClassBuilder;
@@ -25,10 +26,12 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 
-import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.TypeName;
+import dagger.assisted.Assisted;
+import dagger.assisted.AssistedFactory;
+import dagger.assisted.AssistedInject;
 import dagger.internal.codegen.binding.BindingGraph;
 import dagger.internal.codegen.binding.ComponentRequirement;
 import dagger.internal.codegen.binding.ContributionBinding;
@@ -47,15 +50,16 @@ final class DependencyMethodProducerCreationExpression
   private final ComponentRequirementExpressions componentRequirementExpressions;
   private final BindingGraph graph;
 
+  @AssistedInject
   DependencyMethodProducerCreationExpression(
-      ContributionBinding binding,
+      @Assisted ContributionBinding binding,
       ComponentImplementation componentImplementation,
       ComponentRequirementExpressions componentRequirementExpressions,
       BindingGraph graph) {
     this.binding = checkNotNull(binding);
-    this.componentImplementation = checkNotNull(componentImplementation);
-    this.componentRequirementExpressions = checkNotNull(componentRequirementExpressions);
-    this.graph = checkNotNull(graph);
+    this.componentImplementation = componentImplementation;
+    this.componentRequirementExpressions = componentRequirementExpressions;
+    this.graph = graph;
   }
 
   @Override
@@ -64,7 +68,7 @@ final class DependencyMethodProducerCreationExpression
         graph.componentDescriptor().getDependencyThatDefinesMethod(binding.bindingElement().get());
     FieldSpec dependencyField =
         FieldSpec.builder(
-                ClassName.get(dependency.typeElement()), dependency.variableName(), PRIVATE, FINAL)
+                dependency.typeElement().getClassName(), dependency.variableName(), PRIVATE, FINAL)
             .initializer(
                 componentRequirementExpressions.getExpressionDuringInitialization(
                     dependency,
@@ -79,7 +83,7 @@ final class DependencyMethodProducerCreationExpression
                     componentImplementation.name().nestedClass("Anonymous")))
             .build();
     // TODO(b/70395982): Explore using a private static type instead of an anonymous class.
-    TypeName keyType = TypeName.get(binding.key().type());
+    TypeName keyType = TypeName.get(binding.key().type().java());
     return CodeBlock.of(
         "$L",
         anonymousClassBuilder("")
@@ -93,8 +97,13 @@ final class DependencyMethodProducerCreationExpression
                     .addStatement(
                         "return $N.$L()",
                         dependencyField,
-                        binding.bindingElement().get().getSimpleName())
+                        toJavac(binding.bindingElement().get()).getSimpleName())
                     .build())
             .build());
+  }
+
+  @AssistedFactory
+  static interface Factory {
+    DependencyMethodProducerCreationExpression create(ContributionBinding binding);
   }
 }

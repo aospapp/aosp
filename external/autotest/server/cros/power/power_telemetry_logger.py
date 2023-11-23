@@ -10,6 +10,7 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
+import csv
 import datetime
 from distutils import sysconfig
 import json
@@ -17,8 +18,10 @@ import logging
 import numpy
 import os
 import re
+import shutil
 import six
 import string
+import subprocess
 import threading
 import time
 
@@ -121,19 +124,20 @@ class PowerTelemetryLogger(object):
         """
         self._end_measurement()
         logging.info('%s finishes.', self.__class__.__name__)
+        checkpoint_logger = self._get_client_test_checkpoint_logger(
+                client_test_dir)
         start_ts, end_ts = self._get_client_test_ts(client_test_dir)
         loggers = self._load_and_trim_data(start_ts, end_ts)
         # Call export after trimming to only export trimmed data.
-        self._export_data_locally(client_test_dir)
-        checkpoint_logger = self._get_client_test_checkpoint_logger(
-                client_test_dir)
+        self._export_data_locally(client_test_dir,
+                                  checkpoint_logger.checkpoint_data)
         self._upload_data(loggers, checkpoint_logger)
 
     def _end_measurement(self):
         """End power telemetry devices."""
         raise NotImplementedError('Subclasses must implement _end_measurement.')
 
-    def _export_data_locally(self, client_test_dir):
+    def _export_data_locally(self, client_test_dir, checkpoint_data=None):
         """Slot for the logger to export measurements locally."""
         raise NotImplementedError('Subclasses must implement '
                                   '_export_data_locally.')
@@ -316,6 +320,19 @@ class PowerTelemetryLogger(object):
                 '_load_and_trim_data and return a list of loggers.')
 
     def _get_client_test_checkpoint_logger(self, client_test_dir):
+        """Load the client-side test checkpoints.
+
+        The key data we need is the checkpoint_logger.checkpoint_data object.
+        This is a dictionary that contains for each key a list of [start, end]
+        timestamps (seconds since epoch) for a checkpoint.
+        Note: should there be issues loading the data, the checkpoint logger
+        will still be returned, but it will be empty. Code that relies on the
+        returned object here and wants to make sure its valid, needs to check
+        against the |checkpoint_logger.checkpoint_data| being empty, as it
+        will never be None
+
+        Returns: CheckpointLogger object with client endpoints, or empty data
+        """
         client_test_resultsdir = os.path.join(client_test_dir, 'results')
         checkpoint_logger = power_status.get_checkpoint_logger_from_file(
                 resultsdir=client_test_resultsdir)
@@ -338,9 +355,203 @@ class PowerTelemetryLogger(object):
             pdash.upload()
 
 
+class PacTelemetryLogger(PowerTelemetryLogger):
+    """This logger class measures power via pacman debugger."""
+
+    def __init__(self, config, resultsdir, host):
+        """Init PacTelemetryLogger.
+
+        @param config: the args argument from test_that in a dict. Settings for
+                       power telemetry devices.
+                       required data:
+                       {'test': 'test_TestName.tag',
+                        'config': PAC address and sense resistor .py file location,
+                        'mapping: DUT power rail mapping csv file,
+                        'gpio': gpio}
+        @param resultsdir: path to directory where current autotest results are
+                           stored, e.g. /tmp/test_that_results/
+                           results-1-test_TestName.tag/test_TestName.tag/
+                           results/
+        @param host: CrosHost object representing the DUT.
+
+        @raises error.TestError if problem running pacman.py
+        """
+        super(PacTelemetryLogger, self).__init__(config, resultsdir, host)
+        required_args = ['config', 'mapping', 'gpio']
+        for arg in required_args:
+            if arg not in config:
+                msg = 'Missing required arguments for PacTelemetryLogger: %s' % arg
+                raise error.TestError(msg)
+        self._pac_config_file = config['config']
+        self._pac_mapping_file = config['mapping']
+        self._pac_gpio_file = config['gpio']
+        self._resultsdir = resultsdir
+        self.pac_path = self._get_pacman_install_path()
+        self.pac_data_path = os.path.join(resultsdir, 'pac')
+
+        os.makedirs(self.pac_data_path, exist_ok=True)
+
+        # Check if pacman is able to run
+        try:
+            subprocess.check_output('pacman.py', timeout=5, cwd=self.pac_path)
+        except subprocess.CalledProcessError as e:
+            msg = 'Error running pacman.py '\
+                  'Check dependencies have been installed'
+            logging.error(msg)
+            logging.error(e.output)
+            raise error.TestError(e)
+
+    def _start_measurement(self):
+        """Start a pacman thread with the given config, mapping, and gpio files."""
+
+        self._log = open(os.path.join(self.pac_data_path, "pac.log"), "a")
+
+        self._pacman_args = [
+                '--config', self._pac_config_file, '--mapping',
+                self._pac_mapping_file, '--gpio', self._pac_gpio_file,
+                '--output', self.pac_data_path
+        ]
+
+        logging.debug('Starting pacman process')
+        cmds = ['pacman.py'] + self._pacman_args
+        logging.debug(cmds)
+
+        self._pacman_process = subprocess.Popen(cmds,
+                                                cwd=self.pac_path,
+                                                stdout=self._log,
+                                                stderr=self._log)
+
+    def _end_measurement(self):
+        """Stop pacman thread. This will dump and process the accumulators."""
+        self._pacman_process.send_signal(2)
+        self._pacman_process.wait(timeout=10)
+        self._load_and_trim_data(None, None)
+        self._export_data_locally(self._resultsdir)
+
+        self._log.close()
+
+    def _get_pacman_install_path(self):
+        """Return the absolute path of pacman on the host.
+
+        @raises error.TestError if pacman is not in PATH
+        """
+        pac_path = shutil.which('pacman.py')
+        if pac_path == None:
+            msg = 'Unable to locate pacman.py \n'\
+                  'Check pacman.py is in PATH'
+            logging.error(msg)
+            raise error.TestNAError(msg)
+        return os.path.dirname(pac_path)
+
+    def _load_and_trim_data(self, start_ts, end_ts):
+        """Load data and trim data.
+
+        Load and format data recorded by power telemetry devices. Trim data if
+        necessary.
+
+        @param start_ts: start timestamp in seconds since epoch, None if no
+                         need to trim data.
+        @param end_ts: end timestamp in seconds since epoch, None if no need to
+                       trim data.
+        @return a list of loggers, where each logger contains raw power data and
+                statistics.
+
+        @raises TestError when unable to locate or open pacman accumulator results
+
+        logger format:
+        {
+            'sample_count' : 60,
+            'sample_duration' : 60,
+            'data' : {
+                'domain_1' : [ 111.11, 123.45 , ... , 99.99 ],
+                ...
+                'domain_n' : [ 3999.99, 4242.42, ... , 4567.89 ]
+            },
+            'average' : {
+                'domain_1' : 100.00,
+                ...
+                'domain_n' : 4300.00
+            },
+            'unit' : {
+                'domain_1' : 'milliwatt',
+                ...
+                'domain_n' : 'milliwatt'
+            },
+            'type' : {
+                'domain_1' : 'servod',
+                ...
+                'domain_n' : 'servod'
+            },
+        }
+        """
+        loggers = list()
+        accumulator_path = os.path.join(self.pac_data_path, 'accumulatorData.csv')
+        if not os.path.exists(accumulator_path):
+            raise error.TestError('Unable to locate pacman results!')
+        # Load resulting pacman csv file
+        try:
+            with open(accumulator_path, 'r') as csvfile:
+                reader = csv.reader(csvfile, delimiter=',')
+                # Capture the first line
+                schema = next(reader)
+                # First column is an index
+                schema[0] = 'index'
+                # Place data into a dictionary
+                self._accumulator_data = list()
+                for row in reader:
+                    measurement = dict(zip(schema, row))
+                    self._accumulator_data.append(measurement)
+        except OSError:
+            raise error.TestError('Unable to open pacman accumulator results!')
+
+        # Match required logger format
+        log = {
+                'sample_count': 1,
+                'sample_duration': float(self._accumulator_data[0]['tAccum']),
+                'data': {
+                        x['Rail']: [float(x['Average Power (w)'])]
+                        for x in self._accumulator_data
+                },
+                'average': {
+                        x['Rail']: float(x['Average Power (w)'])
+                        for x in self._accumulator_data
+                },
+                'unit': {x['Rail']: 'watts'
+                         for x in self._accumulator_data},
+                'type': {x['Rail']: 'pacman'
+                         for x in self._accumulator_data},
+        }
+        loggers.append(log)
+        return loggers
+
+    def output_pacman_aggregates(self, test):
+        """This outputs all the processed aggregate values to the results-chart.json
+
+        @param test: the test.test object to use when outputting the
+                    performance values to results-chart.json
+        """
+        for rail in self._accumulator_data:
+            test.output_perf_value(rail['Rail'],
+                                   float(rail['Average Power (w)']),
+                                   units='watts',
+                                   replace_existing_values=True)
+
+    def _export_data_locally(self, client_test_dir, checkpoint_data=None):
+        """Slot for the logger to export measurements locally."""
+        self._local_pac_data_path = os.path.join(client_test_dir,
+                                                 'pacman_data')
+        shutil.copytree(self.pac_data_path, self._local_pac_data_path)
+
+    def _upload_data(self, loggers, checkpoint_logger):
+        """
+        _upload_data is defined as a pass as a hot-fix to external partners' lack
+        of access to the power_dashboard URL
+        """
+        pass
+
+
 class ServodTelemetryLogger(PowerTelemetryLogger):
-    """This logger class measures power by querying a servod instance.
-    """
+    """This logger class measures power by querying a servod instance."""
 
     DEFAULT_INA_RATE = 20.0
     DEFAULT_VBAT_RATE = 60.0
@@ -368,7 +579,7 @@ class ServodTelemetryLogger(PowerTelemetryLogger):
         self._vbat_rate = float(config.get('vbat_rate', self.DEFAULT_VBAT_RATE))
         self._pm = measure_power.PowerMeasurement(host=self._servo_host,
                                                   port=self._servo_port,
-                                                  ina_rate=self._ina_rate,
+                                                  adc_rate=self._ina_rate,
                                                   vbat_rate=self._vbat_rate)
 
     def _start_measurement(self):
@@ -381,12 +592,38 @@ class ServodTelemetryLogger(PowerTelemetryLogger):
         """End querying servod."""
         self._pm.FinishMeasurement()
 
-    def _export_data_locally(self, client_test_dir):
-        """Output formatted text summaries locally."""
+    def _export_data_locally(self, client_test_dir, checkpoint_data=None):
+        """Output formatted text summaries to test results directory.
+
+        @param client_test_dir: path to the client test output
+        @param checkpoint_data: dict, checkpoint data. data is list of tuples
+                                of (start,end) format for the timesteps
+        """
         # At this point the PowerMeasurement unit has been processed. Dump its
         # formatted summaries into the results directory.
         power_summaries_dir = os.path.join(self._resultsdir, 'power_summaries')
         self._pm.SaveSummary(outdir=power_summaries_dir)
+        # After the main summaries are exported, we also want to export one
+        # for each checkpoint. As each checkpoint might contain multiple
+        # entries, the checkpoint name is expanded by a digit.
+        def export_checkpoint(name, start, end):
+            """Helper to avoid code duplication for 0th and next cases."""
+            self._pm.SaveTrimmedSummary(tag=name,
+                                        tstart=start,
+                                        tend=end,
+                                        outdir=power_summaries_dir)
+
+        if checkpoint_data:
+            for checkpoint_name, checkpoint_list in checkpoint_data.items():
+                # Export the first entry without any sort of name change.
+                tstart, tend = checkpoint_list[0]
+                export_checkpoint(checkpoint_name, tstart, tend)
+                for suffix, checkpoint_element in enumerate(
+                        checkpoint_list[1:], start=1):
+                    # Export subsequent entries with a suffix
+                    tstart, tend = checkpoint_element
+                    export_checkpoint('%s%d' % (checkpoint_name, suffix),
+                                      tstart, tend)
 
     def _load_and_trim_data(self, start_ts, end_ts):
         """Load data and trim data.
@@ -510,7 +747,7 @@ class PowerlogTelemetryLogger(PowerTelemetryLogger):
         """Start power measurement with Sweetberry via powerlog tool."""
         self._sweetberry_thread.start()
 
-    def _export_data_locally(self, client_test_dir):
+    def _export_data_locally(self, client_test_dir, checkpoint_data=None):
         """Output formatted text summaries locally."""
         #TODO(crbug.com/978665): implement this.
         pass

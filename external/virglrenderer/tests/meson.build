@@ -30,14 +30,20 @@ libvrtest_sources = [
    'testvirgl_encode.h',
 ]
 
+libvrtest_depends = [
+   libvirgl_dep,
+   gallium_dep,
+   check_dep,
+]
+
+if with_tracing == 'percetto'
+   libvrtest_depends += [percetto_dep]
+endif
+
 libvrtest = static_library(
    'vrtest',
    libvrtest_sources,
-   dependencies : [
-      libvirgl_dep,
-      gallium_dep,
-      check_dep
-   ]
+   dependencies : libvrtest_depends
 )
 
 tests = [
@@ -53,15 +59,34 @@ fuzzy_tests = [
    ['test_fuzzer_formats', 'test_fuzzer_formats.c'],
 ]
 
+test_depends = [
+   libvirglrenderer_dep,
+   check_dep,
+]
+
+if with_tracing == 'percetto'
+   test_depends += [percetto_dep]
+endif
+
 foreach t : tests
    test_virgl = executable(t[0], t[1], link_with: libvrtest,
-                           dependencies : [libvirglrenderer_dep, check_dep])
+                           dependencies : test_depends)
    test(t[0], test_virgl)
 endforeach
 
+
+fuzzytest_depends = [
+   libvirglrenderer_dep,
+   epoxy_dep,
+]
+
+if with_tracing == 'percetto'
+   fuzzytest_depends += [percetto_dep]
+endif
+
 foreach t : fuzzy_tests
    test_virgl_fuzzy = executable(t[0], t[1], link_with: libvrtest,
-                                 dependencies : [libvirglrenderer_dep, epoxy_dep])
+                                 dependencies : fuzzytest_depends)
    test(t[0], test_virgl)
 endforeach
 

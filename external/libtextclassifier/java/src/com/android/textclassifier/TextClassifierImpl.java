@@ -199,6 +199,8 @@ final class TextClassifierImpl {
                 .setDetectedTextLanguageTags(detectLanguageTags)
                 .setAnnotationUsecase(AnnotatorModel.AnnotationUsecase.SMART.getValue())
                 .setUserFamiliarLanguageTags(LocaleList.getDefault().toLanguageTags())
+                .setEnableAddContactIntent(false)
+                .setEnableSearchIntent(shouldEnableSearchIntent(textClassificationContext))
                 .build(),
             // Passing null here to suppress intent generation.
             // TODO: Use an explicit flag to suppress it.
@@ -254,6 +256,8 @@ final class TextClassifierImpl {
                     .setDetectedTextLanguageTags(String.join(",", detectLanguageTags))
                     .setAnnotationUsecase(AnnotatorModel.AnnotationUsecase.SMART.getValue())
                     .setUserFamiliarLanguageTags(LocaleList.getDefault().toLanguageTags())
+                    .setEnableAddContactIntent(false)
+                    .setEnableSearchIntent(shouldEnableSearchIntent(textClassificationContext))
                     .build(),
                 context,
                 getResourceLocalesString());
@@ -768,5 +772,16 @@ final class TextClassifierImpl {
     strippedIntent.setPackage(null);
     strippedIntent.setComponent(null);
     return strippedIntent;
+  }
+
+  private static boolean shouldEnableSearchIntent(
+      @Nullable TextClassificationContext textClassificationContext) {
+    if (textClassificationContext == null) {
+      return false;
+    }
+    String widgetType = textClassificationContext.getWidgetType();
+    // Exclude WebView because there is already a *Web Search* chip there.
+    return !(TextClassifier.WIDGET_TYPE_WEBVIEW.equals(widgetType)
+        || TextClassifier.WIDGET_TYPE_EDIT_WEBVIEW.equals(widgetType));
   }
 }

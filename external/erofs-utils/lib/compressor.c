@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0+
+// SPDX-License-Identifier: GPL-2.0+ OR Apache-2.0
 /*
  * Copyright (C) 2018-2019 HUAWEI, Inc.
  *             http://www.huawei.com/
@@ -10,7 +10,7 @@
 
 #define EROFS_CONFIG_COMPR_DEF_BOUNDARY		(128)
 
-static struct erofs_compressor *compressors[] = {
+static const struct erofs_compressor *compressors[] = {
 #if LZ4_ENABLED
 #if LZ4HC_ENABLED
 		&erofs_compressor_lz4hc,
@@ -22,25 +22,31 @@ static struct erofs_compressor *compressors[] = {
 #endif
 };
 
-int erofs_compress_destsize(struct erofs_compress *c,
-			    void *src, unsigned int *srcsize,
-			    void *dst, unsigned int dstsize)
+int erofs_compress_destsize(const struct erofs_compress *c,
+			    const void *src, unsigned int *srcsize,
+			    void *dst, unsigned int dstsize, bool inblocks)
 {
-	unsigned int uncompressed_size;
+	unsigned int uncompressed_capacity, compressed_size;
 	int ret;
 
 	DBG_BUGON(!c->alg);
 	if (!c->alg->compress_destsize)
 		return -ENOTSUP;
 
+	uncompressed_capacity = *srcsize;
 	ret = c->alg->compress_destsize(c, src, srcsize, dst, dstsize);
 	if (ret < 0)
 		return ret;
 
+	/* XXX: ret >= EROFS_BLKSIZ is a temporary hack for ztailpacking */
+	if (inblocks || ret >= EROFS_BLKSIZ ||
+	    uncompressed_capacity != *srcsize)
+		compressed_size = roundup(ret, EROFS_BLKSIZ);
+	else
+		compressed_size = ret;
+	DBG_BUGON(c->compress_threshold < 100);
 	/* check if there is enough gains to compress */
-	uncompressed_size = *srcsize;
-	if (roundup(ret, EROFS_BLKSIZ) >= uncompressed_size *
-	    c->compress_threshold / 100)
+	if (*srcsize <= compressed_size * c->compress_threshold / 100)
 		return -EAGAIN;
 	return ret;
 }
@@ -70,8 +76,8 @@ int erofs_compressor_init(struct erofs_compress *c, char *alg_name)
 	c->compress_threshold = 100;
 
 	/* optimize for 4k size page */
-	c->destsize_alignsize = PAGE_SIZE;
-	c->destsize_redzone_begin = PAGE_SIZE - 16;
+	c->destsize_alignsize = EROFS_BLKSIZ;
+	c->destsize_redzone_begin = EROFS_BLKSIZ - 16;
 	c->destsize_redzone_end = EROFS_CONFIG_COMPR_DEF_BOUNDARY;
 
 	if (!alg_name) {

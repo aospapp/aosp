@@ -505,6 +505,17 @@ class AdbTest(unittest.TestCase):
           stderr=None,
           timeout=adb.DEFAULT_GETPROP_TIMEOUT_SEC)
 
+  def test_getprop_custom_timeout(self):
+    timeout_s = adb.DEFAULT_GETPROP_TIMEOUT_SEC * 2
+    with mock.patch.object(adb.AdbProxy, '_exec_cmd') as mock_exec_cmd:
+      mock_exec_cmd.return_value = b'blah'
+      self.assertEqual(adb.AdbProxy().getprop('haha', timeout=timeout_s),
+                       'blah')
+      mock_exec_cmd.assert_called_once_with(['adb', 'shell', 'getprop', 'haha'],
+                                            shell=False,
+                                            stderr=None,
+                                            timeout=timeout_s)
+
   def test__parse_getprop_output_special_values(self):
     mock_adb_output = (
         b'[selinux.restorecon_recursive]: [/data/misc_ce/10]\n'
@@ -758,8 +769,8 @@ class AdbTest(unittest.TestCase):
                                        shell=False,
                                        timeout=None,
                                        stderr=None)
-    self.assertEqual(mock_sleep.call_count, 2)
-    mock_sleep.assert_called_with(10)
+    self.assertEqual(mock_sleep.call_count, adb.ADB_ROOT_RETRY_ATTEMPTS - 1)
+    mock_sleep.assert_has_calls([mock.call(10), mock.call(20)])
 
   def test_has_shell_command_called_correctly(self):
     with mock.patch.object(adb.AdbProxy, '_exec_cmd') as mock_exec_cmd:

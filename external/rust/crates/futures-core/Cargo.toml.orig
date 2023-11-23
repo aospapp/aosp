@@ -1,6 +1,6 @@
 [package]
 name = "futures-core"
-version = "0.3.21"
+version = "0.3.26"
 edition = "2018"
 rust-version = "1.36"
 license = "MIT OR Apache-2.0"
@@ -21,6 +21,7 @@ unstable = []
 cfg-target-has-atomic = []
 
 [dependencies]
+portable-atomic = { version = "1", default-features = false, optional = true }
 
 [dev-dependencies]
 futures = { path = "../futures" }

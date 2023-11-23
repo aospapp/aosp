@@ -20,11 +20,13 @@
 
 namespace pw::transfer {
 
-Status Client::Read(uint32_t transfer_id,
+Status Client::Read(uint32_t resource_id,
                     stream::Writer& output,
                     CompletionFunc&& on_completion,
-                    chrono::SystemClock::duration timeout) {
-  if (on_completion == nullptr) {
+                    chrono::SystemClock::duration timeout,
+                    ProtocolVersion protocol_version) {
+  if (on_completion == nullptr ||
+      protocol_version == ProtocolVersion::kUnknown) {
     return Status::InvalidArgument();
   }
 
@@ -41,21 +43,24 @@ Status Client::Read(uint32_t transfer_id,
   }
 
   transfer_thread_.StartClientTransfer(internal::TransferType::kReceive,
-                                       transfer_id,
-                                       transfer_id,
+                                       protocol_version,
+                                       resource_id,
                                        &output,
                                        max_parameters_,
                                        std::move(on_completion),
                                        timeout,
-                                       cfg::kDefaultMaxRetries);
+                                       max_retries_,
+                                       max_lifetime_retries_);
   return OkStatus();
 }
 
-Status Client::Write(uint32_t transfer_id,
+Status Client::Write(uint32_t resource_id,
                      stream::Reader& input,
                      CompletionFunc&& on_completion,
-                     chrono::SystemClock::duration timeout) {
-  if (on_completion == nullptr) {
+                     chrono::SystemClock::duration timeout,
+                     ProtocolVersion protocol_version) {
+  if (on_completion == nullptr ||
+      protocol_version == ProtocolVersion::kUnknown) {
     return Status::InvalidArgument();
   }
 
@@ -72,15 +77,21 @@ Status Client::Write(uint32_t transfer_id,
   }
 
   transfer_thread_.StartClientTransfer(internal::TransferType::kTransmit,
-                                       transfer_id,
-                                       transfer_id,
+                                       protocol_version,
+                                       resource_id,
                                        &input,
                                        max_parameters_,
                                        std::move(on_completion),
                                        timeout,
-                                       cfg::kDefaultMaxRetries);
+                                       max_retries_,
+                                       max_lifetime_retries_);
 
   return OkStatus();
+}
+
+void Client::CancelTransfer(uint32_t resource_id) {
+  transfer_thread_.EndClientTransfer(
+      resource_id, Status::Cancelled(), /*send_status_chunk=*/true);
 }
 
 void Client::OnRpcError(Status status, internal::TransferType type) {

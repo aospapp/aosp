@@ -1,16 +1,18 @@
+
 <p align="center">
   <img src="https://raw.github.com/pest-parser/pest/master/pest-logo.svg?sanitize=true" width="80%"/>
 </p>
 
 # pest. The Elegant Parser
 
-[![Join the chat at https://gitter.im/dragostis/pest](https://badges.gitter.im/dragostis/pest.svg)](https://gitter.im/dragostis/pest?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![Book](https://img.shields.io/badge/book-WIP-4d76ae.svg)](https://pest-parser.github.io/book)
+[![Join the chat at https://gitter.im/pest-parser/pest](https://badges.gitter.im/dragostis/pest.svg)](https://gitter.im/pest-parser/pest?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Book](https://img.shields.io/badge/book-WIP-4d76ae.svg)](https://pest.rs/book)
 [![Docs](https://docs.rs/pest/badge.svg)](https://docs.rs/pest)
 
-[![Build Status](https://travis-ci.org/pest-parser/pest.svg?branch=master)](https://travis-ci.org/pest-parser/pest)
+[![pest Continuous Integration](https://github.com/pest-parser/pest/actions/workflows/ci.yml/badge.svg)](https://github.com/pest-parser/pest/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/pest-parser/pest/branch/master/graph/badge.svg)](https://codecov.io/gh/pest-parser/pest)
-[![Fuzzit Status](https://app.fuzzit.dev/badge?org_id=pest-parser)](https://app.fuzzit.dev/orgs/pest-parser/dashboard)
+<a href="https://blog.rust-lang.org/2021/11/01/Rust-1.56.1.html"><img alt="Rustc Version 1.56.1+" src="https://img.shields.io/badge/rustc-1.56.1%2B-lightgrey.svg"/></a>
+
 [![Crates.io](https://img.shields.io/crates/d/pest.svg)](https://crates.io/crates/pest)
 [![Crates.io](https://img.shields.io/crates/v/pest.svg)](https://crates.io/crates/pest)
 
@@ -29,25 +31,28 @@ Other helpful resources:
 
 * API reference on [docs.rs]
 * play with grammars and share them on our [fiddle]
-* leave feedback, ask questions, or greet us on [Gitter]
+* find previous common questions answered or ask questions on [GitHub Discussions]
+* leave feedback, ask questions, or greet us on [Gitter] or [Discord]
 
-[book]: https://pest-parser.github.io/book
+[book]: https://pest.rs/book
 [docs.rs]: https://docs.rs/pest
-[fiddle]: https://pest-parser.github.io/#editor
-[Gitter]: https://gitter.im/dragostis/pest
+[fiddle]: https://pest.rs/#editor
+[Gitter]: https://gitter.im/pest-parser/pest
+[Discord]: https://discord.gg/XEGACtWpT2
+[GitHub Discussions]: https://github.com/pest-parser/pest/discussions
 
 ## Example
 
-The following is an example of a grammar for a list of alpha-numeric identifiers
-where the first identifier does not start with a digit:
+The following is an example of a grammar for a list of alphanumeric identifiers
+where all identifiers don't start with a digit:
 
 ```rust
 alpha = { 'a'..'z' | 'A'..'Z' }
 digit = { '0'..'9' }
 
-ident = { (alpha | digit)+ }
+ident = { !digit ~ (alpha | digit)+ }
 
-ident_list = _{ !digit ~ ident ~ (" " ~ ident)+ }
+ident_list = _{ ident ~ (" " ~ ident)* }
           // ^
           // ident_list rule is silent which means it produces no tokens
 ```
@@ -78,6 +83,9 @@ thread 'main' panicked at ' --> 1:1
   |
   = expected ident', src/main.rs:12
 ```
+
+These error messages can be obtained from their default `Display` implementation,
+e.g. `panic!("{}", parser_result.unwrap_err())` or `println!("{}", e)`.
 
 ## Pairs API
 
@@ -131,6 +139,25 @@ Letter:  b
 Digit:   2
 ```
 
+### Defining multiple parsers in a single file
+The current automatic `Parser` derivation will produce the `Rule` enum
+which would have name conflicts if one tried to define multiple such structs
+that automatically derive `Parser`. One possible way around it is to put each
+parser struct in a separate namespace:
+
+```rust
+mod a {
+    #[derive(Parser)]
+    #[grammar = "a.pest"]
+    pub struct ParserA;
+}
+mod b {
+    #[derive(Parser)]
+    #[grammar = "b.pest"]
+    pub struct ParserB;
+}
+```
+
 ## Other features
 
 * Precedence climbing
@@ -143,16 +170,18 @@ Digit:   2
 * [pest_meta](https://github.com/pest-parser/pest/blob/master/meta/src/grammar.pest) (bootstrapped)
 * [AshPaper](https://github.com/shnewto/ashpaper)
 * [brain](https://github.com/brain-lang/brain)
-* [Chelone](https://github.com/Aaronepower/chelone)
+* [cicada](https://github.com/mitnk/cicada)
 * [comrak](https://github.com/kivikakk/comrak)
 * [elastic-rs](https://github.com/cch123/elastic-rs)
 * [graphql-parser](https://github.com/Keats/graphql-parser)
 * [handlebars-rust](https://github.com/sunng87/handlebars-rust)
 * [hexdino](https://github.com/Luz/hexdino)
 * [Huia](https://gitlab.com/jimsy/huia/)
+* [insta](https://github.com/mitsuhiko/insta)
 * [jql](https://github.com/yamafaktory/jql)
 * [json5-rs](https://github.com/callum-oakley/json5-rs)
 * [mt940](https://github.com/svenstaro/mt940-rs)
+* [Myoxine](https://github.com/d3bate/myoxine)
 * [py_literal](https://github.com/jturner314/py_literal)
 * [rouler](https://github.com/jarcane/rouler)
 * [RuSh](https://github.com/lwandrebeck/RuSh)
@@ -162,6 +191,17 @@ Digit:   2
 * [ui_gen](https://github.com/emoon/ui_gen)
 * [ukhasnet-parser](https://github.com/adamgreig/ukhasnet-parser)
 * [ZoKrates](https://github.com/ZoKrates/ZoKrates)
+* [Vector](https://github.com/timberio/vector)
+* [AutoCorrect](https://github.com/huacnlee/autocorrect)
+* [yaml-peg](https://github.com/aofdev/yaml-peg)
+* [qubit](https://github.com/abhimanyu003/qubit)
+* [caith](https://github.com/Geobert/caith) (a dice roller crate)
+* [Melody](https://github.com/yoav-lavi/melody)
+
+## Minimum Supported Rust Version (MSRV)
+
+This library should always compile with default features on **Rust 1.56.1** 
+or **Rust 1.61** with `const_prec_climber`.
 
 ## Special thanks
 

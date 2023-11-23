@@ -13,7 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "absl/types/optional.h"
+#include <optional>
+
 #include "tensorflow/compiler/xla/client/xla_computation.h"
 #include "tensorflow/compiler/xla/execution_options_util.h"
 #include "tensorflow/compiler/xla/service/bfloat16_normalization.h"
@@ -35,7 +36,7 @@ class DepthwiseConvolution2DTest
 
 static std::vector<DepthwiseConvolution2DSpec> GetConv2DTestCases() {
   std::vector<DepthwiseConvolution2DSpec> config_set;
-  std::vector<std::vector<int64>> config_options = {
+  std::vector<std::vector<int64_t>> config_options = {
       {128, 6, 3, 64},  {256, 5, 3, 256}, {256, 5, 2, 144}, {144, 5, 3, 64},
       {144, 5, 2, 256}, {8, 48, 17, 8},   {128, 20, 6, 64}, {64, 14, 12, 172},
       {16, 9, 4, 16},   {128, 1, 2, 144}, {256, 1, 2, 64},  {256, 1, 2, 2},
@@ -47,7 +48,7 @@ static std::vector<DepthwiseConvolution2DSpec> GetConv2DTestCases() {
     int64_t kernel_size = option[2];
     int64_t batch = option[3];
 
-    std::vector<int64> kernel_layout = {3, 2, 1, 0};
+    std::vector<int64_t> kernel_layout = {3, 2, 1, 0};
     DepthwiseConvolution2DSpec config;
     config.output_feature = feature;
     config.window = kernel_size;
@@ -82,7 +83,6 @@ static std::vector<DepthwiseConvolution2DSpec> GetConv2DTestCases() {
   return config_set;
 }
 
-
 XLA_TEST_P(DepthwiseConvolution2DTest, DoIt) {
   const DepthwiseConvolution2DSpec& spec = ::testing::get<0>(GetParam());
   bool use_bfloat16 = ::testing::get<1>(GetParam());
@@ -93,7 +93,7 @@ XLA_TEST_P(DepthwiseConvolution2DTest, DoIt) {
   }
 #endif
 
-  const string hlo_text =
+  const std::string hlo_text =
       BuildHloTextDepthwiseConvolution2D(spec, use_bfloat16);
 
   EXPECT_TRUE(RunAndCompare(hlo_text, ErrorSpec{0.01, 0.01},

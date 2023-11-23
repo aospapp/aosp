@@ -21,6 +21,7 @@
 # OTHER DEALINGS IN THE SOFTWARE.
 #
 
+subdir('mesa')
 subdir('gallium')
 
 virgl_sources = [
@@ -77,6 +78,8 @@ vrend_winsys_glx_sources = [
 venus_sources = [
    'venus_hw.h',
    'venus/venus-protocol/vn_protocol_renderer.h',
+   'venus/vkr_allocator.c',
+   'venus/vkr_allocator.h',
    'venus/vkr_buffer.c',
    'venus/vkr_buffer.h',
    'venus/vkr_command_buffer.c',
@@ -132,6 +135,39 @@ venus_codegen = custom_target(
    command : [prog_python, '@INPUT0@', '-o', '@OUTDIR@', '@INPUT1@'],
 )
 
+drm_sources = [
+   'drm/drm_fence.c',
+   'drm/drm_fence.h',
+   'drm/drm_renderer.c',
+   'drm/drm_renderer.h',
+   'drm/drm_util.c',
+   'drm/drm_util.h',
+]
+
+drm_msm_sources = [
+   'drm/drm-uapi/msm_drm.h',
+   'drm/msm/msm_proto.h',
+   'drm/msm/msm_renderer.c',
+   'drm/msm/msm_renderer.h',
+]
+
+proxy_sources = [
+   'proxy/proxy_client.c',
+   'proxy/proxy_common.c',
+   'proxy/proxy_context.c',
+   'proxy/proxy_renderer.c',
+   'proxy/proxy_server.c',
+   'proxy/proxy_socket.c',
+]
+
+video_sources = [
+   'virgl_video_hw.h',
+   'virgl_video.c',
+   'virgl_video.h',
+   'vrend_video.c',
+   'vrend_video.h',
+]
+
 virgl_depends = [
    gallium_dep,
    epoxy_dep,
@@ -166,17 +202,34 @@ if with_venus
    virgl_depends += [venus_dep]
 endif
 
+if with_drm
+   virgl_sources += drm_sources
+endif
+
+if with_drm_msm
+   virgl_sources += drm_msm_sources
+endif
+
+if with_render_server
+   virgl_sources += proxy_sources
+endif
+
+if with_video
+  virgl_sources += video_sources
+  virgl_depends += [libva_dep, libvadrm_dep]
+endif
+
 libvirgl = static_library(
    'virgl',
    virgl_sources,
-   include_directories: [inc_gallium, inc_configuration, 'venus'],
+   include_directories: [inc_gallium, inc_configuration, 'venus', 'drm', 'drm/drm-uapi'],
    dependencies : virgl_depends,
 )
 
 libvirgl_inc = [
    inc_gallium,
    inc_configuration,
-   include_directories(['.', 'venus'])
+   include_directories(['.', 'venus', 'drm'])
 ]
 
 libvirgl_dep = declare_dependency(
@@ -193,6 +246,12 @@ libvirglrenderer = library(
              + interface_age.to_string() + '.'
              + revision.to_string(),
    install : true
+)
+
+pkg = import('pkgconfig')
+pkg.generate(libvirglrenderer,
+   description: 'virgl GL renderer',
+   subdirs: 'virgl'
 )
 
 libvirglrenderer_dep = declare_dependency(

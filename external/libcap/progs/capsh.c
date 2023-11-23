@@ -14,6 +14,10 @@
 #define _DEFAULT_SOURCE
 #endif
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -31,6 +35,8 @@
 #ifndef SHELL
 #define SHELL "/bin/bash"
 #endif /* ndef SHELL */
+
+#include "./capshdoc.h"
 
 #define MAX_GROUPS       100   /* max number of supplementary groups for user */
 
@@ -77,33 +83,45 @@ static void display_prctl_set(const char *name, int (*fn)(cap_value_t))
     }
 }
 
-/* arg_print displays the current capability state of the process */
-static void arg_print(void)
+static void display_current(void)
 {
-    long set;
-    int status, j;
     cap_t all;
     char *text;
-    const char *sep;
-    struct group *g;
-    gid_t groups[MAX_GROUPS], gid;
-    uid_t uid, euid;
-    struct passwd *u, *eu;
-    cap_iab_t iab;
 
     all = cap_get_proc();
     text = cap_to_text(all, NULL);
     printf("Current: %s\n", text);
     cap_free(text);
     cap_free(all);
+}
 
-    display_prctl_set("Bounding", cap_get_bound);
-    display_prctl_set("Ambient", cap_get_ambient);
+static void display_current_iab(void)
+{
+    cap_iab_t iab;
+    char *text;
+
     iab = cap_iab_get_proc();
     text = cap_iab_to_text(iab);
     printf("Current IAB: %s\n", text);
     cap_free(text);
     cap_free(iab);
+}
+
+/* arg_print displays the current capability state of the process */
+static void arg_print(void)
+{
+    long set;
+    int status, j;
+    const char *sep;
+    struct group *g;
+    gid_t groups[MAX_GROUPS], gid;
+    uid_t uid, euid;
+    struct passwd *u, *eu;
+
+    display_current();
+    display_prctl_set("Bounding", cap_get_bound);
+    display_prctl_set("Ambient", cap_get_ambient);
+    display_current_iab();
 
     set = cap_get_secbits();
     if (set >= 0) {
@@ -336,8 +354,8 @@ static void arg_change_amb(const char *arg_names, cap_flag_value_t set)
  */
 static char *find_self(const char *arg0)
 {
-    int i;
-    char *parts, *dir, *scratch;
+    int i, status=1;
+    char *p = NULL, *parts, *dir, *scratch;
     const char *path;
 
     for (i = strlen(arg0)-1; i >= 0 && arg0[i] != '/'; i--);
@@ -352,21 +370,61 @@ static char *find_self(const char *arg0)
     }
 
     parts = strdup(path);
-    scratch = malloc(2+strlen(path)+strlen(arg0));
-    if (parts == NULL || scratch == NULL) {
-        fprintf(stderr, "insufficient memory for path building\n");
+    if (parts == NULL) {
+        fprintf(stderr, "insufficient memory for parts of path\n");
 	exit(1);
     }
 
-    for (i=0; (dir = strtok(parts, ":")); parts = NULL) {
-        sprintf(scratch, "%s/%s", dir, arg0);
-	if (access(scratch, X_OK) == 0) {
-            return scratch;
-	}
+    scratch = malloc(2+strlen(path)+strlen(arg0));
+    if (scratch == NULL) {
+        fprintf(stderr, "insufficient memory for path building\n");
+	goto free_parts;
     }
 
-    fprintf(stderr, "unable to find executable '%s' in PATH\n", arg0);
-    exit(1);
+    for (p = parts; (dir = strtok(p, ":")); p = NULL) {
+        sprintf(scratch, "%s/%s", dir, arg0);
+	if (access(scratch, X_OK) == 0) {
+	    status = 0;
+	    break;
+	}
+    }
+    if (status) {
+	fprintf(stderr, "unable to find executable '%s' in PATH\n", arg0);
+	free(scratch);
+    }
+
+free_parts:
+    free(parts);
+    if (status) {
+	exit(status);
+    }
+    return scratch;
+}
+
+static long safe_sysconf(int name)
+{
+    long ans = sysconf(name);
+    if (ans <= 0) {
+	fprintf(stderr, "sysconf(%d) returned a non-positive number: %ld\n", name, ans);
+	exit(1);
+    }
+    return ans;
+}
+
+static void describe(cap_value_t cap) {
+    int j;
+    const char **lines = explanations[cap];
+    char *name = cap_to_name(cap);
+    if (cap < cap_max_bits()) {
+	printf("%s (%d)", name, cap);
+    } else {
+	printf("<reserved for> %s (%d)", name, cap);
+    }
+    cap_free(name);
+    printf(" [/proc/self/status:CapXXX: 0x%016llx]\n\n", 1ULL<<cap);
+    for (j=0; lines[j]; j++) {
+	printf("    %s\n", lines[j]);
+    }
 }
 
 int main(int argc, char *argv[], char *envp[])
@@ -617,7 +675,9 @@ int main(int argc, char *argv[], char *envp[])
 	     * Given we are now in a new directory tree, its good practice
 	     * to start off in a sane location
 	     */
-	    status = chdir("/");
+	    if (status == 0) {
+		status = chdir("/");
+	    }
 
 	    cap_free(orig);
 
@@ -718,14 +778,14 @@ int main(int argc, char *argv[], char *envp[])
 	  gid_t *group_list;
 	  int g_count;
 
-	  length = sysconf(_SC_GETGR_R_SIZE_MAX);
+	  length = safe_sysconf(_SC_GETGR_R_SIZE_MAX);
 	  buf = calloc(1, length);
 	  if (NULL == buf) {
 	    fprintf(stderr, "No memory for [%s] operation\n", argv[i]);
 	    exit(1);
 	  }
 
-	  max_groups = sysconf(_SC_NGROUPS_MAX);
+	  max_groups = safe_sysconf(_SC_NGROUPS_MAX);
 	  group_list = calloc(max_groups, sizeof(gid_t));
 	  if (NULL == group_list) {
 	    fprintf(stderr, "No memory for gid list\n");
@@ -741,8 +801,7 @@ int main(int argc, char *argv[], char *envp[])
 	    }
 	    if (!isdigit(*ptr)) {
 	      struct group *g, grp;
-	      getgrnam_r(ptr, &grp, buf, length, &g);
-	      if (NULL == g) {
+	      if (getgrnam_r(ptr, &grp, buf, length, &g) || NULL == g) {
 		fprintf(stderr, "Failed to identify gid for group [%s]\n", ptr);
 		exit(1);
 	      }
@@ -835,6 +894,7 @@ int main(int argc, char *argv[], char *envp[])
 	    argv[argc] = NULL;
 	    execve(argv[i], argv+i, envp);
 	    fprintf(stderr, "execve '%s' failed!\n", argv[i]);
+	    free(argv[i]);
 	    exit(1);
 	} else if (!strncmp("--shell=", argv[i], 8)) {
 	    shell = argv[i]+8;
@@ -923,26 +983,77 @@ int main(int argc, char *argv[], char *envp[])
 	    }
 	} else if (!strcmp("--license", argv[i])) {
 	    printf(
-		"%s has a you choose license: BSD 3-clause or GPL2\n"
-		"Copyright (c) 2008-11,16,19,2020 Andrew G. Morgan"
+		"%s see LICENSE file for details.\n"
+		"Copyright (c) 2008-11,16,19-21 Andrew G. Morgan"
 		" <morgan@kernel.org>\n", argv[0]);
 	    exit(0);
+	} else if (!strncmp("--explain=", argv[i], 10)) {
+	    cap_value_t cap;
+	    if (cap_from_name(argv[i]+10, &cap) != 0) {
+		fprintf(stderr, "unrecognised value '%s'\n", argv[i]+10);
+		exit(1);
+	    }
+	    if (cap < 0) {
+		fprintf(stderr, "negative capability (%d) invalid\n", cap);
+		exit(1);
+	    }
+	    if (cap < CAPSH_DOC_LIMIT) {
+		describe(cap);
+		continue;
+	    }
+	    if (cap < cap_max_bits()) {
+		printf("<unnamed in libcap> (%d)", cap);
+	    } else {
+		printf("<unsupported> (%d)", cap);
+	    }
+	    printf(" [/proc/self/status:CapXXX: 0x%016llx]\n", 1ULL<<cap);
+	} else if (!strncmp("--suggest=", argv[i], 10)) {
+	    cap_value_t cap;
+	    int hits = 0;
+	    for (cap=0; cap < CAPSH_DOC_LIMIT; cap++) {
+		const char **lines = explanations[cap];
+		int j;
+		char *name = cap_to_name(cap);
+		char *match = strcasestr(name, argv[i]+10);
+		cap_free(name);
+		if (match != NULL) {
+		    if (hits++) {
+			printf("\n");
+		    }
+		    describe(cap);
+		    continue;
+		}
+		for (j=0; lines[j]; j++) {
+		    if (strcasestr(lines[j], argv[i]+10) != NULL) {
+			if (hits++) {
+			    printf("\n");
+			}
+			describe(cap);
+			break;
+		    }
+		}
+	    }
+	} else if (strcmp("--current", argv[i]) == 0) {
+	    display_current();
+	    display_current_iab();
 	} else {
 	usage:
 	    printf("usage: %s [args ...]\n"
-		   "  --has-a=xxx    exit 1 if capability xxx not ambient\n"
-		   "  --has-ambient  exit 1 unless ambient vector supported\n"
 		   "  --addamb=xxx   add xxx,... capabilities to ambient set\n"
 		   "  --cap-uid=<n>  use libcap cap_setuid() to change uid\n"
 		   "  --caps=xxx     set caps as per cap_from_text()\n"
 		   "  --chroot=path  chroot(2) to this path\n"
+		   "  --current      show current caps and IAB vectors\n"
 		   "  --decode=xxx   decode a hex string to a list of caps\n"
 		   "  --delamb=xxx   remove xxx,... capabilities from ambient\n"
+		   "  --explain=xxx  explain what capability xxx permits\n"
 		   "  --forkfor=<n>  fork and make child sleep for <n> sec\n"
 		   "  --gid=<n>      set gid to <n> (hint: id <username>)\n"
 		   "  --groups=g,... set the supplemental groups\n"
-		   "  --has-p=xxx    exit 1 if capability xxx not permitted\n"
+		   "  --has-a=xxx    exit 1 if capability xxx not ambient\n"
+		   "  --has-ambient  exit 1 unless ambient vector supported\n"
 		   "  --has-i=xxx    exit 1 if capability xxx not inheritable\n"
+		   "  --has-p=xxx    exit 1 if capability xxx not permitted\n"
 		   "  --has-no-new-privs  exit 1 if privs not limited\n"
 		   "  --help, -h     this message (or try 'man capsh')\n"
 		   "  --iab=...      use cap_iab_from_text() to set iab\n"
@@ -960,6 +1071,7 @@ int main(int argc, char *argv[], char *envp[])
 		   "  --print        display capability relevant state\n"
 		   "  --secbits=<n>  write a new value for securebits\n"
 		   "  --shell=/xx/yy use /xx/yy instead of " SHELL " for --\n"
+		   "  --suggest=text search cap descriptions for text\n"
 		   "  --supports=xxx exit 1 if capability xxx unsupported\n"
 		   "  --uid=<n>      set uid to <n> (hint: id <username>)\n"
                    "  --user=<name>  set uid,gid and groups to that of user\n"

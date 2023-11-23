@@ -152,7 +152,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
    int out_fd = open("/dev/null", O_WRONLY);
 
    struct vtest_buffer buffer;
-   buffer.buffer = data;
+   buffer.buffer = (char *)data;
    buffer.size = size;
    struct vtest_input input;
    input.data.buffer = &buffer;

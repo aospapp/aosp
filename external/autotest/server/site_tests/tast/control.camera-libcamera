@@ -8,12 +8,13 @@ TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:camera-libcamera'
 MAX_RESULT_SIZE_KB = 50 * 1024
+PY_VERSION = 3
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True
 
 DOC = '''
-Run the tast camera-postsubmit test suite.
+Run the tast camera-libcamera test suite.
 
 Tast is an integration-testing framework analagous to the test-running portion
 of Autotest. See https://chromium.googlesource.com/chromiumos/platform/tast/ for

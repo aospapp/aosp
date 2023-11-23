@@ -23,6 +23,7 @@
 #include "api/units/data_size.h"
 #include "api/units/time_delta.h"
 #include "api/video/video_codec_type.h"
+#include "api/video_codecs/scalability_mode.h"
 #include "test/scenario/performance_stats.h"
 
 namespace webrtc {
@@ -52,7 +53,7 @@ struct TransportControllerConfig {
 
 struct CallClientConfig {
   TransportControllerConfig transport;
-  const WebRtcKeyValueConfig* field_trials = nullptr;
+  const FieldTrialsView* field_trials = nullptr;
 };
 
 struct PacketStreamConfig {
@@ -129,6 +130,7 @@ struct VideoStreamConfig {
     using Codec = VideoCodecType;
     Codec codec = Codec::kVideoCodecGeneric;
     absl::optional<DataRate> max_data_rate;
+    absl::optional<DataRate> min_data_rate;
     absl::optional<int> max_framerate;
     // Counted in frame count.
     absl::optional<int> key_frame_interval = 3000;
@@ -137,18 +139,12 @@ struct VideoStreamConfig {
       bool denoising = true;
       bool automatic_scaling = true;
     } single;
-    struct Layers {
-      int temporal = 1;
-      int spatial = 1;
-      enum class Prediction {
-        kTemporalOnly,
-        kSpatialOnKey,
-        kFull,
-      } prediction = Prediction::kFull;
-    } layers;
+    std::vector<webrtc::ScalabilityMode> simulcast_streams = {
+        webrtc::ScalabilityMode::kL1T1};
 
     DegradationPreference degradation_preference =
         DegradationPreference::MAINTAIN_FRAMERATE;
+    bool suspend_below_min_bitrate = false;
   } encoder;
   struct Stream {
     Stream();
@@ -221,7 +217,6 @@ struct NetworkSimulationConfig {
   TimeDelta delay = TimeDelta::Zero();
   TimeDelta delay_std_dev = TimeDelta::Zero();
   double loss_rate = 0;
-  bool codel_active_queue_management = false;
   absl::optional<int> packet_queue_length_limit;
   DataSize packet_overhead = DataSize::Zero();
 };

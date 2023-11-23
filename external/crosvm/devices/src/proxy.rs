@@ -1,31 +1,46 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 //! Runs hardware devices in child processes.
 
-use std::ffi::CString;
 use std::time::Duration;
 
-use base::{error, AsRawDescriptor, RawDescriptor, Tube, TubeError};
-use libc::{self, pid_t};
-use minijail::{self, Minijail};
+use anyhow::anyhow;
+use base::error;
+use base::info;
+use base::unix::process::fork_process;
+use base::AsRawDescriptor;
+#[cfg(feature = "swap")]
+use base::AsRawDescriptors;
+use base::RawDescriptor;
+use base::Tube;
+use base::TubeError;
+use libc::pid_t;
+use minijail::Minijail;
 use remain::sorted;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use thiserror::Error;
 
 use crate::bus::ConfigWriteResult;
+use crate::pci::CrosvmDeviceId;
 use crate::pci::PciAddress;
-use crate::{BusAccessInfo, BusDevice, BusRange, BusType};
+use crate::BusAccessInfo;
+use crate::BusDevice;
+use crate::BusRange;
+use crate::BusType;
+use crate::DeviceId;
+use crate::Suspendable;
 
 /// Errors for proxy devices.
 #[sorted]
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Failed to fork jail process: {0}")]
-    ForkingJail(minijail::Error),
+    ForkingJail(#[from] minijail::Error),
     #[error("Failed to configure tube: {0}")]
-    Tube(TubeError),
+    Tube(#[from] TubeError),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -57,6 +72,12 @@ enum Command {
     },
     Shutdown,
     GetRanges,
+    Snapshot,
+    Restore {
+        data: serde_json::Value,
+    },
+    Sleep,
+    Wake,
 }
 #[derive(Debug, Serialize, Deserialize)]
 enum CommandResult {
@@ -72,12 +93,14 @@ enum CommandResult {
     },
     ReadVirtualConfigResult(u32),
     GetRangesResult(Vec<(BusRange, BusType)>),
+    SnapshotResult(std::result::Result<serde_json::Value, String>),
+    RestoreResult(std::result::Result<(), String>),
+    SleepResult(std::result::Result<(), String>),
+    WakeResult(std::result::Result<(), String>),
 }
 
-fn child_proc<D: BusDevice>(tube: Tube, device: &mut D) {
-    let mut running = true;
-
-    while running {
+fn child_proc<D: BusDevice>(tube: Tube, mut device: D) {
+    loop {
         let cmd = match tube.recv() {
             Ok(cmd) => cmd,
             Err(err) => {
@@ -99,7 +122,13 @@ fn child_proc<D: BusDevice>(tube: Tube, device: &mut D) {
                 Ok(())
             }
             Command::ReadConfig(idx) => {
+                if idx < 5 && device.debug_label() == "pcivirtio-gpu" {
+                    info!("gpu read config {}", idx);
+                }
                 let val = device.config_register_read(idx as usize);
+                if idx < 5 && device.debug_label() == "pcivirtio-gpu" {
+                    info!("done gpu read config {}", idx);
+                }
                 tube.send(&CommandResult::ReadConfigResult(val))
             }
             Command::WriteConfig {
@@ -129,12 +158,36 @@ fn child_proc<D: BusDevice>(tube: Tube, device: &mut D) {
                 Ok(())
             }
             Command::Shutdown => {
-                running = false;
-                tube.send(&CommandResult::Ok)
+                // Explicitly drop the device so that its Drop implementation has a chance to run
+                // before sending the `Command::Shutdown` response.
+                drop(device);
+
+                let _ = tube.send(&CommandResult::Ok);
+                return;
             }
             Command::GetRanges => {
                 let ranges = device.get_ranges();
                 tube.send(&CommandResult::GetRangesResult(ranges))
+            }
+            Command::Snapshot => {
+                let res = device.snapshot();
+                tube.send(&CommandResult::SnapshotResult(
+                    res.map_err(|e| e.to_string()),
+                ))
+            }
+            Command::Restore { data } => {
+                let res = device.restore(data);
+                tube.send(&CommandResult::RestoreResult(
+                    res.map_err(|e| e.to_string()),
+                ))
+            }
+            Command::Sleep => {
+                let res = device.sleep();
+                tube.send(&CommandResult::SleepResult(res.map_err(|e| e.to_string())))
+            }
+            Command::Wake => {
+                let res = device.wake();
+                tube.send(&CommandResult::WakeResult(res.map_err(|e| e.to_string())))
             }
         };
         if let Err(e) = res {
@@ -165,50 +218,52 @@ impl ProxyDevice {
     /// * `keep_rds` - File descriptors that will be kept open in the child.
     pub fn new<D: BusDevice>(
         mut device: D,
-        jail: &Minijail,
+        jail: Minijail,
         mut keep_rds: Vec<RawDescriptor>,
+        #[cfg(feature = "swap")] swap_controller: Option<&swap::SwapController>,
     ) -> Result<ProxyDevice> {
         let debug_label = device.debug_label();
-        let (child_tube, parent_tube) = Tube::pair().map_err(Error::Tube)?;
+        let (child_tube, parent_tube) = Tube::pair()?;
 
         keep_rds.push(child_tube.as_raw_descriptor());
 
-        // Deduplicate the FDs since minijail expects this.
-        keep_rds.sort_unstable();
-        keep_rds.dedup();
+        #[cfg(feature = "swap")]
+        if let Some(swap_controller) = swap_controller {
+            keep_rds.extend(swap_controller.as_raw_descriptors());
+        }
 
-        // Forking here is safe as long as the program is still single threaded.
-        let pid = unsafe {
-            match jail.fork(Some(&keep_rds)).map_err(Error::ForkingJail)? {
-                0 => {
-                    let max_len = 15; // pthread_setname_np() limit on Linux
-                    let debug_label_trimmed =
-                        &debug_label.as_bytes()[..std::cmp::min(max_len, debug_label.len())];
-                    let thread_name = CString::new(debug_label_trimmed).unwrap();
-                    let _ = libc::pthread_setname_np(libc::pthread_self(), thread_name.as_ptr());
-                    device.on_sandboxed();
-                    child_proc(child_tube, &mut device);
-
-                    // We're explicitly not using std::process::exit here to avoid the cleanup of
-                    // stdout/stderr globals. This can cause cascading panics and SIGILL if a worker
-                    // thread attempts to log to stderr after at_exit handlers have been run.
-                    // TODO(crbug.com/992494): Remove this once device shutdown ordering is clearly
-                    // defined.
-                    //
+        let child_process = fork_process(jail, keep_rds, Some(debug_label.clone()), || {
+            #[cfg(feature = "swap")]
+            if let Some(swap_controller) = swap_controller {
+                if let Err(e) = swap_controller.on_process_forked() {
+                    error!("failed to SwapController::on_process_forked: {:?}", e);
                     // exit() is trivially safe.
-                    // ! Never returns
-                    libc::exit(0);
+                    unsafe { libc::exit(1) };
                 }
-                p => p,
             }
-        };
 
-        parent_tube
-            .set_send_timeout(Some(Duration::from_millis(SOCKET_TIMEOUT_MS)))
-            .map_err(Error::Tube)?;
-        parent_tube
-            .set_recv_timeout(Some(Duration::from_millis(SOCKET_TIMEOUT_MS)))
-            .map_err(Error::Tube)?;
+            device.on_sandboxed();
+            info!("begin child proc {}", debug_label);
+            child_proc(child_tube, device);
+
+            // We're explicitly not using std::process::exit here to avoid the cleanup of
+            // stdout/stderr globals. This can cause cascading panics and SIGILL if a worker
+            // thread attempts to log to stderr after at_exit handlers have been run.
+            // TODO(crbug.com/992494): Remove this once device shutdown ordering is clearly
+            // defined.
+            //
+            // exit() is trivially safe.
+            // ! Never returns
+            unsafe { libc::exit(0) };
+        })?;
+
+        // Suppress the no waiting warning from `base::sys::unix::process::Child` because crosvm
+        // does not wait for the processes from ProxyDevice explicitly. Instead it reaps all the
+        // child processes on its exit by `crosvm::sys::unix::main::wait_all_children()`.
+        let pid = child_process.into_pid();
+
+        parent_tube.set_send_timeout(Some(Duration::from_millis(SOCKET_TIMEOUT_MS)))?;
+        parent_tube.set_recv_timeout(Some(Duration::from_millis(SOCKET_TIMEOUT_MS)))?;
         Ok(ProxyDevice {
             tube: parent_tube,
             pid,
@@ -248,6 +303,10 @@ impl ProxyDevice {
 }
 
 impl BusDevice for ProxyDevice {
+    fn device_id(&self) -> DeviceId {
+        CrosvmDeviceId::ProxyDevice.into()
+    }
+
     fn debug_label(&self) -> String {
         self.debug_label.clone()
     }
@@ -340,6 +399,54 @@ impl BusDevice for ProxyDevice {
     }
 }
 
+impl Suspendable for ProxyDevice {
+    fn snapshot(&self) -> anyhow::Result<serde_json::Value> {
+        let res = self.sync_send(&Command::Snapshot);
+        match res {
+            Some(CommandResult::SnapshotResult(Ok(snap))) => Ok(snap),
+            Some(CommandResult::SnapshotResult(Err(e))) => Err(anyhow!(
+                "failed to snapshot {}: {:#}",
+                self.debug_label(),
+                e
+            )),
+            _ => Err(anyhow!("unexpected snapshot result {:?}", res)),
+        }
+    }
+
+    fn restore(&mut self, data: serde_json::Value) -> anyhow::Result<()> {
+        let res = self.sync_send(&Command::Restore { data });
+        match res {
+            Some(CommandResult::RestoreResult(Ok(()))) => Ok(()),
+            Some(CommandResult::RestoreResult(Err(e))) => {
+                Err(anyhow!("failed to restore {}: {:#}", self.debug_label(), e))
+            }
+            _ => Err(anyhow!("unexpected restore result {:?}", res)),
+        }
+    }
+
+    fn sleep(&mut self) -> anyhow::Result<()> {
+        let res = self.sync_send(&Command::Sleep);
+        match res {
+            Some(CommandResult::SleepResult(Ok(()))) => Ok(()),
+            Some(CommandResult::SleepResult(Err(e))) => {
+                Err(anyhow!("failed to sleep {}: {:#}", self.debug_label(), e))
+            }
+            _ => Err(anyhow!("unexpected sleep result {:?}", res)),
+        }
+    }
+
+    fn wake(&mut self) -> anyhow::Result<()> {
+        let res = self.sync_send(&Command::Wake);
+        match res {
+            Some(CommandResult::WakeResult(Ok(()))) => Ok(()),
+            Some(CommandResult::WakeResult(Err(e))) => {
+                Err(anyhow!("failed to wake {}: {:#}", self.debug_label(), e))
+            }
+            _ => Err(anyhow!("unexpected wake result {:?}", res)),
+        }
+    }
+}
+
 impl Drop for ProxyDevice {
     fn drop(&mut self) {
         self.sync_send(&Command::Shutdown);
@@ -351,6 +458,7 @@ impl Drop for ProxyDevice {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pci::PciId;
 
     /// A simple test echo device that outputs the same u8 that was written to it.
     struct EchoDevice {
@@ -363,6 +471,10 @@ mod tests {
         }
     }
     impl BusDevice for EchoDevice {
+        fn device_id(&self) -> DeviceId {
+            PciId::new(0, 0).into()
+        }
+
         fn debug_label(&self) -> String {
             "EchoDevice".to_owned()
         }
@@ -396,11 +508,20 @@ mod tests {
         }
     }
 
+    impl Suspendable for EchoDevice {}
+
     fn new_proxied_echo_device() -> ProxyDevice {
         let device = EchoDevice::new();
         let keep_fds: Vec<RawDescriptor> = Vec::new();
         let minijail = Minijail::new().unwrap();
-        ProxyDevice::new(device, &minijail, keep_fds).unwrap()
+        ProxyDevice::new(
+            device,
+            minijail,
+            keep_fds,
+            #[cfg(feature = "swap")]
+            None,
+        )
+        .unwrap()
     }
 
     // TODO(b/173833661): Find a way to ensure these tests are run single-threaded.

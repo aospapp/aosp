@@ -43,21 +43,30 @@ class firmware_Cr50ConsoleCommands(Cr50Test):
     # exclude can be none if there is no label that shoud be excluded based on
     # the property.
     BOARD_PROPERTIES = [
-        ['BOARD_SLAVE_CONFIG_SPI', 'sps', 'i2cs'],
-        ['BOARD_SLAVE_CONFIG_I2C', 'i2cs', 'sps,sps_ds_resume'],
-        ['BOARD_USE_PLT_RESET', 'plt_rst', 'sys_rst'],
-        ['BOARD_CLOSED_SOURCE_SET1', 'closed_source_set1', 'open_source_set'],
-        ['BOARD_EC_CR50_COMM_SUPPORT', 'ec_comm', 'no_ec_comm'],
-        ['BOARD_CCD_REC_LID_PIN_DIOA1', 'rec_lid_a1',
-         'rec_lid_a9,rec_lid_a12, i2cs,sps_ds_resume'],
-        ['BOARD_CCD_REC_LID_PIN_DIOA9', 'rec_lid_a9',
-         'rec_lid_a1,rec_lid_a12,i2cs'],
-        ['BOARD_CCD_REC_LID_PIN_DIOA12', 'rec_lid_a12',
-         'rec_lid_a1,rec_lid_a9,sps'],
+            ['BOARD_PERIPH_CONFIG_SPI', 'sps', 'i2cs'],
+            ['BOARD_PERIPH_CONFIG_I2C', 'i2cs', 'sps,sps_ds_resume'],
+            ['BOARD_USE_PLT_RESET', 'plt_rst', 'sys_rst'],
+            [
+                    'BOARD_CLOSED_SOURCE_SET1', 'closed_source_set1',
+                    'open_source_set'
+            ],
+            ['BOARD_EC_CR50_COMM_SUPPORT', 'ec_comm', 'no_ec_comm'],
+            [
+                    'BOARD_CCD_REC_LID_PIN_DIOA1', 'rec_lid_a1',
+                    'rec_lid_a9,rec_lid_a12, i2cs,sps_ds_resume'
+            ],
+            [
+                    'BOARD_CCD_REC_LID_PIN_DIOA9', 'rec_lid_a9',
+                    'rec_lid_a1,rec_lid_a12,i2cs'
+            ],
+            [
+                    'BOARD_CCD_REC_LID_PIN_DIOA12', 'rec_lid_a12',
+                    'rec_lid_a1,rec_lid_a9,sps'
+            ],
     ]
     GUC_BRANCH_STR = 'cr50_v1.9308_26_0.'
-    MP_BRANCH_STR = 'cr50_v1.9308_87_mp.'
-    PREPVT_BRANCH_STR = 'cr50_v1.9308_B.'
+    MP_BRANCH_STR = 'cr50_v2.94_mp'
+    PREPVT_BRANCH_STR = 'cr50_v3.94_pp'
     TOT_STR = 'cr50_v2.0.'
     OPTIONAL_EXT = '_optional'
 
@@ -144,7 +153,7 @@ class firmware_Cr50ConsoleCommands(Cr50Test):
                 #
                 # Make sure if matches for any keys existed before, they exist
                 # now and if they didn't exist, they don't exist now.
-                for k, v in match.groupdict().iteritems():
+                for k, v in match.groupdict().items():
                     old_val = self.past_matches.get(k, [v, v])[0]
 
                     # If there's an optional key, then the value may or may not

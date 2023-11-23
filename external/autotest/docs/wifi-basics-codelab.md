@@ -77,7 +77,7 @@ If you are having [chameleon issues], the current workaround is to set
 #### Using a local testing setup
 
 For a local test setup, you'll need a flashed DUT and two flashed Google-made
-wifi routers that run Chrome OS, all running special test images. The
+wifi routers that run ChromeOS, all running special test images. The
 Google-made routers can be either of the boards `whirlwind` or `gale`,
 and see [network_WiFi_UpdateRouter] for what images they should be running.
 In order for Autotest to determine the hostnames of your router and packet

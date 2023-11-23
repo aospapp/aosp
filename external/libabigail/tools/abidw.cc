@@ -540,9 +540,9 @@ load_corpus_and_write_abixml(char* argv[],
   if (opts.use_ctf)
     {
       abigail::ctf_reader::read_context_sptr ctxt
-        = abigail::ctf_reader::create_read_context (opts.in_file_path,
-                                                    env.get());
-
+        = abigail::ctf_reader::create_read_context(opts.in_file_path,
+                                                   opts.prepared_di_root_paths,
+                                                   env.get());
       assert (ctxt);
       t.start();
       corp = abigail::ctf_reader::read_corpus (ctxt, s);
@@ -811,13 +811,18 @@ load_kernel_corpus_group_and_write_abixml(char* argv[],
 
   global_timer.start();
   t.start();
+corpus::origin origin =
+#ifdef WITH_CTF
+    opts.use_ctf ? corpus::CTF_ORIGIN :
+#endif
+    corpus::DWARF_ORIGIN;
   corpus_group_sptr group =
     build_corpus_group_from_kernel_dist_under(opts.in_file_path,
 					      /*debug_info_root=*/"",
 					      opts.vmlinux,
 					      opts.suppression_paths,
 					      opts.kabi_whitelist_paths,
-					      supprs, opts.do_log, env);
+					      supprs, opts.do_log, env, origin);
   t.stop();
 
   if (opts.do_log)

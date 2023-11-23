@@ -431,17 +431,18 @@ KMOD_EXPORT int kmod_module_new_from_path(struct kmod_ctx *ctx,
 			return -EEXIST;
 		}
 
-		*mod = kmod_module_ref(m);
-		return 0;
+		kmod_module_ref(m);
+	} else {
+		err = kmod_module_new(ctx, name, name, namelen, NULL, 0, &m);
+		if (err < 0) {
+			free(abspath);
+			return err;
+		}
+
+		m->path = abspath;
 	}
 
-	err = kmod_module_new(ctx, name, name, namelen, NULL, 0, &m);
-	if (err < 0) {
-		free(abspath);
-		return err;
-	}
-
-	m->path = abspath;
+	m->builtin = KMOD_MODULE_BUILTIN_NO;
 	*mod = m;
 
 	return 0;
@@ -498,13 +499,26 @@ KMOD_EXPORT struct kmod_module *kmod_module_ref(struct kmod_module *mod)
 	return mod;
 }
 
-#define CHECK_ERR_AND_FINISH(_err, _label_err, _list, label_finish)	\
-	do {								\
-		if ((_err) < 0)						\
-			goto _label_err;				\
-		if (*(_list) != NULL)					\
-			goto finish;					\
-	} while (0)
+typedef int (*lookup_func)(struct kmod_ctx *ctx, const char *name, struct kmod_list **list) __attribute__((nonnull(1, 2, 3)));
+
+static int __kmod_module_new_from_lookup(struct kmod_ctx *ctx, const lookup_func lookup[],
+					 size_t lookup_count, const char *s,
+					 struct kmod_list **list)
+{
+	unsigned int i;
+
+	for (i = 0; i < lookup_count; i++) {
+		int err;
+
+		err = lookup[i](ctx, s, list);
+		if (err < 0 && err != -ENOSYS)
+			return err;
+		else if (*list != NULL)
+			return 0;
+	}
+
+	return 0;
+}
 
 /**
  * kmod_module_new_from_lookup:
@@ -520,7 +534,7 @@ KMOD_EXPORT struct kmod_module *kmod_module_ref(struct kmod_module *mod)
  *
  * The search order is: 1. aliases in configuration file; 2. module names in
  * modules.dep index; 3. symbol aliases in modules.symbols index; 4. aliases
- * in modules.alias index.
+ * from install commands; 5. builtin indexes from kernel.
  *
  * The initial refcount is 1, and needs to be decremented to release the
  * resources of the kmod_module. The returned @list must be released by
@@ -537,8 +551,17 @@ KMOD_EXPORT int kmod_module_new_from_lookup(struct kmod_ctx *ctx,
 						const char *given_alias,
 						struct kmod_list **list)
 {
-	int err;
+	const lookup_func lookup[] = {
+		kmod_lookup_alias_from_config,
+		kmod_lookup_alias_from_moddep_file,
+		kmod_lookup_alias_from_symbols_file,
+		kmod_lookup_alias_from_commands,
+		kmod_lookup_alias_from_aliases_file,
+		kmod_lookup_alias_from_builtin_file,
+		kmod_lookup_alias_from_kernel_builtin_file,
+	};
 	char alias[PATH_MAX];
+	int err;
 
 	if (ctx == NULL || given_alias == NULL)
 		return -ENOENT;
@@ -555,46 +578,75 @@ KMOD_EXPORT int kmod_module_new_from_lookup(struct kmod_ctx *ctx,
 
 	DBG(ctx, "input alias=%s, normalized=%s\n", given_alias, alias);
 
-	/* Aliases from config file override all the others */
-	err = kmod_lookup_alias_from_config(ctx, alias, list);
-	CHECK_ERR_AND_FINISH(err, fail, list, finish);
+	err = __kmod_module_new_from_lookup(ctx, lookup, ARRAY_SIZE(lookup),
+					    alias, list);
 
-	DBG(ctx, "lookup modules.dep %s\n", alias);
-	err = kmod_lookup_alias_from_moddep_file(ctx, alias, list);
-	CHECK_ERR_AND_FINISH(err, fail, list, finish);
+	DBG(ctx, "lookup=%s found=%d\n", alias, err >= 0 && *list);
 
-	DBG(ctx, "lookup modules.symbols %s\n", alias);
-	err = kmod_lookup_alias_from_symbols_file(ctx, alias, list);
-	CHECK_ERR_AND_FINISH(err, fail, list, finish);
-
-	DBG(ctx, "lookup install and remove commands %s\n", alias);
-	err = kmod_lookup_alias_from_commands(ctx, alias, list);
-	CHECK_ERR_AND_FINISH(err, fail, list, finish);
-
-	DBG(ctx, "lookup modules.aliases %s\n", alias);
-	err = kmod_lookup_alias_from_aliases_file(ctx, alias, list);
-	CHECK_ERR_AND_FINISH(err, fail, list, finish);
-
-	DBG(ctx, "lookup modules.builtin.modinfo %s\n", alias);
-	err = kmod_lookup_alias_from_kernel_builtin_file(ctx, alias, list);
-	if (err == -ENOSYS) {
-		/* Optional index missing, try the old one */
-		DBG(ctx, "lookup modules.builtin %s\n", alias);
-		err = kmod_lookup_alias_from_builtin_file(ctx, alias, list);
+	if (err < 0) {
+		kmod_module_unref_list(*list);
+		*list = NULL;
 	}
-	CHECK_ERR_AND_FINISH(err, fail, list, finish);
 
-
-finish:
-	DBG(ctx, "lookup %s=%d, list=%p\n", alias, err, *list);
-	return err;
-fail:
-	DBG(ctx, "Failed to lookup %s\n", alias);
-	kmod_module_unref_list(*list);
-	*list = NULL;
 	return err;
 }
-#undef CHECK_ERR_AND_FINISH
+
+/**
+ * kmod_module_new_from_name_lookup:
+ * @ctx: kmod library context
+ * @modname: module name to look for
+ * @mod: returned module on success
+ *
+ * Lookup by module name, without considering possible aliases. This is similar
+ * to kmod_module_new_from_lookup(), but don't consider as source indexes and
+ * configurations that work with aliases. When succesful, this always resolves
+ * to one and only one module.
+ *
+ * The search order is: 1. module names in modules.dep index;
+ * 2. builtin indexes from kernel.
+ *
+ * The initial refcount is 1, and needs to be decremented to release the
+ * resources of the kmod_module. Since libkmod keeps track of all
+ * kmod_modules created, they are all released upon @ctx destruction too. Do
+ * not unref @ctx before all the desired operations with the returned list are
+ * completed.
+ *
+ * Returns: 0 on success or < 0 otherwise. It fails if any of the lookup
+ * methods failed, which is basically due to memory allocation failure. If
+ * module is not found, it still returns 0, but @mod is left untouched.
+ */
+KMOD_EXPORT int kmod_module_new_from_name_lookup(struct kmod_ctx *ctx,
+						 const char *modname,
+						 struct kmod_module **mod)
+{
+	const lookup_func lookup[] = {
+		kmod_lookup_alias_from_moddep_file,
+		kmod_lookup_alias_from_builtin_file,
+		kmod_lookup_alias_from_kernel_builtin_file,
+	};
+	char name_norm[PATH_MAX];
+	struct kmod_list *list = NULL;
+	int err;
+
+	if (ctx == NULL || modname == NULL || mod == NULL)
+		return -ENOENT;
+
+	modname_normalize(modname, name_norm, NULL);
+
+	DBG(ctx, "input modname=%s, normalized=%s\n", modname, name_norm);
+
+	err = __kmod_module_new_from_lookup(ctx, lookup, ARRAY_SIZE(lookup),
+					    name_norm, &list);
+
+	DBG(ctx, "lookup=%s found=%d\n", name_norm, err >= 0 && list);
+
+	if (err >= 0 && list != NULL)
+		*mod = kmod_module_get_module(list);
+
+	kmod_module_unref_list(list);
+
+	return err;
+}
 
 /**
  * kmod_module_unref_list:
@@ -771,11 +823,13 @@ extern long delete_module(const char *name, unsigned int flags);
 /**
  * kmod_module_remove_module:
  * @mod: kmod module
- * @flags: flags to pass to Linux kernel when removing the module. The only valid flag is
+ * @flags: flags used when removing the module.
  * KMOD_REMOVE_FORCE: force remove module regardless if it's still in
- * use by a kernel subsystem or other process;
- * KMOD_REMOVE_NOWAIT is always enforced, causing us to pass O_NONBLOCK to
+ * use by a kernel subsystem or other process; passed directly to Linux kernel
+ * KMOD_REMOVE_NOWAIT: is always enforced, causing us to pass O_NONBLOCK to
  * delete_module(2).
+ * KMOD_REMOVE_NOLOG: when module removal fails, do not log anything as the
+ * caller may want to handle retries and log when appropriate.
  *
  * Remove a module from Linux kernel.
  *
@@ -784,6 +838,8 @@ extern long delete_module(const char *name, unsigned int flags);
 KMOD_EXPORT int kmod_module_remove_module(struct kmod_module *mod,
 							unsigned int flags)
 {
+	unsigned int libkmod_flags = flags & 0xff;
+
 	int err;
 
 	if (mod == NULL)
@@ -796,7 +852,8 @@ KMOD_EXPORT int kmod_module_remove_module(struct kmod_module *mod,
 	err = delete_module(mod->name, flags);
 	if (err != 0) {
 		err = -errno;
-		ERR(mod->ctx, "could not remove '%s': %m\n", mod->name);
+		if (!(libkmod_flags & KMOD_REMOVE_NOLOG))
+			ERR(mod->ctx, "could not remove '%s': %m\n", mod->name);
 	}
 
 	return err;
@@ -2277,7 +2334,7 @@ list_error:
  *
  * After use, free the @list by calling kmod_module_info_free_list().
  *
- * Returns: 0 on success or < 0 otherwise.
+ * Returns: number of entries in @list on success or < 0 otherwise.
  */
 KMOD_EXPORT int kmod_module_get_info(const struct kmod_module *mod, struct kmod_list **list)
 {
@@ -2912,7 +2969,10 @@ int kmod_module_get_builtin(struct kmod_ctx *ctx, struct kmod_list **list)
 			goto fail;
 		}
 
-		kmod_module_new_from_name(ctx, modname, &mod);
+		err = kmod_module_new_from_name(ctx, modname, &mod);
+		if (err < 0)
+			goto fail;
+
 		kmod_module_set_builtin(mod, true);
 
 		*list = kmod_list_append(*list, mod);

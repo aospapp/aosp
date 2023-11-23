@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0+ OR Apache-2.0 */
 /*
  * Copyright (C) 2018-2019 HUAWEI, Inc.
  *             http://www.huawei.com/
@@ -21,13 +21,13 @@ struct erofs_compressor {
 	int (*exit)(struct erofs_compress *c);
 	int (*setlevel)(struct erofs_compress *c, int compression_level);
 
-	int (*compress_destsize)(struct erofs_compress *c,
-				 void *src, unsigned int *srcsize,
+	int (*compress_destsize)(const struct erofs_compress *c,
+				 const void *src, unsigned int *srcsize,
 				 void *dst, unsigned int dstsize);
 };
 
 struct erofs_compress {
-	struct erofs_compressor *alg;
+	const struct erofs_compressor *alg;
 
 	unsigned int compress_threshold;
 	unsigned int compression_level;
@@ -41,13 +41,13 @@ struct erofs_compress {
 };
 
 /* list of compression algorithms */
-extern struct erofs_compressor erofs_compressor_lz4;
-extern struct erofs_compressor erofs_compressor_lz4hc;
-extern struct erofs_compressor erofs_compressor_lzma;
+extern const struct erofs_compressor erofs_compressor_lz4;
+extern const struct erofs_compressor erofs_compressor_lz4hc;
+extern const struct erofs_compressor erofs_compressor_lzma;
 
-int erofs_compress_destsize(struct erofs_compress *c,
-			    void *src, unsigned int *srcsize,
-			    void *dst, unsigned int dstsize);
+int erofs_compress_destsize(const struct erofs_compress *c,
+			    const void *src, unsigned int *srcsize,
+			    void *dst, unsigned int dstsize, bool inblocks);
 
 int erofs_compressor_setlevel(struct erofs_compress *c, int compression_level);
 int erofs_compressor_init(struct erofs_compress *c, char *alg_name);

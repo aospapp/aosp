@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,7 +10,10 @@
 #![allow(dead_code, non_camel_case_types)]
 
 /* Added below line manually */
-use std::os::raw::{c_char, c_int, c_uint, c_void};
+use std::os::raw::c_char;
+use std::os::raw::c_int;
+use std::os::raw::c_uint;
+use std::os::raw::c_void;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

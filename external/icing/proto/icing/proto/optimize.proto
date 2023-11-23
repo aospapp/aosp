@@ -63,7 +63,7 @@ message GetOptimizeInfoResultProto {
   optional int64 time_since_last_optimize_ms = 4;
 }
 
-// Next tag: 10
+// Next tag: 11
 message OptimizeStatsProto {
   // Overall time used for the function call.
   optional int32 latency_ms = 1;
@@ -91,4 +91,15 @@ message OptimizeStatsProto {
 
   // The amount of time since the last optimize ran.
   optional int64 time_since_last_optimize_ms = 9;
+
+  enum IndexRestorationMode {
+    // The index has been translated in place to match the optimized document
+    // store.
+    INDEX_TRANSLATION = 0;
+    // The index has been rebuilt from scratch during optimization. This could
+    // happen when we received a DATA_LOSS error from OptimizeDocumentStore,
+    // Index::Optimize failed, or rebuilding could be faster.
+    FULL_INDEX_REBUILD = 1;
+  }
+  optional IndexRestorationMode index_restoration_mode = 10;
 }

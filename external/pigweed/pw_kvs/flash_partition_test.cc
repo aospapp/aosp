@@ -13,13 +13,13 @@
 // the License.
 
 #include <algorithm>
-#include <span>
 
 #include "gtest/gtest.h"
 #include "pw_kvs/flash_memory.h"
 #include "pw_kvs/flash_test_partition.h"
 #include "pw_kvs_private/config.h"
 #include "pw_log/log.h"
+#include "pw_span/span.h"
 
 namespace pw::kvs::PartitionTest {
 namespace {
@@ -59,7 +59,7 @@ void WriteData(FlashPartition& partition, uint8_t fill_byte) {
     for (size_t chunk_index = 0; chunk_index < chunks_per_sector;
          chunk_index++) {
       StatusWithSize status =
-          partition.Write(address, as_bytes(std::span(test_data, write_size)));
+          partition.Write(address, as_bytes(span(test_data, write_size)));
       ASSERT_EQ(OkStatus(), status.status());
       ASSERT_EQ(write_size, status.size());
       address += write_size;
@@ -145,7 +145,7 @@ TEST(FlashPartitionTest, EraseTest) {
 
   const size_t block_size =
       std::min(sizeof(test_data), test_partition.sector_size_bytes());
-  auto data_span = std::span(test_data, block_size);
+  auto data_span = span(test_data, block_size);
 
   ASSERT_EQ(OkStatus(), test_partition.Erase(0, test_partition.sector_count()));
 
@@ -206,7 +206,7 @@ TEST(FlashPartitionTest, AlignmentCheck) {
 
 #define TESTING_CHECK_FAILURES_IS_SUPPORTED 0
 #if TESTING_CHECK_FAILURES_IS_SUPPORTED
-// TODO: Ensure that this test triggers an assert.
+// TODO(davidrogers): Ensure that this test triggers an assert.
 TEST(FlashPartitionTest, BadWriteAddressAlignment) {
   FlashPartition& test_partition = FlashTestPartition();
 
@@ -219,7 +219,7 @@ TEST(FlashPartitionTest, BadWriteAddressAlignment) {
   test_partition.Write(1, source_data);
 }
 
-// TODO: Ensure that this test triggers an assert.
+// TODO(davidrogers): Ensure that this test triggers an assert.
 TEST(FlashPartitionTest, BadWriteSizeAlignment) {
   FlashPartition& test_partition = FlashTestPartition();
 
@@ -232,7 +232,7 @@ TEST(FlashPartitionTest, BadWriteSizeAlignment) {
   test_partition.Write(0, source_data);
 }
 
-// TODO: Ensure that this test triggers an assert.
+// TODO(davidrogers): Ensure that this test triggers an assert.
 TEST(FlashPartitionTest, BadEraseAddressAlignment) {
   FlashPartition& test_partition = FlashTestPartition();
 
@@ -264,7 +264,7 @@ TEST(FlashPartitionTest, IsErased) {
   static const uint8_t fill_byte = 0x55;
   uint8_t test_data[kMaxFlashAlignment];
   memset(test_data, fill_byte, sizeof(test_data));
-  auto data_span = std::span(test_data);
+  auto data_span = span(test_data);
 
   // Write the chunk with fill byte.
   StatusWithSize status = test_partition.Write(write_size, as_bytes(data_span));

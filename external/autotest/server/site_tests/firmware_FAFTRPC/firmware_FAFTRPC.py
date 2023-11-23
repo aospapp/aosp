@@ -5,8 +5,8 @@
 import logging
 import operator
 import re
+import six
 import sys
-import xmlrpclib
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chip_utils
@@ -17,7 +17,7 @@ NO_ARGS = tuple()
 ONE_INT_ARG = (1, )
 ONE_STR_ARG = ("foo", )
 SAMPLE_FILE = "/tmp/foo"
-CHIP_FW_NAMES = (chip.fw_name for chip in chip_utils.chip_id_map.itervalues())
+CHIP_FW_NAMES = (chip.fw_name for chip in chip_utils.chip_id_map.values())
 SAMPLE_CGPT_A = {
     "UUID": "93EF7B23-606B-014B-A10C-E9D7CF53DFD3",
     "successful": 1,
@@ -178,7 +178,7 @@ class firmware_FAFTRPC(FirmwareTest):
             rpc_name = method
         try:
             result = rpc_function(*params)
-        except xmlrpclib.Fault as e:
+        except six.moves.xmlrpc_client.Fault as e:
             if allow_error_msg is not None and \
                     re.search(allow_error_msg, str(e)):
                 success_msg = "raised an acceptable error during RPC handling"
@@ -223,7 +223,7 @@ class firmware_FAFTRPC(FirmwareTest):
         @param params: A tuple containing params to pass into the RPC function
 
         @raise error.TestFail: If the RPC raises no error, or if it raises any
-                               error other than xmlrpclib.Fault
+                               error other than six.moves.xmlrpc_client.Fault
 
         @return: Not meaningful.
 
@@ -235,7 +235,7 @@ class firmware_FAFTRPC(FirmwareTest):
             rpc_name = method
         try:
             result = rpc_function(*params)
-        except xmlrpclib.Fault as e:
+        except six.moves.xmlrpc_client.Fault as e:
             self._log_success(rpc_name, params, "raised RPC error")
         except:
             error_msg = "Unexpected misc error: %s" % sys.exc_info()[0]
@@ -317,7 +317,8 @@ class firmware_FAFTRPC(FirmwareTest):
         self.reboot_after_completion = reboot_after_completion
         for rpc_category in rpc_categories_to_test:
             category_name = rpc_category["category_name"]
-            if category_name == "ec" and not self.check_ec_capability():
+            if category_name == "ec" and not self.check_ec_capability(
+                    suppress_warning=True):
                 logging.info("No EC found on DUT. Skipping EC category.")
                 continue
 
@@ -330,6 +331,7 @@ class firmware_FAFTRPC(FirmwareTest):
             for test_case in test_cases:
                 method_names = get_rpc_method_names_from_test_case(test_case)
                 passing_args = test_case.get("passing_args", [])
+                ec_passing_args = test_case.get("ec_passing_args", [])
                 failing_args = test_case.get("failing_args", [])
                 allow_error_msg = test_case.get("allow_error_msg", None)
                 expected_return_type = test_case.get("expected_return_type",
@@ -352,6 +354,18 @@ class firmware_FAFTRPC(FirmwareTest):
                                 failing_arg_tuple)
                         self._assert_fails(category_name, method_name,
                                            failing_arg_tuple)
+                    for arg_tuple in ec_passing_args:
+                        arg_tuple = self._retrieve_stored_values(arg_tuple)
+                        if self.check_ec_capability(suppress_warning=True):
+                            result = self._assert_passes(
+                                    category_name, method_name, arg_tuple,
+                                    allow_error_msg, expected_return_type,
+                                    silence_result)
+                            if store_result_as is not None:
+                                self._stored_values[store_result_as] = result
+                        else:
+                            self._assert_fails(category_name, method_name,
+                                               arg_tuple)
 
 
 """
@@ -408,8 +422,10 @@ RPC_CATEGORIES = [
                                         "get_platform_name",
                                         "get_model_name",
                                         "dev_tpm_present",
+                                        "get_boot_mode",
                                         "get_root_dev",
                                         "get_root_part",
+                                        "get_minios_priority",
                                         "get_fw_vboot2",
                                         "request_recovery_boot",
                                         "is_removable_device_boot",
@@ -417,19 +433,6 @@ RPC_CATEGORIES = [
                                 ],
                                 "passing_args": [NO_ARGS],
                                 "failing_args": [ONE_INT_ARG, ONE_STR_ARG],
-                        },
-                        {
-                                "method_name": "dump_log",
-                                "passing_args": [
-                                        NO_ARGS,
-                                        (True, ),
-                                        (False, ),
-                                ],
-                                "failing_args": [
-                                        (True, False),
-                                ],
-                                "expected_return_type": str,
-                                "silence_result": True,
                         },
                         {
                                 "method_name":
@@ -508,6 +511,17 @@ RPC_CATEGORIES = [
                                 "failing_args": [
                                         NO_ARGS,
                                         ("A", 1, "B"),
+                                ],
+                        },
+                        {
+                                "method_name": "set_minios_priority",
+                                "passing_args": [
+                                        ("A"),
+                                        ("B"),
+                                ],
+                                "failing_args": [
+                                        NO_ARGS,
+                                        ("A", 1),
                                 ],
                         },
                         {
@@ -651,13 +665,21 @@ RPC_CATEGORIES = [
                                 ]
                         },
                         {
+                                "method_name": "set_version",
+                                "passing_args": [
+                                        ("a", 0),
+                                        ("b", 1),
+                                ],
+                                "failing_args": [
+                                        NO_ARGS,
+                                        ("a", ),
+                                        ("b", -1),
+                                ],
+                        },
+                        {
                                 "method_names": [
-                                        "corrupt_sig",
-                                        "restore_sig",
-                                        "corrupt_body",
-                                        "restore_body",
-                                        "move_version_backward",
-                                        "move_version_forward",
+                                        "get_sig_one_byte",
+                                        "get_body_one_byte",
                                 ],
                                 "passing_args": [
                                         ("a", ),
@@ -668,6 +690,20 @@ RPC_CATEGORIES = [
                                         ONE_INT_ARG,
                                         ("c", ),
                                 ]
+                        },
+                        {
+                                "method_names": [
+                                        "modify_sig",
+                                        "modify_body",
+                                ],
+                                "passing_args": [
+                                        ("a", 0, 0xff),
+                                        ("b", 1, 0xff),
+                                ],
+                                "failing_args": [
+                                        NO_ARGS,
+                                        ONE_INT_ARG,
+                                ],
                         },
                         {
                                 "method_names": [
@@ -723,7 +759,6 @@ RPC_CATEGORIES = [
                         {
                                 "method_names": [
                                         "reload",
-                                        "get_version",
                                         "get_active_hash",
                                         "is_efs",
                                 ],
@@ -731,6 +766,16 @@ RPC_CATEGORIES = [
                                 "failing_args": [ONE_INT_ARG, ONE_STR_ARG],
                                 "allow_error_msg":
                                 "list index out of range",
+                        },
+                        {
+                                "method_name":
+                                "get_version",
+                                "passing_args": [
+                                        NO_ARGS,
+                                        ("ro", ),
+                                        ("RW", ),
+                                        (None, ),
+                                ],
                         },
                         {
                                 "method_names":
@@ -921,9 +966,6 @@ RPC_CATEGORIES = [
                 "category_name":
                 "updater",
                 "test_cases": [
-                        # TODO (gredelston):
-                        # Uncomment the methods which write to flash memory,
-                        # once we are able to set the firmware_updater to "emulate" mode.
                         {
                                 "method_names": [
                                         "cleanup",
@@ -984,6 +1026,8 @@ RPC_CATEGORIES = [
                                 "passing_args": [
                                         NO_ARGS,
                                         ("bios", ),
+                                ],
+                                "ec_passing_args": [
                                         ("ec", ),
                                 ],
                                 "failing_args": [

@@ -1,14 +1,20 @@
+# Lint as: python2, python3
 """Base support for parser scenario testing.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 from os import path
-import ConfigParser, os, shelve, shutil, sys, tarfile, time
+import six.moves.configparser, os, shelve, shutil, sys, tarfile, time
 import difflib, itertools
 import common
 from autotest_lib.client.common_lib import utils, autotemp
 from autotest_lib.tko import parser_lib
 from autotest_lib.tko.parsers.test import templates
 from autotest_lib.tko.parsers.test import unittest_hotfix
+import six
+from six.moves import zip
 
 TEMPLATES_DIRPATH = templates.__path__[0]
 # Set TZ used to UTC
@@ -55,8 +61,8 @@ class ParserException(object):
           orig: Exception; To copy
         """
         self.classname = orig.__class__.__name__
-        print "Copying exception:", self.classname
-        for key, val in orig.__dict__.iteritems():
+        print("Copying exception:", self.classname)
+        for key, val in six.iteritems(orig.__dict__):
             setattr(self, key, val)
 
 
@@ -93,7 +99,7 @@ class ParserTestResult(object):
         Args:
             orig: testobj; Framework test result instance to copy.
         """
-        for key, val in orig.__dict__.iteritems():
+        for key, val in six.iteritems(orig.__dict__):
             if key == 'kernel':
                 setattr(self, key, dict(val.__dict__))
             elif key == 'iterations':
@@ -157,7 +163,7 @@ def compare_parser_results(left, right):
         if type(obj) is list:
             return [
                 '%d) %s' % pair
-                for pair in itertools.izip(itertools.count(), obj)]
+                for pair in zip(itertools.count(), obj)]
         else:
             return ['i) %s' % obj]
 
@@ -231,7 +237,7 @@ class BaseScenarioTestCase(unittest_hotfix.TestCase):
 
 
     def test_status_version(self):
-        """Ensure basic sanity."""
+        """Ensure basic functionality."""
         self.skipIf(not self.harness)
         self.assertEquals(
             self.harness.status_version, self.expected_status_version)
@@ -245,7 +251,7 @@ def shelve_open(filename, flag='c', protocol=None, writeback=False):
 
 
 def new_parser_harness(results_dirpath):
-    """Ensure sane environment and create new parser with wrapper.
+    """Ensure valid environment and create new parser with wrapper.
 
     Args:
       results_dirpath: str; Path to job results directory
@@ -347,9 +353,9 @@ def write_config(package_dirpath, **properties):
       package_dirpath: str; Path to scenario package directory.
       properties: dict; Key value entries to write to to config file.
     """
-    config = ConfigParser.RawConfigParser()
+    config = six.moves.configparser.RawConfigParser()
     config.add_section(TEST)
-    for key, val in properties.iteritems():
+    for key, val in six.iteritems(properties):
         config.set(TEST, key, val)
 
     config_filepath = path.join(package_dirpath, CONFIG_FILENAME)
@@ -367,7 +373,7 @@ def load_config(package_dirpath):
     Returns:
       ConfigParser.RawConfigParser;
     """
-    config = ConfigParser.RawConfigParser()
+    config = six.moves.configparser.RawConfigParser()
     config_filepath = path.join(package_dirpath, CONFIG_FILENAME)
     config.read(config_filepath)
     return config

@@ -107,6 +107,17 @@ public abstract class DocInfo {
     return mSince;
   }
 
+  public void setSdkExtSince(String sdkextsince) {
+    mSdkExtSince = sdkextsince;
+  }
+
+  public String getSdkExtSince() {
+    if (Doclava.METALAVA_API_SINCE) {
+      mSdkExtSince = comment().getSdkExtSince();
+    }
+    return mSdkExtSince;
+  }
+
   /**
    * Sets the artifact in which the class resides.
    * <p>
@@ -168,6 +179,7 @@ public abstract class DocInfo {
   Comment mComment;
   SourcePositionInfo mPosition;
   private String mSince;
+  private String mSdkExtSince;
   private String mArtifact;
   private String mDeprecatedSince;
   private Set<FederatedSite> mFederatedReferences = new LinkedHashSet<FederatedSite>();

@@ -17,6 +17,7 @@
 
 #include <vector>
 
+#include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "icing/index/term-metadata.h"
 #include "icing/scoring/scored-document-hit.h"
 
@@ -30,6 +31,17 @@ namespace lib {
 // REQUIRED: scored_document_hits is not null.
 void BuildHeapInPlace(
     std::vector<ScoredDocumentHit>* scored_document_hits,
+    const ScoredDocumentHitComparator& scored_document_hit_comparator);
+
+// Returns the single next top result (i.e. the current root element) from the
+// given heap and remove it from the heap. The heap structure will be
+// maintained.
+//
+// Returns:
+//   The next top result element on success
+//   RESOURCE_EXHAUSTED_ERROR if heap is empty
+libtextclassifier3::StatusOr<ScoredDocumentHit> PopNextTopResultFromHeap(
+    std::vector<ScoredDocumentHit>* scored_document_hits_heap,
     const ScoredDocumentHitComparator& scored_document_hit_comparator);
 
 // Returns the top num_results results from the given heap and remove those

@@ -27,7 +27,14 @@ def predicate(test):
     return False
   # Strip off the cheets_GTS. from the test name before comparing to args
   name = test.name[test.name.find('.') + 1:]
-  if 'tests' in args_dict and name not in args_dict['tests']:
+  # Typical examples:
+  #   name = 'arm.CtsDeqpTestCases.64'
+  #     or
+  #   name = 'x86.CtsDeqpTestCases.32'
+  # and
+  #   args_dict['tests'] = ['arm.CtsDeqpTestCases', 'x86.CtsDeqpTestCases']
+  # So, we want to includes test with names being subpart of any arg.
+  if 'tests' in args_dict and all(arg not in name for arg in args_dict['tests']):
     return False
   return True
 

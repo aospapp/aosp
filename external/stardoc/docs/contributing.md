@@ -1,11 +1,18 @@
-We welcome your contributions! To contribute to Stardoc, fork the
+Before contributing, please see the note on our [current
+priorities](future_plans.md). In short, we're able to take bugfixes to critical
+features, but cannot guarantee that we'll be able to review new features in a
+timely manner.
+
+To contribute to Stardoc, first see the official [contributing
+notice](../CONTRIBUTING.md), then feel free to fork the
 [Stardoc](https://github.com/bazelbuild/stardoc) GitHub repository and start
 submitting pull requests.
 
 In general, we prefer contributions that fix bugs or add features (as opposed to
 purely stylistic, refactoring, or "cleanup" changes). Please check with us by
-opening a [GitHub Issue](https://github.com/bazelbuild/stardoc/issues) or emailing the
-[bazel-dev](https://groups.google.com/forum/#!forum/bazel-dev) mailing list.
+opening a [GitHub Issue](https://github.com/bazelbuild/stardoc/issues) or
+emailing the [bazel-dev](https://groups.google.com/forum/#!forum/bazel-dev)
+mailing list.
 
 ## Stardoc code structure
 
@@ -44,9 +51,4 @@ opening a [GitHub Issue](https://github.com/bazelbuild/stardoc/issues) or emaili
 The current group of Stardoc core contributors are:
 
 * [brandjon](https://github.com/brandjon)
-* [cparsons](https://github.com/c-parsons)
-* [jin](https://github.com/jin)
-* [laurentlb](https://github.com/laurentlb)
-
-
-
+* [tetromino](https://github.com/tetromino)

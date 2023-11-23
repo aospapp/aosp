@@ -15,16 +15,17 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.classNameInferringPackageFromElement;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.ASYNC_CALLBACK_PARAM_MULTIMERGER_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.ASYNC_CALLBACK_PARAM_MULTIMERGER_COMPLETE_LISTENER_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BUNDLER_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BUNDLE_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BUNDLE_UTILITIES_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CROSS_PROFILE_CALLBACK_BUNDLE_CALL_SENDER_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CROSS_PROFILE_CALLBACK_CLASSNAME;
-import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CROSS_PROFILE_CALLBACK_EXCEPTION_PARCEL_CALL_SENDER_CLASSNAME;
-import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CROSS_PROFILE_CALLBACK_PARCEL_CALL_SENDER_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CROSS_PROFILE_CALLBACK_EXCEPTION_BUNDLE_CALL_SENDER_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.EXCEPTION_CALLBACK_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.LOCAL_CALLBACK_CLASSNAME;
-import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PARCEL_CLASSNAME;
-import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PARCEL_UTILITIES_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.UNAVAILABLE_PROFILE_EXCEPTION_CLASSNAME;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -43,7 +44,6 @@ import com.squareup.javapoet.TypeSpec;
 import java.util.Map;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
@@ -255,7 +255,7 @@ public class CrossProfileCallbackCodeGenerator {
                     + " $2T}.\n",
                 callbackInterface.interfaceElement(),
                 CROSS_PROFILE_CALLBACK_CLASSNAME,
-                PARCEL_CLASSNAME);
+                BUNDLE_CLASSNAME);
 
     classBuilder.addField(
         FieldSpec.builder(CROSS_PROFILE_CALLBACK_CLASSNAME, "callback")
@@ -305,22 +305,20 @@ public class CrossProfileCallbackCodeGenerator {
 
     methodBuilder.addStatement(
         "$1T callSender = new $1T(callback, /* methodIdentifier= */ $2L)",
-        CROSS_PROFILE_CALLBACK_PARCEL_CALL_SENDER_CLASSNAME,
+        CROSS_PROFILE_CALLBACK_BUNDLE_CALL_SENDER_CLASSNAME,
         callbackInterface.getIdentifier(method));
 
-    // parcel is recycled in this method
-    methodBuilder.addStatement("$1T parcel = $1T.obtain()", PARCEL_CLASSNAME);
+    methodBuilder.addStatement(
+        "$1T bundle = new $1T($2T.class.getClassLoader())", BUNDLE_CLASSNAME, BUNDLER_CLASSNAME);
 
     for (VariableElement param : method.getParameters()) {
       methodBuilder.addStatement(
-          "bundler.writeToParcel(parcel, $1L, $2L, /* flags= */ 0)",
+          "bundler.writeToBundle(bundle, $1S, $1L, $2L)",
           param.getSimpleName(),
           TypeUtils.generateBundlerType(param.asType()));
     }
 
-    methodBuilder.addStatement("callSender.makeParcelCall(parcel)", PARCEL_CLASSNAME);
-
-    methodBuilder.addStatement("parcel.recycle()");
+    methodBuilder.addStatement("callSender.makeBundleCall(bundle)");
 
     methodBuilder
         .nextControlFlow("catch ($T e)", Exception.class)
@@ -328,16 +326,16 @@ public class CrossProfileCallbackCodeGenerator {
         .addStatement(
             "$1T unavailableProfileException = new $1T(\"Error when writing callback result\", e)",
             UNAVAILABLE_PROFILE_EXCEPTION_CLASSNAME)
-        // parcel is recycled in this method
-        .addStatement("$1T parcel = $1T.obtain()", PARCEL_CLASSNAME)
         .addStatement(
-            "$T.writeThrowableToParcel(parcel, unavailableProfileException)",
-            PARCEL_UTILITIES_CLASSNAME)
+            "$1T bundle = new $1T($2T.class.getClassLoader())", BUNDLE_CLASSNAME, BUNDLER_CLASSNAME)
+        .addStatement(
+            "$T.writeThrowableToBundle(bundle, $S, unavailableProfileException)",
+            BUNDLE_UTILITIES_CLASSNAME,
+            "throwable")
         .addStatement(
             "$1T callSender = new $1T(callback)",
-            CROSS_PROFILE_CALLBACK_EXCEPTION_PARCEL_CALL_SENDER_CLASSNAME)
-        .addStatement("callSender.makeParcelCall(parcel)", PARCEL_CLASSNAME)
-        .addStatement("parcel.recycle()")
+            CROSS_PROFILE_CALLBACK_EXCEPTION_BUNDLE_CALL_SENDER_CLASSNAME)
+        .addStatement("callSender.makeBundleCall(bundle)")
         .nextControlFlow("catch ($T r)", UNAVAILABLE_PROFILE_EXCEPTION_CLASSNAME)
         .addComment(
             "TODO: Decide what should happen if the connection is dropped between the call and"
@@ -404,7 +402,7 @@ public class CrossProfileCallbackCodeGenerator {
             .addAnnotation(Override.class)
             .addModifiers(Modifier.PUBLIC)
             .addParameter(int.class, "methodIdentifier")
-            .addParameter(PARCEL_CLASSNAME, "params");
+            .addParameter(BUNDLE_CLASSNAME, "params");
     methodBuilder.beginControlFlow("switch (methodIdentifier)$>");
 
     for (ExecutableElement method : callbackInterface.methods()) {
@@ -424,11 +422,12 @@ public class CrossProfileCallbackCodeGenerator {
         MethodSpec.methodBuilder("onException")
             .addAnnotation(Override.class)
             .addModifiers(Modifier.PUBLIC)
-            .addParameter(PARCEL_CLASSNAME, "exception");
+            .addParameter(BUNDLE_CLASSNAME, "exception");
     methodBuilder.addStatement(
-        "$1T throwable = $2T.readThrowableFromParcel(exception)",
+        "$1T throwable = $2T.readThrowableFromBundle(exception, $3S)",
         Throwable.class,
-        PARCEL_UTILITIES_CLASSNAME);
+        BUNDLE_UTILITIES_CLASSNAME,
+        "throwable");
 
     methodBuilder.addStatement("exceptionCallback.onException(throwable)");
 
@@ -438,7 +437,8 @@ public class CrossProfileCallbackCodeGenerator {
   private void addDispatchCode(MethodSpec.Builder methodBuilder, ExecutableElement method) {
     for (VariableElement parameter : method.getParameters()) {
       methodBuilder.addStatement(
-          "@SuppressWarnings(\"unchecked\") $1T $2L = ($1T) bundler.readFromParcel(params, $3L)",
+          "@SuppressWarnings(\"unchecked\") $1T $2L = ($1T) bundler.readFromBundle(params, $2S,"
+              + " $3L)",
           parameter.asType(),
           parameter.getSimpleName().toString(),
           TypeUtils.generateBundlerType(parameter.asType()));
@@ -454,48 +454,42 @@ public class CrossProfileCallbackCodeGenerator {
 
   static ClassName getCrossProfileCallbackMultiInterfaceClassName(
       GeneratorContext generatorContext, CrossProfileCallbackInterfaceInfo callbackInterface) {
-    PackageElement originalPackage =
-        generatorContext.elements().getPackageOf(callbackInterface.interfaceElement());
-    String interfaceName = String.format("%s_Multi", callbackInterface.simpleName());
-
-    return ClassName.get(originalPackage.getQualifiedName().toString(), interfaceName);
+    return classNameInferringPackageFromElement(
+        generatorContext,
+        callbackInterface.interfaceElement(),
+        String.format("%s_Multi", callbackInterface.simpleName()));
   }
 
   static ClassName getCrossProfileCallbackMultiMergerResultClassName(
       GeneratorContext generatorContext, CrossProfileCallbackInterfaceInfo callbackInterface) {
-    PackageElement originalPackage =
-        generatorContext.elements().getPackageOf(callbackInterface.interfaceElement());
-    String interfaceName =
-        String.format("Profile_%s_MultiMergerResult", callbackInterface.simpleName());
-
-    return ClassName.get(originalPackage.getQualifiedName().toString(), interfaceName);
+    return classNameInferringPackageFromElement(
+        generatorContext,
+        callbackInterface.interfaceElement(),
+        String.format("Profile_%s_MultiMergerResult", callbackInterface.simpleName()));
   }
 
   static ClassName getCrossProfileCallbackMultiMergerInputClassName(
       GeneratorContext generatorContext, CrossProfileCallbackInterfaceInfo callbackInterface) {
-    PackageElement originalPackage =
-        generatorContext.elements().getPackageOf(callbackInterface.interfaceElement());
-    String interfaceName =
-        String.format("Profile_%s_MultiMergerInput", callbackInterface.simpleName());
-
-    return ClassName.get(originalPackage.getQualifiedName().toString(), interfaceName);
+    return classNameInferringPackageFromElement(
+        generatorContext,
+        callbackInterface.interfaceElement(),
+        String.format("Profile_%s_MultiMergerInput", callbackInterface.simpleName()));
   }
 
   static ClassName getCrossProfileCallbackReceiverClassName(
       GeneratorContext generatorContext, CrossProfileCallbackInterfaceInfo callbackInterface) {
-    PackageElement originalPackage =
-        generatorContext.elements().getPackageOf(callbackInterface.interfaceElement());
-    String interfaceName = String.format("Profile_%s_Receiver", callbackInterface.simpleName());
-
-    return ClassName.get(originalPackage.getQualifiedName().toString(), interfaceName);
+    return classNameInferringPackageFromElement(
+        generatorContext,
+        callbackInterface.interfaceElement(),
+        String.format("Profile_%s_Receiver", callbackInterface.simpleName()));
   }
 
   static ClassName getCrossProfileCallbackSenderClassName(
       GeneratorContext generatorContext, CrossProfileCallbackInterfaceInfo callbackInterface) {
-    PackageElement originalPackage =
-        generatorContext.elements().getPackageOf(callbackInterface.interfaceElement());
-    String interfaceName = String.format("Profile_%s_Sender", callbackInterface.simpleName());
-
-    return ClassName.get(originalPackage.getQualifiedName().toString(), interfaceName);
+    return classNameInferringPackageFromElement(
+        generatorContext,
+        callbackInterface.interfaceElement(),
+        String.format("Profile_%s_Sender", callbackInterface.simpleName()));
   }
 }
+

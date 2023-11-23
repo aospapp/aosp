@@ -16,9 +16,9 @@ import {
   BidirectionalStreamingCall,
   BidirectionalStreamingMethodStub,
   ServiceClient,
-} from '@pigweed/pw_rpc';
-import {Status} from '@pigweed/pw_status';
-import {Chunk} from 'transfer_proto_tspb/transfer_proto_tspb_pb/pw_transfer/transfer_pb';
+} from 'pigweedjs/pw_rpc';
+import {Status} from 'pigweedjs/pw_status';
+import {Chunk} from 'pigweedjs/protos/pw_transfer/transfer_pb';
 
 export class ProgressStats {
   constructor(
@@ -138,7 +138,7 @@ export abstract class Transfer {
     const chunk = new Chunk();
     chunk.setStatus(error);
     chunk.setTransferId(this.id);
-    chunk.setType(Chunk.Type.TRANSFER_COMPLETION);
+    chunk.setType(Chunk.Type.COMPLETION);
     this.sendChunk(chunk);
     this.finish(error);
   }
@@ -253,7 +253,7 @@ export class ReadTransfer extends Transfer {
   }
 
   protected get initialChunk(): Chunk {
-    return this.transferParameters(Chunk.Type.TRANSFER_START);
+    return this.transferParameters(Chunk.Type.START);
   }
 
   /** Builds an updated transfer parameters chunk to send the server. */
@@ -305,7 +305,7 @@ export class ReadTransfer extends Transfer {
         const endChunk = new Chunk();
         endChunk.setTransferId(this.id);
         endChunk.setStatus(Status.OK);
-        endChunk.setType(Chunk.Type.TRANSFER_COMPLETION);
+        endChunk.setType(Chunk.Type.COMPLETION);
         this.sendChunk(endChunk);
         this.finish(Status.OK);
         return;
@@ -402,9 +402,12 @@ export class WriteTransfer extends Transfer {
   }
 
   protected get initialChunk(): Chunk {
+    // TODO(frolv): The session ID should not be set here but assigned by the
+    // server during an initial handshake.
     const chunk = new Chunk();
     chunk.setTransferId(this.id);
-    chunk.setType(Chunk.Type.TRANSFER_START);
+    chunk.setResourceId(this.id);
+    chunk.setType(Chunk.Type.START);
     return chunk;
   }
 
@@ -515,7 +518,7 @@ export class WriteTransfer extends Transfer {
     const chunk = new Chunk();
     chunk.setTransferId(this.id);
     chunk.setOffset(this.offset);
-    chunk.setType(Chunk.Type.TRANSFER_DATA);
+    chunk.setType(Chunk.Type.DATA);
 
     const maxBytesInChunk = Math.min(
       this.maxChunkSize,

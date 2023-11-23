@@ -1729,7 +1729,8 @@ struct elf_symbol::priv
   //     STT_COMMON definition of that name that has the largest size.
   bool			is_common_;
   bool			is_in_ksymtab_;
-  uint64_t		crc_;
+  abg_compat::optional<uint32_t>	crc_;
+  abg_compat::optional<std::string>	namespace_;
   bool			is_suppressed_;
   elf_symbol_wptr	main_symbol_;
   elf_symbol_wptr	next_alias_;
@@ -1746,7 +1747,8 @@ struct elf_symbol::priv
       is_defined_(false),
       is_common_(false),
       is_in_ksymtab_(false),
-      crc_(0),
+      crc_(),
+      namespace_(),
       is_suppressed_(false)
   {}
 
@@ -1761,7 +1763,8 @@ struct elf_symbol::priv
        const elf_symbol::version& ve,
        elf_symbol::visibility	  vi,
        bool			  is_in_ksymtab,
-       uint64_t			  crc,
+       const abg_compat::optional<uint32_t>&	crc,
+       const abg_compat::optional<std::string>&	ns,
        bool			  is_suppressed)
     : env_(e),
       index_(i),
@@ -1775,6 +1778,7 @@ struct elf_symbol::priv
       is_common_(c),
       is_in_ksymtab_(is_in_ksymtab),
       crc_(crc),
+      namespace_(ns),
       is_suppressed_(is_suppressed)
   {
     if (!is_common_)
@@ -1820,6 +1824,8 @@ elf_symbol::elf_symbol()
 /// @param vi the visibility of the symbol.
 ///
 /// @param crc the CRC (modversions) value of Linux Kernel symbols
+///
+/// @param ns the namespace of Linux Kernel symbols, if any
 elf_symbol::elf_symbol(const environment* e,
 		       size_t		  i,
 		       size_t		  s,
@@ -1831,7 +1837,8 @@ elf_symbol::elf_symbol(const environment* e,
 		       const version&	  ve,
 		       visibility	  vi,
 		       bool		  is_in_ksymtab,
-		       uint64_t		  crc,
+		       const abg_compat::optional<uint32_t>&	crc,
+		       const abg_compat::optional<std::string>&	ns,
 		       bool		  is_suppressed)
   : priv_(new priv(e,
 		   i,
@@ -1845,6 +1852,7 @@ elf_symbol::elf_symbol(const environment* e,
 		   vi,
 		   is_in_ksymtab,
 		   crc,
+		   ns,
 		   is_suppressed))
 {}
 
@@ -1888,6 +1896,8 @@ elf_symbol::create()
 ///
 /// @param crc the CRC (modversions) value of Linux Kernel symbols
 ///
+/// @param ns the namespace of Linux Kernel symbols, if any
+///
 /// @return a (smart) pointer to a newly created instance of @ref
 /// elf_symbol.
 elf_symbol_sptr
@@ -1902,11 +1912,12 @@ elf_symbol::create(const environment* e,
 		   const version&     ve,
 		   visibility	      vi,
 		   bool		      is_in_ksymtab,
-		   uint64_t	      crc,
+		   const abg_compat::optional<uint32_t>&	crc,
+		   const abg_compat::optional<std::string>&	ns,
 		   bool		      is_suppressed)
 {
   elf_symbol_sptr sym(new elf_symbol(e, i, s, n, t, b, d, c, ve, vi,
-				     is_in_ksymtab, crc, is_suppressed));
+				     is_in_ksymtab, crc, ns, is_suppressed));
   sym->priv_->main_symbol_ = sym;
   return sym;
 }
@@ -1928,8 +1939,8 @@ textually_equals(const elf_symbol&l,
 		 && l.is_defined() == r.is_defined()
 		 && l.is_common_symbol() == r.is_common_symbol()
 		 && l.get_version() == r.get_version()
-		 && (l.get_crc() == 0 || r.get_crc() == 0
-		     || l.get_crc() == r.get_crc()));
+		 && l.get_crc() == r.get_crc()
+		 && l.get_namespace() == r.get_namespace());
 
   if (equals && l.is_variable())
     // These are variable symbols.  Let's compare their symbol size.
@@ -2137,8 +2148,8 @@ elf_symbol::set_is_in_ksymtab(bool is_in_ksymtab)
 
 /// Getter of the 'crc' property.
 ///
-/// @return the CRC (modversions) value for Linux Kernel symbols (if present)
-uint64_t
+/// @return the CRC (modversions) value for Linux Kernel symbols, if any
+const abg_compat::optional<uint32_t>&
 elf_symbol::get_crc() const
 {return priv_->crc_;}
 
@@ -2146,8 +2157,22 @@ elf_symbol::get_crc() const
 ///
 /// @param crc the new CRC (modversions) value for Linux Kernel symbols
 void
-elf_symbol::set_crc(uint64_t crc)
+elf_symbol::set_crc(const abg_compat::optional<uint32_t>& crc)
 {priv_->crc_ = crc;}
+
+/// Getter of the 'namespace' property.
+///
+/// @return the namespace for Linux Kernel symbols, if any
+const abg_compat::optional<std::string>&
+elf_symbol::get_namespace() const
+{return priv_->namespace_;}
+
+/// Setter of the 'namespace' property.
+///
+/// @param ns the new namespace for Linux Kernel symbols, if any
+void
+elf_symbol::set_namespace(const abg_compat::optional<std::string>& ns)
+{priv_->namespace_ = ns;}
 
 /// Getter for the 'is-suppressed' property.
 ///
@@ -3500,70 +3525,6 @@ environment::decl_only_class_equals_definition() const
 void
 environment::decl_only_class_equals_definition(bool f) const
 {priv_->decl_only_class_equals_definition_ = f;}
-
-/// Test if comparing enums is done by looking only at enumerators
-/// values.
-///
-/// For enums, using 'binary-only' equality means looking only at
-/// values of enumerators (not names of enumerators) when comparing
-/// enums.  This means we are only considering the binary equality of
-/// enums, not source equality.
-///
-/// The two enums below are "binary equal", but not "source-level
-/// equal":
-///
-///     enum foo
-///     {
-///       e0 = 0;
-///       e1 = 1;
-///       e2 = 2;
-///     };
-///
-///     enum foo
-///     {
-///       e0 = 0;
-///       e1 = 1;
-///       e2 = 2;
-///       e_added = 1;
-///     };
-///
-/// @return true iff using 'binary-only' equality for enums
-/// comparison.
-bool
-environment::use_enum_binary_only_equality() const
-{return priv_->use_enum_binary_only_equality_;}
-
-/// Setter for the property that determines that comparing enums is
-/// done by looking only at enumerators values.
-///
-/// For enums, using 'binary-only' equality means looking only at
-/// values of enumerators (not names of enumerators) when comparing
-/// enums.  This means we are only considering the binary equality of
-/// enums, not source equality.
-///
-/// The two enums below are "binary equal", but not "source-level
-/// equal":
-///
-///     enum foo
-///     {
-///       e0 = 0;
-///       e1 = 1;
-///       e2 = 2;
-///     };
-///
-///     enum foo
-///     {
-///       e0 = 0;
-///       e1 = 1;
-///       e2 = 2;
-///       e_added = 1;
-///     };
-///
-/// @param f true iff using 'binary-only' equality for enums
-/// comparison.
-void
-environment::use_enum_binary_only_equality(bool f) const
-{priv_->use_enum_binary_only_equality_ = f;}
 
 /// Test if a given type is a void type as defined in the current
 /// environment.
@@ -5139,7 +5100,7 @@ equals(const decl_base& l, const decl_base& r, change_kind* k)
   interned_string ln = get_decl_name_for_comparison(l);
   interned_string rn = get_decl_name_for_comparison(r);
 
-  ;  /// If both of the current decls have an anonymous scope then let's
+  /// If both of the current decls have an anonymous scope then let's
   /// compare their name component by component by properly handling
   /// anonymous scopes. That's the slow path.
   ///
@@ -9398,6 +9359,15 @@ bool
 is_at_global_scope(const decl_base_sptr decl)
 {return (decl && is_global_scope(decl->get_scope()));}
 
+/// Tests whether a given declaration is at global scope.
+///
+/// @param decl the decl to consider.
+///
+/// @return true iff decl is at global scope.
+bool
+is_at_global_scope(const decl_base* decl)
+{return is_at_global_scope(*decl);}
+
 /// Tests whether a given decl is at class scope.
 ///
 /// @param decl the decl to consider.
@@ -13511,7 +13481,7 @@ types_defined_same_linux_kernel_corpus_public(const type_base& t1,
   /// kernel corpus, let's move on.  Otherwise bail out.
   if (!(t1_corpus && t2_corpus
 	&& t1_corpus == t2_corpus
-	&& (t1_corpus->get_origin() == corpus::LINUX_KERNEL_BINARY_ORIGIN)
+	&& (t1_corpus->get_origin() & corpus::LINUX_KERNEL_BINARY_ORIGIN)
 	&& (is_class_or_union_type(&t1)
 	    || is_enum_type(&t1))))
     return false;
@@ -14398,6 +14368,7 @@ parse_integral_type(const string&			type_name,
 bool
 parse_integral_type(const string& str, integral_type& type)
 {
+  return false;  // Disable all integral type name interpretation.
   integral_type::base_type base_type = integral_type::INT_BASE_TYPE;
   integral_type::modifiers_type modifiers = integral_type::NO_MODIFIER;
 
@@ -17435,6 +17406,82 @@ is_enumerator_present_in_enum(const enum_type_decl::enumerator &enr,
   return false;
 }
 
+/// Check if two enumerators values are equal.
+///
+/// This function doesn't check if the names of the enumerators are
+/// equal or not.
+///
+/// @param enr the first enumerator to consider.
+///
+/// @param enl the second enumerator to consider.
+///
+/// @return true iff @p enr has the same value as @p enl.
+static bool
+enumerators_values_are_equal(const enum_type_decl::enumerator &enr,
+			     const enum_type_decl::enumerator &enl)
+{return enr.get_value() == enl.get_value();}
+
+/// Detect if a given enumerator value is present in an enum.
+///
+/// This function looks inside the enumerators of a given enum and
+/// detect if the enum contains at least one enumerator or a given
+/// value.  The function also detects if the enumerator value we are
+/// looking at is present in the enum with a different name.  An
+/// enumerator with the same value but with a different name is named
+/// a "redundant enumerator".  The function returns the set of
+/// enumerators that are redundant with the value we are looking at.
+///
+/// @param enr the enumerator to consider.
+///
+/// @param enom the enum to consider.
+///
+/// @param redundant_enrs if the function returns true, then this
+/// vector is filled with enumerators that are redundant with the
+/// value of @p enr.
+///
+/// @return true iff the function detects that @p enom contains
+/// enumerators with the same value as @p enr.
+static bool
+is_enumerator_value_present_in_enum(const enum_type_decl::enumerator &enr,
+				    const enum_type_decl &enom,
+				    vector<enum_type_decl::enumerator>& redundant_enrs)
+{
+  bool found = false;
+  for (const auto &e : enom.get_enumerators())
+    if (enumerators_values_are_equal(e, enr))
+      {
+	found = true;
+	if (e != enr)
+	  redundant_enrs.push_back(e);
+      }
+
+  return found;
+}
+
+/// Check if an enumerator value is redundant in a given enum.
+///
+/// Given an enumerator value, this function detects if an enum
+/// contains at least one enumerator with the the same value but with
+/// a different name.
+///
+/// @param enr the enumerator to consider.
+///
+/// @param enom the enum to consider.
+///
+/// @return true iff @p enr is a redundant enumerator in enom.
+static bool
+is_enumerator_value_redundant(const enum_type_decl::enumerator &enr,
+			      const enum_type_decl &enom)
+{
+  vector<enum_type_decl::enumerator> redundant_enrs;
+  if (is_enumerator_value_present_in_enum(enr, enom, redundant_enrs))
+    {
+      if (!redundant_enrs.empty())
+	return true;
+    }
+    return false;
+}
+
 /// Compares two instances of @ref enum_type_decl.
 ///
 /// If the two intances are different, set a bitfield to give some
@@ -17484,10 +17531,8 @@ equals(const enum_type_decl& l, const enum_type_decl& r, change_kind* k)
   // Now compare the enumerators.  Note that the order of declaration
   // of enumerators should not matter in the comparison.
   //
-  // Also if the value of
-  // abigail::ir::environment::use_enum_binary_only_equality() is
-  // true, then enumerators are compared by considering their value
-  // only.  Their name is not taken into account.
+  // Also if an enumerator value is redundant, that shouldn't impact
+  // the comparison.
   //
   // In that case, note that the two enums below are considered equal:
   //
@@ -17503,16 +17548,15 @@ equals(const enum_type_decl& l, const enum_type_decl& r, change_kind* k)
   //       e0 = 0;
   //       e1 = 1;
   //       e2 = 2;
-  //       e_added = 1;
+  //       e_added = 1; // <-- this value is redundant with the value
+  //                    //     of the enumerator e1.
   //     };
   //
-  // These two enums are considered different if
-  // environment::use_enum_binary_only_equality() return false.
-  //
-  // So enumerators comparison should accomodate these conditions.
+  // These two enums are considered equal.
 
   for(const auto &e : l.get_enumerators())
-    if (!is_enumerator_present_in_enum(e, r))
+    if (!is_enumerator_present_in_enum(e, r)
+	&& !is_enumerator_value_redundant(e, r))
       {
 	result = false;
 	if (k)
@@ -17525,7 +17569,8 @@ equals(const enum_type_decl& l, const enum_type_decl& r, change_kind* k)
       }
 
   for(const auto &e : r.get_enumerators())
-    if (!is_enumerator_present_in_enum(e, l))
+    if (!is_enumerator_present_in_enum(e, l)
+	&& !is_enumerator_value_redundant(e, r))
       {
 	result = false;
 	if (k)
@@ -17674,15 +17719,6 @@ enum_type_decl::enumerator::operator=(const enumerator& o)
 }
 /// Equality operator
 ///
-/// When environment::use_enum_binary_only_equality() is true, this
-/// equality operator only cares about the value of the enumerator.
-/// It doesn't take the name of the enumerator into account.  This is
-/// the ABI-oriented default equality operator.
-///
-/// When the environment::use_enum_binary_only_equality() is false
-/// however, then this equality operator also takes the name of the
-/// enumerator into account as well as the value.
-///
 /// @param other the enumerator to compare to the current
 /// instance of enum_type_decl::enumerator.
 ///
@@ -17692,8 +17728,7 @@ bool
 enum_type_decl::enumerator::operator==(const enumerator& other) const
 {
   bool names_equal = true;
-  if (!get_environment()->use_enum_binary_only_equality())
-    names_equal = (get_name() == other.get_name());
+  names_equal = (get_name() == other.get_name());
   return names_equal && (get_value() == other.get_value());
 }
 
@@ -25176,7 +25211,8 @@ hash_type_or_decl(const type_or_decl_base_sptr& tod)
 /// This is a subroutine of hash_as_canonical_type_or_constant.
 ///
 /// For now, the only types allowed to be non canonicalized in the
-/// system are decl-only class/union and the void type.
+/// system are decl-only class/union, the void type and variadic
+/// parameter types.
 ///
 /// @return true iff @p t is a one of the only types allowed to be
 /// non-canonicalized in the system.
@@ -25187,7 +25223,9 @@ is_non_canonicalized_type(const type_base *t)
     return true;
 
   const environment* env = t->get_environment();
-  return is_declaration_only_class_or_union_type(t) || env->is_void_type(t);
+  return (is_declaration_only_class_or_union_type(t)
+	  || env->is_void_type(t)
+	  || env->is_variadic_parameter_type(t));
 }
 
 /// For a given type, return its exemplar type.

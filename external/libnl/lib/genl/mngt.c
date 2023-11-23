@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/genl/mngt.c		Generic Netlink Management
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2012 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -133,13 +126,13 @@ char *genl_op2name(int family, int op, char *buf, size_t len)
 			cmd = &ops->o_cmds[i];
 
 			if (cmd->c_id == op) {
-				strncpy(buf, cmd->c_name, len - 1);
+				_nl_strncpy_trunc(buf, cmd->c_name, len);
 				return buf;
 			}
 		}
 	}
 
-	strncpy(buf, "unknown", len - 1);
+	_nl_strncpy_trunc(buf, "unknown", len);
 	return NULL;
 }
 

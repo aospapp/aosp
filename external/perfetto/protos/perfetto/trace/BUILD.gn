@@ -39,6 +39,7 @@ proto_sources_non_minimal = [
 
 proto_sources_minimal = [
   "clock_snapshot.proto",
+  "trace_uuid.proto",
   "trigger.proto",
   "system_info.proto",
 ]
@@ -100,6 +101,7 @@ perfetto_proto_library("non_minimal_@TYPE@") {
     "power:@TYPE@",
     "profiling:@TYPE@",
     "ps:@TYPE@",
+    "statsd:@TYPE@",
     "sys_stats:@TYPE@",
     "system_info:@TYPE@",
     "track_event:@TYPE@",

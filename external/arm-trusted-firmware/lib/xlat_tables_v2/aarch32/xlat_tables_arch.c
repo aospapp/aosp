@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2017-2021, ARM Limited and Contributors. All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -37,6 +37,23 @@ bool xlat_arch_is_granule_size_supported(size_t size)
 size_t xlat_arch_get_max_supported_granule_size(void)
 {
 	return PAGE_SIZE_4KB;
+}
+
+/*
+ * Determine the physical address space encoded in the 'attr' parameter.
+ *
+ * The physical address will fall into one of two spaces; secure or
+ * nonsecure.
+ */
+uint32_t xlat_arch_get_pas(uint32_t attr)
+{
+	uint32_t pas = MT_PAS(attr);
+
+	if (pas == MT_NS) {
+		return LOWER_ATTRS(NS);
+	} else { /* MT_SECURE */
+		return 0U;
+	}
 }
 
 #if ENABLE_ASSERTIONS
@@ -203,8 +220,6 @@ void setup_mmu_cfg(uint64_t *params, unsigned int flags,
 
 		assert(virtual_addr_space_size >=
 			xlat_get_min_virt_addr_space_size());
-		assert(virtual_addr_space_size <=
-			MAX_VIRT_ADDR_SPACE_SIZE);
 		assert(IS_POWER_OF_TWO(virtual_addr_space_size));
 
 		/*

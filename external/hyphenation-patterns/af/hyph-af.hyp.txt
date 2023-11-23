@@ -48,6 +48,7 @@ ge-wrig-smeer
 gras-ta-pyt
 grie-kwa
 groeps-por-tret-te
+grond-ont-ei-en-ing
 grond-sop
 haard-ys-ter
 haat-skrif
@@ -103,6 +104,7 @@ me-to-diek-es-sen-sies
 mid-o-se-a-nie-se
 mou-ska-kel
 na-gaan-de
+na-sio-na-le
 nar-re-slee
 ne-gev-woes-tyn
 nek-a-re
@@ -182,4 +184,5 @@ we-du-wee-skof
 wel-oor-wo-ë
 werp-lood
 wes-oe-wer
+wy-sig-ing
 xho-sa-tjie

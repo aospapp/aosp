@@ -36,9 +36,7 @@ namespace {
 
 class CategoricalOp : public XlaOpKernel {
  public:
-  explicit CategoricalOp(OpKernelConstruction* ctx)
-      : XlaOpKernel(ctx),
-        is_gpu_(ctx->device_type().type_string() == DEVICE_GPU_XLA_JIT) {}
+  explicit CategoricalOp(OpKernelConstruction* ctx) : XlaOpKernel(ctx) {}
 
   void Compile(XlaOpKernelContext* ctx) override {
     // Get the logits
@@ -72,7 +70,7 @@ class CategoricalOp : public XlaOpKernel {
     OP_REQUIRES_OK(
         ctx, ctx->ResolveInputDynamismIntoPred(1, &num_samples_is_dynamic));
     if (num_samples != 1 || num_samples_is_dynamic) {
-      std::array<int64, 3> uniform_shape_array = {
+      std::array<int64_t, 3> uniform_shape_array = {
           {batch_size, num_samples, num_classes}};
       xla::PrimitiveType uniform_xla_type;
       OP_REQUIRES_OK(ctx,
@@ -85,7 +83,7 @@ class CategoricalOp : public XlaOpKernel {
       // dimensions may be padded on architectures with tiled memory layouts, so
       // if the num_classes or batch size is large then this can lead to
       // expensive wasted memory.
-      std::array<int64, 2> uniform_shape_array = {{batch_size, num_classes}};
+      std::array<int64_t, 2> uniform_shape_array = {{batch_size, num_classes}};
       xla::PrimitiveType uniform_xla_type;
       OP_REQUIRES_OK(ctx,
                      DataTypeToPrimitiveType(input_type(0), &uniform_xla_type));
@@ -113,14 +111,8 @@ class CategoricalOp : public XlaOpKernel {
     xla::PrimitiveType xla_output_type;
     OP_REQUIRES_OK(ctx,
                    DataTypeToPrimitiveType(output_type(0), &xla_output_type));
-    xla::XlaOp argmax;
-    if (is_gpu_) {
-      argmax = xla::ArgMaxTwoPass(softmax_entries, xla_output_type,
-                                  /*axis=*/class_dimension);
-    } else {
-      argmax = xla::ArgMax(softmax_entries, xla_output_type,
-                           /*axis=*/class_dimension, /*stable=*/true);
-    }
+    xla::XlaOp argmax = xla::ArgMax(softmax_entries, xla_output_type,
+                                    /*axis=*/class_dimension);
 
     if (num_samples == 1 && !num_samples_is_dynamic) {
       argmax = xla::Reshape(argmax, {batch_size, 1});
@@ -145,7 +137,6 @@ class CategoricalOp : public XlaOpKernel {
   }
 
  private:
-  bool is_gpu_;
   TF_DISALLOW_COPY_AND_ASSIGN(CategoricalOp);
 };
 

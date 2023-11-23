@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,14 +7,17 @@
 SDK_TOOLS_DIR = 'gs://chromeos-arc-images/builds/git_nyc-mr1-arc-linux-static_sdk_tools/3544738'
 SDK_TOOLS_FILES = ['aapt']
 
-# To stabilize adb behavior, we use statically linked adb.
-ADB_DIR = 'gs://chromeos-arc-images/builds/git_qt-release-static_sdk_tools/6118618'
+# Use old version of adb for a speculative workaround for b/183438202
+ADB_DIR_OLD = 'gs://chromeos-arc-images/builds/git_qt-release-static_sdk_tools/6118618'
+# adb 31.0.0 from https://developer.android.com/studio/releases/platform-tools
+ADB_DIR = 'gs://chromeos-arc-images/builds/aosp-sdk-release/7110759/'
 ADB_FILES = ['adb']
 
 ADB_POLLING_INTERVAL_SECONDS = 1
 ADB_CONNECT_TIMEOUT_SECONDS = 10
 ADB_KILL_SERVER_TIMEOUT_SECONDS = 10
 ADB_READY_TIMEOUT_SECONDS = 30
+ADB_PUSH_MEDIASTRESS_TIMEOUT_SECONDS = 600
 
 ARC_POLLING_INTERVAL_SECONDS = 1
 ARC_READY_TIMEOUT_SECONDS = 60
@@ -34,21 +38,27 @@ TRADEFED_CACHE_LOCAL = '/tmp/autotest-tradefed-cache'
 TRADEFED_CACHE_CONTAINER = '/usr/local/autotest/results/shared/cache'
 TRADEFED_CACHE_CONTAINER_LOCK = '/usr/local/autotest/results/shared/lock'
 # The maximum size of the shared global cache. It needs to be able to hold
-# N, M, x86, arm CTS bundles (500MB), the GTS bundle and media stress videos
-# (2GB) zipped to not thrash. In addition it needs to be able to hold one
-# different revision per Chrome OS branch. While this sounds  like a lot,
-# only a single bundle is copied into each lxc instance (500MB), hence the
-# impact of running say 100 CTS tests in parallel is acceptable (quarter
-# servers have 500GB of disk, while full servers have 2TB).
-TRADEFED_CACHE_MAX_SIZE = (20 * 1024 * 1024 * 1024)
+# P, R, x86, arm, official, dev CTS bundles, as well as GTS bundles, and
+# media assets. (See b/126165348#comment40 for the calculation.)
+# In the current implementation, each test instance just symlinks to the
+# shared cache for majority of the content, so running multiple parallel
+# CTS tests should be acceptable in terms of storage.
+TRADEFED_CACHE_MAX_SIZE = (100 * 1024 * 1024 * 1024)
 # The path that cts-tradefed uses to place media assets. By downloading and
 # expanding the archive here beforehand, tradefed can reuse the content.
 TRADEFED_MEDIA_PATH = '/tmp/android-cts-media'
+# The property tradefed reads to decide which helpers to install.
+TRADEFED_CTS_HELPERS_PROPERTY = 'ro.vendor.cts_interaction_helper_packages'
+# The directory on the board where CTS helpers can be found.
+BOARD_CTS_HELPERS_DIR = '/usr/local/opt/google/vms/android'
 
 # It looks like the GCE builder can be very slow and login on VMs take much
 # longer than on hardware or bare metal.
 LOGIN_BOARD_TIMEOUT = {'betty': 300, 'betty-arcnext': 300, 'betty-pi-arc': 300}
 LOGIN_DEFAULT_TIMEOUT = 90
+
+# List of boards that we want to run CTS in tablet mode for some models.
+TABLET_MODE_BOARDS = ('kukui', 'nocturne', 'scarlet')
 
 # Approximately assume ChromeOS revision Rdd-xxxxx.y.z with y>=45 as stable.
 APPROXIMATE_STABLE_BRANCH_NUMBER = 45

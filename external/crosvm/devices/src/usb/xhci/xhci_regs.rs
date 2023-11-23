@@ -1,8 +1,9 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use crate::register_space::{Register, RegisterSpace};
+use crate::register_space::Register;
+use crate::register_space::RegisterSpace;
 
 /// Max interrupter number.
 pub const MAX_INTERRUPTER: u8 = 1;
@@ -68,6 +69,10 @@ pub const PORTSC_PORT_RESET: u32 = 1u32 << 4;
 pub const PORTSC_PORT_LINK_STATE_MASK: u32 = 0x000001E0;
 /// Bitmask for portsc register, see spec 5.4.8.
 pub const PORTSC_PORT_POWER: u32 = 1u32 << 9;
+/// Bitmask for portsc register, see spec 5.4.8.
+pub const PORTSC_PORT_SPEED_MASK: u32 = 0x00003C00;
+/// Bitmask for portsc register, see spec 5.4.8.
+pub const PORTSC_PORT_SPEED_SHIFT: u32 = 10;
 /// Bitmask for portsc register, see spec 5.4.8.
 pub const PORTSC_CONNECT_STATUS_CHANGE: u32 = 1u32 << 17;
 /// Bitmask for portsc register, see spec 5.4.8.

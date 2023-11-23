@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
-import dagger.hilt.android.processor.AndroidCompilers;
+import dagger.hilt.android.testing.compile.HiltCompilerTests;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,7 +45,7 @@ public final class RootProcessorErrorsTest {
   }
 
   private Compiler compiler() {
-    return AndroidCompilers.compiler()
+    return HiltCompilerTests.compiler()
         .withOptions(
             String.format(
                 "-Adagger.hilt.disableCrossCompilationRootValidation=%s",
@@ -83,7 +83,7 @@ public final class RootProcessorErrorsTest {
     assertThat(compilation)
         .hadErrorContaining(
             "Cannot process multiple app roots in the same compilation unit: "
-                + "[test.AppRoot1, test.AppRoot2]");
+                + "test.AppRoot1, test.AppRoot2");
   }
 
   @Test
@@ -116,7 +116,7 @@ public final class RootProcessorErrorsTest {
     assertThat(compilation)
         .hadErrorContaining(
             "Cannot process test roots and app roots in the same compilation unit:"
-                + "\n  \tApp root in this compilation unit: [test.AppRoot]"
-                + "\n  \tTest roots in this compilation unit: [test.TestRoot]");
+                + "\n    App root in this compilation unit: test.AppRoot"
+                + "\n    Test roots in this compilation unit: test.TestRoot");
   }
 }

@@ -22,7 +22,7 @@ import androidx.test.core.app.ApplicationProvider;
 import com.google.android.enterprise.connectedapps.AvailabilityListener;
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
 import com.google.android.enterprise.connectedapps.testing.InstrumentedTestUtilities;
-
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,13 +34,18 @@ public class InstrumentedTestUtilitiesTest {
 
   private static final Application context = ApplicationProvider.getApplicationContext();
 
-  private static final TestProfileConnector connector = TestProfileConnector.create(context);
-  private static final InstrumentedTestUtilities utilities =
+  private final static TestProfileConnector connector = TestProfileConnector.create(context);
+  private final static InstrumentedTestUtilities utilities =
       new InstrumentedTestUtilities(context, connector);
 
   @AfterClass
-  public static void teardown() {
+  public static void teardownClass() {
     utilities.ensureNoWorkProfile();
+  }
+
+  @After
+  public void teardown() {
+    connector.clearConnectionHolders();
   }
 
   @Test
@@ -84,7 +89,7 @@ public class InstrumentedTestUtilitiesTest {
   public void isConnected_waitForConnected_isTrue() {
     utilities.ensureReadyForCrossProfileCalls();
 
-    connector.startConnecting();
+    connector.addConnectionHolder(this);
     utilities.waitForConnected();
 
     assertThat(connector.isConnected()).isTrue();
@@ -93,10 +98,10 @@ public class InstrumentedTestUtilitiesTest {
   @Test
   public void isConnected_waitForDisconnected_isFalse() {
     utilities.ensureReadyForCrossProfileCalls();
-    connector.startConnecting();
+    connector.addConnectionHolder(this);
     utilities.waitForConnected();
 
-    connector.stopManualConnectionManagement();
+    connector.clearConnectionHolders();
     utilities.waitForDisconnected();
 
     assertThat(connector.isConnected()).isFalse();

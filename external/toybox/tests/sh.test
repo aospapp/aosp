@@ -57,7 +57,7 @@ shxpect() {
 
 shxpect "prompt and exit" I$'exit\n'
 shxpect "prompt and echo" I$'echo hello\n' O$'hello\n' E"$P"
-shxpect "redirect err" I$'echo > /dev/full\n' E E"$P"
+shxpect "redirect err" I$'echo > /dev/full\n' E E"$P" X1
 shxpect "wait for <(exit)" I$'cat <(echo hello 1>&2)\n' E$'hello\n' E"$P"
 
 # Test the sh -c stuff before changing EVAL
@@ -79,29 +79,13 @@ testing 'arg shift' "$SH -c '"'for i in "" 2 1 1 1; do echo $? $1; shift $i; don
 testing '(subshell)' '$SH -c "(echo hello)"' 'hello\n' '' ''
 testing 'syntax' '$SH -c "if true; then echo hello | fi" 2>/dev/null || echo x'\
   'x\n' '' ''
+testing 'syntax2' '$SH -c "for;i 0" 2>&1 | { grep -qi syntax && echo yes; }' \
+  'yes\n' '' ''
 
 # The bash man page is lying when it says $_ starts with an absolute path.
-ln -s $(which $SH) bash
+ln -s "$(which $SH)" bash
 testing 'non-absolute $_' "./bash -c 'echo \$_'" './bash\n' '' ''
 rm bash
-testing '$_ with functions' 'true; x(){ echo $_;}; x abc; echo $_' \
-  'true\nabc\n' '' ''
-
-shxpect '$_ preserved on assignment error' I$'true hello; a=1 b=2 c=${}\n' \
-  E E"$P" I$'echo $_\n' O$'hello\n'
-shxpect '$_ preserved on prefix error' I$'true hello; a=1 b=2 c=${} true\n' \
-  E E"$P" I$'echo $_\n' O$'hello\n'
-shxpect '$_ preserved on exec error' I$'true hello; ${}\n' \
-  E E"$P" I$'echo $_\n' O$'hello\n'
-shxpect '$_ abspath on exec' I$'env | grep ^_=\n' O$'_=/usr/bin/env\n'
-testing '$_ literal after exec' 'env >/dev/null; echo $_' 'env\n' '' ''
-shxpect '$_ no path for builtin' I$'true; echo $_\n' O$'true\n'
-testing 'prefix is local for builtins' 'abc=123; abc=def unset abc; echo $abc' \
-  '123\n' '' ''
-testing 'prefix localizes magic vars' \
-  'SECONDS=123; SECONDS=345 true; echo $SECONDS' '123\n' '' ''
-shxpect 'body evaluated before variable exports' I$'a=x${} y${}\n' RE'y${}'
-testing '$NOTHING clears $_' 'true; $NOTHING; echo $_' '\n' '' ''
 
 testing 'exec exitval' "$SH -c 'exec echo hello' && echo \$?" "hello\n0\n" "" ""
 testing 'simple script' '$SH input' 'input\n' 'echo $0' ''
@@ -131,12 +115,34 @@ testing 'default exports' \
 #  "{ \$SH -c 'X=\${a?blah} > walroid';ls walroid;} 2>/dev/null" '' '' ''
 testing "lineno" "$SH input" "5 one\n6 one\n5 two\n6 two\n" \
   '#!/bin/bash\n\nfor i in one two\ndo\n  echo $LINENO $i\n  echo $LINENO $i\ndone\n' ""
-testing "eval0" "sh -c 'eval echo \$*' one two three" "two three\n" "" ""
+testing "eval0" "$SH -c 'eval echo \$*' one two three" "two three\n" "" ""
 
 #########################################################################
 # Change EVAL to call sh -c for us, using "bash" explicitly for the host.
-export EVAL="$SH -c"
+export EVAL="timeout 10 $SH -c"
 
+testing 'trailing $ is literal' 'echo $' '$\n' '' ''
+# TODO testing 'empty +() is literal' 'echo +()' '+()\n' '' ''
+shxpect 'queued work after HERE' I$'<<0;echo hello\n' E"> " I$'0\n' O$'hello\n'
+shxpect '$_ preserved on assignment error' I$'true hello; a=1 b=2 c=${}\n' \
+  E E"$P" I$'echo $_\n' O$'hello\n'
+shxpect '$_ preserved on prefix error' I$'true hello; a=1 b=2 c=${} true\n' \
+  E E"$P" I$'echo $_\n' O$'hello\n'
+shxpect '$_ preserved on exec error' I$'true hello; ${}\n' \
+  E E"$P" I$'echo $_\n' O$'hello\n'
+shxpect '$_ abspath on exec' I$'env | grep ^_=\n' O$'_=/usr/bin/env\n'
+testing '$_ literal after exec' 'env >/dev/null; echo $_' 'env\n' '' ''
+shxpect '$_ no path for builtin' I$'true; echo $_\n' O$'true\n'
+testing 'prefix is local for builtins' 'abc=123; abc=def unset abc; echo $abc' \
+  '123\n' '' ''
+testing 'prefix localizes magic vars' \
+  'SECONDS=123; SECONDS=345 true; echo $SECONDS' '123\n' '' ''
+shxpect 'body evaluated before variable exports' I$'a=x${} y${}\n' RE'y${}' X1
+testing '$NOTHING clears $_' 'true; $NOTHING; echo $_' '\n' '' ''
+testing 'assignment with redirect is persistent, not prefix' \
+  'ABC=DEF > potato && rm potato && echo $ABC' 'DEF\n' '' ''
+testing '$_ with functions' 'true; x(){ echo $_;}; x abc; echo $_' \
+  'true\nabc\n' '' ''
 
 mkdir -p one/two/three
 testing 'cd in renamed dir' \
@@ -211,6 +217,8 @@ testing '${x#short} ${x##long}' 'x=banana; echo ${x#b*n} ${x##b*n}' \
   'ana a\n' '' ''
 toyonly testing '${x#utf8}' 'x=aそcde; echo ${x##a?c}' 'de\n' '' ''
 testing '${x%y}' 'x=potato; echo ${x%t*o} ${x%%t*o}' 'pota po\n' '' ''
+testing 'x=${x%y}' 'x=potato; x=${x%t*o}; echo $x' 'pota\n' '' ''
+testing 'x=${x//y}' 'x=potato; x=${x//ta}; echo $x' 'poto\n' '' ''
 testing '${x^y}' 'x=aaaaa; echo ${x^a}' 'Aaaaa\n' '' ''
 testing '${x^^y}' 'x=abccdec; echo ${x^^c}; x=abcdec; echo ${x^^c}' \
   'abCCdeC\nabCdeC\n' '' ''
@@ -222,19 +230,48 @@ mkdir -p abc/def/ghi
 touch www
 testing 'wildcards' 'echo w[v-x]w w[x-v]w abc/*/ghi' \
   'www w[x-v]w abc/def/ghi\n' '' ''
+testing 'hidden wildcards' \
+  'touch .abc abc && echo *bc && echo and && echo .*bc' \
+  'abc\nand\n.abc\n' '' ''
 
 testing "backtick1" 'x=fred; echo `echo $x`' 'fred\n' "" ""
 testing "backtick2" 'x=fred; echo `x=y; echo $x`; echo $x' 'y\nfred\n' "" ""
 testing '$(( ) )' 'echo ab$((echo hello) | tr e x)cd' "abhxllocd\n" "" ""
-SKIPNEXT=1 testing '$((x=y)) lifetime' 'a=boing; echo $a $a$((a=4))$a $a' 'boing boing44 4\n' '' ''
+((++SKIP)); testing '$((x=y)) lifetime' 'a=boing; echo $a $a$((a=4))$a $a' 'boing boing44 4\n' '' ''
 
 testing 'quote' "echo \"'\"" "'\n" "" ""
 
 testing "math" 'echo $((1+2))' '3\n' '' ''
-testing "[math]" 'echo $[1+2]' '3\n' '' ''
-testing "math prio" 'echo $((1+2*3**4))' '163\n' '' ''
+testing "[oldmath]" 'echo $[1+2]' '3\n' '' ''
+testing "math basic priority" 'echo $((1+2*3**4))' '163\n' '' ''
 testing "math paren" 'echo $(((1+2)*3))' '9\n' '' ''
 testing "math spaces" 'echo $(( ( 1 + 2 ) * 7 - 5 ** 2 ))' '-4\n' '' ''
+testing "((<)) isn't redirect" '((1<2)) </dev/null && echo yes' 'yes\n' '' ''
+testing "((>)) isn't redirect" '((1>2)) </dev/null || echo yes' 'yes\n' '' ''
+testing "((not math) )" '((echo hello) )' 'hello\n' '' ''
+testing "preincrement" 'echo $((++x)); echo $x' '1\n1\n' '' ''
+testing "preincrement vs prefix plus" 'echo $((+++x)); echo $x' '1\n1\n' '' ''
+testing "predecrement" 'echo $((--x)); echo $x' '-1\n-1\n' '' ''
+testing "predecrement vs prefix minus" 'echo $((---x)); echo $x' '1\n-1\n' '' ''
+testing "minus-minus-minus" 'echo $((x---7)); echo $x' '-7\n-1\n' '' ''
+testing "x---y is x-- -y not x- --y" 'x=1 y=1; echo $((x---y)) $x $y' '0 0 1\n'\
+  '' ''
+testing "nesting ? :" \
+  'for((i=0;i<8;i++)); do echo $((i&1?i&2?1:i&4?2:3:4));done' \
+  '4\n3\n4\n1\n4\n2\n4\n1\n' '' ''
+testing "inherited assignment suppression" 'echo $((0 ? (x++) : 2)); echo $x' \
+  "2\n\n" "" ""
+testing "boolean vs logical" 'echo $((2|4&&8))' '1\n' '' ''
+testing "&& vs || priority" \
+  'echo $((w++||x++&&y++||z++)) w=$w x=$x y=$y z=$z' \
+  '0 w=1 x=1 y= z=1\n' '' ''
+testing "|| vs && priority" \
+  'echo $((w++&&x++||y++&&z++)) w=$w x=$x y=$y z=$z' \
+  '0 w=1 x= y=1 z=\n' '' ''
+shxpect '/0' I$'echo $((1/0)); echo here\n' E E"$P" I$'echo $?\n' O$'1\n'
+shxpect '%0' I$'echo $((1%0)); echo here\n' E E"$P" I$'echo $?\n' O$'1\n'
+shxpect '/=0' I$'echo $((x/=0)); echo here\n' E E"$P" I$'echo $?\n' O$'1\n'
+shxpect '%=0' I$'echo $((x%=0)); echo here\n' E E"$P" I$'echo $?\n' O$'1\n'
 
 # Loops and flow control
 testing "case" 'for i in A C J B; do case "$i" in A) echo got A ;; B) echo and B ;; C) echo then C ;; *) echo default ;; esac; done' \
@@ -244,6 +281,8 @@ testing 'case;;&' 'case wow in w?w) echo ok;;& wow) echo no; esac' 'ok\nno\n' \
 testing "case newlines" \
   $'case i\n\nin\n\na) echo one\n\n;;\n\ni)\n\necho two\n\n;;\n\nesac' \
   "two\n" "" ""
+testing "case block" \
+  $'case X in\n  X) printf %s "X" || { echo potato;} ;;\nesac' 'X' '' ''
 testing 'loop in && ||' \
   'false && for i in a b c; do echo $i; done || echo no' 'no\n' '' ''
 testing "continue" 'for i in a b c; do for j in d e f; do echo $i $j; continue 2; done; done' \
@@ -318,6 +357,8 @@ testing "IFS3" 'IFS=x; echo "$(echo abx)"' "abx\n" "" ""
 testing "IFS4" 'IFS=x; echo $(echo abx)y' "ab y\n" "" ""
 testing "IFS5" 'IFS=xy; for i in abcxdefyghi; do echo =$i=; done' \
   "=abc def ghi=\n" "" ""
+testing "curly bracket whitespace" 'for i in {$,} ""{$,}; do echo ="$i"=; done'\
+  '=$=\n=$=\n==\n' '' ''
 
 testing 'empty $! is blank' 'echo $!' "\n" "" ""
 testing '$! = jobs -p' 'true & [ $(jobs -p) = $! ] && echo yes' "yes\n" "" ""
@@ -428,6 +469,20 @@ shxpect 'here2' I$'POTATO=123; cat << E"O"F\n' E"> " \
   I$'$POTATO\n' E"> " I$'EOF\n' O$'$POTATO\n'
 testing 'here3' 'abc(){ cat <<< x"$@"yz;};abc one two "three  four"' \
   "xone two three  fouryz\n" "" ""
+testing 'here4' 'for i in one two three; do cat <<< "ab${i}de"; done' \
+  'abonede\nabtwode\nabthreede\n' '' ''
+testing 'here5' $'cat << EOF && cat << EOF2\nEOF2\nEOF\nEOF\nEOF2' \
+  'EOF2\nEOF\n' '' ''
+# Nothing is actually quoted, but there are quotes, therefore...
+testing 'here6' $'cat << EOF""\n$POTATO\nEOF' '$POTATO\n' '' ''
+# Not ambiguous when split, unlike <$FILENAME redirects
+testing 'here7' 'ABC="abc def"; cat <<< $ABC' 'abc def\n' '' ''
+# What does HERE expansion _not_ expand?
+testing 'here8' $'ABC="x y"\ncat << EOF\n~root/{"$ABC",def}\nEOF' \
+  '~root/{"x y",def}\n' '' ''
+# <<- eats leading tabs before expansion
+testing 'here9' $'A=$\'\\tone\'; cat <<- EOF\n$A\n\ttwo\nEOF' "\tone\ntwo\n" \
+  '' ''
 
 testing '${var}' 'X=abcdef; echo ${X}' 'abcdef\n' '' '' 
 testing '${#}' 'X=abcdef; echo ${#X}' "6\n" "" ""
@@ -563,6 +618,7 @@ testing '"exit shell" means exit eval but encapsulating function continues' \
   'func() { eval "echo one; echo \${?potato}; echo and" 2>/dev/null; echo plus;}; func; echo then' \
   'one\nplus\nthen\n' '' ''
 
+shxpect "functions need block" I$'x() echo;\n' RE'[Ss]yntax [Ee]rror' X2
 testing 'functions() {} in same PID' \
   '{ echo $BASHPID; chicken() { echo $BASHPID;}; chicken;} | sort -u | wc -l' '1\n' '' ''
 testing 'functions() () different PID' \
@@ -605,6 +661,28 @@ shxpect 'blank line preserves $?' \
   I$'false\n' E"$P" I$'\n' E"$P" I$'echo $?\n' O$'1\n'
 testing 'NOP line clears $?' 'false;$NOTHING;echo $?' '0\n' '' ''
 testing 'run "$@"' 'false;"$@";echo $?' '0\n' '' ''
+
+# "Word splitting... not performed on the words between the [[ and ]]"
+testing '[[split1]]' 'A="1 -lt 2"; [[ $A ]] && echo yes' 'yes\n' '' ''
+testing '[[split2]]' 'A="2 -lt 1"; [[ $A ]] && echo yes' 'yes\n' '' ''
+testing '[[split3]]' \
+  'A="2 -lt 1"; [[ -e $A ]] && echo one; touch "$A" && [[ -e $A ]] && echo two'\
+  'two\n' '' ''
+rm -f '2 -lt 1'
+testing '[[split4]]' \
+  '[[ $(cat) == "a b" ]] <<< "a b" > potato && rm potato && echo ok' \
+  'ok\n' '' ''
+testing '[[split5]]' \
+  '[[ $(cat) == "a b" ]] < <(echo a b) > potato && rm potato && echo ok' \
+  'ok\n' '' ''
+# And token parsing leaking through: 1>2 is an error, 1 >2 is not
+testing '[[1>2]] is not a redirect' '[[ 1 >2 ]] || [ -e 2 ] || echo yup' \
+  'yup\n' '' ''
+testing "[[1 >0]] doesn't need that second space" \
+  '[[ 1 >0 ]] && { [ -e 2 ] || echo yup; }' 'yup\n' '' ''
+testing '[[1<2]] is alphabetical, not numeric' '[[ 123 < 19 ]] && echo yes' \
+  'yes\n' '' ''
+testing '[[~]]' '[[ ~ == $HOME ]] && echo yes' 'yes\n' '' ''
 
 # TODO finish variable list from shell init
 

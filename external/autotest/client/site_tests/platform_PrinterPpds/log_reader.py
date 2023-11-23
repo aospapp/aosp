@@ -40,14 +40,18 @@ class LogReader():
 
         @param lines_count: a number of lines to read
 
-        @returns a list of lines
+        @returns a list of lines (as strings)
 
         """
         assert lines_count > 0
         argv = ['tail', '-n', '%d' % (lines_count+1), _PATH_LOG_FILE]
         p1 = subprocess.Popen(argv, stdout=subprocess.PIPE)
         out,err = p1.communicate()
-        lines = out.split('\n')
+
+        # It is possible for invalid UTF-8 to appear in the system log
+        # (e.g. null bytes on unclean poweroff), but this doesn't
+        # concern us, so we elect to ignore it.
+        lines = out.decode(errors="ignore").split('\n')
         lines.pop()
         if len(lines) > lines_count:
             if len(lines) == 0:
@@ -241,7 +245,7 @@ class LogReader():
             filters[-1] = subprocess.check_output(find_cmd).rstrip()
         # build and return the script
         script = '#!/bin/bash\nset -e\nset -o pipefail\n'
-        for name, value in envp.iteritems():
+        for name, value in envp.items():
             script += ('export %s=%s\n' % (name, value))
         for ind, filt in enumerate(filters):
             if ind > 0:

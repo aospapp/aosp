@@ -352,11 +352,7 @@ XLA_TEST_F(TriangularSolveTest, SimpleLeftUpperNotransposeUnitDiagonal) {
                              ErrorSpec(1e-2, 1e-2));
 }
 
-// The following test will results in a call to "BlasTrsm".
-// That operation is currently not supported for the complex type on the ROCm
-// platform.
-XLA_TEST_F(TriangularSolveTest,
-           DISABLED_ON_GPU_ROCM(SimpleRightLowerTransposeConjugate)) {
+XLA_TEST_F(TriangularSolveTest, SimpleRightLowerTransposeConjugate) {
   XlaBuilder builder(TestName());
 
   XlaOp a, b;
@@ -382,11 +378,7 @@ XLA_TEST_F(TriangularSolveTest,
       &builder, expected, {a_data.get(), b_data.get()}, ErrorSpec(1e-2, 1e-2));
 }
 
-// The following test will results in a call to "BlasTrsm".
-// That operation is currently not supported for the complex type on the ROCm
-// platform.
-XLA_TEST_F(TriangularSolveTest,
-           DISABLED_ON_GPU_ROCM(SimpleLeftUpperTransposeNoconjugate)) {
+XLA_TEST_F(TriangularSolveTest, SimpleLeftUpperTransposeNoconjugate) {
   XlaBuilder builder(TestName());
 
   XlaOp a, b;
@@ -422,7 +414,7 @@ XLA_TEST_F(TriangularSolveTest, BatchedLeftUpper) {
 
   // Set avals to the upper triangle of bvals.
   Array3D<float> avals = bvals;
-  avals.Each([](absl::Span<const int64> indices, float* value) {
+  avals.Each([](absl::Span<const int64_t> indices, float* value) {
     if (indices[1] > indices[2]) {
       *value = 0;
     }
@@ -443,7 +435,7 @@ XLA_TEST_F(TriangularSolveTest, BatchedLeftUpper) {
 }
 
 struct TriangularSolveTestSpec {
-  std::vector<int64> dims;  // [..., m, n] A is mxm, B is mxn
+  std::vector<int64_t> dims;  // [..., m, n] A is mxm, B is mxn
   bool left_side;
   bool lower;
   TriangularSolveOptions::Transpose transpose_a;
@@ -459,17 +451,17 @@ XLA_TEST_P(TriangularSolveParametricTest, Random) {
   XlaBuilder builder(TestName());
 
   CHECK_GE(spec.dims.size(), 2);
-  std::vector<int64> a_dims = spec.dims;
+  std::vector<int64_t> a_dims = spec.dims;
   a_dims.back() = a_dims.at(a_dims.size() - 2);
   Array<float> avals(a_dims);
   avals.FillRandom(1.0);
-  avals.Each([](absl::Span<const int64> dims, float* v) {
+  avals.Each([](absl::Span<const int64_t> dims, float* v) {
     if (dims.back() == dims.at(dims.size() - 2)) {
       *v += 30;
     }
   });
 
-  std::vector<int64> b_dims = spec.dims;
+  std::vector<int64_t> b_dims = spec.dims;
   if (!spec.left_side) {
     std::swap(b_dims.back(), b_dims.at(b_dims.size() - 2));
   }
@@ -506,7 +498,7 @@ std::vector<TriangularSolveTestSpec> TriangularSolveTests() {
             for (TriangularSolveOptions::Transpose transpose_a :
                  {TriangularSolveOptions::NO_TRANSPOSE,
                   TriangularSolveOptions::TRANSPOSE}) {
-              std::vector<int64> dims(batch.begin(), batch.end());
+              std::vector<int64_t> dims(batch.begin(), batch.end());
               dims.push_back(m);
               dims.push_back(n);
               specs.push_back({dims, left_side, lower, transpose_a});

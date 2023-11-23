@@ -86,7 +86,7 @@ final class TextClassifierDownloadLogger {
               ModelDownloadException.FAILED_TO_VALIDATE_MODEL,
               TextClassifierStatsLog
                   .TEXT_CLASSIFIER_DOWNLOAD_REPORTED__FAILURE_REASON__FAILED_TO_VALIDATE_MODEL)
-          .build();
+          .buildOrThrow();
 
   // Reasons to schedule
   public static final int REASON_TO_SCHEDULE_TCS_STARTED =

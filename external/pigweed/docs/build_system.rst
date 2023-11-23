@@ -306,10 +306,10 @@ present, Ninja will build this group when invoked without arguments.
 
 Optimization levels
 ^^^^^^^^^^^^^^^^^^^
-Pigweed's ``//BUILD.gn`` defines the ``pw_default_optimization_level`` build
+Pigweed's ``//BUILD.gn`` defines the ``pw_DEFAULT_C_OPTIMIZATION_LEVEL`` build
 arg, which specifies the optimization level to use for the default groups
 (``host``, ``stm32f429i``, etc.). The supported values for
-``pw_default_optimization_level`` are:
+``pw_DEFAULT_C_OPTIMIZATION_LEVEL`` are:
 
 * ``debug`` -- create debugging-friendly binaries (``-Og``)
 * ``size_optimized`` -- optimize for size (``-Os``)
@@ -317,10 +317,11 @@ arg, which specifies the optimization level to use for the default groups
   (``-O2``)
 
 Pigweed defines versions of its groups in ``//BUILD.gn`` for each optimization
-level. Rather than relying on ``pw_default_optimization_level``, you may
-directly build a group at the desired optimization level:
-``<group>_<optimization>``. Examples include ``host_clang_debug``,
-``host_gcc_size_optimized``, and ``stm32f429i_speed_optimized``.
+level specified in the ``pw_C_OPTIMIZATION_LEVELS`` list. Rather than relying
+on ``pw_DEFAULT_C_OPTIMIZATION_LEVEL``, you may directly build a group at the
+desired optimization level: ``<group>_<optimization>``. Examples include
+``host_clang_debug``, ``host_gcc_size_optimized``, and
+``stm32f429i_speed_optimized``.
 
 Upstream GN target groups
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -360,7 +361,7 @@ Next runtime sanitizers supported:
 
    * ``integer``: Checks for undefined or suspicious integer behavior.
    * ``float-divide-by-zero``: Checks for floating point division by zero.
-   * ``implicit-conversion"``: Checks for suspicious behavior of implicit conversions.
+   * ``implicit-conversion``: Checks for suspicious behavior of implicit conversions.
    * ``nullability``: Checks for null as function arg, lvalue and return type.
 
   These additional checks are heuristic and may not correspond to undefined
@@ -454,7 +455,7 @@ build. For information on Pigweed's target system, refer to
 
 The empty toolchain
 -------------------
-Pigweed's ``BUILDCONFIG.gn`` sets the project's default toolchain to a "empty"
+Pigweed's ``BUILDCONFIG.gn`` sets the project's default toolchain to an "empty"
 toolchain which does not specify any compilers or override any build arguments.
 Downstream projects are recommended to do the same, following the steps
 described in :ref:`top-level-build` to configure builds for each of their
@@ -693,6 +694,7 @@ compatible with only a host os;
     target_compatible_with = select({
       "@platforms//os:windows": [],
       "@platforms//os:linux": [],
+      "@platforms//os:ios": [],
       "@platforms//os:macos": [],
       "//conditions:default": ["@platforms//:incompatible"],
     }),
@@ -764,9 +766,10 @@ however it is possible to override this from the command line. e.g.
 
 .. _Bazel config reference: https://docs.bazel.build/versions/main/skylark/config.html
 
+.. _docs-build_system-bazel_configuration:
 
-Pigweeds configuration
-^^^^^^^^^^^^^^^^^^^^^^
+Pigweed's Bazel configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Pigweeds Bazel configuration API is designed to be distributed across the
 Pigweed repository and/or your downstream repository. If you are coming from
 GN's centralized configuration API it might be useful to think about

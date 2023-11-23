@@ -1,5 +1,8 @@
-#!/usr/bin/python2 -u
+#!/usr/bin/python3 -u
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import os, sys, unittest, optparse
 import common
 from autotest_lib.utils import parallel
@@ -36,7 +39,6 @@ REQUIRES_DJANGO = set((
         'execution_engine_unittest.py',
         'service_proxy_lib_test.py',
         'site_parse_unittest.py',
-        'server_manager_unittest.py',
         ))
 
 REQUIRES_MYSQLDB = set((
@@ -103,8 +105,6 @@ SKIP = set((
     'lxc_functional_test.py',
     'service_unittest.py',
     'zygote_unittest.py',
-    # Require sponge utils installed in site-packages
-    'sponge_utils_functional_test.py',
     ))
 
 LONG_TESTS = (REQUIRES_MYSQLDB |
@@ -134,7 +134,7 @@ def run_test(mod_names, options):
     if not options.debug:
         parallel.redirect_io()
 
-    print "Running %s" % '.'.join(mod_names)
+    print("Running %s" % '.'.join(mod_names))
     mod = common.setup_modules.import_module(mod_names[-1],
                                              '.'.join(mod_names[:-1]))
     test = unittest.defaultTestLoader.loadTestsFromModule(mod)
@@ -172,7 +172,7 @@ def scan_for_modules(start, options):
             # Skip all subdirectories below this one, it is not a module.
             del sub_dirs[:]
             if options.debug:
-                print 'Skipping', dir_path
+                print('Skipping', dir_path)
             continue  # Skip this directory.
 
         # Look for unittest files.
@@ -192,7 +192,7 @@ def scan_for_modules(start, options):
                 names = path_no_py[len(ROOT)+1:].split('/')
                 modules.append(['autotest_lib'] + names)
                 if options.debug:
-                    print 'testing', path_no_py
+                    print('testing', path_no_py)
     return modules
 
 
@@ -220,14 +220,14 @@ def find_and_run_tests(start, options):
         modules = scan_for_modules(start, options)
 
     if options.debug:
-        print 'Number of test modules found:', len(modules)
+        print('Number of test modules found:', len(modules))
 
     chroot = is_inside_chroot()
     functions = {}
     for module_names in modules:
         if not chroot and module_names[-1] in REQUIRES_CHROOT:
             if options.debug:
-                print ('Test %s requires to run in chroot, skipped.' %
+                print('Test %s requires to run in chroot, skipped.' %
                        module_names[-1])
             continue
         # Create a function that'll test a particular module.  module=module
@@ -244,7 +244,7 @@ def find_and_run_tests(start, options):
             dargs['max_simultaneous_procs'] = 1
         pe = parallel.ParallelExecute(functions, **dargs)
         pe.run_until_completion()
-    except parallel.ParallelError, err:
+    except parallel.ParallelError as err:
         return err.errors
     return []
 
@@ -262,13 +262,13 @@ def main():
     absolute_start = os.path.join(ROOT, options.start)
     errors = find_and_run_tests(absolute_start, options)
     if errors:
-        print "%d tests resulted in an error/failure:" % len(errors)
+        print("%d tests resulted in an error/failure:" % len(errors))
         for error in errors:
-            print "\t%s" % error
-        print "Rerun", sys.argv[0], "--debug to see the failure details."
+            print("\t%s" % error)
+        print("Rerun", sys.argv[0], "--debug to see the failure details.")
         sys.exit(1)
     else:
-        print "All passed!"
+        print("All passed!")
         sys.exit(0)
 
 

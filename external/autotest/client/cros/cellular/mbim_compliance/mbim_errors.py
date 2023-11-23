@@ -405,5 +405,5 @@ def log_and_raise(error_class, *args):
     trace = traceback.format_stack()
     # Get rid of the current frame from trace
     trace = trace[:len(trace)-1]
-    logging.error('Traceback:\n' + ''.join(trace))
+    logging.error('Traceback:\n%s', ''.join(trace))
     raise error_object

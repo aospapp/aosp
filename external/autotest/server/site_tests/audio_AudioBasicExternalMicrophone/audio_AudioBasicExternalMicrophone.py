@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -27,12 +28,15 @@ class audio_AudioBasicExternalMicrophone(audio_test.AudioTest):
     RECORD_SECONDS = 9
     DELAY_AFTER_BINDING = 0.5
 
-    def run_once(self, check_quality=False):
+    def run_once(self, check_quality=False, blocked_boards=[]):
         """Running basic headphone audio tests.
 
         @param check_quality: flag to check audio quality.
+        @blocked_boards: boards to ignore and exit.
 
         """
+        if self.host.get_board().split(':')[1] in blocked_boards:
+            raise error.TestNAError('Board NOT APPLICABLE to test!')
         if not audio_test_utils.has_audio_jack(self.host):
             raise error.TestNAError(
                     'No audio jack for the DUT.'

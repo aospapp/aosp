@@ -433,17 +433,24 @@ DiceResult DiceGenerateCertificate(
   }
   if (0 != mbedtls_x509write_crt_set_extension(
                &cert_context, kDiceExtensionOid, kDiceExtensionOidLength,
-               /*critical=*/0, dice_extension, dice_extension_size)) {
+               /*critical=*/1, dice_extension, dice_extension_size)) {
     result = kDiceResultPlatformError;
     goto out;
   }
   // This implementation is deterministic and assumes entropy is not available.
   // If this code is run where entropy is available, however, f_rng and p_rng
-  // should be set appropriately.
+  // should be set to use that entropy. As is, we'll provide a DRBG for blinding
+  // but it will be ineffective.
+  mbedtls_hmac_drbg_context drbg;
+  mbedtls_hmac_drbg_init(&drbg);
+  mbedtls_hmac_drbg_seed_buf(&drbg,
+                             mbedtls_md_info_from_type(MBEDTLS_MD_SHA512),
+                             subject_key_id, subject_key_id_size);
   uint8_t tmp_buffer[DICE_MAX_CERTIFICATE_SIZE];
   int length_or_error =
       mbedtls_x509write_crt_der(&cert_context, tmp_buffer, sizeof(tmp_buffer),
-                                /*f_rng=*/NULL, /*p_rng=*/NULL);
+                                mbedtls_hmac_drbg_random, &drbg);
+  mbedtls_hmac_drbg_free(&drbg);
   if (length_or_error < 0) {
     result = kDiceResultPlatformError;
     goto out;

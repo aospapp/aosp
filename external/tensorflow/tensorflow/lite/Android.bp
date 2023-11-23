@@ -44,7 +44,7 @@ cc_defaults {
 cc_library_static {
     name: "libtflite_context",
     defaults: ["tflite_defaults"],
-    srcs: ["c/common.c"],
+    srcs: ["c/common.cc"],
     cflags: [
         "-Wno-typedef-redefinition",
         "-Wno-visibility",
@@ -84,6 +84,7 @@ cc_library_static {
         "kernels/hashtable_find.cc",
         "kernels/hashtable_import.cc",
         "kernels/hashtable_size.cc",
+        "kernels/internal/utils/sparsity_format_converter.cc",
         "kernels/read_variable.cc",
         "kernels/var_handle.cc",
         "minimal_logging.cc",
@@ -96,19 +97,20 @@ cc_library_static {
         "optional_debug_tools.cc",
         "profiling/atrace_profiler.cc",
         "profiling/platform_profiler.cc",
+        "profiling/root_profiler.cc",
         "schema/schema_utils.cc",
         "signature_runner.cc",
         "simple_memory_arena.cc",
         "stderr_reporter.cc",
         "string_util.cc",
         "tflite_with_xnnpack_optional.cc",
-        "tools/optimize/sparsity/format_converter.cc",
         "util.cc",
     ],
     include_dirs: [
         "external/FP16",
         "external/libtextclassifier/native/",
     ],
+    generated_headers: ["libtflite_mutable_schema"],
     whole_static_libs: [
         "libtextclassifier_hash_static",
     ],
@@ -145,11 +147,29 @@ cc_library_shared {
         "libtextclassifier_hash",
     ],
     whole_static_libs: [
+        "libfft2d",
         "libtflite_context",
         "libtflite_framework",
         "libtflite_kernels",
     ],
     stl: "libc++_static",
+}
+
+cc_library_static {
+    name: "tflite_mutable_op_resolver",
+    defaults: ["tflite_defaults"],
+    srcs: [
+        "mutable_op_resolver.cc"
+    ],
+    header_libs: [
+        "flatbuffer_headers",
+    ],
+    stl: "libc++",
+    sdk_version: "current",
+    min_sdk_version: "30",
+    apex_available: [
+        "com.android.adservices",
+    ],
 }
 
 build = [

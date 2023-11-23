@@ -21,8 +21,6 @@ limitations under the License.
 
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
-#include "tensorflow/c/c_api.h"
-#include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/lib/io/path.h"
 #include "tensorflow/core/lib/io/zlib_compression_options.h"
 #include "tensorflow/core/lib/io/zlib_outputbuffer.h"
@@ -82,7 +80,7 @@ class StringTable {
       return idx->second;
     }
     all_strings_.push_back(str);
-    return string_id_.insert(std::pair<string, int64>(str, string_id_.size()))
+    return string_id_.insert(std::pair<string, int64_t>(str, string_id_.size()))
         .first->second;
   }
 

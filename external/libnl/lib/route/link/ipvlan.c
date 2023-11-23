@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/link/ipvlan.c	IPVLAN Link Info
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2015 Cong Wang <cwang@twopensource.com>
  */
 
@@ -178,12 +172,11 @@ static struct rtnl_link_info_ops ipvlan_info_ops = {
 struct rtnl_link *rtnl_link_ipvlan_alloc(void)
 {
 	struct rtnl_link *link;
-	int err;
 
 	if (!(link = rtnl_link_alloc()))
 		return NULL;
 
-	if ((err = rtnl_link_set_type(link, "ipvlan")) < 0) {
+	if (rtnl_link_set_type(link, "ipvlan") < 0) {
 		rtnl_link_put(link);
 		return NULL;
 	}

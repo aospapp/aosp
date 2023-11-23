@@ -4,19 +4,22 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_ConsecutiveBoot"
 PURPOSE = "Servo based consecutive boot test"
 CRITERIA = "This test will fail if DUT fails to boot from power-off"
 ATTRIBUTES = "suite:faft_stress"
+DEPENDENCIES = "servo_state:WORKING"
 TIME = "SHORT"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
+JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """
 This test is intended to be run with many iterations to ensure that the DUT
-does boot into Chrome OS and then does power off later.
+does boot into ChromeOS and then does power off later.
 
 The iteration should be specified by the parameter -a "faft_iterations=10".
 """

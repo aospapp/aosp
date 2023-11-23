@@ -53,7 +53,7 @@ constexpr float kDefaultPriorityScore = 0.5;
 
 class PodNerTest : public testing::Test {
  protected:
-  PodNerTest() {
+  explicit PodNerTest(ModeFlag enabled_modes = ModeFlag_ALL) {
     PodNerModelT model;
 
     model.min_number_of_tokens = kMinNumberOfTokens;
@@ -68,6 +68,7 @@ class PodNerTest : public testing::Test {
         GetTestFileContent("annotator/pod_ner/test_data/vocab.txt");
     model.word_piece_vocab = std::vector<uint8_t>(
         word_piece_vocab_buffer.begin(), word_piece_vocab_buffer.end());
+    model.enabled_modes = enabled_modes;
 
     flatbuffers::FlatBufferBuilder builder;
     builder.Finish(PodNerModel::Pack(builder, &model));
@@ -99,6 +100,17 @@ class PodNerTest : public testing::Test {
   std::string model_buffer_append_final_period_;
   const PodNerModel* model_append_final_period_;
   std::unique_ptr<UniLib> unilib_;
+};
+
+class PodNerForAnnotationAndClassificationTest : public PodNerTest {
+ protected:
+  PodNerForAnnotationAndClassificationTest()
+      : PodNerTest(ModeFlag_ANNOTATION_AND_CLASSIFICATION) {}
+};
+
+class PodNerForSelectionTest : public PodNerTest {
+ protected:
+  PodNerForSelectionTest() : PodNerTest(ModeFlag_SELECTION) {}
 };
 
 TEST_F(PodNerTest, AnnotateSmokeTest) {
@@ -207,6 +219,18 @@ TEST_F(PodNerTest, AnnotateDefaultCollections) {
     EXPECT_EQ(annotations[0].classification[0].priority_score,
               kDefaultPriorityScore);
   }
+}
+
+TEST_F(PodNerForSelectionTest, AnnotateWithDisabledAnnotationReturnsNoResults) {
+  std::unique_ptr<PodNerAnnotator> annotator =
+      PodNerAnnotator::Create(model_, *unilib_);
+  ASSERT_TRUE(annotator != nullptr);
+
+  std::string multi_word_location = "I live in New York";
+  std::vector<AnnotatedSpan> annotations;
+  ASSERT_TRUE(annotator->Annotate(UTF8ToUnicodeText(multi_word_location),
+                                  &annotations));
+  EXPECT_THAT(annotations, IsEmpty());
 }
 
 TEST_F(PodNerTest, AnnotateConfigurableCollections) {
@@ -525,6 +549,18 @@ TEST_F(PodNerTest, SuggestSelectionTest) {
   EXPECT_EQ(suggested_span.span, CodepointSpan(kInvalidIndex, kInvalidIndex));
 }
 
+TEST_F(PodNerForAnnotationAndClassificationTest,
+       SuggestSelectionWithDisabledSelectionReturnsNoResults) {
+  std::unique_ptr<PodNerAnnotator> annotator =
+      PodNerAnnotator::Create(model_, *unilib_);
+  ASSERT_TRUE(annotator != nullptr);
+
+  AnnotatedSpan suggested_span;
+  EXPECT_FALSE(annotator->SuggestSelection(
+      UTF8ToUnicodeText("Google New York, in New York"), {7, 10},
+      &suggested_span));
+}
+
 TEST_F(PodNerTest, ClassifyTextTest) {
   std::unique_ptr<PodNerAnnotator> annotator =
       PodNerAnnotator::Create(model_, *unilib_);
@@ -534,6 +570,17 @@ TEST_F(PodNerTest, ClassifyTextTest) {
   ASSERT_TRUE(annotator->ClassifyText(UTF8ToUnicodeText("We met in New York"),
                                       {10, 18}, &result));
   EXPECT_EQ(result.collection, "location");
+}
+
+TEST_F(PodNerForSelectionTest,
+       ClassifyTextWithDisabledClassificationReturnsFalse) {
+  std::unique_ptr<PodNerAnnotator> annotator =
+      PodNerAnnotator::Create(model_, *unilib_);
+  ASSERT_TRUE(annotator != nullptr);
+
+  ClassificationResult result;
+  ASSERT_FALSE(annotator->ClassifyText(UTF8ToUnicodeText("We met in New York"),
+                                       {10, 18}, &result));
 }
 
 TEST_F(PodNerTest, ThreadSafety) {

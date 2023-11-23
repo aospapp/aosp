@@ -20,6 +20,7 @@ cc_binary {
         "-Werror",
         "-Wno-unused-parameter",
         "-Wno-unused-private-field",
+        "-Wno-unused-variable",
     ],
     static_libs: ["rmidevice"],
 }

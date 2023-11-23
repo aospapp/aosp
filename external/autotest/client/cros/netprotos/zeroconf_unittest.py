@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,9 +6,12 @@
 import unittest
 
 import dpkt
-import fake_host
 import socket
-import zeroconf
+
+import common
+
+from autotest_lib.client.cros.netprotos import fake_host
+from autotest_lib.client.cros.netprotos import zeroconf
 
 
 FAKE_HOSTNAME = 'fakehost1'
@@ -110,18 +114,17 @@ class TestZeroconfDaemon(unittest.TestCase):
         # Build the mDNS packet with two TXT records.
         domain_name = 'other_host.local'
         answers = [
-                dpkt.dns.DNS.RR(
-                        type = dpkt.dns.DNS_TXT,
-                        cls = dpkt.dns.DNS_IN,
-                        ttl = 120,
-                        name = domain_name,
-                        text = ['one', 'two']),
-                dpkt.dns.DNS.RR(
-                        type = dpkt.dns.DNS_TXT,
-                        cls = dpkt.dns.DNS_IN,
-                        ttl = 120,
-                        name = domain_name,
-                        text = ['two'])]
+                dpkt.dns.DNS.RR(type=dpkt.dns.DNS_TXT,
+                                cls=dpkt.dns.DNS_IN,
+                                ttl=120,
+                                name=domain_name,
+                                text=['one'.encode(), 'two'.encode()]),
+                dpkt.dns.DNS.RR(type=dpkt.dns.DNS_TXT,
+                                cls=dpkt.dns.DNS_IN,
+                                ttl=120,
+                                name=domain_name,
+                                text=['two'.encode()])
+        ]
         # The packet is a query packet, with extra answers on the autoritative
         # section.
         mdns = dpkt.dns.DNS(
@@ -138,7 +141,7 @@ class TestZeroconfDaemon(unittest.TestCase):
         # Send the packet to the registered callback.
         sock = self._host._sockets[0]
         cbk = sock._bind_recv_callback
-        cbk(str(mdns), '1234', 5353)
+        cbk(bytes(mdns), 1234, 5353)
 
         # Check that the answers callback is called with all the answers in the
         # received order.

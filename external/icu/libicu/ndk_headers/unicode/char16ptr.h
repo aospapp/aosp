@@ -14,7 +14,7 @@
 #include <cstddef>
 
 /**
- * @addtogroup ICU4C
+ * @addtogroup icu4c ICU4C
  * @{
  * \file
  * \brief C++ API: char16_t pointer wrappers with

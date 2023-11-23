@@ -8,7 +8,7 @@
 # changelog:
 # 1 - initial release pcaps4convenience
 # 1 - 2007.02.15 - initial release
-# 2 - 2007.11.02 - changed to new setfcaps api; each app is now callable; supressed error of id
+# 2 - 2007.11.02 - changed to new setfcaps api; each app is now callable; suppressed error of id
 # 3 - 2007.12.28 - changed to libcap2 package setcap/getcap
 # 4 - renamed to pcaps4server
 #      removed suid0 and convenience files,

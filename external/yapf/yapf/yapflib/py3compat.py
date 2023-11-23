@@ -13,20 +13,23 @@
 # limitations under the License.
 """Utilities for Python2 / Python3 compatibility."""
 
+import codecs
 import io
 import os
 import sys
 
 PY3 = sys.version_info[0] >= 3
 PY36 = sys.version_info[0] >= 3 and sys.version_info[1] >= 6
+PY37 = sys.version_info[0] >= 3 and sys.version_info[1] >= 7
+PY38 = sys.version_info[0] >= 3 and sys.version_info[1] >= 8
 
 if PY3:
   StringIO = io.StringIO
   BytesIO = io.BytesIO
 
-  import codecs
+  import codecs  # noqa: F811
 
-  def open_with_encoding(filename, mode, encoding, newline=''):  # pylint: disable=unused-argument
+  def open_with_encoding(filename, mode, encoding, newline=''):  # pylint: disable=unused-argument # noqa
     return codecs.open(filename, mode=mode, encoding=encoding)
 
   import functools
@@ -59,13 +62,13 @@ else:
 
     return fake_wrapper
 
-  range = xrange
+  range = xrange  # noqa: F821
 
   from itertools import ifilter
   raw_input = raw_input
 
   import ConfigParser as configparser
-  CONFIGPARSER_BOOLEAN_STATES = configparser.ConfigParser._boolean_states  # pylint: disable=protected-access
+  CONFIGPARSER_BOOLEAN_STATES = configparser.ConfigParser._boolean_states  # pylint: disable=protected-access # noqa
 
 
 def EncodeAndWriteToStdout(s, encoding='utf-8'):
@@ -116,3 +119,13 @@ class ConfigParser(configparser.ConfigParser):
 
     def read_file(self, fp, source=None):
       self.readfp(fp, filename=source)
+
+
+def removeBOM(source):
+  """Remove any Byte-order-Mark bytes from the beginning of a file."""
+  bom = codecs.BOM_UTF8
+  if PY3:
+    bom = bom.decode('utf-8')
+  if source.startswith(bom):
+    return source[len(bom):]
+  return source

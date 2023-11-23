@@ -6,13 +6,13 @@ device policies are added to the proto.
 """
 # TODO b:169251326 terms below are set outside of this codebase
 # and should be updated when possible.
-# ("whitelist" -> "allowlist", "blacklist" --> "blocklist" or "denylist")
+# ("whitelist" -> "allowlist", "blacklist" --> "blocklist" or "denylist") # nocheck
 DEVICE_POLICY_DICT = {
     'DeviceGuestModeEnabled': 'guest_mode_enabled.guest_mode_enabled',
     'DeviceRebootOnShutdown': 'reboot_on_shutdown.reboot_on_shutdown',
     'DeviceShowUserNamesOnSignin': 'show_user_names.show_user_names',
     'DeviceAllowNewUsers': 'allow_new_users.allow_new_users',
-    'DeviceUserWhitelist': 'user_whitelist.user_whitelist',
+    'DeviceUserWhitelist': 'user_whitelist.user_whitelist', # nocheck
     'DeviceEphemeralUsersEnabled': 'ephemeral_users_enabled.ephemeral_users_enabled',
     'LoginAuthenticationBehavior': 'login_authentication_behavior.login_authentication_behavior',
     'DeviceAllowBluetooth': 'allow_bluetooth.allow_bluetooth',
@@ -52,8 +52,10 @@ DEVICE_POLICY_DICT = {
     'DeviceLoginScreenIsolateOrigins': 'device_login_screen_isolate_origins.isolate_origins',
     'DeviceLoginScreenSitePerProcess': 'device_login_screen_site_per_process.site_per_process',
     'DeviceMachinePasswordChangeRate': 'device_machine_password_change_rate.rate_days',
-    'DeviceNativePrintersBlacklist': 'native_device_printers_blacklist.blacklist',
-    'DeviceNativePrintersWhitelist': 'native_device_printers_whitelist.whitelist',
+    'DeviceNativePrintersBlacklist': 'native_device_printers_blacklist.blacklist', # nocheck
+    'DeviceNativePrintersWhitelist': 'native_device_printers_whitelist.whitelist', # nocheck
+    'DevicePrintersBlocklist': 'device_printers_blocklist.blocklist',
+    'DevicePrintersAllowlist': 'device_printers_allowlist.allowlist',
     'HeartbeatEnabled': 'device_heartbeat_settings.heartbeat_enabled',
     'HeartbeatFrequency': 'device_heartbeat_settings.heartbeat_frequency',
     'ChromeOsReleaseChannel': 'release_channel.release_channel',

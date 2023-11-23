@@ -15,24 +15,70 @@
  */
 package com.google.android.enterprise.connectedapps.internal;
 
+import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import com.google.android.enterprise.connectedapps.annotations.CrossProfileConfiguration;
 
 /**
- * A {@link Bundler} is used to read and write {@link Parcel} instances without needing to use the
- * specific methods for the type of object being read/written.
+ * A {@link Bundler} is used to read and write {@link Bundler} and {@link Parcel} instances without
+ * needing to use the specific methods for the type of object being read/written.
  *
  * <p>Each {@link CrossProfileConfiguration} will have a {@link Bundler} which can deal with all of
  * the types used by that {@link CrossProfileConfiguration}.
  */
-// TODO(158552516): Rename now this no longer concerns Bundles
 public interface Bundler extends Parcelable {
   /*
    * We make {@link Bundler} instances implement {@link Parcelable} so that they can be passed
    * as part of the Parcelable Wrapper classes. This ensures the wrappers read the correct types
    * using the same {@link Bundler} that they wrote them with.
    */
+
+  /**
+   * Write a value to a {@link Bundle}.
+   *
+   * @throws IllegalArgumentException if the {@code value} type is unsupported.
+   */
+  void writeToBundle(Bundle bundle, String key, Object value, BundlerType valueType);
+
+  default void writeToBundle(Bundle bundle, String key, byte value, BundlerType valueType) {
+    bundle.putByte(key, value);
+  }
+
+  default void writeToBundle(Bundle bundle, String key, short value, BundlerType valueType) {
+    bundle.putShort(key, value);
+  }
+
+  default void writeToBundle(Bundle bundle, String key, int value, BundlerType valueType) {
+    bundle.putInt(key, value);
+  }
+
+  default void writeToBundle(Bundle bundle, String key, long value, BundlerType valueType) {
+    bundle.putLong(key, value);
+  }
+
+  default void writeToBundle(Bundle bundle, String key, char value, BundlerType valueType) {
+    bundle.putChar(key, value);
+  }
+
+  default void writeToBundle(Bundle bundle, String key, float value, BundlerType valueType) {
+    bundle.putFloat(key, value);
+  }
+
+  default void writeToBundle(Bundle bundle, String key, double value, BundlerType valueType) {
+    bundle.putDouble(key, value);
+  }
+
+  default void writeToBundle(Bundle bundle, String key, boolean value, BundlerType valueType) {
+    bundle.putBoolean(key, value);
+  }
+
+  /**
+   * Read a value from a {@link Bundle}.
+   *
+   * @throws IllegalArgumentException if the {@code valueClass} type is unsupported.
+   */
+  Object readFromBundle(Bundle bundle, String key, BundlerType valueClass);
 
   /**
    * Write a value to a {@link Parcel}.

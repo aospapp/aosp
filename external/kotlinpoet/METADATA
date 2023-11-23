@@ -1,0 +1,17 @@
+name: "kotlinpoet"
+description:
+    "A Kotlin API for generating .kt source files"
+
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://square.github.io/kotlinpoet/"
+  }
+  url {
+    type: GIT
+    value: "https://github.com/square/kotlinpoet.git"
+  }
+  version: "c99ed244c6e4c7f8594f75566bb19ec62fa9c80d"
+  last_upgrade_date { year: 2023 month: 1 day: 31 }
+  license_type: NOTICE
+}

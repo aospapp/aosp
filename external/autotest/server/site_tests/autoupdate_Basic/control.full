@@ -9,22 +9,32 @@ PURPOSE = "Tests an N-to-N update with Nebraska."
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:bvt-inline, suite:infra_qual"
+ATTRIBUTES = "suite:bvt-inline, suite:infra_qual, suite:satlab-qual-bvt-inline"
 JOB_RETRIES = 2
+PY_VERSION = 3
 DOC = """
 This tests an N-to-N update. That means it will update to the same version
 that the DUT was provisioned with. This test will be used in the CQ to ensure
 changes don't break autoupdate.
 
-We supply a job_repo_url to the test when running locally. In the lab this will
-be passed directly. The job_repo_url is a link to the autotest packages on a
-devserver. The test uses it to find the correct payload to use.
+In the lab, a job_repo_url will be passed directly to the test. It contains
+information about the build to use and the IP address of lab cache server to
+download update payloads from. Local runs can use cache servers as well but
+the setup is fairly complicated.
 
-To get a list of available devservers to use execute this command:
-atest server list | grep devserver
+Instead you can use the `running_at_desk` arg when running tests locally to
+avoid the extra setup needed to access cache servers from your workstation.
+`running_at_desk` will copy payloads from gs://chromeos-image-archive/ to a
+public bucket that is accessible without additional configuration.
 
 Example usage:
-test_that autoupdate_Basic <DUT> --board=<board> --args="job_repo_url=http://<devserver IP>:8082/static/<board>-release/RXX-XXXXX.X.X/autotest/packages"
+
+You can specify the build to AU to for full updates. It should be greater
+than or equal to the version currently on the DUT:
+test_that <DUT> autoupdate_Basic.full --board=<board> --args="running_at_desk=True build=R102-14643.0.0"
+
+If no build is specified, the current version on the DUT will be used:
+test_that <DUT> autoupdate_Basic.full --board=<board> --args="running_at_desk=True"
 """
 
 from autotest_lib.client.common_lib import utils

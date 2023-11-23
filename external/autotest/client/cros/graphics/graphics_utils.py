@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -27,9 +28,9 @@ from functools import wraps
 
 # The uinput module might not be available at SDK test time.
 try:
-  from autotest_lib.client.cros.graphics import graphics_uinput
+    from autotest_lib.client.cros.graphics import graphics_uinput
 except ImportError:
-  graphics_uinput = None
+    graphics_uinput = None
 
 
 class GraphicsTest(test.test):
@@ -154,9 +155,10 @@ class GraphicsTest(test.test):
                 pass
             self.Foo('test_name') # call Foo with unnamed args
          """
-        def decorator(fn):
+
+        def _decorator(fn):
             @wraps(fn)
-            def wrapper(*args, **kwargs):
+            def _wrapper(*args, **kwargs):
                 if len(args) > 1:
                     raise error.TestError('Unnamed arguments is not accepted. '
                                           'Please apply this decorator to '
@@ -168,8 +170,10 @@ class GraphicsTest(test.test):
                     # Cherry pick the arguments for the wrapped function.
                     d_args, d_kwargs = utils.cherry_pick_args(fn, args, kwargs)
                     return fn(instance, *d_args, **d_kwargs)
-            return wrapper
-        return decorator
+
+            return _wrapper
+
+        return _decorator
 
     def add_failures(self, name, subtest=None):
         """
@@ -223,9 +227,9 @@ class GraphicsTest(test.test):
 
         total_failures = 0
         # Report subtests failures
-        for failure in self._failures_by_description.values():
+        for failure in list(self._failures_by_description.values()):
             if len(failure['names']) > 0:
-                logging.debug('GraphicsTest failure: %s' % failure['names'])
+                logging.debug('GraphicsTest failure: %s', failure['names'])
                 total_failures += len(failure['names'])
 
             if not self._test_failure_report_subtest:
@@ -262,7 +266,7 @@ class GraphicsTest(test.test):
         """
         Get currently recorded failures list.
         """
-        return [name for failure in self._failures_by_description.values()
+        return [name for failure in list(self._failures_by_description.values())
                 for name in failure['names']]
 
     def open_vt1(self):
@@ -709,7 +713,7 @@ def is_nv12_supported_by_drm_planes():
     This is a crude way to figure out if the device will not be able to promote
     video frames to overlays at all, which happens for example on Broadwell.
     """
-    modetest_output = utils.system_output('modetest -p')
+    modetest_output = utils.system_output('modetest -p', retain_output=True)
     return "nv12" in modetest_output.lower()
 
 def get_modetest_output_state():
@@ -772,6 +776,14 @@ def has_internal_display():
     return bool(get_internal_connector_name())
 
 
+def has_external_display():
+    """Checks whether the DUT is equipped with an external display.
+
+    @return True if external display is present; False otherwise.
+    """
+    return bool(get_external_connector_name())
+
+
 def get_external_resolution():
     """Gets the resolution of the external display.
 
@@ -829,7 +841,7 @@ def get_external_connector_name():
             Otherwise, return False.
     """
     outputs = get_display_output_state()
-    for output in outputs.iterkeys():
+    for output in list(outputs.keys()):
         if outputs[output] and (output.startswith('HDMI')
                 or output.startswith('DP')
                 or output.startswith('DVI')
@@ -845,7 +857,7 @@ def get_internal_connector_name():
             Otherwise, return False.
     """
     outputs = get_display_output_state()
-    for output in outputs.iterkeys():
+    for output in list(outputs.keys()):
         # reference: chromium_org/chromeos/display/output_util.cc
         if (output.startswith('eDP')
                 or output.startswith('LVDS')
@@ -1144,13 +1156,12 @@ class GraphicsStateChecker(object):
             if not self._run_on_sw_rasterizer and is_sw_rasterizer():
                 raise error.TestFail('Refusing to run on SW rasterizer.')
             logging.info('Initialize: Checking for old GPU hangs...')
-            messages = open(self._MESSAGES_FILE, 'r')
-            for line in messages:
-                for hang in self._HANGCHECK:
-                    if hang in line:
-                        logging.info(line)
-                        self.existing_hangs[line] = line
-            messages.close()
+            with open(self._MESSAGES_FILE, 'r', encoding='utf-8') as messages:
+                for line in messages:
+                    for hang in self._HANGCHECK:
+                        if hang in line:
+                            logging.info(line)
+                            self.existing_hangs[line] = line
 
     def finalize(self):
         """
@@ -1163,21 +1174,22 @@ class GraphicsStateChecker(object):
         new_gpu_warning = False
         if utils.get_cpu_arch() != 'arm':
             logging.info('Cleanup: Checking for new GPU hangs...')
-            messages = open(self._MESSAGES_FILE, 'r')
-            for line in messages:
-                for hang in self._HANGCHECK:
-                    if hang in line:
-                        if not line in self.existing_hangs.keys():
-                            logging.info(line)
-                            for warn in self._HANGCHECK_WARNING:
-                                if warn in line:
-                                    new_gpu_warning = True
-                                    logging.warning(
-                                        'Saw GPU hang warning during test.')
-                                else:
-                                    logging.warning('Saw GPU hang during test.')
-                                    new_gpu_hang = True
-            messages.close()
+            with open(self._MESSAGES_FILE, 'r', encoding='utf-8') as messages:
+                for line in messages:
+                    for hang in self._HANGCHECK:
+                        if hang in line:
+                            if not line in list(self.existing_hangs.keys()):
+                                logging.info(line)
+                                for warn in self._HANGCHECK_WARNING:
+                                    if warn in line:
+                                        new_gpu_warning = True
+                                        logging.warning(
+                                                'Saw GPU hang warning during test.'
+                                        )
+                                    else:
+                                        logging.warning(
+                                                'Saw GPU hang during test.')
+                                        new_gpu_hang = True
 
             if not self._run_on_sw_rasterizer and is_sw_rasterizer():
                 logging.warning('Finished test on SW rasterizer.')
@@ -1269,6 +1281,10 @@ class GraphicsApiHelper(object):
         )
         return executable
 
+    def get_deqp_dir(self):
+        """Return the base path to deqp."""
+        return self.DEQP_BASEDIR
+
 # Possible paths of the kernel DRI debug text file.
 _DRI_DEBUG_FILE_PATH_0 = "/sys/kernel/debug/dri/0/state"
 _DRI_DEBUG_FILE_PATH_1 = "/sys/kernel/debug/dri/1/state"
@@ -1348,7 +1364,7 @@ def is_drm_atomic_supported():
     for dev_path in glob.glob(_DEV_DRI_CARD_PATH):
         try:
             logging.debug('trying device %s', dev_path);
-            with open(dev_path, 'rw') as dev:
+            with open(dev_path, 'w') as dev:
                 # Pack a struct drm_set_client_cap: two u64.
                 drm_pack = struct.pack("QQ", _DRM_CLIENT_CAP_ATOMIC, 1)
                 result = fcntl.ioctl(dev, _DRM_IOCTL_SET_CLIENT_CAP, drm_pack)
@@ -1387,4 +1403,4 @@ def get_max_num_available_drm_planes():
     possible_crtcs = [[int(bit) for bit in bin(crtc)[2:].zfill(16)]
                          for crtc in packed_possible_crtcs]
     # Accumulate the CRTCs indexes and return the maximum number of 'votes'.
-    return max(map(sum, zip(*possible_crtcs)))
+    return max(list(map(sum, list(zip(*possible_crtcs)))))

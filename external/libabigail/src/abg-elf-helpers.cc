@@ -296,6 +296,37 @@ e_machine_to_string(GElf_Half e_machine)
     }
 }
 
+/// Find and return a section by its name.
+///
+/// @param elf_handle the elf handle to use.
+///
+/// @param name the section name.
+///
+/// @return the section found, nor nil if none was found.
+Elf_Scn*
+find_section_by_name(Elf* elf_handle, const std::string& name)
+{
+  size_t section_header_string_index = 0;
+  if (elf_getshdrstrndx (elf_handle, &section_header_string_index) < 0)
+    return 0;
+
+  Elf_Scn* section = 0;
+  GElf_Shdr header_mem, *header;
+  while ((section = elf_nextscn(elf_handle, section)) != 0)
+    {
+      header = gelf_getshdr(section, &header_mem);
+      if (header == NULL)
+        continue;
+
+      const char* section_name =
+	elf_strptr(elf_handle, section_header_string_index, header->sh_name);
+      if (section_name && name == section_name)
+	return section;
+    }
+
+  return 0;
+}
+
 /// Find and return a section by its name and its type.
 ///
 /// @param elf_handle the elf handle to use.
@@ -874,6 +905,54 @@ get_version_for_symbol(Elf*			elf_handle,
   return false;
 }
 
+/// Return the CRC from the "__crc_" symbol.
+///
+/// @param elf_handle the elf handle to use.
+///
+/// @param crc_symbol symbol containing CRC value.
+///
+/// @param crc_value the CRC found for @p crc_symbol.
+///
+/// @return true iff a CRC was found for given @p crc_symbol.
+bool
+get_crc_for_symbol(Elf* elf_handle, GElf_Sym* crc_symbol, uint32_t& crc_value)
+{
+  size_t crc_section_index = crc_symbol->st_shndx;
+  GElf_Addr crc_symbol_address =
+      maybe_adjust_et_rel_sym_addr_to_abs_addr(elf_handle, crc_symbol);
+  if (crc_section_index == SHN_ABS)
+    {
+      crc_value = crc_symbol_address;
+      return true;
+    }
+
+  Elf_Scn* kcrctab_section = elf_getscn(elf_handle, crc_section_index);
+  if (kcrctab_section == NULL)
+      return false;
+
+  GElf_Shdr sheader_mem;
+  GElf_Shdr* sheader = gelf_getshdr(kcrctab_section, &sheader_mem);
+  if (sheader == NULL)
+    return false;
+
+  Elf_Data* kcrctab_data = elf_rawdata(kcrctab_section, NULL);
+  if (kcrctab_data == NULL)
+    return false;
+
+  if (crc_symbol_address < sheader->sh_addr)
+    return false;
+
+  size_t offset = crc_symbol_address - sheader->sh_addr;
+  if (offset + sizeof(uint32_t) > kcrctab_data->d_size
+      || offset + sizeof(uint32_t) > sheader->sh_size)
+    return false;
+
+  crc_value = *reinterpret_cast<uint32_t*>(
+      reinterpret_cast<char*>(kcrctab_data->d_buf) + offset);
+
+  return true;
+}
+
 /// Test if the architecture of the current binary is ppc64.
 ///
 /// @param elf_handle the ELF handle to consider.
@@ -887,6 +966,19 @@ architecture_is_ppc64(Elf* elf_handle)
   return (elf_header && elf_header->e_machine == EM_PPC64);
 }
 
+/// Test if the architecture of the current binary is ppc32.
+///
+/// @param elf_handle the ELF handle to consider.
+///
+/// @return true iff the architecture of the current binary is ppc32.
+bool
+architecture_is_ppc32(Elf* elf_handle)
+{
+  GElf_Ehdr  eh_mem;
+  GElf_Ehdr* elf_header = gelf_getehdr(elf_handle, &eh_mem);
+  return (elf_header && elf_header->e_machine == EM_PPC);
+}
+
 /// Test if the architecture of the current binary is arm32.
 ///
 /// @param elf_handle the ELF handle to consider.
@@ -898,6 +990,23 @@ architecture_is_arm32(Elf* elf_handle)
   GElf_Ehdr  eh_mem;
   GElf_Ehdr* elf_header = gelf_getehdr(elf_handle, &eh_mem);
   return (elf_header && elf_header->e_machine == EM_ARM);
+}
+
+/// Test if the architecture of the current binary is arm64.
+///
+/// @param elf_handle the ELF handle to consider.
+///
+/// @return true iff the architecture of the current binary is arm64.
+bool
+architecture_is_arm64(Elf* elf_handle)
+{
+#ifdef HAVE_EM_AARCH64_MACRO
+  GElf_Ehdr  eh_mem;
+  GElf_Ehdr* elf_header = gelf_getehdr(elf_handle, &eh_mem);
+  return (elf_header && elf_header->e_machine == EM_AARCH64);
+#else
+  return false;
+#endif
 }
 
 /// Test if the endianness of the current binary is Big Endian.

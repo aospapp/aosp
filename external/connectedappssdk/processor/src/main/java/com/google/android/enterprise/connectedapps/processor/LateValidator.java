@@ -23,10 +23,10 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
+import com.google.android.enterprise.connectedapps.processor.containers.ConnectorInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileConfigurationInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTypeInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.GeneratorContext;
-import com.google.android.enterprise.connectedapps.processor.containers.ProfileConnectorInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.ProviderClassInfo;
 import com.google.common.collect.Streams;
 import java.util.Collection;
@@ -137,7 +137,7 @@ final class LateValidator {
             .serviceClass()
             .get()
             .toString()
-            .equals(configuration.profileConnector().serviceName().toString())) {
+            .equals(configuration.connectorInfo().serviceName().toString())) {
       showError(INCORRECT_SERVICE_CLASS, configuration.configurationElement());
       isValid = false;
     }
@@ -152,7 +152,7 @@ final class LateValidator {
             .flatMap(m -> getConnectorQualifiedNamesUsedInProviderClass(m).stream())
             .collect(toSet());
     connectorQualifiedNames.add(
-        configuration.profileConnector().connectorElement().asType().toString());
+        configuration.connectorInfo().connectorElement().asType().toString());
     return connectorQualifiedNames;
   }
 
@@ -184,9 +184,9 @@ final class LateValidator {
   private static Collection<String> getConnectorQualifiedNamesUsedInProviderClass(
       ProviderClassInfo providerClass) {
     return providerClass.allCrossProfileTypes().stream()
-        .map(CrossProfileTypeInfo::profileConnector)
+        .map(CrossProfileTypeInfo::connectorInfo)
         .flatMap(Streams::stream)
-        .map(ProfileConnectorInfo::connectorElement)
+        .map(ConnectorInfo::connectorElement)
         .map(Element::asType)
         .map(TypeMirror::toString)
         .collect(toSet());

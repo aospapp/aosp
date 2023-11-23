@@ -16,7 +16,7 @@
 -- Find all long EventLatency slices > 100ms and also get the
 -- type of the event stored as 'debug.event' argument.
 -- In order to group all events
--- Note that a long latency event is represented by the the ending time
+-- Note that a long latency event is represented by the ending time
 -- of an EventLatency slice, i.e. the timestamp of the frame presentation
 -- that reflects the event.
 DROP VIEW IF EXISTS long_eventlatency_slice;
@@ -37,22 +37,30 @@ SELECT
   long_eventlatency_slice.event_type,
   process_track.upid
 FROM long_eventlatency_slice
-INNER JOIN process_track
-ON long_eventlatency_slice.track_id = process_track.id;
+JOIN process_track
+  ON long_eventlatency_slice.track_id = process_track.id;
 
 -- Find the name and pid of the processes.
 -- Long latency events with the same timestamp and from the same process
 -- are considered one single long latency occurrence.
+-- If the process name represents a file's pathname, the path part will be
+-- removed from the display name of the process.
 DROP VIEW IF EXISTS long_latency_with_process_info;
 CREATE VIEW long_latency_with_process_info AS
 SELECT
   long_latency_with_upid.ts,
   GROUP_CONCAT(DISTINCT long_latency_with_upid.event_type) AS event_type,
-  process.name AS process_name,
+  REPLACE(
+    process.name,
+    RTRIM(
+      process.name,
+      REPLACE(process.name, '/', '')
+    ),
+    '') AS process_name,
   process.pid AS process_id
 FROM long_latency_with_upid
-INNER JOIN process
-ON long_latency_with_upid.upid = process.upid
+JOIN process
+  ON long_latency_with_upid.upid = process.upid
 GROUP BY ts, process.pid;
 
 -- Create the derived event track for long latency.
@@ -72,7 +80,7 @@ SELECT
   'Long Latency' AS group_name
 FROM long_latency_with_process_info
 WHERE (SELECT COUNT(DISTINCT process_id)
-       FROM long_latency_with_process_info) > 1
+                    FROM long_latency_with_process_info) > 1
 GROUP BY ts
 UNION ALL
 SELECT

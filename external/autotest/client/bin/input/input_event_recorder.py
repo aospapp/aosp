@@ -15,7 +15,8 @@ import subprocess
 import threading
 import time
 
-from linux_input import EV_MSC, EV_SYN, MSC_SCAN, SYN_REPORT
+from autotest_lib.client.bin.input.linux_input import\
+    EV_MSC, EV_SYN, MSC_SCAN, SYN_REPORT
 
 
 # Define extra misc events below as they are not defined in linux_input.
@@ -236,14 +237,16 @@ class InputEventRecorder(object):
         """Record input events."""
         logging.info('Recording input events of %s.', self.device_node)
         cmd = 'evtest %s' % self.device_node
-        recorder = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                                          shell=True)
+        recorder = subprocess.Popen(cmd,
+                                    bufsize=0,
+                                    stdout=subprocess.PIPE,
+                                    shell=True)
         with open(self.tmp_file, 'w') as output_f:
             while True:
                 read_list, _, _ = select.select(
                         [recorder.stdout], [], [], 1)
                 if read_list:
-                    line = recorder.stdout.readline()
+                    line = recorder.stdout.readline().decode()
                     output_f.write(line)
                     ev = Event.from_string(line)
                     if ev:

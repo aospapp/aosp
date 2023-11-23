@@ -1,9 +1,12 @@
-#!/usr/bin/python2
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 from multithreaded_processor import MultithreadedProcessor
+from six.moves import range
 
 
 class EvenNumbersGenerator():
@@ -26,7 +29,7 @@ class EvenNumbersGenerator():
 
         """
         # prepares input data
-        self._data = range(count)
+        self._data = list(range(count))
         # runs the calculations and returns an output
         return self._processor.run(self._thread, count)
 

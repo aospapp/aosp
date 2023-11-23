@@ -64,6 +64,22 @@ class firmware_PDVbusRequest(FirmwareTest):
             result = 'PASS'
         return result, result_str
 
+    def _is_batt_full(self):
+        """Check if battery is full
+
+        @returns: True if battery is full, False otherwise
+        """
+        self.ec.update_battery_info()
+        return not self.ec.get_battery_charging_allowed(print_result=False)
+
+    def _enable_dps(self, en):
+        """Enable/disable Dynamic PDO Selection
+
+        @param en: a bool, True for enable, disable otherwise.
+
+        """
+        self.usbpd.send_command('dps %s' % ('en' if en else 'dis'))
+
     def initialize(self, host, cmdline_args, flip_cc=False, dts_mode=False,
                    init_power_mode=None):
         super(firmware_PDVbusRequest, self).initialize(host, cmdline_args)
@@ -73,12 +89,25 @@ class firmware_PDVbusRequest(FirmwareTest):
         self.setup_pdtester(flip_cc, dts_mode)
         # Only run in normal mode
         self.switcher.setup_mode('normal')
+
+        self.shutdown_power_mode = False
         if init_power_mode:
             # Set the DUT to suspend or shutdown mode
             self.set_ap_off_power_mode(init_power_mode)
+            if init_power_mode == "shutdown":
+                self.shutdown_power_mode = True
+
         self.usbpd.send_command('chan 0')
+        logging.info('Disallow PR_SWAP request from DUT')
+        self.pdtester.allow_pr_swap(False)
+        # Disable dynamic PDO selection for voltage testing
+        self._enable_dps(False)
 
     def cleanup(self):
+        logging.info('Allow PR_SWAP request from DUT')
+        self.pdtester.allow_pr_swap(True)
+        # Re-enable DPS
+        self._enable_dps(True)
         # Set back to the max 20V SRC mode at the end.
         self.pdtester.charge(self.pdtester.USBC_MAX_VOLTAGE)
 
@@ -111,10 +140,64 @@ class firmware_PDVbusRequest(FirmwareTest):
             raise error.TestFail("pd connection not found")
 
         dut_voltage_limit = self.faft_config.usbc_input_voltage_limit
+        dut_power_voltage_limit = dut_voltage_limit
+        dut_shutdown_and_full_batt_voltage_limit = (
+                self.faft_config.usbc_voltage_on_shutdown_and_full_batt)
+
         is_override = self.faft_config.charger_profile_override
         if is_override:
             logging.info('*** Custom charger profile takes over, which may '
                          'cause voltage-not-matched. It is OK to fail. *** ')
+
+        # Test will expect reduced voltage when battery is full and...:
+        # 1. We are running 'shutdown' variant of PDVbusRequest test (indicated
+        #    by self.shutdown_power_mode)
+        # 2. EC has battery capability
+        # 3. 'dut_shutdown_and_full_batt_voltage_limit' value will be less than
+        #    'dut_voltage_limit'. By default reduced voltage is set to maximum
+        #    voltage which means that no limit applies. Every board needs to
+        #    override this to correct value (most likely 5 or 9 volts)
+        is_voltage_reduced_if_batt_full = (
+                self.shutdown_power_mode
+                and self.check_ec_capability(['battery']) and
+                dut_shutdown_and_full_batt_voltage_limit < dut_voltage_limit)
+        if is_voltage_reduced_if_batt_full:
+            logging.info(
+                    '*** This DUT may reduce input voltage to %d volts '
+                    'when battery is full. ***',
+                    dut_shutdown_and_full_batt_voltage_limit)
+
+        # Obtain voltage limit due to maximum charging power. Note that this
+        # voltage limit applies only when EC follows the default policy. There
+        # are other policies like PREFER_LOW_VOLTAGE or PREFER_HIGH_VOLTAGE but
+        # they are not implemented in this test.
+        try:
+            srccaps = self.pdtester.get_adapter_source_caps()
+            dut_max_charging_power = self.faft_config.max_charging_power
+            selected_voltage = 0
+            selected_power = 0
+            for (mv, ma) in srccaps:
+                voltage = mv / 1000.0
+                current = ma / 1000.0
+                power = voltage * current
+
+                if (voltage > dut_voltage_limit or power <= selected_power
+                            or power > dut_max_charging_power):
+                    continue
+                selected_voltage = voltage
+                selected_power = power
+
+            if selected_voltage < dut_power_voltage_limit:
+                dut_power_voltage_limit = selected_voltage
+                logging.info(
+                        'EC may request maximum %dV due to adapter\'s max '
+                        'supported power and DUT\'s power constraints. DUT\'s '
+                        'max charging power %dW. Selected charging power %dW',
+                        dut_power_voltage_limit, dut_max_charging_power,
+                        selected_power)
+        except self.pdtester.PDTesterError:
+            logging.warning('Unable to get charging voltages and currents. '
+                         'Test may fail on high voltages.')
 
         pdtester_failures = []
         logging.info('Start PDTester initiated tests')
@@ -141,9 +224,13 @@ class firmware_PDVbusRequest(FirmwareTest):
                 expected_vbus_voltage = (self.USBC_SINK_VOLTAGE
                         if self.get_power_state() == 'S0' else 0)
                 ok_to_fail = False
+            elif (is_voltage_reduced_if_batt_full and self._is_batt_full()):
+                expected_vbus_voltage = min(
+                        voltage, dut_shutdown_and_full_batt_voltage_limit)
+                ok_to_fail = False
             else:
                 expected_vbus_voltage = min(voltage, dut_voltage_limit)
-                ok_to_fail = is_override
+                ok_to_fail = is_override or voltage > dut_power_voltage_limit
 
             result, result_str = self._compare_vbus(expected_vbus_voltage,
                                                     ok_to_fail)
@@ -162,6 +249,13 @@ class firmware_PDVbusRequest(FirmwareTest):
             number = len(pdtester_failures)
             raise error.TestFail('PDTester failed %d times' % number)
 
+        if (is_voltage_reduced_if_batt_full and self._is_batt_full()):
+            logging.warning('This DUT reduces input voltage when chipset is in '
+                         'G3/S5 and battery is full. DUT initiated tests '
+                         'will be skipped. Please discharge battery to level '
+                         'that allows charging and run this test again')
+            return
+
         # The DUT must be in SNK mode for the pd <port> dev <voltage>
         # command to have an effect.
         if not self.dut_port.is_snk():
@@ -179,14 +273,17 @@ class firmware_PDVbusRequest(FirmwareTest):
                              v, dut_voltage_limit)
                 continue
             if v not in charging_voltages:
-                logging.info('Target = %02dV: skipped, voltage unsupported, '
-                             'update hdctools and servo_v4 firmware', v)
+                logging.info(
+                        'Target = %02dV: skipped, voltage unsupported, '
+                        'update hdctools and servo_v4 firmware '
+                        'or attach a different charger', v)
                 continue
             # Build 'pd <port> dev <voltage> command
             cmd = 'pd %d dev %d' % (self.dut_port.port, v)
             self.dut_port.utils.send_pd_command(cmd)
             time.sleep(self.PD_SETTLE_DELAY)
-            result, result_str = self._compare_vbus(v, ok_to_fail=is_override)
+            ok_to_fail = is_override or v > dut_power_voltage_limit
+            result, result_str = self._compare_vbus(v, ok_to_fail)
             logging.info('%s, %s', result_str, result)
             if result == 'FAIL':
                 dut_failures.append(result_str)

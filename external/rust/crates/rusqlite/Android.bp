@@ -23,7 +23,7 @@ rust_library {
     host_supported: true,
     crate_name: "rusqlite",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.27.0",
+    cargo_pkg_version: "0.28.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -36,8 +36,11 @@ rust_library {
         "libfallible_streaming_iterator",
         "libhashlink",
         "liblibsqlite3_sys",
-        "libmemchr",
         "libsmallvec",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
     ],
 }
 

@@ -57,7 +57,7 @@ Status InputBuffer::ReadLine(T* result) {
       if (!result->empty() && result->back() == '\r') {
         result->resize(result->size() - 1);
       }
-      return Status::OK();
+      return OkStatus();
     }
     if (buf_remain > 0) result->append(pos_, buf_remain);
     // Get more data into buffer
@@ -68,7 +68,7 @@ Status InputBuffer::ReadLine(T* result) {
     result->resize(result->size() - 1);
   }
   if (errors::IsOutOfRange(s) && !result->empty()) {
-    return Status::OK();
+    return OkStatus();
   }
   return s;
 }
@@ -107,7 +107,7 @@ Status InputBuffer::ReadNBytes(int64_t bytes_to_read, char* result,
     }
     // Do not go over the buffer boundary.
     const int64_t bytes_to_copy =
-        std::min<int64>(limit_ - pos_, bytes_to_read - *bytes_read);
+        std::min<int64_t>(limit_ - pos_, bytes_to_read - *bytes_read);
     // Copies buffered data into the destination.
     memcpy(result + *bytes_read, pos_, bytes_to_copy);
     pos_ += bytes_to_copy;
@@ -115,7 +115,7 @@ Status InputBuffer::ReadNBytes(int64_t bytes_to_read, char* result,
   }
   if (errors::IsOutOfRange(status) &&
       (*bytes_read == static_cast<size_t>(bytes_to_read))) {
-    return Status::OK();
+    return OkStatus();
   }
   return status;
 }
@@ -147,7 +147,7 @@ Status InputBuffer::ReadVarintFallback(T* result, int max_bytes) {
     int shift = 7 * index;
     TF_RETURN_IF_ERROR(ReadNBytes(1, p, &unused_bytes_read));
     *result |= (static_cast<T>(scratch) & 127) << shift;
-    if (!(scratch & 128)) return Status::OK();
+    if (!(scratch & 128)) return OkStatus();
   }
   return errors::DataLoss("Stored data longer than ", max_bytes, " bytes.");
 }
@@ -168,12 +168,12 @@ Status InputBuffer::SkipNBytes(int64_t bytes_to_skip) {
       }
     }
     const int64_t bytes_to_advance =
-        std::min<int64>(limit_ - pos_, bytes_to_skip - bytes_skipped);
+        std::min<int64_t>(limit_ - pos_, bytes_to_skip - bytes_skipped);
     bytes_skipped += bytes_to_advance;
     pos_ += bytes_to_advance;
   }
   if (errors::IsOutOfRange(s) && bytes_skipped == bytes_to_skip) {
-    return Status::OK();
+    return OkStatus();
   }
   return s;
 }
@@ -184,7 +184,7 @@ Status InputBuffer::Seek(int64_t position) {
                                    position);
   }
   // Position of the buffer within file.
-  const int64_t bufpos = file_pos_ - static_cast<int64>(limit_ - buf_);
+  const int64_t bufpos = file_pos_ - static_cast<int64_t>(limit_ - buf_);
   if (position >= bufpos && position < file_pos_) {
     // Seeks to somewhere inside the buffer.
     pos_ = buf_ + (position - bufpos);
@@ -194,7 +194,7 @@ Status InputBuffer::Seek(int64_t position) {
     pos_ = limit_ = buf_;
     file_pos_ = position;
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status InputBuffer::Hint(int64_t bytes_to_read) {
@@ -205,14 +205,14 @@ Status InputBuffer::Hint(int64_t bytes_to_read) {
 
   // The internal buffer is too small. Do nothing.
   if (bytes_to_read > size_) {
-    return Status::OK();
+    return OkStatus();
   }
 
-  const int64_t bytes_remain_in_buf = static_cast<int64>(limit_ - pos_);
+  const int64_t bytes_remain_in_buf = static_cast<int64_t>(limit_ - pos_);
 
   // There are enough data in the buffer. Do nothing.
   if (bytes_to_read <= bytes_remain_in_buf) {
-    return Status::OK();
+    return OkStatus();
   }
 
   // Additional read from file is necessary. Make some room.
@@ -231,7 +231,7 @@ Status InputBuffer::Hint(int64_t bytes_to_read) {
   file_pos_ += data.size();
 
   if (errors::IsOutOfRange(s) && data.size() == bytes_to_read) {
-    return Status::OK();
+    return OkStatus();
   } else {
     return s;
   }

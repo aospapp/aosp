@@ -9,12 +9,13 @@ CRITERIA = """
 This test will fail if, after playback of touch events, no zoom is detected
 or if zoom behaves irregularly.
 """
-ATTRIBUTES = "suite:touch"
+ATTRIBUTES = "suite:touch_replay"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "touch"
 TEST_TYPE = "client"
 DEPENDENCIES = "touchscreen"
+PY_VERSION = 3
 
 DOC = """
 Plays back touchscreen movements to zoom a page.  Checks the page width to

@@ -12,14 +12,15 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <random>
 #include <vector>
 
+#include <fp16.h>
+
 #include <xnnpack.h>
-#include <xnnpack/AlignedAllocator.h>
+#include <xnnpack/aligned-allocator.h>
+#include <xnnpack/microfnptr.h>
 #include <xnnpack/math.h>
-#include <xnnpack/params.h>
 
 
 class IBilinearMicrokernelTester {
@@ -92,10 +93,64 @@ class IBilinearMicrokernelTester {
     }
   }
 
+  void Test(xnn_f16_ibilinear_ukernel_function ibilinear) const {
+    std::random_device random_device;
+    auto rng = std::mt19937(random_device());
+    std::uniform_real_distribution<float> f32dist(0.1f, 1.0f);
+
+    std::vector<const uint16_t*> indirection(pixels() * 4);
+    std::vector<uint16_t> input(XNN_EXTRA_BYTES / sizeof(uint16_t) + indirection.size() * channels());
+    std::vector<uint16_t, AlignedAllocator<uint16_t, 64>> packed_weights(pixels() * 2);
+    std::vector<uint16_t> output((pixels() - 1) * output_stride() + channels());
+    std::vector<float> output_ref(pixels() * channels());
+
+    for (size_t iteration = 0; iteration < iterations(); iteration++) {
+      std::generate(input.begin(), input.end(), [&]() { return fp16_ieee_from_fp32_value(f32dist(rng)); });
+      std::generate(packed_weights.begin(), packed_weights.end(), [&]() { return fp16_ieee_from_fp32_value(f32dist(rng)); });
+      std::fill(output.begin(), output.end(), UINT16_C(0x7E00) /* NaN */);
+
+      for (size_t i = 0; i < indirection.size(); i++) {
+        indirection[i] = input.data() + i * channels() - input_offset();
+      }
+      std::shuffle(indirection.begin(), indirection.end(), rng);
+
+      // Compute reference results.
+      for (size_t i = 0; i < pixels(); i++) {
+        for (size_t c = 0; c < channels(); c++) {
+          const float alpha_h = fp16_ieee_to_fp32_value(packed_weights[i * 2 + 0]);
+          const float alpha_v = fp16_ieee_to_fp32_value(packed_weights[i * 2 + 1]);
+          output_ref[i * channels() + c] =
+            fp16_ieee_to_fp32_value(indirection[i * 4 + 0][c + input_offset()]) * (1.0f - alpha_h) * (1.0f - alpha_v) +
+            fp16_ieee_to_fp32_value(indirection[i * 4 + 1][c + input_offset()]) * alpha_h * (1.0f - alpha_v) +
+            fp16_ieee_to_fp32_value(indirection[i * 4 + 2][c + input_offset()]) * (1.0f - alpha_h) * alpha_v +
+            fp16_ieee_to_fp32_value(indirection[i * 4 + 3][c + input_offset()]) * alpha_h * alpha_v;
+        }
+      }
+
+      // Call optimized micro-kernel.
+      ibilinear(
+        pixels(), channels() * sizeof(uint16_t),
+        reinterpret_cast<const void**>(indirection.data()), input_offset() * sizeof(uint16_t),
+        packed_weights.data(), output.data(),
+        (output_stride() - channels()) * sizeof(uint16_t));
+
+      // Verify results.
+      for (size_t i = 0; i < pixels(); i++) {
+        for (size_t c = 0; c < channels(); c++) {
+          ASSERT_NEAR(
+              fp16_ieee_to_fp32_value(output[i * output_stride() + c]),
+              output_ref[i * channels() + c],
+              std::abs(output_ref[i * channels() + c]) * 1.0e-2f)
+            << "pixel " << i << " / " << pixels() << ", channel " << c << " / " << channels();
+        }
+      }
+    }
+  }
+
   void Test(xnn_f32_ibilinear_ukernel_function ibilinear) const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), rng);
+    std::uniform_real_distribution<float> f32dist;
 
     std::vector<const float*> indirection(pixels() * 4);
     std::vector<float> input(XNN_EXTRA_BYTES / sizeof(float) + indirection.size() * channels());
@@ -104,8 +159,8 @@ class IBilinearMicrokernelTester {
     std::vector<float> output_ref(pixels() * channels());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(input.begin(), input.end(), std::ref(f32rng));
-      std::generate(packed_weights.begin(), packed_weights.end(), std::ref(f32rng));
+      std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
+      std::generate(packed_weights.begin(), packed_weights.end(), [&]() { return f32dist(rng); });
       std::fill(output.begin(), output.end(), nanf(""));
 
       for (size_t i = 0; i < indirection.size(); i++) {
@@ -149,10 +204,9 @@ class IBilinearMicrokernelTester {
   void Test(xnn_s8_ibilinear_ukernel_function ibilinear) const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto i8rng = std::bind(
-      std::uniform_int_distribution<int16_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()),
-      std::ref(rng));
-    auto w11rng = std::bind(std::uniform_int_distribution<int16_t>(0, 2047), std::ref(rng));
+    std::uniform_int_distribution<int32_t> i8dist(
+      std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max());
+    std::uniform_int_distribution<int16_t> w11dist(0, 2047);
 
     std::vector<const int8_t*> indirection(pixels() * 4);
     std::vector<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) + indirection.size() * channels());
@@ -161,8 +215,8 @@ class IBilinearMicrokernelTester {
     std::vector<int8_t> output_ref(pixels() * channels());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(input.begin(), input.end(), std::ref(i8rng));
-      std::generate(packed_weights.begin(), packed_weights.end(), std::ref(w11rng));
+      std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
+      std::generate(packed_weights.begin(), packed_weights.end(), [&]() { return w11dist(rng); });
       std::fill(output.begin(), output.end(), INT8_C(0xFA));
 
       for (size_t i = 0; i < indirection.size(); i++) {
@@ -175,7 +229,7 @@ class IBilinearMicrokernelTester {
         for (size_t c = 0; c < channels(); c++) {
           const int32_t alpha_h = packed_weights[i * 2 + 0];
           const int32_t alpha_v = packed_weights[i * 2 + 1];
-          const int32_t acc = asr_s32(
+          const int32_t acc = math_asr_s32(
             int32_t(indirection[i * 4 + 0][c + input_offset()]) * (2048 - alpha_h) * (2048 - alpha_v) +
             int32_t(indirection[i * 4 + 1][c + input_offset()]) * alpha_h * (2048 - alpha_v) +
             int32_t(indirection[i * 4 + 2][c + input_offset()]) * (2048 - alpha_h) * alpha_v +
@@ -207,9 +261,9 @@ class IBilinearMicrokernelTester {
   void Test(xnn_u8_ibilinear_ukernel_function ibilinear) const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto u8rng = std::bind(
-      std::uniform_int_distribution<uint16_t>(0, std::numeric_limits<uint8_t>::max()), std::ref(rng));
-    auto w11rng = std::bind(std::uniform_int_distribution<uint16_t>(0, 2047), std::ref(rng));
+    std::uniform_int_distribution<int32_t> u8dist(
+      std::numeric_limits<uint8_t>::min(), std::numeric_limits<uint8_t>::max());
+    std::uniform_int_distribution<int16_t> w11dist(0, 2047);
 
     std::vector<const uint8_t*> indirection(pixels() * 4);
     std::vector<uint8_t> input(XNN_EXTRA_BYTES / sizeof(uint8_t) + indirection.size() * channels());
@@ -218,8 +272,8 @@ class IBilinearMicrokernelTester {
     std::vector<uint8_t> output_ref(pixels() * channels());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(input.begin(), input.end(), std::ref(u8rng));
-      std::generate(packed_weights.begin(), packed_weights.end(), std::ref(w11rng));
+      std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
+      std::generate(packed_weights.begin(), packed_weights.end(), [&]() { return w11dist(rng); });
       std::fill(output.begin(), output.end(), UINT8_C(0xFA));
 
       for (size_t i = 0; i < indirection.size(); i++) {
@@ -259,10 +313,68 @@ class IBilinearMicrokernelTester {
     }
   }
 
+  void TestCHW(xnn_f16_ibilinear_chw_ukernel_function ibilinear) const {
+    std::random_device random_device;
+    auto rng = std::mt19937(random_device());
+    std::uniform_real_distribution<float> f32dist(0.1f, 1.0f);
+
+    std::vector<const uint16_t*> indirection(pixels() * 2);
+    std::vector<uint16_t> input(XNN_EXTRA_BYTES / sizeof(uint16_t) + (channels() - 1) * input_stride() + 4 * pixels());
+    std::vector<uint16_t, AlignedAllocator<uint16_t, 64>> packed_weights(pixels() * 2);
+    std::vector<uint16_t> output(pixels() * channels());
+    std::vector<float> output_ref(pixels() * channels());
+
+    for (size_t iteration = 0; iteration < iterations(); iteration++) {
+      std::generate(input.begin(), input.end(), [&]() { return fp16_ieee_from_fp32_value(f32dist(rng)); });
+      std::generate(packed_weights.begin(), packed_weights.end(), [&]() { return fp16_ieee_from_fp32_value(f32dist(rng)); });
+      std::fill(output.begin(), output.end(), UINT16_C(0x7E00) /* NaN */);
+
+      // Indirection will point to the even ("left") pixels of the input.
+      // The kernels will expect "right" pixels to be placed right next to them.
+      for (size_t i = 0; i < indirection.size(); i++) {
+        const uint16_t* left_corner = input.data() + 2 * i - input_offset();
+        indirection[i] = left_corner;
+      }
+      std::shuffle(indirection.begin(), indirection.end(), rng);
+
+      // Compute reference results.
+      for (size_t i = 0; i < pixels(); i++) {
+        for (size_t c = 0; c < channels(); c++) {
+          const float alpha_h = fp16_ieee_to_fp32_value(packed_weights[i * 2 + 0]);
+          const float alpha_v = fp16_ieee_to_fp32_value(packed_weights[i * 2 + 1]);
+          // `c * pixels() + i` because the output is NCHW.
+          output_ref[c * pixels() + i] =
+            // `c * indirection.size()` because the input is NCHW.
+            fp16_ieee_to_fp32_value((indirection[i * 2 + 0] + 0)[c * input_stride() + input_offset()]) * (1.0f - alpha_h) * (1.0f - alpha_v) +
+            fp16_ieee_to_fp32_value((indirection[i * 2 + 0] + 1)[c * input_stride() + input_offset()]) * alpha_h * (1.0f - alpha_v) +
+            fp16_ieee_to_fp32_value((indirection[i * 2 + 1] + 0)[c * input_stride() + input_offset()]) * (1.0f - alpha_h) * alpha_v +
+            fp16_ieee_to_fp32_value((indirection[i * 2 + 1] + 1)[c * input_stride() + input_offset()]) * alpha_h * alpha_v;
+        }
+      }
+
+      // Call optimized micro-kernel.
+      ibilinear(
+        pixels(), channels(),
+        reinterpret_cast<const void**>(indirection.data()), input_offset() * sizeof(uint16_t),
+        packed_weights.data(), output.data(), input_stride() * sizeof(uint16_t));
+
+      // Verify results.
+      for (size_t c = 0; c < channels(); c++) {
+        for (size_t i = 0; i < pixels(); i++) {
+          ASSERT_NEAR(
+              fp16_ieee_to_fp32_value(output[c * pixels() + i]),
+              output_ref[c * pixels() + i],
+              std::abs(output_ref[c * pixels() + i]) * 1.0e-2f)
+            << "i = " << i << ", channel = " << c;
+        }
+      }
+    }
+  }
+
   void TestCHW(xnn_f32_ibilinear_chw_ukernel_function ibilinear) const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    auto f32rng = std::bind(std::uniform_real_distribution<float>(0.0f, 1.0f), rng);
+    std::uniform_real_distribution<float> f32dist;
 
     std::vector<const float*> indirection(pixels() * 2);
     std::vector<float> input(XNN_EXTRA_BYTES / sizeof(float) + (channels() - 1) * input_stride() + 4 * pixels());
@@ -271,8 +383,8 @@ class IBilinearMicrokernelTester {
     std::vector<float> output_ref(pixels() * channels());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(input.begin(), input.end(), std::ref(f32rng));
-      std::generate(packed_weights.begin(), packed_weights.end(), std::ref(f32rng));
+      std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
+      std::generate(packed_weights.begin(), packed_weights.end(), [&]() { return f32dist(rng); });
       std::fill(output.begin(), output.end(), nanf(""));
 
       // Indirection will point to the even ("left") pixels of the input.

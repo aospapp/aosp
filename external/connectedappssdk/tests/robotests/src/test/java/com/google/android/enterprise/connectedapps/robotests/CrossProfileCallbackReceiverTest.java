@@ -20,7 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.android.enterprise.connectedapps.TestStringCrossProfileCallback;
 import com.google.android.enterprise.connectedapps.internal.Bundler;
 import com.google.android.enterprise.connectedapps.testapp.Profile_TestStringCallbackListener_Receiver;
-import com.google.android.enterprise.connectedapps.testapp.types.ProfileTestCrossProfileType_Bundler;
+import com.google.android.enterprise.connectedapps.testapp.types.TestCrossProfileType_Bundler;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -31,7 +31,7 @@ public class CrossProfileCallbackReceiverTest {
   private static final String STRING = "String";
 
   private final TestStringCrossProfileCallback callback = new TestStringCrossProfileCallback();
-  private final Bundler bundler = new ProfileTestCrossProfileType_Bundler();
+  private final Bundler bundler = new TestCrossProfileType_Bundler();
   private final Profile_TestStringCallbackListener_Receiver receiver =
       new Profile_TestStringCallbackListener_Receiver(callback, bundler);
 
@@ -46,6 +46,6 @@ public class CrossProfileCallbackReceiverTest {
   public void asyncCallbackListenerReceiver_bundlesParams() {
     receiver.stringCallback(STRING);
 
-    assertThat(callback.lastReceivedMethodParam).isEqualTo(STRING);
+    assertThat(callback.lastReceivedMethodValueParam).isEqualTo(STRING);
   }
 }

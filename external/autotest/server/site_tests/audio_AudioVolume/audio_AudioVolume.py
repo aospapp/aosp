@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -181,7 +182,7 @@ class audio_AudioVolume(audio_test.AudioTest):
             logging.info('high_dominant_spectrals: %s',
                          high_dominant_spectrals)
 
-            for channel in xrange(len(low_dominant_spectrals)):
+            for channel in range(len(low_dominant_spectrals)):
                 _, low_coeff = low_dominant_spectrals[channel]
                 _, high_coeff = high_dominant_spectrals[channel]
                 ratio = low_coeff / high_coeff

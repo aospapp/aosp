@@ -93,9 +93,10 @@ void TestHelper::ReadTraceData(std::vector<TracePacket> packets) {
     PERFETTO_CHECK(
         packet.ParseFromString(encoded_packet.GetRawBytesForTesting()));
     full_trace_.push_back(packet);
-    if (packet.has_clock_snapshot() || packet.has_trace_config() ||
-        packet.has_trace_stats() || !packet.synchronization_marker().empty() ||
-        packet.has_system_info() || packet.has_service_event()) {
+    if (packet.has_clock_snapshot() || packet.has_trace_uuid() ||
+        packet.has_trace_config() || packet.has_trace_stats() ||
+        !packet.synchronization_marker().empty() || packet.has_system_info() ||
+        packet.has_service_event()) {
       continue;
     }
     PERFETTO_CHECK(packet.has_trusted_uid());
@@ -112,7 +113,13 @@ void TestHelper::OnTraceData(std::vector<TracePacket> packets, bool has_more) {
 
 void TestHelper::StartServiceIfRequired() {
   if (mode_ == Mode::kStartDaemons)
-    service_thread_.Start();
+    env_cleaner_ = service_thread_.Start();
+}
+
+void TestHelper::RestartService() {
+  PERFETTO_CHECK(mode_ == Mode::kStartDaemons);
+  service_thread_.Stop();
+  service_thread_.Start();
 }
 
 FakeProducer* TestHelper::ConnectFakeProducer() {
@@ -146,18 +153,6 @@ bool TestHelper::AttachConsumer(const std::string& key) {
   };
   endpoint_->Attach(key);
   RunUntilCheckpoint("attach." + key);
-  return success;
-}
-
-bool TestHelper::SaveTraceForBugreportAndWait() {
-  bool success = false;
-  auto checkpoint = CreateCheckpoint("bugreport");
-  auto callback = [&success, checkpoint](bool s, const std::string&) {
-    success = s;
-    checkpoint();
-  };
-  endpoint_->SaveTraceForBugreport(callback);
-  RunUntilCheckpoint("bugreport");
   return success;
 }
 
@@ -294,6 +289,8 @@ void TestHelper::OnAttach(bool success, const TraceConfig&) {
 void TestHelper::OnTraceStats(bool, const TraceStats&) {}
 
 void TestHelper::OnObservableEvents(const ObservableEvents&) {}
+
+void TestHelper::OnSessionCloned(const OnSessionClonedArgs&) {}
 
 // static
 const char* TestHelper::GetDefaultModeConsumerSocketName() {

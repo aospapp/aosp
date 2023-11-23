@@ -2,6 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import os
 import tempfile
@@ -13,9 +17,11 @@ from autotest_lib.client.common_lib.cros import dev_server
 from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.server import utils as server_utils
 from autotest_lib.site_utils.lxc import constants
+import six
+from six.moves import zip
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = common_utils.metrics_mock
 
@@ -47,10 +53,11 @@ def get_container_info(container_path, **filters):
         # Only LXC 1.x has the second line of '-' as a separator.
         if line.startswith('------'):
             continue
-        info_collection.append(dict(zip(constants.ATTRIBUTES, line.split())))
+        info_collection.append(
+                dict(list(zip(constants.ATTRIBUTES, line.split()))))
     if filters:
         filtered_collection = []
-        for key, value in filters.iteritems():
+        for key, value in six.iteritems(filters):
             for info in info_collection:
                 if key in info and info[key] == value:
                     filtered_collection.append(info)

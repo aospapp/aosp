@@ -9,6 +9,7 @@ PURPOSE = "Verify normal boot after clearing the tpm owner and rebooting the ec"
 TIME = "SHORT"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 This test verifies the device doesn't get into a bad state when the EC is reset

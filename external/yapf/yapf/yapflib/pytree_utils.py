@@ -25,6 +25,7 @@ the lib2to3 library.
 """
 
 import ast
+import os
 
 from lib2to3 import pygram
 from lib2to3 import pytree
@@ -108,6 +109,9 @@ def ParseCodeToTree(code):
   """
   # This function is tiny, but the incantation for invoking the parser correctly
   # is sufficiently magical to be worth abstracting away.
+  if not code.endswith(os.linesep):
+    code += os.linesep
+
   try:
     # Try to parse using a Python 3 grammar, which is more permissive (print and
     # exec are not keywords).
@@ -217,6 +221,18 @@ def _InsertNodeAt(new_node, target, after=False):
 # is prefixed with _NODE_ANNOTATION_PREFIX. These annotations should only be
 # managed through GetNodeAnnotation and SetNodeAnnotation.
 _NODE_ANNOTATION_PREFIX = '_yapf_annotation_'
+
+
+def CopyYapfAnnotations(src, dst):
+  """Copy all YAPF annotations from the source node to the destination node.
+
+  Arguments:
+    src: the source node.
+    dst: the destination node.
+  """
+  for annotation in dir(src):
+    if annotation.startswith(_NODE_ANNOTATION_PREFIX):
+      setattr(dst, annotation, getattr(src, annotation, None))
 
 
 def GetNodeAnnotation(node, annotation, default=None):

@@ -41,27 +41,134 @@ license {
     ],
 }
 
+rust_test {
+    name: "futures-channel_test_src_lib",
+    host_supported: true,
+    crate_name: "futures_channel",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.3.26",
+    srcs: ["src/lib.rs"],
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    test_options: {
+        unit_test: true,
+    },
+    edition: "2018",
+    features: [
+        "alloc",
+        "default",
+        "futures-sink",
+        "sink",
+        "std",
+    ],
+    rustlibs: [
+        "libfutures",
+        "libfutures_core",
+        "libfutures_sink",
+        "libfutures_test",
+    ],
+}
+
+rust_defaults {
+    name: "futures-channel_test_defaults",
+    crate_name: "futures_channel",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.3.26",
+    test_suites: ["general-tests"],
+    auto_gen_config: true,
+    edition: "2018",
+    features: [
+        "alloc",
+        "default",
+        "futures-sink",
+        "sink",
+        "std",
+    ],
+    rustlibs: [
+        "libfutures",
+        "libfutures_channel",
+        "libfutures_core",
+        "libfutures_sink",
+        "libfutures_test",
+    ],
+}
+
+rust_test {
+    name: "futures-channel_test_tests_channel",
+    defaults: ["futures-channel_test_defaults"],
+    host_supported: true,
+    srcs: ["tests/channel.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_test {
+    name: "futures-channel_test_tests_mpsc-close",
+    defaults: ["futures-channel_test_defaults"],
+    host_supported: true,
+    srcs: ["tests/mpsc-close.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_test {
+    name: "futures-channel_test_tests_mpsc-size_hint",
+    defaults: ["futures-channel_test_defaults"],
+    host_supported: true,
+    srcs: ["tests/mpsc-size_hint.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_test {
+    name: "futures-channel_test_tests_mpsc",
+    defaults: ["futures-channel_test_defaults"],
+    host_supported: true,
+    srcs: ["tests/mpsc.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_test {
+    name: "futures-channel_test_tests_oneshot",
+    defaults: ["futures-channel_test_defaults"],
+    host_supported: true,
+    srcs: ["tests/oneshot.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
 rust_library {
     name: "libfutures_channel",
     host_supported: true,
     crate_name: "futures_channel",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.3.21",
+    cargo_pkg_version: "0.3.26",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
         "alloc",
         "default",
+        "futures-sink",
+        "sink",
         "std",
     ],
     rustlibs: [
         "libfutures_core",
+        "libfutures_sink",
     ],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
         "com.android.resolv",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }

@@ -94,7 +94,7 @@ TEST(ProtoZeroConformanceTest, SimpleFieldsNoNesting) {
   EXPECT_EQ(-1, gold_msg.repeated_int32(1));
   EXPECT_EQ(100, gold_msg.repeated_int32(2));
   EXPECT_EQ(2000000, gold_msg.repeated_int32(3));
-  EXPECT_EQ(serialized.size(), static_cast<size_t>(gold_msg.ByteSize()));
+  EXPECT_EQ(serialized.size(), static_cast<size_t>(gold_msg.ByteSizeLong()));
 }
 
 TEST(ProtoZeroConformanceTest, NestedMessages) {
@@ -299,6 +299,15 @@ TEST(ProtoZeroConformanceTest, PackedRepeatedResize) {
   for (int i = 0; i < kNumValues; i++) {
     ASSERT_EQ(parsed_gold_msg.field_sfixed64(i), i * kMultiplier);
   }
+}
+
+TEST(ProtoZeroConformanceTest, EnumToString) {
+  EXPECT_STREQ(protozero::test::protos::pbzero::SmallEnum_Name(
+                   protozero::test::protos::pbzero::SmallEnum::TO_BE),
+               "TO_BE");
+  EXPECT_STREQ(protozero::test::protos::pbzero::EveryField::NestedEnum_Name(
+                   protozero::test::protos::pbzero::EveryField::PING),
+               "PING");
 }
 
 }  // namespace

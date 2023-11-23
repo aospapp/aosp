@@ -1,19 +1,43 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2022 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-use crate::vfio::{VfioDevice, VfioError, VfioIrq};
-use crate::{BusAccessInfo, BusDevice, BusDeviceObj, IrqEdgeEvent, IrqLevelEvent};
-use anyhow::{bail, Context, Result};
-use base::{
-    error, pagesize, AsRawDescriptor, AsRawDescriptors, Event, MappedRegion, MemoryMapping,
-    MemoryMappingBuilder, RawDescriptor, Tube,
-};
-use resources::SystemAllocator;
+
 use std::fs::File;
 use std::sync::Arc;
 use std::u32;
+
+use anyhow::bail;
+use anyhow::Context;
+use anyhow::Result;
+use base::error;
+use base::pagesize;
+use base::AsRawDescriptor;
+use base::AsRawDescriptors;
+use base::Event;
+use base::MappedRegion;
+use base::MemoryMapping;
+use base::MemoryMappingBuilder;
+use base::Protection;
+use base::RawDescriptor;
+use base::Tube;
+use resources::SystemAllocator;
 use vfio_sys::*;
-use vm_control::{VmMemoryDestination, VmMemoryRequest, VmMemoryResponse, VmMemorySource};
+use vm_control::VmMemoryDestination;
+use vm_control::VmMemoryRequest;
+use vm_control::VmMemoryResponse;
+use vm_control::VmMemorySource;
+
+use crate::pci::CrosvmDeviceId;
+use crate::vfio::VfioDevice;
+use crate::vfio::VfioError;
+use crate::vfio::VfioIrq;
+use crate::BusAccessInfo;
+use crate::BusDevice;
+use crate::BusDeviceObj;
+use crate::DeviceId;
+use crate::IrqEdgeEvent;
+use crate::IrqLevelEvent;
+use crate::Suspendable;
 
 struct MmioInfo {
     index: u32,
@@ -32,6 +56,10 @@ pub struct VfioPlatformDevice {
 }
 
 impl BusDevice for VfioPlatformDevice {
+    fn device_id(&self) -> DeviceId {
+        CrosvmDeviceId::VfioPlatformDevice.into()
+    }
+
     fn debug_label(&self) -> String {
         format!("vfio {} device", self.device.device_name())
     }
@@ -44,6 +72,8 @@ impl BusDevice for VfioPlatformDevice {
         self.write_mmio(info.address, data)
     }
 }
+
+impl Suspendable for VfioPlatformDevice {}
 
 impl BusDeviceObj for VfioPlatformDevice {
     fn as_platform_device(&self) -> Option<&VfioPlatformDevice> {
@@ -180,7 +210,7 @@ impl VfioPlatformDevice {
                             size: mmap_size,
                         },
                         dest: VmMemoryDestination::GuestPhysicalAddress(guest_map_start),
-                        read_only: false,
+                        prot: Protection::read_write(),
                     })
                     .is_err()
                 {
@@ -204,7 +234,7 @@ impl VfioPlatformDevice {
                             Ok(v) => v,
                             Err(_e) => break,
                         };
-                        let host = (&mmap).as_ptr() as u64;
+                        let host = mmap.as_ptr() as u64;
                         // Safe because the given guest_map_start is valid guest bar address. and
                         // the host pointer is correct and valid guaranteed by MemoryMapping interface.
                         match unsafe {

@@ -77,13 +77,13 @@ public class BothProfilesManualAsyncTest {
     testUtilities.setRunningOnPersonalProfile();
     testUtilities.setRequestsPermissions(INTERACT_ACROSS_USERS);
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
   }
 
   @Test
   public void both_async_manualConnection_isBound_calledOnBothProfiles() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType.both().asyncVoidMethod(voidCallback);
 
@@ -94,7 +94,7 @@ public class BothProfilesManualAsyncTest {
   @Test
   public void both_async_manualConnection_isBound_resultContainsBothProfilesResults() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType.both().asyncIdentityStringMethod(STRING, stringCallback);
 
@@ -105,7 +105,7 @@ public class BothProfilesManualAsyncTest {
   @Test // This behaviour is expected right now but will change
   public void both_async_manualConnection_isBound_blockingMethod_blocks() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType
         .both()
@@ -117,7 +117,7 @@ public class BothProfilesManualAsyncTest {
   @Test
   public void both_async_manualConnection_isBound_nonblockingMethod_doesNotBlock() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType
         .both()
@@ -129,7 +129,7 @@ public class BothProfilesManualAsyncTest {
   @Test
   public void both_async_manualConnection_isBound_nonblockingMethod_doesCallback() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType
         .both()
@@ -141,7 +141,7 @@ public class BothProfilesManualAsyncTest {
 
   @Test
   public void both_async_manualConnection_isNotBound_calledOnOnlyCurrentProfile() {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     testUtilities.turnOffWorkProfile();
 
     profileTestCrossProfileType.both().asyncVoidMethod(voidCallback);
@@ -164,7 +164,7 @@ public class BothProfilesManualAsyncTest {
   @Test
   public void both_async_manualConnection_isBound_becomesUnbound_calledOnBothProfiles() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     profileTestCrossProfileType
         .both()
         .asyncVoidMethodWithNonBlockingDelay(voidCallback, /* secondsDelay= */ 5);
@@ -182,7 +182,7 @@ public class BothProfilesManualAsyncTest {
   @Test
   public void both_async_manualConnection_isBound_becomesUnbound_callbackFires() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     profileTestCrossProfileType
         .both()
         .asyncVoidMethodWithNonBlockingDelay(voidCallback, /* secondsDelay= */ 5);
@@ -197,7 +197,7 @@ public class BothProfilesManualAsyncTest {
   public void
       both_async_manualConnection_connectionDropsDuringCall_resultContainsOnlyCurrentProfilesResult() {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     profileTestCrossProfileType
         .both()
         .asyncIdentityStringMethodWithNonBlockingDelay(

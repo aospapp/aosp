@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+PY_VERSION = 3
 NAME = 'graphics_GLBench.bvt'
 AUTHOR = 'chromeos-gfx'
 PURPOSE = 'Benchmark the graphics library performance.'
@@ -19,7 +20,8 @@ the unknown image and older versions.
 Note: it should nearly never be required to remove old versions of good/bad
 images from these directories.
 """
-ATTRIBUTES = "suite:bvt-perbuild, suite:graphics, suite:graphics_per-day, suite:graphics_system, suite:infra_qual"
+# TODO(b/227756677) Add suite:infra_qual back to attributes
+ATTRIBUTES = "suite:bvt-perbuild, suite:graphics, suite:graphics_per-day, suite:graphics_system"
 TIME='FAST'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "gl"

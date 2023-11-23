@@ -63,7 +63,7 @@ public class AvailabilityListenerTest {
 
     utilities.ensureWorkProfileTurnedOn();
     TestAvailabilityListener availabilityListener = new TestAvailabilityListener();
-    connector.registerAvailabilityListener(availabilityListener);
+    connector.addAvailabilityListener(availabilityListener);
 
     utilities.turnOffWorkProfileAndWait();
 
@@ -78,7 +78,7 @@ public class AvailabilityListenerTest {
 
     utilities.ensureWorkProfileTurnedOff();
     TestAvailabilityListener availabilityListener = new TestAvailabilityListener();
-    connector.registerAvailabilityListener(availabilityListener);
+    connector.addAvailabilityListener(availabilityListener);
 
     utilities.turnOnWorkProfileAndWait();
 
@@ -91,7 +91,7 @@ public class AvailabilityListenerTest {
       throws InterruptedException {
     utilities.ensureWorkProfileTurnedOn();
     TestAvailabilityListener availabilityListener = new TestAvailabilityListener();
-    connector.registerAvailabilityListener(availabilityListener);
+    connector.addAvailabilityListener(availabilityListener);
 
     ListenableFuture<Void> unusedFuture = type.other().killApp();
 

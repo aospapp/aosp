@@ -27,6 +27,8 @@
 #include "lang_id/common/lite_base/integral-types.h"
 #include "lang_id/common/lite_base/logging.h"
 #include "lang_id/common/lite_strings/str-cat.h"
+#include "absl/strings/match.h"
+#include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
 namespace mobile {
@@ -44,10 +46,10 @@ typedef Predicate FeatureValue;
 class FeatureType {
  public:
   // Initializes a feature type.
-  explicit FeatureType(const std::string &name)
+  explicit FeatureType(absl::string_view name)
       : name_(name),
         base_(0),
-        is_continuous_(name.find("continuous") != std::string::npos) {}
+        is_continuous_(absl::StrContains(name, "continuous")) {}
 
   virtual ~FeatureType() {}
 
@@ -91,7 +93,7 @@ class FeatureType {
 //   };
 class EnumFeatureType : public FeatureType {
  public:
-  EnumFeatureType(const std::string &name,
+  EnumFeatureType(absl::string_view name,
                   const std::map<FeatureValue, std::string> &value_names)
       : FeatureType(name), value_names_(value_names) {
     for (const auto &pair : value_names) {
@@ -127,8 +129,8 @@ class EnumFeatureType : public FeatureType {
 // Feature type for binary features.
 class BinaryFeatureType : public FeatureType {
  public:
-  BinaryFeatureType(const std::string &name, const std::string &off,
-                    const std::string &on)
+  BinaryFeatureType(absl::string_view name, absl::string_view off,
+                    absl::string_view on)
       : FeatureType(name), off_(off), on_(on) {}
 
   // Returns the feature name for a given feature value.
@@ -151,7 +153,7 @@ class BinaryFeatureType : public FeatureType {
 class NumericFeatureType : public FeatureType {
  public:
   // Initializes numeric feature.
-  NumericFeatureType(const std::string &name, FeatureValue size)
+  NumericFeatureType(absl::string_view name, FeatureValue size)
       : FeatureType(name), size_(size) {}
 
   // Returns numeric feature value.
@@ -171,7 +173,7 @@ class NumericFeatureType : public FeatureType {
 // Feature type for byte features, including an "outside" value.
 class ByteFeatureType : public NumericFeatureType {
  public:
-  explicit ByteFeatureType(const std::string &name)
+  explicit ByteFeatureType(absl::string_view name)
       : NumericFeatureType(name, 257) {}
 
   std::string GetFeatureValueName(FeatureValue value) const override {

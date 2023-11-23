@@ -1,0 +1,29 @@
+From 94e72a213c2629e45ef58037c0bc2160b7b83d25 Mon Sep 17 00:00:00 2001
+From: Dan Stahr <danstahr@google.com>
+Date: Fri, 6 Jan 2023 13:46:09 +0000
+Subject: [PATCH] Remove mentions of custom library loader for AOSP Cronet.
+
+The canonical system-wide Cronet SO is always loaded.
+
+Test: m
+
+Change-Id: I551a7ad67bb2a90e2f63bbf7f2810e0c7e84544d
+---
+ components/cronet/android/BUILD.gn | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/components/cronet/android/BUILD.gn b/components/cronet/android/BUILD.gn
+index 1dc14396f1550..9f6c364388041 100644
+--- a/components/cronet/android/BUILD.gn
++++ b/components/cronet/android/BUILD.gn
+@@ -423,7 +423,6 @@ android_library("cronet_impl_native_base_java") {
+     "java/src/org/chromium/net/impl/CronetUrlRequest.java",
+     "java/src/org/chromium/net/impl/CronetUrlRequestContext.java",
+     "java/src/org/chromium/net/impl/NativeCronetEngineBuilderImpl.java",
+-    "java/src/org/chromium/net/impl/NativeCronetEngineBuilderWithLibraryLoaderImpl.java",
+   ]
+ 
+   # Adding deps here won't include those deps in the cronet_impl_native_java.jar.
+-- 
+2.40.0.348.gf938b09366-goog
+

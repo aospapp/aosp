@@ -13,7 +13,9 @@
     improper_ctypes,
     // This lint is renamed but we run CI for old stable rustc so should be here.
     redundant_semicolon,
-    redundant_semicolons
+    redundant_semicolons,
+    unused_macros,
+    unused_macro_rules,
 )]
 #![cfg_attr(libc_deny_warnings, deny(warnings))]
 // Attributes needed when building as part of the standard library
@@ -24,13 +26,10 @@
 #![deny(missing_copy_implementations, safe_packed_borrows)]
 #![cfg_attr(not(feature = "rustc-dep-of-std"), no_std)]
 #![cfg_attr(feature = "rustc-dep-of-std", no_core)]
-#![cfg_attr(
-    any(feature = "rustc-dep-of-std", target_os = "redox"),
-    feature(static_nobundle, native_link_modifiers, native_link_modifiers_bundle)
-)]
-#![cfg_attr(libc_const_extern_fn, feature(const_extern_fn))]
+#![cfg_attr(libc_const_extern_fn_unstable, feature(const_extern_fn))]
 
 // ANDROID: Use std to allow building as a dylib.
+#[cfg(android_dylib)]
 extern crate std;
 
 #[macro_use]
@@ -144,6 +143,12 @@ cfg_if! {
 
         mod hermit;
         pub use hermit::*;
+    } else if #[cfg(target_os = "trusty")] {
+        mod fixed_width_ints;
+        pub use fixed_width_ints::*;
+
+        mod trusty;
+        pub use trusty::*;
     } else if #[cfg(all(target_env = "sgx", target_vendor = "fortanix"))] {
         mod fixed_width_ints;
         pub use fixed_width_ints::*;

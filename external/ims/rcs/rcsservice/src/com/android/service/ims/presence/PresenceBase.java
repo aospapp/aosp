@@ -40,6 +40,7 @@ import com.android.service.ims.TaskManager;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.Arrays;
 
 public class PresenceBase {
     static private Logger logger = Logger.getLogger("PresenceBase");
@@ -193,7 +194,8 @@ public class PresenceBase {
     protected boolean isInConfigList(int errorNo, String phrase, String[] errorArray) {
         String inErrorString = ("" + errorNo).trim();
 
-        logger.debug("errorArray length=" + errorArray.length + " errorArray=" + errorArray);
+        logger.debug("errorArray length=" + errorArray.length
+                + " errorArray=" + Arrays.toString(errorArray));
         for (String errorStr : errorArray) {
             if (errorStr != null && errorStr.startsWith(inErrorString)) {
                 String errorPhrase = errorStr.substring(inErrorString.length());

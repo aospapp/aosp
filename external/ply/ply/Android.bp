@@ -28,12 +28,4 @@ python_library {
     srcs: [
         "ply/*.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
 }

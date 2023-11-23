@@ -34,6 +34,7 @@ import com.google.android.enterprise.connectedapps.TestVoidCallbackListenerImpl;
 import com.google.android.enterprise.connectedapps.annotations.CustomProfileConnector.ProfileType;
 import com.google.android.enterprise.connectedapps.exceptions.ProfileRuntimeException;
 import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfileException;
+import com.google.android.enterprise.connectedapps.testapp.CustomError;
 import com.google.android.enterprise.connectedapps.testapp.CustomRuntimeException;
 import com.google.android.enterprise.connectedapps.testapp.configuration.TestApplication;
 import com.google.android.enterprise.connectedapps.testapp.connector.FakeTestProfileConnector;
@@ -45,6 +46,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -89,8 +91,13 @@ public class FakeCrossProfileTypeTest {
   public void setUp() {
     connector.setRunningOnProfile(ProfileType.PERSONAL);
     connector.turnOnWorkProfile();
-    connector.startConnecting();
-    connector.registerConnectionListener(connectionListener);
+    connector.addConnectionHolder(this);
+    connector.addConnectionListener(connectionListener);
+  }
+
+  @After
+  public void teardown() {
+    connector.clearConnectionHolders();
   }
 
   @Test
@@ -290,9 +297,9 @@ public class FakeCrossProfileTypeTest {
   }
 
   @Test
-  public void blockingCall_notManuallyManagingConnection_throwsUnavailableProfileException()
+  public void blockingCall_noConnectionHolders_throwsUnavailableProfileException()
       throws Exception {
-    connector.stopManualConnectionManagement();
+    connector.clearConnectionHolders();
     connector.turnOnWorkProfile();
     fakeCrossProfileType.other().listenableFutureVoidMethod().get(); // Force connection
 
@@ -321,17 +328,6 @@ public class FakeCrossProfileTypeTest {
 
     assertThat(connectionListener.connectionChangedCount()).isEqualTo(1);
     assertThat(connector.isConnected()).isTrue();
-  }
-
-  @Test
-  public void asyncCall_notConnected_doesNotStartManualConnectionManagement() {
-    connector.turnOnWorkProfile();
-    connector.stopManualConnectionManagement();
-    connector.disconnect();
-
-    fakeCrossProfileType.work().asyncVoidMethod(voidCallbackListener, exceptionCallbackListener);
-
-    assertThat(connector.isManuallyManagingConnection()).isFalse();
   }
 
   @Test
@@ -366,17 +362,6 @@ public class FakeCrossProfileTypeTest {
 
     assertThat(connectionListener.connectionChangedCount()).isEqualTo(1);
     assertThat(connector.isConnected()).isTrue();
-  }
-
-  @Test
-  public void futureCall_notConnected_doesNotStartManualConnectionManagement() {
-    connector.turnOnWorkProfile();
-    connector.stopManualConnectionManagement();
-    connector.disconnect();
-
-    ListenableFuture<Void> unusedFuture = fakeCrossProfileType.work().listenableFutureVoidMethod();
-
-    assertThat(connector.isManuallyManagingConnection()).isFalse();
   }
 
   @Test
@@ -438,6 +423,11 @@ public class FakeCrossProfileTypeTest {
   }
 
   @Test
+  public void current_synchronous_throwsError_errorIsThrown() {
+    assertThrows(CustomError.class, () -> fakeCrossProfileType.current().methodWhichThrowsError());
+  }
+
+  @Test
   public void other_synchronous_throwsRuntimeException_exceptionIsWrapped()
       throws UnavailableProfileException {
     try {
@@ -445,6 +435,17 @@ public class FakeCrossProfileTypeTest {
       fail();
     } catch (ProfileRuntimeException expected) {
       assertThat(expected).hasCauseThat().isInstanceOf(CustomRuntimeException.class);
+    }
+  }
+
+  @Test
+  public void other_synchronous_throwsError_exceptionIsWrapped()
+      throws UnavailableProfileException {
+    try {
+      fakeCrossProfileType.other().methodWhichThrowsError();
+      fail();
+    } catch (ProfileRuntimeException expected) {
+      assertThat(expected).hasCauseThat().isInstanceOf(CustomError.class);
     }
   }
 
@@ -457,6 +458,14 @@ public class FakeCrossProfileTypeTest {
               .current()
               .asyncStringMethodWhichThrowsRuntimeException(/* callback= */ null);
         });
+  }
+
+  @Test
+  public void current_async_throwsError_errorIsThrown() {
+    assertThrows(
+        CustomError.class,
+        () ->
+            fakeCrossProfileType.current().asyncStringMethodWhichThrowsError(/* callback= */ null));
   }
 
   @Test
@@ -473,12 +482,32 @@ public class FakeCrossProfileTypeTest {
   }
 
   @Test
+  public void other_async_throwsError_errorIsWrapped() {
+    try {
+      fakeCrossProfileType
+          .other()
+          .asyncStringMethodWhichThrowsError(
+              /* callback= */ null, /* exceptionCallback= */ null);
+      fail();
+    } catch (ProfileRuntimeException expected) {
+      assertThat(expected).hasCauseThat().isInstanceOf(CustomError.class);
+    }
+  }
+
+  @Test
   public void current_future_throwsRuntimeException_runtimeExceptionIsThrown() {
     assertThrows(
         CustomRuntimeException.class,
         () -> {
           fakeCrossProfileType.current().listenableFutureVoidMethodWhichThrowsRuntimeException();
         });
+  }
+
+  @Test
+  public void current_future_throwsError_errorIsThrown() {
+    assertThrows(
+        CustomError.class,
+        () -> fakeCrossProfileType.current().listenableFutureVoidMethodWhichThrowsError());
   }
 
   @Test
@@ -492,6 +521,16 @@ public class FakeCrossProfileTypeTest {
   }
 
   @Test
+  public void other_future_throwsError_errorIsWrapped() {
+    try {
+      fakeCrossProfileType.other().listenableFutureVoidMethodWhichThrowsError();
+      fail();
+    } catch (ProfileRuntimeException expected) {
+      assertThat(expected).hasCauseThat().isInstanceOf(CustomError.class);
+    }
+  }
+
+  @Test
   public void both_synchronous_throwsRuntimeException_exceptionIsThrown() {
     // Which one is thrown when both throw exceptions is not specified
     try {
@@ -501,6 +540,19 @@ public class FakeCrossProfileTypeTest {
 
     } catch (ProfileRuntimeException expected) {
       assertThat(expected).hasCauseThat().isInstanceOf(CustomRuntimeException.class);
+    }
+  }
+
+  @Test
+  public void both_synchronous_throwsError_errorIsThrown() {
+    // Which one is thrown when both throw exceptions is not specified
+    try {
+      fakeCrossProfileType.both().methodWhichThrowsError();
+      fail();
+    } catch (CustomError expected) {
+
+    } catch (ProfileRuntimeException expected) {
+      assertThat(expected).hasCauseThat().isInstanceOf(CustomError.class);
     }
   }
 
@@ -520,6 +572,21 @@ public class FakeCrossProfileTypeTest {
   }
 
   @Test
+  public void both_async_throwsError_errorIsThrown() {
+    // Which one is thrown when both throw exceptions is not specified
+    try {
+      fakeCrossProfileType
+          .both()
+          .asyncStringMethodWhichThrowsError(/* callback= */ null);
+      fail();
+    } catch (CustomError expected) {
+
+    } catch (ProfileRuntimeException expected) {
+      assertThat(expected).hasCauseThat().isInstanceOf(CustomError.class);
+    }
+  }
+
+  @Test
   public void both_future_throwsRuntimeException_exceptionIsThrown() {
     // Which one is thrown when both throw exceptions is not specified
     try {
@@ -529,6 +596,19 @@ public class FakeCrossProfileTypeTest {
 
     } catch (ProfileRuntimeException expected) {
       assertThat(expected).hasCauseThat().isInstanceOf(CustomRuntimeException.class);
+    }
+  }
+
+  @Test
+  public void both_future_throwsError_errorIsThrown() {
+    // Which one is thrown when both throw exceptions is not specified
+    try {
+      fakeCrossProfileType.both().listenableFutureVoidMethodWhichThrowsError();
+      fail();
+    } catch (CustomError expected) {
+
+    } catch (ProfileRuntimeException expected) {
+      assertThat(expected).hasCauseThat().isInstanceOf(CustomError.class);
     }
   }
 
@@ -556,7 +636,7 @@ public class FakeCrossProfileTypeTest {
 
   @Test
   public void ifAvailable_synchronous_connected_returnsCorrectValue() {
-    connector.startConnecting();
+    connector.addConnectionHolder(this);
 
     assertThat(
             fakeCrossProfileType
@@ -568,7 +648,7 @@ public class FakeCrossProfileTypeTest {
 
   @Test
   public void ifAvailable_synchronousVoid_connected_callsMethod() {
-    connector.startConnecting();
+    connector.addConnectionHolder(this);
     connector.setRunningOnProfile(ProfileType.PERSONAL);
     fakeCrossProfileType.other().ifAvailable().voidMethod();
 

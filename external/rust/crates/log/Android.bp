@@ -39,12 +39,10 @@ license {
 
 rust_library {
     name: "liblog_rust",
-    stem: "liblog",
-    // has rustc warnings
     host_supported: true,
     crate_name: "log",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.4.14",
+    cargo_pkg_version: "0.4.17",
     srcs: ["src/lib.rs"],
     edition: "2015",
     features: ["std"],
@@ -59,6 +57,30 @@ rust_library {
         "//apex_available:platform",
         "//apex_available:anyapex",
     ],
+    product_available: true,
     vendor_available: true,
     min_sdk_version: "29",
 }
+
+rust_library {
+    name: "liblog_rust_nostd",
+    host_supported: true,
+    crate_name: "log",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.4.17",
+    srcs: ["src/lib.rs"],
+    edition: "2015",
+    cfgs: [
+        "atomic_cas",
+        "has_atomics",
+    ],
+    rustlibs: [
+        "libcfg_if",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+    min_sdk_version: "29",
+}
+

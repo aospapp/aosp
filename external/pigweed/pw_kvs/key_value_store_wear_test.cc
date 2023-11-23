@@ -65,7 +65,7 @@ TEST_F(WearTest, RepeatedLargeEntry) {
     // written.
     test_data[0]++;
 
-    EXPECT_TRUE(kvs_.Put("large_entry", std::span(test_data)).ok());
+    EXPECT_TRUE(kvs_.Put("large_entry", span(test_data)).ok());
   }
 
   // Ensure every sector has been erased at several times due to garbage
@@ -73,8 +73,10 @@ TEST_F(WearTest, RepeatedLargeEntry) {
   EXPECT_GE(partition_.min_erase_count(), 7u);
   EXPECT_LE(partition_.max_erase_count(), partition_.min_erase_count() + 1u);
 
+  // Ignore error to allow test to pass on platforms where writing out the stats
+  // is not possible.
   partition_.SaveStorageStats(kvs_, "WearTest RepeatedLargeEntry")
-      .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+      .IgnoreError();
 }
 
 // Test a KVS with a number of entries, several sectors that are nearly full
@@ -94,8 +96,7 @@ TEST_F(WearTest, TwoPassFillWithLargeAndLarger) {
 
     EXPECT_EQ(
         OkStatus(),
-        kvs_.Put("key",
-                 std::as_bytes(std::span(test_data, sizeof(test_data) - 70))));
+        kvs_.Put("key", as_bytes(span(test_data, sizeof(test_data) - 70))));
   }
 
   // Add many copies of a differently sized entry that is larger than the
@@ -105,7 +106,7 @@ TEST_F(WearTest, TwoPassFillWithLargeAndLarger) {
     // written.
     test_data[0]++;
 
-    printf("Add entry %zu\n", i);
+    PW_LOG_DEBUG("Add entry %zu\n", i);
     EXPECT_EQ(OkStatus(), kvs_.Put("big_key", test_data));
   }
 

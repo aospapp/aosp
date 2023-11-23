@@ -115,6 +115,10 @@ java_library {
     static_libs: [
         "libphonenumber",
         "junit",
+        "mockito-target-extended",
+    ],
+    libs: [
+        "android.test.mock",
     ],
     java_version: "1.7",
 }

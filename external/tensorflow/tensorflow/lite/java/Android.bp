@@ -31,9 +31,14 @@ java_library_static {
     ],
     srcs: [
         ":tflite_nnapi_delegate_java",
-        "src/main/java/org/tensorflow/lite/*.java",
+        "src/main/java/org/tensorflow/lite/**/*.java",
     ],
     static_libs: [
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.adservices",
+        "com.android.extservices",
     ],
 }
 
@@ -64,4 +69,9 @@ cc_library_shared {
         "-Wno-unused-parameter",
     ],
     stl: "libc++_static",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.adservices",
+        "com.android.extservices",
+    ],
 }

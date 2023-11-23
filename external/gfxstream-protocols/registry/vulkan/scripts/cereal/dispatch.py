@@ -355,7 +355,7 @@ bool vulkan_dispatch_check_%s_%s(
 
         self.module.appendImpl(self.cgenImpl.swapCode())
 
-    def onBeginFeature(self, featureName):
+    def onBeginFeature(self, featureName, featureType):
         self.currentFeature = featureName
 
     def onGenType(self, typeXml, name, alias):
@@ -489,8 +489,8 @@ void init_vulkan_dispatch_from_system_loader(
 
         self.module.appendImpl(self.cgenImpl.swapCode())
 
-    def onBeginFeature(self, featureName):
-        VulkanDispatch.onBeginFeature(self, featureName);
+    def onBeginFeature(self, featureName, featureType):
+        VulkanDispatch.onBeginFeature(self, featureName, featureType);
 
     def onGenType(self, typeXml, name, alias):
         VulkanDispatch.onGenType(self, typeXml, name, alias);

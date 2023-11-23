@@ -173,8 +173,8 @@ Status UpdateMetadata(se::Stream* stream, se::DeviceMemory<uint8>* buffer,
   TF_RETURN_IF_ERROR(transfer_manager->TransferArrayToDeviceAsync(
       stream, *metadata_literal, metadata_buffer));
   // Retain the literal until the end of the transfer.
-  stream->ThenDoHostCallback([metadata_literal]() { return Status::OK(); });
-  return Status::OK();
+  stream->ThenDoHostCallback([metadata_literal]() { return OkStatus(); });
+  return OkStatus();
 }
 
 // Given a static input buffer, convert it to dynamic form by expanding it to
@@ -218,7 +218,7 @@ Status UpdateDynamicInputs(
         [&](const xla::Shape& sub_shape,
             const xla::ShapeIndex& index) -> Status {
           if (sub_shape.IsTuple() || sub_shape.is_static()) {
-            return Status::OK();
+            return OkStatus();
           }
           TF_ASSIGN_OR_RETURN(
               const xla::Shape* runtime_shape,
@@ -245,7 +245,7 @@ Status UpdateDynamicInputs(
               index, xla::MaybeOwningDeviceMemory(std::move(dynamic_input)));
           execution_input->ClearUnownedIndex(index);
           element_modified = true;
-          return Status::OK();
+          return OkStatus();
         }));
     if (element_modified) {
       TF_RETURN_IF_ERROR(execution_input->SetDynamicShape(compile_time_shape));
@@ -261,7 +261,7 @@ Status UpdateDynamicInputs(
           transfer_manager->WriteTupleIndexTablesAsync(stream, shaped_buffer));
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 xla::StatusOr<RefPtr<XRTTupleAllocation>> CreateOutputTuple(
@@ -337,8 +337,10 @@ xla::StatusOr<RefPtr<XRTTupleAllocation>> RunExecutable(
   if (nccl_factory != nullptr) {
     auto uid_callback =
         [&](const xla::gpu::NcclCliqueKey& key) -> xla::StatusOr<std::string> {
-      std::vector<xla::int64> replicas;
-      for (auto& device : key.devices()) {
+      std::vector<int64_t> replicas;
+      const auto key_devices = key.devices();
+      replicas.reserve(key_devices.size());
+      for (auto& device : key_devices) {
         replicas.push_back(device.value());
       }
       return nccl_factory->GetUniqueId(replicas);
@@ -443,7 +445,7 @@ Status XRTExecuteOp::DoWork(OpKernelContext* context) {
 
   const Tensor& execution_input = context->input(0);
   TF_RET_CHECK(TensorShapeUtils::IsScalar(execution_input.shape()));
-  int64_t compilation_handle = execution_input.scalar<int64>()();
+  int64_t compilation_handle = execution_input.scalar<int64_t>()();
 
   const Tensor& execution_config = context->input(1);
   TF_RET_CHECK(TensorShapeUtils::IsScalar(execution_config.shape()));

@@ -8,6 +8,7 @@ TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:av-analysis_trace_per-build'
 MAX_RESULT_SIZE_KB = 1024 * 1024
+PY_VERSION = 3
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True
@@ -25,6 +26,8 @@ See http://go/tast-failures for information about investigating failures.
 '''
 
 def run(machine):
+    host=hosts.create_host(machine)
+    host.reboot()
     job.run_test('tast',
                  host=hosts.create_host(machine),
                  test_exprs=['("group:graphics" && graphics_perbuild && graphics_trace && graphics_av_analysis)'],

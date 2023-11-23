@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,8 +8,6 @@
 # based on real HW but it doesn't have to be.
 
 from __future__ import print_function
-
-import logging
 
 # http://docs.python.org/2/library/errno.html
 import errno

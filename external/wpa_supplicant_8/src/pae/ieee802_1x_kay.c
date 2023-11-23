@@ -221,8 +221,16 @@ ieee802_1x_mka_dump_dist_sak_body(struct ieee802_1x_mka_dist_sak_body *body)
 
 	wpa_printf(MSG_DEBUG, "\tKey Number............: %d",
 		   be_to_host32(body->kn));
-	/* TODO: Other than GCM-AES-128 case: MACsec Cipher Suite */
-	wpa_hexdump(MSG_DEBUG, "\tAES Key Wrap of SAK...:", body->sak, 24);
+	if (body_len == 28) {
+		wpa_hexdump(MSG_DEBUG, "\tAES Key Wrap of SAK...:",
+			    body->sak, 24);
+	} else if (body_len > CS_ID_LEN - sizeof(body->kn)) {
+		wpa_hexdump(MSG_DEBUG, "\tMACsec Cipher Suite...:",
+			    body->sak, CS_ID_LEN);
+		wpa_hexdump(MSG_DEBUG, "\tAES Key Wrap of SAK...:",
+			    body->sak + CS_ID_LEN,
+			    body_len - CS_ID_LEN - sizeof(body->kn));
+	}
 }
 
 
@@ -584,6 +592,7 @@ static struct ieee802_1x_kay_peer *
 ieee802_1x_kay_create_peer(const u8 *mi, u32 mn)
 {
 	struct ieee802_1x_kay_peer *peer;
+	struct os_reltime now;
 
 	peer = os_zalloc(sizeof(*peer));
 	if (!peer) {
@@ -593,7 +602,8 @@ ieee802_1x_kay_create_peer(const u8 *mi, u32 mn)
 
 	os_memcpy(peer->mi, mi, MI_LEN);
 	peer->mn = mn;
-	peer->expire = time(NULL) + MKA_LIFE_TIME / 1000;
+	os_get_reltime(&now);
+	peer->expire = now.sec + MKA_LIFE_TIME / 1000;
 	peer->sak_used = false;
 	peer->missing_sak_use_count = 0;
 
@@ -670,6 +680,7 @@ ieee802_1x_kay_move_live_peer(struct ieee802_1x_mka_participant *participant,
 {
 	struct ieee802_1x_kay_peer *peer;
 	struct receive_sc *rxsc;
+	struct os_reltime now;
 
 	peer = ieee802_1x_kay_get_potential_peer(participant, mi);
 	if (!peer)
@@ -682,7 +693,8 @@ ieee802_1x_kay_move_live_peer(struct ieee802_1x_mka_participant *participant,
 	os_memcpy(&peer->sci, &participant->current_peer_sci,
 		  sizeof(peer->sci));
 	peer->mn = mn;
-	peer->expire = time(NULL) + MKA_LIFE_TIME / 1000;
+	os_get_reltime(&now);
+	peer->expire = now.sec + MKA_LIFE_TIME / 1000;
 
 	wpa_printf(MSG_DEBUG, "KaY: Move potential peer to live peer");
 	ieee802_1x_kay_dump_peer(peer);
@@ -865,13 +877,15 @@ ieee802_1x_mka_decode_basic_body(struct ieee802_1x_kay *kay, const u8 *mka_msg,
 		peer = ieee802_1x_kay_get_peer_sci(participant,
 						   &body->actor_sci);
 		if (peer) {
-			time_t new_expire;
+			os_time_t new_expire;
+			struct os_reltime now;
 
 			wpa_printf(MSG_WARNING,
 				   "KaY: duplicated SCI detected - maybe active attacker or peer selected new MI - ignore MKPDU");
 			/* Reduce timeout to speed up this process but left the
 			 * chance for old one to prove aliveness. */
-			new_expire = time(NULL) + MKA_HELLO_TIME * 1.5 / 1000;
+			os_get_reltime(&now);
+			new_expire = now.sec + MKA_HELLO_TIME * 1.5 / 1000;
 			if (peer->expire > new_expire)
 				peer->expire = new_expire;
 			return NULL;
@@ -2122,6 +2136,7 @@ ieee802_1x_kay_generate_new_sak(struct ieee802_1x_mka_participant *participant)
 	unsigned int key_len;
 	u8 *key;
 	struct macsec_ciphersuite *cs;
+	struct os_reltime now;
 
 	/* check condition for generating a fresh SAK:
 	 * must have one live peer
@@ -2142,7 +2157,8 @@ ieee802_1x_kay_generate_new_sak(struct ieee802_1x_mka_participant *participant)
 	 * here only check first item and ingore
 	 *   && (!dl_list_empty(&participant->potential_peers))) {
 	 */
-	if ((time(NULL) - kay->dist_time) < MKA_LIFE_TIME / 1000) {
+	os_get_reltime(&now);
+	if ((now.sec - kay->dist_time) < MKA_LIFE_TIME / 1000) {
 		wpa_printf(MSG_ERROR,
 			   "KaY: Life time has not elapsed since prior SAK distributed");
 		return -1;
@@ -2236,7 +2252,7 @@ ieee802_1x_kay_generate_new_sak(struct ieee802_1x_mka_participant *participant)
 	if (kay->dist_an > 3)
 		kay->dist_an = 0;
 
-	kay->dist_time = time(NULL);
+	kay->dist_time = now.sec;
 
 	return 0;
 
@@ -2540,17 +2556,19 @@ static void ieee802_1x_participant_timer(void *eloop_ctx, void *timeout_ctx)
 	struct ieee802_1x_mka_participant *participant;
 	struct ieee802_1x_kay *kay;
 	struct ieee802_1x_kay_peer *peer, *pre_peer;
-	time_t now = time(NULL);
+	struct os_reltime now;
 	bool lp_changed;
 	struct receive_sc *rxsc, *pre_rxsc;
 	struct transmit_sa *txsa, *pre_txsa;
+
+	os_get_reltime(&now);
 
 	participant = (struct ieee802_1x_mka_participant *)eloop_ctx;
 	kay = participant->kay;
 	wpa_printf(MSG_DEBUG, "KaY: Participant timer (ifname=%s)",
 		   kay->if_name);
 	if (participant->cak_life) {
-		if (now > participant->cak_life)
+		if (now.sec > participant->cak_life)
 			goto delete_mka;
 	}
 
@@ -2558,7 +2576,7 @@ static void ieee802_1x_participant_timer(void *eloop_ctx, void *timeout_ctx)
 	 * when the MKA life elapsed since its creating */
 	if (participant->mka_life) {
 		if (dl_list_empty(&participant->live_peers)) {
-			if (now > participant->mka_life)
+			if (now.sec > participant->mka_life)
 				goto delete_mka;
 		} else {
 			participant->mka_life = 0;
@@ -2568,7 +2586,7 @@ static void ieee802_1x_participant_timer(void *eloop_ctx, void *timeout_ctx)
 	lp_changed = false;
 	dl_list_for_each_safe(peer, pre_peer, &participant->live_peers,
 			      struct ieee802_1x_kay_peer, list) {
-		if (now > peer->expire) {
+		if (now.sec > peer->expire) {
 			wpa_printf(MSG_DEBUG, "KaY: Live peer removed");
 			wpa_hexdump(MSG_DEBUG, "\tMI: ", peer->mi,
 				    sizeof(peer->mi));
@@ -2626,7 +2644,7 @@ static void ieee802_1x_participant_timer(void *eloop_ctx, void *timeout_ctx)
 
 	dl_list_for_each_safe(peer, pre_peer, &participant->potential_peers,
 			      struct ieee802_1x_kay_peer, list) {
-		if (now > peer->expire) {
+		if (now.sec > peer->expire) {
 			wpa_printf(MSG_DEBUG, "KaY: Potential peer removed");
 			wpa_hexdump(MSG_DEBUG, "\tMI: ", peer->mi,
 				    sizeof(peer->mi));
@@ -3363,11 +3381,14 @@ static int ieee802_1x_kay_decode_mkpdu(struct ieee802_1x_kay *kay,
 				return -1;
 			}
 		} else {
+			struct os_reltime now;
+
+			os_get_reltime(&now);
 			peer->missing_sak_use_count = 0;
 
 			/* Only update live peer watchdog after successful
 			 * decode of all parameter sets */
-			peer->expire = time(NULL) + MKA_LIFE_TIME / 1000;
+			peer->expire = now.sec + MKA_LIFE_TIME / 1000;
 		}
 	} else {
 		/* MKPDU is from new or potential peer */
@@ -3456,7 +3477,8 @@ static void kay_l2_receive(void *ctx, const u8 *src_addr, const u8 *buf,
 struct ieee802_1x_kay *
 ieee802_1x_kay_init(struct ieee802_1x_kay_ctx *ctx, enum macsec_policy policy,
 		    bool macsec_replay_protect, u32 macsec_replay_window,
-		    u16 port, u8 priority, const char *ifname, const u8 *addr)
+		    u8 macsec_offload, u16 port, u8 priority,
+		    u32 macsec_csindex, const char *ifname, const u8 *addr)
 {
 	struct ieee802_1x_kay *kay;
 
@@ -3493,7 +3515,7 @@ ieee802_1x_kay_init(struct ieee802_1x_kay_ctx *ctx, enum macsec_policy policy,
 	kay->dist_time = 0;
 
 	kay->pn_exhaustion = PENDING_PN_EXHAUSTION;
-	kay->macsec_csindex = DEFAULT_CS_INDEX;
+	kay->macsec_csindex = macsec_csindex;
 	kay->mka_algindex = DEFAULT_MKA_ALG_INDEX;
 	kay->mka_version = MKA_VERSION_ID;
 
@@ -3515,6 +3537,7 @@ ieee802_1x_kay_init(struct ieee802_1x_kay_ctx *ctx, enum macsec_policy policy,
 		kay->macsec_validate = Disabled;
 		kay->macsec_replay_protect = false;
 		kay->macsec_replay_window = 0;
+		kay->macsec_offload = 0;
 		kay->macsec_confidentiality = CONFIDENTIALITY_NONE;
 		kay->mka_hello_time = MKA_HELLO_TIME;
 	} else {
@@ -3531,6 +3554,7 @@ ieee802_1x_kay_init(struct ieee802_1x_kay_ctx *ctx, enum macsec_policy policy,
 		kay->macsec_validate = Strict;
 		kay->macsec_replay_protect = macsec_replay_protect;
 		kay->macsec_replay_window = macsec_replay_window;
+		kay->macsec_offload = macsec_offload;
 		kay->mka_hello_time = MKA_HELLO_TIME;
 	}
 
@@ -3665,8 +3689,12 @@ ieee802_1x_kay_create_mka(struct ieee802_1x_kay *kay,
 	os_memcpy(participant->cak.key, cak->key, cak->len);
 	wpa_hexdump_key(MSG_DEBUG, "KaY: CAK", participant->cak.key,
 			participant->cak.len);
-	if (life)
-		participant->cak_life = life + time(NULL);
+	if (life) {
+		struct os_reltime now;
+		os_get_reltime(&now);
+
+		participant->cak_life = life + now.sec;
+	}
 
 	switch (mode) {
 	case EAP_EXCHANGE:
@@ -3731,6 +3759,7 @@ ieee802_1x_kay_create_mka(struct ieee802_1x_kay *kay,
 	secy_cp_control_protect_frames(kay, kay->macsec_protect);
 	secy_cp_control_replay(kay, kay->macsec_replay_protect,
 			       kay->macsec_replay_window);
+	secy_cp_control_offload(kay, kay->macsec_offload);
 	if (secy_create_transmit_sc(kay, participant->txsc))
 		goto fail;
 
@@ -3774,7 +3803,10 @@ ieee802_1x_kay_create_mka(struct ieee802_1x_kay *kay,
 	 * some peer appears.
 	 */
 	if (mode != PSK) {
-		participant->mka_life = MKA_LIFE_TIME / 1000 + time(NULL) +
+		struct os_reltime now;
+		os_get_reltime(&now);
+
+		participant->mka_life = MKA_LIFE_TIME / 1000 + now.sec +
 			usecs / 1000000;
 	}
 	participant->mode = mode;

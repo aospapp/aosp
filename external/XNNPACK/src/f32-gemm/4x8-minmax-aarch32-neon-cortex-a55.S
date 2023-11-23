@@ -7,6 +7,7 @@
 
 .syntax unified
 
+# LINT.IfChange
 // void xnn_f32_gemm_minmax_ukernel_4x8__aarch32_neon_cortex_a55(
 //     size_t mr,                            r0
 //     size_t nc,                            r1
@@ -357,12 +358,12 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_4x8__aarch32_neon_cortex_a55
         VMLA.F32 q14, q6, d3[1]
         VMLA.F32 q15, q7, d3[1]
 
-        # Is there a remainder?- 1 floats of A (4 bytes)
+        # Is there a remainder?- 1 float of A (4 bytes)
         TST     r5, 4
         BEQ     3b
 
 5:
-        # Remainder- 1 floats of A (4 bytes)
+        # Remainder- 1 float of A (4 bytes)
         VLDM    r3!,  {s0}              // A0
         VLDM    r9!, {d8-d11}           // B0
         VLDM    r12!, {s2}              // A1
@@ -417,6 +418,7 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_4x8__aarch32_neon_cortex_a55
         BX      lr
 
 END_FUNCTION xnn_f32_gemm_minmax_ukernel_4x8__aarch32_neon_cortex_a55
+# LINT.ThenChange(4x8-aarch32-neon-cortex-a55.cc)
 
 #ifdef __ELF__
 .section ".note.GNU-stack","",%progbits

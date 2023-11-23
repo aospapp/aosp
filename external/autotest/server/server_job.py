@@ -19,7 +19,6 @@ from __future__ import print_function
 import errno
 import fcntl
 import getpass
-import itertools
 import logging
 import os
 import pickle
@@ -64,7 +63,7 @@ from autotest_lib.tko import parser_lib
 from six.moves import zip
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
@@ -130,10 +129,12 @@ def get_machine_dicts(machine_names, store_dir, in_lab, use_shadow_store,
     for machine in machine_names:
         if not in_lab:
             afe_host = server_utils.EmptyAFEHost()
-            host_info_store = host_info.InMemoryHostInfoStore()
-            if host_attributes is not None:
+            host_info_store = _create_file_backed_host_info_store(
+                    store_dir, machine)
+            if host_attributes:
                 afe_host.attributes.update(host_attributes)
-                info = host_info.HostInfo(attributes=host_attributes)
+                info = host_info.HostInfo(labels=host_info_store.get().labels,
+                                          attributes=host_attributes)
                 host_info_store.commit(info)
         elif use_shadow_store:
             afe_host = _create_afe_host(machine)
@@ -242,7 +243,13 @@ class server_job(base_job.base_job):
     _STATUS_VERSION = 1
 
     # TODO crbug.com/285395 eliminate ssh_verbosity_flag
-    def __init__(self, control, args, resultdir, label, user, machines,
+    def __init__(self,
+                 control,
+                 args,
+                 resultdir,
+                 label,
+                 user,
+                 machines,
                  machine_dict_list,
                  client=False,
                  ssh_user=host_factory.DEFAULT_SSH_USER,
@@ -251,11 +258,17 @@ class server_job(base_job.base_job):
                  ssh_verbosity_flag=host_factory.DEFAULT_SSH_VERBOSITY,
                  ssh_options=host_factory.DEFAULT_SSH_OPTIONS,
                  group_name='',
-                 tag='', disable_sysinfo=False,
+                 tag='',
+                 disable_sysinfo=False,
                  control_filename=SERVER_CONTROL_FILENAME,
-                 parent_job_id=None, in_lab=False,
+                 parent_job_id=None,
+                 in_lab=False,
                  use_client_trampoline=False,
-                 sync_offload_dir=''):
+                 sync_offload_dir='',
+                 companion_hosts=None,
+                 dut_servers=None,
+                 is_cft=False,
+                 force_full_log_collection=False):
         """
         Create a server side job object.
 
@@ -295,6 +308,14 @@ class server_job(base_job.base_job):
                 control file.
         @param sync_offload_dir: String; relative path to synchronous offload
                 dir, relative to the results directory. Ignored if empty.
+        @param companion_hosts: a str or list of hosts to be used as companions
+                for the and provided to test. NOTE: these are different than
+                machines, where each host is a host that the test would be run
+                on.
+        @param dut_servers: a str or list of hosts to be used as DUT servers
+                provided to test.
+        @param force_full_log_collection: bool; force full log collection even
+                when test passes.
         """
         super(server_job, self).__init__(resultdir=resultdir)
         self.control = control
@@ -327,20 +348,38 @@ class server_job(base_job.base_job):
         self._control_filename = control_filename
         self._disable_sysinfo = disable_sysinfo
         self._use_client_trampoline = use_client_trampoline
+        self._companion_hosts = companion_hosts
+        self._dut_servers = dut_servers
+        self._is_cft = is_cft
+        self.force_full_log_collection = force_full_log_collection
+
+        # Parse the release number from the label to setup sysinfo.
+        version = re.findall('release/R(\d+)-', label)
+        if version:
+            version = int(version[0])
 
         self.logging = logging_manager.get_logging_manager(
                 manage_stdout_and_stderr=True, redirect_fds=True)
         subcommand.logging_manager_object = self.logging
 
-        self.sysinfo = sysinfo.sysinfo(self.resultdir)
+        self.sysinfo = sysinfo.sysinfo(self.resultdir, version=version)
         self.profilers = profilers.profilers(self)
         self._sync_offload_dir = sync_offload_dir
 
-        job_data = {'label' : label, 'user' : user,
-                    'hostname' : ','.join(machines),
-                    'drone' : platform.node(),
-                    'status_version' : str(self._STATUS_VERSION),
-                    'job_started' : str(int(time.time()))}
+        job_data = {
+                'user': user,
+                'hostname': ','.join(machines),
+                'drone': platform.node(),
+                'status_version': str(self._STATUS_VERSION),
+                'job_started': str(int(time.time()))
+        }
+
+        # Adhoc/<testname> is the default label, and should not be written,
+        # as this can cause conflicts with results uploading in CFT.
+        # However, some pipelines (such as PVS) do need `label` within the
+        # keyval, which can now by done with the `-l` flag in test_that.
+        if 'adhoc' not in label:
+            job_data['label'] = label
         # Save parent job id to keyvals, so parser can retrieve the info and
         # write to tko_jobs record.
         if parent_job_id:
@@ -399,6 +438,12 @@ class server_job(base_job.base_job):
                     control, raise_warnings=False)
             self.fast = parsed_control.fast
             self.max_result_size_KB = parsed_control.max_result_size_KB
+            # wrap this in a try to prevent client/SSP issues. Note: if the
+            # except is hit, the timeout will be ignored.
+            try:
+                self.extended_timeout = parsed_control.extended_timeout
+            except AttributeError:
+                self.extended_timeout = None
         else:
             self.fast = False
             # Set the maximum result size to be the default specified in
@@ -838,8 +883,14 @@ class server_job(base_job.base_job):
                     logging.debug("Results dir is %s", self.resultdir)
                     logging.debug("Synchronous offload dir is %s", sync_dir)
                 logging.info("Processing control file")
+                if self._companion_hosts:
+                    namespace['companion_hosts'] = self._companion_hosts
+                if self._dut_servers:
+                    namespace['dut_servers'] = self._dut_servers
                 namespace['use_packaging'] = use_packaging
                 namespace['synchronous_offload_dir'] = sync_dir
+                namespace['extended_timeout'] = self.extended_timeout
+                namespace['is_cft'] = self._is_cft
                 os.environ[OFFLOAD_ENVVAR] = sync_dir
                 self._execute_code(server_control_file, namespace)
                 logging.info("Finished processing control file")

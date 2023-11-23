@@ -65,8 +65,9 @@ class Configurator():
         # a line with 'LogLevel' option
         lines = self._run_as_root(["cat", _CUPS_CONF_FILE]).splitlines()
 
+        line_no = None
         for index, line in enumerate(lines):
-            if line.startswith('LogLevel'):
+            if line.startswith(b'LogLevel'):
                 line_no = index
                 break
         if line_no is None:

@@ -16,22 +16,24 @@ from autotest_lib.client.common_lib import autotemp
 from autotest_lib.server import utils
 import six
 
-_MASTER_SSH_COMMAND_TEMPLATE = (
-    '/usr/bin/ssh -a -x -N '
-    '-o ControlMaster=yes '  # Create multiplex socket.
-    '-o ControlPath=%(socket)s '
-    '-o StrictHostKeyChecking=no '
-    '-o UserKnownHostsFile=/dev/null '
-    '-o BatchMode=yes '
-    '-o ConnectTimeout=30 '
-    '-o ServerAliveInterval=30 '
-    '-o ServerAliveCountMax=1 '
-    '-o ConnectionAttempts=1 '
-    '-o Protocol=2 '
-    '-l %(user)s -p %(port)d %(hostname)s')
+# TODO b:169251326 terms below are set outside of this codebase
+# and should be updated when possible. ("master" -> "main")
+_MAIN_SSH_COMMAND_TEMPLATE = (
+        '/usr/bin/ssh -a -x -N '
+        '-o ControlMaster=yes '  # Create multiplex socket. # nocheck
+        '-o ControlPath=%(socket)s '
+        '-o StrictHostKeyChecking=no '
+        '-o UserKnownHostsFile=/dev/null '
+        '-o BatchMode=yes '
+        '-o ConnectTimeout=30 '
+        '-o ServerAliveInterval=30 '
+        '-o ServerAliveCountMax=1 '
+        '-o ConnectionAttempts=1 '
+        '-o Protocol=2 '
+        '-l %(user)s %(port)s %(hostname)s')
 
 
-class MasterSsh(object):
+class MainSsh(object):
     """Manages multiplex ssh connection."""
 
     def __init__(self, hostname, user, port):
@@ -39,8 +41,8 @@ class MasterSsh(object):
         self._user = user
         self._port = port
 
-        self._master_job = None
-        self._master_tempdir = None
+        self._main_job = None
+        self._main_tempdir = None
 
         self._lock = multiprocessing.Lock()
 
@@ -49,7 +51,7 @@ class MasterSsh(object):
 
     @property
     def _socket_path(self):
-        return os.path.join(self._master_tempdir.name, 'socket')
+        return os.path.join(self._main_tempdir.name, 'socket')
 
     @property
     def ssh_option(self):
@@ -57,7 +59,7 @@ class MasterSsh(object):
 
         If background process is not running, returns an empty string.
         """
-        if not self._master_tempdir:
+        if not self._main_tempdir:
             return ''
         return '-o ControlPath=%s' % (self._socket_path,)
 
@@ -68,43 +70,43 @@ class MasterSsh(object):
         If there is a stale process or a stale socket, first clean them up,
         then create a background process.
 
-        @param timeout: timeout in seconds (default 5) to wait for master ssh
+        @param timeout: timeout in seconds (default 5) to wait for main ssh
                         connection to be established. If timeout is reached, a
                         warning message is logged, but no other action is
                         taken.
         """
-        # Multiple processes might try in parallel to clean up the old master
+        # Multiple processes might try in parallel to clean up the old main
         # ssh connection and create a new one, therefore use a lock to protect
         # against race conditions.
         with self._lock:
-            # If a previously started master SSH connection is not running
+            # If a previously started main SSH connection is not running
             # anymore, it needs to be cleaned up and then restarted.
-            if (self._master_job and (not os.path.exists(self._socket_path) or
-                                      self._master_job.sp.poll() is not None)):
+            if (self._main_job and (not os.path.exists(self._socket_path) or
+                                      self._main_job.sp.poll() is not None)):
                 logging.info(
-                        'Master ssh connection to %s is down.', self._hostname)
+                        'Main-ssh connection to %s is down.', self._hostname)
                 self._close_internal()
 
-            # Start a new master SSH connection.
-            if not self._master_job:
+            # Start a new main SSH connection.
+            if not self._main_job:
                 # Create a shared socket in a temp location.
-                self._master_tempdir = autotemp.tempdir(dir=_short_tmpdir())
+                self._main_tempdir = autotemp.tempdir(dir=_short_tmpdir())
 
-                # Start the master SSH connection in the background.
-                master_cmd = _MASTER_SSH_COMMAND_TEMPLATE % {
+                # Start the main SSH connection in the background.
+                main_cmd = _MAIN_SSH_COMMAND_TEMPLATE % {
                         'hostname': self._hostname,
                         'user': self._user,
-                        'port': self._port,
+                        'port': "-p %s" % self._port if self._port else "",
                         'socket': self._socket_path,
                 }
                 logging.info(
-                        'Starting master ssh connection \'%s\'', master_cmd)
-                self._master_job = utils.BgJob(
-                         master_cmd, nickname='master-ssh',
-                         stdout_tee=utils.DEVNULL, stderr_tee=utils.DEVNULL,
-                         unjoinable=True)
+                    'Starting main-ssh connection \'%s\'', main_cmd)
+                self._main_job = utils.BgJob(
+                    main_cmd, nickname='main-ssh',
+                    stdout_tee=utils.DEVNULL, stderr_tee=utils.DEVNULL,
+                    unjoinable=True)
 
-                # To prevent a race between the master ssh connection
+                # To prevent a race between the main ssh connection
                 # startup and its first attempted use, wait for socket file to
                 # exist before returning.
                 try:
@@ -112,7 +114,7 @@ class MasterSsh(object):
                             condition=lambda: os.path.exists(self._socket_path),
                             timeout=timeout,
                             sleep_interval=0.2,
-                            desc='master-ssh connection up')
+                            desc='main-ssh connection up')
                 except utils.TimeoutError:
                     # poll_for_conditional already logs an error upon timeout
                     pass
@@ -125,15 +127,15 @@ class MasterSsh(object):
 
     def _close_internal(self):
         # Assume that when this is called, _lock should be acquired, already.
-        if self._master_job:
-            logging.debug('Nuking ssh master_job')
-            utils.nuke_subprocess(self._master_job.sp)
-            self._master_job = None
+        if self._main_job:
+            logging.debug('Nuking ssh main_job')
+            utils.nuke_subprocess(self._main_job.sp)
+            self._main_job = None
 
-        if self._master_tempdir:
-            logging.debug('Cleaning ssh master_tempdir')
-            self._master_tempdir.clean()
-            self._master_tempdir = None
+        if self._main_tempdir:
+            logging.debug('Cleaning ssh main_tempdir')
+            self._main_tempdir.clean()
+            self._main_tempdir = None
 
 
 class ConnectionPool(object):
@@ -144,7 +146,7 @@ class ConnectionPool(object):
         self._lock = threading.Lock()
 
     def get(self, hostname, user, port):
-        """Returns MasterSsh instance for the given endpoint.
+        """Returns MainSsh instance for the given endpoint.
 
         If the pool holds the instance already, returns it. If not, create the
         instance, and returns it.
@@ -156,13 +158,13 @@ class ConnectionPool(object):
         @param port: Port number sshd is listening.
         """
         key = (hostname, user, port)
-        logging.debug('Get master ssh connection for %s@%s:%d', user, hostname,
-                      port)
+        logging.debug('Get main ssh connection for %s@%s%s', user, hostname,
+                      ":%s" % port if port else "")
 
         with self._lock:
             conn = self._pool.get(key)
             if not conn:
-                conn = MasterSsh(hostname, user, port)
+                conn = MainSsh(hostname, user, port)
                 self._pool[key] = conn
             return conn
 
@@ -178,7 +180,7 @@ def _short_tmpdir():
     # /tmp.
     # So use a shared parent directory in /tmp
     user = os.environ.get("USER", "no_USER")[:8]
-    d = '/tmp/ssh-master_%s' % user
+    d = '/tmp/ssh-main_%s' % user
     if not os.path.exists(d):
         os.mkdir(d)
     return d

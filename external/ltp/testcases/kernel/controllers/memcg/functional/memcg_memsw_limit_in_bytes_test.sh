@@ -9,7 +9,6 @@
 MEMCG_TESTFUNC=test
 TST_CNT=12
 
-. memcg_lib.sh
 
 test1()
 {
@@ -55,20 +54,16 @@ test9()
 {
 	memcg_require_memsw
 
-	echo 10M > memory.limit_in_bytes
+	ROD echo 10M \> memory.limit_in_bytes
 
-	if tst_kvcmp -lt "2.6.31"; then
-		EXPECT_FAIL echo -1 \> memory.memsw.limit_in_bytes
-	else
-		EXPECT_PASS echo -1 \> memory.memsw.limit_in_bytes
-	fi
+	EXPECT_PASS echo -1 \> memory.memsw.limit_in_bytes
 }
 
 test10()
 {
 	memcg_require_memsw
 
-	echo 10M > memory.limit_in_bytes
+	ROD echo 10M \> memory.limit_in_bytes
 	EXPECT_FAIL echo 1.0 \> memory.memsw.limit_in_bytes
 }
 
@@ -76,7 +71,7 @@ test11()
 {
 	memcg_require_memsw
 
-	echo 10M > memory.limit_in_bytes
+	ROD echo 10M \> memory.limit_in_bytes
 	EXPECT_FAIL echo 1xx \> memory.memsw.limit_in_bytes
 }
 
@@ -84,8 +79,9 @@ test12()
 {
 	memcg_require_memsw
 
-	echo 10M > memory.limit_in_bytes
+	ROD echo 10M \> memory.limit_in_bytes
 	EXPECT_FAIL echo xx \> memory.memsw.limit_in_bytes
 }
 
+. memcg_lib.sh
 tst_run

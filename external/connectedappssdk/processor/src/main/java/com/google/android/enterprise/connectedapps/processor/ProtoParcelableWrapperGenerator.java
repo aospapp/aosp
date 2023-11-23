@@ -77,7 +77,7 @@ public final class ProtoParcelableWrapperGenerator {
 
     TypeSpec.Builder classBuilder =
         TypeSpec.classBuilder(wrapperClassName)
-            .addModifiers(Modifier.PUBLIC)
+            .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
             .addSuperinterface(PARCELABLE_CLASSNAME)
             .addJavadoc(
                 "Wrapper for reading & writing {@link $T} instances to and from {@link $T}"

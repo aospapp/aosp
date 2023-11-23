@@ -6,16 +6,18 @@
  * Email: code@zilogic.com
  */
 
-#ifdef HAVE_LINUX_FS_H
-# include <linux/fs.h>
+#ifndef HAVE_MOUNT_SETATTR
+# ifdef HAVE_LINUX_FS_H
+#  include <linux/fs.h>
+# endif
 #endif
 
 #include <sys/user.h>
 #include <limits.h>
 #include "lapi/abisize.h"
 
-#ifndef LAPI_FS_H
-#define LAPI_FS_H
+#ifndef LAPI_FS_H__
+#define LAPI_FS_H__
 
 #ifndef FS_IOC_GETFLAGS
 #define	FS_IOC_GETFLAGS	_IOR('f', 1, long)
@@ -41,6 +43,10 @@
 #define FS_NODUMP_FL	   0x00000040 /* do not dump file */
 #endif
 
+#ifndef FS_VERITY_FL
+#define FS_VERITY_FL	   0x00100000 /* Verity protected inode */
+#endif
+
 /*
  * Helper function to get MAX_LFS_FILESIZE.
  * Missing PAGE_SHIFT on some libc prevents defining MAX_LFS_FILESIZE.
@@ -63,4 +69,4 @@ static inline loff_t tst_max_lfs_filesize(void)
 #endif
 }
 
-#endif
+#endif /* LAPI_FS_H__ */

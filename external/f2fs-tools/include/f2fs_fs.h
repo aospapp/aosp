@@ -17,17 +17,23 @@
 #ifndef __F2FS_FS_H__
 #define __F2FS_FS_H__
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#ifdef HAVE_CONFIG_H
-#include <config.h>
+#ifndef __SANE_USERSPACE_TYPES__
+#define __SANE_USERSPACE_TYPES__       /* For PPC64, to get LL64 types */
 #endif
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include <string.h>
+#include <time.h>
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#else
 #ifdef __ANDROID__
 #define WITH_ANDROID
 #endif
+#endif /* HAVE_CONFIG_H */
 
 #ifdef WITH_ANDROID
 #include <android_config.h>
@@ -41,14 +47,13 @@
 
 #include <inttypes.h>
 #ifdef HAVE_LINUX_TYPES_H
-#ifndef __SANE_USERSPACE_TYPES__
-#define __SANE_USERSPACE_TYPES__       /* For PPC64, to get LL64 types */
-#endif
 #include <linux/types.h>
 #endif
 #include <sys/types.h>
 
-#ifdef HAVE_LINUX_BLKZONED_H
+#ifdef HAVE_KERNEL_UAPI_LINUX_BLKZONED_H
+#include <kernel/uapi/linux/blkzoned.h>
+#elif defined(HAVE_LINUX_BLKZONED_H)
 #include <linux/blkzoned.h>
 #endif
 
@@ -68,22 +73,34 @@
 # define UNUSED(x) x
 #endif
 
-#ifdef ANDROID_WINDOWS_HOST
+#ifndef static_assert
+#define static_assert _Static_assert
+#endif
+
+#ifdef HAVE_SYS_MOUNT_H
+#include <sys/mount.h>
+#endif
+
+#ifndef fallthrough
+#ifdef __clang__
+#define fallthrough do {} while (0) /* fall through */
+#else
+#define fallthrough __attribute__((__fallthrough__))
+#endif
+#endif
+
+#ifdef _WIN32
 #undef HAVE_LINUX_TYPES_H
-typedef uint64_t u_int64_t;
-typedef uint32_t u_int32_t;
-typedef uint16_t u_int16_t;
-typedef uint8_t u_int8_t;
 #endif
 
 /* codes from kernel's f2fs.h, GPL-v2.0 */
 #define MIN_COMPRESS_LOG_SIZE	2
 #define MAX_COMPRESS_LOG_SIZE	8
 
-typedef u_int64_t	u64;
-typedef u_int32_t	u32;
-typedef u_int16_t	u16;
-typedef u_int8_t	u8;
+typedef uint64_t	u64;
+typedef uint32_t	u32;
+typedef uint16_t	u16;
+typedef uint8_t		u8;
 typedef u32		block_t;
 typedef u32		nid_t;
 #ifndef bool
@@ -188,12 +205,13 @@ static inline uint64_t bswap_64(uint64_t val)
 #endif
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-#define le16_to_cpu(x)	((__u16)(x))
-#define le32_to_cpu(x)	((__u32)(x))
-#define le64_to_cpu(x)	((__u64)(x))
-#define cpu_to_le16(x)	((__u16)(x))
-#define cpu_to_le32(x)	((__u32)(x))
-#define cpu_to_le64(x)	((__u64)(x))
+#define le16_to_cpu(x)	((uint16_t)(x))
+#define le32_to_cpu(x)	((uint32_t)(x))
+#define le64_to_cpu(x)	((uint64_t)(x))
+#define cpu_to_le16(x)	((uint16_t)(x))
+#define cpu_to_le32(x)	((uint32_t)(x))
+#define cpu_to_le64(x)	((uint64_t)(x))
+#define be32_to_cpu(x)	__builtin_bswap64(x)
 #elif __BYTE_ORDER == __BIG_ENDIAN
 #define le16_to_cpu(x)	bswap_16(x)
 #define le32_to_cpu(x)	bswap_32(x)
@@ -201,6 +219,7 @@ static inline uint64_t bswap_64(uint64_t val)
 #define cpu_to_le16(x)	bswap_16(x)
 #define cpu_to_le32(x)	bswap_32(x)
 #define cpu_to_le64(x)	bswap_64(x)
+#define be32_to_cpu(x)	((uint64_t)(x))
 #endif
 
 #define typecheck(type,x) \
@@ -291,10 +310,10 @@ static inline uint64_t bswap_64(uint64_t val)
 	do {								\
 		assert(sizeof((ptr)->member) == 8);			\
 		if (c.layout)						\
-			printf("%-30s %llu\n",				\
+			printf("%-30s %" PRIu64 "\n",			\
 			#member":", le64_to_cpu(((ptr)->member)));	\
 		else							\
-			printf("%-30s" "\t\t[0x%8llx : %llu]\n",	\
+			printf("%-30s" "\t\t[0x%8" PRIx64 " : %" PRIu64 "]\n",	\
 			#member, le64_to_cpu(((ptr)->member)),		\
 			le64_to_cpu(((ptr)->member)));			\
 	} while (0)
@@ -330,10 +349,6 @@ static inline uint64_t bswap_64(uint64_t val)
 		snprintf(buf, len, #member)
 
 /* these are defined in kernel */
-#ifndef PAGE_SIZE
-#define PAGE_SIZE		4096
-#endif
-#define PAGE_CACHE_SIZE		4096
 #define BITS_PER_BYTE		8
 #ifndef SECTOR_SHIFT
 #define SECTOR_SHIFT		9
@@ -378,17 +393,18 @@ enum default_set {
 struct device_info {
 	char *path;
 	int32_t fd;
-	u_int32_t sector_size;
-	u_int64_t total_sectors;	/* got by get_device_info */
-	u_int64_t start_blkaddr;
-	u_int64_t end_blkaddr;
-	u_int32_t total_segments;
+	uint32_t sector_size;
+	uint64_t total_sectors;	/* got by get_device_info */
+	uint64_t start_blkaddr;
+	uint64_t end_blkaddr;
+	uint32_t total_segments;
 
 	/* to handle zone block devices */
 	int zoned_model;
-	u_int32_t nr_zones;
-	u_int32_t nr_rnd_zones;
+	uint32_t nr_zones;
+	uint32_t nr_rnd_zones;
 	size_t zone_blocks;
+	uint64_t zone_size;
 	size_t *zone_cap_blocks;
 };
 
@@ -444,36 +460,35 @@ typedef struct {
 #define ALIGN_UP(addrs, size)	ALIGN_DOWN(((addrs) + (size) - 1), (size))
 
 struct f2fs_configuration {
-	u_int32_t reserved_segments;
-	u_int32_t new_reserved_segments;
+	uint32_t reserved_segments;
+	uint32_t new_reserved_segments;
 	int sparse_mode;
 	int zoned_mode;
 	int zoned_model;
 	size_t zone_blocks;
 	double overprovision;
 	double new_overprovision;
-	u_int32_t cur_seg[6];
-	u_int32_t segs_per_sec;
-	u_int32_t secs_per_zone;
-	u_int32_t segs_per_zone;
-	u_int32_t start_sector;
-	u_int32_t total_segments;
-	u_int32_t sector_size;
-	u_int64_t device_size;
-	u_int64_t total_sectors;
-	u_int64_t wanted_total_sectors;
-	u_int64_t wanted_sector_size;
-	u_int64_t target_sectors;
-	u_int64_t max_size;
-	u_int32_t sectors_per_blk;
-	u_int32_t blks_per_seg;
+	uint32_t cur_seg[6];
+	uint32_t segs_per_sec;
+	uint32_t secs_per_zone;
+	uint32_t segs_per_zone;
+	uint32_t start_sector;
+	uint32_t total_segments;
+	uint32_t sector_size;
+	uint64_t device_size;
+	uint64_t total_sectors;
+	uint64_t wanted_total_sectors;
+	uint64_t wanted_sector_size;
+	uint64_t target_sectors;
+	uint32_t sectors_per_blk;
+	uint32_t blks_per_seg;
 	__u8 init_version[VERSION_LEN + 1];
 	__u8 sb_version[VERSION_LEN + 1];
 	__u8 version[VERSION_LEN + 1];
 	char *vol_label;
 	char *vol_uuid;
-	u_int16_t s_encoding;
-	u_int16_t s_encoding_flags;
+	uint16_t s_encoding;
+	uint16_t s_encoding_flags;
 	int heap;
 	int32_t kd;
 	int32_t dump_fd;
@@ -493,6 +508,9 @@ struct f2fs_configuration {
 	int force;
 	int defset;
 	int bug_on;
+	int force_stop;
+	int abnormal_stop;
+	int fs_errors;
 	int bug_nat_bits;
 	bool quota_fixed;
 	int alloc_failed;
@@ -512,20 +530,20 @@ struct f2fs_configuration {
 
 	/* mkfs parameters */
 	int fake_seed;
-	u_int32_t next_free_nid;
-	u_int32_t quota_inum;
-	u_int32_t quota_dnum;
-	u_int32_t lpf_inum;
-	u_int32_t lpf_dnum;
-	u_int32_t lpf_ino;
-	u_int32_t root_uid;
-	u_int32_t root_gid;
+	uint32_t next_free_nid;
+	uint32_t quota_inum;
+	uint32_t quota_dnum;
+	uint32_t lpf_inum;
+	uint32_t lpf_dnum;
+	uint32_t lpf_ino;
+	uint32_t root_uid;
+	uint32_t root_gid;
 
 	/* defragmentation parameters */
 	int defrag_shrink;
-	u_int64_t defrag_start;
-	u_int64_t defrag_len;
-	u_int64_t defrag_target;
+	uint64_t defrag_start;
+	uint64_t defrag_len;
+	uint64_t defrag_target;
 
 	/* sload parameters */
 	char *from_dir;
@@ -542,7 +560,7 @@ struct f2fs_configuration {
 	int safe_resize;
 
 	/* precomputed fs UUID checksum for seeding other checksums */
-	u_int32_t chksum_seed;
+	uint32_t chksum_seed;
 
 	/* cache parameters */
 	dev_cache_config_t cache_config;
@@ -570,14 +588,14 @@ struct f2fs_configuration {
 #define get_newsb_le32(member)			le32_to_cpu(new_sb->member)
 #define get_newsb_le16(member)			le16_to_cpu(new_sb->member)
 
-#define set_sb(member, val)	\
+#define set_sb(member, val)						\
 			do {						\
-				typeof(sb->member) t;			\
+				typeof(sb->member) t = (val);		\
 				switch (sizeof(t)) {			\
-				case 8: set_sb_le64(member, val); break; \
-				case 4: set_sb_le32(member, val); break; \
-				case 2: set_sb_le16(member, val); break; \
-				} \
+				case 8: set_sb_le64(member, t); break;	\
+				case 4: set_sb_le32(member, t); break;	\
+				case 2: set_sb_le16(member, t); break;	\
+				}					\
 			} while(0)
 
 #define get_sb(member)		\
@@ -608,14 +626,14 @@ struct f2fs_configuration {
 #define get_cp_le32(member)			le32_to_cpu(cp->member)
 #define get_cp_le16(member)			le16_to_cpu(cp->member)
 
-#define set_cp(member, val)	\
+#define set_cp(member, val)						\
 			do {						\
-				typeof(cp->member) t;			\
+				typeof(cp->member) t = (val);		\
 				switch (sizeof(t)) {			\
-				case 8: set_cp_le64(member, val); break; \
-				case 4: set_cp_le32(member, val); break; \
-				case 2: set_cp_le16(member, val); break; \
-				} \
+				case 8: set_cp_le64(member, t); break;	\
+				case 4: set_cp_le32(member, t); break;	\
+				case 2: set_cp_le16(member, t); break;	\
+				}					\
 			} while(0)
 
 #define get_cp(member)		\
@@ -735,11 +753,48 @@ enum {
 /*
  * For superblock
  */
-#pragma pack(push, 1)
 struct f2fs_device {
 	__u8 path[MAX_PATH_LEN];
 	__le32 total_segments;
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct f2fs_device) == 68, "");
+
+/* reason of stop_checkpoint */
+enum stop_cp_reason {
+	STOP_CP_REASON_SHUTDOWN,
+	STOP_CP_REASON_FAULT_INJECT,
+	STOP_CP_REASON_META_PAGE,
+	STOP_CP_REASON_WRITE_FAIL,
+	STOP_CP_REASON_CORRUPTED_SUMMARY,
+	STOP_CP_REASON_UPDATE_INODE,
+	STOP_CP_REASON_FLUSH_FAIL,
+	STOP_CP_REASON_MAX,
+};
+
+#define	MAX_STOP_REASON			32
+
+/* detail reason for EFSCORRUPTED */
+enum f2fs_error {
+	ERROR_CORRUPTED_CLUSTER,
+	ERROR_FAIL_DECOMPRESSION,
+	ERROR_INVALID_BLKADDR,
+	ERROR_CORRUPTED_DIRENT,
+	ERROR_CORRUPTED_INODE,
+	ERROR_INCONSISTENT_SUMMARY,
+	ERROR_INCONSISTENT_FOOTER,
+	ERROR_INCONSISTENT_SUM_TYPE,
+	ERROR_CORRUPTED_JOURNAL,
+	ERROR_INCONSISTENT_NODE_COUNT,
+	ERROR_INCONSISTENT_BLOCK_COUNT,
+	ERROR_INVALID_CURSEG,
+	ERROR_INCONSISTENT_SIT,
+	ERROR_CORRUPTED_VERITY_XATTR,
+	ERROR_CORRUPTED_XATTR,
+	ERROR_MAX,
+};
+
+#define MAX_F2FS_ERRORS			16
 
 struct f2fs_super_block {
 	__le32 magic;			/* Magic Number */
@@ -752,7 +807,8 @@ struct f2fs_super_block {
 	__le32 segs_per_sec;		/* # of segments per section */
 	__le32 secs_per_zone;		/* # of sections per zone */
 	__le32 checksum_offset;		/* checksum offset inside super block */
-	__le64 block_count;		/* total # of user blocks */
+	__le64 block_count __attribute__((packed));
+					/* total # of user blocks */
 	__le32 section_count;		/* total # of sections */
 	__le32 segment_count;		/* total # of segments */
 	__le32 segment_count_ckpt;	/* # of segments for checkpoint */
@@ -779,14 +835,18 @@ struct f2fs_super_block {
 	__le32 feature;			/* defined features */
 	__u8 encryption_level;		/* versioning level for encryption */
 	__u8 encrypt_pw_salt[16];	/* Salt used for string2key algorithm */
-	struct f2fs_device devs[MAX_DEVICES];	/* device list */
-	__le32 qf_ino[F2FS_MAX_QUOTAS];	/* quota inode numbers */
+	struct f2fs_device devs[MAX_DEVICES] __attribute__((packed));	/* device list */
+	__le32 qf_ino[F2FS_MAX_QUOTAS] __attribute__((packed));	/* quota inode numbers */
 	__u8 hot_ext_count;		/* # of hot file extension */
 	__le16  s_encoding;		/* Filename charset encoding */
 	__le16  s_encoding_flags;	/* Filename charset encoding flags */
-	__u8 reserved[306];		/* valid reserved region */
+	__u8 s_stop_reason[MAX_STOP_REASON];	/* stop checkpoint reason */
+	__u8 s_errors[MAX_F2FS_ERRORS];		/* reason of image corrupts */
+	__u8 reserved[258];		/* valid reserved region */
 	__le32 crc;			/* checksum of superblock */
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct f2fs_super_block) == 3072, "");
 
 /*
  * For checkpoint
@@ -836,8 +896,10 @@ struct f2fs_checkpoint {
 	unsigned char alloc_type[MAX_ACTIVE_LOGS];
 
 	/* SIT and NAT version bitmap */
-	unsigned char sit_nat_version_bitmap[1];
-} __attribute__((packed));
+	unsigned char sit_nat_version_bitmap[];
+};
+
+static_assert(sizeof(struct f2fs_checkpoint) == 192, "");
 
 #define CP_BITMAP_OFFSET	\
 	(offsetof(struct f2fs_checkpoint, sit_nat_version_bitmap))
@@ -861,7 +923,9 @@ struct f2fs_orphan_block {
 	__le16 blk_count;	/* Number of orphan inode blocks in CP */
 	__le32 entry_count;	/* Total number of orphan nodes in current CP */
 	__le32 check_sum;	/* CRC32 for orphan inode block */
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct f2fs_orphan_block) == 4096, "");
 
 /*
  * For NODE structure
@@ -870,7 +934,9 @@ struct f2fs_extent {
 	__le32 fofs;		/* start file offset of the extent */
 	__le32 blk_addr;	/* start block address of the extent */
 	__le32 len;		/* lengh of the extent */
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct f2fs_extent) == 12, "");
 
 #define F2FS_NAME_LEN		255
 
@@ -902,10 +968,6 @@ struct f2fs_extent {
 #define F2FS_PIN_FILE		0x40	/* file should not be gced */
 #define F2FS_COMPRESS_RELEASED	0x80	/* file released compressed blocks */
 
-#if !defined(offsetof)
-#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
-#endif
-
 #define F2FS_EXTRA_ISIZE_OFFSET				\
 	offsetof(struct f2fs_inode, i_extra_isize)
 #define F2FS_TOTAL_EXTRA_ATTR_SIZE			\
@@ -923,9 +985,10 @@ struct f2fs_extent {
 				DEFAULT_INLINE_XATTR_ADDRS -		\
 				F2FS_TOTAL_EXTRA_ATTR_SIZE -		\
 				DEF_INLINE_RESERVED_SIZE))
-#define INLINE_DATA_OFFSET	(PAGE_CACHE_SIZE - sizeof(struct node_footer) \
-				- sizeof(__le32)*(DEF_ADDRS_PER_INODE + 5 - \
-				DEF_INLINE_RESERVED_SIZE))
+#define INLINE_DATA_OFFSET	(F2FS_BLKSIZE -				\
+				sizeof(struct node_footer) -		\
+				sizeof(__le32) * (DEF_ADDRS_PER_INODE +	\
+				5 - DEF_INLINE_RESERVED_SIZE))
 
 #define DEF_DIR_LEVEL		0
 
@@ -995,7 +1058,7 @@ struct f2fs_inode {
 	__u8 i_name[F2FS_NAME_LEN];	/* file name for SPOR */
 	__u8 i_dir_level;		/* dentry_level for large dir */
 
-	struct f2fs_extent i_ext;	/* caching a largest extent */
+	struct f2fs_extent i_ext __attribute__((packed));	/* caching a largest extent */
 
 	union {
 		struct {
@@ -1015,16 +1078,23 @@ struct f2fs_inode {
 	};
 	__le32 i_nid[5];		/* direct(2), indirect(2),
 						double_indirect(1) node id */
-} __attribute__((packed));
+};
 
+static_assert(offsetof(struct f2fs_inode, i_extra_end) -
+	      offsetof(struct f2fs_inode, i_extra_isize) == 36, "");
+static_assert(sizeof(struct f2fs_inode) == 4072, "");
 
 struct direct_node {
 	__le32 addr[DEF_ADDRS_PER_BLOCK];	/* array of data block address */
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct direct_node) == 4072, "");
 
 struct indirect_node {
 	__le32 nid[NIDS_PER_BLOCK];	/* array of data block address */
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct indirect_node) == 4072, "");
 
 enum {
 	COLD_BIT_SHIFT = 0,
@@ -1039,9 +1109,11 @@ struct node_footer {
 	__le32 nid;		/* node id */
 	__le32 ino;		/* inode nunmber */
 	__le32 flag;		/* include cold/fsync/dentry marks and offset */
-	__le64 cp_ver;		/* checkpoint version */
+	__le64 cp_ver __attribute__((packed));		/* checkpoint version */
 	__le32 next_blkaddr;	/* next node page block address */
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct node_footer) == 24, "");
 
 struct f2fs_node {
 	/* can be one of three types: inode, direct, and indirect types */
@@ -1051,12 +1123,14 @@ struct f2fs_node {
 		struct indirect_node in;
 	};
 	struct node_footer footer;
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct f2fs_node) == 4096, "");
 
 /*
  * For NAT entries
  */
-#define NAT_ENTRY_PER_BLOCK (PAGE_CACHE_SIZE / sizeof(struct f2fs_nat_entry))
+#define NAT_ENTRY_PER_BLOCK (F2FS_BLKSIZE / sizeof(struct f2fs_nat_entry))
 #define NAT_BLOCK_OFFSET(start_nid) (start_nid / NAT_ENTRY_PER_BLOCK)
 
 #define DEFAULT_NAT_ENTRY_RATIO		20
@@ -1067,9 +1141,13 @@ struct f2fs_nat_entry {
 	__le32 block_addr;	/* block address */
 } __attribute__((packed));
 
+static_assert(sizeof(struct f2fs_nat_entry) == 9, "");
+
 struct f2fs_nat_block {
 	struct f2fs_nat_entry entries[NAT_ENTRY_PER_BLOCK];
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct f2fs_nat_block) == 4095, "");
 
 /*
  * For SIT entries
@@ -1079,7 +1157,7 @@ struct f2fs_nat_block {
  * Not allow to change this.
  */
 #define SIT_VBLOCK_MAP_SIZE 64
-#define SIT_ENTRY_PER_BLOCK (PAGE_CACHE_SIZE / sizeof(struct f2fs_sit_entry))
+#define SIT_ENTRY_PER_BLOCK (F2FS_BLKSIZE / sizeof(struct f2fs_sit_entry))
 
 /*
  * F2FS uses 4 bytes to represent block address. As a result, supported size of
@@ -1090,6 +1168,10 @@ struct f2fs_nat_block {
 #define MAX_SIT_BITMAP_SIZE    (SEG_ALIGN(SIZE_ALIGN(F2FS_MAX_SEGMENT, \
 						SIT_ENTRY_PER_BLOCK)) * \
 						c.blks_per_seg / 8)
+#define MAX_CP_PAYLOAD         (SEG_ALIGN(SIZE_ALIGN(UINT32_MAX, NAT_ENTRY_PER_BLOCK)) * \
+						DEFAULT_NAT_ENTRY_RATIO / 100 * \
+						c.blks_per_seg / 8 + \
+						MAX_SIT_BITMAP_SIZE - MAX_BITMAP_SIZE_IN_CKPT)
 
 /*
  * Note that f2fs_sit_entry->vblocks has the following bit-field information.
@@ -1110,9 +1192,13 @@ struct f2fs_sit_entry {
 	__le64 mtime;				/* segment age for cleaning */
 } __attribute__((packed));
 
+static_assert(sizeof(struct f2fs_sit_entry) == 74, "");
+
 struct f2fs_sit_block {
 	struct f2fs_sit_entry entries[SIT_ENTRY_PER_BLOCK];
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct f2fs_sit_block) == 4070, "");
 
 /*
  * For segment summary
@@ -1146,14 +1232,18 @@ struct f2fs_summary {
 	};
 } __attribute__((packed));
 
+static_assert(sizeof(struct f2fs_summary) == 7, "");
+
 /* summary block type, node or data, is stored to the summary_footer */
 #define SUM_TYPE_NODE		(1)
 #define SUM_TYPE_DATA		(0)
 
 struct summary_footer {
 	unsigned char entry_type;	/* SUM_TYPE_XXX */
-	__le32 check_sum;		/* summary checksum */
-} __attribute__((packed));
+	__le32 check_sum __attribute__((packed)); /* summary checksum */
+};
+
+static_assert(sizeof(struct summary_footer) == 5, "");
 
 #define SUM_JOURNAL_SIZE	(F2FS_BLKSIZE - SUM_FOOTER_SIZE -\
 				SUM_ENTRIES_SIZE)
@@ -1186,25 +1276,35 @@ struct nat_journal_entry {
 	struct f2fs_nat_entry ne;
 } __attribute__((packed));
 
+static_assert(sizeof(struct nat_journal_entry) == 13, "");
+
 struct nat_journal {
 	struct nat_journal_entry entries[NAT_JOURNAL_ENTRIES];
 	__u8 reserved[NAT_JOURNAL_RESERVED];
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct nat_journal) == 505, "");
 
 struct sit_journal_entry {
 	__le32 segno;
 	struct f2fs_sit_entry se;
 } __attribute__((packed));
 
+static_assert(sizeof(struct sit_journal_entry) == 78, "");
+
 struct sit_journal {
 	struct sit_journal_entry entries[SIT_JOURNAL_ENTRIES];
 	__u8 reserved[SIT_JOURNAL_RESERVED];
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct sit_journal) == 505, "");
 
 struct f2fs_extra_info {
 	__le64 kbytes_written;
 	__u8 reserved[EXTRA_INFO_RESERVED];
 } __attribute__((packed));
+
+static_assert(sizeof(struct f2fs_extra_info) == 505, "");
 
 struct f2fs_journal {
 	union {
@@ -1219,12 +1319,16 @@ struct f2fs_journal {
 	};
 } __attribute__((packed));
 
+static_assert(sizeof(struct f2fs_journal) == 507, "");
+
 /* 4KB-sized summary block structure */
 struct f2fs_summary_block {
 	struct f2fs_summary entries[ENTRIES_IN_SUM];
 	struct f2fs_journal journal;
 	struct summary_footer footer;
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct f2fs_summary_block) == 4096, "");
 
 /*
  * For directory operations
@@ -1254,7 +1358,7 @@ typedef __le32	f2fs_hash_t;
 #define SIZE_OF_DIR_ENTRY	11	/* by byte */
 #define SIZE_OF_DENTRY_BITMAP	((NR_DENTRY_IN_BLOCK + BITS_PER_BYTE - 1) / \
 					BITS_PER_BYTE)
-#define SIZE_OF_RESERVED	(PAGE_SIZE - ((SIZE_OF_DIR_ENTRY + \
+#define SIZE_OF_RESERVED	(F2FS_BLKSIZE - ((SIZE_OF_DIR_ENTRY + \
 				F2FS_SLOT_LEN) * \
 				NR_DENTRY_IN_BLOCK + SIZE_OF_DENTRY_BITMAP))
 #define MIN_INLINE_DENTRY_SIZE		40	/* just include '.' and '..' entries */
@@ -1267,6 +1371,8 @@ struct f2fs_dir_entry {
 	__u8 file_type;		/* file type */
 } __attribute__((packed));
 
+static_assert(sizeof(struct f2fs_dir_entry) == 11, "");
+
 /* 4KB-sized directory entry block */
 struct f2fs_dentry_block {
 	/* validity bitmap for directory entries in each block */
@@ -1274,8 +1380,9 @@ struct f2fs_dentry_block {
 	__u8 reserved[SIZE_OF_RESERVED];
 	struct f2fs_dir_entry dentry[NR_DENTRY_IN_BLOCK];
 	__u8 filename[NR_DENTRY_IN_BLOCK][F2FS_SLOT_LEN];
-} __attribute__((packed));
-#pragma pack(pop)
+};
+
+static_assert(sizeof(struct f2fs_dentry_block) == F2FS_BLKSIZE, "");
 
 /* for inline stuff */
 #define DEF_INLINE_RESERVED_SIZE	1
@@ -1318,9 +1425,9 @@ enum {
 	SSR
 };
 
-extern int utf8_to_utf16(u_int16_t *, const char *, size_t, size_t);
-extern int utf16_to_utf8(char *, const u_int16_t *, size_t, size_t);
-extern int log_base_2(u_int32_t);
+extern int utf8_to_utf16(uint16_t *, const char *, size_t, size_t);
+extern int utf16_to_utf8(char *, const uint16_t *, size_t, size_t);
+extern int log_base_2(uint32_t);
 extern unsigned int addrs_per_inode(struct f2fs_inode *);
 extern unsigned int addrs_per_block(struct f2fs_inode *);
 extern unsigned int f2fs_max_file_offset(struct f2fs_inode *);
@@ -1338,8 +1445,8 @@ extern int f2fs_clear_bit(unsigned int, char *);
 extern u64 find_next_bit_le(const u8 *, u64, u64);
 extern u64 find_next_zero_bit_le(const u8 *, u64, u64);
 
-extern u_int32_t f2fs_cal_crc32(u_int32_t, void *, int);
-extern int f2fs_crc_valid(u_int32_t blk_crc, void *buf, int len);
+extern uint32_t f2fs_cal_crc32(uint32_t, void *, int);
+extern int f2fs_crc_valid(uint32_t blk_crc, void *buf, int len);
 
 extern void f2fs_init_configuration(void);
 extern int f2fs_devs_are_umounted(void);
@@ -1494,9 +1601,11 @@ blk_zone_cond_str(struct blk_zone *blkz)
 
 #endif
 
+struct blk_zone;
+
 extern int f2fs_get_zoned_model(int);
 extern int f2fs_get_zone_blocks(int);
-extern int f2fs_report_zone(int, u_int64_t, void *);
+extern int f2fs_report_zone(int, uint64_t, struct blk_zone *);
 typedef int (report_zones_cb_t)(int i, void *, void *);
 extern int f2fs_report_zones(int, report_zones_cb_t *, void *);
 extern int f2fs_check_zones(int);
@@ -1513,7 +1622,7 @@ static inline double get_best_overprovision(struct f2fs_super_block *sb)
 {
 	double reserved, ovp, candidate, end, diff, space;
 	double max_ovp = 0, max_space = 0;
-	u_int32_t usable_main_segs = f2fs_get_usable_segments(sb);
+	uint32_t usable_main_segs = f2fs_get_usable_segments(sb);
 
 	if (get_sb(segment_count_main) < 256) {
 		candidate = 10;
@@ -1526,10 +1635,13 @@ static inline double get_best_overprovision(struct f2fs_super_block *sb)
 	}
 
 	for (; candidate <= end; candidate += diff) {
-		reserved = (2 * (100 / candidate + 1) + 6) *
+		reserved = (100 / candidate + 1 + NR_CURSEG_TYPE) *
 				round_up(usable_main_segs, get_sb(section_count));
 		ovp = (usable_main_segs - reserved) * candidate / 100;
-		space = usable_main_segs - reserved - ovp;
+		if (ovp < 0)
+			continue;
+		space = usable_main_segs - max(reserved, ovp) -
+					2 * get_sb(segs_per_sec);
 		if (max_space < space) {
 			max_space = space;
 			max_ovp = candidate;
@@ -1540,12 +1652,12 @@ static inline double get_best_overprovision(struct f2fs_super_block *sb)
 
 static inline __le64 get_cp_crc(struct f2fs_checkpoint *cp)
 {
-	u_int64_t cp_ver = get_cp(checkpoint_ver);
+	uint64_t cp_ver = get_cp(checkpoint_ver);
 	size_t crc_offset = get_cp(checksum_offset);
-	u_int32_t crc = le32_to_cpu(*(__le32 *)((unsigned char *)cp +
+	uint32_t crc = le32_to_cpu(*(__le32 *)((unsigned char *)cp +
 							crc_offset));
 
-	cp_ver |= ((u_int64_t)crc << 32);
+	cp_ver |= ((uint64_t)crc << 32);
 	return cpu_to_le64(cp_ver);
 }
 
@@ -1692,7 +1804,7 @@ static inline int parse_feature(struct feature *table, const char *features)
 }
 
 static inline int parse_root_owner(char *ids,
-			u_int32_t *root_uid, u_int32_t *root_gid)
+			uint32_t *root_uid, uint32_t *root_gid)
 {
 	char *uid = ids;
 	char *gid = NULL;

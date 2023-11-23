@@ -15,10 +15,11 @@
  */
 package com.airbnb.lottie.parser.moshi;
 
+import androidx.annotation.Nullable;
+
 import java.io.EOFException;
 import java.io.IOException;
 
-import androidx.annotation.Nullable;
 import okio.Buffer;
 import okio.BufferedSource;
 import okio.ByteString;
@@ -44,13 +45,17 @@ final class JsonUtf8Reader extends JsonReader {
   private static final int PEEKED_SINGLE_QUOTED = 8;
   private static final int PEEKED_DOUBLE_QUOTED = 9;
   private static final int PEEKED_UNQUOTED = 10;
-  /** When this is returned, the string value is stored in peekedString. */
+  /**
+   * When this is returned, the string value is stored in peekedString.
+   */
   private static final int PEEKED_BUFFERED = 11;
   private static final int PEEKED_SINGLE_QUOTED_NAME = 12;
   private static final int PEEKED_DOUBLE_QUOTED_NAME = 13;
   private static final int PEEKED_UNQUOTED_NAME = 14;
   private static final int PEEKED_BUFFERED_NAME = 15;
-  /** When this is returned, the integer value is stored in peekedLong. */
+  /**
+   * When this is returned, the integer value is stored in peekedLong.
+   */
   private static final int PEEKED_LONG = 16;
   private static final int PEEKED_NUMBER = 17;
   private static final int PEEKED_EOF = 18;
@@ -65,7 +70,9 @@ final class JsonUtf8Reader extends JsonReader {
   private static final int NUMBER_CHAR_EXP_SIGN = 6;
   private static final int NUMBER_CHAR_EXP_DIGIT = 7;
 
-  /** The input JSON. */
+  /**
+   * The input JSON.
+   */
   private final BufferedSource source;
   private final Buffer buffer;
 
@@ -95,7 +102,8 @@ final class JsonUtf8Reader extends JsonReader {
       throw new NullPointerException("source == null");
     }
     this.source = source;
-    this.buffer = source.getBuffer();
+    // Don't use source.getBuffer(). Because android studio use old version okio instead of your own okio.
+    this.buffer = source.buffer();
     pushScope(JsonScope.EMPTY_DOCUMENT);
   }
 
@@ -629,22 +637,6 @@ final class JsonUtf8Reader extends JsonReader {
     return result;
   }
 
-  /**
-   * If {@code string} is in {@code options} this consumes it and returns its index.
-   * Otherwise this returns -1 and no string is consumed.
-   */
-  private int findString(String string, Options options) {
-    for (int i = 0, size = options.strings.length; i < size; i++) {
-      if (string.equals(options.strings[i])) {
-        peeked = PEEKED_NONE;
-        pathIndices[stackSize - 1]++;
-
-        return i;
-      }
-    }
-    return -1;
-  }
-
   @Override public boolean nextBoolean() throws IOException {
     int p = peeked;
     if (p == PEEKED_NONE) {
@@ -715,11 +707,15 @@ final class JsonUtf8Reader extends JsonReader {
     StringBuilder builder = null;
     while (true) {
       long index = source.indexOfElement(runTerminator);
-      if (index == -1L) throw syntaxError("Unterminated string");
+      if (index == -1L) {
+        throw syntaxError("Unterminated string");
+      }
 
       // If we've got an escape character, we're going to need a string builder.
       if (buffer.getByte(index) == '\\') {
-        if (builder == null) builder = new StringBuilder();
+        if (builder == null) {
+          builder = new StringBuilder();
+        }
         builder.append(buffer.readUtf8(index));
         buffer.readByte(); // '\'
         builder.append(readEscapeCharacter());
@@ -739,7 +735,9 @@ final class JsonUtf8Reader extends JsonReader {
     }
   }
 
-  /** Returns an unquoted value as a string. */
+  /**
+   * Returns an unquoted value as a string.
+   */
   private String nextUnquotedValue() throws IOException {
     long i = source.indexOfElement(UNQUOTED_STRING_TERMINALS);
     return i != -1 ? buffer.readUtf8(i) : buffer.readUtf8();
@@ -748,7 +746,9 @@ final class JsonUtf8Reader extends JsonReader {
   private void skipQuotedValue(ByteString runTerminator) throws IOException {
     while (true) {
       long index = source.indexOfElement(runTerminator);
-      if (index == -1L) throw syntaxError("Unterminated string");
+      if (index == -1L) {
+        throw syntaxError("Unterminated string");
+      }
 
       if (buffer.getByte(index) == '\\') {
         buffer.skip(index + 1);
@@ -1036,7 +1036,9 @@ final class JsonUtf8Reader extends JsonReader {
         return (char) escaped;
 
       default:
-        if (!lenient) throw syntaxError("Invalid escape sequence: \\" + (char) escaped);
+        if (!lenient) {
+          throw syntaxError("Invalid escape sequence: \\" + (char) escaped);
+        }
         return (char) escaped;
     }
   }

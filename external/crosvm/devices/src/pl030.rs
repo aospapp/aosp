@@ -1,12 +1,19 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use base::warn;
 use std::convert::TryFrom;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
-use crate::{BusAccessInfo, BusDevice, IrqEdgeEvent};
+use base::warn;
+
+use crate::pci::CrosvmDeviceId;
+use crate::BusAccessInfo;
+use crate::BusDevice;
+use crate::DeviceId;
+use crate::IrqEdgeEvent;
+use crate::Suspendable;
 
 // Register offsets
 // Data register
@@ -71,6 +78,10 @@ impl Pl030 {
 }
 
 impl BusDevice for Pl030 {
+    fn device_id(&self) -> DeviceId {
+        CrosvmDeviceId::Pl030.into()
+    }
+
     fn debug_label(&self) -> String {
         "Pl030".to_owned()
     }
@@ -144,6 +155,9 @@ impl BusDevice for Pl030 {
         *data_array = reg_content.to_ne_bytes();
     }
 }
+
+impl Suspendable for Pl030 {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,7 +183,7 @@ mod tests {
         device.write(pl030_bus_address(RTCEOI), &[1, 0, 0, 0]);
         device.read(pl030_bus_address(RTCSTAT), &mut register);
         assert_eq!(register, [1, 0, 0, 0]);
-        assert_eq!(event.get_trigger().read().unwrap(), 1);
+        event.get_trigger().wait().unwrap();
 
         // clear interrupt
         device.write(pl030_bus_address(RTCEOI), &[0, 0, 0, 0]);

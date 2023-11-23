@@ -16,16 +16,13 @@
 package com.google.android.enterprise.connectedapps.processor.containers;
 
 import static com.google.android.enterprise.connectedapps.processor.GeneratorUtilities.findCrossProfileProviderMethodsInClass;
-import static java.util.stream.Collectors.toSet;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.squareup.javapoet.ClassName;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.stream.Stream;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -40,10 +37,10 @@ public abstract class ProviderClassInfo {
   public abstract TypeElement providerClassElement();
 
   public ImmutableCollection<CrossProfileTypeInfo> allCrossProfileTypes() {
-    Set<CrossProfileTypeInfo> types = new HashSet<>();
+    ImmutableSet.Builder<CrossProfileTypeInfo> types = ImmutableSet.builder();
     types.addAll(nonStaticTypes());
     types.addAll(staticTypes());
-    return ImmutableSet.copyOf(types);
+    return types.build();
   }
 
   public abstract ImmutableCollection<CrossProfileTypeInfo> nonStaticTypes();
@@ -57,6 +54,8 @@ public abstract class ProviderClassInfo {
   public ClassName className() {
     return ClassName.get(providerClassElement());
   }
+
+  public abstract ConnectorInfo connectorInfo();
 
   public ImmutableCollection<VariableElement> publicConstructorArgumentTypes() {
     return ImmutableList.copyOf(
@@ -91,40 +90,52 @@ public abstract class ProviderClassInfo {
 
   public static ProviderClassInfo create(
       ValidatorContext context, ValidatorProviderClassInfo provider) {
-    Set<CrossProfileTypeInfo> nonStaticTypes =
-        extractCrossProfileTypeElementsFromReturnValues(
-                context.elements(), provider.providerClassElement())
-            .stream()
-            .map(
-                crossProfileTypeElement ->
-                    ValidatorCrossProfileTypeInfo.create(
-                        context.processingEnv(),
-                        crossProfileTypeElement,
-                        context.globalSupportedTypes()))
-            .map(crossProfileType -> CrossProfileTypeInfo.create(context, crossProfileType))
-            .collect(toSet());
+    ImmutableSet.Builder<CrossProfileTypeInfo> nonStaticTypesBuilder = ImmutableSet.builder();
+    extractCrossProfileTypeElementsFromReturnValues(
+            context.elements(), provider.providerClassElement())
+        .stream()
+        .map(
+            crossProfileTypeElement ->
+                ValidatorCrossProfileTypeInfo.create(
+                    context, crossProfileTypeElement, context.globalSupportedTypes()))
+        .map(crossProfileType -> CrossProfileTypeInfo.create(context, crossProfileType))
+        .forEach(nonStaticTypesBuilder::add);
+    ImmutableSet<CrossProfileTypeInfo> nonStaticTypes = nonStaticTypesBuilder.build();
 
-    Set<CrossProfileTypeInfo> staticTypes =
-        provider.staticTypes().stream()
-            .map(
-                crossProfileTypeElement ->
-                    ValidatorCrossProfileTypeInfo.create(
-                        context.processingEnv(),
-                        crossProfileTypeElement,
-                        context.globalSupportedTypes()))
-            .map(crossProfileType -> CrossProfileTypeInfo.create(context, crossProfileType))
-            .collect(toSet());
+    ImmutableSet.Builder<CrossProfileTypeInfo> staticTypesBuilder = ImmutableSet.builder();
+    provider.staticTypes().stream()
+        .map(
+            crossProfileTypeElement ->
+                ValidatorCrossProfileTypeInfo.create(
+                    context, crossProfileTypeElement, context.globalSupportedTypes()))
+        .map(crossProfileType -> CrossProfileTypeInfo.create(context, crossProfileType))
+        .forEach(staticTypesBuilder::add);
+    ImmutableSet<CrossProfileTypeInfo> staticTypes = staticTypesBuilder.build();
 
     return new AutoValue_ProviderClassInfo(
         provider.providerClassElement(),
-        ImmutableSet.copyOf(nonStaticTypes),
-        ImmutableSet.copyOf(staticTypes));
+        nonStaticTypes,
+        staticTypes,
+        findConnector(context, staticTypes, nonStaticTypes));
   }
 
-  public static Collection<TypeElement> extractCrossProfileTypeElementsFromReturnValues(
+  public static ImmutableSet<TypeElement> extractCrossProfileTypeElementsFromReturnValues(
       Elements elements, TypeElement providerClassElement) {
-    return findCrossProfileProviderMethodsInClass(providerClassElement).stream()
+    ImmutableSet.Builder<TypeElement> result = ImmutableSet.builder();
+    findCrossProfileProviderMethodsInClass(providerClassElement).stream()
         .map(e -> elements.getTypeElement(e.getReturnType().toString()))
-        .collect(toSet());
+        .forEach(result::add);
+    return result.build();
+  }
+
+  private static ConnectorInfo findConnector(
+      ValidatorContext context,
+      ImmutableSet<CrossProfileTypeInfo> staticTypes,
+      ImmutableSet<CrossProfileTypeInfo> nonStaticTypes) {
+    return Stream.concat(staticTypes.stream(), nonStaticTypes.stream())
+        .filter(typeInfo -> typeInfo.connectorInfo().isPresent())
+        .map(typeInfo -> typeInfo.connectorInfo().get())
+        .findFirst()
+        .orElse(ConnectorInfo.unspecified(context, context.globalSupportedTypes()));
   }
 }

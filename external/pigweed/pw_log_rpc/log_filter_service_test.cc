@@ -32,13 +32,16 @@
 namespace pw::log_rpc {
 namespace {
 
+namespace FilterRule = ::pw::log::pwpb::FilterRule;
+namespace GetFilterRequest = ::pw::log::pwpb::GetFilterRequest;
+namespace SetFilterRequest = ::pw::log::pwpb::SetFilterRequest;
+
 class FilterServiceTest : public ::testing::Test {
  public:
   FilterServiceTest() : filter_map_(filters_) {}
 
  protected:
-  FilterMap filter_map_;
-  static constexpr size_t kMaxFilterRules = 3;
+  static constexpr size_t kMaxFilterRules = 4;
   std::array<Filter::Rule, kMaxFilterRules> rules1_;
   std::array<Filter::Rule, kMaxFilterRules> rules2_;
   std::array<Filter::Rule, kMaxFilterRules> rules3_;
@@ -54,6 +57,7 @@ class FilterServiceTest : public ::testing::Test {
       Filter(filter_id2_, rules2_),
       Filter(filter_id3_, rules3_),
   };
+  FilterMap filter_map_;
 };
 
 TEST_F(FilterServiceTest, GetFilterIds) {
@@ -94,17 +98,19 @@ TEST_F(FilterServiceTest, GetFilterIds) {
 }
 
 Status EncodeFilterRule(const Filter::Rule& rule,
-                        log::FilterRule::StreamEncoder& encoder) {
+                        FilterRule::StreamEncoder& encoder) {
   PW_TRY(
       encoder.WriteLevelGreaterThanOrEqual(rule.level_greater_than_or_equal));
   PW_TRY(encoder.WriteModuleEquals(rule.module_equals));
   PW_TRY(encoder.WriteAnyFlagsSet(rule.any_flags_set));
-  return encoder.WriteAction(static_cast<log::FilterRule::Action>(rule.action));
+  PW_TRY(encoder.WriteThreadEquals(rule.thread_equals));
+  return encoder.WriteAction(static_cast<FilterRule::Action>(rule.action));
 }
 
-Status EncodeFilter(const Filter& filter, log::Filter::StreamEncoder& encoder) {
+Status EncodeFilter(const Filter& filter,
+                    log::pwpb::Filter::StreamEncoder& encoder) {
   for (auto& rule : filter.rules()) {
-    log::FilterRule::StreamEncoder rule_encoder = encoder.GetRuleEncoder();
+    FilterRule::StreamEncoder rule_encoder = encoder.GetRuleEncoder();
     PW_TRY(EncodeFilterRule(rule, rule_encoder));
   }
   return OkStatus();
@@ -116,11 +122,10 @@ Result<ConstByteSpan> EncodeFilterRequest(const Filter& filter,
   std::byte encode_buffer[256];
   protobuf::StreamEncoder encoder(writer, encode_buffer);
   PW_TRY(encoder.WriteBytes(
-      static_cast<uint32_t>(log::SetFilterRequest::Fields::FILTER_ID),
-      filter.id()));
+      static_cast<uint32_t>(SetFilterRequest::Fields::kFilterId), filter.id()));
   {
-    log::Filter::StreamEncoder filter_encoder = encoder.GetNestedEncoder(
-        static_cast<uint32_t>(log::SetFilterRequest::Fields::FILTER));
+    log::pwpb::Filter::StreamEncoder filter_encoder = encoder.GetNestedEncoder(
+        static_cast<uint32_t>(SetFilterRequest::Fields::kFilter));
     PW_TRY(EncodeFilter(filter, filter_encoder));
   }  // Let the StreamEncoder destructor finalize the data.
   return ConstByteSpan(writer.data(), writer.bytes_written());
@@ -131,38 +136,52 @@ void VerifyRule(const Filter::Rule& rule, const Filter::Rule& expected_rule) {
             expected_rule.level_greater_than_or_equal);
   EXPECT_EQ(rule.module_equals, expected_rule.module_equals);
   EXPECT_EQ(rule.any_flags_set, expected_rule.any_flags_set);
+  EXPECT_EQ(rule.thread_equals, expected_rule.thread_equals);
   EXPECT_EQ(rule.action, expected_rule.action);
 }
 
 TEST_F(FilterServiceTest, SetFilterRules) {
-  const std::array<Filter::Rule, 4> new_rules{{
+  const std::array<Filter::Rule, kMaxFilterRules> new_rules{{
       {
           .action = Filter::Rule::Action::kKeep,
-          .level_greater_than_or_equal = log::FilterRule::Level::DEBUG_LEVEL,
+          .level_greater_than_or_equal = FilterRule::Level::DEBUG_LEVEL,
           .any_flags_set = 0x0f,
           .module_equals{std::byte(123)},
+          .thread_equals{std::byte('L'), std::byte('O'), std::byte('G')},
       },
       {
           .action = Filter::Rule::Action::kInactive,
-          .level_greater_than_or_equal = log::FilterRule::Level::ANY_LEVEL,
+          .level_greater_than_or_equal = FilterRule::Level::ANY_LEVEL,
           .any_flags_set = 0xef,
           .module_equals{},
+          .thread_equals{},
       },
       {
           .action = Filter::Rule::Action::kKeep,
-          .level_greater_than_or_equal = log::FilterRule::Level::INFO_LEVEL,
+          .level_greater_than_or_equal = FilterRule::Level::INFO_LEVEL,
           .any_flags_set = 0x1234,
           .module_equals{std::byte(99)},
+          .thread_equals{std::byte('P'),
+                         std::byte('O'),
+                         std::byte('W'),
+                         std::byte('E'),
+                         std::byte('R')},
       },
       {
           .action = Filter::Rule::Action::kDrop,
-          .level_greater_than_or_equal = log::FilterRule::Level::ANY_LEVEL,
+          .level_greater_than_or_equal = FilterRule::Level::ANY_LEVEL,
           .any_flags_set = 0,
           .module_equals{std::byte(4)},
+          .thread_equals{std::byte('P'),
+                         std::byte('O'),
+                         std::byte('W'),
+                         std::byte('E'),
+                         std::byte('R')},
       },
   }};
-  const Filter new_filter(filters_[0].id(),
-                          const_cast<std::array<Filter::Rule, 4>&>(new_rules));
+  const Filter new_filter(
+      filters_[0].id(),
+      const_cast<std::array<Filter::Rule, kMaxFilterRules>&>(new_rules));
 
   std::byte request_buffer[512];
   const auto request = EncodeFilterRequest(new_filter, request_buffer);
@@ -180,35 +199,52 @@ TEST_F(FilterServiceTest, SetFilterRules) {
 }
 
 TEST_F(FilterServiceTest, SetFilterRulesWhenUsedByDrain) {
-  const std::array<Filter::Rule, 4> new_filter_rules{{
+  const std::array<Filter::Rule, kMaxFilterRules> new_filter_rules{{
       {
           .action = Filter::Rule::Action::kKeep,
-          .level_greater_than_or_equal = log::FilterRule::Level::CRITICAL_LEVEL,
+          .level_greater_than_or_equal = FilterRule::Level::CRITICAL_LEVEL,
           .any_flags_set = 0xfd,
           .module_equals{std::byte(543)},
+          .thread_equals{std::byte('M'),
+                         std::byte('0'),
+                         std::byte('L'),
+                         std::byte('O'),
+                         std::byte('G')},
       },
       {
           .action = Filter::Rule::Action::kInactive,
-          .level_greater_than_or_equal = log::FilterRule::Level::ANY_LEVEL,
+          .level_greater_than_or_equal = FilterRule::Level::ANY_LEVEL,
           .any_flags_set = 0xca,
           .module_equals{},
+          .thread_equals{},
       },
       {
           .action = Filter::Rule::Action::kKeep,
-          .level_greater_than_or_equal = log::FilterRule::Level::INFO_LEVEL,
+          .level_greater_than_or_equal = FilterRule::Level::INFO_LEVEL,
           .any_flags_set = 0xabcd,
           .module_equals{std::byte(9000)},
+          .thread_equals{std::byte('P'),
+                         std::byte('O'),
+                         std::byte('W'),
+                         std::byte('E'),
+                         std::byte('R')},
       },
       {
           .action = Filter::Rule::Action::kDrop,
-          .level_greater_than_or_equal = log::FilterRule::Level::ANY_LEVEL,
+          .level_greater_than_or_equal = FilterRule::Level::ANY_LEVEL,
           .any_flags_set = 0,
           .module_equals{std::byte(123)},
+          .thread_equals{std::byte('P'),
+                         std::byte('O'),
+                         std::byte('W'),
+                         std::byte('E'),
+                         std::byte('R')},
       },
   }};
   Filter& filter = filters_[0];
   const Filter new_filter(
-      filter.id(), const_cast<std::array<Filter::Rule, 4>&>(new_filter_rules));
+      filter.id(),
+      const_cast<std::array<Filter::Rule, kMaxFilterRules>&>(new_filter_rules));
 
   std::byte request_buffer[256];
   const auto request = EncodeFilterRequest(new_filter, request_buffer);
@@ -236,35 +272,40 @@ TEST_F(FilterServiceTest, SetFilterRulesWhenUsedByDrain) {
   }
 
   // A new request for logs with a new filter updates filter.
-  const std::array<Filter::Rule, 4> second_filter_rules{{
+  const std::array<Filter::Rule, kMaxFilterRules> second_filter_rules{{
       {
           .action = Filter::Rule::Action::kKeep,
-          .level_greater_than_or_equal = log::FilterRule::Level::DEBUG_LEVEL,
+          .level_greater_than_or_equal = FilterRule::Level::DEBUG_LEVEL,
           .any_flags_set = 0xab,
           .module_equals{},
+          .thread_equals{},
       },
       {
           .action = Filter::Rule::Action::kDrop,
-          .level_greater_than_or_equal = log::FilterRule::Level::ANY_LEVEL,
+          .level_greater_than_or_equal = FilterRule::Level::ANY_LEVEL,
           .any_flags_set = 0x11,
           .module_equals{std::byte(34)},
+          .thread_equals{std::byte('L'), std::byte('O'), std::byte('G')},
       },
       {
           .action = Filter::Rule::Action::kKeep,
-          .level_greater_than_or_equal = log::FilterRule::Level::ANY_LEVEL,
+          .level_greater_than_or_equal = FilterRule::Level::ANY_LEVEL,
           .any_flags_set = 0xef,
           .module_equals{std::byte(23)},
+          .thread_equals{std::byte('R'), std::byte('P'), std::byte('C')},
       },
       {
           .action = Filter::Rule::Action::kDrop,
-          .level_greater_than_or_equal = log::FilterRule::Level::ANY_LEVEL,
+          .level_greater_than_or_equal = FilterRule::Level::ANY_LEVEL,
           .any_flags_set = 0x0f,
           .module_equals{},
+          .thread_equals{std::byte('R'), std::byte('P'), std::byte('C')},
       },
   }};
   const Filter second_filter(
       filter.id(),
-      const_cast<std::array<Filter::Rule, 4>&>(second_filter_rules));
+      const_cast<std::array<Filter::Rule, kMaxFilterRules>&>(
+          second_filter_rules));
 
   std::memset(request_buffer, 0, sizeof(request_buffer));
   const auto second_filter_request =
@@ -284,8 +325,10 @@ TEST_F(FilterServiceTest, SetFilterRulesWhenUsedByDrain) {
 void VerifyFilterRule(protobuf::Decoder& decoder,
                       const Filter::Rule& expected_rule) {
   ASSERT_TRUE(decoder.Next().ok());
-  ASSERT_EQ(decoder.FieldNumber(), 1u);  // level_greater_than_or_equal
-  log::FilterRule::Level level_greater_than_or_equal;
+  ASSERT_EQ(
+      decoder.FieldNumber(),
+      static_cast<uint32_t>(FilterRule::Fields::kLevelGreaterThanOrEqual));
+  FilterRule::Level level_greater_than_or_equal;
   ASSERT_EQ(decoder.ReadUint32(
                 reinterpret_cast<uint32_t*>(&level_greater_than_or_equal)),
             OkStatus());
@@ -293,7 +336,8 @@ void VerifyFilterRule(protobuf::Decoder& decoder,
             expected_rule.level_greater_than_or_equal);
 
   ASSERT_TRUE(decoder.Next().ok());
-  ASSERT_EQ(decoder.FieldNumber(), 2u);  // module_equals
+  ASSERT_EQ(decoder.FieldNumber(),
+            static_cast<uint32_t>(FilterRule::Fields::kModuleEquals));
   ConstByteSpan module_equals;
   ASSERT_EQ(decoder.ReadBytes(&module_equals), OkStatus());
   ASSERT_EQ(module_equals.size(), expected_rule.module_equals.size());
@@ -303,21 +347,34 @@ void VerifyFilterRule(protobuf::Decoder& decoder,
             0);
 
   ASSERT_TRUE(decoder.Next().ok());
-  ASSERT_EQ(decoder.FieldNumber(), 3u);  // any_flags_set
+  ASSERT_EQ(decoder.FieldNumber(),
+            static_cast<uint32_t>(FilterRule::Fields::kAnyFlagsSet));
   uint32_t any_flags_set;
   ASSERT_EQ(decoder.ReadUint32(&any_flags_set), OkStatus());
   EXPECT_EQ(any_flags_set, expected_rule.any_flags_set);
 
   ASSERT_TRUE(decoder.Next().ok());
-  ASSERT_EQ(decoder.FieldNumber(), 4u);  // action
+  ASSERT_EQ(decoder.FieldNumber(),
+            static_cast<uint32_t>(FilterRule::Fields::kAction));
   Filter::Rule::Action action;
   ASSERT_EQ(decoder.ReadUint32(reinterpret_cast<uint32_t*>(&action)),
             OkStatus());
   EXPECT_EQ(action, expected_rule.action);
+
+  ASSERT_TRUE(decoder.Next().ok());
+  ASSERT_EQ(decoder.FieldNumber(),
+            static_cast<uint32_t>(FilterRule::Fields::kThreadEquals));
+  ConstByteSpan thread;
+  ASSERT_EQ(decoder.ReadBytes(&thread), OkStatus());
+  ASSERT_EQ(thread.size(), expected_rule.thread_equals.size());
+  EXPECT_EQ(
+      std::memcmp(
+          thread.data(), expected_rule.thread_equals.data(), thread.size()),
+      0);
 }
 
 void VerifyFilterRules(protobuf::Decoder& decoder,
-                       std::span<const Filter::Rule> expected_rules) {
+                       span<const Filter::Rule> expected_rules) {
   size_t rules_found = 0;
   while (decoder.Next().ok()) {
     ConstByteSpan rule;
@@ -337,7 +394,7 @@ TEST_F(FilterServiceTest, GetFilterRules) {
   context(filter_map_);
 
   std::byte request_buffer[64];
-  log::GetFilterRequest::MemoryEncoder encoder(request_buffer);
+  GetFilterRequest::MemoryEncoder encoder(request_buffer);
   ASSERT_EQ(OkStatus(), encoder.WriteFilterId(filter_id1_));
   const auto request = ConstByteSpan(encoder);
   context.call(request);
@@ -351,12 +408,15 @@ TEST_F(FilterServiceTest, GetFilterRules) {
 
   // Partially populate rules.
   rules1_[0].action = Filter::Rule::Action::kKeep;
-  rules1_[0].level_greater_than_or_equal = log::FilterRule::Level::DEBUG_LEVEL;
+  rules1_[0].level_greater_than_or_equal = FilterRule::Level::DEBUG_LEVEL;
   rules1_[0].any_flags_set = 0xab;
   const std::array<std::byte, 2> module1{std::byte(123), std::byte(0xab)};
   rules1_[0].module_equals.assign(module1.begin(), module1.end());
+  const std::array<std::byte, 4> thread1{
+      std::byte('H'), std::byte('O'), std::byte('S'), std::byte('T')};
+  rules1_[0].thread_equals.assign(thread1.begin(), thread1.end());
   rules1_[1].action = Filter::Rule::Action::kDrop;
-  rules1_[1].level_greater_than_or_equal = log::FilterRule::Level::ERROR_LEVEL;
+  rules1_[1].level_greater_than_or_equal = FilterRule::Level::ERROR_LEVEL;
   rules1_[1].any_flags_set = 0;
 
   PW_RAW_TEST_METHOD_CONTEXT(FilterService, GetFilter, 1)
@@ -369,10 +429,13 @@ TEST_F(FilterServiceTest, GetFilterRules) {
 
   // Modify the rest of the filter rules.
   rules1_[2].action = Filter::Rule::Action::kKeep;
-  rules1_[2].level_greater_than_or_equal = log::FilterRule::Level::FATAL_LEVEL;
+  rules1_[2].level_greater_than_or_equal = FilterRule::Level::FATAL_LEVEL;
   rules1_[2].any_flags_set = 0xcd;
   const std::array<std::byte, 2> module2{std::byte(1), std::byte(2)};
   rules1_[2].module_equals.assign(module2.begin(), module2.end());
+  const std::array<std::byte, 3> thread2{
+      std::byte('A'), std::byte('P'), std::byte('P')};
+  rules1_[2].thread_equals.assign(thread2.begin(), thread2.end());
   rules1_[3].action = Filter::Rule::Action::kInactive;
 
   PW_RAW_TEST_METHOD_CONTEXT(FilterService, GetFilter, 1)

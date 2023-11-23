@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Chrome OS Parnter Concole remote actions."""
+"""ChromeOS Parnter Concole remote actions."""
 
 from __future__ import print_function
 

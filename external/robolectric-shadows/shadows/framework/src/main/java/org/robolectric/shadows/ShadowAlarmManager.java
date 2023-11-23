@@ -5,6 +5,7 @@ import static android.os.Build.VERSION_CODES.KITKAT;
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static android.os.Build.VERSION_CODES.M;
 import static android.os.Build.VERSION_CODES.N;
+import static android.os.Build.VERSION_CODES.S;
 
 import android.annotation.TargetApi;
 import android.app.AlarmManager;
@@ -29,6 +30,7 @@ public class ShadowAlarmManager {
 
   private static final TimeZone DEFAULT_TIMEZONE = TimeZone.getDefault();
 
+  private static boolean canScheduleExactAlarms;
   private final List<ScheduledAlarm> scheduledAlarms = new ArrayList<>();
 
   @RealObject private AlarmManager realObject;
@@ -36,6 +38,7 @@ public class ShadowAlarmManager {
   @Resetter
   public static void reset() {
     TimeZone.setDefault(DEFAULT_TIMEZONE);
+    canScheduleExactAlarms = false;
   }
 
   @Implementation
@@ -194,6 +197,20 @@ public class ShadowAlarmManager {
         }
       }
     }
+  }
+
+  /** Returns the schedule exact alarm state set by {@link #setCanScheduleExactAlarms}. */
+  @Implementation(minSdk = S)
+  protected boolean canScheduleExactAlarms() {
+    return canScheduleExactAlarms;
+  }
+
+  /**
+   * Sets the schedule exact alarm state reported by {@link AlarmManager#canScheduleExactAlarms},
+   * but has no effect otherwise.
+   */
+  public static void setCanScheduleExactAlarms(boolean scheduleExactAlarms) {
+    canScheduleExactAlarms = scheduleExactAlarms;
   }
 
   /**

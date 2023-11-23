@@ -19,4 +19,11 @@ cc_library_headers {
     name: "pybind11_headers",
     host_supported: true,
     export_include_dirs: ["include"],
+    // Python Native extensions are not supported in AOSP so this library
+    // is not supported.
+    // Therefore, only allow the current set of users, and block anyone
+    // else.
+    visibility: [
+        "//packages/modules/Bluetooth/system/gd",
+    ],
 }

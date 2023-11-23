@@ -16,6 +16,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
 DEPENDENCIES = "carrier:att"
+PY_VERSION = 3
 
 # TODO(crbug.com/932661) Fix the root cause of the flakiness and
 # remove this hack.

@@ -32,26 +32,26 @@ namespace android {
 
 LEGACY_BUFFER_INFO_GETTER(BufferInfoMaliMediatek);
 
-int BufferInfoMaliMediatek::ConvertBoInfo(buffer_handle_t handle,
-                                          hwc_drm_bo_t *bo) {
+auto BufferInfoMaliMediatek::GetBoInfo(buffer_handle_t handle)
+    -> std::optional<BufferInfo> {
   const auto *hnd = (private_handle_t const *)handle;
   if (!hnd)
-    return -EINVAL;
+    return {};
 
   uint32_t fmt = ConvertHalFormatToDrm(hnd->req_format);
   if (fmt == DRM_FORMAT_INVALID)
-    return -EINVAL;
+    return {};
 
-  bo->width = hnd->width;
-  bo->height = hnd->height;
-  bo->hal_format = hnd->req_format;
-  bo->format = fmt;
-  bo->usage = hnd->consumer_usage | hnd->producer_usage;
-  bo->prime_fds[0] = hnd->share_fd;
-  bo->pitches[0] = hnd->byte_stride;
-  bo->offsets[0] = 0;
+  BufferInfo bi{};
 
-  return 0;
+  bi.width = hnd->width;
+  bi.height = hnd->height;
+  bi.format = fmt;
+  bi.prime_fds[0] = hnd->share_fd;
+  bi.pitches[0] = hnd->byte_stride;
+  bi.offsets[0] = 0;
+
+  return bi;
 }
 
 }  // namespace android

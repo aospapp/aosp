@@ -12,7 +12,7 @@ class firmware_CorruptBothKernelAB(FirmwareTest):
     """
     Servo based both kernel A and B corruption test.
 
-    This test requires a USB disk plugged-in, which contains a Chrome OS test
+    This test requires a USB disk plugged-in, which contains a ChromeOS test
     image (built by "build_image --test"). On runtime, this test corrupts
     both kernel A and B. On next reboot, the kernel verification fails
     and enters recovery mode. This test then checks the success of the

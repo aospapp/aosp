@@ -1,4 +1,6 @@
-use crate::io::driver::{Handle, Interest, ReadyEvent, Registration};
+use crate::io::Interest;
+use crate::runtime::io::{ReadyEvent, Registration};
+use crate::runtime::scheduler;
 
 use mio::unix::SourceFd;
 use std::io;
@@ -81,6 +83,7 @@ use std::{task::Context, task::Poll};
 ///
 /// impl AsyncTcpStream {
 ///     pub fn new(tcp: TcpStream) -> io::Result<Self> {
+///         tcp.set_nonblocking(true)?;
 ///         Ok(Self {
 ///             inner: AsyncFd::new(tcp)?,
 ///         })
@@ -166,12 +169,18 @@ pub struct AsyncFdReadyMutGuard<'a, T: AsRawFd> {
 const ALL_INTEREST: Interest = Interest::READABLE.add(Interest::WRITABLE);
 
 impl<T: AsRawFd> AsyncFd<T> {
-    #[inline]
     /// Creates an AsyncFd backed by (and taking ownership of) an object
     /// implementing [`AsRawFd`]. The backing file descriptor is cached at the
     /// time of creation.
     ///
     /// This method must be called in the context of a tokio runtime.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is no current reactor set, or if the `rt`
+    /// feature flag is not enabled.
+    #[inline]
+    #[track_caller]
     pub fn new(inner: T) -> io::Result<Self>
     where
         T: AsRawFd,
@@ -179,19 +188,26 @@ impl<T: AsRawFd> AsyncFd<T> {
         Self::with_interest(inner, ALL_INTEREST)
     }
 
-    #[inline]
     /// Creates new instance as `new` with additional ability to customize interest,
     /// allowing to specify whether file descriptor will be polled for read, write or both.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if there is no current reactor set, or if the `rt`
+    /// feature flag is not enabled.
+    #[inline]
+    #[track_caller]
     pub fn with_interest(inner: T, interest: Interest) -> io::Result<Self>
     where
         T: AsRawFd,
     {
-        Self::new_with_handle_and_interest(inner, Handle::current(), interest)
+        Self::new_with_handle_and_interest(inner, scheduler::Handle::current(), interest)
     }
 
+    #[track_caller]
     pub(crate) fn new_with_handle_and_interest(
         inner: T,
-        handle: Handle,
+        handle: scheduler::Handle,
         interest: Interest,
     ) -> io::Result<Self> {
         let fd = inner.as_raw_fd();
@@ -525,7 +541,7 @@ impl<'a, Inner: AsRawFd> AsyncFdReadyGuard<'a, Inner> {
     #[cfg_attr(docsrs, doc(alias = "with_io"))]
     pub fn try_io<R>(
         &mut self,
-        f: impl FnOnce(&AsyncFd<Inner>) -> io::Result<R>,
+        f: impl FnOnce(&'a AsyncFd<Inner>) -> io::Result<R>,
     ) -> Result<io::Result<R>, TryIoError> {
         let result = f(self.async_fd);
 
@@ -542,12 +558,12 @@ impl<'a, Inner: AsRawFd> AsyncFdReadyGuard<'a, Inner> {
     }
 
     /// Returns a shared reference to the inner [`AsyncFd`].
-    pub fn get_ref(&self) -> &AsyncFd<Inner> {
+    pub fn get_ref(&self) -> &'a AsyncFd<Inner> {
         self.async_fd
     }
 
     /// Returns a shared reference to the backing object of the inner [`AsyncFd`].
-    pub fn get_inner(&self) -> &Inner {
+    pub fn get_inner(&self) -> &'a Inner {
         self.get_ref().get_ref()
     }
 }
@@ -598,7 +614,7 @@ impl<'a, Inner: AsRawFd> AsyncFdReadyMutGuard<'a, Inner> {
         &mut self,
         f: impl FnOnce(&mut AsyncFd<Inner>) -> io::Result<R>,
     ) -> Result<io::Result<R>, TryIoError> {
-        let result = f(&mut self.async_fd);
+        let result = f(self.async_fd);
 
         if let Err(e) = result.as_ref() {
             if e.kind() == io::ErrorKind::WouldBlock {

@@ -57,7 +57,8 @@ class firmware_UpdateKernelSubkeyVersion(FirmwareTest):
         super(firmware_UpdateKernelSubkeyVersion, self).initialize(
             host, cmdline_args)
         self.backup_firmware()
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
         self.setup_firmwareupdate_shellball(shellball_path)
 
         # Update firmware if needed

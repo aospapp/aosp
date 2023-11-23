@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,22 +10,30 @@
 
 use std::ffi::CStr;
 use std::fs::File;
-use std::io::{Seek, SeekFrom};
+use std::io::Error;
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::os::raw::c_char;
-use std::rc::Rc;
-
-use base::{AsRawDescriptor, Error as BaseError, FromRawDescriptor};
+use std::sync::Arc;
 
 use crate::rutabaga_gralloc::formats::DrmFormat;
-use crate::rutabaga_gralloc::gralloc::{Gralloc, ImageAllocationInfo, ImageMemoryRequirements};
+use crate::rutabaga_gralloc::gralloc::Gralloc;
+use crate::rutabaga_gralloc::gralloc::ImageAllocationInfo;
+use crate::rutabaga_gralloc::gralloc::ImageMemoryRequirements;
 use crate::rutabaga_gralloc::minigbm_bindings::*;
 use crate::rutabaga_gralloc::rendernode;
+use crate::rutabaga_os::AsRawDescriptor;
+use crate::rutabaga_os::FromRawDescriptor;
 use crate::rutabaga_utils::*;
 
 struct MinigbmDeviceInner {
     _fd: File,
     gbm: *mut gbm_device,
 }
+
+// Safe because minigbm handles synchronization internally.
+unsafe impl Send for MinigbmDeviceInner {}
+unsafe impl Sync for MinigbmDeviceInner {}
 
 impl Drop for MinigbmDeviceInner {
     fn drop(&mut self) {
@@ -39,8 +47,8 @@ impl Drop for MinigbmDeviceInner {
 /// A device capable of allocating `MinigbmBuffer`.
 #[derive(Clone)]
 pub struct MinigbmDevice {
-    minigbm_device: Rc<MinigbmDeviceInner>,
-    last_buffer: Option<Rc<MinigbmBuffer>>,
+    minigbm_device: Arc<MinigbmDeviceInner>,
+    last_buffer: Option<Arc<MinigbmBuffer>>,
     device_name: &'static str,
 }
 
@@ -55,7 +63,7 @@ impl MinigbmDevice {
         // returned.  If the fd does not refer to a DRM device, gbm_create_device will reject it.
         let gbm = unsafe { gbm_create_device(fd.as_raw_descriptor()) };
         if gbm.is_null() {
-            return Err(RutabagaError::BaseError(BaseError::last()));
+            return Err(RutabagaError::IoError(Error::last_os_error()));
         }
 
         // Safe because a valid minigbm device has a statically allocated string associated with
@@ -65,7 +73,7 @@ impl MinigbmDevice {
         let device_name: &str = c_str.to_str()?;
 
         Ok(Box::new(MinigbmDevice {
-            minigbm_device: Rc::new(MinigbmDeviceInner { _fd: fd, gbm }),
+            minigbm_device: Arc::new(MinigbmDeviceInner { _fd: fd, gbm }),
             last_buffer: None,
             device_name,
         }))
@@ -95,7 +103,7 @@ impl Gralloc for MinigbmDevice {
             )
         };
         if bo.is_null() {
-            return Err(RutabagaError::BaseError(BaseError::last()));
+            return Err(RutabagaError::IoError(Error::last_os_error()));
         }
 
         let mut reqs: ImageMemoryRequirements = Default::default();
@@ -127,7 +135,7 @@ impl Gralloc for MinigbmDevice {
             return Err(RutabagaError::AlreadyInUse);
         }
 
-        self.last_buffer = Some(Rc::new(gbm_buffer));
+        self.last_buffer = Some(Arc::new(gbm_buffer));
         reqs.info = info;
         reqs.size = size;
         Ok(reqs)
@@ -161,7 +169,7 @@ impl Gralloc for MinigbmDevice {
         };
 
         if bo.is_null() {
-            return Err(RutabagaError::BaseError(BaseError::last()));
+            return Err(RutabagaError::IoError(Error::last_os_error()));
         }
 
         let gbm_buffer = MinigbmBuffer(bo, self.clone());
@@ -175,6 +183,10 @@ impl Gralloc for MinigbmDevice {
 
 /// An allocation from a `MinigbmDevice`.
 pub struct MinigbmBuffer(*mut gbm_bo, MinigbmDevice);
+
+// Safe because minigbm handles synchronization internally.
+unsafe impl Send for MinigbmBuffer {}
+unsafe impl Sync for MinigbmBuffer {}
 
 impl MinigbmBuffer {
     /// Width in pixels.

@@ -10,6 +10,7 @@
 #define P2P_I_H
 
 #include "utils/list.h"
+#include "drivers/driver.h"
 #include "p2p.h"
 #include "ap/ap_config.h"
 
@@ -149,6 +150,7 @@ struct p2p_device {
 	struct wpabuf *go_neg_conf;
 
 	int sd_pending_bcast_queries;
+	bool support_6ghz;
 };
 
 struct p2p_sd_query {
@@ -553,7 +555,7 @@ struct p2p_data {
 
 	struct wpabuf **vendor_elem;
 
-	unsigned int pref_freq_list[P2P_MAX_PREF_CHANNELS];
+	struct weighted_pcl pref_freq_list[P2P_MAX_PREF_CHANNELS];
 	unsigned int num_pref_freq;
 
 	/* Override option for preferred operating channel in GO Negotiation */
@@ -690,7 +692,6 @@ struct p2p_group_info {
 
 /* p2p_utils.c */
 int p2p_random(char *buf, size_t len);
-int p2p_channel_to_freq(int op_class, int channel);
 int p2p_freq_to_channel(unsigned int freq, u8 *op_class, u8 *channel);
 void p2p_channels_intersect(const struct p2p_channels *a,
 			    const struct p2p_channels *b,
@@ -769,7 +770,7 @@ void p2p_buf_add_listen_channel(struct wpabuf *buf, const char *country,
 void p2p_buf_add_operating_channel(struct wpabuf *buf, const char *country,
 				   u8 reg_class, u8 channel);
 void p2p_buf_add_channel_list(struct wpabuf *buf, const char *country,
-			      struct p2p_channels *chan);
+			      struct p2p_channels *chan, bool is_6ghz_capab);
 void p2p_buf_add_config_timeout(struct wpabuf *buf, u8 go_timeout,
 				u8 client_timeout);
 void p2p_buf_add_intended_addr(struct wpabuf *buf, const u8 *interface_addr);
@@ -800,7 +801,7 @@ void p2p_buf_add_persistent_group_info(struct wpabuf *buf, const u8 *dev_addr,
 int p2p_build_wps_ie(struct p2p_data *p2p, struct wpabuf *buf, int pw_id,
 		     int all_attr);
 void p2p_buf_add_pref_channel_list(struct wpabuf *buf,
-				   const unsigned int *preferred_freq_list,
+				   const struct weighted_pcl *pref_freq_list,
 				   unsigned int size);
 
 /* p2p_sd.c */
@@ -875,6 +876,8 @@ void p2p_continue_find(struct p2p_data *p2p);
 struct p2p_device * p2p_add_dev_from_go_neg_req(struct p2p_data *p2p,
 						const u8 *addr,
 						struct p2p_message *msg);
+void p2p_update_peer_6ghz_capab(struct p2p_device *dev,
+				const struct p2p_message *msg);
 void p2p_add_dev_info(struct p2p_data *p2p, const u8 *addr,
 		      struct p2p_device *dev, struct p2p_message *msg);
 int p2p_add_device(struct p2p_data *p2p, const u8 *addr, int freq,
@@ -902,6 +905,10 @@ int p2p_prepare_channel(struct p2p_data *p2p, struct p2p_device *dev,
 void p2p_go_neg_wait_timeout(void *eloop_ctx, void *timeout_ctx);
 int p2p_go_select_channel(struct p2p_data *p2p, struct p2p_device *dev,
 			  u8 *status);
+void p2p_pref_channel_filter(const struct p2p_channels *a,
+			     const struct weighted_pcl *freq_list,
+			     unsigned int num_channels,
+			     struct p2p_channels *res, bool go);
 void p2p_dbg(struct p2p_data *p2p, const char *fmt, ...)
 PRINTF_FORMAT(2, 3);
 void p2p_info(struct p2p_data *p2p, const char *fmt, ...)

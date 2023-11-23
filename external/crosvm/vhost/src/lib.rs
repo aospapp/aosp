@@ -1,25 +1,37 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
+//! Linux vhost kernel API wrapper.
 
 #[cfg(unix)]
 pub mod net;
 mod vsock;
 
-#[cfg(unix)]
-pub use crate::net::{Net, NetT};
-pub use crate::vsock::Vsock;
-
 use std::alloc::Layout;
 use std::io::Error as IoError;
 use std::ptr::null;
 
-use assertions::const_assert;
-use base::{ioctl, ioctl_with_mut_ref, ioctl_with_ptr, ioctl_with_ref};
-use base::{AsRawDescriptor, Event, LayoutAllocation};
+use base::ioctl;
+use base::ioctl_with_mut_ref;
+use base::ioctl_with_ptr;
+use base::ioctl_with_ref;
+use base::AsRawDescriptor;
+use base::Event;
+use base::LayoutAllocation;
 use remain::sorted;
+use static_assertions::const_assert;
 use thiserror::Error;
-use vm_memory::{GuestAddress, GuestMemory, GuestMemoryError};
+use vm_memory::GuestAddress;
+use vm_memory::GuestMemory;
+use vm_memory::GuestMemoryError;
+use vm_memory::MemoryRegionInformation;
+
+#[cfg(unix)]
+pub use crate::net::Net;
+#[cfg(unix)]
+pub use crate::net::NetT;
+pub use crate::vsock::Vsock;
 
 #[sorted]
 #[derive(Error, Debug)]
@@ -113,11 +125,12 @@ pub trait Vhost: AsRawDescriptor + std::marker::Sized {
 
     /// Set the guest memory mappings for vhost to use.
     fn set_mem_table(&self, mem: &GuestMemory) -> Result<()> {
-        const SIZE_OF_MEMORY: usize = std::mem::size_of::<virtio_sys::vhost_memory>();
-        const SIZE_OF_REGION: usize = std::mem::size_of::<virtio_sys::vhost_memory_region>();
-        const ALIGN_OF_MEMORY: usize = std::mem::align_of::<virtio_sys::vhost_memory>();
-        const ALIGN_OF_REGION: usize = std::mem::align_of::<virtio_sys::vhost_memory_region>();
-        const_assert!(ALIGN_OF_MEMORY >= ALIGN_OF_REGION);
+        const SIZE_OF_MEMORY: usize = std::mem::size_of::<virtio_sys::vhost::vhost_memory>();
+        const SIZE_OF_REGION: usize = std::mem::size_of::<virtio_sys::vhost::vhost_memory_region>();
+        const ALIGN_OF_MEMORY: usize = std::mem::align_of::<virtio_sys::vhost::vhost_memory>();
+        const_assert!(
+            ALIGN_OF_MEMORY >= std::mem::align_of::<virtio_sys::vhost::vhost_memory_region>()
+        );
 
         let num_regions = mem.num_regions() as usize;
         let size = SIZE_OF_MEMORY + num_regions * SIZE_OF_REGION;
@@ -126,22 +139,30 @@ pub trait Vhost: AsRawDescriptor + std::marker::Sized {
 
         // Safe to obtain an exclusive reference because there are no other
         // references to the allocation yet and all-zero is a valid bit pattern.
-        let vhost_memory = unsafe { allocation.as_mut::<virtio_sys::vhost_memory>() };
+        let vhost_memory = unsafe { allocation.as_mut::<virtio_sys::vhost::vhost_memory>() };
 
         vhost_memory.nregions = num_regions as u32;
         // regions is a zero-length array, so taking a mut slice requires that
         // we correctly specify the size to match the amount of backing memory.
         let vhost_regions = unsafe { vhost_memory.regions.as_mut_slice(num_regions as usize) };
 
-        let _ = mem.with_regions::<_, ()>(|index, guest_addr, size, host_addr, _, _| {
-            vhost_regions[index] = virtio_sys::vhost_memory_region {
-                guest_phys_addr: guest_addr.offset() as u64,
-                memory_size: size as u64,
-                userspace_addr: host_addr as u64,
-                flags_padding: 0u64,
-            };
-            Ok(())
-        });
+        let _ = mem.with_regions::<_, ()>(
+            |MemoryRegionInformation {
+                 index,
+                 guest_addr,
+                 size,
+                 host_addr,
+                 ..
+             }| {
+                vhost_regions[index] = virtio_sys::vhost::vhost_memory_region {
+                    guest_phys_addr: guest_addr.offset() as u64,
+                    memory_size: size as u64,
+                    userspace_addr: host_addr as u64,
+                    flags_padding: 0u64,
+                };
+                Ok(())
+            },
+        );
 
         // This ioctl is called with a pointer that is valid for the lifetime
         // of this function. The kernel will make its own copy of the memory
@@ -162,7 +183,7 @@ pub trait Vhost: AsRawDescriptor + std::marker::Sized {
     /// * `queue_index` - Index of the queue to set descriptor count for.
     /// * `num` - Number of descriptors in the queue.
     fn set_vring_num(&self, queue_index: usize, num: u16) -> Result<()> {
-        let vring_state = virtio_sys::vhost_vring_state {
+        let vring_state = virtio_sys::vhost::vhost_vring_state {
             index: queue_index as u32,
             num: num as u32,
         };
@@ -262,7 +283,7 @@ pub trait Vhost: AsRawDescriptor + std::marker::Sized {
             Some(a) => mem.get_host_address(a).map_err(Error::LogAddress)?,
         };
 
-        let vring_addr = virtio_sys::vhost_vring_addr {
+        let vring_addr = virtio_sys::vhost::vhost_vring_addr {
             index: queue_index as u32,
             flags,
             desc_user_addr: desc_addr as u64,
@@ -286,7 +307,7 @@ pub trait Vhost: AsRawDescriptor + std::marker::Sized {
     /// * `queue_index` - Index of the queue to modify.
     /// * `num` - Index where available descriptors start.
     fn set_vring_base(&self, queue_index: usize, num: u16) -> Result<()> {
-        let vring_state = virtio_sys::vhost_vring_state {
+        let vring_state = virtio_sys::vhost::vhost_vring_state {
             index: queue_index as u32,
             num: num as u32,
         };
@@ -305,7 +326,7 @@ pub trait Vhost: AsRawDescriptor + std::marker::Sized {
     /// # Arguments
     /// * `queue_index` - Index of the queue to query.
     fn get_vring_base(&self, queue_index: usize) -> Result<u16> {
-        let mut vring_state = virtio_sys::vhost_vring_state {
+        let mut vring_state = virtio_sys::vhost::vhost_vring_state {
             index: queue_index as u32,
             num: 0,
         };
@@ -327,9 +348,9 @@ pub trait Vhost: AsRawDescriptor + std::marker::Sized {
     /// * `queue_index` - Index of the queue to modify.
     /// * `event` - Event to trigger.
     fn set_vring_call(&self, queue_index: usize, event: &Event) -> Result<()> {
-        let vring_file = virtio_sys::vhost_vring_file {
+        let vring_file = virtio_sys::vhost::vhost_vring_file {
             index: queue_index as u32,
-            fd: event.as_raw_descriptor(),
+            fd: event.as_raw_descriptor() as i32,
         };
 
         // This ioctl is called on a valid vhost_net descriptor and has its
@@ -347,9 +368,9 @@ pub trait Vhost: AsRawDescriptor + std::marker::Sized {
     /// * `queue_index` - Index of the queue to modify.
     /// * `event` - Event to trigger.
     fn set_vring_err(&self, queue_index: usize, event: &Event) -> Result<()> {
-        let vring_file = virtio_sys::vhost_vring_file {
+        let vring_file = virtio_sys::vhost::vhost_vring_file {
             index: queue_index as u32,
-            fd: event.as_raw_descriptor(),
+            fd: event.as_raw_descriptor() as i32,
         };
 
         // This ioctl is called on a valid vhost_net fd and has its
@@ -368,9 +389,9 @@ pub trait Vhost: AsRawDescriptor + std::marker::Sized {
     /// * `queue_index` - Index of the queue to modify.
     /// * `event` - Event that will be signaled from guest.
     fn set_vring_kick(&self, queue_index: usize, event: &Event) -> Result<()> {
-        let vring_file = virtio_sys::vhost_vring_file {
+        let vring_file = virtio_sys::vhost::vhost_vring_file {
             index: queue_index as u32,
-            fd: event.as_raw_descriptor(),
+            fd: event.as_raw_descriptor() as i32,
         };
 
         // This ioctl is called on a valid vhost_net descriptor and has its
@@ -380,116 +401,5 @@ pub trait Vhost: AsRawDescriptor + std::marker::Sized {
             return ioctl_result();
         }
         Ok(())
-    }
-}
-
-// TODO(225193541): Enable/add tests for windows.
-#[cfg(unix)]
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use crate::net::fakes::FakeNet;
-    use net_util::fakes::FakeTap;
-    use std::{path::PathBuf, result};
-    use vm_memory::{GuestAddress, GuestMemory, GuestMemoryError};
-
-    fn create_guest_memory() -> result::Result<GuestMemory, GuestMemoryError> {
-        let start_addr1 = GuestAddress(0x0);
-        let start_addr2 = GuestAddress(0x1000);
-        GuestMemory::new(&[(start_addr1, 0x1000), (start_addr2, 0x4000)])
-    }
-
-    fn assert_ok_or_known_failure<T>(res: Result<T>) {
-        match &res {
-            // FakeNet won't respond to ioctl's
-            Ok(_t) => {}
-            Err(Error::IoctlError(ioe)) if ioe.raw_os_error().unwrap() == 25 => {}
-            Err(e) => panic!("Unexpected Error:\n{}", e),
-        }
-    }
-
-    fn create_fake_vhost_net() -> FakeNet<FakeTap> {
-        FakeNet::<FakeTap>::new(&PathBuf::from("")).unwrap()
-    }
-
-    #[test]
-    fn test_create_fake_vhost_net() {
-        create_fake_vhost_net();
-    }
-
-    #[test]
-    fn set_owner() {
-        let vhost_net = create_fake_vhost_net();
-        let res = vhost_net.set_owner();
-        assert_ok_or_known_failure(res);
-    }
-
-    #[test]
-    fn get_features() {
-        let vhost_net = create_fake_vhost_net();
-        let res = vhost_net.get_features();
-        assert_ok_or_known_failure(res);
-    }
-
-    #[test]
-    fn set_features() {
-        let vhost_net = create_fake_vhost_net();
-        let res = vhost_net.set_features(0);
-        assert_ok_or_known_failure(res);
-    }
-
-    #[test]
-    fn set_mem_table() {
-        let vhost_net = create_fake_vhost_net();
-        let gm = create_guest_memory().unwrap();
-        let res = vhost_net.set_mem_table(&gm);
-        assert_ok_or_known_failure(res);
-    }
-
-    #[test]
-    fn set_vring_num() {
-        let vhost_net = create_fake_vhost_net();
-        let res = vhost_net.set_vring_num(0, 1);
-        assert_ok_or_known_failure(res);
-    }
-
-    #[test]
-    fn set_vring_addr() {
-        let vhost_net = create_fake_vhost_net();
-        let gm = create_guest_memory().unwrap();
-        let res = vhost_net.set_vring_addr(
-            &gm,
-            1,
-            1,
-            0,
-            0x0,
-            GuestAddress(0x0),
-            GuestAddress(0x0),
-            GuestAddress(0x0),
-            None,
-        );
-        assert_ok_or_known_failure(res);
-    }
-
-    #[test]
-    fn set_vring_base() {
-        let vhost_net = create_fake_vhost_net();
-        let res = vhost_net.set_vring_base(0, 1);
-        assert_ok_or_known_failure(res);
-    }
-
-    #[test]
-    fn set_vring_call() {
-        let vhost_net = create_fake_vhost_net();
-        let res = vhost_net.set_vring_call(0, &Event::new().unwrap());
-        assert_ok_or_known_failure(res);
-    }
-
-    #[test]
-    fn set_vring_kick() {
-        let vhost_net = create_fake_vhost_net();
-        let res = vhost_net.set_vring_kick(0, &Event::new().unwrap());
-        assert_ok_or_known_failure(res);
     }
 }

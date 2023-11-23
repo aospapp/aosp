@@ -4,15 +4,17 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_PDResetSoft.dts_flip"
 PURPOSE = "Servo based PD soft reset test"
 ATTRIBUTES = "suite:faft_pd"
+DEPENDENCIES = "servo_state:WORKING"
 CRITERIA = "This test will fail if soft reset does not complete"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 This test checks:

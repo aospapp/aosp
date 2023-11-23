@@ -24,21 +24,36 @@
 
 struct tun_data;
 
-#define MAXMTU 65536
-#define PACKETLEN (MAXMTU + sizeof(struct tun_pi))
-#define CLATD_VERSION "1.5"
+// IPv4 header has a u16 total length field, for maximum L3 mtu of 0xFFFF.
+//
+// Translating IPv4 to IPv6 requires removing the IPv4 header (20) and adding
+// an IPv6 header (40), possibly with an extra ipv6 fragment extension header (8).
+//
+// As such the maximum IPv4 L3 mtu size is 0xFFFF (by u16 tot_len field)
+// and the maximum IPv6 L3 mtu size is 0xFFFF + 28 (which is larger)
+//
+// A received non-jumbogram IPv6 frame could potentially be u16 payload_len = 0xFFFF
+// + sizeof ipv6 header = 40, bytes in size.  But such a packet cannot be meaningfully
+// converted to IPv4 (it's too large).  As such the restriction is the same: 0xFFFF + 28
+//
+// (since there's no jumbogram support in IPv4, IPv6 jumbograms cannot be meaningfully
+// converted to IPv4 anyway, and are thus entirely unsupported)
+#define MAXMTU (0xFFFF + 28)
+
+// logcat_hexdump() maximum binary data length, this is the maximum packet size
+// plus some extra space for various headers:
+//   struct tun_pi (4 bytes)
+//   struct virtio_net_hdr (10 bytes)
+//   ethernet (14 bytes), potentially including vlan tag (4) or tags (8 or 12)
+// plus some extra just-in-case headroom, because it doesn't hurt.
+#define MAXDUMPLEN (64 + MAXMTU)
+
+#define CLATD_VERSION "1.7"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
-// how frequently (in seconds) to poll for an address change while traffic is passing
-#define INTERFACE_POLL_FREQUENCY 30
-
-// how frequently (in seconds) to poll for an address change while there is no traffic
-#define NO_TRAFFIC_INTERFACE_POLL_FREQUENCY 90
-
 extern volatile sig_atomic_t running;
 
-int ipv6_address_changed(const char *interface);
 void event_loop(struct tun_data *tunnel);
 
 /* function: parse_int

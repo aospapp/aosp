@@ -16,6 +16,7 @@
  *
  * $Id: dict.c,v 1.40.2.7 2000/11/13 01:36:44 kaz Exp $
  * $Name: kazlib_1_20 $
+ * The work has been modified.
  */
 
 #define DICT_NODEBUG
@@ -295,7 +296,7 @@ void dict_set_allocator(dict_t *dict, dnode_alloc_t al,
     dict->context = context;
 }
 
-void dict_set_cmp_context(dict_t *dict, void *cmp_ctx)
+void dict_set_cmp_context(dict_t *dict, const void *cmp_ctx)
 {
     dict_assert (!dict->cmp_ctx);
     dict_assert (dict_count(dict) == 0);

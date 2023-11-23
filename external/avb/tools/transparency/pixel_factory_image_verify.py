@@ -68,7 +68,7 @@ class PixelFactoryImageVerifier(object):
     self.script_path = os.path.realpath(__file__)
     self.script_dir = os.path.split(self.script_path)[0]
     self.avbtool_path = os.path.abspath(os.path.join(self.script_path,
-                                                     '../../../avbtool'))
+                                                     '../../../avbtool.py'))
     self.fw_unpacker_path = distutils.spawn.find_executable('fbpacktool')
     self.wget_path = distutils.spawn.find_executable('wget')
     self.curl_path = distutils.spawn.find_executable('curl')

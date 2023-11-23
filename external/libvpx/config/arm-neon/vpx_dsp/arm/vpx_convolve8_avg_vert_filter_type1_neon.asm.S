@@ -1,6 +1,6 @@
 @ This file was created from a .asm file
 @  using the ads2gas.pl script.
-	.syntax unified
+.syntax unified
 @
 @  Copyright (c) 2018 The WebM project authors. All Rights Reserved.
 @
@@ -19,17 +19,16 @@
 @    r5 =>  ht
 @    r3 =>  wd
 
-    .global vpx_convolve8_avg_vert_filter_type1_neon 
-	.type vpx_convolve8_avg_vert_filter_type1_neon, function
-   .arm
-   .eabi_attribute 24, 1 @Tag_ABI_align_needed
-   .eabi_attribute 25, 1 @Tag_ABI_align_preserved
+    .global vpx_convolve8_avg_vert_filter_type1_neon
+    .type vpx_convolve8_avg_vert_filter_type1_neon, function
+    .arm
+    .eabi_attribute 24, 1 @Tag_ABI_align_needed
+    .eabi_attribute 25, 1 @Tag_ABI_align_preserved
 
-.text
-.p2align 2
+    .text
+    .p2align 2
 
-_vpx_convolve8_avg_vert_filter_type1_neon:
-	vpx_convolve8_avg_vert_filter_type1_neon: @ PROC
+vpx_convolve8_avg_vert_filter_type1_neon: @ PROC
 
     stmfd           sp!,    {r4  -  r12,    r14} @stack stores the values of
                                                  @ the arguments
@@ -487,6 +486,6 @@ end_inner_loop_wd_4:
     vpop            {d8  -  d15}
     ldmfd           sp!,    {r4  -  r12,    r15} @reload the registers from sp
 
-	.size vpx_convolve8_avg_vert_filter_type1_neon, .-vpx_convolve8_avg_vert_filter_type1_neon    @ ENDP
+.size vpx_convolve8_avg_vert_filter_type1_neon, .-vpx_convolve8_avg_vert_filter_type1_neon    @ ENDP
 
-	.section	.note.GNU-stack,"",%progbits
+    .section .note.GNU-stack,"",%progbits

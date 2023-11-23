@@ -1,0 +1,36 @@
+From b8180ae81faec53248473263c98a67b9db7408d5 Mon Sep 17 00:00:00 2001
+From: Patrick Rohr <prohr@google.com>
+Date: Thu, 27 Apr 2023 13:14:09 -0700
+Subject: [PATCH] cronet import: remove perfetto from unit tests
+
+DO NOT SUBMIT.
+
+Test: none
+Change-Id: Iaafc68df47a54759c347201ff863b23fab4fd534
+---
+ net/BUILD.gn | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/net/BUILD.gn b/net/BUILD.gn
+index 5b41b07ecace2..4acbee343bca8 100644
+--- a/net/BUILD.gn
++++ b/net/BUILD.gn
+@@ -2906,13 +2906,12 @@ test("net_unittests") {
+     deps += [ "//net/server:tests" ]
+   }
+ 
+-  if (is_cronet_build) {
+-    deps += [ "//third_party/perfetto/include/perfetto/test:test_support" ]
+-  } else {
++  if (!is_cronet_build) {
+     deps += [
+       ":extras",
+       "//components/sqlite_proto",
+       "//sql",
++      "//third_party/perfetto/include/perfetto/test:test_support",
+     ]
+   }
+ 
+-- 
+2.40.1.495.gc816e09b53d-goog
+

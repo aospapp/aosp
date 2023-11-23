@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -31,15 +32,24 @@ class NetperfSession(object):
         return netperf_runner.NetperfResult.from_samples(samples)
 
 
-    def __init__(self, client_proxy, server_proxy, ignore_failures=False):
+    def __init__(self,
+                 client_proxy,
+                 server_proxy,
+                 client_interface=None,
+                 server_interface=None,
+                 ignore_failures=False):
         """Construct a NetperfSession.
 
         @param client_proxy: WiFiClient object.
         @param server_proxy: LinuxSystem object.
+        @param client_interface Interface object.
+        @param server_interface Interface object.
 
         """
         self._client_proxy = client_proxy
         self._server_proxy = server_proxy
+        self._client_interface = client_interface
+        self._server_interface = server_interface
         self._ignore_failures = ignore_failures
 
 
@@ -70,8 +80,10 @@ class NetperfSession(object):
         config = netperf_runner.NetperfConfig(
                 test_type, test_time=self.WARMUP_SAMPLE_TIME_SECONDS)
         warmup_history = []
-        with netperf_runner.NetperfRunner(
-                self._client_proxy, self._server_proxy, config) as runner:
+        with netperf_runner.NetperfRunner(self._client_proxy,
+                                          self._server_proxy, config,
+                                          self._client_interface,
+                                          self._server_interface) as runner:
             while len(warmup_history) < self.WARMUP_MAX_SAMPLES:
                 warmup_history.append(runner.run())
                 if len(warmup_history) > 2 * self.WARMUP_WINDOW_SIZE:
@@ -107,8 +119,10 @@ class NetperfSession(object):
         history = []
         none_count = 0
         final_result = None
-        with netperf_runner.NetperfRunner(
-                self._client_proxy, self._server_proxy, config) as runner:
+        with netperf_runner.NetperfRunner(self._client_proxy,
+                                          self._server_proxy, config,
+                                          self._client_interface,
+                                          self._server_interface) as runner:
             while len(history) + none_count < self.MEASUREMENT_MAX_SAMPLES:
                 result = runner.run(ignore_failures=self._ignore_failures)
                 if result is None:

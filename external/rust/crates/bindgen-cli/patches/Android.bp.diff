@@ -1,0 +1,21 @@
+diff --git a/Android.bp b/Android.bp
+index c7f0f52..518b91a 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -27,3 +27,16 @@ rust_binary_host {
+     ],
+     compile_multilib: "first",
+ }
++
++rust_library_host {
++    name: "libbindgen_cli",
++    crate_name: "bindgen_cli",
++    srcs: ["options.rs"],
++    edition: "2018",
++    rustlibs: [
++        "libbindgen",
++        "libclap",
++        "libenv_logger",
++    ],
++    compile_multilib: "first",
++}

@@ -158,8 +158,7 @@ public abstract class AndroidEntryPointMetadata {
   }
 
   private static ClassName generatedClassName(TypeElement element) {
-    String prefix = "Hilt_";
-    return Processors.prepend(Processors.getEnclosedClassName(ClassName.get(element)), prefix);
+    return Processors.prepend(Processors.getEnclosedClassName(ClassName.get(element)), "Hilt_");
   }
 
   private static final ImmutableSet<ClassName> HILT_ANNOTATION_NAMES =

@@ -240,7 +240,7 @@ class job_state(object):
             # This _is_ necessary in the instance that the pickled job is transferred between the
             # server_job and the job on the DUT. The two can be on different autotest versions
             # (e.g. for non-SSP / client tests the server-side is versioned with the drone vs
-            # client-side versioned with the Chrome OS being tested).
+            # client-side versioned with the ChromeOS being tested).
             try:
                 with open(file_path, 'r') as rf:
                     on_disk_state = pickle.load(rf)
@@ -798,7 +798,8 @@ class base_job(object):
         '_state', 'max_result_size_KB', 0)
     fast = _job_state.property_factory(
         '_state', 'fast', False)
-
+    extended_timeout = _job_state.property_factory(
+        '_state', 'extended_timeout', None)
     # the use_sequence_number property
     _sequence_number = _job_state.property_factory(
         '_state', '_sequence_number', None)

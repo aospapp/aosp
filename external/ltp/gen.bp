@@ -96,6 +96,7 @@ cc_library_static {
         "lib/tlibio.c",
         "lib/tst_af_alg.c",
         "lib/tst_ansi_color.c",
+        "lib/tst_arch.c",
         "lib/tst_assert.c",
         "lib/tst_bool_expr.c",
         "lib/tst_buffers.c",
@@ -111,6 +112,7 @@ cc_library_static {
         "lib/tst_crypto.c",
         "lib/tst_device.c",
         "lib/tst_dir_is_empty.c",
+        "lib/tst_epoll.c",
         "lib/tst_fill_file.c",
         "lib/tst_fill_fs.c",
         "lib/tst_fips.c",
@@ -134,6 +136,7 @@ cc_library_static {
         "lib/tst_path_has_mnt_flags.c",
         "lib/tst_pid.c",
         "lib/tst_process_state.c",
+        "lib/tst_rand_data.c",
         "lib/tst_res.c",
         "lib/tst_resource.c",
         "lib/tst_rtctime.c",
@@ -150,9 +153,11 @@ cc_library_static {
         "lib/tst_sys_conf.c",
         "lib/tst_taint.c",
         "lib/tst_test.c",
+        "lib/tst_thread_state.c",
         "lib/tst_timer.c",
         "lib/tst_timer_test.c",
         "lib/tst_tmpdir.c",
+        "lib/tst_uid.c",
         "lib/tst_virt.c",
         "lib/tst_wallclock.c",
     ],
@@ -791,6 +796,32 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_bpf_prog06",
+    stem: "bpf_prog06",
+    defaults: ["ltp_test_defaults"],
+    srcs: [
+        "testcases/kernel/syscalls/bpf/bpf_common.c",
+        "testcases/kernel/syscalls/bpf/bpf_prog06.c",
+    ],
+    cflags: ["-D_GNU_SOURCE"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_bpf_prog07",
+    stem: "bpf_prog07",
+    defaults: ["ltp_test_defaults"],
+    srcs: [
+        "testcases/kernel/syscalls/bpf/bpf_common.c",
+        "testcases/kernel/syscalls/bpf/bpf_prog07.c",
+    ],
+    cflags: ["-D_GNU_SOURCE"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_brk01",
     stem: "brk01",
     defaults: ["ltp_test_defaults"],
@@ -813,6 +844,15 @@ cc_test {
     stem: "cacheflush01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/cacheflush/cacheflush01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_can_bcm01",
+    stem: "can_bcm01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/network/can/cve/can_bcm01.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -927,10 +967,19 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_cgroup_fj_proc",
-    stem: "cgroup_fj_proc",
+    name: "ltp_cfs_bandwidth01",
+    stem: "cfs_bandwidth01",
     defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/controllers/cgroup_fj/cgroup_fj_proc.c"],
+    srcs: ["testcases/kernel/sched/cfs-scheduler/cfs_bandwidth01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_cgroup_core01",
+    stem: "cgroup_core01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/controllers/cgroup/cgroup_core01.c"],
     local_include_dirs: [
         "include/old",
         "testcases/kernel/controllers/libcontrollers",
@@ -939,10 +988,22 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_cgroup_regression_6_2",
-    stem: "cgroup_regression_6_2",
+    name: "ltp_cgroup_core02",
+    stem: "cgroup_core02",
     defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/controllers/cgroup/cgroup_regression_6_2.c"],
+    srcs: ["testcases/kernel/controllers/cgroup/cgroup_core02.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/controllers/libcontrollers",
+    ],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_cgroup_fj_proc",
+    stem: "cgroup_fj_proc",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/controllers/cgroup_fj/cgroup_fj_proc.c"],
     local_include_dirs: [
         "include/old",
         "testcases/kernel/controllers/libcontrollers",
@@ -1039,28 +1100,10 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_chmod02",
-    stem: "chmod02",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/chmod/chmod02.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
     name: "ltp_chmod03",
     stem: "chmod03",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/chmod/chmod03.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_chmod04",
-    stem: "chmod04",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/chmod/chmod04.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -1913,14 +1956,12 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_create-files",
-    stem: "create-files",
+    name: "ltp_creat09",
+    stem: "creat09",
     defaults: ["ltp_test_defaults"],
-    srcs: [
-        "testcases/kernel/fs/fs-bench/boxmuler.c",
-        "testcases/kernel/fs/fs-bench/create-files.c",
-    ],
+    srcs: ["testcases/kernel/syscalls/creat/creat09.c"],
     local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
 }
 
 cc_test {
@@ -2056,6 +2097,16 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_cve-2022-4378",
+    stem: "cve-2022-4378",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/cve/cve-2022-4378.c"],
+    cflags: ["-D_GNU_SOURCE"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_data_space",
     stem: "data_space",
     defaults: ["ltp_test_defaults"],
@@ -2102,6 +2153,16 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_dio_read",
+    stem: "dio_read",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/io/ltp-aiodio/dio_read.c"],
+    cflags: ["-DAIO"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_dio_sparse",
     stem: "dio_sparse",
     defaults: ["ltp_test_defaults"],
@@ -2131,7 +2192,9 @@ cc_test {
     ],
     cflags: [
         "-DSHARED_OFILE",
+        "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
+        "-D_LARGEFILE_SOURCE",
     ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
@@ -2147,7 +2210,9 @@ cc_test {
     ],
     cflags: [
         "-DSHARED_OFILE",
+        "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
+        "-D_LARGEFILE_SOURCE",
     ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
@@ -2163,7 +2228,9 @@ cc_test {
     ],
     cflags: [
         "-DSHARED_OFILE",
+        "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
+        "-D_LARGEFILE_SOURCE",
     ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
@@ -2179,7 +2246,9 @@ cc_test {
     ],
     cflags: [
         "-DSHARED_OFILE",
+        "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
+        "-D_LARGEFILE_SOURCE",
     ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
@@ -2195,7 +2264,9 @@ cc_test {
     ],
     cflags: [
         "-DSHARED_OFILE",
+        "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
+        "-D_LARGEFILE_SOURCE",
     ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
@@ -2230,33 +2301,30 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_disktest",
-    stem: "disktest",
+    name: "ltp_dirtyc0w_shmem",
+    stem: "dirtyc0w_shmem",
     defaults: ["ltp_test_defaults"],
-    srcs: [
-        "testcases/kernel/io/disktest/Getopt.c",
-        "testcases/kernel/io/disktest/childmain.c",
-        "testcases/kernel/io/disktest/dump.c",
-        "testcases/kernel/io/disktest/globals.c",
-        "testcases/kernel/io/disktest/io.c",
-        "testcases/kernel/io/disktest/main.c",
-        "testcases/kernel/io/disktest/parse.c",
-        "testcases/kernel/io/disktest/sfunc.c",
-        "testcases/kernel/io/disktest/signals.c",
-        "testcases/kernel/io/disktest/stats.c",
-        "testcases/kernel/io/disktest/threading.c",
-        "testcases/kernel/io/disktest/timer.c",
-        "testcases/kernel/io/disktest/usage.c",
-    ],
-    cflags: [
-        "-DLINUX",
-        "-D_FILE_OFFSET_BITS=64",
-        "-D_GNU_SOURCE",
-        "-D_LARGEFILE64_SOURCE",
-        "-D_LARGE_FILES",
-        "-D_THREAD_SAFE",
-    ],
+    srcs: ["testcases/kernel/security/dirtyc0w_shmem/dirtyc0w_shmem.c"],
     local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_dirtyc0w_shmem_child",
+    stem: "dirtyc0w_shmem_child",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/security/dirtyc0w_shmem/dirtyc0w_shmem_child.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_dirtypipe",
+    stem: "dirtypipe",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/security/dirtypipe/dirtypipe.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
 }
 
 cc_test {
@@ -2269,7 +2337,9 @@ cc_test {
     ],
     cflags: [
         "-DSHARED_OFILE",
+        "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
+        "-D_LARGEFILE_SOURCE",
     ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
@@ -2379,6 +2449,24 @@ cc_test {
     stem: "dup205",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/dup2/dup205.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_dup206",
+    stem: "dup206",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/dup2/dup206.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_dup207",
+    stem: "dup207",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/dup2/dup207.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -2498,10 +2586,37 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_epoll_create01",
+    stem: "epoll_create01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/epoll_create/epoll_create01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_epoll_create02",
+    stem: "epoll_create02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/epoll_create/epoll_create02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_epoll_create1_01",
     stem: "epoll_create1_01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/epoll_create1/epoll_create1_01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_epoll_create1_02",
+    stem: "epoll_create1_02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/epoll_create1/epoll_create1_02.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -2525,10 +2640,73 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_epoll_ctl03",
+    stem: "epoll_ctl03",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/epoll_ctl/epoll_ctl03.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_epoll_ctl04",
+    stem: "epoll_ctl04",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/epoll_ctl/epoll_ctl04.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_epoll_ctl05",
+    stem: "epoll_ctl05",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/epoll_ctl/epoll_ctl05.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_epoll_pwait01",
     stem: "epoll_pwait01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/epoll_pwait/epoll_pwait01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_epoll_pwait02",
+    stem: "epoll_pwait02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/epoll_pwait/epoll_pwait02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_epoll_pwait03",
+    stem: "epoll_pwait03",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/epoll_pwait/epoll_pwait03.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_epoll_pwait04",
+    stem: "epoll_pwait04",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/epoll_pwait/epoll_pwait04.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_epoll_pwait05",
+    stem: "epoll_pwait05",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/epoll_pwait/epoll_pwait05.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -2556,6 +2734,15 @@ cc_test {
     stem: "epoll_wait03",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/epoll_wait/epoll_wait03.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_epoll_wait04",
+    stem: "epoll_wait04",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/epoll_wait/epoll_wait04.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -2745,6 +2932,24 @@ cc_test {
     stem: "execve05",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/execve/execve05.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_execve06",
+    stem: "execve06",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/execve/execve06.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_execve06_child",
+    stem: "execve06_child",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/execve/execve06_child.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -3102,6 +3307,42 @@ cc_test {
     stem: "fanotify19",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/fanotify/fanotify19.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_fanotify20",
+    stem: "fanotify20",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/fanotify/fanotify20.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_fanotify21",
+    stem: "fanotify21",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/fanotify/fanotify21.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_fanotify22",
+    stem: "fanotify22",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/fanotify/fanotify22.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_fanotify23",
+    stem: "fanotify23",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/fanotify/fanotify23.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -4585,6 +4826,38 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_fcntl39",
+    stem: "fcntl39",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/fcntl/fcntl39.c"],
+    cflags: ["-D_GNU_SOURCE"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/syscalls/fcntl",
+        "testcases/kernel/syscalls/utils",
+    ],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_fcntl39_64",
+    stem: "fcntl39_64",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/fcntl/fcntl39.c"],
+    cflags: [
+        "-DTST_USE_NEWER64_SYSCALL=1",
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_GNU_SOURCE",
+    ],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/syscalls/fcntl",
+        "testcases/kernel/syscalls/utils",
+    ],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_fdatasync01",
     stem: "fdatasync01",
     defaults: ["ltp_test_defaults"],
@@ -4778,15 +5051,6 @@ cc_test {
     stem: "fork01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/fork/fork01.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_fork02",
-    stem: "fork02",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/fork/fork02.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -5520,6 +5784,33 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_futex_waitv01",
+    stem: "futex_waitv01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/futex/futex_waitv01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_futex_waitv02",
+    stem: "futex_waitv02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/futex/futex_waitv02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_futex_waitv03",
+    stem: "futex_waitv03",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/futex/futex_waitv03.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_futex_wake01",
     stem: "futex_wake01",
     defaults: ["ltp_test_defaults"],
@@ -6206,15 +6497,6 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_getitimer03",
-    stem: "getitimer03",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/getitimer/getitimer03.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
     name: "ltp_getpagesize01",
     stem: "getpagesize01",
     defaults: ["ltp_test_defaults"],
@@ -6752,6 +7034,7 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/sched/cfs-scheduler/hackbench.c"],
     local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
 }
 
 cc_test {
@@ -6785,6 +7068,82 @@ cc_test {
     ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_hugefallocate01",
+    stem: "hugefallocate01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugefallocate/hugefallocate01.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugefallocate02",
+    stem: "hugefallocate02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugefallocate/hugefallocate02.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugefork01",
+    stem: "hugefork01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugefork/hugefork01.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugefork02",
+    stem: "hugefork02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugefork/hugefork02.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
 }
 
 cc_test {
@@ -6861,6 +7220,472 @@ cc_test {
         "libltp_ltp",
         "libltp_mem",
     ],
+}
+
+cc_test {
+    name: "ltp_hugemmap07",
+    stem: "hugemmap07",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap07.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap08",
+    stem: "hugemmap08",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap08.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap09",
+    stem: "hugemmap09",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap09.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap10",
+    stem: "hugemmap10",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap10.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap11",
+    stem: "hugemmap11",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap11.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap12",
+    stem: "hugemmap12",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap12.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap13",
+    stem: "hugemmap13",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap13.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap14",
+    stem: "hugemmap14",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap14.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap16",
+    stem: "hugemmap16",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap16.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap17",
+    stem: "hugemmap17",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap17.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap18",
+    stem: "hugemmap18",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap18.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap19",
+    stem: "hugemmap19",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap19.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap20",
+    stem: "hugemmap20",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap20.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap21",
+    stem: "hugemmap21",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap21.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap22",
+    stem: "hugemmap22",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap22.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap23",
+    stem: "hugemmap23",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap23.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap24",
+    stem: "hugemmap24",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap24.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap25",
+    stem: "hugemmap25",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap25.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap26",
+    stem: "hugemmap26",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap26.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap27",
+    stem: "hugemmap27",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap27.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap28",
+    stem: "hugemmap28",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap28.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap29",
+    stem: "hugemmap29",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap29.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap30",
+    stem: "hugemmap30",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap30.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_hugemmap31",
+    stem: "hugemmap31",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/mem/hugetlb/hugemmap/hugemmap31.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/include",
+        "testcases/kernel/mem/hugetlb/lib",
+        "testcases/kernel/mem/include",
+    ],
+    static_libs: [
+        "libltp_hugetlb",
+        "libltp_kerntest",
+        "libltp_ltp",
+        "libltp_mem",
+    ],
+}
+
+cc_test {
+    name: "ltp_icmp_rate_limit01",
+    stem: "icmp_rate_limit01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/cve/icmp_rate_limit01.c"],
+    cflags: ["-D_GNU_SOURCE"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
 }
 
 cc_test {
@@ -7042,6 +7867,24 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_inotify11",
+    stem: "inotify11",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/inotify/inotify11.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_inotify12",
+    stem: "inotify12",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/inotify/inotify12.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_inotify_init1_01",
     stem: "inotify_init1_01",
     defaults: ["ltp_test_defaults"],
@@ -7129,6 +7972,24 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_io_cancel02",
+    stem: "io_cancel02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/io_cancel/io_cancel02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_io_control01",
+    stem: "io_control01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/controllers/io/io_control01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_io_destroy01",
     stem: "io_destroy01",
     defaults: ["ltp_test_defaults"],
@@ -7138,10 +7999,28 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_io_destroy02",
+    stem: "io_destroy02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/io_destroy/io_destroy02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_io_getevents01",
     stem: "io_getevents01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/io_getevents/io_getevents01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_io_getevents02",
+    stem: "io_getevents02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/io_getevents/io_getevents02.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -7174,10 +8053,37 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_io_setup02",
+    stem: "io_setup02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/io_setup/io_setup02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_io_submit01",
     stem: "io_submit01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/io_submit/io_submit01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_io_submit02",
+    stem: "io_submit02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/io_submit/io_submit02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_io_submit03",
+    stem: "io_submit03",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/io_submit/io_submit03.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -7198,21 +8104,6 @@ cc_test {
     srcs: ["testcases/kernel/syscalls/io_uring/io_uring02.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_iobw",
-    stem: "iobw",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/controllers/io-throttle/iobw.c"],
-    local_include_dirs: [
-        "include/old",
-        "testcases/kernel/controllers/libcontrollers",
-    ],
-    static_libs: [
-        "libltp_controllers",
-        "libltp_ltp",
-    ],
 }
 
 cc_test {
@@ -7520,6 +8411,15 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_irqbalance01",
+    stem: "irqbalance01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/irq/irqbalance01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_kcmp01",
     stem: "kcmp01",
     defaults: ["ltp_test_defaults"],
@@ -7619,6 +8519,15 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_keyctl09",
+    stem: "keyctl09",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/keyctl/keyctl09.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_kill02",
     stem: "kill02",
     defaults: ["ltp_test_defaults"],
@@ -7686,6 +8595,15 @@ cc_test {
     stem: "kill12",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/kill/kill12.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_kill13",
+    stem: "kill13",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/kill/kill13.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -7797,6 +8715,7 @@ cc_test {
     static_libs: [
         "libltp_kerntest",
         "libltp_ltp",
+        "libltp_ltpnuma",
         "libltp_mem",
     ],
 }
@@ -7959,24 +8878,6 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_link06",
-    stem: "link06",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/link/link06.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_link07",
-    stem: "link07",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/link/link07.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
     name: "ltp_link08",
     stem: "link08",
     defaults: ["ltp_test_defaults"],
@@ -8071,6 +8972,10 @@ cc_test {
     stem: "llseek01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/llseek/llseek01.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -8080,6 +8985,10 @@ cc_test {
     stem: "llseek02",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/llseek/llseek02.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -8089,6 +8998,10 @@ cc_test {
     stem: "llseek03",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/llseek/llseek03.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -8211,21 +9124,12 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_ltp-diorh",
-    stem: "ltp-diorh",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/io/ltp-aiodio/ltp-diorh.c"],
-    cflags: ["-DAIO"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
     name: "ltp_ltpClient",
     stem: "ltpClient",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/network/sockets/ltpClient.c"],
     local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
 }
 
 cc_test {
@@ -8234,6 +9138,7 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/network/sockets/ltpServer.c"],
     local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
 }
 
 cc_test {
@@ -8332,6 +9237,18 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/mallinfo/mallinfo02.c"],
     local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_mallinfo2_01",
+    stem: "mallinfo2_01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/mallinfo2/mallinfo2_01.c"],
+    local_include_dirs: [
+        "include/old",
+        "testcases/kernel/syscalls/mallinfo",
+    ],
     static_libs: ["libltp_ltp"],
 }
 
@@ -8466,10 +9383,7 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/cve/meltdown.c"],
     cflags: ["-D_GNU_SOURCE"],
-    local_include_dirs: [
-        "include/old",
-        "testcases/realtime/include",
-    ],
+    local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
 
@@ -8568,6 +9482,42 @@ cc_test {
     stem: "memcmp01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/memcmp/memcmp01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_memcontrol01",
+    stem: "memcontrol01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/controllers/memcg/memcontrol01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_memcontrol02",
+    stem: "memcontrol02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/controllers/memcg/memcontrol02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_memcontrol03",
+    stem: "memcontrol03",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/controllers/memcg/memcontrol03.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_memcontrol04",
+    stem: "memcontrol04",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/controllers/memcg/memcontrol04.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -9235,6 +10185,10 @@ cc_test {
     stem: "mmapstress01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/mem/mmapstress/mmapstress01.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -9396,10 +10350,10 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_mount03_setuid_test",
-    stem: "mount03_setuid_test",
+    name: "ltp_mount03_suid_child",
+    stem: "mount03_suid_child",
     defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/mount/mount03_setuid_test.c"],
+    srcs: ["testcases/kernel/syscalls/mount/mount03_suid_child.c"],
     cflags: ["-D_GNU_SOURCE"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
@@ -9431,6 +10385,15 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/mount/mount06.c"],
     cflags: ["-D_GNU_SOURCE"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_mount_setattr01",
+    stem: "mount_setattr01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/mount_setattr/mount_setattr01.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10187,15 +11150,6 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_nsclone",
-    stem: "nsclone",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/fs/fs_bind/bin/nsclone.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
     name: "ltp_oom01",
     stem: "oom01",
     defaults: ["ltp_test_defaults"],
@@ -10285,6 +11239,10 @@ cc_test {
     stem: "open01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open01.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10294,6 +11252,10 @@ cc_test {
     stem: "open02",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open02.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10303,6 +11265,10 @@ cc_test {
     stem: "open03",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open03.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10312,15 +11278,10 @@ cc_test {
     stem: "open04",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open04.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_open05",
-    stem: "open05",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/open/open05.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10330,6 +11291,10 @@ cc_test {
     stem: "open06",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open06.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10339,6 +11304,10 @@ cc_test {
     stem: "open07",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open07.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10348,6 +11317,10 @@ cc_test {
     stem: "open08",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open08.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10357,6 +11330,10 @@ cc_test {
     stem: "open09",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open09.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10366,6 +11343,10 @@ cc_test {
     stem: "open10",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open10.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10375,6 +11356,10 @@ cc_test {
     stem: "open11",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open11.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10384,6 +11369,10 @@ cc_test {
     stem: "open12_child",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open12_child.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10393,6 +11382,10 @@ cc_test {
     stem: "open13",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open13.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10402,6 +11395,10 @@ cc_test {
     stem: "open14",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/open/open14.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10447,6 +11444,10 @@ cc_test {
     stem: "openat01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/openat/openat01.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10456,6 +11457,10 @@ cc_test {
     stem: "openat02_child",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/openat/openat02_child.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10465,6 +11470,23 @@ cc_test {
     stem: "openat03",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/openat/openat03.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_openat04",
+    stem: "openat04",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/openat/openat04.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10616,6 +11638,15 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_perf_event_open03",
+    stem: "perf_event_open03",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/perf_event_open/perf_event_open03.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_personality01",
     stem: "personality01",
     defaults: ["ltp_test_defaults"],
@@ -10629,6 +11660,24 @@ cc_test {
     stem: "personality02",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/personality/personality02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_pidfd_getfd01",
+    stem: "pidfd_getfd01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/pidfd_getfd/pidfd_getfd01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_pidfd_getfd02",
+    stem: "pidfd_getfd02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/pidfd_getfd/pidfd_getfd02.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -10656,6 +11705,15 @@ cc_test {
     stem: "pidfd_open03",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/pidfd_open/pidfd_open03.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_pidfd_open04",
+    stem: "pidfd_open04",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/pidfd_open/pidfd_open04.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -11129,6 +12187,15 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_prctl10",
+    stem: "prctl10",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/prctl/prctl10.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_pread01",
     stem: "pread01",
     defaults: ["ltp_test_defaults"],
@@ -11176,36 +12243,6 @@ cc_test {
     stem: "pread02_64",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/pread/pread02.c"],
-    cflags: [
-        "-DTST_USE_NEWER64_SYSCALL=1",
-        "-D_FILE_OFFSET_BITS=64",
-    ],
-    local_include_dirs: [
-        "include/old",
-        "testcases/kernel/syscalls/pread",
-        "testcases/kernel/syscalls/utils",
-    ],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_pread03",
-    stem: "pread03",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/pread/pread03.c"],
-    local_include_dirs: [
-        "include/old",
-        "testcases/kernel/syscalls/pread",
-        "testcases/kernel/syscalls/utils",
-    ],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_pread03_64",
-    stem: "pread03_64",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/pread/pread03.c"],
     cflags: [
         "-DTST_USE_NEWER64_SYSCALL=1",
         "-D_FILE_OFFSET_BITS=64",
@@ -11741,10 +12778,19 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_pty05",
-    stem: "pty05",
+    name: "ltp_pty06",
+    stem: "pty06",
     defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/pty/pty05.c"],
+    srcs: ["testcases/kernel/pty/pty06.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_pty07",
+    stem: "pty07",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/pty/pty07.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -12083,22 +13129,21 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_random-access",
-    stem: "random-access",
+    name: "ltp_quotactl08",
+    stem: "quotactl08",
     defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/fs/fs-bench/random-access.c"],
+    srcs: ["testcases/kernel/syscalls/quotactl/quotactl08.c"],
     local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
 }
 
 cc_test {
-    name: "ltp_random-access-del-create",
-    stem: "random-access-del-create",
+    name: "ltp_quotactl09",
+    stem: "quotactl09",
     defaults: ["ltp_test_defaults"],
-    srcs: [
-        "testcases/kernel/fs/fs-bench/boxmuler.c",
-        "testcases/kernel/fs/fs-bench/random-access-del-create.c",
-    ],
+    srcs: ["testcases/kernel/syscalls/quotactl/quotactl09.c"],
     local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
 }
 
 cc_test {
@@ -12143,16 +13188,6 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/fs/read_all/read_all.c"],
     cflags: ["-D_GNU_SOURCE"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_read_checkzero",
-    stem: "read_checkzero",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/io/ltp-aiodio/read_checkzero.c"],
-    cflags: ["-DAIO"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -12243,15 +13278,6 @@ cc_test {
     stem: "readv02",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/readv/readv02.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_readv03",
-    stem: "readv03",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/readv/readv03.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -12378,15 +13404,6 @@ cc_test {
     stem: "rename01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/rename/rename01.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_rename02",
-    stem: "rename02",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/rename/rename02.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -13264,7 +14281,6 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/sendfile/sendfile02.c"],
     cflags: [
-        "-DOFF_T=off64_t",
         "-DTST_USE_NEWER64_SYSCALL=1",
         "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
@@ -13296,7 +14312,6 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/sendfile/sendfile03.c"],
     cflags: [
-        "-DOFF_T=off64_t",
         "-DTST_USE_NEWER64_SYSCALL=1",
         "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
@@ -13328,7 +14343,6 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/sendfile/sendfile04.c"],
     cflags: [
-        "-DOFF_T=off64_t",
         "-DTST_USE_NEWER64_SYSCALL=1",
         "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
@@ -13360,7 +14374,6 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/sendfile/sendfile05.c"],
     cflags: [
-        "-DOFF_T=off64_t",
         "-DTST_USE_NEWER64_SYSCALL=1",
         "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
@@ -13392,7 +14405,6 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/sendfile/sendfile06.c"],
     cflags: [
-        "-DOFF_T=off64_t",
         "-DTST_USE_NEWER64_SYSCALL=1",
         "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
@@ -13424,7 +14436,6 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/sendfile/sendfile07.c"],
     cflags: [
-        "-DOFF_T=off64_t",
         "-DTST_USE_NEWER64_SYSCALL=1",
         "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
@@ -13456,7 +14467,6 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/sendfile/sendfile08.c"],
     cflags: [
-        "-DOFF_T=off64_t",
         "-DTST_USE_NEWER64_SYSCALL=1",
         "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
@@ -13488,7 +14498,6 @@ cc_test {
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/sendfile/sendfile09.c"],
     cflags: [
-        "-DOFF_T=off64_t",
         "-DTST_USE_NEWER64_SYSCALL=1",
         "-D_FILE_OFFSET_BITS=64",
         "-D_GNU_SOURCE",
@@ -13568,54 +14577,6 @@ cc_test {
     srcs: ["testcases/kernel/syscalls/sendto/sendto03.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_set_mempolicy01",
-    stem: "set_mempolicy01",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/set_mempolicy/set_mempolicy01.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: [
-        "libltp_ltp",
-        "libltp_ltpnuma",
-    ],
-}
-
-cc_test {
-    name: "ltp_set_mempolicy02",
-    stem: "set_mempolicy02",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/set_mempolicy/set_mempolicy02.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: [
-        "libltp_ltp",
-        "libltp_ltpnuma",
-    ],
-}
-
-cc_test {
-    name: "ltp_set_mempolicy03",
-    stem: "set_mempolicy03",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/set_mempolicy/set_mempolicy03.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: [
-        "libltp_ltp",
-        "libltp_ltpnuma",
-    ],
-}
-
-cc_test {
-    name: "ltp_set_mempolicy04",
-    stem: "set_mempolicy04",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/set_mempolicy/set_mempolicy04.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: [
-        "libltp_ltp",
-        "libltp_ltpnuma",
-    ],
 }
 
 cc_test {
@@ -14112,15 +15073,6 @@ cc_test {
     stem: "setitimer02",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/setitimer/setitimer02.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_setitimer03",
-    stem: "setitimer03",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/setitimer/setitimer03.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -14874,6 +15826,24 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_setsockopt08",
+    stem: "setsockopt08",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/setsockopt/setsockopt08.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_setsockopt09",
+    stem: "setsockopt09",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/setsockopt/setsockopt09.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_settimeofday01",
     stem: "settimeofday01",
     defaults: ["ltp_test_defaults"],
@@ -15004,36 +15974,6 @@ cc_test {
     stem: "sgetmask01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/sgetmask/sgetmask01.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_shmctl05",
-    stem: "shmctl05",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/ipc/shmctl/shmctl05.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_shmctl06",
-    stem: "shmctl06",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/ipc/shmctl/shmctl06.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: [
-        "libltp_ltp",
-        "libltp_ltpnewipc",
-    ],
-}
-
-cc_test {
-    name: "ltp_shmctl08",
-    stem: "shmctl08",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/ipc/shmctl/shmctl08.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -15259,15 +16199,6 @@ cc_test {
     stem: "smack_set_socket_labels",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/security/smack/smack_set_socket_labels.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_smount",
-    stem: "smount",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/fs/fs_bind/bin/smount.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -15684,10 +16615,19 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_statx07",
-    stem: "statx07",
+    name: "ltp_statx08",
+    stem: "statx08",
     defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/statx/statx07.c"],
+    srcs: ["testcases/kernel/syscalls/statx/statx08.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_statx09",
+    stem: "statx09",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/statx/statx09.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -15733,15 +16673,6 @@ cc_test {
     stem: "stream05",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/fs/stream/stream05.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_stress_cd",
-    stem: "stress_cd",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/io/stress_cd/stress_cd.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -15949,6 +16880,10 @@ cc_test {
     stem: "sync_file_range01",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/sync_file_range/sync_file_range01.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -15958,6 +16893,10 @@ cc_test {
     stem: "sync_file_range02",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/sync_file_range/sync_file_range02.c"],
+    cflags: [
+        "-D_FILE_OFFSET_BITS=64",
+        "-D_LARGEFILE_SOURCE",
+    ],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -16062,15 +17001,6 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_sysfs06",
-    stem: "sysfs06",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/sysfs/sysfs06.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
     name: "ltp_sysinfo01",
     stem: "sysinfo01",
     defaults: ["ltp_test_defaults"],
@@ -16111,15 +17041,6 @@ cc_test {
     stem: "syslog12",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/syslog/syslog12.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_syslogtst",
-    stem: "syslogtst",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/syslog/syslogtst.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -16233,28 +17154,10 @@ cc_test {
 }
 
 cc_test {
-    name: "ltp_test10",
-    stem: "test10",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["lib/newlib_tests/test10.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
     name: "ltp_test11",
     stem: "test11",
     defaults: ["ltp_test_defaults"],
     srcs: ["lib/newlib_tests/test11.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_test12",
-    stem: "test12",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["lib/newlib_tests/test12.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -16282,33 +17185,6 @@ cc_test {
     stem: "test15",
     defaults: ["ltp_test_defaults"],
     srcs: ["lib/newlib_tests/test15.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_test16",
-    stem: "test16",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["lib/newlib_tests/test16.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_test17",
-    stem: "test17",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["lib/newlib_tests/test17.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_test18",
-    stem: "test18",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["lib/newlib_tests/test18.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -16345,6 +17221,15 @@ cc_test {
     stem: "test_assert",
     defaults: ["ltp_test_defaults"],
     srcs: ["lib/newlib_tests/test_assert.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_test_children_cleanup",
+    stem: "test_children_cleanup",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/test_children_cleanup.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -16431,10 +17316,73 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_test_macros04",
+    stem: "test_macros04",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/test_macros04.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_test_macros05",
+    stem: "test_macros05",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/test_macros05.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_test_macros06",
+    stem: "test_macros06",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/test_macros06.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_test_parse_filesize",
+    stem: "test_parse_filesize",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/test_parse_filesize.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_test_runtime01",
+    stem: "test_runtime01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/test_runtime01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_test_runtime02",
+    stem: "test_runtime02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/test_runtime02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_test_timer",
     stem: "test_timer",
     defaults: ["ltp_test_defaults"],
     srcs: ["lib/newlib_tests/test_timer.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_test_zero_hugepage",
+    stem: "test_zero_hugepage",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/test_zero_hugepage.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -16528,74 +17476,66 @@ sh_test {
 }
 
 sh_test {
-    name: "ltp_testcases_bin_broken_ip-checksum",
-    src: "testcases/network/stress/broken_ip/broken_ip-checksum",
+    name: "ltp_testcases_bin_broken_ip-checksum.sh",
+    src: "testcases/network/stress/broken_ip/broken_ip-checksum.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "broken_ip-checksum",
+    filename: "broken_ip-checksum.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_broken_ip-dstaddr",
-    src: "testcases/network/stress/broken_ip/broken_ip-dstaddr",
+    name: "ltp_testcases_bin_broken_ip-dstaddr.sh",
+    src: "testcases/network/stress/broken_ip/broken_ip-dstaddr.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "broken_ip-dstaddr",
+    filename: "broken_ip-dstaddr.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_broken_ip-fragment",
-    src: "testcases/network/stress/broken_ip/broken_ip-fragment",
+    name: "ltp_testcases_bin_broken_ip-fragment.sh",
+    src: "testcases/network/stress/broken_ip/broken_ip-fragment.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "broken_ip-fragment",
+    filename: "broken_ip-fragment.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_broken_ip-ihl",
-    src: "testcases/network/stress/broken_ip/broken_ip-ihl",
+    name: "ltp_testcases_bin_broken_ip-ihl.sh",
+    src: "testcases/network/stress/broken_ip/broken_ip-ihl.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "broken_ip-ihl",
+    filename: "broken_ip-ihl.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_broken_ip-nexthdr",
-    src: "testcases/network/stress/broken_ip/broken_ip-nexthdr",
+    name: "ltp_testcases_bin_broken_ip-nexthdr.sh",
+    src: "testcases/network/stress/broken_ip/broken_ip-nexthdr.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "broken_ip-nexthdr",
+    filename: "broken_ip-nexthdr.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_broken_ip-plen",
-    src: "testcases/network/stress/broken_ip/broken_ip-plen",
+    name: "ltp_testcases_bin_broken_ip-plen.sh",
+    src: "testcases/network/stress/broken_ip/broken_ip-plen.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "broken_ip-plen",
+    filename: "broken_ip-plen.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_broken_ip-protcol",
-    src: "testcases/network/stress/broken_ip/broken_ip-protcol",
+    name: "ltp_testcases_bin_broken_ip-protcol.sh",
+    src: "testcases/network/stress/broken_ip/broken_ip-protcol.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "broken_ip-protcol",
+    filename: "broken_ip-protcol.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_broken_ip-totlen",
-    src: "testcases/network/stress/broken_ip/broken_ip-totlen",
+    name: "ltp_testcases_bin_broken_ip-version.sh",
+    src: "testcases/network/stress/broken_ip/broken_ip-version.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "broken_ip-totlen",
-    compile_multilib: "both",
-}
-
-sh_test {
-    name: "ltp_testcases_bin_broken_ip-version",
-    src: "testcases/network/stress/broken_ip/broken_ip-version",
-    sub_dir: "ltp/testcases/bin",
-    filename: "broken_ip-version",
+    filename: "broken_ip-version.sh",
     compile_multilib: "both",
 }
 
@@ -16704,18 +17644,10 @@ sh_test {
 }
 
 sh_test {
-    name: "ltp_testcases_bin_cgroup_regression_9_1.sh",
-    src: "testcases/kernel/controllers/cgroup/cgroup_regression_9_1.sh",
+    name: "ltp_testcases_bin_cgroup_regression_6_2.sh",
+    src: "testcases/kernel/controllers/cgroup/cgroup_regression_6_2.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "cgroup_regression_9_1.sh",
-    compile_multilib: "both",
-}
-
-sh_test {
-    name: "ltp_testcases_bin_cgroup_regression_9_2.sh",
-    src: "testcases/kernel/controllers/cgroup/cgroup_regression_9_2.sh",
-    sub_dir: "ltp/testcases/bin",
-    filename: "cgroup_regression_9_2.sh",
+    filename: "cgroup_regression_6_2.sh",
     compile_multilib: "both",
 }
 
@@ -16796,14 +17728,6 @@ sh_test {
     src: "testcases/lib/cmdlib.sh",
     sub_dir: "ltp/testcases/bin",
     filename: "cmdlib.sh",
-    compile_multilib: "both",
-}
-
-sh_test {
-    name: "ltp_testcases_bin_cn_pec.sh",
-    src: "testcases/kernel/connectors/pec/cn_pec.sh",
-    sub_dir: "ltp/testcases/bin",
-    filename: "cn_pec.sh",
     compile_multilib: "both",
 }
 
@@ -17272,378 +18196,770 @@ sh_test {
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs-bench-test.sh",
-    src: "testcases/kernel/fs/fs-bench/fs-bench-test.sh",
+    name: "ltp_testcases_bin_fs_bind01.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind01.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "fs-bench-test.sh",
+    filename: "fs_bind01.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs-bench-test2.sh",
-    src: "testcases/kernel/fs/fs-bench/fs-bench-test2.sh",
+    name: "ltp_testcases_bin_fs_bind02.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind02.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "fs-bench-test2.sh",
+    filename: "fs_bind02.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bin_check_prop",
-    src: "testcases/kernel/fs/fs_bind/bin/check_prop",
-    sub_dir: "ltp/testcases/bin/fs_bind/bin",
-    filename: "check_prop",
+    name: "ltp_testcases_bin_fs_bind03.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind03.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind03.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bin_lockfile",
-    src: "testcases/kernel/fs/fs_bind/bin/lockfile",
-    sub_dir: "ltp/testcases/bin/fs_bind/bin",
-    filename: "lockfile",
+    name: "ltp_testcases_bin_fs_bind04.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind04.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind04.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bin_makedir",
-    src: "testcases/kernel/fs/fs_bind/bin/makedir",
-    sub_dir: "ltp/testcases/bin/fs_bind/bin",
-    filename: "makedir",
+    name: "ltp_testcases_bin_fs_bind05.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind05.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind05.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bin_setup",
-    src: "testcases/kernel/fs/fs_bind/bin/setup",
-    sub_dir: "ltp/testcases/bin/fs_bind/bin",
-    filename: "setup",
+    name: "ltp_testcases_bin_fs_bind06.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind06.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind06.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bin_setupnslock",
-    src: "testcases/kernel/fs/fs_bind/bin/setupnslock",
-    sub_dir: "ltp/testcases/bin/fs_bind/bin",
-    filename: "setupnslock",
+    name: "ltp_testcases_bin_fs_bind07-2.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind07-2.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind07-2.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bind_test10",
-    src: "testcases/kernel/fs/fs_bind/bind/test10",
-    sub_dir: "ltp/testcases/bin/fs_bind/bind",
-    filename: "test10",
+    name: "ltp_testcases_bin_fs_bind07.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind07.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind07.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bind_test11",
-    src: "testcases/kernel/fs/fs_bind/bind/test11",
-    sub_dir: "ltp/testcases/bin/fs_bind/bind",
-    filename: "test11",
+    name: "ltp_testcases_bin_fs_bind08.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind08.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind08.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bind_test12",
-    src: "testcases/kernel/fs/fs_bind/bind/test12",
-    sub_dir: "ltp/testcases/bin/fs_bind/bind",
-    filename: "test12",
+    name: "ltp_testcases_bin_fs_bind09.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind09.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind09.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bind_test14",
-    src: "testcases/kernel/fs/fs_bind/bind/test14",
-    sub_dir: "ltp/testcases/bin/fs_bind/bind",
-    filename: "test14",
+    name: "ltp_testcases_bin_fs_bind10.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind10.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind10.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bind_test15",
-    src: "testcases/kernel/fs/fs_bind/bind/test15",
-    sub_dir: "ltp/testcases/bin/fs_bind/bind",
-    filename: "test15",
+    name: "ltp_testcases_bin_fs_bind11.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind11.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind11.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bind_test16",
-    src: "testcases/kernel/fs/fs_bind/bind/test16",
-    sub_dir: "ltp/testcases/bin/fs_bind/bind",
-    filename: "test16",
+    name: "ltp_testcases_bin_fs_bind12.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind12.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind12.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bind_test18",
-    src: "testcases/kernel/fs/fs_bind/bind/test18",
-    sub_dir: "ltp/testcases/bin/fs_bind/bind",
-    filename: "test18",
+    name: "ltp_testcases_bin_fs_bind13.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind13.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind13.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_bind_test19",
-    src: "testcases/kernel/fs/fs_bind/bind/test19",
-    sub_dir: "ltp/testcases/bin/fs_bind/bind",
-    filename: "test19",
+    name: "ltp_testcases_bin_fs_bind14.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind14.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind14.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_move_test08",
-    src: "testcases/kernel/fs/fs_bind/move/test08",
-    sub_dir: "ltp/testcases/bin/fs_bind/move",
-    filename: "test08",
+    name: "ltp_testcases_bin_fs_bind15.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind15.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind15.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_move_test22",
-    src: "testcases/kernel/fs/fs_bind/move/test22",
-    sub_dir: "ltp/testcases/bin/fs_bind/move",
-    filename: "test22",
+    name: "ltp_testcases_bin_fs_bind16.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind16.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind16.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test01",
-    src: "testcases/kernel/fs/fs_bind/rbind/test01",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test01",
+    name: "ltp_testcases_bin_fs_bind17.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind17.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind17.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test02",
-    src: "testcases/kernel/fs/fs_bind/rbind/test02",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test02",
+    name: "ltp_testcases_bin_fs_bind18.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind18.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind18.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test03",
-    src: "testcases/kernel/fs/fs_bind/rbind/test03",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test03",
+    name: "ltp_testcases_bin_fs_bind19.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind19.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind19.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test04",
-    src: "testcases/kernel/fs/fs_bind/rbind/test04",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test04",
+    name: "ltp_testcases_bin_fs_bind20.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind20.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind20.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test05",
-    src: "testcases/kernel/fs/fs_bind/rbind/test05",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test05",
+    name: "ltp_testcases_bin_fs_bind21.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind21.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind21.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test06",
-    src: "testcases/kernel/fs/fs_bind/rbind/test06",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test06",
+    name: "ltp_testcases_bin_fs_bind22.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind22.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind22.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test07",
-    src: "testcases/kernel/fs/fs_bind/rbind/test07",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test07",
+    name: "ltp_testcases_bin_fs_bind23.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind23.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind23.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test07-2",
-    src: "testcases/kernel/fs/fs_bind/rbind/test07-2",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test07-2",
+    name: "ltp_testcases_bin_fs_bind24.sh",
+    src: "testcases/kernel/fs/fs_bind/bind/fs_bind24.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind24.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test09",
-    src: "testcases/kernel/fs/fs_bind/rbind/test09",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test09",
+    name: "ltp_testcases_bin_fs_bind_cloneNS01.sh",
+    src: "testcases/kernel/fs/fs_bind/cloneNS/fs_bind_cloneNS01.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_cloneNS01.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test13",
-    src: "testcases/kernel/fs/fs_bind/rbind/test13",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test13",
+    name: "ltp_testcases_bin_fs_bind_cloneNS02.sh",
+    src: "testcases/kernel/fs/fs_bind/cloneNS/fs_bind_cloneNS02.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_cloneNS02.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test17",
-    src: "testcases/kernel/fs/fs_bind/rbind/test17",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test17",
+    name: "ltp_testcases_bin_fs_bind_cloneNS03.sh",
+    src: "testcases/kernel/fs/fs_bind/cloneNS/fs_bind_cloneNS03.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_cloneNS03.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test20",
-    src: "testcases/kernel/fs/fs_bind/rbind/test20",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test20",
+    name: "ltp_testcases_bin_fs_bind_cloneNS04.sh",
+    src: "testcases/kernel/fs/fs_bind/cloneNS/fs_bind_cloneNS04.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_cloneNS04.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test21",
-    src: "testcases/kernel/fs/fs_bind/rbind/test21",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test21",
+    name: "ltp_testcases_bin_fs_bind_cloneNS05.sh",
+    src: "testcases/kernel/fs/fs_bind/cloneNS/fs_bind_cloneNS05.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_cloneNS05.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test23",
-    src: "testcases/kernel/fs/fs_bind/rbind/test23",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test23",
+    name: "ltp_testcases_bin_fs_bind_cloneNS06.sh",
+    src: "testcases/kernel/fs/fs_bind/cloneNS/fs_bind_cloneNS06.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_cloneNS06.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test24",
-    src: "testcases/kernel/fs/fs_bind/rbind/test24",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test24",
+    name: "ltp_testcases_bin_fs_bind_cloneNS07.sh",
+    src: "testcases/kernel/fs/fs_bind/cloneNS/fs_bind_cloneNS07.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_cloneNS07.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test25",
-    src: "testcases/kernel/fs/fs_bind/rbind/test25",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test25",
+    name: "ltp_testcases_bin_fs_bind_lib.sh",
+    src: "testcases/kernel/fs/fs_bind/fs_bind_lib.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_lib.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test26",
-    src: "testcases/kernel/fs/fs_bind/rbind/test26",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test26",
+    name: "ltp_testcases_bin_fs_bind_move01.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move01.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move01.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test27",
-    src: "testcases/kernel/fs/fs_bind/rbind/test27",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test27",
+    name: "ltp_testcases_bin_fs_bind_move02.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move02.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move02.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test28",
-    src: "testcases/kernel/fs/fs_bind/rbind/test28",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test28",
+    name: "ltp_testcases_bin_fs_bind_move03.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move03.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move03.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test29",
-    src: "testcases/kernel/fs/fs_bind/rbind/test29",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test29",
+    name: "ltp_testcases_bin_fs_bind_move04.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move04.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move04.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test30",
-    src: "testcases/kernel/fs/fs_bind/rbind/test30",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test30",
+    name: "ltp_testcases_bin_fs_bind_move05.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move05.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move05.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test31",
-    src: "testcases/kernel/fs/fs_bind/rbind/test31",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test31",
+    name: "ltp_testcases_bin_fs_bind_move06.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move06.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move06.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test32",
-    src: "testcases/kernel/fs/fs_bind/rbind/test32",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test32",
+    name: "ltp_testcases_bin_fs_bind_move07.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move07.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move07.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test33",
-    src: "testcases/kernel/fs/fs_bind/rbind/test33",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test33",
+    name: "ltp_testcases_bin_fs_bind_move08.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move08.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move08.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test34",
-    src: "testcases/kernel/fs/fs_bind/rbind/test34",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test34",
+    name: "ltp_testcases_bin_fs_bind_move09.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move09.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move09.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test35",
-    src: "testcases/kernel/fs/fs_bind/rbind/test35",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test35",
+    name: "ltp_testcases_bin_fs_bind_move10.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move10.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move10.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test36",
-    src: "testcases/kernel/fs/fs_bind/rbind/test36",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test36",
+    name: "ltp_testcases_bin_fs_bind_move11.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move11.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move11.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test37",
-    src: "testcases/kernel/fs/fs_bind/rbind/test37",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test37",
+    name: "ltp_testcases_bin_fs_bind_move12.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move12.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move12.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test38",
-    src: "testcases/kernel/fs/fs_bind/rbind/test38",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test38",
+    name: "ltp_testcases_bin_fs_bind_move13.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move13.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move13.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_fs_bind_rbind_test39",
-    src: "testcases/kernel/fs/fs_bind/rbind/test39",
-    sub_dir: "ltp/testcases/bin/fs_bind/rbind",
-    filename: "test39",
+    name: "ltp_testcases_bin_fs_bind_move14.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move14.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move14.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_move15.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move15.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move15.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_move16.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move16.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move16.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_move17.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move17.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move17.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_move18.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move18.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move18.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_move19.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move19.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move19.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_move20.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move20.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move20.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_move21.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move21.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move21.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_move22.sh",
+    src: "testcases/kernel/fs/fs_bind/move/fs_bind_move22.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_move22.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind01.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind01.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind01.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind02.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind02.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind02.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind03.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind03.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind03.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind04.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind04.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind04.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind05.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind05.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind05.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind06.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind06.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind06.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind07-2.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind07-2.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind07-2.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind07.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind07.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind07.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind08.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind08.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind08.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind09.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind09.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind09.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind10.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind10.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind10.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind11.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind11.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind11.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind12.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind12.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind12.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind13.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind13.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind13.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind14.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind14.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind14.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind15.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind15.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind15.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind16.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind16.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind16.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind17.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind17.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind17.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind18.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind18.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind18.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind19.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind19.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind19.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind20.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind20.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind20.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind21.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind21.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind21.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind22.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind22.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind22.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind23.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind23.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind23.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind24.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind24.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind24.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind25.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind25.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind25.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind26.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind26.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind26.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind27.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind27.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind27.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind28.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind28.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind28.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind29.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind29.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind29.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind30.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind30.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind30.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind31.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind31.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind31.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind32.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind32.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind32.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind33.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind33.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind33.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind34.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind34.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind34.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind35.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind35.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind35.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind36.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind36.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind36.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind37.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind37.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind37.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind38.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind38.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind38.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_rbind39.sh",
+    src: "testcases/kernel/fs/fs_bind/rbind/fs_bind_rbind39.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_rbind39.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_fs_bind_regression.sh",
+    src: "testcases/kernel/fs/fs_bind/fs_bind_regression.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "fs_bind_regression.sh",
     compile_multilib: "both",
 }
 
@@ -18392,6 +19708,14 @@ sh_test {
 }
 
 sh_test {
+    name: "ltp_testcases_bin_ima_conditionals.sh",
+    src: "testcases/kernel/security/integrity/ima/tests/ima_conditionals.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "ima_conditionals.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
     name: "ltp_testcases_bin_ima_kexec.sh",
     src: "testcases/kernel/security/integrity/ima/tests/ima_kexec.sh",
     sub_dir: "ltp/testcases/bin",
@@ -18920,14 +20244,6 @@ sh_test {
 }
 
 sh_test {
-    name: "ltp_testcases_bin_modaltr.sh",
-    src: "testcases/kernel/fs/fs-bench/modaltr.sh",
-    sub_dir: "ltp/testcases/bin",
-    filename: "modaltr.sh",
-    compile_multilib: "both",
-}
-
-sh_test {
     name: "ltp_testcases_bin_mpls01.sh",
     src: "testcases/network/mpls/mpls01.sh",
     sub_dir: "ltp/testcases/bin",
@@ -18968,14 +20284,6 @@ sh_test {
 }
 
 sh_test {
-    name: "ltp_testcases_bin_myfunctions-io.sh",
-    src: "testcases/kernel/controllers/io-throttle/myfunctions-io.sh",
-    sub_dir: "ltp/testcases/bin",
-    filename: "myfunctions-io.sh",
-    compile_multilib: "both",
-}
-
-sh_test {
     name: "ltp_testcases_bin_myfunctions.sh",
     src: "testcases/kernel/controllers/memctl/myfunctions.sh",
     sub_dir: "ltp/testcases/bin",
@@ -18992,6 +20300,14 @@ sh_test {
 }
 
 sh_test {
+    name: "ltp_testcases_bin_netns_lib.sh",
+    src: "testcases/kernel/containers/netns/netns_lib.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "netns_lib.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
     name: "ltp_testcases_bin_netstat01.sh",
     src: "testcases/network/tcp_cmds/netstat/netstat01.sh",
     sub_dir: "ltp/testcases/bin",
@@ -19000,50 +20316,58 @@ sh_test {
 }
 
 sh_test {
-    name: "ltp_testcases_bin_nfs01",
-    src: "testcases/network/nfs/nfs_stress/nfs01",
+    name: "ltp_testcases_bin_nfs01.sh",
+    src: "testcases/network/nfs/nfs_stress/nfs01.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "nfs01",
+    filename: "nfs01.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_nfs02",
-    src: "testcases/network/nfs/nfs_stress/nfs02",
+    name: "ltp_testcases_bin_nfs02.sh",
+    src: "testcases/network/nfs/nfs_stress/nfs02.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "nfs02",
+    filename: "nfs02.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_nfs03",
-    src: "testcases/network/nfs/nfs_stress/nfs03",
+    name: "ltp_testcases_bin_nfs03.sh",
+    src: "testcases/network/nfs/nfs_stress/nfs03.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "nfs03",
+    filename: "nfs03.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_nfs04",
-    src: "testcases/network/nfs/nfs_stress/nfs04",
+    name: "ltp_testcases_bin_nfs04.sh",
+    src: "testcases/network/nfs/nfs_stress/nfs04.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "nfs04",
+    filename: "nfs04.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_nfs05",
-    src: "testcases/network/nfs/nfs_stress/nfs05",
+    name: "ltp_testcases_bin_nfs05.sh",
+    src: "testcases/network/nfs/nfs_stress/nfs05.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "nfs05",
+    filename: "nfs05.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_nfs06",
-    src: "testcases/network/nfs/nfs_stress/nfs06",
+    name: "ltp_testcases_bin_nfs06.sh",
+    src: "testcases/network/nfs/nfs_stress/nfs06.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "nfs06",
+    filename: "nfs06.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_nfs07.sh",
+    src: "testcases/network/nfs/nfs_stress/nfs07.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "nfs07.sh",
     compile_multilib: "both",
 }
 
@@ -19056,18 +20380,18 @@ sh_test {
 }
 
 sh_test {
-    name: "ltp_testcases_bin_nfslock01",
-    src: "testcases/network/nfs/nfslock01/nfslock01",
+    name: "ltp_testcases_bin_nfslock01.sh",
+    src: "testcases/network/nfs/nfslock01/nfslock01.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "nfslock01",
+    filename: "nfslock01.sh",
     compile_multilib: "both",
 }
 
 sh_test {
-    name: "ltp_testcases_bin_nfsstat01",
-    src: "testcases/network/nfs/nfsstat01/nfsstat01",
+    name: "ltp_testcases_bin_nfsstat01.sh",
+    src: "testcases/network/nfs/nfsstat01/nfsstat01.sh",
     sub_dir: "ltp/testcases/bin",
-    filename: "nfsstat01",
+    filename: "nfsstat01.sh",
     compile_multilib: "both",
 }
 
@@ -19340,14 +20664,6 @@ sh_test {
     src: "testcases/kernel/controllers/freezer/run_freezer.sh",
     sub_dir: "ltp/testcases/bin",
     filename: "run_freezer.sh",
-    compile_multilib: "both",
-}
-
-sh_test {
-    name: "ltp_testcases_bin_run_io_throttle_test.sh",
-    src: "testcases/kernel/controllers/io-throttle/run_io_throttle_test.sh",
-    sub_dir: "ltp/testcases/bin",
-    filename: "run_io_throttle_test.sh",
     compile_multilib: "both",
 }
 
@@ -19632,30 +20948,6 @@ sh_test {
 }
 
 sh_test {
-    name: "ltp_testcases_bin_ssh-stress01-rmt.sh",
-    src: "testcases/network/stress/ssh/ssh-stress01-rmt.sh",
-    sub_dir: "ltp/testcases/bin",
-    filename: "ssh-stress01-rmt.sh",
-    compile_multilib: "both",
-}
-
-sh_test {
-    name: "ltp_testcases_bin_ssh-stress02-rmt.sh",
-    src: "testcases/network/stress/ssh/ssh-stress02-rmt.sh",
-    sub_dir: "ltp/testcases/bin",
-    filename: "ssh-stress02-rmt.sh",
-    compile_multilib: "both",
-}
-
-sh_test {
-    name: "ltp_testcases_bin_ssh-stress03-rmt.sh",
-    src: "testcases/network/stress/ssh/ssh-stress03-rmt.sh",
-    sub_dir: "ltp/testcases/bin",
-    filename: "ssh-stress03-rmt.sh",
-    compile_multilib: "both",
-}
-
-sh_test {
     name: "ltp_testcases_bin_stop_freeze_sleep_thaw_cont.sh",
     src: "testcases/kernel/controllers/freezer/stop_freeze_sleep_thaw_cont.sh",
     sub_dir: "ltp/testcases/bin",
@@ -19672,14 +20964,6 @@ sh_test {
 }
 
 sh_test {
-    name: "ltp_testcases_bin_stress_floppy",
-    src: "testcases/kernel/io/stress_floppy/stress_floppy",
-    sub_dir: "ltp/testcases/bin",
-    filename: "stress_floppy",
-    compile_multilib: "both",
-}
-
-sh_test {
     name: "ltp_testcases_bin_sysctl01.sh",
     src: "testcases/commands/sysctl/sysctl01.sh",
     sub_dir: "ltp/testcases/bin",
@@ -19692,6 +20976,14 @@ sh_test {
     src: "testcases/commands/sysctl/sysctl02.sh",
     sub_dir: "ltp/testcases/bin",
     filename: "sysctl02.sh",
+    compile_multilib: "both",
+}
+
+sh_test {
+    name: "ltp_testcases_bin_tc01.sh",
+    src: "testcases/network/tcp_cmds/tc/tc01.sh",
+    sub_dir: "ltp/testcases/bin",
+    filename: "tc01.sh",
     compile_multilib: "both",
 }
 
@@ -23521,6 +24813,15 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_tst_cgctl",
+    stem: "tst_cgctl",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/lib/tst_cgctl.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_tst_cgroup01",
     stem: "tst_cgroup01",
     defaults: ["ltp_test_defaults"],
@@ -23543,6 +24844,15 @@ cc_test {
     stem: "tst_check_drivers",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/lib/tst_check_drivers.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_tst_check_kconfigs",
+    stem: "tst_check_kconfigs",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/lib/tst_check_kconfigs.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -23685,6 +24995,24 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_tst_fuzzy_sync03",
+    stem: "tst_fuzzy_sync03",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/tst_fuzzy_sync03.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_tst_get_free_pids",
+    stem: "tst_get_free_pids",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/lib/tst_get_free_pids.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_tst_get_median",
     stem: "tst_get_median",
     defaults: ["ltp_test_defaults"],
@@ -23707,6 +25035,15 @@ cc_test {
     stem: "tst_getconf",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/lib/tst_getconf.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_tst_hexdump",
+    stem: "tst_hexdump",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/lib/tst_hexdump.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -23751,6 +25088,78 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_tst_needs_cmds01",
+    stem: "tst_needs_cmds01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/tst_needs_cmds01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_tst_needs_cmds02",
+    stem: "tst_needs_cmds02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/tst_needs_cmds02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_tst_needs_cmds03",
+    stem: "tst_needs_cmds03",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/tst_needs_cmds03.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_tst_needs_cmds04",
+    stem: "tst_needs_cmds04",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/tst_needs_cmds04.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_tst_needs_cmds05",
+    stem: "tst_needs_cmds05",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/tst_needs_cmds05.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_tst_needs_cmds06",
+    stem: "tst_needs_cmds06",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/tst_needs_cmds06.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_tst_needs_cmds07",
+    stem: "tst_needs_cmds07",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/tst_needs_cmds07.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_tst_needs_cmds08",
+    stem: "tst_needs_cmds08",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/tst_needs_cmds08.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_tst_net_iface_prefix",
     stem: "tst_net_iface_prefix",
     defaults: ["ltp_test_defaults"],
@@ -23773,6 +25182,15 @@ cc_test {
     stem: "tst_net_vars",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/lib/tst_net_vars.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_tst_print_result",
+    stem: "tst_print_result",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["lib/newlib_tests/tst_print_result.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -23906,6 +25324,15 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_tst_timeout_kill",
+    stem: "tst_timeout_kill",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/lib/tst_timeout_kill.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_tst_tmpdir_test",
     stem: "tst_tmpdir_test",
     defaults: ["ltp_test_defaults"],
@@ -24012,15 +25439,6 @@ cc_test {
     stem: "umount2_02",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/umount2/umount2_02.c"],
-    local_include_dirs: ["include/old"],
-    static_libs: ["libltp_ltp"],
-}
-
-cc_test {
-    name: "ltp_umount2_03",
-    stem: "umount2_03",
-    defaults: ["ltp_test_defaults"],
-    srcs: ["testcases/kernel/syscalls/umount2/umount2_03.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -24392,6 +25810,15 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_vsock01",
+    stem: "vsock01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/network/sockets/vsock01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_wait01",
     stem: "wait01",
     defaults: ["ltp_test_defaults"],
@@ -24428,6 +25855,15 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_wait403",
+    stem: "wait403",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/wait4/wait403.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_waitid01",
     stem: "waitid01",
     defaults: ["ltp_test_defaults"],
@@ -24441,6 +25877,87 @@ cc_test {
     stem: "waitid02",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/waitid/waitid02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_waitid03",
+    stem: "waitid03",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/waitid/waitid03.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_waitid04",
+    stem: "waitid04",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/waitid/waitid04.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_waitid05",
+    stem: "waitid05",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/waitid/waitid05.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_waitid06",
+    stem: "waitid06",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/waitid/waitid06.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_waitid07",
+    stem: "waitid07",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/waitid/waitid07.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_waitid08",
+    stem: "waitid08",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/waitid/waitid08.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_waitid09",
+    stem: "waitid09",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/waitid/waitid09.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_waitid10",
+    stem: "waitid10",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/waitid/waitid10.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_waitid11",
+    stem: "waitid11",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/waitid/waitid11.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }
@@ -24563,6 +26080,87 @@ cc_test {
 }
 
 cc_test {
+    name: "ltp_wqueue01",
+    stem: "wqueue01",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/watchqueue/wqueue01.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_wqueue02",
+    stem: "wqueue02",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/watchqueue/wqueue02.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_wqueue03",
+    stem: "wqueue03",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/watchqueue/wqueue03.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_wqueue04",
+    stem: "wqueue04",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/watchqueue/wqueue04.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_wqueue05",
+    stem: "wqueue05",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/watchqueue/wqueue05.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_wqueue06",
+    stem: "wqueue06",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/watchqueue/wqueue06.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_wqueue07",
+    stem: "wqueue07",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/watchqueue/wqueue07.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_wqueue08",
+    stem: "wqueue08",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/watchqueue/wqueue08.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_wqueue09",
+    stem: "wqueue09",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/watchqueue/wqueue09.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
     name: "ltp_write01",
     stem: "write01",
     defaults: ["ltp_test_defaults"],
@@ -24603,6 +26201,15 @@ cc_test {
     stem: "write05",
     defaults: ["ltp_test_defaults"],
     srcs: ["testcases/kernel/syscalls/write/write05.c"],
+    local_include_dirs: ["include/old"],
+    static_libs: ["libltp_ltp"],
+}
+
+cc_test {
+    name: "ltp_write06",
+    stem: "write06",
+    defaults: ["ltp_test_defaults"],
+    srcs: ["testcases/kernel/syscalls/write/write06.c"],
     local_include_dirs: ["include/old"],
     static_libs: ["libltp_ltp"],
 }

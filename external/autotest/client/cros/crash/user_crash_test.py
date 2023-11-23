@@ -12,7 +12,7 @@ import signal
 import stat
 import subprocess
 
-import crash_test
+from autotest_lib.client.cros.crash import crash_test
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
 
@@ -50,7 +50,7 @@ class UserCrashTest(crash_test.CrashTest):
 
         @param expected_tag: Expected tag in crash_reporter log message.
         @param expected_version: Expected version included in the crash report,
-                                 or None to use the Chrome OS version.
+                                 or None to use the ChromeOS version.
         @param force_user_crash_dir: Always look for crash reports in the crash
                                      directory of the current user session, or
                                      the fallback directory if no sessions.
@@ -92,9 +92,7 @@ class UserCrashTest(crash_test.CrashTest):
         os.mkdir(self._symbol_dir)
 
         basename = os.path.basename(self._crasher_path)
-        utils.system('/usr/bin/dump_syms %s > %s.sym' %
-                     (self._crasher_path,
-                      basename))
+        utils.system('dump_syms %s > %s.sym' % (self._crasher_path, basename))
         sym_name = '%s.sym' % basename
         symbols = utils.read_file(sym_name)
         # First line should be like:
@@ -183,9 +181,6 @@ class UserCrashTest(crash_test.CrashTest):
         """Runs the crasher process.
 
         Will wait up to 10 seconds for crash_reporter to report the crash.
-        crash_reporter_caught will be marked as true when the "Received crash
-        notification message..." appears. While associated logs are likely to be
-        available at this point, the function does not guarantee this.
 
         @param username: Unix user of the crasher process.
         @param cause_crash: Whether the crasher should crash.
@@ -211,7 +206,6 @@ class UserCrashTest(crash_test.CrashTest):
           A dictionary with keys:
             returncode: return code of the crasher
             crashed: did the crasher return segv error code
-            crash_reporter_caught: did crash_reporter catch a segv
             output: stderr output of the crasher process
         """
         if crasher_path is None:
@@ -254,7 +248,7 @@ class UserCrashTest(crash_test.CrashTest):
                                        stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE)
 
-            output = crasher.communicate()[1]
+            output = crasher.communicate()[1].decode()
             exit_code = crasher.returncode
             pid = None
 
@@ -298,18 +292,7 @@ class UserCrashTest(crash_test.CrashTest):
                 'Timeout waiting for crash_reporter to finish: ' +
                 self._log_reader.get_logs()))
 
-        is_caught = False
-        try:
-            utils.poll_for_condition(
-                lambda: self._log_reader.can_find(expected_message),
-                timeout=5,
-                desc='Logs contain crash_reporter message: ' + expected_message)
-            is_caught = True
-        except utils.TimeoutError:
-            pass
-
         result = {'crashed': exit_code == expected_exit_code,
-                  'crash_reporter_caught': is_caught,
                   'output': output,
                   'returncode': exit_code}
         logging.debug('Crasher process result: %s', result)
@@ -350,7 +333,7 @@ class UserCrashTest(crash_test.CrashTest):
 
     def _check_minidump_stackwalk(self, minidump_path, basename,
                                   from_crash_reporter):
-        stack = utils.system_output('/usr/bin/minidump_stackwalk %s %s' %
+        stack = utils.system_output('minidump_stackwalk %s %s' %
                                     (minidump_path, self._symbol_dir))
         self._verify_stack(stack, basename, from_crash_reporter)
 
@@ -406,7 +389,7 @@ class UserCrashTest(crash_test.CrashTest):
             expected_uid=expected_uid, expected_gid=expected_gid,
             expected_exit_code=expected_exit_code)
 
-        if not result['crashed'] or not result['crash_reporter_caught']:
+        if not result['crashed']:
             return result
 
         crash_dir = self._get_crash_dir(username, self._force_user_crash_dir)
@@ -491,17 +474,6 @@ class UserCrashTest(crash_test.CrashTest):
         return result
 
 
-    def _check_crashed_and_caught(self, result):
-        if not result['crashed']:
-            raise error.TestFail('Crasher returned %d instead of crashing' %
-                                 result['returncode'])
-
-        if not result['crash_reporter_caught']:
-            logging.debug('Logs do not contain crash_reporter message:\n%s',
-                          self._log_reader.get_logs())
-            raise error.TestFail('crash_reporter did not catch crash')
-
-
     def _check_crashing_process(self,
                                 username,
                                 consent=True,
@@ -519,8 +491,9 @@ class UserCrashTest(crash_test.CrashTest):
             expected_gid=expected_gid,
             expected_exit_code=expected_exit_code)
 
-        self._check_crashed_and_caught(result)
-
+        if not result['crashed']:
+            raise error.TestFail('Crasher returned %d instead of crashing' %
+                                 result['returncode'])
         if not consent:
             return
 
@@ -532,10 +505,6 @@ class UserCrashTest(crash_test.CrashTest):
 
         if not result['minidump']:
             raise error.TestFail('crash reporter did not generate minidump')
-
-        if not self._log_reader.can_find('Stored minidump to ' +
-                                         result['minidump']):
-            raise error.TestFail('crash reporter did not announce minidump')
 
         self._check_minidump_stackwalk(result['minidump'],
                                        result['basename'],

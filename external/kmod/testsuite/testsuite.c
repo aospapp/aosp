@@ -37,6 +37,7 @@
 #include "testsuite.h"
 
 static const char *ANSI_HIGHLIGHT_GREEN_ON = "\x1B[1;32m";
+static const char *ANSI_HIGHLIGHT_YELLOW_ON = "\x1B[1;33m";
 static const char *ANSI_HIGHLIGHT_RED_ON =  "\x1B[1;31m";
 static const char *ANSI_HIGHLIGHT_OFF = "\x1B[0m";
 
@@ -50,6 +51,7 @@ static const struct option options[] = {
 };
 
 #define OVERRIDE_LIBDIR ABS_TOP_BUILDDIR "/testsuite/.libs/"
+#define TEST_TIMEOUT_USEC 2 * USEC_PER_SEC
 
 struct _env_config {
 	const char *key;
@@ -60,19 +62,6 @@ struct _env_config {
 	[TC_INIT_MODULE_RETCODES] = { S_TC_INIT_MODULE_RETCODES, OVERRIDE_LIBDIR "init_module.so" },
 	[TC_DELETE_MODULE_RETCODES] = { S_TC_DELETE_MODULE_RETCODES, OVERRIDE_LIBDIR "delete_module.so" },
 };
-
-#define USEC_PER_SEC  1000000ULL
-#define USEC_PER_MSEC  1000ULL
-#define TEST_TIMEOUT_USEC 2 * USEC_PER_SEC
-static unsigned long long now_usec(void)
-{
-	struct timespec ts;
-
-	if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
-		return 0;
-
-	return ts_usec(&ts);
-}
 
 static void help(void)
 {
@@ -947,6 +936,14 @@ static inline int test_run_parent(const struct test *t, int fdout[2],
 	pid_t pid;
 	int err;
 	bool matchout, match_modules;
+
+	if (t->skip) {
+		LOG("%sSKIPPED%s: %s\n",
+			ANSI_HIGHLIGHT_YELLOW_ON, ANSI_HIGHLIGHT_OFF,
+			t->name);
+		err = EXIT_SUCCESS;
+		goto exit;
+	}
 
 	/* Close write-fds */
 	if (t->output.out != NULL)

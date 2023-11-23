@@ -28,7 +28,7 @@ cc_defaults {
     ],
     rtti: true,
     cppflags: ["-fno-exceptions"],
-    clang: true,
+
     sanitize: {
         misc_undefined: [
             "unsigned-integer-overflow",

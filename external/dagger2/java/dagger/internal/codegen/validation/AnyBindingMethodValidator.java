@@ -16,33 +16,32 @@
 
 package dagger.internal.codegen.validation;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.base.Util.reentrantComputeIfAbsent;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
-import static dagger.internal.codegen.langmodel.DaggerElements.isAnyAnnotationPresent;
+import static dagger.internal.codegen.xprocessing.XElements.getSimpleName;
+import static dagger.internal.codegen.xprocessing.XElements.hasAnyAnnotation;
 import static java.util.stream.Collectors.joining;
 
+import androidx.room.compiler.processing.XExecutableElement;
+import androidx.room.compiler.processing.XMethodElement;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.squareup.javapoet.ClassName;
 import dagger.internal.codegen.base.ClearableCache;
-import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import javax.lang.model.element.ExecutableElement;
 
 /** Validates any binding method. */
 @Singleton
 public final class AnyBindingMethodValidator implements ClearableCache {
-  private final ImmutableMap<Class<? extends Annotation>, BindingMethodValidator> validators;
-  private final Map<ExecutableElement, ValidationReport<ExecutableElement>> reports =
-      new HashMap<>();
+  private final ImmutableMap<ClassName, BindingMethodValidator> validators;
+  private final Map<XMethodElement, ValidationReport> reports = new HashMap<>();
 
   @Inject
-  AnyBindingMethodValidator(
-      ImmutableMap<Class<? extends Annotation>, BindingMethodValidator> validators) {
+  AnyBindingMethodValidator(ImmutableMap<ClassName, BindingMethodValidator> validators) {
     this.validators = validators;
   }
 
@@ -52,7 +51,7 @@ public final class AnyBindingMethodValidator implements ClearableCache {
   }
 
   /** Returns the binding method annotations considered by this validator. */
-  ImmutableSet<Class<? extends Annotation>> methodAnnotations() {
+  ImmutableSet<ClassName> methodAnnotations() {
     return validators.keySet();
   }
 
@@ -60,8 +59,8 @@ public final class AnyBindingMethodValidator implements ClearableCache {
    * Returns {@code true} if {@code method} is annotated with at least one of {@link
    * #methodAnnotations()}.
    */
-  boolean isBindingMethod(ExecutableElement method) {
-    return isAnyAnnotationPresent(method, methodAnnotations());
+  boolean isBindingMethod(XExecutableElement method) {
+    return hasAnyAnnotation(method, methodAnnotations());
   }
 
   /**
@@ -77,25 +76,22 @@ public final class AnyBindingMethodValidator implements ClearableCache {
    * @throws IllegalArgumentException if {@code method} is not annotated by any {@linkplain
    *     #methodAnnotations() binding method annotation}
    */
-  ValidationReport<ExecutableElement> validate(ExecutableElement method) {
+  ValidationReport validate(XMethodElement method) {
     return reentrantComputeIfAbsent(reports, method, this::validateUncached);
   }
 
   /**
-   * Returns {@code true} if {@code method} was already {@linkplain #validate(ExecutableElement)
+   * Returns {@code true} if {@code method} was already {@linkplain #validate(XMethodElement)
    * validated}.
    */
-  boolean wasAlreadyValidated(ExecutableElement method) {
+  boolean wasAlreadyValidated(XMethodElement method) {
     return reports.containsKey(method);
   }
 
-  private ValidationReport<ExecutableElement> validateUncached(ExecutableElement method) {
-    ValidationReport.Builder<ExecutableElement> report = ValidationReport.about(method);
-    ImmutableSet<? extends Class<? extends Annotation>> bindingMethodAnnotations =
-        methodAnnotations()
-            .stream()
-            .filter(annotation -> isAnnotationPresent(method, annotation))
-            .collect(toImmutableSet());
+  private ValidationReport validateUncached(XMethodElement method) {
+    ValidationReport.Builder report = ValidationReport.about(method);
+    ImmutableSet<ClassName> bindingMethodAnnotations =
+        methodAnnotations().stream().filter(method::hasAnnotation).collect(toImmutableSet());
     switch (bindingMethodAnnotations.size()) {
       case 0:
         throw new IllegalArgumentException(
@@ -110,8 +106,8 @@ public final class AnyBindingMethodValidator implements ClearableCache {
         report.addError(
             String.format(
                 "%s is annotated with more than one of (%s)",
-                method.getSimpleName(),
-                methodAnnotations().stream().map(Class::getCanonicalName).collect(joining(", "))),
+                getSimpleName(method),
+                methodAnnotations().stream().map(ClassName::canonicalName).collect(joining(", "))),
             method);
         break;
     }

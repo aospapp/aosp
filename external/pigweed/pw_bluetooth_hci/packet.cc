@@ -25,17 +25,17 @@ using pw::bytes::ReadInOrder;
 }  // namespace
 
 Result<ConstByteSpan> CommandPacket::Encode(ByteSpan buffer,
-                                            std::endian order) const {
+                                            endian order) const {
   ByteBuilder builder(buffer);
   builder.PutUint16(opcode_, order);
   builder.PutUint8(parameters_.size_bytes());
   builder.append(parameters_);
   PW_TRY(builder.status());
   return ConstByteSpan(builder.data(), builder.size());
-};
+}
 
 std::optional<CommandPacket> CommandPacket::Decode(ConstByteSpan data,
-                                                   std::endian order) {
+                                                   endian order) {
   if (data.size_bytes() < kHeaderSizeBytes) {
     return std::nullopt;  // Not enough data to parse the packet header.
   }
@@ -48,22 +48,22 @@ std::optional<CommandPacket> CommandPacket::Decode(ConstByteSpan data,
 
   const uint16_t opcode =
       ReadInOrder<uint16_t>(order, &data[kOpcodeByteOffset]);
-  return CommandPacket(
-      opcode, ConstByteSpan(&data[kHeaderSizeBytes], parameter_total_length));
+  return CommandPacket(opcode,
+                       data.subspan(kHeaderSizeBytes, parameter_total_length));
 }
 
 Result<ConstByteSpan> AsyncDataPacket::Encode(ByteSpan buffer,
-                                              std::endian order) const {
+                                              endian order) const {
   ByteBuilder builder(buffer);
   builder.PutUint16(handle_and_fragmentation_bits_, order);
   builder.PutUint16(data_.size_bytes(), order);
   builder.append(data_);
   PW_TRY(builder.status());
   return ConstByteSpan(builder.data(), builder.size());
-};
+}
 
 std::optional<AsyncDataPacket> AsyncDataPacket::Decode(ConstByteSpan data,
-                                                       std::endian order) {
+                                                       endian order) {
   if (data.size_bytes() < kHeaderSizeBytes) {
     return std::nullopt;  // Not enough data to parse the packet header.
   }
@@ -76,23 +76,22 @@ std::optional<AsyncDataPacket> AsyncDataPacket::Decode(ConstByteSpan data,
 
   const uint16_t handle_and_flag_bits = ReadInOrder<uint16_t>(
       order, &data[kHandleAndFragmentationBitsByteOffset]);
-  return AsyncDataPacket(
-      handle_and_flag_bits,
-      ConstByteSpan(&data[kHeaderSizeBytes], data_total_length));
+  return AsyncDataPacket(handle_and_flag_bits,
+                         data.subspan(kHeaderSizeBytes, data_total_length));
 }
 
 Result<ConstByteSpan> SyncDataPacket::Encode(ByteSpan buffer,
-                                             std::endian order) const {
+                                             endian order) const {
   ByteBuilder builder(buffer);
   builder.PutUint16(handle_and_status_bits_, order);
   builder.PutUint8(data_.size_bytes());
   builder.append(data_);
   PW_TRY(builder.status());
   return ConstByteSpan(builder.data(), builder.size());
-};
+}
 
 std::optional<SyncDataPacket> SyncDataPacket::Decode(ConstByteSpan data,
-                                                     std::endian order) {
+                                                     endian order) {
   if (data.size_bytes() < kHeaderSizeBytes) {
     return std::nullopt;  // Not enough data to parse the packet header.
   }
@@ -105,9 +104,8 @@ std::optional<SyncDataPacket> SyncDataPacket::Decode(ConstByteSpan data,
 
   const uint16_t handle_and_status_bits =
       ReadInOrder<uint16_t>(order, &data[kHandleAndStatusBitsByteOffset]);
-  return SyncDataPacket(
-      handle_and_status_bits,
-      ConstByteSpan(&data[kHeaderSizeBytes], data_total_length));
+  return SyncDataPacket(handle_and_status_bits,
+                        data.subspan(kHeaderSizeBytes, data_total_length));
 }
 
 Result<ConstByteSpan> EventPacket::Encode(ByteSpan buffer) const {
@@ -117,7 +115,7 @@ Result<ConstByteSpan> EventPacket::Encode(ByteSpan buffer) const {
   builder.append(parameters_);
   PW_TRY(builder.status());
   return ConstByteSpan(builder.data(), builder.size());
-};
+}
 
 std::optional<EventPacket> EventPacket::Decode(ConstByteSpan data) {
   if (data.size_bytes() < kHeaderSizeBytes) {
@@ -131,9 +129,8 @@ std::optional<EventPacket> EventPacket::Decode(ConstByteSpan data) {
   }
 
   const uint8_t event_code = static_cast<uint8_t>(data[kEventCodeByteOffset]);
-  return EventPacket(
-      event_code,
-      ConstByteSpan(&data[kHeaderSizeBytes], parameter_total_length));
+  return EventPacket(event_code,
+                     data.subspan(kHeaderSizeBytes, parameter_total_length));
 }
 
 }  // namespace pw::bluetooth_hci

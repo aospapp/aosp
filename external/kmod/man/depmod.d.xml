@@ -40,8 +40,9 @@
 
   <refsynopsisdiv>
     <para><filename>/usr/lib/depmod.d/*.conf</filename></para>
-    <para><filename>/etc/depmod.d/*.conf</filename></para>
+    <para><filename>/usr/local/lib/depmod.d/*.conf</filename></para>
     <para><filename>/run/depmod.d/*.conf</filename></para>
+    <para><filename>/etc/depmod.d/*.conf</filename></para>
   </refsynopsisdiv>
 
   <refsect1><title>DESCRIPTION</title>
@@ -127,6 +128,20 @@
           <para>
             The <replaceable>kernelversion</replaceable> is a POSIX regular
             expression or * wildcard, like in the <command>override</command>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>exclude <replaceable>excludedir</replaceable>
+        </term>
+        <listitem>
+          <para>
+            This specifies the trailing directories that will be excluded
+            during the search for kernel modules.
+          </para>
+          <para>
+	    The <replaceable>excludedir</replaceable> is the trailing directory
+	    to exclude
           </para>
         </listitem>
       </varlistentry>

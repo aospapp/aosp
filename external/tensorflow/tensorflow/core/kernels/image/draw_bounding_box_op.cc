@@ -97,8 +97,8 @@ class DrawBoundingBoxesOp : public OpKernel {
 
         auto colors = colors_tensor.matrix<float>();
         for (int64_t i = 0; i < colors.dimension(0); i++) {
-          std::vector<float> color_value(4);
-          for (int64_t j = 0; j < 4; j++) {
+          std::vector<float> color_value(depth);
+          for (int64_t j = 0; j < depth; j++) {
             color_value[j] = colors(i, j);
           }
           color_table.emplace_back(color_value);
@@ -119,25 +119,25 @@ class DrawBoundingBoxesOp : public OpKernel {
 
     for (int64_t b = 0; b < batch_size; ++b) {
       const int64_t num_boxes = boxes.dim_size(1);
-      const auto tboxes = boxes.tensor<T, 3>();
+      const auto tboxes = boxes.tensor<float, 3>();
       for (int64_t bb = 0; bb < num_boxes; ++bb) {
         int64_t color_index = bb % color_table.size();
         const int64_t min_box_row =
             static_cast<float>(tboxes(b, bb, 0)) * (height - 1);
         const int64_t min_box_row_clamp =
-            std::max<int64>(min_box_row, int64{0});
+            std::max<int64_t>(min_box_row, int64_t{0});
         const int64_t max_box_row =
             static_cast<float>(tboxes(b, bb, 2)) * (height - 1);
         const int64_t max_box_row_clamp =
-            std::min<int64>(max_box_row, height - 1);
+            std::min<int64_t>(max_box_row, height - 1);
         const int64_t min_box_col =
             static_cast<float>(tboxes(b, bb, 1)) * (width - 1);
         const int64_t min_box_col_clamp =
-            std::max<int64>(min_box_col, int64{0});
+            std::max<int64_t>(min_box_col, int64_t{0});
         const int64_t max_box_col =
             static_cast<float>(tboxes(b, bb, 3)) * (width - 1);
         const int64_t max_box_col_clamp =
-            std::min<int64>(max_box_col, width - 1);
+            std::min<int64_t>(max_box_col, width - 1);
 
         if (min_box_row > max_box_row || min_box_col > max_box_col) {
           LOG(WARNING) << "Bounding box (" << min_box_row << "," << min_box_col

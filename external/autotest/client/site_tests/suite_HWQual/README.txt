@@ -3,7 +3,7 @@ Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 
 
-This document describes the steps to go through in order to run Chrome OS
+This document describes the steps to go through in order to run ChromeOS
 hardware qualification on a device under test.
 
 ================================================================================
@@ -28,7 +28,7 @@ Test Setup
 
 
 - Create an installation directory on the Autotest server for the
-  Chrome OS hardware qualification package. The rest of the
+  ChromeOS hardware qualification package. The rest of the
   instructions assume that you're installing the package in the
   current user home directory ($HOME/).
 
@@ -43,7 +43,7 @@ Test Setup
   $ cd $HOME/ && tar xjf chromeos-hwqual-TAG.tar.bz2
 
 
-- Install the Chrome OS test image on the DUT. The USB test image is
+- Install the ChromeOS test image on the DUT. The USB test image is
   available in:
 
   $HOME/chromeos-hwqual-TAG/chromeos-hwqual-usb.img
@@ -64,8 +64,8 @@ Test Setup
 
   - Plug the USB device into the DUT and boot from it.
 
-  - Log in to Chrome OS.  Start the Chrome OS shell by pressing Ctrl-Alt-T.
-    Install Chrome OS on the DUT:
+  - Log in to ChromeOS.  Start the ChromeOS shell by pressing Ctrl-Alt-T.
+    Install ChromeOS on the DUT:
 
     crosh> install
 
@@ -163,7 +163,7 @@ Automated and Semi-Automated Test Runs
   $ ./server/autoserv -r results.audio_ext -m <DUT_IP> \
                   -c client/site_tests/suite_HWQual/control.audio
 
-- Run the Keyboard test : 
+- Run the Keyboard test :
   (Wait several seconds after running the test. Then strike the "Search" key,
    e.g. the key above Left Shift and below Tab)
 

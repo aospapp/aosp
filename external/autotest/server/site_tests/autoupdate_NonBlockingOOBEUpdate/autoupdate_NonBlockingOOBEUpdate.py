@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -19,7 +20,10 @@ class autoupdate_NonBlockingOOBEUpdate(update_engine_test.UpdateEngineTest):
         super(autoupdate_NonBlockingOOBEUpdate, self).cleanup()
 
 
-    def run_once(self, full_payload=True, job_repo_url=None):
+    def run_once(self,
+                 full_payload=True,
+                 job_repo_url=None,
+                 running_at_desk=False):
         """
         Tries an autoupdate during ChromeOS OOBE without a deadline.
 
@@ -32,11 +36,15 @@ class autoupdate_NonBlockingOOBEUpdate(update_engine_test.UpdateEngineTest):
                              out the current build and the devserver to use.
                              The test will read this from a host argument
                              when run in the lab.
+        @param running_at_desk: Indicates test is run locally from a
+                                workstation.
 
         """
         tpm_utils.ClearTPMOwnerRequest(self._host)
-        payload_url = self.get_payload_for_nebraska(job_repo_url,
-                                                    full_payload=full_payload)
+        payload_url = self.get_payload_for_nebraska(
+                job_repo_url,
+                full_payload=full_payload,
+                public_bucket=running_at_desk)
         self._run_client_test_and_check_result('autoupdate_StartOOBEUpdate',
                                                payload_url=payload_url,
                                                full_payload=full_payload,

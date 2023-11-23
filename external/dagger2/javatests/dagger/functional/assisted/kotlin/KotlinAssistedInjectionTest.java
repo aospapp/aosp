@@ -31,6 +31,9 @@ public final class KotlinAssistedInjectionTest {
     FooFactory fooFactory();
 
     FooDataFactory fooDataFactory();
+
+    BarManager.Factory barManagerFactory();
+
   }
 
   @Test
@@ -48,5 +51,16 @@ public final class KotlinAssistedInjectionTest {
     AssistedDep assistedDep = new AssistedDep();
     FooData fooData = fooDataFactory.create(assistedDep);
     assertThat(fooData.getAssistedDep()).isEqualTo(assistedDep);
+  }
+
+  @Test
+  public void testBarManager() {
+    BarManager.Factory barManagerFactory =
+        DaggerKotlinAssistedInjectionTest_TestComponent.create().barManagerFactory();
+    Bar bar = new Bar();
+    String name = "someName";
+    BarManager barManager = barManagerFactory.invoke(bar, name);
+    assertThat(barManager.getBar()).isEqualTo(bar);
+    assertThat(barManager.getName()).isEqualTo(name);
   }
 }

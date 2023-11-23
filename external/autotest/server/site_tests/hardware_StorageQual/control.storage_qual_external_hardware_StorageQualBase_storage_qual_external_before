@@ -16,17 +16,23 @@ TIME = "lengthy"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "Hardware"
 TEST_TYPE = "server"
-REQUIRE_SSP = False
+PY_VERSION = 3
+REQUIRE_SSP = True
 PRIORITY = 100
 DEPENDENCIES = "storage_qual_external"
 JOB_RETRIES = 0
+FAST = False
 
 DOC = "hardware_StorageQualBase_storage_qual_external_before"
 
 keyval = dict()
 keyval['storage_qual_version'] = 1
-keyval['bug_id'] = bug_id
-keyval['part_id'] = part_id
+try:
+    keyval['bug_id'] = bug_id
+    keyval['part_id'] = part_id
+except NameError:
+    # bug_id and/or part_id variables not defined
+    pass
 utils.write_keyval(job.resultdir, keyval)
 
 def run(machine):

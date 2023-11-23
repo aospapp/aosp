@@ -1,0 +1,7 @@
+{
+  "dependencies": true,
+  "device": true,
+  "force-rlib": true,
+  "patch": "patches/Android.bp.patch",
+  "run": true
+}

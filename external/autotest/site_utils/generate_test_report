@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -10,13 +10,20 @@ This script parses the contents of one or more autoserv results folders and
 generates test reports.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import datetime
 import glob
+import json
 import logging
 import operator
 import optparse
 import os
 import re
+import six
+from six.moves import range
 import sys
 
 import common
@@ -159,12 +166,12 @@ class ResultCollector(object):
             w = _CRASH_ALLOWLIST.get(match.group(1))
             if (self._allow_chrome_crashes and
                     chrome_regex.match(match.group(1))):
-                print '@@@STEP_WARNINGS@@@'
-                print '%s crashed with %s' % (match.group(1), match.group(2))
+                print('@@@STEP_WARNINGS@@@')
+                print('%s crashed with %s' % (match.group(1), match.group(2)))
             elif (w is not None and match.group(2) in w.signals and
                         w.deadline > datetime.datetime.now()):
-                print 'Ignoring crash in %s for waiver that expires %s' % (
-                        match.group(1), w.deadline.strftime('%Y-%b-%d'))
+                print('Ignoring crash in %s for waiver that expires %s' % (
+                        match.group(1), w.deadline.strftime('%Y-%b-%d')))
             else:
                 crashes.append('%s %s' % match.groups())
         return crashes
@@ -190,9 +197,9 @@ class ResultCollector(object):
         info = custom_info
 
         sysinfo_dir = os.path.join(testdir, 'sysinfo', 'var', 'log')
-        for info_file, info_keys in {'ec_info.txt': ['fw_version'],
-                                     'bios_info.txt': ['fwid',
-                                                       'hwid']}.iteritems():
+        for info_file, info_keys in six.iteritems(
+            {'ec_info.txt': ['fw_version'],
+             'bios_info.txt': ['fwid', 'hwid']}):
             info_file_path = os.path.join(sysinfo_dir, info_file)
             if not os.path.isfile(info_file_path):
                 continue
@@ -240,7 +247,7 @@ class ResultCollector(object):
             # There may be multiple lines with timestamp/localtime info.
             # The last one found is selected because it will reflect the end
             # time.
-            for i in xrange(len(matches)):
+            for i in range(len(matches)):
                 timestamp_, localtime_ = matches[-(i+1)]
                 if not timestamp or timestamp_ > timestamp:
                     timestamp = timestamp_
@@ -268,6 +275,48 @@ class ResultCollector(object):
             else:
                 return False
 
+    def _get_failure_msg_from_status(self, status_raw):
+        reason_tags = 'ABORT|ERROR|FAIL|WARN|TEST_NA'
+        match = re.search(r'^\t+(%s)\t(.+)' % (reason_tags),
+                          status_raw, re.MULTILINE)
+
+        error_msg = 'Reason Unknown'
+        if match:
+            failure_type = match.group(1)
+            reason = match.group(2).split('\t')[4]
+            if self._escape_error:
+                reason = re.escape(reason)
+            error_msg = ': '.join([failure_type, reason])
+
+        return error_msg
+
+    def _get_full_status(self, status_raw):
+        """Collect the full status of a test, and err msg if any.
+
+        This will grab the full status, rather than just pass/fail.
+        Additionally, if there is an err msg, it will be scraped as well.
+
+        @param status_raw: the status log, as a string.
+
+        @return The full status, and the err msg, if any.
+
+        """
+        status = 'Error'
+        if re.search(r'%s' % 'FAIL', status_raw):
+            status = 'Fail'
+        elif re.search(r'%s' % 'ERROR', status_raw):
+            status = 'Error'
+        elif re.search(r'%s' % 'ABORT', status_raw):
+            status = 'Abort'
+        elif re.search(r'%s' % 'WARN', status_raw):
+            status = 'Warn'
+        elif re.search(r'%s' % 'TEST_NA', status_raw):
+            status = 'Not Run'
+        elif re.search(r'GOOD.+completed successfully', status_raw):
+            status = 'Pass'
+            return status, None
+
+        return status, self._get_failure_msg_from_status(status_raw)
 
     def _CollectResult(self, testdir, results, is_experimental=False):
         """Collects results stored under testdir into a dictionary.
@@ -307,8 +356,11 @@ class ResultCollector(object):
 
         """
         status_file = os.path.join(testdir, 'status.log')
+        top_level = True
+
         if not os.path.isfile(status_file):
             status_file = os.path.join(testdir, 'status')
+            top_level = False
             if not os.path.isfile(status_file):
                 return
 
@@ -328,42 +380,54 @@ class ResultCollector(object):
             status = True
 
         if not good:
-            match = re.search(r'^\t+(%s|%s)\t(.+)' % (failure_tags,
-                                                      warning_tag),
-                              status_raw, re.MULTILINE)
-            if match:
-                failure_type = match.group(1)
-                reason = match.group(2).split('\t')[4]
-                if self._escape_error:
-                    reason = re.escape(reason)
-                error_msg = ': '.join([failure_type, reason])
+            error_msg = self._get_failure_msg_from_status(status_raw)
 
         # Grab the timestamp - can be used for sorting the test runs.
         # Grab the localtime - may be printed to enable line filtering by date.
         # Designed to match a line like this:
         #   END GOOD testname ... timestamp=1347324321 localtime=Sep 10 17:45:21
         status_re = r'GOOD|%s|%s' % (failure_tags, warning_tag)
-        timestamp, localtime = self._CollectEndTimes(status_raw, status_re)
+        endtimestamp, endlocaltime = self._CollectEndTimes(status_raw,
+                                                           status_re)
+        starttimestamp, startlocaltime = self._CollectEndTimes(status_raw,
+                                                               is_end=False)
         # Hung tests will occasionally skip printing the END line so grab
         # a default timestamp from the START line in those cases.
-        if not timestamp:
-            timestamp, localtime = self._CollectEndTimes(status_raw,
-                                                         is_end=False)
+        if not endtimestamp:
+            endtimestamp, endlocaltime = starttimestamp, startlocaltime
+
+        full_status = False
+        for r in results:
+            # Already logged results for this test.
+            if r['testdir'] in testdir:
+                full_status, err = None, None
+                break
+
+        if full_status is not None:
+            full_status, err = self._get_full_status(status_raw)
 
         results.append({
                 'testdir': testdir,
                 'crashes': self._CollectCrashes(status_raw),
                 'status': status,
                 'error_msg': error_msg,
-                'localtime': localtime,
-                'timestamp': timestamp,
+                'localtime': endlocaltime,
+                'timestamp': endtimestamp,
                 'perf': self._CollectPerf(testdir),
                 'attr': self._CollectAttr(testdir),
-                'info': self._CollectInfo(testdir, {'localtime': localtime,
-                                                    'timestamp': timestamp}),
-                'experimental': is_experimental})
+                'info': self._CollectInfo(testdir, {'localtime': endlocaltime,
+                                                    'timestamp': endtimestamp}),
+                'experimental': is_experimental,
+                'full_status': full_status,
+                'full_err': err,
+                'startlocaltime': startlocaltime,
+                'starttimestamp': starttimestamp
+                })
 
-    def RecursivelyCollectResults(self, resdir, parent_experimental_tag=False):
+    def RecursivelyCollectResults(self,
+                                  resdir,
+                                  parent_experimental_tag=False,
+                                  results=[]):
         """Recursively collect results into a list of dictionaries.
 
         Only recurses into directories that possess a 'debug' subdirectory
@@ -381,7 +445,6 @@ class ResultCollector(object):
         @return List of dictionaries of results.
 
         """
-        results = []
         is_experimental = (parent_experimental_tag or
                            self._CheckExperimental(resdir))
         self._CollectResult(resdir, results, is_experimental)
@@ -390,8 +453,7 @@ class ResultCollector(object):
             if not os.path.exists(os.path.join(testdir, 'debug')):
                 continue
 
-            results.extend(self.RecursivelyCollectResults(
-                    testdir, is_experimental))
+            self.RecursivelyCollectResults(testdir, is_experimental, results)
         return results
 
 
@@ -484,7 +546,8 @@ class ReportGenerator(object):
         @param width: an integer.
         """
         if not self._options.csv:
-            print ''.ljust(width + len(self._STATUS_STRINGS['hr']['pass']), '-')
+            print(''.ljust(width +
+                  len(self._STATUS_STRINGS['hr']['pass']), '-'))
 
     def _PrintEntries(self, entries):
         """Prints a list of strings, delimited based on --csv flag.
@@ -493,7 +556,7 @@ class ReportGenerator(object):
 
         """
         delimiter = ',' if self._options.csv else ' '
-        print delimiter.join(entries)
+        print(delimiter.join(entries))
 
     def _PrintErrors(self, test, error_msg):
         """Prints an indented error message, unless the --csv flag is set.
@@ -526,7 +589,7 @@ class ReportGenerator(object):
                             self._PrintEntries(
                                     [test_string, self._Indent(line.rstrip())])
                 except IOError:
-                    print 'Could not open %s' % path
+                    print('Could not open %s' % path)
 
     def _PrintResultDictKeyVals(self, test_entry, result_dict):
         """Formatted print a dict of keyvals like 'perf' or 'info'.
@@ -542,7 +605,7 @@ class ReportGenerator(object):
         """
         if not result_dict:
             return
-        dict_keys = result_dict.keys()
+        dict_keys = list(result_dict.keys())
         dict_keys.sort()
         width = self._GetTestColumnWidth()
         for dict_key in dict_keys:
@@ -596,7 +659,7 @@ class ReportGenerator(object):
                 continue
 
             deduped_results[test_name] = test
-        return deduped_results.values()
+        return list(deduped_results.values())
 
     def _GetResultsForHTMLReport(self):
         """Return cleaned results for HTML report.!"""
@@ -620,7 +683,7 @@ class ReportGenerator(object):
                 test_name = test_name.split('/')[0]
             if test_status['error_msg'] is None:
                 test_status['error_msg'] = ''
-            if not html_results.has_key(test_name):
+            if test_name not in html_results:
                 count = count + 1
                 # Arranging the results in an order
                 individual_tc_results['status'] = test_status['status']
@@ -830,45 +893,88 @@ class ReportGenerator(object):
             total_tests = len(tests)
             percent_pass = 100 * tests_pass / total_tests
             pass_str = '%d/%d (%d%%)' % (tests_pass, total_tests, percent_pass)
-            print 'Total PASS: ' + self._color.Color(self._color.BOLD, pass_str)
+            print('Total PASS: ' +
+                  self._color.Color(self._color.BOLD, pass_str))
 
         if self._options.crash_detection:
-            print ''
+            print('')
             if crashes:
-                print self._color.Color(self._color.RED,
-                                        'Crashes detected during testing:')
+                print(self._color.Color(self._color.RED,
+                                        'Crashes detected during testing:'))
                 self._PrintDashLine(width)
 
-                for crash_name, crashed_tests in sorted(crashes.iteritems()):
-                    print self._color.Color(self._color.RED, crash_name)
+                for crash_name, crashed_tests in sorted(six.iteritems(crashes)):
+                    print(self._color.Color(self._color.RED, crash_name))
                     for crashed_test in crashed_tests:
-                        print self._Indent(crashed_test)
+                        print(self._Indent(crashed_test))
 
                 self._PrintDashLine(width)
-                print ('Total unique crashes: ' +
-                       self._color.Color(self._color.BOLD, str(len(crashes))))
+                print(('Total unique crashes: ' +
+                       self._color.Color(self._color.BOLD, str(len(crashes)))))
 
             # Sometimes the builders exit before these buffers are flushed.
             sys.stderr.flush()
             sys.stdout.flush()
 
+    def _test_name_from_dir(self, test_dir):
+        """Return the name from the test_dir.
+
+        Examples:
+        /tmp/test_that_latest/something/else/results-n-testname
+            returns `testname`
+
+        /tmp/TTL/something/results-n-test-name-here
+            returns `test-name-here`
+
+        """
+        test_name = test_dir.split('/')[-1]
+        return '-'.join(test_name.split('-')[2:])
+
+    def _translate_to_dict(self):
+        """Return the full_status, testname, and err to a json dict."""
+        res = {'tests': []}
+        for test_info in self._results:
+            if test_info['full_status'] is None:
+                continue
+            res['tests'].append(
+                {'verdict': test_info['full_status'],
+                 'testname': self._test_name_from_dir(test_info['testdir']),
+                 'errmsg': test_info['full_err'],
+                 'resultspath': test_info['testdir'],
+                 'starttime': test_info['starttimestamp'],
+                 'endtime': test_info['timestamp']
+                 })
+        return res
+
+    def _write_simple_json(self):
+        """Write the translated json results to results.json."""
+        if not self._options.html_report_dir:
+            return
+        json_results = self._translate_to_dict()
+        with open(os.path.join(self._options.html_report_dir,
+                               "results.json"), 'w') as wf:
+                json.dump(json_results, wf)
+
     def Run(self):
         """Runs report generation."""
         self._CollectAllResults()
+        self._write_simple_json()
         if not self._options.just_status_code:
             self._GenerateReportText()
             if self._options.html:
-                print "\nLogging the data into test_report.html file."
+                print("\nLogging the data into test_report.html file.")
                 try:
                     self.GenerateReportHTML()
                 except Exception as e:
-                    print "Failed to generate HTML report %s" % str(e)
+                    print("Failed to generate HTML report %s" % str(e))
         for d in self._GetDedupedResults():
             if d['experimental'] and self._options.ignore_experimental_tests:
                 continue
             if not d['status'] or (
                     self._options.crash_detection and d['crashes']):
-                sys.exit(1)
+                # When a test fails, but autotest doesn't crash, do not exit(1)
+                if not self._options.is_cft:
+                    sys.exit(1)
 
 
 def main():
@@ -876,7 +982,8 @@ def main():
     parser = optparse.OptionParser(usage=usage)
     parser.add_option('--color', dest='color', action='store_true',
                       default=_STDOUT_IS_TTY,
-                      help='Use color for text reports [default if TTY stdout]')
+                      help='Use color for text reports [default if TTY stdout]'
+                      )
     parser.add_option('--no-color', dest='color', action='store_false',
                       help='Don\'t use color for text reports')
     parser.add_option('--no-crash-detection', dest='crash_detection',
@@ -924,6 +1031,11 @@ def main():
                       dest='just_status_code',
                       action='store_true', default=False,
                       help='Skip generating a report, just return status code.')
+    parser.add_option('--cft',
+                      dest='is_cft',
+                      action='store_true', default=False,
+                      help='If set: will not return 1 on test failure')
+
 
     (options, args) = parser.parse_args()
 

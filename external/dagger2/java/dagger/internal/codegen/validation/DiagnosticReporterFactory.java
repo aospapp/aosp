@@ -18,22 +18,21 @@ package dagger.internal.codegen.validation;
 
 import static com.google.common.collect.Lists.asList;
 import static dagger.internal.codegen.base.ElementFormatter.elementToString;
-import static dagger.internal.codegen.langmodel.DaggerElements.elementEncloses;
+import static dagger.internal.codegen.langmodel.DaggerElements.transitivelyEncloses;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XMessager;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.FormatMethod;
-import dagger.model.BindingGraph;
-import dagger.model.BindingGraph.ChildFactoryMethodEdge;
-import dagger.model.BindingGraph.ComponentNode;
-import dagger.model.BindingGraph.DependencyEdge;
-import dagger.model.BindingGraph.MaybeBinding;
-import dagger.spi.BindingGraphPlugin;
-import dagger.spi.DiagnosticReporter;
-import javax.annotation.processing.Messager;
+import dagger.spi.model.BindingGraph;
+import dagger.spi.model.BindingGraph.ChildFactoryMethodEdge;
+import dagger.spi.model.BindingGraph.ComponentNode;
+import dagger.spi.model.BindingGraph.DependencyEdge;
+import dagger.spi.model.BindingGraph.MaybeBinding;
+import dagger.spi.model.DiagnosticReporter;
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import org.checkerframework.checker.nullness.compatqual.NullableDecl;
 
@@ -41,20 +40,20 @@ import org.checkerframework.checker.nullness.compatqual.NullableDecl;
 // TODO(ronshapiro): If multiple plugins print errors on the same node/edge, should we condense the
 // messages and only print the dependency trace once?
 final class DiagnosticReporterFactory {
-  private final Messager messager;
+  private final XMessager messager;
   private final DiagnosticMessageGenerator.Factory diagnosticMessageGeneratorFactory;
 
   @Inject
   DiagnosticReporterFactory(
-      Messager messager, DiagnosticMessageGenerator.Factory diagnosticMessageGeneratorFactory) {
+      XMessager messager, DiagnosticMessageGenerator.Factory diagnosticMessageGeneratorFactory) {
     this.messager = messager;
     this.diagnosticMessageGeneratorFactory = diagnosticMessageGeneratorFactory;
   }
 
   /** Creates a reporter for a binding graph and a plugin. */
   DiagnosticReporterImpl reporter(
-      BindingGraph graph, BindingGraphPlugin plugin, boolean reportErrorsAsWarnings) {
-    return new DiagnosticReporterImpl(graph, plugin.pluginName(), reportErrorsAsWarnings);
+      BindingGraph graph, String pluginName, boolean reportErrorsAsWarnings) {
+    return new DiagnosticReporterImpl(graph, pluginName, reportErrorsAsWarnings);
   }
 
   /**
@@ -63,7 +62,7 @@ final class DiagnosticReporterFactory {
    */
   final class DiagnosticReporterImpl implements DiagnosticReporter {
     private final String plugin;
-    private final TypeElement rootComponent;
+    private final XTypeElement rootComponent;
     private final boolean reportErrorsAsWarnings;
     private final ImmutableSet.Builder<Diagnostic.Kind> reportedDiagnosticKinds =
         ImmutableSet.builder();
@@ -72,7 +71,8 @@ final class DiagnosticReporterFactory {
     DiagnosticReporterImpl(BindingGraph graph, String plugin, boolean reportErrorsAsWarnings) {
       this.plugin = plugin;
       this.reportErrorsAsWarnings = reportErrorsAsWarnings;
-      this.rootComponent = graph.rootComponentNode().componentPath().currentComponent();
+      this.rootComponent =
+          graph.rootComponentNode().componentPath().currentComponent().xprocessing();
       this.diagnosticMessageGenerator = diagnosticMessageGeneratorFactory.create(graph);
     }
 
@@ -145,7 +145,7 @@ final class DiagnosticReporterFactory {
         Diagnostic.Kind diagnosticKind,
         ChildFactoryMethodEdge childFactoryMethodEdge,
         String message) {
-      printMessage(diagnosticKind, message, childFactoryMethodEdge.factoryMethod());
+      printMessage(diagnosticKind, message, childFactoryMethodEdge.factoryMethod().xprocessing());
     }
 
     @Override
@@ -163,10 +163,10 @@ final class DiagnosticReporterFactory {
       return String.format(messageFormat, asList(firstArg, moreArgs).toArray());
     }
 
-    void printMessage(
+    private void printMessage(
         Diagnostic.Kind diagnosticKind,
         CharSequence message,
-        @NullableDecl Element elementToReport) {
+        @NullableDecl XElement elementToReport) {
       if (diagnosticKind.equals(ERROR) && reportErrorsAsWarnings) {
         diagnosticKind = Diagnostic.Kind.WARNING;
       }
@@ -174,14 +174,16 @@ final class DiagnosticReporterFactory {
       StringBuilder fullMessage = new StringBuilder();
       appendBracketPrefix(fullMessage, plugin);
 
-      // TODO(ronshapiro): should we create a HashSet out of elementEncloses() so we don't
-      // need to do an O(n) contains() each time?
-      if (elementToReport != null && !elementEncloses(rootComponent, elementToReport)) {
-        appendBracketPrefix(fullMessage, elementToString(elementToReport));
-        elementToReport = rootComponent;
+      if (elementToReport == null) {
+        messager.printMessage(diagnosticKind, fullMessage.append(message).toString());
+      } else {
+        if (!transitivelyEncloses(rootComponent, elementToReport)) {
+          appendBracketPrefix(fullMessage, elementToString(elementToReport));
+          elementToReport = rootComponent;
+        }
+        messager.printMessage(
+            diagnosticKind, fullMessage.append(message).toString(), elementToReport);
       }
-
-      messager.printMessage(diagnosticKind, fullMessage.append(message), elementToReport);
     }
 
     private void appendBracketPrefix(StringBuilder message, String prefix) {

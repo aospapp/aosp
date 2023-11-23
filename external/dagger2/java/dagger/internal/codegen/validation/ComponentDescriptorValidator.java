@@ -16,7 +16,9 @@
 
 package dagger.internal.codegen.validation;
 
-import static com.google.auto.common.MoreTypes.asDeclared;
+import static androidx.room.compiler.processing.XElementKt.isMethod;
+import static androidx.room.compiler.processing.XElementKt.isMethodParameter;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Collections2.transform;
@@ -24,22 +26,30 @@ import static dagger.internal.codegen.base.ComponentAnnotation.rootComponentAnno
 import static dagger.internal.codegen.base.DiagnosticFormatting.stripCommonTypePrefixes;
 import static dagger.internal.codegen.base.Formatter.INDENT;
 import static dagger.internal.codegen.base.Scopes.getReadableSource;
-import static dagger.internal.codegen.base.Scopes.scopesOf;
-import static dagger.internal.codegen.base.Scopes.singletonScope;
 import static dagger.internal.codegen.base.Util.reentrantComputeIfAbsent;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSetMultimap;
+import static dagger.internal.codegen.xprocessing.XElements.asMethod;
+import static dagger.internal.codegen.xprocessing.XElements.asMethodParameter;
+import static dagger.internal.codegen.xprocessing.XElements.getSimpleName;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
-import com.google.auto.common.MoreElements;
-import com.google.auto.common.MoreTypes;
-import com.google.common.base.Equivalence.Wrapper;
+import androidx.room.compiler.processing.XAnnotation;
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XExecutableParameterElement;
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XMethodType;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
+import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.TypeName;
+import dagger.internal.codegen.base.DaggerSuperficialValidation;
 import dagger.internal.codegen.binding.ComponentCreatorDescriptor;
 import dagger.internal.codegen.binding.ComponentDescriptor;
 import dagger.internal.codegen.binding.ComponentRequirement;
@@ -47,14 +57,13 @@ import dagger.internal.codegen.binding.ComponentRequirement.NullPolicy;
 import dagger.internal.codegen.binding.ContributionBinding;
 import dagger.internal.codegen.binding.ErrorMessages;
 import dagger.internal.codegen.binding.ErrorMessages.ComponentCreatorMessages;
+import dagger.internal.codegen.binding.InjectionAnnotations;
 import dagger.internal.codegen.binding.MethodSignatureFormatter;
 import dagger.internal.codegen.binding.ModuleDescriptor;
 import dagger.internal.codegen.compileroption.CompilerOptions;
 import dagger.internal.codegen.compileroption.ValidationType;
-import dagger.internal.codegen.kotlin.KotlinMetadataUtil;
-import dagger.internal.codegen.langmodel.DaggerElements;
-import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.model.Scope;
+import dagger.internal.codegen.javapoet.TypeNames;
+import dagger.spi.model.Scope;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -65,14 +74,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.ExecutableType;
-import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 
 /**
@@ -88,30 +89,27 @@ import javax.tools.Diagnostic;
 // TODO(dpb): Combine with ComponentHierarchyValidator.
 public final class ComponentDescriptorValidator {
 
-  private final DaggerElements elements;
-  private final DaggerTypes types;
   private final CompilerOptions compilerOptions;
   private final MethodSignatureFormatter methodSignatureFormatter;
   private final ComponentHierarchyValidator componentHierarchyValidator;
-  private final KotlinMetadataUtil metadataUtil;
+  private final InjectionAnnotations injectionAnnotations;
+  private final DaggerSuperficialValidation superficialValidation;
 
   @Inject
   ComponentDescriptorValidator(
-      DaggerElements elements,
-      DaggerTypes types,
       CompilerOptions compilerOptions,
       MethodSignatureFormatter methodSignatureFormatter,
       ComponentHierarchyValidator componentHierarchyValidator,
-      KotlinMetadataUtil metadataUtil) {
-    this.elements = elements;
-    this.types = types;
+      InjectionAnnotations injectionAnnotations,
+      DaggerSuperficialValidation superficialValidation) {
     this.compilerOptions = compilerOptions;
     this.methodSignatureFormatter = methodSignatureFormatter;
     this.componentHierarchyValidator = componentHierarchyValidator;
-    this.metadataUtil = metadataUtil;
+    this.injectionAnnotations = injectionAnnotations;
+    this.superficialValidation = superficialValidation;
   }
 
-  public ValidationReport<TypeElement> validate(ComponentDescriptor component) {
+  public ValidationReport validate(ComponentDescriptor component) {
     ComponentValidation validation = new ComponentValidation(component);
     validation.visitComponent(component);
     validation.report(component).addSubreport(componentHierarchyValidator.validate(component));
@@ -120,23 +118,21 @@ public final class ComponentDescriptorValidator {
 
   private final class ComponentValidation {
     final ComponentDescriptor rootComponent;
-    final Map<ComponentDescriptor, ValidationReport.Builder<TypeElement>> reports =
-        new LinkedHashMap<>();
+    final Map<ComponentDescriptor, ValidationReport.Builder> reports = new LinkedHashMap<>();
 
     ComponentValidation(ComponentDescriptor rootComponent) {
       this.rootComponent = checkNotNull(rootComponent);
     }
 
     /** Returns a report that contains all validation messages found during traversal. */
-    ValidationReport<TypeElement> buildReport() {
-      ValidationReport.Builder<TypeElement> report =
-          ValidationReport.about(rootComponent.typeElement());
+    ValidationReport buildReport() {
+      ValidationReport.Builder report = ValidationReport.about(rootComponent.typeElement());
       reports.values().forEach(subreport -> report.addSubreport(subreport.build()));
       return report.build();
     }
 
     /** Returns the report builder for a (sub)component. */
-    private ValidationReport.Builder<TypeElement> report(ComponentDescriptor component) {
+    private ValidationReport.Builder report(ComponentDescriptor component) {
       return reentrantComputeIfAbsent(
           reports, component, descriptor -> ValidationReport.about(descriptor.typeElement()));
     }
@@ -166,7 +162,9 @@ public final class ComponentDescriptorValidator {
 
     /** Recursive method to validate that component dependencies do not form a cycle. */
     private void validateComponentDependencyHierarchy(
-        ComponentDescriptor component, TypeElement dependency, Deque<TypeElement> dependencyStack) {
+        ComponentDescriptor component,
+        XTypeElement dependency,
+        Deque<XTypeElement> dependencyStack) {
       if (dependencyStack.contains(dependency)) {
         // Current component has already appeared in the component chain.
         StringBuilder message = new StringBuilder();
@@ -183,16 +181,14 @@ public final class ComponentDescriptorValidator {
           // Always validate direct component dependencies referenced by this component regardless
           // of the flag value
           || dependencyStack.isEmpty()) {
-        rootComponentAnnotation(dependency)
+        rootComponentAnnotation(dependency, superficialValidation)
             .ifPresent(
                 componentAnnotation -> {
                   dependencyStack.push(dependency);
-
-                  for (TypeElement nextDependency : componentAnnotation.dependencies()) {
+                  for (XTypeElement nextDependency : componentAnnotation.dependencies()) {
                     validateComponentDependencyHierarchy(
                         component, nextDependency, dependencyStack);
                   }
-
                   dependencyStack.pop();
                 });
       }
@@ -203,19 +199,18 @@ public final class ComponentDescriptorValidator {
      * singleton components have no scoped dependencies.
      */
     private void validateDependencyScopes(ComponentDescriptor component) {
-      ImmutableSet<Scope> scopes = component.scopes();
-      ImmutableSet<TypeElement> scopedDependencies =
+      ImmutableSet<ClassName> scopes =
+          component.scopes().stream().map(Scope::className).collect(toImmutableSet());
+      ImmutableSet<XTypeElement> scopedDependencies =
           scopedTypesIn(
-              component
-                  .dependencies()
-                  .stream()
+              component.dependencies().stream()
                   .map(ComponentRequirement::typeElement)
                   .collect(toImmutableSet()));
       if (!scopes.isEmpty()) {
-        Scope singletonScope = singletonScope(elements);
         // Dagger 1.x scope compatibility requires this be suppress-able.
         if (compilerOptions.scopeCycleValidationType().diagnosticKind().isPresent()
-            && scopes.contains(singletonScope)) {
+            && (scopes.contains(TypeNames.SINGLETON)
+                || scopes.contains(TypeNames.SINGLETON_JAVAX))) {
           // Singleton is a special-case representing the longest lifetime, and therefore
           // @Singleton components may not depend on scoped components
           if (!scopedDependencies.isEmpty()) {
@@ -249,7 +244,7 @@ public final class ComponentDescriptorValidator {
 
     private void validateModules(ComponentDescriptor component) {
       for (ModuleDescriptor module : component.modules()) {
-        if (module.moduleElement().getModifiers().contains(Modifier.ABSTRACT)) {
+        if (module.moduleElement().isAbstract()) {
           for (ContributionBinding binding : module.bindings()) {
             if (binding.requiresModuleInstance()) {
               report(component).addError(abstractModuleHasInstanceBindingMethodsError(module));
@@ -300,9 +295,9 @@ public final class ComponentDescriptorValidator {
           Sets.difference(
               creatorModuleAndDependencyRequirements, componentModuleAndDependencyRequirements);
 
-      DeclaredType container = asDeclared(creator.typeElement().asType());
+      XType container = creator.typeElement().getType();
       if (!inapplicableRequirementsOnCreator.isEmpty()) {
-        Collection<Element> excessElements =
+        Collection<XElement> excessElements =
             Multimaps.filterKeys(
                     creator.unvalidatedRequirementElements(), in(inapplicableRequirementsOnCreator))
                 .values();
@@ -318,7 +313,7 @@ public final class ComponentDescriptorValidator {
       Set<ComponentRequirement> mustBePassed =
           Sets.filter(
               componentModuleAndDependencyRequirements,
-              input -> input.nullPolicy(elements, metadataUtil).equals(NullPolicy.THROW));
+              input -> input.nullPolicy().equals(NullPolicy.THROW));
       // Component requirements that the creator must be able to set, but can't
       Set<ComponentRequirement> missingRequirements =
           Sets.difference(mustBePassed, creatorModuleAndDependencyRequirements);
@@ -333,19 +328,20 @@ public final class ComponentDescriptorValidator {
       }
 
       // Validate that declared creator requirements (modules, dependencies) have unique types.
-      ImmutableSetMultimap<Wrapper<TypeMirror>, Element> declaredRequirementsByType =
+      ImmutableSetMultimap<TypeName, XElement> declaredRequirementsByType =
           Multimaps.filterKeys(
                   creator.unvalidatedRequirementElements(),
                   creatorModuleAndDependencyRequirements::contains)
-              .entries().stream()
+              .entries()
+              .stream()
               .collect(
-                  toImmutableSetMultimap(entry -> entry.getKey().wrappedType(), Entry::getValue));
+                  toImmutableSetMultimap(
+                      entry -> entry.getKey().type().getTypeName(), Entry::getValue));
       declaredRequirementsByType
           .asMap()
           .forEach(
-              (typeWrapper, elementsForType) -> {
+              (type, elementsForType) -> {
                 if (elementsForType.size() > 1) {
-                  TypeMirror type = typeWrapper.get();
                   // TODO(cgdecker): Attach this error message to the factory method rather than
                   // the component type if the elements are factory method parameters AND the
                   // factory method is defined by the factory type itself and not by a supertype.
@@ -365,40 +361,39 @@ public final class ComponentDescriptorValidator {
       // for subcomponents.
     }
 
-    private String formatElement(Element element, DeclaredType container) {
+    private String formatElement(XElement element, XType container) {
       // TODO(cgdecker): Extract some or all of this to another class?
       // But note that it does different formatting for parameters than
       // DaggerElements.elementToString(Element).
-      switch (element.getKind()) {
-        case METHOD:
-          return methodSignatureFormatter.format(
-              MoreElements.asExecutable(element), Optional.of(container));
-        case PARAMETER:
-          return formatParameter(MoreElements.asVariable(element), container);
-        default:
-          // This method shouldn't be called with any other type of element.
-          throw new AssertionError();
+      if (isMethod(element)) {
+        return methodSignatureFormatter.format(asMethod(element), Optional.of(container));
+      } else if (isMethodParameter(element)) {
+        return formatParameter(asMethodParameter(element), container);
       }
+      // This method shouldn't be called with any other type of element.
+      throw new AssertionError();
     }
 
-    private String formatParameter(VariableElement parameter, DeclaredType container) {
+    private String formatParameter(XExecutableParameterElement parameter, XType container) {
       // TODO(cgdecker): Possibly leave the type (and annotations?) off of the parameters here and
       // just use their names, since the type will be redundant in the context of the error message.
       StringJoiner joiner = new StringJoiner(" ");
-      parameter.getAnnotationMirrors().stream().map(Object::toString).forEach(joiner::add);
-      TypeMirror parameterType = resolveParameterType(parameter, container);
+      parameter.getAllAnnotations().stream()
+          .map(XAnnotation::getQualifiedName)
+          .forEach(joiner::add);
+      XType parameterType = resolveParameterType(parameter, container);
       return joiner
-          .add(stripCommonTypePrefixes(parameterType.toString()))
-          .add(parameter.getSimpleName())
+          .add(stripCommonTypePrefixes(parameterType.getTypeName().toString()))
+          .add(getSimpleName(parameter))
           .toString();
     }
 
-    private TypeMirror resolveParameterType(VariableElement parameter, DeclaredType container) {
-      ExecutableElement method =
-          MoreElements.asExecutable(parameter.getEnclosingElement());
+    private XType resolveParameterType(XExecutableParameterElement parameter, XType container) {
+      checkArgument(isMethod(parameter.getEnclosingMethodElement()));
+      XMethodElement method = asMethod(parameter.getEnclosingMethodElement());
       int parameterIndex = method.getParameters().indexOf(parameter);
 
-      ExecutableType methodType = MoreTypes.asExecutable(types.asMemberOf(container, method));
+      XMethodType methodType = method.asMemberOf(container);
       return methodType.getParameterTypes().get(parameterIndex);
     }
 
@@ -413,10 +408,10 @@ public final class ComponentDescriptorValidator {
      */
     private void validateDependencyScopeHierarchy(
         ComponentDescriptor component,
-        TypeElement dependency,
+        XTypeElement dependency,
         Deque<ImmutableSet<Scope>> scopeStack,
-        Deque<TypeElement> scopedDependencyStack) {
-      ImmutableSet<Scope> scopes = scopesOf(dependency);
+        Deque<XTypeElement> scopedDependencyStack) {
+      ImmutableSet<Scope> scopes = injectionAnnotations.getScopes(dependency);
       if (stackOverlaps(scopeStack, scopes)) {
         scopedDependencyStack.push(dependency);
         // Current scope has already appeared in the component chain.
@@ -436,22 +431,19 @@ public final class ComponentDescriptorValidator {
           // of the flag value
           || scopedDependencyStack.isEmpty()) {
         // TODO(beder): transitively check scopes of production components too.
-        rootComponentAnnotation(dependency)
+        rootComponentAnnotation(dependency, superficialValidation)
             .filter(componentAnnotation -> !componentAnnotation.isProduction())
             .ifPresent(
                 componentAnnotation -> {
-                  ImmutableSet<TypeElement> scopedDependencies =
+                  ImmutableSet<XTypeElement> scopedDependencies =
                       scopedTypesIn(componentAnnotation.dependencies());
                   if (!scopedDependencies.isEmpty()) {
                     // empty can be ignored (base-case)
                     scopeStack.push(scopes);
                     scopedDependencyStack.push(dependency);
-                    for (TypeElement scopedDependency : scopedDependencies) {
+                    for (XTypeElement scopedDependency : scopedDependencies) {
                       validateDependencyScopeHierarchy(
-                          component,
-                          scopedDependency,
-                          scopeStack,
-                          scopedDependencyStack);
+                          component, scopedDependency, scopeStack, scopedDependencyStack);
                     }
                     scopedDependencyStack.pop();
                     scopeStack.pop();
@@ -470,10 +462,10 @@ public final class ComponentDescriptorValidator {
     }
 
     /** Appends and formats a list of indented component types (with their scope annotations). */
-    private void appendIndentedComponentsList(StringBuilder message, Iterable<TypeElement> types) {
-      for (TypeElement scopedComponent : types) {
+    private void appendIndentedComponentsList(StringBuilder message, Iterable<XTypeElement> types) {
+      for (XTypeElement scopedComponent : types) {
         message.append(INDENT);
-        for (Scope scope : scopesOf(scopedComponent)) {
+        for (Scope scope : injectionAnnotations.getScopes(scopedComponent)) {
           message.append(getReadableSource(scope)).append(' ');
         }
         message
@@ -486,8 +478,10 @@ public final class ComponentDescriptorValidator {
      * Returns a set of type elements containing only those found in the input set that have a
      * scoping annotation.
      */
-    private ImmutableSet<TypeElement> scopedTypesIn(Collection<TypeElement> types) {
-      return types.stream().filter(type -> !scopesOf(type).isEmpty()).collect(toImmutableSet());
+    private ImmutableSet<XTypeElement> scopedTypesIn(Collection<XTypeElement> types) {
+      return types.stream()
+          .filter(type -> !injectionAnnotations.getScopes(type).isEmpty())
+          .collect(toImmutableSet());
     }
   }
 }

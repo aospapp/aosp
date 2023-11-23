@@ -13,14 +13,14 @@
 #     size_t mr,                x0
 #     size_t nc,                x1
 #     size_t kc,                x2 / x0
-#     const uint8_t*restrict a, x3
+#     const void*restrict a,    x3
 #     size_t a_stride,          x4
 #     const void*restrict w,    x5
-#     uint8_t*restrict c,       x6
+#     void*restrict c,          x6
 #     size_t cm_stride,         x7
 #     size_t cn_stride,         [sp] -> x14
 #     const float*restrict acc,  [sp + 8] -> x15
-#     const union xnn_f16_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 16] -> (x8)
+#     const union xnn_f16_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 16] -> (x8)
 
 # d8-d15, x19-x30 need to be preserved if used. x18 is reserved by the OS.
 
@@ -42,13 +42,14 @@
 # A2   v2
 # A3   v3
 # B   v20 v21 v22 v23
-# C   v16
-# C   v18
+# C   v24
+# C   v26
 # C   v28
 # C   v30
-# Clamp v4, v5, v6
-# unused A   v7 v8 v9 v10 v11
-# unused B   v19
+
+# Clamp v4, v5
+# unused A   v6, v7 v8 v9 v10 v11
+# unused B   v27
 
 BEGIN_FUNCTION xnn_f16_gemminc_minmax_ukernel_4x8__aarch64_neonfp16arith_ld64
 
@@ -58,7 +59,7 @@ BEGIN_FUNCTION xnn_f16_gemminc_minmax_ukernel_4x8__aarch64_neonfp16arith_ld64
         LDR     x8, [sp, 16]
 
         # Load params values
-        LD3R    {v4.8h, v5.8h, v6.8h}, [x8]
+        LD2R    {v4.8h, v5.8h}, [x8]
 
         # Clamp A and C pointers
         CMP     x0, 2                   // if mr < 2
@@ -81,7 +82,7 @@ BEGIN_FUNCTION xnn_f16_gemminc_minmax_ukernel_4x8__aarch64_neonfp16arith_ld64
 
 0:
         # Load initial accumulators
-        LDP     q16, q18, [x15], 32
+        LDP     q24, q26, [x15], 32
         LDP     q28, q30, [x15], 32
 
         # Is there at least 4 halffloats (8 bytes)?
@@ -96,49 +97,43 @@ BEGIN_FUNCTION xnn_f16_gemminc_minmax_ukernel_4x8__aarch64_neonfp16arith_ld64
         LDR     d1, [x11], 8
         LDR     d2, [x12], 8
         LDR     d3,  [x4], 8
-        SUBS    x0, x0, 8
-        FMLA    v16.8h, v20.8h, v0.h[0]
-        FMLA    v18.8h, v20.8h, v1.h[0]
-        FMLA    v28.8h, v20.8h, v2.h[0]
-        FMLA    v30.8h, v20.8h, v3.h[0]
         LDR     q22, [x5], 16
         LDR     q23, [x5], 16
-
-        FMLA    v16.8h, v21.8h, v0.h[1]
-        FMLA    v18.8h, v21.8h, v1.h[1]
+        SUBS    x0, x0, 8
+        FMLA    v24.8h, v20.8h, v0.h[0]
+        FMLA    v26.8h, v20.8h, v1.h[0]
+        FMLA    v28.8h, v20.8h, v2.h[0]
+        FMLA    v30.8h, v20.8h, v3.h[0]
+        FMLA    v24.8h, v21.8h, v0.h[1]
+        FMLA    v26.8h, v21.8h, v1.h[1]
         FMLA    v28.8h, v21.8h, v2.h[1]
         FMLA    v30.8h, v21.8h, v3.h[1]
 
-        FMLA    v16.8h, v22.8h, v0.h[2]
-        FMLA    v18.8h, v22.8h, v1.h[2]
+        FMLA    v24.8h, v22.8h, v0.h[2]
+        FMLA    v26.8h, v22.8h, v1.h[2]
         FMLA    v28.8h, v22.8h, v2.h[2]
         FMLA    v30.8h, v22.8h, v3.h[2]
-
-        FMLA    v16.8h, v23.8h, v0.h[3]
-        FMLA    v18.8h, v23.8h, v1.h[3]
+        FMLA    v24.8h, v23.8h, v0.h[3]
+        FMLA    v26.8h, v23.8h, v1.h[3]
         FMLA    v28.8h, v23.8h, v2.h[3]
         FMLA    v30.8h, v23.8h, v3.h[3]
         B.HS    1b
 
         # Is there a remainder?- 2 halffloats of A (4 bytes)
         TBNZ    x0, 2, 4f
-        # Is there a remainder?- 1 halffloats of A (2 bytes)
+        # Is there a remainder?- 1 halffloat of A (2 bytes)
         TBNZ    x0, 1, 5f
 2:
-        # Scale and Clamp
-        FMUL    v16.8h, v16.8h, v4.8h
+        # Clamp
+        FMAX    v24.8h, v24.8h, v4.8h
         SUBS    x1, x1, 8
-        FMUL    v18.8h, v18.8h, v4.8h
-        FMUL    v28.8h, v28.8h, v4.8h
-        FMUL    v30.8h, v30.8h, v4.8h
-        FMAX    v16.8h, v16.8h, v5.8h
-        FMAX    v18.8h, v18.8h, v5.8h
-        FMAX    v28.8h, v28.8h, v5.8h
-        FMAX    v30.8h, v30.8h, v5.8h
-        FMIN    v16.8h, v16.8h, v6.8h
-        FMIN    v18.8h, v18.8h, v6.8h
-        FMIN    v28.8h, v28.8h, v6.8h
-        FMIN    v30.8h, v30.8h, v6.8h
+        FMAX    v26.8h, v26.8h, v4.8h
+        FMAX    v28.8h, v28.8h, v4.8h
+        FMAX    v30.8h, v30.8h, v4.8h
+        FMIN    v24.8h, v24.8h, v5.8h
+        FMIN    v26.8h, v26.8h, v5.8h
+        FMIN    v28.8h, v28.8h, v5.8h
+        FMIN    v30.8h, v30.8h, v5.8h
 
         # Store full 4 x 8
         B.LO    6f
@@ -147,9 +142,9 @@ BEGIN_FUNCTION xnn_f16_gemminc_minmax_ukernel_4x8__aarch64_neonfp16arith_ld64
         SUB     x3,  x3, x2             // a0 -= kc
         ST1     {v28.16b}, [x10], x14
         SUB     x11, x11, x2            // a1 -= kc
-        ST1     {v18.16b},  [x9], x14
+        ST1     {v26.16b},  [x9], x14
         SUB     x12, x12, x2            // a2 -= kc
-        ST1     {v16.16b},  [x6], x14
+        ST1     {v24.16b},  [x6], x14
         SUB     x4,  x4, x2             // a3 -= kc
 
         B.HI    0b
@@ -166,16 +161,15 @@ BEGIN_FUNCTION xnn_f16_gemminc_minmax_ukernel_4x8__aarch64_neonfp16arith_ld64
         LDR     s2, [x12], 4
         LDR     s3,  [x4], 4
 
-        FMLA    v16.8h, v20.8h, v0.h[0]
-        FMLA    v18.8h, v20.8h, v1.h[0]
+        FMLA    v24.8h, v20.8h, v0.h[0]
+        FMLA    v26.8h, v20.8h, v1.h[0]
         FMLA    v28.8h, v20.8h, v2.h[0]
         FMLA    v30.8h, v20.8h, v3.h[0]
 
-        FMLA    v16.8h, v21.8h, v0.h[1]
-        FMLA    v18.8h, v21.8h, v1.h[1]
+        FMLA    v24.8h, v21.8h, v0.h[1]
+        FMLA    v26.8h, v21.8h, v1.h[1]
         FMLA    v28.8h, v21.8h, v2.h[1]
         FMLA    v30.8h, v21.8h, v3.h[1]
-
         TBZ     x0, 1, 2b
 
 5:
@@ -185,8 +179,8 @@ BEGIN_FUNCTION xnn_f16_gemminc_minmax_ukernel_4x8__aarch64_neonfp16arith_ld64
         LDR     h1, [x11], 2
         LDR     h2, [x12], 2
         LDR     h3 , [x4], 2
-        FMLA    v16.8h, v20.8h, v0.h[0]
-        FMLA    v18.8h, v20.8h, v1.h[0]
+        FMLA    v24.8h, v20.8h, v0.h[0]
+        FMLA    v26.8h, v20.8h, v1.h[0]
         FMLA    v28.8h, v20.8h, v2.h[0]
         FMLA    v30.8h, v20.8h, v3.h[0]
         B       2b
@@ -198,10 +192,10 @@ BEGIN_FUNCTION xnn_f16_gemminc_minmax_ukernel_4x8__aarch64_neonfp16arith_ld64
         STR     d28, [x10], 8
         DUP     d30, v30.d[1]
         DUP     d28, v28.d[1]
-        STR     d18, [x9], 8
-        STR     d16, [x6], 8
-        DUP     d18, v18.d[1]
-        DUP     d16, v16.d[1]
+        STR     d26, [x9], 8
+        STR     d24, [x6], 8
+        DUP     d26, v26.d[1]
+        DUP     d24, v24.d[1]
 
 7:
         TBZ     x1, 1, 8f
@@ -209,17 +203,17 @@ BEGIN_FUNCTION xnn_f16_gemminc_minmax_ukernel_4x8__aarch64_neonfp16arith_ld64
         STR     s28, [x10], 4
         DUP     s30, v30.s[1]
         DUP     s28, v28.s[1]
-        STR     s18,  [x9], 4
-        STR     s16,  [x6], 4
-        DUP     s18, v18.s[1]
-        DUP     s16, v16.s[1]
+        STR     s26,  [x9], 4
+        STR     s24,  [x6], 4
+        DUP     s26, v26.s[1]
+        DUP     s24, v24.s[1]
 
 8:
         TBZ     x1, 0, 9f
         STR     h30,  [x7]
         STR     h28, [x10]
-        STR     h18,  [x9]
-        STR     h16,  [x6]
+        STR     h26,  [x9]
+        STR     h24,  [x6]
 9:
         RET
 

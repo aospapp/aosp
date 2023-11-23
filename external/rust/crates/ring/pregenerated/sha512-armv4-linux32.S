@@ -10,6 +10,7 @@
 
 #if !defined(OPENSSL_NO_ASM)
 #if defined(__arm__)
+#include "ring_core_generated/prefix_symbols_asm.h"
 @ Copyright 2007-2016 The OpenSSL Project Authors. All Rights Reserved.
 @
 @ Licensed under the OpenSSL license (the "License").  You may not use
@@ -65,7 +66,7 @@
 @ was reflected in below two parameters as 0 and 4. Now caller is
 @ expected to maintain native byte order for whole 64-bit values.
 #ifndef __KERNEL__
-# include <GFp/arm_arch.h>
+# include <ring-core/arm_arch.h>
 # define VFP_ABI_PUSH	vstmdb	sp!,{d8-d15}
 # define VFP_ABI_POP	vldmia	sp!,{d8-d15}
 #else
@@ -144,27 +145,27 @@ K512:
 .size	K512,.-K512
 #if __ARM_MAX_ARCH__>=7 && !defined(__KERNEL__)
 
-.hidden	GFp_armcap_P
+.hidden	OPENSSL_armcap_P
 .LOPENSSL_armcap:
-.word	GFp_armcap_P-.Lsha512_block_data_order
+.word	OPENSSL_armcap_P-.Lsha512_block_data_order
 .skip	32-4
 #else
 .skip	32
 #endif
 
-.globl	GFp_sha512_block_data_order
-.hidden	GFp_sha512_block_data_order
-.type	GFp_sha512_block_data_order,%function
-GFp_sha512_block_data_order:
+.globl	sha512_block_data_order
+.hidden	sha512_block_data_order
+.type	sha512_block_data_order,%function
+sha512_block_data_order:
 .Lsha512_block_data_order:
 #if __ARM_ARCH__<7 && !defined(__thumb2__)
-	sub	r3,pc,#8		@ GFp_sha512_block_data_order
+	sub	r3,pc,#8		@ sha512_block_data_order
 #else
 	adr	r3,.Lsha512_block_data_order
 #endif
 #if __ARM_MAX_ARCH__>=7 && !defined(__KERNEL__)
 	ldr	r12,.LOPENSSL_armcap
-	ldr	r12,[r3,r12]		@ GFp_armcap_P
+	ldr	r12,[r3,r12]		@ OPENSSL_armcap_P
 #ifdef	__APPLE__
 	ldr	r12,[r12]
 #endif
@@ -548,7 +549,7 @@ GFp_sha512_block_data_order:
 	moveq	pc,lr			@ be binary compatible with V4, yet
 .word	0xe12fff1e			@ interoperable with Thumb ISA:-)
 #endif
-.size	GFp_sha512_block_data_order,.-GFp_sha512_block_data_order
+.size	sha512_block_data_order,.-sha512_block_data_order
 #if __ARM_MAX_ARCH__>=7
 .arch	armv7-a
 .fpu	neon

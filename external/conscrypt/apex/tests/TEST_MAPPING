@@ -15,9 +15,12 @@
         {
           "exclude-filter": "org.apache.harmony.tests.javax.net.ssl.TrustManagerFactory1Test#test_initLjavax_net_ssl_ManagerFactoryParameters"
         },
-	{
+	    {
           "exclude-filter": "com.android.org.conscrypt.java.security.SignatureTest#test_getInstance"
-	}
+	    },
+        {
+          "exclude-filter": "com.android.org.conscrypt.javax.crypto.CipherTest#test_PBKDF2WITHHMACSHA1_SKFactory_and_PBEAESCBC_Cipher_noIV"
+        }
       ]
     },
     {
@@ -34,6 +37,9 @@
         },
         {
           "exclude-filter": "org.apache.harmony.tests.javax.net.ssl.TrustManagerFactory1Test#test_initLjavax_net_ssl_ManagerFactoryParameters"
+        },
+        {
+          "exclude-filter": "com.android.org.conscrypt.javax.crypto.CipherTest#test_PBKDF2WITHHMACSHA1_SKFactory_and_PBEAESCBC_Cipher_noIV"
         }
       ]
     }

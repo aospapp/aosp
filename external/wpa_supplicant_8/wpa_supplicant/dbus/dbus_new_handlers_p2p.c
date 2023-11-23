@@ -355,9 +355,11 @@ DBusMessage * wpas_dbus_handler_p2p_group_add(DBusMessage *message,
 	char *pg_object_path = NULL;
 	int persistent_group = 0;
 	int freq = 0;
+	int retry_limit = 0;
 	char *iface = NULL;
 	unsigned int group_id = 0;
 	struct wpa_ssid *ssid;
+	u8 go_bssid_buf[ETH_ALEN], *go_bssid = NULL;
 
 	dbus_message_iter_init(message, &iter);
 
@@ -376,12 +378,23 @@ DBusMessage * wpas_dbus_handler_p2p_group_add(DBusMessage *message,
 			freq = entry.int32_value;
 			if (freq <= 0)
 				goto inv_args_clear;
+		} else if (os_strcmp(entry.key, "retry_limit") == 0 &&
+			   entry.type == DBUS_TYPE_INT32) {
+			retry_limit = entry.int32_value;
+			if (retry_limit <= 0)
+				goto inv_args_clear;
 		} else if (os_strcmp(entry.key, "persistent_group_object") ==
 			   0 &&
-			   entry.type == DBUS_TYPE_OBJECT_PATH)
+			   entry.type == DBUS_TYPE_OBJECT_PATH) {
 			pg_object_path = os_strdup(entry.str_value);
-		else
+		} else if (os_strcmp(entry.key, "go_bssid") == 0 &&
+			   entry.type == DBUS_TYPE_STRING) {
+			if (hwaddr_aton(entry.str_value, go_bssid_buf))
+				goto inv_args_clear;
+			go_bssid = go_bssid_buf;
+		} else {
 			goto inv_args_clear;
+		}
 
 		wpa_dbus_dict_entry_clear(&entry);
 	}
@@ -426,7 +439,8 @@ DBusMessage * wpas_dbus_handler_p2p_group_add(DBusMessage *message,
 
 		if (wpas_p2p_group_add_persistent(wpa_s, ssid, 0, freq, 0, 0, 0,
 						  0, 0, 0, 0, NULL, 0, 0,
-						  false)) {
+						  false, retry_limit,
+						  go_bssid)) {
 			reply = wpas_dbus_error_unknown_error(
 				message,
 				"Failed to reinvoke a persistent group");

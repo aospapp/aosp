@@ -61,6 +61,9 @@ bool VocabAnnotator::Annotate(
     const UnicodeText& context,
     const std::vector<Locale> detected_text_language_tags,
     bool trigger_on_beginner_words, std::vector<AnnotatedSpan>* results) const {
+  if (!(model_->enabled_modes() & ModeFlag_ANNOTATION)) {
+    return true;
+  }
   std::vector<Token> tokens = feature_processor_.Tokenize(context);
   for (const Token& token : tokens) {
     ClassificationResult classification_result;
@@ -90,6 +93,9 @@ bool VocabAnnotator::ClassifyTextInternal(
     const std::vector<Locale> detected_text_language_tags,
     bool trigger_on_beginner_words, ClassificationResult* classification_result,
     CodepointSpan* classified_span) const {
+  if (!(model_->enabled_modes() & ModeFlag_CLASSIFICATION)) {
+    return false;
+  }
   if (vocab_level_table_ == nullptr) {
     return false;
   }

@@ -3,9 +3,9 @@
 # found in the LICENSE file.
 import ast
 import copy
-from mock import patch
 import os
 import unittest
+from unittest.mock import patch
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.enterprise import enterprise_policy_utils as epu

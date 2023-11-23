@@ -216,13 +216,7 @@ ASN1_SEQUENCE(BasicOCSPResponse) = {
 
 IMPLEMENT_ASN1_FUNCTIONS(BasicOCSPResponse);
 
-#define sk_SingleResponse_num(sk) \
-sk_num(CHECKED_CAST(_STACK *, STACK_OF(SingleResponse) *, sk))
-
-#define sk_SingleResponse_value(sk, i) \
-	((SingleResponse *)						\
-	 sk_value(CHECKED_CAST(_STACK *, STACK_OF(SingleResponse) *, sk), (i)))
-
+DEFINE_STACK_OF(SingleResponse)
 
 static char * mem_bio_to_str(BIO *out)
 {
@@ -644,13 +638,12 @@ enum ocsp_result check_ocsp_resp(SSL_CTX *ssl_ctx, SSL *ssl, X509 *cert,
 		   buf);
 
 	ctx = X509_STORE_CTX_new();
-	if (!ctx ||
-	    !X509_STORE_CTX_init(ctx, store, signer, untrusted) ||
-	    !X509_STORE_CTX_set_purpose(ctx, X509_PURPOSE_OCSP_HELPER)) {
+	if (!ctx || !X509_STORE_CTX_init(ctx, store, signer, untrusted))
 		goto fail;
-	}
+	X509_STORE_CTX_set_purpose(ctx, X509_PURPOSE_OCSP_HELPER);
 	ret = X509_verify_cert(ctx);
 	chain = X509_STORE_CTX_get1_chain(ctx);
+	X509_STORE_CTX_cleanup(ctx);
 	if (ret <= 0) {
 		wpa_printf(MSG_DEBUG,
 			   "OpenSSL: Could not validate OCSP signer certificate");
@@ -663,6 +656,7 @@ enum ocsp_result check_ocsp_resp(SSL_CTX *ssl_ctx, SSL *ssl, X509 *cert,
 	}
 
 	if (!signer_trusted) {
+		X509_check_purpose(signer, -1, 0);
 		if ((X509_get_extension_flags(signer) & EXFLAG_XKUSAGE) &&
 		    (X509_get_extended_key_usage(signer) & XKU_OCSP_SIGN)) {
 			wpa_printf(MSG_DEBUG,

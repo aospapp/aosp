@@ -7,7 +7,7 @@
 
 import re
 from autotest_lib.client.bin import test
-from autotest_lib.client.common_lib import error, utils
+from autotest_lib.client.common_lib import error
 
 class platform_HighResTimers(test.test):
     version = 1
@@ -24,5 +24,5 @@ class platform_HighResTimers(test.test):
     def run_once(self):
         try:
             self.check_timers()
-        except error.TestError, e:
+        except error.TestError as e:
             raise error.TestFail(e)

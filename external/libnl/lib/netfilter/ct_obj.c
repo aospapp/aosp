@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/netfilter/ct_obj.c	Conntrack Object
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
  * Copyright (c) 2007 Philip Craig <philipc@snapgear.com>
  * Copyright (c) 2007 Secure Computing Corporation
@@ -74,6 +67,11 @@ static int ct_clone(struct nl_object *_dst, struct nl_object *_src)
 	struct nfnl_ct *dst = (struct nfnl_ct *) _dst;
 	struct nfnl_ct *src = (struct nfnl_ct *) _src;
 	struct nl_addr *addr;
+
+	dst->ct_orig.src = NULL;
+	dst->ct_orig.dst = NULL;
+	dst->ct_repl.src = NULL;
+	dst->ct_repl.dst = NULL;
 
 	if (src->ct_orig.src) {
 		addr = nl_addr_clone(src->ct_orig.src);
@@ -206,7 +204,7 @@ static void ct_dump_line(struct nl_object *a, struct nl_dump_params *p)
 			delta_time /= NSEC_PER_SEC;
 		else
 			delta_time = 0;
-		nl_dump(p, "delta-time %llu ", delta_time);
+		nl_dump(p, "delta-time %llu ", (long long unsigned)delta_time);
 	}
 
 	nl_dump(p, "\n");
@@ -221,8 +219,9 @@ static void ct_dump_details(struct nl_object *a, struct nl_dump_params *p)
 	ct_dump_line(a, p);
 
 	nl_dump(p, "    id 0x%x ", ct->ct_id);
-	nl_dump_line(p, "family %s ",
-		nl_af2str(ct->ct_family, buf, sizeof(buf)));
+	if (ct->ce_mask & CT_ATTR_FAMILY)
+		nl_dump_line(p, "family %s ",
+			nl_af2str(ct->ct_family, buf, sizeof(buf)));
 
 	if (nfnl_ct_test_use(ct))
 		nl_dump(p, "refcnt %u ", nfnl_ct_get_use(ct));

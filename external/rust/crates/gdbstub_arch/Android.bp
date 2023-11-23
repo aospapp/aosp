@@ -23,7 +23,7 @@ rust_test {
     host_supported: true,
     crate_name: "gdbstub_arch",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.1.1",
+    cargo_pkg_version: "0.2.4",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
@@ -42,11 +42,17 @@ rust_library {
     host_supported: true,
     crate_name: "gdbstub_arch",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.1.1",
+    cargo_pkg_version: "0.2.4",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
         "libgdbstub",
         "libnum_traits",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

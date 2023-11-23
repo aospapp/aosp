@@ -320,7 +320,7 @@ WORD32 ih264d_start_of_pic(dec_struct_t *ps_dec,
                                   j,
                                   BUF_MGR_REF);
             ih264_buf_mgr_release((buf_mgr_t *)ps_dec->pv_mv_buf_mgr,
-                                  ps_dec->au1_pic_buf_id_mv_buf_id_map[j],
+                                  ps_dec->as_buf_id_info_map[j].mv_buf_id,
                                   BUF_MGR_REF);
             ih264_buf_mgr_release((buf_mgr_t *)ps_dec->pv_pic_buf_mgr,
                                   j,
@@ -409,9 +409,36 @@ WORD32 ih264d_start_of_pic(dec_struct_t *ps_dec,
             ps_cur_pic = (pic_buffer_t *)ih264_buf_mgr_get_next_free(
                             (buf_mgr_t *)ps_dec->pv_pic_buf_mgr,
                             &cur_pic_buf_id);
+
+            /* In case of IDR slices, if there is no free picture buffer, then release
+             * all buffers from display and reference
+             */
+            if((ps_cur_pic == NULL) && (ps_cur_slice->u1_nal_unit_type == IDR_SLICE_NAL))
+            {
+                WORD32 j;
+
+                for(j = 0; j < MAX_DISP_BUFS_NEW; j++)
+                {
+                    ih264_buf_mgr_release((buf_mgr_t *)ps_dec->pv_pic_buf_mgr,
+                                          j,
+                                          BUF_MGR_REF);
+                    ih264_buf_mgr_release((buf_mgr_t *)ps_dec->pv_mv_buf_mgr,
+                                          ps_dec->as_buf_id_info_map[j].mv_buf_id,
+                                          BUF_MGR_REF);
+
+                    ih264_buf_mgr_release((buf_mgr_t *)ps_dec->pv_pic_buf_mgr,
+                                          j,
+                                          BUF_MGR_IO);
+                }
+                ps_cur_pic = (pic_buffer_t *)ih264_buf_mgr_get_next_free(
+                                (buf_mgr_t *)ps_dec->pv_pic_buf_mgr,
+                                &cur_pic_buf_id);
+            }
+
             if(ps_cur_pic == NULL)
             {
                 ps_dec->i4_error_code = ERROR_UNAVAIL_PICBUF_T;
+                ps_dec->ps_dec_err_status->u1_err_flag |= REJECT_CUR_PIC;
                 return ERROR_UNAVAIL_PICBUF_T;
             }
             if(0 == ps_dec->u4_disp_buf_mapping[cur_pic_buf_id])
@@ -425,16 +452,35 @@ WORD32 ih264d_start_of_pic(dec_struct_t *ps_dec,
         if(ps_col_mv == NULL)
         {
             ps_dec->i4_error_code = ERROR_UNAVAIL_MVBUF_T;
+            ps_dec->ps_dec_err_status->u1_err_flag |= REJECT_CUR_PIC;
             return ERROR_UNAVAIL_MVBUF_T;
         }
 
         ps_dec->ps_cur_pic = ps_cur_pic;
         ps_dec->u1_pic_buf_id = cur_pic_buf_id;
         ps_cur_pic->u4_ts = ps_dec->u4_ts;
+
+        /* Update POC and inter_pic_id in sei structure,
+         * later can be used by application for grain synthesis(SMPTE-RDD5) */
+        if(ps_dec->ps_sei->u1_sei_fgc_params_present_flag)
+        {
+            ps_dec->ps_sei->s_sei_fgc_params.i4_poc = i4_poc;
+            ps_dec->ps_sei->s_sei_fgc_params.u4_idr_pic_id = ps_cur_slice->u4_idr_pic_id;
+        }
         memcpy(&ps_cur_pic->s_sei_pic, ps_dec->ps_sei, sizeof(sei));
 
         ps_cur_pic->u1_mv_buf_id = cur_mv_buf_id;
-        ps_dec->au1_pic_buf_id_mv_buf_id_map[cur_pic_buf_id] = cur_mv_buf_id;
+        ps_dec->as_buf_id_info_map[cur_pic_buf_id].mv_buf_id = cur_mv_buf_id;
+        if(ps_dec->u1_enable_mb_info)
+        {
+            UWORD32 mb_info_map_size = ps_dec->u4_total_mbs << 2;
+            ps_dec->as_buf_id_info_map[cur_pic_buf_id].pu1_qp_map
+                = ps_dec->pu1_qp_map_base + cur_pic_buf_id * mb_info_map_size;
+            ps_dec->as_buf_id_info_map[cur_pic_buf_id].pu1_mb_type_map
+                = ps_dec->pu1_mb_type_map_base + cur_pic_buf_id * mb_info_map_size;
+            memset(ps_dec->as_buf_id_info_map[cur_pic_buf_id].pu1_qp_map, 0, mb_info_map_size);
+            memset(ps_dec->as_buf_id_info_map[cur_pic_buf_id].pu1_mb_type_map, 0, mb_info_map_size);
+        }
 
         ps_cur_pic->pu1_col_zero_flag = (UWORD8 *)ps_col_mv->pv_col_zero_flag;
         ps_cur_pic->ps_mv = (mv_pred_t *)ps_col_mv->pv_mv;
@@ -458,59 +504,6 @@ WORD32 ih264d_start_of_pic(dec_struct_t *ps_dec,
             *(ps_dec->ps_dpb_mgr->ps_mod_dpb[1][0]) = *ps_cur_pic;
             /* Initialize for field reference as well */
             *(ps_dec->ps_dpb_mgr->ps_mod_dpb[1][MAX_REF_BUFS]) = *ps_cur_pic;
-        }
-
-        if(!ps_dec->ps_cur_pic)
-        {
-            WORD32 j;
-            H264_DEC_DEBUG_PRINT("------- Display Buffers Reset --------\n");
-            for(j = 0; j < MAX_DISP_BUFS_NEW; j++)
-            {
-
-                ih264_buf_mgr_release((buf_mgr_t *)ps_dec->pv_pic_buf_mgr,
-                                      j,
-                                      BUF_MGR_REF);
-                ih264_buf_mgr_release((buf_mgr_t *)ps_dec->pv_mv_buf_mgr,
-                                      ps_dec->au1_pic_buf_id_mv_buf_id_map[j],
-                                      BUF_MGR_REF);
-                ih264_buf_mgr_release((buf_mgr_t *)ps_dec->pv_pic_buf_mgr,
-                                      j,
-                                      BUF_MGR_IO);
-            }
-
-            ps_dec->i4_cur_display_seq = 0;
-            ps_dec->i4_prev_max_display_seq = 0;
-            ps_dec->i4_max_poc = 0;
-
-            ps_cur_pic = (pic_buffer_t *)ih264_buf_mgr_get_next_free(
-                            (buf_mgr_t *)ps_dec->pv_pic_buf_mgr,
-                            &cur_pic_buf_id);
-            if(ps_cur_pic == NULL)
-            {
-                ps_dec->i4_error_code = ERROR_UNAVAIL_PICBUF_T;
-                return ERROR_UNAVAIL_PICBUF_T;
-            }
-
-            ps_col_mv = (col_mv_buf_t *)ih264_buf_mgr_get_next_free((buf_mgr_t *)ps_dec->pv_mv_buf_mgr,
-                                                                   &cur_mv_buf_id);
-            if(ps_col_mv == NULL)
-            {
-                ps_dec->i4_error_code = ERROR_UNAVAIL_MVBUF_T;
-                return ERROR_UNAVAIL_MVBUF_T;
-            }
-
-            ps_dec->ps_cur_pic = ps_cur_pic;
-            ps_dec->u1_pic_buf_id = cur_pic_buf_id;
-            ps_cur_pic->u4_ts = ps_dec->u4_ts;
-            ps_dec->apv_buf_id_pic_buf_map[cur_pic_buf_id] = (void *)ps_cur_pic;
-
-            ps_cur_pic->u1_mv_buf_id = cur_mv_buf_id;
-            ps_dec->au1_pic_buf_id_mv_buf_id_map[cur_pic_buf_id] = cur_mv_buf_id;
-
-            ps_cur_pic->pu1_col_zero_flag = (UWORD8 *)ps_col_mv->pv_col_zero_flag;
-            ps_cur_pic->ps_mv = (mv_pred_t *)ps_col_mv->pv_mv;
-            ps_dec->au1_pic_buf_ref_flag[cur_pic_buf_id] = 0;
-
         }
 
         ps_dec->ps_cur_pic->u1_picturetype = u1_field_pic_flag;
@@ -707,10 +700,10 @@ WORD32 ih264d_start_of_pic(dec_struct_t *ps_dec,
     {
         ret = ih264d_form_default_scaling_matrix(ps_dec);
     }
-    
+
     if(ret != OK)
         return ret;
- 
+
     /* required while reading the transform_size_8x8 u4_flag */
     ps_dec->s_high_profile.u1_direct_8x8_inference_flag =
                     ps_seq->u1_direct_8x8_inference_flag;
@@ -793,7 +786,7 @@ WORD32 ih264d_end_of_pic_dispbuf_mgr(dec_struct_t * ps_dec)
                                      BUF_MGR_REF);
             /* Mark mv buf as needed for reference */
             ih264_buf_mgr_set_status((buf_mgr_t *)ps_dec->pv_mv_buf_mgr,
-                                     ps_dec->au1_pic_buf_id_mv_buf_id_map[ps_dec->u1_pic_buf_id],
+                                     ps_dec->as_buf_id_info_map[ps_dec->u1_pic_buf_id].mv_buf_id,
                                      BUF_MGR_REF);
             ps_dec->au1_pic_buf_ref_flag[ps_dec->u1_pic_buf_id] = 1;
         }
@@ -852,7 +845,7 @@ WORD32 ih264d_end_of_pic_dispbuf_mgr(dec_struct_t * ps_dec)
             if(ps_dec->au1_pic_buf_ref_flag[ps_dec->u1_pic_buf_id] == 0)
             {
                 ih264_buf_mgr_release((buf_mgr_t *)ps_dec->pv_mv_buf_mgr,
-                                      ps_dec->au1_pic_buf_id_mv_buf_id_map[ps_dec->u1_pic_buf_id],
+                                      ps_dec->as_buf_id_info_map[ps_dec->u1_pic_buf_id].mv_buf_id,
                                       BUF_MGR_REF);
                 ps_dec->au1_pic_buf_ref_flag[ps_dec->u1_pic_buf_id] = 0;
 
@@ -893,7 +886,7 @@ void ih264d_err_pic_dispbuf_mgr(dec_struct_t *ps_dec)
                           ps_dec->u1_pic_buf_id,
                           BUF_MGR_REF);
     ih264_buf_mgr_release((buf_mgr_t *)ps_dec->pv_mv_buf_mgr,
-                          ps_dec->au1_pic_buf_id_mv_buf_id_map[ps_dec->u1_pic_buf_id],
+                          ps_dec->as_buf_id_info_map[ps_dec->u1_pic_buf_id].mv_buf_id,
                           BUF_MGR_REF);
     ih264_buf_mgr_release((buf_mgr_t *)ps_dec->pv_pic_buf_mgr,
                           ps_dec->u1_pic_buf_id,
@@ -1442,6 +1435,7 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
 
     if(ps_cur_slice->u1_mmco_equalto5)
     {
+        WORD64 i8_result;
         WORD32 i4_temp_poc;
         WORD32 i4_top_field_order_poc, i4_bot_field_order_poc;
 
@@ -1458,8 +1452,7 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
         else
             i4_temp_poc = ps_dec->ps_cur_pic->i4_bottom_field_order_cnt;
 
-        WORD64 i8_result = (WORD64)i4_temp_poc
-                        - ps_dec->ps_cur_pic->i4_top_field_order_cnt;
+        i8_result = (WORD64)i4_temp_poc - ps_dec->ps_cur_pic->i4_top_field_order_cnt;
         if(IS_OUT_OF_RANGE_S32(i8_result))
         {
             return ERROR_INV_POC;
@@ -1959,4 +1952,3 @@ WORD32 ih264d_parse_decode_slice(UWORD8 u1_is_idr_slice,
 
     return ret;
 }
-

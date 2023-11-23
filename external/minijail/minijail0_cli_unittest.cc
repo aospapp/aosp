@@ -1,4 +1,4 @@
-/* Copyright 2018 The Chromium OS Authors. All rights reserved.
+/* Copyright 2018 The ChromiumOS Authors
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  *
@@ -604,5 +604,22 @@ TEST_F(CliTest, conf_parsing) {
 
   ASSERT_TRUE(parse_args_(argv));
 }
+
+TEST_F(CliTest, conf_parsing_with_dac_override) {
+  std::vector<std::string> argv = {"-c 2", "--config",
+                                   source_path("test/valid.conf"),
+                                   "/bin/sh"};
+
+  ASSERT_TRUE(parse_args_(argv));
+}
+
+TEST_F(CliTest, conf_fs_path) {
+  std::vector<std::string> argv = {"-c 2", "--config",
+                                   source_path("test/landlock.conf"),
+                                   "/bin/sh"};
+
+  ASSERT_TRUE(parse_args_(argv));
+}
+
 
 #endif  // !__ANDROID__

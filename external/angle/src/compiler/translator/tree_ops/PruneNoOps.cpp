@@ -25,25 +25,27 @@ namespace
 
 bool IsNoOp(TIntermNode *node)
 {
-    if (node->getAsConstantUnion() != nullptr)
-    {
-        return true;
-    }
     bool isEmptyDeclaration = node->getAsDeclarationNode() != nullptr &&
                               node->getAsDeclarationNode()->getSequence()->empty();
     if (isEmptyDeclaration)
     {
         return true;
     }
-    return false;
+
+    if (node->getAsTyped() == nullptr || node->getAsFunctionPrototypeNode() != nullptr)
+    {
+        return false;
+    }
+
+    return !node->getAsTyped()->hasSideEffects();
 }
 
 class PruneNoOpsTraverser : private TIntermTraverser
 {
   public:
-    ANGLE_NO_DISCARD static bool apply(TCompiler *compiler,
-                                       TIntermBlock *root,
-                                       TSymbolTable *symbolTable);
+    [[nodiscard]] static bool apply(TCompiler *compiler,
+                                    TIntermBlock *root,
+                                    TSymbolTable *symbolTable);
 
   private:
     PruneNoOpsTraverser(TSymbolTable *symbolTable);

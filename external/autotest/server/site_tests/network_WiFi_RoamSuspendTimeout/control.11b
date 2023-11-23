@@ -8,6 +8,7 @@ TIME = 'SHORT'
 TEST_TYPE = 'Server'
 ATTRIBUTES = "suite:wifi_flaky"
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 This test attempts to verify that we can reconnect to a router over 802.11b

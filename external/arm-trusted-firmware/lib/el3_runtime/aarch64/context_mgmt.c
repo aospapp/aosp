@@ -20,12 +20,16 @@
 #include <lib/el3_runtime/pubsub_events.h>
 #include <lib/extensions/amu.h>
 #include <lib/extensions/mpam.h>
+#include <lib/extensions/sme.h>
 #include <lib/extensions/spe.h>
 #include <lib/extensions/sve.h>
+#include <lib/extensions/sys_reg_trace.h>
+#include <lib/extensions/trbe.h>
+#include <lib/extensions/trf.h>
 #include <lib/extensions/twed.h>
 #include <lib/utils.h>
 
-static void enable_extensions_secure(cpu_context_t *ctx);
+static void manage_extensions_secure(cpu_context_t *ctx);
 
 /*******************************************************************************
  * Context management library initialisation routine. This library is used by
@@ -90,24 +94,49 @@ void cm_setup_context(cpu_context_t *ctx, const entry_point_info_t *ep)
 	scr_el3 = read_scr();
 	scr_el3 &= ~(SCR_NS_BIT | SCR_RW_BIT | SCR_FIQ_BIT | SCR_IRQ_BIT |
 			SCR_ST_BIT | SCR_HCE_BIT);
+
+#if ENABLE_RME
+	/* When RME support is enabled, clear the NSE bit as well. */
+	scr_el3 &= ~SCR_NSE_BIT;
+#endif /* ENABLE_RME */
+
 	/*
 	 * SCR_NS: Set the security state of the next EL.
 	 */
-	if (security_state != SECURE)
+	if (security_state == NON_SECURE) {
 		scr_el3 |= SCR_NS_BIT;
+	}
+
+#if ENABLE_RME
+	/* Check for realm state if RME support enabled. */
+	if (security_state == REALM) {
+		scr_el3 |= SCR_NS_BIT | SCR_NSE_BIT | SCR_EnSCXT_BIT;
+	}
+#endif /* ENABLE_RME */
+
 	/*
 	 * SCR_EL3.RW: Set the execution state, AArch32 or AArch64, for next
 	 *  Exception level as specified by SPSR.
 	 */
-	if (GET_RW(ep->spsr) == MODE_RW_64)
+	if (GET_RW(ep->spsr) == MODE_RW_64) {
 		scr_el3 |= SCR_RW_BIT;
+	}
 	/*
 	 * SCR_EL3.ST: Traps Secure EL1 accesses to the Counter-timer Physical
 	 *  Secure timer registers to EL3, from AArch64 state only, if specified
 	 *  by the entrypoint attributes.
 	 */
-	if (EP_GET_ST(ep->h.attr) != 0U)
+	if (EP_GET_ST(ep->h.attr) != 0U) {
 		scr_el3 |= SCR_ST_BIT;
+	}
+
+	/*
+	 * If FEAT_HCX is enabled, enable access to HCRX_EL2 by setting
+	 * SCR_EL3.HXEn.
+	 */
+#if ENABLE_FEAT_HCX
+	scr_el3 |= SCR_HXEn_BIT;
+#endif
 
 #if RAS_TRAP_LOWER_EL_ERR_ACCESS
 	/*
@@ -141,8 +170,9 @@ void cm_setup_context(cpu_context_t *ctx, const entry_point_info_t *ep)
 	 * If the Secure world wants to use pointer authentication,
 	 * CTX_INCLUDE_PAUTH_REGS must be set to 1.
 	 */
-	if (security_state == NON_SECURE)
+	if (security_state == NON_SECURE) {
 		scr_el3 |= SCR_API_BIT | SCR_APK_BIT;
+	}
 #endif /* !CTX_INCLUDE_PAUTH_REGS */
 
 #if !CTX_INCLUDE_MTE_REGS || ENABLE_ASSERTIONS
@@ -177,14 +207,20 @@ void cm_setup_context(cpu_context_t *ctx, const entry_point_info_t *ep)
 	/*
 	 * SCR_EL3.IRQ, SCR_EL3.FIQ: Enable the physical FIQ and IRQ routing as
 	 *  indicated by the interrupt routing model for BL31.
+	 *
+	 * TODO: The interrupt routing model code is not updated for REALM
+	 * state. Use the default values of IRQ = FIQ = 0 for REALM security
+	 * state for now.
 	 */
-	scr_el3 |= get_scr_el3_from_routing_model(security_state);
+	if (security_state != REALM) {
+		scr_el3 |= get_scr_el3_from_routing_model(security_state);
+	}
 #endif
 
 	/* Save the initialized value of CPTR_EL3 register */
 	write_ctx_reg(get_el3state_ctx(ctx), CTX_CPTR_EL3, read_cptr_el3());
 	if (security_state == SECURE) {
-		enable_extensions_secure(ctx);
+		manage_extensions_secure(ctx);
 	}
 
 	/*
@@ -245,9 +281,9 @@ void cm_setup_context(cpu_context_t *ctx, const entry_point_info_t *ep)
 	 *  required by PSCI specification)
 	 */
 	sctlr_elx = (EP_GET_EE(ep->h.attr) != 0U) ? SCTLR_EE_BIT : 0U;
-	if (GET_RW(ep->spsr) == MODE_RW_64)
+	if (GET_RW(ep->spsr) == MODE_RW_64) {
 		sctlr_elx |= SCTLR_EL1_RES1;
-	else {
+	} else {
 		/*
 		 * If the target execution state is AArch32 then the following
 		 * fields need to be set.
@@ -330,7 +366,7 @@ void cm_setup_context(cpu_context_t *ctx, const entry_point_info_t *ep)
  * When EL2 is implemented but unused `el2_unused` is non-zero, otherwise
  * it is zero.
  ******************************************************************************/
-static void enable_extensions_nonsecure(bool el2_unused, cpu_context_t *ctx)
+static void manage_extensions_nonsecure(bool el2_unused, cpu_context_t *ctx)
 {
 #if IMAGE_BL31
 #if ENABLE_SPE_FOR_LOWER_ELS
@@ -341,26 +377,68 @@ static void enable_extensions_nonsecure(bool el2_unused, cpu_context_t *ctx)
 	amu_enable(el2_unused, ctx);
 #endif
 
-#if ENABLE_SVE_FOR_NS
+#if ENABLE_SME_FOR_NS
+	/* Enable SME, SVE, and FPU/SIMD for non-secure world. */
+	sme_enable(ctx);
+#elif ENABLE_SVE_FOR_NS
+	/* Enable SVE and FPU/SIMD for non-secure world. */
 	sve_enable(ctx);
 #endif
 
 #if ENABLE_MPAM_FOR_LOWER_ELS
 	mpam_enable(el2_unused);
 #endif
+
+#if ENABLE_TRBE_FOR_NS
+	trbe_enable();
+#endif /* ENABLE_TRBE_FOR_NS */
+
+#if ENABLE_SYS_REG_TRACE_FOR_NS
+	sys_reg_trace_enable(ctx);
+#endif /* ENABLE_SYS_REG_TRACE_FOR_NS */
+
+#if ENABLE_TRF_FOR_NS
+	trf_enable();
+#endif /* ENABLE_TRF_FOR_NS */
 #endif
 }
 
 /*******************************************************************************
  * Enable architecture extensions on first entry to Secure world.
  ******************************************************************************/
-static void enable_extensions_secure(cpu_context_t *ctx)
+static void manage_extensions_secure(cpu_context_t *ctx)
 {
 #if IMAGE_BL31
-#if ENABLE_SVE_FOR_SWD
+ #if ENABLE_SME_FOR_NS
+  #if ENABLE_SME_FOR_SWD
+	/*
+	 * Enable SME, SVE, FPU/SIMD in secure context, secure manager must
+	 * ensure SME, SVE, and FPU/SIMD context properly managed.
+	 */
+	sme_enable(ctx);
+  #else /* ENABLE_SME_FOR_SWD */
+	/*
+	 * Disable SME, SVE, FPU/SIMD in secure context so non-secure world can
+	 * safely use the associated registers.
+	 */
+	sme_disable(ctx);
+  #endif /* ENABLE_SME_FOR_SWD */
+ #elif ENABLE_SVE_FOR_NS
+  #if ENABLE_SVE_FOR_SWD
+	/*
+	 * Enable SVE and FPU in secure context, secure manager must ensure that
+	 * the SVE and FPU register contexts are properly managed.
+	 */
 	sve_enable(ctx);
-#endif
-#endif
+ #else /* ENABLE_SVE_FOR_SWD */
+	/*
+	 * Disable SVE and FPU in secure context so non-secure world can safely
+	 * use them.
+	 */
+	sve_disable(ctx);
+  #endif /* ENABLE_SVE_FOR_SWD */
+ #endif /* ENABLE_SVE_FOR_NS */
+#endif /* IMAGE_BL31 */
 }
 
 /*******************************************************************************
@@ -389,7 +467,8 @@ void cm_init_my_context(const entry_point_info_t *ep)
 }
 
 /*******************************************************************************
- * Prepare the CPU system registers for first entry into secure or normal world
+ * Prepare the CPU system registers for first entry into realm, secure, or
+ * normal world.
  *
  * If execution is requested to EL2 or hyp mode, SCTLR_EL2 is initialized
  * If execution is requested to non-secure EL1 or svc mode, and the CPU supports
@@ -457,6 +536,8 @@ void cm_prepare_el3_exit(uint32_t security_state)
 			 * CPTR_EL2.TTA: Set to zero so that Non-secure System
 			 *  register accesses to the trace registers from both
 			 *  Execution states do not trap to EL2.
+			 *  If PE trace unit System registers are not implemented
+			 *  then this bit is reserved, and must be set to zero.
 			 *
 			 * CPTR_EL2.TFP: Set to zero so that Non-secure accesses
 			 *  to SIMD and floating-point functionality from both
@@ -471,7 +552,7 @@ void cm_prepare_el3_exit(uint32_t security_state)
 			 * architecturally UNKNOWN on reset and are set to zero
 			 * except for field(s) listed below.
 			 *
-			 * CNTHCTL_EL2.EL1PCEN: Set to one to disable traps to
+			 * CNTHCTL_EL2.EL1PTEN: Set to one to disable traps to
 			 *  Hyp mode of Non-secure EL0 and EL1 accesses to the
 			 *  physical timer registers.
 			 *
@@ -565,6 +646,11 @@ void cm_prepare_el3_exit(uint32_t security_state)
 			 *
 			 * MDCR_EL2.HPMN: Set to value of PMCR_EL0.N which is the
 			 *  architecturally-defined reset value.
+			 *
+			 * MDCR_EL2.E2TB: Set to zero so that the trace Buffer
+			 *  owning exception level is NS-EL1 and, tracing is
+			 *  prohibited at NS-EL2. These bits are RES0 when
+			 *  FEAT_TRBE is not implemented.
 			 */
 			mdcr_el2 = ((MDCR_EL2_RESET_VAL | MDCR_EL2_HLP |
 				     MDCR_EL2_HPMD) |
@@ -574,7 +660,8 @@ void cm_prepare_el3_exit(uint32_t security_state)
 				     MDCR_EL2_TDRA_BIT | MDCR_EL2_TDOSA_BIT |
 				     MDCR_EL2_TDA_BIT | MDCR_EL2_TDE_BIT |
 				     MDCR_EL2_HPME_BIT | MDCR_EL2_TPM_BIT |
-				     MDCR_EL2_TPMCR_BIT);
+				     MDCR_EL2_TPMCR_BIT |
+				     MDCR_EL2_E2TB(MDCR_EL2_E2TB_EL1));
 
 			write_mdcr_el2(mdcr_el2);
 
@@ -597,7 +684,7 @@ void cm_prepare_el3_exit(uint32_t security_state)
 			write_cnthp_ctl_el2(CNTHP_CTL_RESET_VAL &
 						~(CNTHP_CTL_ENABLE_BIT));
 		}
-		enable_extensions_nonsecure(el2_unused, ctx);
+		manage_extensions_nonsecure(el2_unused, ctx);
 	}
 
 	cm_el1_sysregs_context_restore(security_state);
@@ -613,10 +700,10 @@ void cm_el2_sysregs_context_save(uint32_t security_state)
 	u_register_t scr_el3 = read_scr();
 
 	/*
-	 * Always save the non-secure EL2 context, only save the
+	 * Always save the non-secure and realm EL2 context, only save the
 	 * S-EL2 context if S-EL2 is enabled.
 	 */
-	if ((security_state == NON_SECURE) ||
+	if ((security_state != SECURE) ||
 	    ((security_state == SECURE) && ((scr_el3 & SCR_EEL2_BIT) != 0U))) {
 		cpu_context_t *ctx;
 
@@ -635,10 +722,10 @@ void cm_el2_sysregs_context_restore(uint32_t security_state)
 	u_register_t scr_el3 = read_scr();
 
 	/*
-	 * Always restore the non-secure EL2 context, only restore the
+	 * Always restore the non-secure and realm EL2 context, only restore the
 	 * S-EL2 context if S-EL2 is enabled.
 	 */
-	if ((security_state == NON_SECURE) ||
+	if ((security_state != SECURE) ||
 	    ((security_state == SECURE) && ((scr_el3 & SCR_EEL2_BIT) != 0U))) {
 		cpu_context_t *ctx;
 

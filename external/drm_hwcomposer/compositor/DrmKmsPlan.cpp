@@ -24,7 +24,7 @@
 
 namespace android {
 auto DrmKmsPlan::CreateDrmKmsPlan(DrmDisplayPipeline &pipe,
-                                  std::vector<DrmHwcLayer> composition)
+                                  std::vector<LayerData> composition)
     -> std::unique_ptr<DrmKmsPlan> {
   auto plan = std::make_unique<DrmKmsPlan>();
 

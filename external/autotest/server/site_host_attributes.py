@@ -44,19 +44,19 @@ attribute strings defined above.  Illegal strings are ignored.
 """
 
 
-import hashlib, logging, os, utils
-import six
+import hashlib, logging, os
 
+from autotest_lib.client.common_lib import utils
 
 private_host_attributes = utils.import_site_symbol(
-    __file__,
-    'autotest_lib.server.private_host_attributes_config',
-    'private_host_attributes', dummy={})
+        __file__,
+        'autotest_lib.server.private_host_attributes_config',
+        'private_host_attributes',
+        placeholder={})
 
 try:
     settings = 'autotest_lib.frontend.settings'
     os.environ['DJANGO_SETTINGS_MODULE'] = settings
-    from autotest_lib.frontend.afe import models
     has_models = True
 except Exception:
     has_models = False

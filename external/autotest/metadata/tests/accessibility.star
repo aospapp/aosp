@@ -17,6 +17,6 @@ def define_tests():
         test_common.define_test(
             'accessibility/Sanity',
             suites = [],
-            main_package = 'autotest_lib.client.site_tests.accessibility_Sanity.accessibility_Sanity',
+            main_package = 'autotest_lib.client.site_tests.accessibility_Check.accessibility_Check',
         )
     ]

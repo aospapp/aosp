@@ -39,8 +39,8 @@ rm ${LOCAL_VERSION_INFO_DIR}/*
 
 # Start the METADATA file
 cat << EOF > ${METADATA_FILE}
-// Generated file DO NOT EDIT
-// Run android/download_latest.sh
+# Generated file DO NOT EDIT
+# Run android/download_latest.sh
 name: "geonames"
 description:
     "Assorted files downloaded from https://www.geonames.org/"

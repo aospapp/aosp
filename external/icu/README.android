@@ -30,3 +30,5 @@ libandroidicuinit/ - A static library for ICU4C initialization. Used by
                      libandroidicu and libjavacore to initialize ICU4C.
 
 tools/             - Code / data maintenance tools. See tools/README.android.
+
+libicu/            - NDK headers and the shim implementation in the libicu.so.

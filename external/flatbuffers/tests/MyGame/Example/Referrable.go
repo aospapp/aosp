@@ -7,7 +7,7 @@ import (
 )
 
 type ReferrableT struct {
-	Id uint64
+	Id uint64 `json:"id"`
 }
 
 func (t *ReferrableT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -36,6 +36,13 @@ func GetRootAsReferrable(buf []byte, offset flatbuffers.UOffsetT) *Referrable {
 	n := flatbuffers.GetUOffsetT(buf[offset:])
 	x := &Referrable{}
 	x.Init(buf, n+offset)
+	return x
+}
+
+func GetSizePrefixedRootAsReferrable(buf []byte, offset flatbuffers.UOffsetT) *Referrable {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &Referrable{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
 	return x
 }
 

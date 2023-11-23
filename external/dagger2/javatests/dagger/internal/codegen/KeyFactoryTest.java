@@ -16,27 +16,31 @@
 
 package dagger.internal.codegen;
 
+import static androidx.room.compiler.processing.compat.XConverters.toXProcessing;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-import com.google.auto.common.MoreTypes;
+import androidx.room.compiler.processing.XProcessingEnv;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.testing.compile.CompilationRule;
-import dagger.BindsInstance;
+import com.squareup.javapoet.TypeName;
 import dagger.Component;
 import dagger.Module;
 import dagger.Provides;
 import dagger.internal.codegen.binding.KeyFactory;
+import dagger.internal.codegen.javac.JavacPluginModule;
 import dagger.internal.codegen.langmodel.DaggerElements;
 import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.model.Key;
-import dagger.model.Key.MultibindingContributionIdentifier;
 import dagger.multibindings.ElementsIntoSet;
 import dagger.multibindings.IntoSet;
 import dagger.producers.ProducerModule;
 import dagger.producers.Produces;
+import dagger.spi.model.DaggerAnnotation;
+import dagger.spi.model.DaggerType;
+import dagger.spi.model.Key;
+import dagger.spi.model.Key.MultibindingContributionIdentifier;
 import java.lang.annotation.Retention;
 import java.util.Set;
 import javax.inject.Inject;
@@ -61,12 +65,17 @@ import org.junit.runners.JUnit4;
 public class KeyFactoryTest {
   @Rule public CompilationRule compilationRule = new CompilationRule();
 
+  @Inject XProcessingEnv processingEnv;
   @Inject DaggerElements elements;
   @Inject DaggerTypes types;
   @Inject KeyFactory keyFactory;
 
   @Before public void setUp() {
-    DaggerKeyFactoryTest_TestComponent.factory().create(compilationRule).inject(this);
+    DaggerKeyFactoryTest_TestComponent.builder()
+        .javacPluginModule(
+            new JavacPluginModule(compilationRule.getElements(), compilationRule.getTypes()))
+        .build()
+        .inject(this);
   }
 
   @Test public void forInjectConstructorWithResolvedType() {
@@ -76,7 +85,7 @@ public class KeyFactoryTest {
         Iterables.getOnlyElement(ElementFilter.constructorsIn(typeElement.getEnclosedElements()));
     Key key =
         keyFactory.forInjectConstructorWithResolvedType(constructor.getEnclosingElement().asType());
-    assertThat(key).isEqualTo(Key.builder(typeElement.asType()).build());
+    assertThat(key).isEqualTo(Key.builder(fromJava(typeElement.asType())).build());
     assertThat(key.toString()).isEqualTo("dagger.internal.codegen.KeyFactoryTest.InjectedClass");
   }
 
@@ -92,7 +101,7 @@ public class KeyFactoryTest {
     ExecutableElement providesMethod =
         Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
     Key key = keyFactory.forProvidesMethod(providesMethod, moduleElement);
-    assertThat(key).isEqualTo(Key.builder(stringType).build());
+    assertThat(key).isEqualTo(Key.builder(fromJava(stringType)).build());
     assertThat(key.toString()).isEqualTo("java.lang.String");
   }
 
@@ -112,10 +121,9 @@ public class KeyFactoryTest {
     ExecutableElement providesMethod =
         Iterables.getOnlyElement(ElementFilter.methodsIn(moduleElement.getEnclosedElements()));
     Key key = keyFactory.forProvidesMethod(providesMethod, moduleElement);
-    assertThat(MoreTypes.equivalence().wrap(key.qualifier().get().getAnnotationType()))
-        .isEqualTo(MoreTypes.equivalence().wrap(qualifierElement.asType()));
-    assertThat(MoreTypes.equivalence().wrap(key.type()))
-        .isEqualTo(MoreTypes.equivalence().wrap(stringType));
+    assertThat(TypeName.get(key.qualifier().get().java().getAnnotationType()))
+        .isEqualTo(TypeName.get(qualifierElement.asType()));
+    assertThat(TypeName.get(key.type().java())).isEqualTo(TypeName.get(stringType));
     assertThat(key.toString())
         .isEqualTo(
             "@dagger.internal.codegen.KeyFactoryTest.TestQualifier({"
@@ -141,7 +149,7 @@ public class KeyFactoryTest {
     Element injectionField =
         Iterables.getOnlyElement(ElementFilter.fieldsIn(injectableElement.getEnclosedElements()));
     AnnotationMirror qualifier = Iterables.getOnlyElement(injectionField.getAnnotationMirrors());
-    Key injectionKey = Key.builder(type).qualifier(qualifier).build();
+    Key injectionKey = Key.builder(fromJava(type)).qualifier(fromJava(qualifier)).build();
 
     assertThat(provisionKey).isEqualTo(injectionKey);
     assertThat(injectionKey.toString())
@@ -203,7 +211,7 @@ public class KeyFactoryTest {
       Key key = keyFactory.forProvidesMethod(providesMethod, moduleElement);
       assertThat(key)
           .isEqualTo(
-              Key.builder(setOfStringsType)
+              Key.builder(fromJava(setOfStringsType))
                   .multibindingContributionIdentifier(
                       new MultibindingContributionIdentifier(providesMethod, moduleElement))
                   .build());
@@ -270,7 +278,7 @@ public class KeyFactoryTest {
     for (ExecutableElement producesMethod
         : ElementFilter.methodsIn(moduleElement.getEnclosedElements())) {
       Key key = keyFactory.forProducesMethod(producesMethod, moduleElement);
-      assertThat(key).isEqualTo(Key.builder(stringType).build());
+      assertThat(key).isEqualTo(Key.builder(fromJava(stringType)).build());
       assertThat(key.toString()).isEqualTo("java.lang.String");
     }
   }
@@ -297,7 +305,7 @@ public class KeyFactoryTest {
       Key key = keyFactory.forProducesMethod(producesMethod, moduleElement);
       assertThat(key)
           .isEqualTo(
-              Key.builder(setOfStringsType)
+              Key.builder(fromJava(setOfStringsType))
                   .multibindingContributionIdentifier(
                       new MultibindingContributionIdentifier(producesMethod, moduleElement))
                   .build());
@@ -308,6 +316,14 @@ public class KeyFactoryTest {
                       + "dagger.internal.codegen.KeyFactoryTest.SetProducesMethodsModule#%s",
                   producesMethod.getSimpleName()));
     }
+  }
+
+  private DaggerAnnotation fromJava(AnnotationMirror annotation) {
+    return DaggerAnnotation.from(toXProcessing(annotation, processingEnv));
+  }
+
+  private DaggerType fromJava(TypeMirror typeMirror) {
+    return DaggerType.from(toXProcessing(typeMirror, processingEnv));
   }
 
   @ProducerModule
@@ -331,26 +347,8 @@ public class KeyFactoryTest {
   }
 
   @Singleton
-  @Component(modules = {TestModule.class})
+  @Component(modules = JavacPluginModule.class)
   interface TestComponent {
     void inject(KeyFactoryTest test);
-
-    @Component.Factory
-    interface Factory {
-      TestComponent create(@BindsInstance CompilationRule compilationRule);
-    }
-  }
-
-  @Module
-  static class TestModule {
-    @Provides
-    static DaggerElements elements(CompilationRule compilationRule) {
-      return new DaggerElements(compilationRule.getElements(), compilationRule.getTypes());
-    }
-
-    @Provides
-    static DaggerTypes types(CompilationRule compilationRule, DaggerElements elements) {
-      return new DaggerTypes(compilationRule.getTypes(), elements);
-    }
   }
 }

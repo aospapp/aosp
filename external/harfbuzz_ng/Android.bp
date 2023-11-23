@@ -81,16 +81,54 @@ license {
     name: "external_harfbuzz_ng_license",
     visibility: [":__subpackages__"],
     license_kinds: [
+        // "SPDX-license-Identifier-MIT-Modern-Variant",
         "SPDX-license-identifier-Apache-2.0",
-        "SPDX-license-identifier-ISC",
+        "SPDX-license-identifier-ISC", // src/hb-ucd.cc
         "SPDX-license-identifier-MIT",
         "SPDX-license-identifier-OFL", // by exception only
-        "SPDX-license-identifier-WTFPL",
         "legacy_unencumbered",
     ],
     license_text: [
         "COPYING",
         "NOTICE",
+
+        "LICENSE_APACHE2.TXT",
+        "LICENSE_ISC.TXT",
+        "LICENSE_OFL.TXT",
+        "src/ms-use/COPYING",  // For MIT license
+        "LICENSE_MIT_MODERN_VARIANT.TXT",
+    ],
+}
+
+cc_library {
+    name: "libharfbuzz_subset",
+    srcs: [
+        "src/hb-number.cc",
+        "src/hb-ot-cff1-table.cc",
+        "src/hb-ot-cff2-table.cc",
+        "src/hb-static.cc",
+        "src/hb-subset-cff-common.cc",
+        "src/hb-subset-cff1.cc",
+        "src/hb-subset-cff2.cc",
+        "src/hb-subset-input.cc",
+        "src/hb-subset-plan.cc",
+        "src/hb-subset-repacker.cc",
+        "src/hb-subset.cc",
+        "src/graph/gsubgpos-context.cc",
+    ],
+    shared_libs: [
+        "libharfbuzz_ng",
+    ],
+    export_include_dirs: ["src"],
+    cflags: [
+        "-DHAVE_PTHREAD",
+        "-DHB_NO_PRAGMA_GCC_DIAGNOSTIC",
+        "-DHAVE_OT",
+        "-DHAVE_ICU",
+        "-DHAVE_ICU_BUILTIN",
+        "-Werror",
+        "-Wno-unused-parameter",
+        "-Wno-missing-field-initializers",
     ],
 }
 
@@ -107,37 +145,41 @@ cc_library {
         "src/hb-aat-map.cc",
         "src/hb-blob.cc",
         "src/hb-buffer-serialize.cc",
+        "src/hb-buffer-verify.cc",
         "src/hb-buffer.cc",
         "src/hb-common.cc",
+        "src/hb-draw.cc",
         "src/hb-face.cc",
         "src/hb-fallback-shape.cc",
         "src/hb-font.cc",
-        "src/hb-icu.cc",
+        "src/hb-map.cc",
         "src/hb-number.cc",
         "src/hb-ot-cff1-table.cc",
         "src/hb-ot-cff2-table.cc",
+        "src/hb-ot-color.cc",
         "src/hb-ot-face.cc",
         "src/hb-ot-font.cc",
         "src/hb-ot-layout.cc",
         "src/hb-ot-map.cc",
         "src/hb-ot-math.cc",
+        "src/hb-ot-meta.cc",
         "src/hb-ot-metrics.cc",
         "src/hb-ot-name.cc",
-        "src/hb-ot-shape-complex-arabic.cc",
-        "src/hb-ot-shape-complex-default.cc",
-        "src/hb-ot-shape-complex-hangul.cc",
-        "src/hb-ot-shape-complex-hebrew.cc",
-        "src/hb-ot-shape-complex-indic-table.cc",
-        "src/hb-ot-shape-complex-indic.cc",
-        "src/hb-ot-shape-complex-khmer.cc",
-        "src/hb-ot-shape-complex-myanmar.cc",
-        "src/hb-ot-shape-complex-syllabic.cc",
-        "src/hb-ot-shape-complex-thai.cc",
-        "src/hb-ot-shape-complex-use.cc",
-        "src/hb-ot-shape-complex-vowel-constraints.cc",
         "src/hb-ot-shape-fallback.cc",
         "src/hb-ot-shape-normalize.cc",
         "src/hb-ot-shape.cc",
+        "src/hb-ot-shaper-arabic.cc",
+        "src/hb-ot-shaper-default.cc",
+        "src/hb-ot-shaper-hangul.cc",
+        "src/hb-ot-shaper-hebrew.cc",
+        "src/hb-ot-shaper-indic-table.cc",
+        "src/hb-ot-shaper-indic.cc",
+        "src/hb-ot-shaper-khmer.cc",
+        "src/hb-ot-shaper-myanmar.cc",
+        "src/hb-ot-shaper-syllabic.cc",
+        "src/hb-ot-shaper-thai.cc",
+        "src/hb-ot-shaper-use.cc",
+        "src/hb-ot-shaper-vowel-constraints.cc",
         "src/hb-ot-tag.cc",
         "src/hb-ot-var.cc",
         "src/hb-set.cc",
@@ -145,15 +187,9 @@ cc_library {
         "src/hb-shape.cc",
         "src/hb-shaper.cc",
         "src/hb-static.cc",
+        "src/hb-style.cc",
         "src/hb-ucd.cc",
         "src/hb-unicode.cc",
-        "src/hb-subset-cff-common.cc",
-        "src/hb-subset-cff1.cc",
-        "src/hb-subset-cff2.cc",
-        "src/hb-subset-input.cc",
-        "src/hb-subset-plan.cc",
-        "src/hb-subset.cc",
-        "src/hb-map.cc",
     ],
 
     target: {
@@ -191,3 +227,197 @@ cc_library {
         "-Wno-missing-field-initializers",
     ],
 }
+
+/////////////////////////////////////////////////////////////////////
+// Following filegroups and licences are ones not used in Android.
+/////////////////////////////////////////////////////////////////////
+
+license {
+    name: "external_harfbuzz_license.unused.GPLv3",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        "SPDX-license-identifier-GPL-3.0-with-autoconf-exception",
+    ],
+    license_text: [
+        "LICENSE_GPLv3_WITH_AUTOCONF_EXCEPTION.TXT",
+    ],
+}
+
+filegroup {
+    name: "external_harfbuzz.unused.GPLv3",
+    visibility: ["//visibility:private"],
+    licenses: ["external_harfbuzz_license.unused.GPLv3"],
+    srcs: [
+        "m4/ax_check_link_flag.m4",
+        "m4/ax_pthread.m4",
+    ],
+}
+
+license {
+    name: "external_harfbuzz_license.unused.GPLv2",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        "SPDX-license-identifier-GPL-2.0",
+    ],
+    license_text: [
+        "LICENSE_GPLv2.TXT",
+    ],
+}
+
+filegroup {
+    name: "external_harfbuzz.unused.GPLv2",
+    visibility: ["//visibility:private"],
+    licenses: ["external_harfbuzz_license.unused.GPLv2"],
+    srcs: [
+        "test/shape/data/in-house/fonts/b895f8ff06493cc893ec44de380690ca0074edfa.ttf"
+    ],
+}
+
+license {
+    name: "external_harfbuzz_license.unused.LGPL",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        "SPDX-license-identifier-LGPL-2.1",
+    ],
+    license_text: [
+        "LICENSE_GPLv2_WITH_AUTOCONF_EXCEPTION.TXT",
+    ],
+}
+
+filegroup {
+    name: "external_harfbuzz.unused.LGPL",
+    visibility: ["//visibility:private"],
+    licenses: ["external_harfbuzz_license.unused.LGPL"],
+    srcs: ["m4/ax_code_coverage.m4"],
+}
+
+license {
+    name: "external_harfbuzz_license.unused.MIT",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        "SPDX-license-identifier-MIT",
+    ],
+    license_text: [
+        "src/ms-use/COPYING",
+    ],
+}
+
+filegroup {
+    name: "external_harfbuzz.unused.MIT",
+    visibility: ["//visibility:private"],
+    licenses: ["external_harfbuzz_license.unused.MIT"],
+    srcs: [
+        "src/ms-use/*",
+    ],
+}
+
+license {
+    name: "external_harfbuzz_license.unused.FSFAP",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        "SPDX-license-identifier-FSFAP",
+    ],
+    license_text: [
+        "LICENSE_FSFAP.TXT",
+    ],
+}
+
+filegroup {
+    name: "external_harfbuzz.unused.FSFAP",
+    visibility: ["//visibility:private"],
+    licenses: ["external_harfbuzz_license.unused.FSFAP"],
+    srcs: [
+        "git.mk",
+        "m4/ax_cxx_compile_stdcxx.m4",
+    ],
+}
+
+license {
+    name: "external_harfbuzz_license.unused.HPND-sell-variant",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        // "SPDX-license-identifier-HPND-sell-variant",
+    ],
+    license_text: [
+        "LICENSE_HPND_SELL_VARIANT.TXT"
+    ],
+}
+
+filegroup {
+    name: "external_harfbuzz.unused.HPND-sell-variant",
+    visibility: ["//visibility:private"],
+    licenses: ["external_harfbuzz_license.unused.HPND-sell-variant"],
+    srcs: [
+        "util/hb-fc-list.c",
+    ],
+}
+
+license {
+    name: "external_harfbuzz_license.unused.Apache-2.0",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE_APACHE2.TXT",
+    ],
+}
+
+filegroup {
+    name: "external_harfbuzz.unused.Apache-2.0",
+    visibility: ["//visibility:private"],
+    licenses: ["external_harfbuzz_license.unused.Apache-2.0"],
+    srcs: [
+        "perf/fonts/Roboto-Regular.ttf"
+    ],
+}
+
+license {
+    name: "external_harfbuzz_license.unused.OFL",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        "SPDX-license-identifier-OFL",
+    ],
+    license_text: [
+        "LICENSE_OFL.TXT",
+    ],
+}
+
+filegroup {
+    name: "external_harfbuzz.unused.OFL",
+    visibility: ["//visibility:private"],
+    licenses: ["external_harfbuzz_license.unused.OFL"],
+    srcs: [
+        "perf/fonts/Amiri-Regular.ttf",
+        "perf/fonts/NotoNastaliqUrdu-Regular.ttf",
+    ],
+}
+
+license {
+    name: "external_harfbuzz_license.unused.tests",
+    visibility: ["//visibility:private"],
+    license_kinds: [
+        // "SPDX-license-Identifier-MIT-Modern-Variant",
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-OFL", // by exception only
+        // Lots of font files used in tests directories are lack of license descriptions.
+        // The license of fuzzing payload is unknown.
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "LICENSE_OFL.TXT",
+        "LICENSE_APACHE2.TXT",
+        "LICENSE_MIT_MODERN_VARIANT.TXT",
+        "src/ms-use/COPYING",  // For MIT license
+    ],
+}
+
+filegroup {
+    name: "external_harfbuzz.unused.tests",
+    visibility: ["//visibility:private"],
+    licenses: ["external_harfbuzz_license.unused.tests"],
+    srcs: [ "test/**/*" ],
+    path: "test"
+}
+

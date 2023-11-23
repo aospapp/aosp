@@ -19,7 +19,7 @@ METADATA_GENERATOR_PARAMS_HTML := -f xhtml
 METADATA_GENERATOR_PARAMS_PDF := -f pdf
 METADATA_GENERATOR_PARAMS_HTML_CHUNKED := -f chunked
 else ifeq ($(METADATA_GENERATOR),)
-$(error 'METADATA_GENERATOR' not not configured, run ./configure in the root directory)
+$(error 'METADATA_GENERATOR' not configured, run ./configure in the root directory)
 else
 $(error '$(METADATA_GENERATOR)' not supported, only asciidoctor and asciidoc are supported)
 endif
@@ -29,7 +29,6 @@ METADATA_GENERATOR_PARAMS += -v
 endif
 
 CLEAN_TARGETS		:= *.css *.js *.txt
-MAKE_TARGETS		:= metadata.json
 
 ifeq ($(WITH_METADATA_HTML),yes)
 MAKE_TARGETS		+= metadata.html
@@ -42,8 +41,6 @@ ifeq ($(WITH_METADATA_PDF),yes)
 MAKE_TARGETS		+= metadata.pdf
 endif
 
-HOST_MAKE_TARGETS	:= docparse
-
 INSTALL_DIR = metadata
 INSTALL_TARGETS = *.css *.js
 
@@ -51,13 +48,8 @@ ifndef METADATA_GENERATOR
 METADATA_GENERATOR := asciidoctor
 endif
 
-.PHONY: metadata.json
-
-metadata.json: docparse
-	$(abs_srcdir)/parse.sh > metadata.json
-
-txt: metadata.json
-	$(abs_srcdir)/testinfo.pl metadata.json
+txt: ${abs_top_builddir}/metadata/ltp.json
+	$(abs_srcdir)/testinfo.pl $<
 
 ifeq ($(WITH_METADATA_HTML),yes)
 metadata.html: txt

@@ -42,7 +42,7 @@ struct PartialResponse {
 }
 
 struct Client {
-    conn: std::pin::Pin<Box<quiche::Connection>>,
+    conn: quiche::Connection,
 
     partial_responses: HashMap<u64, PartialResponse>,
 }
@@ -58,26 +58,21 @@ fn main() {
     let cmd = &args.next().unwrap();
 
     if args.len() != 0 {
-        println!("Usage: {}", cmd);
+        println!("Usage: {cmd}");
         println!("\nSee tools/apps/ for more complete implementations.");
         return;
     }
 
     // Setup the event loop.
-    let poll = mio::Poll::new().unwrap();
+    let mut poll = mio::Poll::new().unwrap();
     let mut events = mio::Events::with_capacity(1024);
 
     // Create the UDP listening socket, and register it with the event loop.
-    let socket = net::UdpSocket::bind("127.0.0.1:4433").unwrap();
-
-    let socket = mio::net::UdpSocket::from_socket(socket).unwrap();
-    poll.register(
-        &socket,
-        mio::Token(0),
-        mio::Ready::readable(),
-        mio::PollOpt::edge(),
-    )
-    .unwrap();
+    let mut socket =
+        mio::net::UdpSocket::bind("127.0.0.1:4433".parse().unwrap()).unwrap();
+    poll.registry()
+        .register(&mut socket, mio::Token(0), mio::Interest::READABLE)
+        .unwrap();
 
     // Create the configuration for the QUIC connections.
     let mut config = quiche::Config::new(quiche::PROTOCOL_VERSION).unwrap();
@@ -90,9 +85,13 @@ fn main() {
         .unwrap();
 
     config
-        .set_application_protos(
-            b"\x0ahq-interop\x05hq-29\x05hq-28\x05hq-27\x08http/0.9",
-        )
+        .set_application_protos(&[
+            b"hq-interop",
+            b"hq-29",
+            b"hq-28",
+            b"hq-27",
+            b"http/0.9",
+        ])
         .unwrap();
 
     config.set_max_idle_timeout(5000);
@@ -112,6 +111,8 @@ fn main() {
         ring::hmac::Key::generate(ring::hmac::HMAC_SHA256, &rng).unwrap();
 
     let mut clients = ClientMap::new();
+
+    let local_addr = socket.local_addr().unwrap();
 
     loop {
         // Find the shorter timeout from all the active connections.
@@ -192,7 +193,7 @@ fn main() {
 
                     let out = &out[..len];
 
-                    if let Err(e) = socket.send_to(out, &from) {
+                    if let Err(e) = socket.send_to(out, from) {
                         if e.kind() == std::io::ErrorKind::WouldBlock {
                             debug!("send() would block");
                             break;
@@ -229,7 +230,7 @@ fn main() {
 
                     let out = &out[..len];
 
-                    if let Err(e) = socket.send_to(out, &from) {
+                    if let Err(e) = socket.send_to(out, from) {
                         if e.kind() == std::io::ErrorKind::WouldBlock {
                             debug!("send() would block");
                             break;
@@ -260,9 +261,14 @@ fn main() {
 
                 debug!("New connection: dcid={:?} scid={:?}", hdr.dcid, scid);
 
-                let conn =
-                    quiche::accept(&scid, odcid.as_ref(), from, &mut config)
-                        .unwrap();
+                let conn = quiche::accept(
+                    &scid,
+                    odcid.as_ref(),
+                    local_addr,
+                    from,
+                    &mut config,
+                )
+                .unwrap();
 
                 let client = Client {
                     conn,
@@ -280,7 +286,10 @@ fn main() {
                 }
             };
 
-            let recv_info = quiche::RecvInfo { from };
+            let recv_info = quiche::RecvInfo {
+                to: socket.local_addr().unwrap(),
+                from,
+            };
 
             // Process potentially coalesced packets.
             let read = match client.conn.recv(pkt_buf, recv_info) {
@@ -348,7 +357,7 @@ fn main() {
                     },
                 };
 
-                if let Err(e) = socket.send_to(&out[..write], &send_info.to) {
+                if let Err(e) = socket.send_to(&out[..write], send_info.to) {
                     if e.kind() == std::io::ErrorKind::WouldBlock {
                         debug!("send() would block");
                         break;
@@ -499,7 +508,7 @@ fn handle_writable(client: &mut Client, stream_id: u64) {
     let resp = client.partial_responses.get_mut(&stream_id).unwrap();
     let body = &resp.body[resp.written..];
 
-    let written = match conn.stream_send(stream_id, &body, true) {
+    let written = match conn.stream_send(stream_id, body, true) {
         Ok(v) => v,
 
         Err(quiche::Error::Done) => 0,

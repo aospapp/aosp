@@ -104,6 +104,7 @@ cc_library {
     name: "libicuuc",
     host_supported: true,
     unique_host_soname: true,
+    native_bridge_supported: true,
     defaults: ["libicuuc_defaults"],
     apex_available: [
         "com.android.i18n",

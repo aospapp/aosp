@@ -149,7 +149,7 @@ unsafe impl<R: RawMutex + Sync, T: ?Sized + Send> Sync for Mutex<R, T> {}
 
 impl<R: RawMutex, T> Mutex<R, T> {
     /// Creates a new mutex in an unlocked state ready for use.
-    #[cfg(feature = "nightly")]
+    #[cfg(has_const_fn_trait_bound)]
     #[inline]
     pub const fn new(val: T) -> Mutex<R, T> {
         Mutex {
@@ -159,7 +159,7 @@ impl<R: RawMutex, T> Mutex<R, T> {
     }
 
     /// Creates a new mutex in an unlocked state ready for use.
-    #[cfg(not(feature = "nightly"))]
+    #[cfg(not(has_const_fn_trait_bound))]
     #[inline]
     pub fn new(val: T) -> Mutex<R, T> {
         Mutex {
@@ -565,6 +565,17 @@ impl<'a, R: RawMutex + 'a, T: ?Sized + 'a> MutexGuard<'a, R, T> {
         defer!(s.mutex.raw.lock());
         f()
     }
+
+    /// Leaks the mutex guard and returns a mutable reference to the data
+    /// protected by the mutex.
+    ///
+    /// This will leave the `Mutex` in a locked state.
+    #[inline]
+    pub fn leak(s: Self) -> &'a mut T {
+        let r = unsafe { &mut *s.mutex.data.get() };
+        mem::forget(s);
+        r
+    }
 }
 
 impl<'a, R: RawMutexFair + 'a, T: ?Sized + 'a> MutexGuard<'a, R, T> {
@@ -670,15 +681,38 @@ unsafe impl<'a, R: RawMutex + 'a, T: ?Sized + 'a> StableAddress for MutexGuard<'
 #[must_use = "if unused the Mutex will immediately unlock"]
 pub struct ArcMutexGuard<R: RawMutex, T: ?Sized> {
     mutex: Arc<Mutex<R, T>>,
-    marker: PhantomData<R::GuardMarker>,
+    marker: PhantomData<*const ()>,
+}
+
+#[cfg(feature = "arc_lock")]
+unsafe impl<R: RawMutex + Send + Sync, T: Send + ?Sized> Send for ArcMutexGuard<R, T> where
+    R::GuardMarker: Send
+{
+}
+#[cfg(feature = "arc_lock")]
+unsafe impl<R: RawMutex + Sync, T: Sync + ?Sized> Sync for ArcMutexGuard<R, T> where
+    R::GuardMarker: Sync
+{
 }
 
 #[cfg(feature = "arc_lock")]
 impl<R: RawMutex, T: ?Sized> ArcMutexGuard<R, T> {
     /// Returns a reference to the `Mutex` this is guarding, contained in its `Arc`.
     #[inline]
-    pub fn mutex(&self) -> &Arc<Mutex<R, T>> {
-        &self.mutex
+    pub fn mutex(s: &Self) -> &Arc<Mutex<R, T>> {
+        &s.mutex
+    }
+
+    /// Unlocks the mutex and returns the `Arc` that was held by the [`ArcMutexGuard`].
+    #[inline]
+    pub fn into_arc(s: Self) -> Arc<Mutex<R, T>> {
+        // Safety: Skip our Drop impl and manually unlock the mutex.
+        let arc = unsafe { ptr::read(&s.mutex) };
+        mem::forget(s);
+        unsafe {
+            arc.raw.unlock();
+        }
+        arc
     }
 
     /// Temporarily unlocks the mutex to execute the given function.

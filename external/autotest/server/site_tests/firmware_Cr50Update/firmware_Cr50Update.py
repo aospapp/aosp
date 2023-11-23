@@ -7,7 +7,6 @@ import os
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import cr50_utils
-from autotest_lib.server.cros import filesystem_util
 from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
@@ -50,7 +49,7 @@ class firmware_Cr50Update(Cr50Test):
         # Make sure ccd is disabled so it won't interfere with the update
         self.cr50.ccd_disable()
 
-        filesystem_util.make_rootfs_writable(self.host)
+        self.make_rootfs_writable()
 
         self.host = host
 

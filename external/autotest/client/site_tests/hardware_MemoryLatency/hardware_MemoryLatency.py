@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -88,4 +89,3 @@ class hardware_MemoryLatency(test.test):
     def cleanup(self):
         self._services.restore_services()
         super(hardware_MemoryLatency, self).cleanup()
-

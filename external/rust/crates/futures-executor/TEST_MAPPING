@@ -5,35 +5,47 @@
       "path": "external/rust/crates/anyhow"
     },
     {
+      "path": "external/rust/crates/futures-channel"
+    },
+    {
+      "path": "external/rust/crates/futures-test"
+    },
+    {
       "path": "external/rust/crates/tokio"
+    },
+    {
+      "path": "packages/modules/DnsResolver"
+    },
+    {
+      "path": "packages/modules/Virtualization/authfs"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
+    },
+    {
+      "path": "packages/modules/Virtualization/zipfuse"
+    },
+    {
+      "path": "system/security/keystore2"
+    },
+    {
+      "path": "system/security/keystore2/legacykeystore"
     }
   ],
   "presubmit": [
     {
-      "name": "ZipFuseTest"
+      "name": "futures-executor_test_src_lib"
     },
     {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "virtualizationservice_device_test"
+      "name": "futures-executor_test_tests_local_pool"
     }
   ],
   "presubmit-rust": [
     {
-      "name": "ZipFuseTest"
+      "name": "futures-executor_test_src_lib"
     },
     {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "virtualizationservice_device_test"
+      "name": "futures-executor_test_tests_local_pool"
     }
   ]
 }

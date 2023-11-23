@@ -14,6 +14,7 @@ package android.icu.dev.test.lang;
 
 import java.io.BufferedReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -24,6 +25,7 @@ import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
+import android.icu.impl.CaseMapImpl;
 import android.icu.impl.Utility;
 import android.icu.lang.UCharacter;
 import android.icu.lang.UProperty;
@@ -470,6 +472,70 @@ public final class UCharacterCaseTest extends TestFmwk
         assertEquals("Dutch titlecase check in Dutch with nolowercase option",
                 "IJssel Igloo IJMUIdEN IPoD IJenough",
                 UCharacter.toTitleCase(LOC_DUTCH, "ijssel igloo IjMUIdEN iPoD ijenough", iter, options));
+
+        // Accented IJ testing
+
+        String[][] dutchIJCasesData = {
+                // input,           expectedFull,     expOnlyChanged
+                {"ij",              "IJ",             "IJ"},
+                {"IJ",              "IJ",             ""},
+                {"íj́",              "ÍJ́",             "ÍJ"},
+                {"ÍJ́",              "ÍJ́",             ""},
+                {"íJ́",              "ÍJ́",             "Í"},
+                {"Ij́",              "Ij́",             ""},
+                {"ij́",              "Ij́",             "I"},
+                {"ïj́",              "Ïj́",             "Ï"},
+                {"íj\u0308",        "Íj\u0308",       "Í"},
+                {"íj́\uD834\uDD6E",  "Íj́\uD834\uDD6E", "Í"}, // \uD834\uDD6E == \U0001D16E
+                {"íj\u1ABE",        "Íj\u1ABE",       "Í"},
+
+                {"ijabc",              "IJabc",             "IJ"},
+                {"IJabc",              "IJabc",             ""},
+                {"íj́abc",              "ÍJ́abc",             "ÍJ"},
+                {"ÍJ́abc",              "ÍJ́abc",             ""},
+                {"íJ́abc",              "ÍJ́abc",             "Í"},
+                {"Ij́abc",              "Ij́abc",             ""},
+                {"ij́abc",              "Ij́abc",             "I"},
+                {"ïj́abc",              "Ïj́abc",             "Ï"},
+                {"íjabc\u0308",        "Íjabc\u0308",       "Í"},
+                {"íj́abc\uD834\uDD6E",  "ÍJ́abc\uD834\uDD6E", "ÍJ"},
+                {"íjabc\u1ABE",        "Íjabc\u1ABE",       "Í"},
+
+                // Bug ICU-21919
+                {"Í",                  "Í",                 ""},
+        };
+
+        for (String[] caseDatum : dutchIJCasesData) {
+            String input = caseDatum[0];
+            String expectedFull = caseDatum[1];
+            String expectedOnlyChanged = caseDatum[2];
+
+            for (boolean isOnlyChanged : Arrays.asList(true, false)) {
+                String testMsg = "Dutch accented ij"
+                        + (isOnlyChanged ? ", only changes" : "");
+
+                int testOptions = UCharacter.TITLECASE_NO_LOWERCASE
+                        | (isOnlyChanged ? CaseMapImpl.OMIT_UNCHANGED_TEXT : 0);
+
+                CaseMap.Title titleCaseMapBase = CaseMap.toTitle().noLowercase();
+                CaseMap.Title titleCaseMap = isOnlyChanged ? titleCaseMapBase.omitUnchangedText() : titleCaseMapBase;
+
+                String expected = isOnlyChanged ? expectedOnlyChanged : expectedFull;
+
+                // Newer API for title casing
+                StringBuilder resultBuilder = new StringBuilder();
+                Edits edits = new Edits();
+                titleCaseMap.apply(DUTCH_LOCALE_, null, input, resultBuilder, edits);
+                String result = resultBuilder.toString();
+                assertEquals(testMsg + ", [" + input + "]",
+                        expected, result);
+
+                // Older API for title casing (vs. Newer API)
+                String oldApiResult = UCharacter.toTitleCase(LOC_DUTCH, input, null, testOptions);
+                assertEquals(testMsg + ", Title.apply() vs UCharacter.toTitleCase()" + ", [" + input + "]",
+                        result, oldApiResult);
+            }
+        }
     }
 
     @Test

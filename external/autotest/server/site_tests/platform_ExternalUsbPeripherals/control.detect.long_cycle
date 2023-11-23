@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "platform_ExternalUsbPeripherals.detect.long_cycle"
 PURPOSE = "Servo based USB peripheral detection test"
 CRITERIA = "This test will fail if any of the actions or checks fail."
@@ -14,6 +14,7 @@ TEST_CLASS = "platform"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:usb_detect"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 This test uses servo to connect/disconnect servo USB hub before and
@@ -52,7 +53,7 @@ def run(machine):
 
     action_sequence = str(args_dict.get("action_sequence", default_actions))
 
-    usb_list = ["\"Kingston Technology Company Inc.\"",
+    usb_list = ["\"Netac Technology Co., Ltd OnlyDisk\"",
                 "\"Alcor Micro Corp.|GEMBIRD\"",
                 "\"USB PnP Sound Device: USB Audio|C-Media Electronics, Inc.* Audio\"",
                ]
@@ -71,7 +72,7 @@ def run(machine):
             ["ExFAT", "Ext4", "FAT", "NTFS"],
         # USB Web camera
         "cat /sys/class/video4linux/video*/name | grep -iE " :
-            ["\"TeckNet|USB ?2.0 PC Camera\""],
+            ["\"TeckNet|USB ?2.0 PC Camera|Video Capture|Video Output|Metadata\""],
         }
 
     job.run_test("platform_ExternalUsbPeripherals", host=host,

@@ -16,12 +16,14 @@
 
 package dagger.hilt.processor.internal;
 
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableSet;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
+import javax.tools.Diagnostic.Kind;
 
 /** Hilt annotation processor options. */
 // TODO(danysantiago): Consider consolidating with Dagger compiler options logic.
@@ -75,16 +77,30 @@ public final class HiltCompilerOptions {
     return BooleanOption.SHARE_TEST_COMPONENTS.get(env);
   }
 
+  /**
+   * Returns {@code true} if the aggregating processor is enabled (default is {@code true}).
+   *
+   * <p>Note:This is for internal use only!
+   */
+  public static boolean useAggregatingRootProcessor(ProcessingEnvironment env) {
+    return BooleanOption.USE_AGGREGATING_ROOT_PROCESSOR.get(env);
+  }
+
   /** Processor options which can have true or false values. */
   private enum BooleanOption {
+    /** Do not use! This is for internal use only. */
     DISABLE_ANDROID_SUPERCLASS_VALIDATION(
         "android.internal.disableAndroidSuperclassValidation", false),
+
+    /** Do not use! This is for internal use only. */
+    USE_AGGREGATING_ROOT_PROCESSOR("internal.useAggregatingRootProcessor", true),
 
     DISABLE_CROSS_COMPILATION_ROOT_VALIDATION("disableCrossCompilationRootValidation", false),
 
     DISABLE_MODULES_HAVE_INSTALL_IN_CHECK("disableModulesHaveInstallInCheck", false),
 
-    SHARE_TEST_COMPONENTS("shareTestComponents", false);
+    SHARE_TEST_COMPONENTS(
+        "shareTestComponents", true);
 
     private final String name;
     private final boolean defaultValue;
@@ -99,12 +115,52 @@ public final class HiltCompilerOptions {
       if (value == null) {
         return defaultValue;
       }
-      // TODO(danysantiago): Strictly verify input, either 'true' or 'false' and nothing else.
-      return Boolean.parseBoolean(value);
+
+      // Using Boolean.parseBoolean will turn any non-"true" value into false. Strictly verify the
+      // inputs to reduce user errors.
+      String lowercaseValue = Ascii.toLowerCase(value);
+      switch (lowercaseValue) {
+        case "true":
+          return true;
+        case "false":
+          return false;
+        default:
+          throw new IllegalStateException(
+              "Expected a value of true/false for the flag \""
+                  + name
+                  + "\". Got instead: "
+                  + value);
+      }
     }
 
     String getQualifiedName() {
       return "dagger.hilt." + name;
+    }
+  }
+
+  private static final ImmutableSet<String> DEPRECATED_OPTIONS = ImmutableSet.of(
+      "dagger.hilt.android.useFragmentGetContextFix");
+
+  public static void checkWrongAndDeprecatedOptions(ProcessingEnvironment env) {
+    Set<String> knownOptions = getProcessorOptions();
+    for (String option : env.getOptions().keySet()) {
+      if (knownOptions.contains(option)) {
+        continue;
+      }
+
+      if (DEPRECATED_OPTIONS.contains(option)) {
+        env.getMessager().printMessage(
+            Kind.ERROR,
+            "The compiler option " + option + " is deprecated and no longer does anything. "
+            + "Please do not set this option.");
+        continue;
+      }
+
+      if (option.startsWith("dagger.hilt.")) {
+        env.getMessager().printMessage(
+            Kind.ERROR,
+            "The compiler option " + option + " is not a recognized Hilt option. Is there a typo?");
+      }
     }
   }
 

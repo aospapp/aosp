@@ -28,7 +28,7 @@
 #include "fanotify.h"
 
 #define EVENT_MAX 1024
-#define EVENT_SIZE (sizeof (struct fanotify_event_metadata))
+#define EVENT_SIZE (sizeof(struct fanotify_event_metadata))
 #define EVENT_BUF_LEN (EVENT_MAX * EVENT_SIZE)
 #define EVENT_SET_BUF 32
 
@@ -190,21 +190,21 @@ static void do_test(unsigned int n)
 				"pid=%u, fd=%d",
 				(unsigned long long) event->mask,
 				*(tc->event_set + event_num),
-				(unsigned) event->pid,
+				(unsigned int) event->pid,
 				event->fd);
 		} else if (event->pid != child_pid) {
 			tst_res(TFAIL,
 				"Received event: mask=%llx, pid=%u (expected "
 				"%u), fd=%d",
 				(unsigned long long) event->mask,
-				(unsigned) event->pid,
-				(unsigned) child_pid,
+				(unsigned int) event->pid,
+				(unsigned int) child_pid,
 				event->fd);
 		} else {
 			tst_res(TPASS,
 				"Received event: mask=%llx, pid=%u, fd=%d",
 				(unsigned long long) event->mask,
-				(unsigned) event->pid,
+				(unsigned int) event->pid,
 				event->fd);
 		}
 
@@ -222,7 +222,8 @@ cleanup:
 
 static void do_setup(void)
 {
-	exec_events_unsupported = fanotify_events_supported_by_kernel(FAN_OPEN_EXEC);
+	exec_events_unsupported = fanotify_events_supported_by_kernel(FAN_OPEN_EXEC,
+								      FAN_CLASS_NOTIF, 0);
 
 	sprintf(fname, "fname_%d", getpid());
 	SAFE_FILE_PRINTF(fname, "1");
@@ -234,11 +235,6 @@ static void do_cleanup(void)
 		SAFE_CLOSE(fd_notify);
 }
 
-static const char *const resource_files[] = {
-	TEST_APP,
-	NULL
-};
-
 static struct tst_test test = {
 	.setup = do_setup,
 	.test = do_test,
@@ -246,7 +242,10 @@ static struct tst_test test = {
 	.cleanup = do_cleanup,
 	.forks_child = 1,
 	.needs_root = 1,
-	.resource_files = resource_files
+	.resource_files = (const char *const []) {
+		TEST_APP,
+		NULL
+	}
 };
 #else
 	TST_TEST_TCONF("System does not contain required fanotify support");

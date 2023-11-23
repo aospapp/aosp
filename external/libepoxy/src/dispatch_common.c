@@ -392,10 +392,10 @@ epoxy_is_desktop_gl(void)
 }
 
 static int
-epoxy_internal_gl_version(GLenum version_string, int error_version)
+epoxy_internal_gl_version(GLenum version_string, int error_version, int factor)
 {
     const char *version = (const char *)glGetString(version_string);
-    GLint major, minor, factor;
+    GLint major, minor;
     int scanf_count;
 
     if (!version)
@@ -412,11 +412,6 @@ epoxy_internal_gl_version(GLenum version_string, int error_version)
                 version);
         abort();
     }
-
-    if (minor >= 10)
-        factor = 100;
-    else
-        factor = 10;
 
     return factor * major + minor;
 }
@@ -439,7 +434,7 @@ epoxy_internal_gl_version(GLenum version_string, int error_version)
 int
 epoxy_gl_version(void)
 {
-    return epoxy_internal_gl_version(GL_VERSION, 0);
+    return epoxy_internal_gl_version(GL_VERSION, 0, 10);
 }
 
 int
@@ -448,7 +443,7 @@ epoxy_conservative_gl_version(void)
     if (api.begin_count)
         return 100;
 
-    return epoxy_internal_gl_version(GL_VERSION, 100);
+    return epoxy_internal_gl_version(GL_VERSION, 100, 10);
 }
 
 /**
@@ -471,7 +466,7 @@ epoxy_glsl_version(void)
 {
     if (epoxy_gl_version() >= 20 ||
         epoxy_has_gl_extension ("GL_ARB_shading_language_100"))
-        return epoxy_internal_gl_version(GL_SHADING_LANGUAGE_VERSION, 0);
+        return epoxy_internal_gl_version(GL_SHADING_LANGUAGE_VERSION, 0, 100);
 
     return 0;
 }
@@ -675,13 +670,27 @@ epoxy_load_gl(void)
     get_dlopen_handle(&api.gl_handle, OPENGL_LIB, true, true);
 #else
 
+    // Prefer GLX_LIB over OPENGL_LIB to maintain existing behavior.
+    // Using the inverse ordering OPENGL_LIB -> GLX_LIB, causes issues such as:
+    // https://github.com/anholt/libepoxy/issues/240 (apitrace missing calls)
+    // https://github.com/anholt/libepoxy/issues/252 (Xorg boot crash)
+    get_dlopen_handle(&api.glx_handle, GLX_LIB, false, true);
+    api.gl_handle = api.glx_handle;
+
 #if defined(OPENGL_LIB)
     if (!api.gl_handle)
-	get_dlopen_handle(&api.gl_handle, OPENGL_LIB, false, true);
+        get_dlopen_handle(&api.gl_handle, OPENGL_LIB, false, true);
 #endif
 
-    get_dlopen_handle(&api.glx_handle, GLX_LIB, true, true);
-    api.gl_handle = api.glx_handle;
+    if (!api.gl_handle) {
+#if defined(OPENGL_LIB)
+        fprintf(stderr, "Couldn't open %s or %s\n", GLX_LIB, OPENGL_LIB);
+#else
+        fprintf(stderr, "Couldn't open %s\n", GLX_LIB);
+#endif
+        abort();
+    }
+
 #endif
 }
 

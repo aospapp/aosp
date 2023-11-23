@@ -17,127 +17,130 @@
 #
 LIBANDROIDICU_EXTERNAL_1 {
   global:
-    UCNV_FROM_U_CALLBACK_STOP_android;
-    UCNV_TO_U_CALLBACK_STOP_android;
-    u_charDirection_android;
-    u_charMirror_android;
-    u_charName_android;
-    u_charType_android;
-    u_countChar32_android;
-    u_digit_android;
-    u_errorName_android;
-    u_foldCase_android;
-    u_getCombiningClass_android;
-    u_getIntPropertyMaxValue_android;
-    u_getIntPropertyValue_android;
-    u_getNumericValue_android;
-    u_hasBinaryProperty_android;
-    u_isIDIgnorable_android;
-    u_isIDPart_android;
-    u_isIDStart_android;
-    u_isJavaSpaceChar_android;
-    u_isMirrored_android;
-    u_isUAlphabetic_android;
-    u_isUWhiteSpace_android;
-    u_isWhitespace_android;
-    u_isalnum_android;
-    u_isalpha_android;
-    u_iscntrl_android;
-    u_isdefined_android;
-    u_isdigit_android;
-    u_islower_android;
-    u_ispunct_android;
-    u_isspace_android;
-    u_istitle_android;
-    u_isupper_android;
-    u_strFromUTF8_android;
-    u_strFromUTF8WithSub_android;
-    u_strToLower_android;
-    u_strToUTF8_android;
-    u_strToUpper_android;
-    u_tolower_android;
-    u_totitle_android;
-    u_toupper_android;
-    ubidi_close_android;
-    ubidi_countRuns_android;
-    ubidi_getLength_android;
-    ubidi_getLevelAt_android;
-    ubidi_getParaLevel_android;
-    ubidi_getVisualRun_android;
-    ubidi_open_android;
-    ubidi_openSized_android;
-    ubidi_reorderVisual_android;
-    ubidi_setClassCallback_android;
-    ubidi_setPara_android;
-    ubrk_close_android;
-    ubrk_current_android;
-    ubrk_first_android;
-    ubrk_following_android;
-    ubrk_getRuleStatus_android;
-    ubrk_isBoundary_android;
-    ubrk_next_android;
-    ubrk_open_android;
-    ubrk_preceding_android;
-    ubrk_setUText_android;
-    ucnv_close_android;
-    ucnv_convert_android;
-    ucnv_convertEx_android;
-    ucnv_getNextUChar_android;
-    ucnv_open_android;
-    ucnv_setFromUCallBack_android;
-    ucnv_setToUCallBack_android;
-    ucol_close_android;
-    ucol_open_android;
-    ucol_setAttribute_android;
-    ucol_strcoll_android;
-    ucol_strcollIter_android;
-    ucsdet_close_android;
-    ucsdet_detect_android;
-    ucsdet_detectAll_android;
-    ucsdet_getConfidence_android;
-    ucsdet_getName_android;
-    ucsdet_open_android;
-    ucsdet_setText_android;
-    udatpg_close_android;
-    udatpg_getBestPattern_android;
-    udatpg_open_android;
-    uiter_setUTF8_android;
-    uloc_addLikelySubtags_android;
-    uloc_canonicalize_android;
-    uloc_countAvailable_android;
-    uloc_forLanguageTag_android;
-    uloc_getAvailable_android;
-    uloc_getDefault_android;
-    uloc_getISO3Country_android;
-    uloc_getISO3Language_android;
-    uloc_getISOCountries_android;
-    uloc_getISOLanguages_android;
-    uloc_getName_android;
-    uloc_getScript_android;
-    uloc_setDefault_android;
-    uloc_toLanguageTag_android;
-    unorm2_composePair_android;
-    unorm2_getDecomposition_android;
-    unorm2_getNFCInstance_android;
-    unorm2_getNFDInstance_android;
-    unorm2_getRawDecomposition_android;
-    uregex_close_android;
-    uregex_matches_android;
-    uregex_open_android;
-    uregex_setText_android;
-    ures_close_android;
-    ures_getByIndex_android;
-    ures_getByKey_android;
-    ures_getString_android;
-    ures_openDirect_android;
-    uscript_getScript_android;
-    uscript_getShortName_android;
-    utext_close_android;
-    utext_openUChars_android;
-    utext_openUTF8_android;
-    utrans_close_android;
-    utrans_openU_android;
-    utrans_transUChars_android;
+    UCNV_FROM_U_CALLBACK_STOP_android; # apex
+    UCNV_TO_U_CALLBACK_STOP_android; # apex
+    u_charDirection_android; # apex
+    u_charMirror_android; # apex
+    u_charName_android; # apex
+    u_charType_android; # apex
+    u_countChar32_android; # apex
+    u_digit_android; # apex
+    u_errorName_android; # apex
+    u_foldCase_android; # apex
+    u_getCombiningClass_android; # apex
+    u_getIntPropertyMaxValue_android; # apex
+    u_getIntPropertyValue_android; # apex
+    u_getNumericValue_android; # apex
+    u_hasBinaryProperty_android; # apex
+    u_isIDIgnorable_android; # apex
+    u_isIDPart_android; # apex
+    u_isIDStart_android; # apex
+    u_isJavaSpaceChar_android; # apex
+    u_isMirrored_android; # apex
+    u_isUAlphabetic_android; # apex
+    u_isUWhiteSpace_android; # apex
+    u_isWhitespace_android; # apex
+    u_isalnum_android; # apex
+    u_isalpha_android; # apex
+    u_iscntrl_android; # apex
+    u_isdefined_android; # apex
+    u_isdigit_android; # apex
+    u_islower_android; # apex
+    u_ispunct_android; # apex
+    u_isspace_android; # apex
+    u_istitle_android; # apex
+    u_isupper_android; # apex
+    u_strFromUTF8_android; # apex
+    u_strFromUTF8WithSub_android; # apex
+    u_strToLower_android; # apex
+    u_strToUTF8_android; # apex
+    u_strToUpper_android; # apex
+    u_tolower_android; # apex
+    u_totitle_android; # apex
+    u_toupper_android; # apex
+    ubidi_close_android; # apex
+    ubidi_countRuns_android; # apex
+    ubidi_getDirection_android; # apex
+    ubidi_getLength_android; # apex
+    ubidi_getLevelAt_android; # apex
+    ubidi_getParaLevel_android; # apex
+    ubidi_getVisualRun_android; # apex
+    ubidi_open_android; # apex
+    ubidi_openSized_android; # apex
+    ubidi_reorderVisual_android; # apex
+    ubidi_setClassCallback_android; # apex
+    ubidi_setPara_android; # apex
+    ubrk_clone_android; # apex
+    ubrk_close_android; # apex
+    ubrk_current_android; # apex
+    ubrk_first_android; # apex
+    ubrk_following_android; # apex
+    ubrk_getRuleStatus_android; # apex
+    ubrk_isBoundary_android; # apex
+    ubrk_next_android; # apex
+    ubrk_open_android; # apex
+    ubrk_preceding_android; # apex
+    ubrk_setText_android; # apex
+    ubrk_setUText_android; # apex
+    ucnv_close_android; # apex
+    ucnv_convert_android; # apex
+    ucnv_convertEx_android; # apex
+    ucnv_getNextUChar_android; # apex
+    ucnv_open_android; # apex
+    ucnv_setFromUCallBack_android; # apex
+    ucnv_setToUCallBack_android; # apex
+    ucol_close_android; # apex
+    ucol_open_android; # apex
+    ucol_setAttribute_android; # apex
+    ucol_strcoll_android; # apex
+    ucol_strcollIter_android; # apex
+    ucsdet_close_android; # apex
+    ucsdet_detect_android; # apex
+    ucsdet_detectAll_android; # apex
+    ucsdet_getConfidence_android; # apex
+    ucsdet_getName_android; # apex
+    ucsdet_open_android; # apex
+    ucsdet_setText_android; # apex
+    udatpg_close_android; # apex
+    udatpg_getBestPattern_android; # apex
+    udatpg_open_android; # apex
+    uiter_setUTF8_android; # apex
+    uloc_addLikelySubtags_android; # apex
+    uloc_canonicalize_android; # apex
+    uloc_countAvailable_android; # apex
+    uloc_forLanguageTag_android; # apex
+    uloc_getAvailable_android; # apex
+    uloc_getDefault_android; # apex
+    uloc_getISO3Country_android; # apex
+    uloc_getISO3Language_android; # apex
+    uloc_getISOCountries_android; # apex
+    uloc_getISOLanguages_android; # apex
+    uloc_getName_android; # apex
+    uloc_getScript_android; # apex
+    uloc_setDefault_android; # apex
+    uloc_toLanguageTag_android; # apex
+    unorm2_composePair_android; # apex
+    unorm2_getDecomposition_android; # apex
+    unorm2_getNFCInstance_android; # apex
+    unorm2_getNFDInstance_android; # apex
+    unorm2_getRawDecomposition_android; # apex
+    uregex_close_android; # apex
+    uregex_matches_android; # apex
+    uregex_open_android; # apex
+    uregex_setText_android; # apex
+    ures_close_android; # apex
+    ures_getByIndex_android; # apex
+    ures_getByKey_android; # apex
+    ures_getString_android; # apex
+    ures_openDirect_android; # apex
+    uscript_getScript_android; # apex
+    uscript_getShortName_android; # apex
+    utext_close_android; # apex
+    utext_openUChars_android; # apex
+    utext_openUTF8_android; # apex
+    utrans_close_android; # apex
+    utrans_openU_android; # apex
+    utrans_transUChars_android; # apex
   local:
     *;
 };

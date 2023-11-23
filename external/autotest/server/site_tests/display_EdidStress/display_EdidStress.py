@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -7,7 +8,6 @@
 import glob
 import logging
 import os
-import xmlrpclib
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
@@ -78,7 +78,7 @@ class display_EdidStress(test.test):
                             raise error.TestFail('No external display detected on DUT')
                         if screen_test.test_resolution(resolution):
                             raise error.TestFail('Resolution test failed')
-                except (error.TestFail, xmlrpclib.Fault) as e:
+                except (error.TestFail) as e:
                     logging.warning(e)
                     logging.error('EDID not supported: %s', filename)
                     failed_edids.append(filename)

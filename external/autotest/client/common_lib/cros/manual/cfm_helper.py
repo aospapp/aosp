@@ -8,6 +8,7 @@ from __future__ import print_function
 
 import logging
 import re
+import six
 import time
 import common
 from autotest_lib.client.common_lib.cros.manual import get_usb_devices
@@ -110,11 +111,11 @@ def extract_peripherals_for_cfm(usb_data):
             get_usb_devices.get_controller_mimo)
     for get_devices in get_devices_funcs:
         device_list = get_devices(usb_data)
-        for pid_vid, device_count in device_list.iteritems():
+        for pid_vid, device_count in six.iteritems(device_list):
             if device_count > 0:
                 peripheral_map[pid_vid] = device_count
 
-    for pid_vid, device_count in peripheral_map.iteritems():
+    for pid_vid, device_count in six.iteritems(peripheral_map):
         logging.info('---device: %s (%s), count: %d',
                      pid_vid, get_usb_devices.get_device_prod(pid_vid),
                      device_count)
@@ -158,8 +159,8 @@ def check_peripherals_for_cfm(peripheral_map):
         return False
 
     if len(type_controller) == 0:
-       logging.info('No controller is found on CfM.')
-       return False
+        logging.info('No controller is found on CfM.')
+        return False
 
 
     if not len(type_controller) == 1:
@@ -175,7 +176,7 @@ def check_peripherals_for_cfm(peripheral_map):
         return False
 
     # check CfM have only one camera, huddly and mimo
-    for pid_vid, device_count in peripheral_map.iteritems():
+    for pid_vid, device_count in six.iteritems(peripheral_map):
         if device_count > 1:
             logging.info('Number of device %s connected to CfM : %d',
                          get_usb_devices.get_device_prod(pid_vid),
@@ -268,15 +269,15 @@ def gpio_usb_test(dut, gpio_list, device_list, pause, board):
     @returns True
     """
     for device in device_list:
-       vid, pid  = device.split(':')
-       logging.info('---going to powercyle device %s:%s', vid, pid)
-       try:
+        vid, pid = device.split(':')
+        logging.info('---going to powercyle device %s:%s', vid, pid)
+        try:
             power_cycle_usb_util.power_cycle_usb_vidpid(dut, board,
                                                         vid, pid, pause)
-       except Exception as e:
-           errmsg = 'Fail to power cycle device.'
-           logging.exception('%s.', errmsg)
-           return False, errmsg
+        except Exception as e:
+            errmsg = 'Fail to power cycle device.'
+            logging.exception('%s.', errmsg)
+            return False, errmsg
 
     return True, None
 
@@ -326,7 +327,7 @@ def find_last_log(dut, speaker):
             last_lines['atrus'] = dut.run_output(cmd).strip().split()[0]
     except Exception as e:
         logging.exception('Fail to get the last line from log files.')
-    for item, timestamp in last_lines.iteritems():
+    for item, timestamp in six.iteritems(last_lines):
         logging.debug('---%s: %s', item, timestamp)
     return last_lines
 
@@ -341,7 +342,7 @@ def collect_log_since_last_check(dut, lastlines, logfile):
     if logfile == "ui":
         cmd ='awk \'/{}/,0\' /var/log/ui/ui.LATEST'.format(lastlines[logfile])
     if logfile == 'atrus':
-         cmd ='awk \'/{}/,0\' /var/log/atrus.log'.format(lastlines[logfile])
+        cmd = 'awk \'/{}/,0\' /var/log/atrus.log'.format(lastlines[logfile])
     logging.info('---cmd = %s', cmd)
     try:
         output =  dut.run_output(cmd).split('\n')
@@ -372,7 +373,7 @@ def check_log(dut, timestamp, error_list, checkitem, logfile):
     logging.info('---now check log %s in file %s', checkitem, logfile)
     output = collect_log_since_last_check(dut, timestamp, logfile)
     for _error in error_list[checkitem]:
-         error_log_list.extend([s for s in output if _error in str(s)])
+        error_log_list.extend([s for s in output if _error in str(s)])
     if not error_log_list:
         return True, None
     else:

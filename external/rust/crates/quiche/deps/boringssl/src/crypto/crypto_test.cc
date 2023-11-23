@@ -19,6 +19,8 @@
 
 #include <openssl/base.h>
 #include <openssl/crypto.h>
+#include <openssl/cipher.h>
+#include <openssl/mem.h>
 
 #include <gtest/gtest.h>
 
@@ -33,3 +35,47 @@ TEST(CryptoTest, Version) {
   EXPECT_EQ(expected,
             std::string(OPENSSL_VERSION_TEXT).substr(0, strlen(expected)));
 }
+
+TEST(CryptoTest, Strndup) {
+  bssl::UniquePtr<char> str(OPENSSL_strndup(nullptr, 0));
+  EXPECT_TRUE(str);
+  EXPECT_STREQ("", str.get());
+}
+
+#if defined(BORINGSSL_FIPS_COUNTERS)
+TEST(CryptoTest, FIPSCountersEVP) {
+  constexpr struct {
+    const EVP_CIPHER *(*cipher)();
+    fips_counter_t counter;
+  } kTests[] = {
+    {
+        EVP_aes_128_gcm,
+        fips_counter_evp_aes_128_gcm,
+    },
+    {
+        EVP_aes_256_gcm,
+        fips_counter_evp_aes_256_gcm,
+    },
+    {
+        EVP_aes_128_ctr,
+        fips_counter_evp_aes_128_ctr,
+    },
+    {
+        EVP_aes_256_ctr,
+        fips_counter_evp_aes_256_ctr,
+    },
+  };
+
+  uint8_t key[EVP_MAX_KEY_LENGTH] = {0};
+  uint8_t iv[EVP_MAX_IV_LENGTH] = {1};
+
+  for (const auto& test : kTests) {
+    const size_t before = FIPS_read_counter(test.counter);
+
+    bssl::ScopedEVP_CIPHER_CTX ctx;
+    ASSERT_TRUE(EVP_EncryptInit_ex(ctx.get(), test.cipher(), /*engine=*/nullptr,
+                                   key, iv));
+    ASSERT_GT(FIPS_read_counter(test.counter), before);
+  }
+}
+#endif  // BORINGSSL_FIPS_COUNTERS

@@ -20,11 +20,14 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.binding.BindingRequest.bindingRequest;
 
 import com.squareup.javapoet.CodeBlock;
+import dagger.assisted.Assisted;
+import dagger.assisted.AssistedFactory;
+import dagger.assisted.AssistedInject;
 import dagger.internal.codegen.binding.ContributionBinding;
 import dagger.internal.codegen.writing.FrameworkFieldInitializer.FrameworkInstanceCreationExpression;
 
 /**
- * A {@link FrameworkInstanceCreationExpression} for {@link dagger.model.BindingKind#OPTIONAL
+ * A {@link FrameworkInstanceCreationExpression} for {@link dagger.spi.model.BindingKind#OPTIONAL
  * optional bindings}.
  */
 final class OptionalFactoryInstanceCreationExpression
@@ -32,17 +35,18 @@ final class OptionalFactoryInstanceCreationExpression
   private final OptionalFactories optionalFactories;
   private final ContributionBinding binding;
   private final ComponentImplementation componentImplementation;
-  private final ComponentBindingExpressions componentBindingExpressions;
+  private final ComponentRequestRepresentations componentRequestRepresentations;
 
+  @AssistedInject
   OptionalFactoryInstanceCreationExpression(
+      @Assisted ContributionBinding binding,
       OptionalFactories optionalFactories,
-      ContributionBinding binding,
       ComponentImplementation componentImplementation,
-      ComponentBindingExpressions componentBindingExpressions) {
+      ComponentRequestRepresentations componentRequestRepresentations) {
     this.optionalFactories = optionalFactories;
     this.binding = binding;
     this.componentImplementation = componentImplementation;
-    this.componentBindingExpressions = componentBindingExpressions;
+    this.componentRequestRepresentations = componentRequestRepresentations;
   }
 
   @Override
@@ -51,18 +55,16 @@ final class OptionalFactoryInstanceCreationExpression
         ? optionalFactories.absentOptionalProvider(binding)
         : optionalFactories.presentOptionalFactory(
             binding,
-            componentBindingExpressions
+            componentRequestRepresentations
                 .getDependencyExpression(
                     bindingRequest(
                         getOnlyElement(binding.dependencies()).key(), binding.frameworkType()),
-                    componentImplementation.name())
+                    componentImplementation.shardImplementation(binding).name())
                 .codeBlock());
   }
 
-  @Override
-  public boolean useInnerSwitchingProvider() {
-    // Share providers for empty optionals from OptionalFactories so we don't have numerous
-    // switch cases that all return Optional.empty().
-    return !binding.dependencies().isEmpty();
+  @AssistedFactory
+  static interface Factory {
+    OptionalFactoryInstanceCreationExpression create(ContributionBinding binding);
   }
 }

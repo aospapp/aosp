@@ -24,7 +24,7 @@ java_library(
     javacopts = DOCLINT_HTML_AND_SYNTAX,
     tags = ["maven_coordinates=com.google.dagger:dagger-grpc-server-annotations:" + POM_VERSION],
     deps = [
-        "@google_bazel_common//third_party/java/jsr330_inject",
+        "//third_party/java/jsr330_inject",
     ],
 )
 
@@ -41,15 +41,15 @@ java_library(
     exports = [":annotations"],
     deps = [
         "//:dagger_with_compiler",
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
-        "@google_bazel_common//third_party/java/auto:value",
-        "@google_bazel_common//third_party/java/grpc:context",
-        "@google_bazel_common//third_party/java/grpc:core",
-        "@google_bazel_common//third_party/java/grpc:netty",
-        "@google_bazel_common//third_party/java/grpc:protobuf",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/protobuf",
+        "//third_party/java/auto:value",
+        "//third_party/java/grpc:context",
+        "//third_party/java/grpc:core",
+        "//third_party/java/grpc:netty",
+        "//third_party/java/grpc:protobuf",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/protobuf",
     ],
 )
 

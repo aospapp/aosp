@@ -23,6 +23,7 @@
 #include <unwindstack/MachineArm64.h>
 #include <unwindstack/MachineMips.h>
 #include <unwindstack/MachineMips64.h>
+#include <unwindstack/MachineRiscv64.h>
 #include <unwindstack/MachineX86.h>
 #include <unwindstack/MachineX86_64.h>
 #include <unwindstack/Maps.h>
@@ -32,6 +33,7 @@
 #include <unwindstack/RegsArm64.h>
 #include <unwindstack/RegsMips.h>
 #include <unwindstack/RegsMips64.h>
+#include <unwindstack/RegsRiscv64.h>
 #include <unwindstack/RegsX86.h>
 #include <unwindstack/RegsX86_64.h>
 #include <unwindstack/Unwinder.h>
@@ -39,6 +41,7 @@
 #include <unwindstack/UserArm64.h>
 #include <unwindstack/UserMips.h>
 #include <unwindstack/UserMips64.h>
+#include <unwindstack/UserRiscv64.h>
 #include <unwindstack/UserX86.h>
 #include <unwindstack/UserX86_64.h>
 
@@ -112,6 +115,9 @@ std::unique_ptr<unwindstack::Regs> CreateRegsFromRawData(
       break;
     case unwindstack::ARCH_MIPS64:
       ret.reset(new unwindstack::RegsMips64());
+      break;
+    case unwindstack::ARCH_RISCV64:
+      ret.reset(new unwindstack::RegsRiscv64());
       break;
     case unwindstack::ARCH_UNKNOWN:
       break;
@@ -198,6 +204,29 @@ bool DoUnwind(WireMessage* msg, UnwindingMetadata* metadata, AllocRecord* out) {
   return true;
 }
 
+UnwindingWorker::~UnwindingWorker() {
+  if (thread_task_runner_.get() == nullptr) {
+    return;
+  }
+  std::mutex mutex;
+  std::condition_variable cv;
+
+  std::unique_lock<std::mutex> lock(mutex);
+  bool done = false;
+  thread_task_runner_.PostTask([&mutex, &cv, &done, this] {
+    for (auto& it : client_data_) {
+      auto& client_data = it.second;
+      client_data.sock->Shutdown(false);
+    }
+    client_data_.clear();
+
+    std::lock_guard<std::mutex> inner_lock(mutex);
+    done = true;
+    cv.notify_one();
+  });
+  cv.wait(lock, [&done] { return done; });
+}
+
 void UnwindingWorker::OnDisconnect(base::UnixSocket* self) {
   pid_t peer_pid = self->peer_pid_linux();
   auto it = client_data_.find(peer_pid);
@@ -207,12 +236,35 @@ void UnwindingWorker::OnDisconnect(base::UnixSocket* self) {
   }
 
   ClientData& client_data = it->second;
-  ReadAndUnwindBatch(&client_data);
+  SharedRingBuffer& shmem = client_data.shmem;
+  client_data.drain_bytes = shmem.read_avail();
+
+  if (client_data.drain_bytes != 0) {
+    DrainJob(peer_pid);
+  } else {
+    FinishDisconnect(it);
+  }
+}
+
+void UnwindingWorker::RemoveClientData(
+    std::map<pid_t, ClientData>::iterator client_data_iterator) {
+  client_data_.erase(client_data_iterator);
+  if (client_data_.empty()) {
+    // We got rid of the last client. Flush and destruct AllocRecords in
+    // arena. Disable the arena (will not accept returning borrowed records)
+    // in case there are pending AllocRecords on the main thread.
+    alloc_record_arena_.Disable();
+  }
+}
+
+void UnwindingWorker::FinishDisconnect(
+    std::map<pid_t, ClientData>::iterator client_data_iterator) {
+  pid_t peer_pid = client_data_iterator->first;
+  ClientData& client_data = client_data_iterator->second;
   SharedRingBuffer& shmem = client_data.shmem;
 
   if (!client_data.free_records.empty()) {
     delegate_->PostFreeRecord(this, std::move(client_data.free_records));
-    client_data.free_records.clear();
   }
 
   SharedRingBuffer::Stats stats = {};
@@ -225,15 +277,7 @@ void UnwindingWorker::OnDisconnect(base::UnixSocket* self) {
   }
   DataSourceInstanceID ds_id = client_data.data_source_instance_id;
 
-  client_data_.erase(it);
-  // The erase invalidates the self pointer.
-  self = nullptr;
-  if (client_data_.empty()) {
-    // We got rid of the last client. Flush and destruct AllocRecords in
-    // arena. Disable the arena (will not accept returning borrowed records)
-    // in case there are pending AllocRecords on the main thread.
-    alloc_record_arena_.Disable();
-  }
+  RemoveClientData(client_data_iterator);
   delegate_->PostSocketDisconnected(this, ds_id, peer_pid, stats);
 }
 
@@ -248,6 +292,7 @@ UnwindingWorker::ReadAndUnwindBatchResult UnwindingWorker::ReadAndUnwindBatch(
     ClientData* client_data) {
   SharedRingBuffer& shmem = client_data->shmem;
   SharedRingBuffer::Buffer buf;
+  ReadAndUnwindBatchResult res;
 
   size_t i;
   for (i = 0; i < kUnwindBatchSize; ++i) {
@@ -257,21 +302,23 @@ UnwindingWorker::ReadAndUnwindBatchResult UnwindingWorker::ReadAndUnwindBatch(
       break;
     HandleBuffer(this, &alloc_record_arena_, buf, client_data,
                  client_data->sock->peer_pid_linux(), delegate_);
-    shmem.EndRead(std::move(buf));
+    res.bytes_read += shmem.EndRead(std::move(buf));
     // Reparsing takes time, so process the rest in a new batch to avoid timing
     // out.
     if (reparses_before < client_data->metadata.reparses) {
-      return ReadAndUnwindBatchResult::kHasMore;
+      res.status = ReadAndUnwindBatchResult::Status::kHasMore;
+      return res;
     }
   }
 
   if (i == kUnwindBatchSize) {
-    return ReadAndUnwindBatchResult::kHasMore;
+    res.status = ReadAndUnwindBatchResult::Status::kHasMore;
   } else if (i > 0) {
-    return ReadAndUnwindBatchResult::kReadSome;
+    res.status = ReadAndUnwindBatchResult::Status::kReadSome;
   } else {
-    return ReadAndUnwindBatchResult::kReadNone;
+    res.status = ReadAndUnwindBatchResult::Status::kReadNone;
   }
+  return res;
 }
 
 void UnwindingWorker::BatchUnwindJob(pid_t peer_pid) {
@@ -282,22 +329,28 @@ void UnwindingWorker::BatchUnwindJob(pid_t peer_pid) {
     PERFETTO_DLOG("Unexpected data.");
     return;
   }
+  ClientData& client_data = it->second;
+  if (client_data.drain_bytes != 0) {
+    // This process disconnected and we're reading out the remainder of its
+    // buffered data in a dedicated recurring task (DrainJob), so this task has
+    // nothing to do.
+    return;
+  }
 
   bool job_reposted = false;
   bool reader_paused = false;
-  ClientData& client_data = it->second;
-  switch (ReadAndUnwindBatch(&client_data)) {
-    case ReadAndUnwindBatchResult::kHasMore:
+  switch (ReadAndUnwindBatch(&client_data).status) {
+    case ReadAndUnwindBatchResult::Status::kHasMore:
       thread_task_runner_.get()->PostTask(
           [this, peer_pid] { BatchUnwindJob(peer_pid); });
       job_reposted = true;
       break;
-    case ReadAndUnwindBatchResult::kReadSome:
+    case ReadAndUnwindBatchResult::Status::kReadSome:
       thread_task_runner_.get()->PostDelayedTask(
           [this, peer_pid] { BatchUnwindJob(peer_pid); }, kRetryDelayMs);
       job_reposted = true;
       break;
-    case ReadAndUnwindBatchResult::kReadNone:
+    case ReadAndUnwindBatchResult::Status::kReadNone:
       client_data.shmem.SetReaderPaused();
       reader_paused = true;
       break;
@@ -309,6 +362,36 @@ void UnwindingWorker::BatchUnwindJob(pid_t peer_pid) {
   // If we do neither of these things, we will not read from the shared memory
   // buffer again.
   PERFETTO_CHECK(job_reposted || reader_paused);
+}
+
+void UnwindingWorker::DrainJob(pid_t peer_pid) {
+  auto it = client_data_.find(peer_pid);
+  if (it == client_data_.end()) {
+    return;
+  }
+  ClientData& client_data = it->second;
+  auto res = ReadAndUnwindBatch(&client_data);
+  switch (res.status) {
+    case ReadAndUnwindBatchResult::Status::kHasMore:
+      if (res.bytes_read < client_data.drain_bytes) {
+        client_data.drain_bytes -= res.bytes_read;
+        thread_task_runner_.get()->PostTask(
+            [this, peer_pid] { DrainJob(peer_pid); });
+        return;
+      }
+      // ReadAndUnwindBatch read more than client_data.drain_bytes.
+      break;
+    case ReadAndUnwindBatchResult::Status::kReadSome:
+      // ReadAndUnwindBatch read all the available data (for now) in the shared
+      // memory buffer.
+    case ReadAndUnwindBatchResult::Status::kReadNone:
+      // There was no data in the shared memory buffer.
+      break;
+  }
+  // No further drain task has been scheduled. Drain is finished. Finish the
+  // disconnect operation as well.
+
+  FinishDisconnect(it);
 }
 
 // static
@@ -393,7 +476,8 @@ void UnwindingWorker::HandleHandoffSocket(HandoffData handoff_data) {
       std::move(handoff_data.shmem),
       std::move(handoff_data.client_config),
       handoff_data.stream_allocations,
-      {},
+      /*drain_bytes=*/0,
+      /*free_records=*/{},
   };
   client_data.free_records.reserve(kRecordBatchSize);
   client_data.shmem.SetReaderPaused();
@@ -401,11 +485,44 @@ void UnwindingWorker::HandleHandoffSocket(HandoffData handoff_data) {
   alloc_record_arena_.Enable();
 }
 
+void UnwindingWorker::HandleDrainFree(DataSourceInstanceID ds_id, pid_t pid) {
+  auto it = client_data_.find(pid);
+  if (it != client_data_.end()) {
+    ClientData& client_data = it->second;
+
+    if (!client_data.free_records.empty()) {
+      delegate_->PostFreeRecord(this, std::move(client_data.free_records));
+      client_data.free_records.clear();
+      client_data.free_records.reserve(kRecordBatchSize);
+    }
+  }
+  delegate_->PostDrainDone(this, ds_id);
+}
+
 void UnwindingWorker::PostDisconnectSocket(pid_t pid) {
   // We do not need to use a WeakPtr here because the task runner will not
   // outlive its UnwindingWorker.
   thread_task_runner_.get()->PostTask(
       [this, pid] { HandleDisconnectSocket(pid); });
+}
+
+void UnwindingWorker::PostPurgeProcess(pid_t pid) {
+  // We do not need to use a WeakPtr here because the task runner will not
+  // outlive its UnwindingWorker.
+  thread_task_runner_.get()->PostTask([this, pid] {
+    auto it = client_data_.find(pid);
+    if (it == client_data_.end()) {
+      return;
+    }
+    RemoveClientData(it);
+  });
+}
+
+void UnwindingWorker::PostDrainFree(DataSourceInstanceID ds_id, pid_t pid) {
+  // We do not need to use a WeakPtr here because the task runner will not
+  // outlive its UnwindingWorker.
+  thread_task_runner_.get()->PostTask(
+      [this, ds_id, pid] { HandleDrainFree(ds_id, pid); });
 }
 
 void UnwindingWorker::HandleDisconnectSocket(pid_t pid) {

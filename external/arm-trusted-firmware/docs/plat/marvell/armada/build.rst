@@ -58,6 +58,7 @@ There are several build options:
             - a3700        - A3720 DB, EspressoBin and Turris MOX
             - a70x0
             - a70x0_amc    - AMC board
+            - a70x0_mochabin - Globalscale MOCHAbin
             - a80x0
             - a80x0_mcbin  - MacchiatoBin
             - a80x0_puzzle - IEI Puzzle-M801
@@ -150,8 +151,41 @@ A7K/8K/CN913x specific build options:
         Specify path to the MSS fimware image binary which will run on Cortex-M3 coprocessor.
         It is available in Marvell binaries-marvell git repository. Required when ``MSS_SUPPORT=1``.
 
+Globalscale MOCHAbin specific build options:
+
+- DDR_TOPOLOGY
+
+        The DDR topology map index/name, default is 0.
+
+        Supported Options:
+            -    0 - DDR4 1CS 2GB
+            -    1 - DDR4 1CS 4GB
+            -    2 - DDR4 2CS 8GB
 
 Armada37x0 specific build options:
+
+- HANDLE_EA_EL3_FIRST
+
+        When ``HANDLE_EA_EL3_FIRST=1``, External Aborts and SError Interrupts will be always trapped
+        in TF-A. TF-A in this case enables dirty hack / workaround for a bug found in U-Boot and
+        Linux kernel PCIe controller driver pci-aardvark.c, traps and then masks SError interrupt
+        caused by AXI SLVERR on external access (syndrome 0xbf000002).
+
+        Otherwise when ``HANDLE_EA_EL3_FIRST=0``, these exceptions will be trapped in the current
+        exception level (or in EL1 if the current exception level is EL0). So exceptions caused by
+        U-Boot will be trapped in U-Boot, exceptions caused by Linux kernel (or user applications)
+        will be trapped in Linux kernel.
+
+        Mentioned bug in pci-aardvark.c driver is fixed in U-Boot version v2021.07 and Linux kernel
+        version v5.13 (workarounded since Linux kernel version 5.9) and also backported in Linux
+        kernel stable releases since versions v5.12.13, v5.10.46, v5.4.128, v4.19.198, v4.14.240.
+
+        If target system has already patched version of U-Boot and Linux kernel then it is strongly
+        recommended to not enable this workaround as it disallows propagating of all External Aborts
+        to running Linux kernel and makes correctable errors as fatal aborts.
+
+        This option is now disabled by default. In past this option was enabled by default in
+        TF-A versions v2.2, v2.3, v2.4 and v2.5.
 
 - CM3_SYSTEM_RESET
 

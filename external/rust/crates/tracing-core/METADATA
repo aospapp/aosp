@@ -1,0 +1,19 @@
+name: "tracing-core"
+description: "Core primitives for application-level tracing."
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://crates.io/crates/tracing-core"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://static.crates.io/crates/tracing-core/tracing-core-0.1.30.crate"
+  }
+  version: "0.1.30"
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2023
+    month: 3
+    day: 3
+  }
+}

@@ -15,13 +15,16 @@
 #ifndef ICING_QUERY_QUERY_PROCESSOR_H_
 #define ICING_QUERY_QUERY_PROCESSOR_H_
 
+#include <cstdint>
 #include <memory>
 
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "icing/index/index.h"
 #include "icing/index/iterator/doc-hit-info-iterator-filter.h"
 #include "icing/index/iterator/doc-hit-info-iterator.h"
+#include "icing/index/numeric/numeric-index.h"
 #include "icing/proto/search.pb.h"
+#include "icing/query/query-results.h"
 #include "icing/query/query-terms.h"
 #include "icing/schema/schema-store.h"
 #include "icing/store/document-store.h"
@@ -44,23 +47,17 @@ class QueryProcessor {
   //   An QueryProcessor on success
   //   FAILED_PRECONDITION if any of the pointers is null.
   static libtextclassifier3::StatusOr<std::unique_ptr<QueryProcessor>> Create(
-      Index* index, const LanguageSegmenter* language_segmenter,
-      const Normalizer* normalizer, const DocumentStore* document_store,
-      const SchemaStore* schema_store);
+      Index* index, const NumericIndex<int64_t>* numeric_index,
+      const LanguageSegmenter* language_segmenter, const Normalizer* normalizer,
+      const DocumentStore* document_store, const SchemaStore* schema_store);
 
-  struct QueryResults {
-    std::unique_ptr<DocHitInfoIterator> root_iterator;
-    // A map from section names to sets of terms restricted to those sections.
-    // Query terms that are not restricted are found at the entry with key "".
-    SectionRestrictQueryTermsMap query_terms;
-    // Hit iterators for the text terms in the query. These query_term_iterators
-    // are completely separate from the iterators that make the iterator tree
-    // beginning with root_iterator.
-    std::unordered_map<std::string, std::unique_ptr<DocHitInfoIterator>>
-        query_term_iterators;
-  };
   // Parse the search configurations (including the query, any additional
   // filters, etc.) in the SearchSpecProto into one DocHitInfoIterator.
+  //
+  // When ranking_strategy == RELEVANCE_SCORE, the root_iterator and the
+  // query_term_iterators returned will keep term frequency information
+  // internally, so that term frequency stats will be collected when calling
+  // PopulateMatchedTermsStats to the iterators.
   //
   // Returns:
   //   On success,
@@ -69,14 +66,29 @@ class QueryProcessor {
   //   INVALID_ARGUMENT if query syntax is incorrect and cannot be tokenized
   //   INTERNAL_ERROR on all other errors
   libtextclassifier3::StatusOr<QueryResults> ParseSearch(
-      const SearchSpecProto& search_spec);
+      const SearchSpecProto& search_spec,
+      ScoringSpecProto::RankingStrategy::Code ranking_strategy,
+      int64_t current_time_ms);
 
  private:
   explicit QueryProcessor(Index* index,
+                          const NumericIndex<int64_t>* numeric_index,
                           const LanguageSegmenter* language_segmenter,
                           const Normalizer* normalizer,
                           const DocumentStore* document_store,
                           const SchemaStore* schema_store);
+
+  // Parse the query into a one DocHitInfoIterator that represents the root of a
+  // query tree in our new Advanced Query Language.
+  //
+  // Returns:
+  //   On success,
+  //     - One iterator that represents the entire query
+  //   INVALID_ARGUMENT if query syntax is incorrect and cannot be tokenized
+  libtextclassifier3::StatusOr<QueryResults> ParseAdvancedQuery(
+      const SearchSpecProto& search_spec,
+      ScoringSpecProto::RankingStrategy::Code ranking_strategy,
+      int64_t current_time_ms) const;
 
   // Parse the query into a one DocHitInfoIterator that represents the root of a
   // query tree.
@@ -88,16 +100,14 @@ class QueryProcessor {
   //   INVALID_ARGUMENT if query syntax is incorrect and cannot be tokenized
   //   INTERNAL_ERROR on all other errors
   libtextclassifier3::StatusOr<QueryResults> ParseRawQuery(
-      const SearchSpecProto& search_spec);
-
-  // Return the options for the DocHitInfoIteratorFilter based on the
-  // search_spec.
-  DocHitInfoIteratorFilter::Options getFilterOptions(
-      const SearchSpecProto& search_spec);
+      const SearchSpecProto& search_spec,
+      ScoringSpecProto::RankingStrategy::Code ranking_strategy,
+      int64_t current_time_ms);
 
   // Not const because we could modify/sort the hit buffer in the lite index at
   // query time.
   Index& index_;
+  const NumericIndex<int64_t>& numeric_index_;
   const LanguageSegmenter& language_segmenter_;
   const Normalizer& normalizer_;
   const DocumentStore& document_store_;

@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -12,7 +12,7 @@ The following file's kCommandMap contains a list of fallback commands:
     platform2/chromeos-config/libcros_config/cros_config_fallback.cc
 If the requested cros_config path/property are mapped to a fallback
 command, then that command is called, and its results is returned.
-That behavior is all native to cros_config.
+That behavior is all natural to cros_config.
 
 Let's say you define a new fallback command in cros_config_fallback.cc:
     `cros_config /foo bar` --> `mosys baz quux`

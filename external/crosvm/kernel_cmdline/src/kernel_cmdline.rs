@@ -1,4 +1,4 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@ use thiserror::Error;
 
 /// The error type for command line building operations.
 #[sorted]
-#[derive(Error, PartialEq, Debug)]
+#[derive(Error, PartialEq, Eq, Debug)]
 pub enum Error {
     /// Key/Value Operation would have had an equals sign in it.
     #[error("string contains an equals sign")]
@@ -139,8 +139,9 @@ impl From<Cmdline> for Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::ffi::CString;
+
+    use super::*;
 
     #[test]
     fn insert_hello_world() {

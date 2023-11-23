@@ -15,11 +15,16 @@
  */
 package com.google.android.exoplayer2.mediacodec;
 
+import android.annotation.TargetApi;
 import android.media.MediaCodec;
+import android.os.Build;
+
 import androidx.annotation.IntDef;
+
 import com.google.android.exoplayer2.util.Log;
 import com.google.android.exoplayer2.util.MimeTypes;
 import com.google.android.exoplayer2.util.Util;
+
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -104,6 +109,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
     enableImmediateCodecStartAfterFlush = enabled;
   }
 
+  @TargetApi(Build.VERSION_CODES.M)
   @Override
   public MediaCodecAdapter createAdapter(MediaCodecAdapter.Configuration configuration)
       throws IOException {

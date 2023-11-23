@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 #
 # Copyright 2018 - The Android Open Source Project
 #
@@ -13,22 +13,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-
-# Parses the output of parse_ltp_{make,make_install} and generates a
-# corresponding Android.mk.
-#
-# This process is split into two steps so this second step can later be replaced
-# with an Android.bp generator.
 
 from __future__ import print_function
 
-"""Tool for comparing 2 LTP projects to find added / removed tests & testsuites"""
+"""Tool for comparing 2 LTP projects to find added / removed tests & testsuites.
+
+The tool can be run in two separate steps by dumping the list of tests as a json
+file, i.e.:
+
+$ git checkout master
+$ compare_ltp_projects.py --ltp-old . --ltp-old-json ./ltp_old.json
+$ git checkout mymergebranch
+$ compare_ltp_projects.py --ltp-old-json ./ltp_old.json --ltp-new .
+"""
 
 import os
 import argparse
 import os.path
 import sys
+import json
 
 def scan_tests(ltp_root, suite):
     ''' Find all tests that are run as part of given test suite in LTP.
@@ -192,22 +195,54 @@ def show_diff(ltp_tests_1, ltp_tests_2):
 def main():
     arg_parser = argparse.ArgumentParser(
         description='Diff 2 LTP projects for supported test cases')
-    arg_parser.add_argument('--ltp-old',
+    arg_parser.add_argument('-o', '--ltp-old',
                             dest='ltp_old',
-                            required=True,
                             help="LTP Root Directory before merge")
-    arg_parser.add_argument('--ltp-new',
+    arg_parser.add_argument('-oj', '--ltp-old-json',
+                            dest='ltp_old_json',
+                            default='ltp_old.json',
+                            help="Old LTP parsed directory in json format")
+    arg_parser.add_argument('-n', '--ltp-new',
                             dest='ltp_new',
-                            required=True,
                             help="LTP Root Directory after merge")
+    arg_parser.add_argument('-nj', '--ltp-new-json',
+                            dest='ltp_new_json',
+                            default='ltp_new.json',
+                            help="New LTP parsed directory in json format")
     arg_parser.add_argument('--scenario', default=None,
                             dest='scenario',
                             help="LTP scenario to list tests for")
     args = arg_parser.parse_args()
 
-    ltp_tests1 = scan_ltp(args.ltp_old, args.scenario)
-    ltp_tests2 = scan_ltp(args.ltp_new, args.scenario)
-    show_diff(ltp_tests1, ltp_tests2)
+    # Find tests in the "old" directory or read the json output from a prior run
+    if args.ltp_old:
+        ltp_tests1 = scan_ltp(args.ltp_old, args.scenario)
+    elif args.ltp_old_json and os.path.isfile(args.ltp_old_json):
+        with open(args.ltp_old_json) as f:
+            ltp_tests1 = json.load(f)
+    else:
+        ltp_tests1 = None
+
+    # Do the same for the "new" directory
+    if args.ltp_new:
+        ltp_tests2 = scan_ltp(args.ltp_new, args.scenario)
+    elif args.ltp_new_json and os.path.isfile(args.ltp_new_json):
+        with open(args.ltp_new_json) as f:
+            ltp_tests2 = json.load(f)
+    else:
+        ltp_tests2 = None
+
+    if ltp_tests1 and ltp_tests2:
+        # Show the difference of the two directories if both are present
+        show_diff(ltp_tests1, ltp_tests2)
+    elif ltp_tests1:
+        # If just the old directory was read, dump it as json
+        with open(args.ltp_old_json, 'w') as f:
+            json.dump(ltp_tests1, f)
+    elif ltp_tests2:
+        # If just the new directory was read, dump it as json
+        with open(args.ltp_new_json, 'w') as f:
+            json.dump(ltp_tests2, f)
 
 if __name__ == '__main__':
     main()

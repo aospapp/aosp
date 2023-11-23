@@ -6,6 +6,7 @@ use plotters_backend::BackendCoord;
 use std::ops::Range;
 
 /// A 3D cartesian coordinate system
+#[derive(Clone)]
 pub struct Cartesian3d<X: Ranged, Y: Ranged, Z: Ranged> {
     pub(crate) logic_x: X,
     pub(crate) logic_y: Y,
@@ -33,6 +34,7 @@ impl<X: Ranged, Y: Ranged, Z: Ranged> Cartesian3d<X, Y, Z> {
         pb.set_pivot(center_3d, center_2d);
         f(pb)
     }
+    /// Creates a Cartesian3d object with the given projection.
     pub fn with_projection<
         SX: Into<X>,
         SY: Into<Y>,
@@ -61,6 +63,7 @@ impl<X: Ranged, Y: Ranged, Z: Ranged> Cartesian3d<X, Y, Z> {
         }
     }
 
+    /// Sets the pixel sizes and projections according to the given ranges.
     pub fn set_coord_pixel_range(
         &mut self,
         actual_x: Range<i32>,

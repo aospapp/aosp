@@ -1,3 +1,5 @@
+# Lint as: python2, python3
+
 import asyncore
 import btsocket
 import struct

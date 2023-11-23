@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Arrays.asList;
 
-import com.google.common.annotations.Beta;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
@@ -51,7 +50,6 @@ import javax.annotation.CheckForNull;
  * @author Ben Yu
  * @since 15.0
  */
-@Beta
 @ElementTypesAreNonnullByDefault
 public final class TypeResolver {
 
@@ -123,7 +121,7 @@ public final class TypeResolver {
   }
 
   private static void populateTypeMappings(
-      final Map<TypeVariableKey, Type> mappings, final Type from, final Type to) {
+      Map<TypeVariableKey, Type> mappings, Type from, Type to) {
     if (from.equals(to)) {
       return;
     }
@@ -296,11 +294,11 @@ public final class TypeResolver {
         checkArgument(!variable.equalsType(type), "Type variable %s bound to itself", variable);
         builder.put(variable, type);
       }
-      return new TypeTable(builder.build());
+      return new TypeTable(builder.buildOrThrow());
     }
 
-    final Type resolve(final TypeVariable<?> var) {
-      final TypeTable unguarded = this;
+    final Type resolve(TypeVariable<?> var) {
+      TypeTable unguarded = this;
       TypeTable guarded =
           new TypeTable() {
             @Override
@@ -414,7 +412,7 @@ public final class TypeResolver {
       visit(t.getUpperBounds());
     }
 
-    private void map(final TypeVariableKey var, final Type arg) {
+    private void map(TypeVariableKey var, Type arg) {
       if (mappings.containsKey(var)) {
         // Mapping already established
         // This is possible when following both superClass -> enclosingClass
@@ -504,7 +502,7 @@ public final class TypeResolver {
       return Types.newArtificialTypeVariable(WildcardCapturer.class, name, upperBounds);
     }
 
-    private WildcardCapturer forTypeVariable(final TypeVariable<?> typeParam) {
+    private WildcardCapturer forTypeVariable(TypeVariable<?> typeParam) {
       return new WildcardCapturer(id) {
         @Override
         TypeVariable<?> captureAsTypeVariable(Type[] upperBounds) {

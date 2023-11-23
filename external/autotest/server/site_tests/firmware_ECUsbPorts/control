@@ -4,17 +4,18 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_ECUsbPorts"
 PURPOSE = "Servo based EC USB ports test"
 CRITERIA = "This test will fail if EC USB port control misbehalved."
-ATTRIBUTES = "suite:faft_ec, suite:faft_ec_fw_qual, suite:faft_ec3po, suite:faft_ec_tot"
+ATTRIBUTES = "suite:faft_ec, suite:faft_ec_fw_qual, suite:faft_ec_tot"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
+JOB_RETRIES = 0
 DEPENDENCIES = "ec:cros, servo_state:WORKING"
-JOB_RETRIES = 4
+PY_VERSION = 3
 
 DOC = """
 This test check if EC can correctly controls USB port mode.

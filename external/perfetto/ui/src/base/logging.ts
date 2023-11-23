@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as version from '../gen/perfetto_version';
+import {SCM_REVISION, VERSION} from '../gen/perfetto_version';
 
 export type ErrorHandler = (err: string) => void;
 
@@ -26,8 +26,8 @@ export function assertExists<A>(value: A | null | undefined): A {
 }
 
 export function assertTrue(value: boolean, optMsg?: string) {
-  if (value !== true) {
-    throw new Error(optMsg ? optMsg : 'Failed assertion');
+  if (!value) {
+    throw new Error(optMsg ?? 'Failed assertion');
   }
 }
 
@@ -58,9 +58,20 @@ export function reportError(err: ErrorEvent|PromiseRejectionEvent|{}) {
     errLog += errStack !== undefined ? errStack : JSON.stringify(errorObj);
   }
   errLog += '\n\n';
-  errLog += `${version.VERSION} ${version.SCM_REVISION}\n`;
+  errLog += `${VERSION} ${SCM_REVISION}\n`;
   errLog += `UA: ${navigator.userAgent}\n`;
 
   console.error(errLog, err);
   errorHandler(errLog);
+}
+
+// This function serves two purposes.
+// 1) A runtime check - if we are ever called, we throw an exception.
+// This is useful for checking that code we suspect should never be reached is
+// actually never reached.
+// 2) A compile time check where typescript asserts that the value passed can be
+// cast to the "never" type.
+// This is useful for ensuring we exhastively check union types.
+export function assertUnreachable(_x: never) {
+  throw new Error('This code should not be reachable');
 }

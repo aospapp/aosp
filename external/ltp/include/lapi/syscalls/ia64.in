@@ -340,3 +340,6 @@ pidfd_open 1458
 close_range 1460
 openat2 1461
 pidfd_getfd 1462
+epoll_pwait2 1465
+quotactl_fd 1467
+futex_waitv 1473

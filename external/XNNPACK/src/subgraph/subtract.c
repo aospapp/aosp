@@ -3,6 +3,7 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include <assert.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -10,15 +11,19 @@
 
 #include <xnnpack.h>
 #include <xnnpack/log.h>
+#include <xnnpack/operator.h>
 #include <xnnpack/params.h>
+#include <xnnpack/requantization.h>
 #include <xnnpack/subgraph.h>
+#include <xnnpack/subgraph-validation.h>
 
 
 static enum xnn_status create_subtract_operator(
   const struct xnn_node* node,
   const struct xnn_value* values,
   size_t num_values,
-  struct xnn_operator_data* opdata)
+  struct xnn_operator_data* opdata,
+  const struct xnn_caches* caches)
 {
   assert(node->num_inputs == 2);
   const uint32_t input1_id = node->inputs[0];
@@ -35,22 +40,29 @@ static enum xnn_status create_subtract_operator(
 
   enum xnn_status status;
   switch (node->compute_type) {
+#ifndef XNN_NO_F16_OPERATORS
+    case xnn_compute_type_fp16:
+      status = xnn_create_subtract_nd_f16(
+        node->activation.output_min,
+        node->activation.output_max,
+        node->flags,
+        &opdata->operator_objects[0]);
+      break;
+#endif  // !defined(XNN_NO_F16_OPERATORS)
     case xnn_compute_type_fp32:
       status = xnn_create_subtract_nd_f32(
         node->activation.output_min,
         node->activation.output_max,
         node->flags,
-        &opdata->operator_object);
+        &opdata->operator_objects[0]);
       break;
 #ifndef XNN_NO_QS8_OPERATORS
     case xnn_compute_type_qs8:
     {
       const float output_scale = values[output_id].quantization.scale;
       const int32_t output_zero_point = values[output_id].quantization.zero_point;
-      const int8_t output_min =
-        (int8_t) lrintf(fminf(fmaxf(node->activation.output_min / output_scale + (float) output_zero_point, -128.0f), 127.0f));
-      const int8_t output_max =
-        (int8_t) lrintf(fminf(fmaxf(node->activation.output_max / output_scale + (float) output_zero_point, -128.0f), 127.0f));
+      const int8_t output_min = xnn_qs8_quantize(node->activation.output_min, output_scale, output_zero_point);
+      const int8_t output_max = xnn_qs8_quantize(node->activation.output_max, output_scale, output_zero_point);
       status = xnn_create_subtract_nd_qs8(
         (int8_t) values[input1_id].quantization.zero_point,
         values[input1_id].quantization.scale,
@@ -58,7 +70,7 @@ static enum xnn_status create_subtract_operator(
         values[input2_id].quantization.scale,
         (int8_t) output_zero_point,
         output_scale, output_min, output_max, node->flags,
-        &opdata->operator_object);
+        &opdata->operator_objects[0]);
       break;
     }
 #endif  // !defined(XNN_NO_QS8_OPERATORS)
@@ -67,10 +79,8 @@ static enum xnn_status create_subtract_operator(
     {
       const float output_scale = values[output_id].quantization.scale;
       const int32_t output_zero_point = values[output_id].quantization.zero_point;
-      const uint8_t output_min =
-        (uint8_t) lrintf(fminf(fmaxf(node->activation.output_min / output_scale + (float) output_zero_point, 0.0f), 255.0f));
-      const uint8_t output_max =
-        (uint8_t) lrintf(fminf(fmaxf(node->activation.output_max / output_scale + (float) output_zero_point, 0.0f), 255.0f));
+      const uint8_t output_min = xnn_qu8_quantize(node->activation.output_min, output_scale, output_zero_point);
+      const uint8_t output_max = xnn_qu8_quantize(node->activation.output_max, output_scale, output_zero_point);
       status = xnn_create_subtract_nd_qu8(
         (uint8_t) values[input1_id].quantization.zero_point,
         values[input1_id].quantization.scale,
@@ -78,7 +88,7 @@ static enum xnn_status create_subtract_operator(
         values[input2_id].quantization.scale,
         (uint8_t) output_zero_point,
         output_scale, output_min, output_max, node->flags,
-        &opdata->operator_object);
+        &opdata->operator_objects[0]);
       break;
     }
 #endif  // !defined(XNN_NO_QU8_OPERATORS)
@@ -145,40 +155,48 @@ static enum xnn_status setup_subtract_operator(
   void* output_data = output_blob->data;
   assert(output_data != NULL);
 
-  switch (opdata->operator_object->type) {
-    case xnn_operator_type_subtract_nd_f32:
-      return xnn_setup_subtract_nd_f32(
-        opdata->operator_object,
+  switch (opdata->operator_objects[0]->type) {
+#ifndef XNN_NO_F16_OPERATORS
+    case xnn_operator_type_subtract_nd_f16:
+      return xnn_setup_subtract_nd_f16(
+        opdata->operator_objects[0],
         opdata->shape1.num_dims,
         opdata->shape1.dim,
         opdata->shape2.num_dims,
         opdata->shape2.dim,
         input1_data, input2_data, output_data,
         threadpool);
-      break;
+#endif  // !defined(XNN_NO_F16_OPERATORS)
+    case xnn_operator_type_subtract_nd_f32:
+      return xnn_setup_subtract_nd_f32(
+        opdata->operator_objects[0],
+        opdata->shape1.num_dims,
+        opdata->shape1.dim,
+        opdata->shape2.num_dims,
+        opdata->shape2.dim,
+        input1_data, input2_data, output_data,
+        threadpool);
 #ifndef XNN_NO_QS8_OPERATORS
     case xnn_operator_type_subtract_nd_qs8:
       return xnn_setup_subtract_nd_qs8(
-        opdata->operator_object,
+        opdata->operator_objects[0],
         opdata->shape1.num_dims,
         opdata->shape1.dim,
         opdata->shape2.num_dims,
         opdata->shape2.dim,
         input1_data, input2_data, output_data,
         threadpool);
-      break;
 #endif  // !defined(XNN_NO_QS8_OPERATORS)
 #ifndef XNN_NO_QU8_OPERATORS
     case xnn_operator_type_subtract_nd_qu8:
       return xnn_setup_subtract_nd_qu8(
-        opdata->operator_object,
+        opdata->operator_objects[0],
         opdata->shape1.num_dims,
         opdata->shape1.dim,
         opdata->shape2.num_dims,
         opdata->shape2.dim,
         input1_data, input2_data, output_data,
         threadpool);
-      break;
 #endif  // !defined(XNN_NO_QU8_OPERATORS)
     default:
       XNN_UNREACHABLE;
@@ -194,46 +212,25 @@ enum xnn_status xnn_define_subtract(
   uint32_t output_id,
   uint32_t flags)
 {
-  if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
-    xnn_log_error("failed to define %s operator: XNNPACK is not initialized",
-      xnn_node_type_to_string(xnn_node_type_subtract));
-    return xnn_status_uninitialized;
+  enum xnn_status status;
+  if ((status = xnn_subgraph_check_xnnpack_initialized(xnn_node_type_subtract)) != xnn_status_success) {
+    return status;
   }
 
-  if (isnan(output_min)) {
-    xnn_log_error(
-      "failed to define %s operator with NaN output lower bound: lower bound must be non-NaN",
-      xnn_node_type_to_string(xnn_node_type_subtract));
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_min_max(xnn_node_type_subtract, output_min, output_max);
+  if (status != xnn_status_success) {
+    return status;
   }
 
-  if (isnan(output_max)) {
-    xnn_log_error(
-      "failed to define %s operator with NaN output upper bound: upper bound must be non-NaN",
-      xnn_node_type_to_string(xnn_node_type_subtract));
-    return xnn_status_invalid_parameter;
-  }
-
-  if (output_min >= output_max) {
-    xnn_log_error(
-      "failed to define %s operator with [%.7g, %.7g] output range: lower bound must be below upper bound",
-      xnn_node_type_to_string(xnn_node_type_subtract), output_min, output_max);
-    return xnn_status_invalid_parameter;
-  }
-
-  if (input1_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with the first input ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_subtract), input1_id);
-    return xnn_status_invalid_parameter;
+  if ((status = xnn_subgraph_check_nth_input_node_id(
+        xnn_node_type_subtract, input1_id, subgraph->num_values, 2)) != xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* input1_value = &subgraph->values[input1_id];
-  if (input1_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with the first input ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_subtract), input1_id, input1_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_nth_input_type_dense(xnn_node_type_subtract, input1_id, input1_value, 1);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   switch (input1_value->datatype) {
@@ -253,19 +250,15 @@ enum xnn_status xnn_define_subtract(
       return xnn_status_invalid_parameter;
   }
 
-  if (input2_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with the second input ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_subtract), input2_id);
-    return xnn_status_invalid_parameter;
+  if ((status = xnn_subgraph_check_nth_input_node_id(
+        xnn_node_type_subtract, input2_id, subgraph->num_values, 1)) != xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* input2_value = &subgraph->values[input2_id];
-  if (input2_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with the second input ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_subtract), input2_id, input2_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_nth_input_type_dense(xnn_node_type_subtract, input2_id, input2_value, 2);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   switch (input2_value->datatype) {
@@ -285,19 +278,15 @@ enum xnn_status xnn_define_subtract(
       return xnn_status_invalid_parameter;
   }
 
-  if (output_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_subtract), output_id);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_node_id(xnn_node_type_subtract, output_id, subgraph->num_values);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* output_value = &subgraph->values[output_id];
-  if (output_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_subtract), output_id, output_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_type_dense(xnn_node_type_subtract, output_id, output_value);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   enum xnn_compute_type compute_type = xnn_compute_type_invalid;
@@ -323,17 +312,10 @@ enum xnn_status xnn_define_subtract(
       return xnn_status_invalid_parameter;
   }
 
-  if (input1_value->datatype != input2_value->datatype ||
-      input1_value->datatype != output_value->datatype)
-  {
-    xnn_log_error(
-      "failed to define %s operator with input IDs #%" PRIu32 " and #%" PRIu32 " and output ID #%" PRIu32
-      ": mismatching datatypes across the first input (%s), the second input (%s), and output (%s)",
-      xnn_node_type_to_string(xnn_node_type_subtract), input1_id, input2_id, output_id,
-      xnn_datatype_to_string(input1_value->datatype),
-      xnn_datatype_to_string(input2_value->datatype),
-      xnn_datatype_to_string(output_value->datatype));
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_datatype_matches_two_inputs(
+      xnn_node_type_subtract, input1_id, input1_value, input2_id, input2_value, output_id, output_value);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   struct xnn_node* node = xnn_subgraph_new_node(subgraph);

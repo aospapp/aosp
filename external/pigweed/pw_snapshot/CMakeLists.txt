@@ -15,27 +15,20 @@
 include($ENV{PW_ROOT}/pw_build/pigweed.cmake)
 include($ENV{PW_ROOT}/pw_protobuf_compiler/proto.cmake)
 
-pw_add_module_library(pw_snapshot.uuid
+pw_add_library(pw_snapshot.uuid STATIC
   HEADERS
     public/pw_snapshot/uuid.h
   PUBLIC_INCLUDES
     public
   PUBLIC_DEPS
-    pw_polyfill.span
-    pw_polyfill.cstddef
-    pw_result
     pw_bytes
+    pw_result
+    pw_span
   SOURCES
     uuid.cc
   PRIVATE_DEPS
     pw_protobuf
     pw_snapshot.metadata_proto.pwpb
-)
-
-pw_add_module_library(pw_snapshot
-  PUBLIC_DEPS
-    pw_snapshot.metadata_proto
-    pw_snapshot.snapshot_proto
 )
 
 # This proto library only contains the snapshot_metadata.proto. Typically this
@@ -58,16 +51,17 @@ pw_proto_library(pw_snapshot.snapshot_proto
   SOURCES
     pw_snapshot_protos/snapshot.proto
   DEPS
-    pw_snapshot.metadata_proto
+    pw_chrono.protos
     pw_cpu_exception_cortex_m.cpu_state_protos
     pw_log.protos
+    pw_snapshot.metadata_proto
     pw_thread.protos
 )
 
 pw_add_test(pw_snapshot.cpp_compile_test
   SOURCES
     cpp_compile_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_protobuf
     pw_snapshot.snapshot_proto.pwpb
   GROUPS
@@ -78,10 +72,9 @@ pw_add_test(pw_snapshot.cpp_compile_test
 pw_add_test(pw_snapshot.uuid_test
   SOURCES
     uuid_test.cc
-  DEPS
+  PRIVATE_DEPS
     pw_bytes
-    pw_polyfill.cstddef
-    pw_polyfill.span
+    pw_span
     pw_protobuf
     pw_result
     pw_snapshot.metadata_proto.pwpb

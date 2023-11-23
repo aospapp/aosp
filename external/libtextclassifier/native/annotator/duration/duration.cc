@@ -20,6 +20,7 @@
 #include <cstdlib>
 
 #include "annotator/collections.h"
+#include "annotator/model_generated.h"
 #include "annotator/types.h"
 #include "utils/base/logging.h"
 #include "utils/base/macros.h"
@@ -125,8 +126,10 @@ bool DurationAnnotator::ClassifyText(
     const UnicodeText& context, CodepointSpan selection_indices,
     AnnotationUsecase annotation_usecase,
     ClassificationResult* classification_result) const {
-  if (!options_->enabled() || ((options_->enabled_annotation_usecases() &
-                                (1 << annotation_usecase))) == 0) {
+  if (!options_->enabled() ||
+      ((options_->enabled_annotation_usecases() & (1 << annotation_usecase))) ==
+          0 ||
+      !(options_->enabled_modes() & ModeFlag_CLASSIFICATION)) {
     return false;
   }
 
@@ -151,9 +154,12 @@ bool DurationAnnotator::ClassifyText(
 bool DurationAnnotator::FindAll(const UnicodeText& context,
                                 const std::vector<Token>& tokens,
                                 AnnotationUsecase annotation_usecase,
+                                ModeFlag mode,
                                 std::vector<AnnotatedSpan>* results) const {
-  if (!options_->enabled() || ((options_->enabled_annotation_usecases() &
-                                (1 << annotation_usecase))) == 0) {
+  if (!options_->enabled() ||
+      ((options_->enabled_annotation_usecases() & (1 << annotation_usecase))) ==
+          0 ||
+      !(options_->enabled_modes() & mode)) {
     return true;
   }
 

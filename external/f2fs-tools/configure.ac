@@ -12,6 +12,8 @@ m4_define([f2fs_tools_gitdate],
 AC_INIT([F2FS tools], [f2fs_tools_version],
 			[linux-f2fs-devel@lists.sourceforge.net])
 
+AM_SILENT_RULES([yes])
+
 AC_DEFINE([F2FS_TOOLS_VERSION], "f2fs_tools_version", [f2fs-tools version])
 AC_DEFINE([F2FS_MAJOR_VERSION], m4_bpatsubst(f2fs_tools_version,
 				[\([0-9]*\)\(\w\|\W\)*], [\1]),
@@ -30,95 +32,140 @@ AS_IF([test -d .git],[
 		[f2fs-tools date based on Source releases])])
 
 AC_CONFIG_SRCDIR([config.h.in])
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
-AM_INIT_AUTOMAKE([foreign tar-pax dist-xz])
+AM_INIT_AUTOMAKE([-Wall -Werror foreign tar-pax dist-xz])
 
 # Test configure options.
 AC_ARG_WITH([selinux],
-	AS_HELP_STRING([--without-selinux],
-	  [Ignore presence of libselinux and disable selinux support]))
+	[AS_HELP_STRING([--without-selinux],
+	  [Ignore presence of libselinux and disable selinux support])],
+	[],
+	[with_selinux=check])
 
 AC_ARG_WITH([blkid],
-	AS_HELP_STRING([--without-blkid],
-	  [Ignore presence of libblkid and disable blkid support]))
+	[AS_HELP_STRING([--without-blkid],
+	  [Ignore presence of libblkid and disable blkid support])],
+	[],
+	[with_blkid=check])
+
+AC_ARG_WITH([lzo2],
+	[AS_HELP_STRING([--without-lzo2],
+	  [Ignore presence of liblzo2 and disable lzo2 support])],
+	[],
+	[with_lzo2=check])
+
+AC_ARG_WITH([lz4],
+	[AS_HELP_STRING([--without-lz4],
+	  [Ignore presence of liblz4 and disable lz4 support])],
+	[],
+	[with_lz4=check])
 
 # Checks for programs.
 AC_PROG_CC
-AC_PROG_LIBTOOL
+AM_PROG_AR
+LT_INIT
 AC_PATH_PROG([LDCONFIG], [ldconfig],
        [AC_MSG_ERROR([ldconfig not found])],
        [$PATH:/sbin])
 
 # Checks for libraries.
-AC_CHECK_LIB([lzo2], [main],
-	[AC_SUBST([liblzo2_LIBS], ["-llzo2"])
-		AC_DEFINE([HAVE_LIBLZO2], [1],
-		[Define if you have liblzo2])
+AS_IF([test "x$with_blkid" != xno],
+	[AC_CHECK_LIB([blkid], [blkid_probe_all],
+		[AC_SUBST([libblkid_LIBS], ["-lblkid"])
+			AC_DEFINE([HAVE_LIBBLKID], [1],
+			[Define if you have libblkid])
+		],
+		[if test "x$with_blkid" != xcheck; then
+			AC_MSG_FAILURE(
+                [--with-blkid was given, but test for blkid failed])
+        fi
+	], -lblkid)])
+
+AS_IF([test "x$with_lzo2" != xno],
+	[AC_CHECK_LIB([lzo2], [main],
+		[AC_SUBST([liblzo2_LIBS], ["-llzo2"])
+			AC_DEFINE([HAVE_LIBLZO2], [1],
+			[Define if you have liblzo2])
+		],
+		[if test "x$with_lzo2" != xcheck; then
+			AC_MSG_FAILURE(
+                [--with-lzo2 was given, but test for lzo2 failed])
+        fi
+	], -llzo2)])
+
+AS_IF([test "x$with_lz4" != xno],
+	[AC_CHECK_LIB([lz4], [main],
+		[AC_SUBST([liblz4_LIBS], ["-llz4"])
+			AC_DEFINE([HAVE_LIBLZ4], [1],
+			[Define if you have liblz4])
+		],
+		[if test "x$with_lz4" != xcheck; then
+			AC_MSG_FAILURE(
+                [--with-lz4 was given, but test for lz4 failed])
+        fi
+	], -llz4)])
+
+AS_IF([test "x$with_selinux" != xno],
+	[AC_CHECK_LIB([selinux], [getcon],
+		[AC_SUBST([libselinux_LIBS], ["-lselinux"])
+			AC_DEFINE([HAVE_LIBSELINUX], [1],
+			[Define if you have libselinux])
+		],
+		[if test "x$with_selinux" != xcheck; then
+			AC_MSG_FAILURE(
+				[--with-selinux was given, but test for selinux failed])
+		fi
+	], -lselinux)])
+
+AC_CHECK_LIB([uuid], [uuid_clear],
+	[AC_SUBST([libuuid_LIBS], ["-luuid"])
+		AC_DEFINE([HAVE_LIBUUID], [1],
+		[Define if you have libuuid])
 	], [], [])
 
-AC_CHECK_LIB([lz4], [main],
-	[AC_SUBST([liblz4_LIBS], ["-llz4"])
-		AC_DEFINE([HAVE_LIBLZ4], [1],
-		[Define if you have liblz4])
+AC_CHECK_LIB([winpthread], [clock_gettime],
+	[AC_SUBST([libwinpthread_LIBS], ["-lwinpthread"])
+		AC_DEFINE([HAVE_LIBWINPTHREAD], [1],
+		[Define if you have libwinpthread])
 	], [], [])
-
-PKG_CHECK_MODULES([libuuid], [uuid])
-
-AS_IF([test "x$with_selinux" != "xno"],
-	[PKG_CHECK_MODULES([libselinux], [libselinux],
-	                   [have_selinux=yes], [have_selinux=no])],
-	[have_selinux=no]
-)
-
-AS_IF([test "x$have_selinux" = "xyes"],
-	[AC_DEFINE([HAVE_LIBSELINUX], [1], [Use libselinux])],
-	[AS_IF([test "x$with_selinux" = "xyes"],
-		[AC_MSG_ERROR([selinux support requested but libselinux not found])]
-	)]
-)
-
-AS_IF([test "x$with_blkid" != "xno"],
-	[PKG_CHECK_MODULES([libblkid], [blkid],
-	                   [have_blkid=yes], [have_blkid=no])],
-	[have_blkid=no]
-)
-
-AS_IF([test "x$have_blkid" = "xyes"],
-	[AC_DEFINE([HAVE_LIBBLKID], [1], [Use blkid])],
-	[AS_IF([test "x$with_blkid" = "xyes"],
-		[AC_MSG_ERROR([blkid support requested but libblkid not found])]
-	)]
-)
 
 # Checks for header files.
 AC_CHECK_HEADERS(m4_flatten([
 	attr/xattr.h
+	blkid/blkid.h
 	byteswap.h
 	fcntl.h
+	kernel/uapi/linux/blkzoned.h
 	linux/blkzoned.h
 	linux/falloc.h
+	linux/fiemap.h
 	linux/fs.h
 	linux/hdreg.h
 	linux/limits.h
 	linux/posix_acl.h
 	linux/types.h
 	linux/xattr.h
-	linux/fiemap.h
 	mach/mach_time.h
 	mntent.h
+	pthread_time.h
 	scsi/sg.h
+	selinux/android.h
+	selinux/selinux.h
+	sparse/sparse.h
 	stdlib.h
 	string.h
 	sys/acl.h
 	sys/ioctl.h
-	sys/syscall.h
 	sys/mount.h
+	sys/stat.h
+	sys/syscall.h
 	sys/sysmacros.h
 	sys/utsname.h
 	sys/xattr.h
 	unistd.h
+	uuid/uuid.h
 ]))
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -135,41 +182,32 @@ AC_CHECK_FUNCS_ONCE([
 	fsetxattr
 	fstat
 	fstat64
+	fsync
+	getgid
 	getmntent
+	getuid
 	keyctl
 	llseek
 	lseek64
 	memset
 	setmntent
+	clock_gettime
 ])
 
 AS_IF([test "$ac_cv_header_byteswap_h" = "yes"],
       [AC_CHECK_DECLS([bswap_64],,,[#include <byteswap.h>])])
 
-dnl
-dnl Check to see if llseek() is declared in unistd.h.  On some libc's
-dnl it is, and on others it isn't..... Thank you glibc developers....
-dnl
-AC_CHECK_DECL(llseek,[AC_DEFINE(HAVE_LLSEEK_PROTOTYPE, 1,
-			[Define to 1 if llseek declared in unistd.h])],,
-			[#include <unistd.h>])
-dnl
-dnl Check to see if lseek64() is declared in unistd.h.  Glibc's header files
-dnl are so convoluted that I can't tell whether it will always be defined,
-dnl and if it isn't defined while lseek64 is defined in the library,
-dnl disaster will strike.
-dnl
-dnl Warning!  Use of --enable-gcc-wall may throw off this test.
-dnl
-dnl
-AC_CHECK_DECL(lseek64,[AC_DEFINE(HAVE_LSEEK64_PROTOTYPE, 1,
-		[Define to 1 if lseek64 declared in unistd.h])],,
-		[#define _LARGEFILE_SOURCE
-		#define _LARGEFILE64_SOURCE
-		#include <unistd.h>])
-dnl
-dnl Word sizes...
-dnl
+AC_MSG_CHECKING([for CLOCK_BOOTIME])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
+#include <time.h>
+#ifdef HAVE_PTHREAD_TIME_H
+#include <pthread_time.h>
+#endif
+],[return CLOCK_BOOTTIME])],
+		  [AC_MSG_RESULT([yes])
+		  AC_DEFINE([HAVE_CLOCK_BOOTTIME], [1],
+		  [Define if CLOCK_BOOTTIME is available])],
+		  [AC_MSG_RESULT([no])])
 
 # AC_CANONICAL_HOST is needed to access the 'host_os' variable
 AC_CANONICAL_HOST
@@ -222,22 +260,52 @@ AC_CONFIG_FILES([
 	mkfs/Makefile
 	fsck/Makefile
 	tools/Makefile
-	tools/sg_write_buffer/Makefile
 	tools/f2fs_io/Makefile
 ])
 
 AC_CHECK_MEMBER([struct blk_zone.capacity],
 		[AC_DEFINE(HAVE_BLK_ZONE_REP_V2, [1], [report zones includes zone capacity])],
-		[], [[#include <linux/blkzoned.h>]])
+		[], [[
+#ifdef HAVE_KERNEL_UAPI_LINUX_BLKZONED_H
+#include <kernel/uapi/linux/blkzoned.h>
+#elif defined(HAVE_LINUX_BLKZONED_H)
+#include <linux/blkzoned.h>
+#endif
+		]])
 
 # export library version info for mkfs/libf2fs_format_la
-AC_SUBST(FMT_CURRENT, 7)
+AC_SUBST(FMT_CURRENT, 9)
 AC_SUBST(FMT_REVISION, 0)
 AC_SUBST(FMT_AGE, 0)
 
 # export library version info for lib/libf2fs_la
-AC_SUBST(LIBF2FS_CURRENT, 8)
+AC_SUBST(LIBF2FS_CURRENT, 10)
 AC_SUBST(LIBF2FS_REVISION, 0)
 AC_SUBST(LIBF2FS_AGE, 0)
+
+AH_BOTTOM([
+#ifndef _CONFIG_H_
+#define _CONFIG_H_
+
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+
+#ifndef HAVE_GETUID
+static inline unsigned int getuid(void) { return -1; }
+#endif
+#ifndef HAVE_GETGID
+static inline unsigned int getgid(void) { return -1; }
+#endif
+
+#ifndef S_ISLNK
+#define S_ISLNK(mode) false
+#endif
+#ifndef S_ISSOCK
+#define S_ISSOCK(mode) false
+#endif
+
+#endif
+])
 
 AC_OUTPUT

@@ -9,11 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/google/guava.git"
   }
-  version: "31.0.1"
+  version: "31.1"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2021
-    month: 12
+    year: 2022
+    month: 6
     day: 7
   }
 }

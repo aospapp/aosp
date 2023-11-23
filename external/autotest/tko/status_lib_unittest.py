@@ -1,9 +1,13 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import unittest
 import common
 from autotest_lib.tko import status_lib, parser_lib
 from autotest_lib.client.common_lib import log
+from six.moves import range
 
 
 class clean_raw_line_test(unittest.TestCase):
@@ -38,7 +42,7 @@ class line_buffer_test(unittest.TestCase):
 
     def test_is_fifo(self):
         buf = status_lib.line_buffer()
-        lines = ["line #%d" for x in xrange(10)]
+        lines = ["line #%d" for x in range(10)]
         for line in lines:
             buf.put(line)
         results = []
@@ -49,8 +53,8 @@ class line_buffer_test(unittest.TestCase):
 
     def test_put_multiple_same_as_multiple_puts(self):
         buf_put, buf_multi = [status_lib.line_buffer()
-                              for x in xrange(2)]
-        lines = ["line #%d" % x for x in xrange(10)]
+                              for x in range(2)]
+        lines = ["line #%d" % x for x in range(10)]
         for line in lines:
             buf_put.put(line)
         buf_multi.put_multiple(lines)
@@ -133,9 +137,9 @@ class status_stack_test(unittest.TestCase):
 
 
     def test_worse_overrides_better(self):
-        for i in xrange(len(self.statuses)):
+        for i in range(len(self.statuses)):
             worse_status = self.statuses[i]
-            for j in xrange(i + 1, len(self.statuses)):
+            for j in range(i + 1, len(self.statuses)):
                 stack = status_lib.status_stack()
                 better_status = self.statuses[j]
                 stack.update(better_status)
@@ -145,9 +149,9 @@ class status_stack_test(unittest.TestCase):
 
 
     def test_better_never_overrides_better(self):
-        for i in xrange(len(self.statuses)):
+        for i in range(len(self.statuses)):
             better_status = self.statuses[i]
-            for j in xrange(i):
+            for j in range(i):
                 stack = status_lib.status_stack()
                 worse_status = self.statuses[j]
                 stack.update(worse_status)

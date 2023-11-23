@@ -180,7 +180,7 @@ class AvbABFlowTest : public BaseAvbToolTest {
     const size_t boot_image_size = 5 * 1024 * 1024;
     base::FilePath boot_path = GenerateImage(boot_name, boot_image_size);
     EXPECT_COMMAND(0,
-                   "./avbtool add_hash_footer"
+                   "./avbtool.py add_hash_footer"
                    " --image %s"
                    " --rollback_index %" PRIu64
                    " --partition_name boot"
@@ -194,7 +194,7 @@ class AvbABFlowTest : public BaseAvbToolTest {
     const size_t odm_image_size = 80 * 1024;
     base::FilePath odm_path = GenerateImage(odm_name, odm_image_size);
     EXPECT_COMMAND(0,
-                   "./avbtool add_hashtree_footer"
+                   "./avbtool.py add_hashtree_footer"
                    " --image %s"
                    " --rollback_index %" PRIu64
                    " --partition_name odm"
@@ -210,7 +210,7 @@ class AvbABFlowTest : public BaseAvbToolTest {
     base::FilePath pk_path = testdir_.Append("testkey_rsa4096.avbpubkey");
     EXPECT_COMMAND(
         0,
-        "./avbtool extract_public_key --key test/data/testkey_rsa4096.pem"
+        "./avbtool.py extract_public_key --key test/data/testkey_rsa4096.pem"
         " --output %s",
         pk_path.value().c_str());
 
@@ -1304,7 +1304,7 @@ TEST_F(AvbABFlowTest, AvbtoolMetadataGeneratorEmptyFile) {
 
   base::FilePath misc_path = testdir_.Append("misc.img");
   EXPECT_COMMAND(0,
-                 "./avbtool set_ab_metadata"
+                 "./avbtool.py set_ab_metadata"
                  " --misc_image %s"
                  " --slot_data 13:3:0:11:2:1",
                  misc_path.value().c_str());
@@ -1326,7 +1326,7 @@ TEST_F(AvbABFlowTest, AvbtoolMetadataGeneratorExistingFile) {
   size_t misc_size = 1024 * 1024;
   base::FilePath misc_path = GenerateImage("misc.img", misc_size);
   EXPECT_COMMAND(0,
-                 "./avbtool set_ab_metadata"
+                 "./avbtool.py set_ab_metadata"
                  " --misc_image %s"
                  " --slot_data 12:2:1:10:5:0",
                  misc_path.value().c_str());

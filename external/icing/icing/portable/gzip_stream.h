@@ -27,8 +27,8 @@
 #ifndef GOOGLE3_ICING_PORTABLE_GZIP_STREAM_H_
 #define GOOGLE3_ICING_PORTABLE_GZIP_STREAM_H_
 
-#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 #include "icing/portable/zlib.h"
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 
 namespace icing {
 namespace lib {
@@ -50,9 +50,8 @@ class GzipInputStream : public google::protobuf::io::ZeroCopyInputStream {
   };
 
   // buffer_size and format may be -1 for default of 64kB and GZIP format
-  explicit GzipInputStream(
-      google::protobuf::io::ZeroCopyInputStream* sub_stream,
-      Format format = AUTO, int buffer_size = -1);
+  explicit GzipInputStream(google::protobuf::io::ZeroCopyInputStream* sub_stream,
+                           Format format = AUTO, int buffer_size = -1);
   virtual ~GzipInputStream();
 
   // Return last error message or NULL if no error.
@@ -113,13 +112,11 @@ class GzipOutputStream : public google::protobuf::io::ZeroCopyOutputStream {
   };
 
   // Create a GzipOutputStream with default options.
-  explicit GzipOutputStream(
-      google::protobuf::io::ZeroCopyOutputStream* sub_stream);
+  explicit GzipOutputStream(google::protobuf::io::ZeroCopyOutputStream* sub_stream);
 
   // Create a GzipOutputStream with the given options.
-  GzipOutputStream(
-      google::protobuf::io::ZeroCopyOutputStream* sub_stream,
-      const Options& options);
+  GzipOutputStream(google::protobuf::io::ZeroCopyOutputStream* sub_stream,
+                   const Options& options);
 
   virtual ~GzipOutputStream();
 
@@ -164,9 +161,8 @@ class GzipOutputStream : public google::protobuf::io::ZeroCopyOutputStream {
   size_t input_buffer_length_;
 
   // Shared constructor code.
-  void Init(
-      google::protobuf::io::ZeroCopyOutputStream* sub_stream,
-      const Options& options);
+  void Init(google::protobuf::io::ZeroCopyOutputStream* sub_stream,
+            const Options& options);
 
   // Do some compression.
   // Takes zlib flush mode.

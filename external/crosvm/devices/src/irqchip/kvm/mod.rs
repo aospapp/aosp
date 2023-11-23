@@ -1,17 +1,27 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use crate::{Bus, IrqEdgeEvent, IrqLevelEvent};
-use base::{error, Error, Event, Result};
+use base::error;
+use base::Error;
+use base::Event;
+use base::Result;
 use hypervisor::kvm::KvmVcpu;
+use hypervisor::HypervisorCap;
+use hypervisor::IrqRoute;
+use hypervisor::MPState;
+use hypervisor::Vcpu;
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 use hypervisor::VmAArch64;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use hypervisor::VmX86_64;
-use hypervisor::{HypervisorCap, IrqRoute, MPState, Vcpu};
 use kvm_sys::kvm_mp_state;
 use resources::SystemAllocator;
+
+use crate::Bus;
+use crate::IrqEdgeEvent;
+use crate::IrqEventSource;
+use crate::IrqLevelEvent;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod x86_64;
@@ -23,7 +33,10 @@ mod aarch64;
 #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 pub use aarch64::*;
 
-use crate::{IrqChip, IrqChipCap, IrqEventIndex, VcpuRunState};
+use crate::IrqChip;
+use crate::IrqChipCap;
+use crate::IrqEventIndex;
+use crate::VcpuRunState;
 
 /// This IrqChip only works with Kvm so we only implement it for KvmVcpu.
 impl IrqChip for KvmKernelIrqChip {
@@ -42,6 +55,7 @@ impl IrqChip for KvmKernelIrqChip {
         &mut self,
         irq: u32,
         irq_event: &IrqEdgeEvent,
+        _source: IrqEventSource,
     ) -> Result<Option<IrqEventIndex>> {
         self.vm.register_irqfd(irq, irq_event.get_trigger(), None)?;
         Ok(None)
@@ -58,6 +72,7 @@ impl IrqChip for KvmKernelIrqChip {
         &mut self,
         irq: u32,
         irq_event: &IrqLevelEvent,
+        _source: IrqEventSource,
     ) -> Result<Option<IrqEventIndex>> {
         self.vm
             .register_irqfd(irq, irq_event.get_trigger(), Some(irq_event.get_resample()))?;
@@ -76,7 +91,7 @@ impl IrqChip for KvmKernelIrqChip {
 
         routes.push(route);
 
-        self.vm.set_gsi_routing(&*routes)
+        self.vm.set_gsi_routing(&routes)
     }
 
     /// Replace all irq routes with the supplied routes
@@ -84,14 +99,14 @@ impl IrqChip for KvmKernelIrqChip {
         let mut current_routes = self.routes.lock();
         *current_routes = routes.to_vec();
 
-        self.vm.set_gsi_routing(&*current_routes)
+        self.vm.set_gsi_routing(&current_routes)
     }
 
     /// Return a vector of all registered irq numbers and their associated events and event
     /// indices. These should be used by the main thread to wait for irq events.
     /// For the KvmKernelIrqChip, the kernel handles listening to irq events being triggered by
     /// devices, so this function always returns an empty Vec.
-    fn irq_event_tokens(&self) -> Result<Vec<(IrqEventIndex, u32, Event)>> {
+    fn irq_event_tokens(&self) -> Result<Vec<(IrqEventIndex, IrqEventSource, Event)>> {
         Ok(Vec::new())
     }
 
@@ -196,58 +211,5 @@ impl IrqChip for KvmKernelIrqChip {
                 .check_capability(HypervisorCap::TscDeadlineTimer),
             IrqChipCap::X2Apic => true,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use hypervisor::kvm::{Kvm, KvmVm};
-    use hypervisor::{MPState, ProtectionType, Vm};
-    use vm_memory::GuestMemory;
-
-    use crate::irqchip::{IrqChip, KvmKernelIrqChip};
-
-    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-    use hypervisor::VmAArch64;
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    use hypervisor::VmX86_64;
-
-    #[test]
-    fn create_kvm_kernel_irqchip() {
-        let kvm = Kvm::new().expect("failed to instantiate Kvm");
-        let mem = GuestMemory::new(&[]).unwrap();
-        let vm =
-            KvmVm::new(&kvm, mem, ProtectionType::Unprotected).expect("failed to instantiate vm");
-
-        let mut chip = KvmKernelIrqChip::new(vm.try_clone().expect("failed to clone vm"), 1)
-            .expect("failed to instantiate KvmKernelIrqChip");
-
-        let vcpu = vm.create_vcpu(0).expect("failed to instantiate vcpu");
-        chip.add_vcpu(0, vcpu.as_vcpu())
-            .expect("failed to add vcpu");
-    }
-
-    #[test]
-    fn mp_state() {
-        let kvm = Kvm::new().expect("failed to instantiate Kvm");
-        let mem = GuestMemory::new(&[]).unwrap();
-        let vm =
-            KvmVm::new(&kvm, mem, ProtectionType::Unprotected).expect("failed to instantiate vm");
-
-        let mut chip = KvmKernelIrqChip::new(vm.try_clone().expect("failed to clone vm"), 1)
-            .expect("failed to instantiate KvmKernelIrqChip");
-
-        let vcpu = vm.create_vcpu(0).expect("failed to instantiate vcpu");
-        chip.add_vcpu(0, vcpu.as_vcpu())
-            .expect("failed to add vcpu");
-
-        let state = chip.get_mp_state(0).expect("failed to get mp state");
-        assert_eq!(state, MPState::Runnable);
-
-        chip.set_mp_state(0, &MPState::Stopped)
-            .expect("failed to set mp state");
-
-        let state = chip.get_mp_state(0).expect("failed to get mp state");
-        assert_eq!(state, MPState::Stopped);
     }
 }

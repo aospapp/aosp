@@ -3,21 +3,25 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include <assert.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <xnnpack.h>
 #include <xnnpack/log.h>
+#include <xnnpack/operator.h>
 #include <xnnpack/params.h>
 #include <xnnpack/subgraph.h>
+#include <xnnpack/subgraph-validation.h>
 
 
 static enum xnn_status create_hardswish_operator(
   const struct xnn_node* node,
   const struct xnn_value* values,
   size_t num_values,
-  struct xnn_operator_data* opdata)
+  struct xnn_operator_data* opdata,
+  const struct xnn_caches* caches)
 {
   assert(node->compute_type == xnn_compute_type_fp32);
 
@@ -40,14 +44,14 @@ static enum xnn_status create_hardswish_operator(
       status = xnn_create_hardswish_nc_f32(
         channel_dim /* channels */, channel_dim /* input stride */, channel_dim /* output stride */,
         node->flags,
-        &opdata->operator_object);
+        &opdata->operator_objects[0]);
       break;
 #ifndef XNN_NO_F16_OPERATORS
     case xnn_compute_type_fp16:
       status = xnn_create_hardswish_nc_f16(
         channel_dim /* channels */, channel_dim /* input stride */, channel_dim /* output stride */,
         node->flags,
-        &opdata->operator_object);
+        &opdata->operator_objects[0]);
       break;
 #endif  // !defined(XNN_NO_F16_OPERATORS)
     default:
@@ -83,10 +87,10 @@ static enum xnn_status setup_hardswish_operator(
   void* output_data = output_blob->data;
   assert(output_data != NULL);
 
-  switch (opdata->operator_object->type) {
+  switch (opdata->operator_objects[0]->type) {
     case xnn_operator_type_hardswish_nc_f32:
       return xnn_setup_hardswish_nc_f32(
-        opdata->operator_object,
+        opdata->operator_objects[0],
         opdata->batch_size,
         input_data,
         output_data,
@@ -94,7 +98,7 @@ static enum xnn_status setup_hardswish_operator(
 #ifndef XNN_NO_F16_OPERATORS
     case xnn_operator_type_hardswish_nc_f16:
       return xnn_setup_hardswish_nc_f16(
-        opdata->operator_object,
+        opdata->operator_objects[0],
         opdata->batch_size,
         input_data,
         output_data,
@@ -111,25 +115,20 @@ enum xnn_status xnn_define_hardswish(
   uint32_t output_id,
   uint32_t flags)
 {
-  if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
-    xnn_log_error("failed to define %s operator: XNNPACK is not initialized",
-      xnn_node_type_to_string(xnn_node_type_hardswish));
-    return xnn_status_uninitialized;
+  enum xnn_status status;
+  if ((status = xnn_subgraph_check_xnnpack_initialized(xnn_node_type_hardswish)) != xnn_status_success) {
+    return status;
   }
 
-  if (input_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with input ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_hardswish), input_id);
-    return xnn_status_invalid_parameter;
+  if ((status = xnn_subgraph_check_input_node_id(xnn_node_type_hardswish, input_id, subgraph->num_values)) !=
+      xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* input_value = &subgraph->values[input_id];
-  if (input_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with input ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_hardswish), input_id, input_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_input_type_dense(xnn_node_type_hardswish, input_id, input_value);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   switch (input_value->datatype) {
@@ -143,19 +142,15 @@ enum xnn_status xnn_define_hardswish(
       return xnn_status_invalid_parameter;
   }
 
-  if (output_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_hardswish), output_id);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_node_id(xnn_node_type_hardswish, output_id, subgraph->num_values);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* output_value = &subgraph->values[output_id];
-  if (output_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_hardswish), output_id, output_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_type_dense(xnn_node_type_hardswish, output_id, output_value);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   switch (output_value->datatype) {

@@ -58,7 +58,7 @@ class FELParser {
  private:
   // Initializes the parser with the source text.
   // Returns true on success, false on syntax error.
-  bool Initialize(const std::string &source);
+  bool Initialize(absl::string_view source);
 
   // Outputs an error message, with context info.
   void ReportError(const std::string &error_message);

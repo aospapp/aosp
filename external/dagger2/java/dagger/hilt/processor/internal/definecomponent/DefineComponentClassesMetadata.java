@@ -21,11 +21,13 @@ import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.squareup.javapoet.ClassName;
 import dagger.hilt.processor.internal.AggregatedElements;
 import dagger.hilt.processor.internal.AnnotationValues;
 import dagger.hilt.processor.internal.ClassNames;
 import dagger.hilt.processor.internal.ProcessorErrors;
 import dagger.hilt.processor.internal.Processors;
+import dagger.hilt.processor.internal.root.ir.DefineComponentClassesIr;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.TypeElement;
@@ -36,7 +38,10 @@ import javax.lang.model.util.Elements;
  * dagger.hilt.internal.definecomponent.DefineComponentClasses} annotation.
  */
 @AutoValue
-abstract class DefineComponentClassesMetadata {
+public abstract class DefineComponentClassesMetadata {
+
+  /** Returns the aggregating element */
+  public abstract TypeElement aggregatingElement();
 
   /**
    * Returns the element annotated with {@code dagger.hilt.internal.definecomponent.DefineComponent}
@@ -52,12 +57,20 @@ abstract class DefineComponentClassesMetadata {
     return !isComponent();
   }
 
-  static ImmutableSet<DefineComponentClassesMetadata> from(Elements elements) {
-    return AggregatedElements.from(
+  /** Returns metadata for all aggregated elements in the aggregating package. */
+  public static ImmutableSet<DefineComponentClassesMetadata> from(Elements elements) {
+    return from(
+        AggregatedElements.from(
             ClassNames.DEFINE_COMPONENT_CLASSES_PACKAGE,
             ClassNames.DEFINE_COMPONENT_CLASSES,
-            elements)
-        .stream()
+            elements),
+        elements);
+  }
+
+  /** Returns metadata for each aggregated element. */
+  public static ImmutableSet<DefineComponentClassesMetadata> from(
+      ImmutableSet<TypeElement> aggregatedElements, Elements elements) {
+    return aggregatedElements.stream()
         .map(aggregatedElement -> create(aggregatedElement, elements))
         .collect(toImmutableSet());
   }
@@ -92,6 +105,13 @@ abstract class DefineComponentClassesMetadata {
         ClassNames.DEFINE_COMPONENT_CLASSES.simpleName(),
         isComponent ? "component" : "builder",
         componentOrBuilderName);
-    return new AutoValue_DefineComponentClassesMetadata(componentOrBuilderElement, isComponent);
+    return new AutoValue_DefineComponentClassesMetadata(
+        element, componentOrBuilderElement, isComponent);
+  }
+
+  public static DefineComponentClassesIr toIr(DefineComponentClassesMetadata metadata) {
+    return new DefineComponentClassesIr(
+        ClassName.get(metadata.aggregatingElement()),
+        ClassName.get(metadata.element()));
   }
 }

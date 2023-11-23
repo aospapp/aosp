@@ -17,8 +17,13 @@
 package com.google.doclava;
 
 import com.google.clearsilver.jsilver.data.Data;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class TypeInfo implements Resolvable {
   public static final Set<String> PRIMITIVE_TYPES = Collections.unmodifiableSet(
@@ -31,6 +36,9 @@ public class TypeInfo implements Resolvable {
     mDimension = dimension;
     mSimpleTypeName = simpleTypeName;
     mQualifiedTypeName = qualifiedTypeName;
+    if (mQualifiedTypeName == null) {
+      int x = 5;
+    }
     mClass = cl;
   }
 
@@ -121,6 +129,9 @@ public class TypeInfo implements Resolvable {
       mQualifiedTypeName = typeString;
     } else {
       mQualifiedTypeName = typeString;
+      if (mQualifiedTypeName == null) {
+        int x = 5;
+      }
       pos = typeString.lastIndexOf('.');
       if (pos > -1) {
         mSimpleTypeName = typeString.substring(pos + 1);
@@ -140,6 +151,9 @@ public class TypeInfo implements Resolvable {
     mDimension = other.dimension();
     mSimpleTypeName = other.simpleTypeName();
     mQualifiedTypeName = other.qualifiedTypeName();
+    if (mQualifiedTypeName == null) {
+      int x = 5;
+    }
     mClass = other.asClassInfo();
     if (other.typeArguments() != null) {
       mTypeArguments = new ArrayList<TypeInfo>(other.typeArguments());
@@ -162,6 +176,10 @@ public class TypeInfo implements Resolvable {
       mResolvedClass = true;
       if (mClass == null && !mIsPrimitive && !mIsTypeVariable && !mIsWildcard) {
         mClass = Converter.obtainClass(qualifiedTypeName());
+        if (mClass == null) {
+          int x = 5;
+          mClass = Converter.obtainClass(qualifiedTypeName());
+        }
       }
     }
     return mClass;
@@ -317,6 +335,7 @@ public class TypeInfo implements Resolvable {
       if (mClass.isIncluded()) {
         data.setValue(base + ".link", mClass.htmlPage());
         data.setValue(base + ".since", mClass.getSince());
+        data.setValue(base + ".sdkextsince", mClass.getSdkExtSince());
       } else {
         Doclava.federationTagger.tag(mClass);
         if (!mClass.getFederatedReferences().isEmpty()) {
@@ -501,7 +520,10 @@ public class TypeInfo implements Resolvable {
                   mResolutions.add(resolution);
                   allResolved = false;
               } else {
-                  mClass = InfoBuilder.Caches.obtainClass(qualifiedClassName.toString());
+                mClass = InfoBuilder.Caches.obtainClass(qualifiedClassName.toString());
+                if (mClass == null) {
+                  int x = 5;
+                }
               }
           } else if ("variability".equals(resolution.getVariable())) {
               StringBuilder qualifiedClassName = new StringBuilder();

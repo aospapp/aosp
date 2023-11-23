@@ -42,10 +42,16 @@ rust_library {
     host_supported: true,
     crate_name: "cexpr",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.5.0",
+    cargo_pkg_version: "0.6.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
         "libnom",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

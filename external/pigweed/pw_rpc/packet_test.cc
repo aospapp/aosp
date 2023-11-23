@@ -22,6 +22,7 @@ namespace pw::rpc::internal {
 namespace {
 
 using protobuf::FieldKey;
+using ::pw::rpc::internal::pwpb::PacketType;
 using std::byte;
 
 constexpr auto kPayload = bytes::Array<0x82, 0x02, 0xff, 0xff>();
@@ -130,7 +131,7 @@ TEST(Packet, EncodeDecode) {
   Result result = packet.Encode(buffer);
   ASSERT_EQ(result.status(), OkStatus());
 
-  std::span<byte> packet_data(buffer, result.value().size());
+  span<byte> packet_data(buffer, result.value().size());
   auto decode_result = Packet::FromBuffer(packet_data);
   ASSERT_TRUE(decode_result.ok());
 

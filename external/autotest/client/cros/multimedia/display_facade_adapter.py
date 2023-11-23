@@ -14,7 +14,7 @@ import tempfile
 from PIL import Image
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros.multimedia import display_facade_native
+from autotest_lib.client.cros.multimedia import display_facade
 from autotest_lib.client.cros.multimedia import facade_resource
 from autotest_lib.client.cros.multimedia.display_info import DisplayInfo
 from autotest_lib.client.cros.power import sys_power
@@ -25,7 +25,7 @@ class DisplayFacadeLocalAdapter(object):
     """DisplayFacadeLocalAdapter is an adapter to control the local display.
 
     Methods with non-native-type arguments go to this class and do some
-    conversion; otherwise, go to the DisplayFacadeNative class.
+    conversion; otherwise, go to the DisplayFacadeLocal class.
     """
 
     def __init__(self, chrome):
@@ -33,9 +33,9 @@ class DisplayFacadeLocalAdapter(object):
 
         @param chrome: A Chrome object.
         """
-        # Create a DisplayFacadeNative object as a component such that this
+        # Create a DisplayFacadeLocal object as a component such that this
         # class can expose and manipulate its interfaces.
-        self._display_component = display_facade_native.DisplayFacadeNative(
+        self._display_component = display_facade.DisplayFacadeLocal(
                 facade_resource.FacadeResource(chrome_object=chrome))
 
 

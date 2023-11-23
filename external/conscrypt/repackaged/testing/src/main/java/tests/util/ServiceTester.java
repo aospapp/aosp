@@ -139,11 +139,11 @@ public interface Test {
    * testing. If no tested provider provides the given algorithm, does nothing.
    */
   public ServiceTester skipCombination(String provider, String algorithm) {
-      Provider p = Security.getProvider(provider);
-      if (p != null) {
-          skipCombinations.add(makeCombination(provider, algorithm));
-      }
-      return this;
+    Provider p = Security.getProvider(provider);
+    if (p != null) {
+      skipCombinations.add(makeCombination(provider, algorithm));
+    }
+    return this;
   }
 
   /**
@@ -167,13 +167,13 @@ public interface Test {
             }
         }
       } else {
-          algorithms.removeAll(skipAlgorithms);
-          for (String algorithm : algorithms) {
-              if (p.getService(service, algorithm) != null
-                      && !shouldSkipCombination(p.getName(), algorithm)) {
-                  doTest(test, p, algorithm, errors);
-              }
-          }
+        algorithms.removeAll(skipAlgorithms);
+        for (String algorithm : algorithms) {
+            if (p.getService(service, algorithm) != null
+                    && !shouldSkipCombination(p.getName(), algorithm)) {
+                doTest(test, p, algorithm, errors);
+            }
+        }
       }
     }
     errors.flush();
@@ -183,20 +183,20 @@ public interface Test {
   }
 
   private String makeCombination(String provider, String algorithm) {
-      return provider + SEPARATOR + algorithm;
+    return provider + SEPARATOR + algorithm;
   }
 
   private boolean shouldSkipCombination(String provider, String algorithm) {
-      return skipCombinations.contains(makeCombination(provider, algorithm));
+    return skipCombinations.contains(makeCombination(provider, algorithm));
   }
 
   private void doTest(Test test, Provider p, String algorithm, PrintStream errors) {
     try {
       test.test(p, algorithm);
     } catch (Exception | AssertionError e) {
-        errors.append("Failure testing " + service + ":" + algorithm + " from provider "
-                + p.getName() + ":\n");
-        e.printStackTrace(errors);
+      errors.append("Failure testing " + service + ":" + algorithm + " from provider " + p.getName()
+              + ":\n");
+      e.printStackTrace(errors);
     }
   }
 

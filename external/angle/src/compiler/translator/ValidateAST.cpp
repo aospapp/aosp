@@ -91,6 +91,9 @@ class ValidateAST : public TIntermTraverser
     std::map<ImmutableString, const TVariable *> mReferencedBuiltIns;
     bool mVariableReferencesFailed = false;
 
+    // For validateOps:
+    bool mOpsFailed = false;
+
     // For validateBuiltInOps:
     bool mBuiltInOpsFailed = false;
 
@@ -120,6 +123,9 @@ class ValidateAST : public TIntermTraverser
     // For validateMultiDeclarations:
     bool mMultiDeclarationsFailed = false;
 
+    // For validateNoSwizzleOfSwizzle:
+    bool mNoSwizzleOfSwizzleFailed = false;
+
     // For validateNoStatementsAfterBranch:
     bool mIsBranchVisitedInBlock        = false;
     bool mNoStatementsAfterBranchFailed = false;
@@ -131,6 +137,94 @@ bool IsSameType(const TType &a, const TType &b)
            a.getSecondarySize() == b.getSecondarySize() && a.getArraySizes() == b.getArraySizes() &&
            a.getStruct() == b.getStruct() &&
            (!a.isInterfaceBlock() || a.getInterfaceBlock() == b.getInterfaceBlock());
+}
+
+bool IsUnaryOp(TOperator op)
+{
+    switch (op)
+    {
+        case EOpNegative:
+        case EOpPositive:
+        case EOpLogicalNot:
+        case EOpBitwiseNot:
+        case EOpPostIncrement:
+        case EOpPostDecrement:
+        case EOpPreIncrement:
+        case EOpPreDecrement:
+        case EOpArrayLength:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool IsBinaryOp(TOperator op)
+{
+    switch (op)
+    {
+        case EOpAdd:
+        case EOpSub:
+        case EOpMul:
+        case EOpDiv:
+        case EOpIMod:
+        case EOpEqual:
+        case EOpNotEqual:
+        case EOpLessThan:
+        case EOpGreaterThan:
+        case EOpLessThanEqual:
+        case EOpGreaterThanEqual:
+        case EOpComma:
+        case EOpVectorTimesScalar:
+        case EOpVectorTimesMatrix:
+        case EOpMatrixTimesVector:
+        case EOpMatrixTimesScalar:
+        case EOpMatrixTimesMatrix:
+        case EOpLogicalOr:
+        case EOpLogicalXor:
+        case EOpLogicalAnd:
+        case EOpBitShiftLeft:
+        case EOpBitShiftRight:
+        case EOpBitwiseAnd:
+        case EOpBitwiseXor:
+        case EOpBitwiseOr:
+        case EOpIndexDirect:
+        case EOpIndexIndirect:
+        case EOpIndexDirectStruct:
+        case EOpIndexDirectInterfaceBlock:
+        case EOpAssign:
+        case EOpInitialize:
+        case EOpAddAssign:
+        case EOpSubAssign:
+        case EOpMulAssign:
+        case EOpVectorTimesMatrixAssign:
+        case EOpVectorTimesScalarAssign:
+        case EOpMatrixTimesScalarAssign:
+        case EOpMatrixTimesMatrixAssign:
+        case EOpDivAssign:
+        case EOpIModAssign:
+        case EOpBitShiftLeftAssign:
+        case EOpBitShiftRightAssign:
+        case EOpBitwiseAndAssign:
+        case EOpBitwiseXorAssign:
+        case EOpBitwiseOrAssign:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool IsBranchOp(TOperator op)
+{
+    switch (op)
+    {
+        case EOpKill:
+        case EOpReturn:
+        case EOpBreak:
+        case EOpContinue:
+            return true;
+        default:
+            return false;
+    }
 }
 
 bool ValidateAST::validate(TIntermNode *root,
@@ -154,6 +248,7 @@ ValidateAST::ValidateAST(TIntermNode *root,
     {
         mOptions.validateVariableReferences = false;
         mOptions.validateFunctionCall       = false;
+        mOptions.validateStructUsage        = false;
     }
 
     if (mOptions.validateSingleParent)
@@ -209,9 +304,28 @@ void ValidateAST::visitStructOrInterfaceBlockDeclaration(const TType &type,
 
     // Make sure the structure or interface block is not doubly defined.
     ImmutableString typeName("");
-    const TFieldListCollection *structOrBlock = getStructOrInterfaceBlock(type, &typeName);
+    const TFieldListCollection *namedStructOrBlock = getStructOrInterfaceBlock(type, &typeName);
 
-    if (structOrBlock)
+    // Recurse the fields of the structure or interface block and check members of structure type.
+    // This is done before visiting the struct itself, because if the fields refer to a struct with
+    // the same name, they would be referencing the struct declared in an outer scope.
+    {
+        // Note that structOrBlock was previously only set for named structures, so make sure
+        // nameless structs are also recursed.
+        const TFieldListCollection *structOrBlock = namedStructOrBlock;
+        if (structOrBlock == nullptr)
+        {
+            structOrBlock = type.getStruct();
+        }
+        ASSERT(structOrBlock != nullptr);
+
+        for (const TField *field : structOrBlock->fields())
+        {
+            visitStructUsage(*field->type(), field->line());
+        }
+    }
+
+    if (namedStructOrBlock)
     {
         ASSERT(!typeName.empty());
         // Structures are not allowed to be doubly defined
@@ -249,22 +363,8 @@ void ValidateAST::visitStructOrInterfaceBlockDeclaration(const TType &type,
         else
         {
             // First encounter.
-            mStructsAndBlocksByName.back()[typeName] = structOrBlock;
+            mStructsAndBlocksByName.back()[typeName] = namedStructOrBlock;
         }
-    }
-
-    // Recurse the fields of the structure or interface block and check members of structure type.
-    // Note that structOrBlock was previously only set for named structures, so make sure nameless
-    // structs are also recursed.
-    if (structOrBlock == nullptr)
-    {
-        structOrBlock = type.getStruct();
-    }
-    ASSERT(structOrBlock != nullptr);
-
-    for (const TField *field : structOrBlock->fields())
-    {
-        visitStructUsage(*field->type(), field->line());
     }
 }
 
@@ -451,7 +551,8 @@ void ValidateAST::validateExpressionTypeSwitch(TIntermSwitch *node)
 {
     const TType &selectorType = node->getInit()->getType();
 
-    if (selectorType.getBasicType() != EbtInt && selectorType.getBasicType() != EbtUInt)
+    if (selectorType.getBasicType() != EbtYuvCscStandardEXT &&
+        selectorType.getBasicType() != EbtInt && selectorType.getBasicType() != EbtUInt)
     {
         mDiagnostics->error(node->getLine(), "Found switch selector expression that is not integer",
                             "<validateExpressionTypes>");
@@ -539,7 +640,9 @@ void ValidateAST::visitBuiltInVariable(TIntermSymbol *node)
 
         if ((name == "gl_ClipDistance" && qualifier != EvqClipDistance) ||
             (name == "gl_CullDistance" && qualifier != EvqCullDistance) ||
-            (name == "gl_LastFragData" && qualifier != EvqLastFragData))
+            (name == "gl_FragDepth" && qualifier != EvqFragDepth) ||
+            (name == "gl_LastFragData" && qualifier != EvqLastFragData) ||
+            (name == "gl_LastFragColorARM" && qualifier != EvqLastFragColor))
         {
             mDiagnostics->error(
                 node->getLine(),
@@ -698,6 +801,17 @@ void ValidateAST::visitConstantUnion(TIntermConstantUnion *node)
 bool ValidateAST::visitSwizzle(Visit visit, TIntermSwizzle *node)
 {
     visitNode(visit, node);
+
+    if (mOptions.validateNoSwizzleOfSwizzle)
+    {
+        if (node->getOperand()->getAsSwizzleNode() != nullptr)
+        {
+            mDiagnostics->error(node->getLine(), "Found swizzle applied to swizzle",
+                                "<validateNoSwizzleOfSwizzle>");
+            mNoSwizzleOfSwizzleFailed = true;
+        }
+    }
+
     return true;
 }
 
@@ -705,6 +819,34 @@ bool ValidateAST::visitBinary(Visit visit, TIntermBinary *node)
 {
     visitNode(visit, node);
 
+    if (visit == PreVisit && mOptions.validateOps)
+    {
+        const bool hasParent = getParentNode() != nullptr;
+        const bool isInDeclaration =
+            hasParent && getParentNode()->getAsDeclarationNode() != nullptr;
+        const TOperator op = node->getOp();
+        if (!BuiltInGroup::IsBuiltIn(op) && !IsBinaryOp(op))
+        {
+            mDiagnostics->error(node->getLine(),
+                                "Found binary node with non-binary op <validateOps>",
+                                GetOperatorString(op));
+            mOpsFailed = true;
+        }
+        else if (op == EOpInitialize && hasParent && !isInDeclaration)
+        {
+            mDiagnostics->error(node->getLine(),
+                                "Found EOpInitialize node outside declaration <validateOps>",
+                                GetOperatorString(op));
+            mOpsFailed = true;
+        }
+        else if (op == EOpAssign && hasParent && isInDeclaration)
+        {
+            mDiagnostics->error(node->getLine(),
+                                "Found EOpAssign node inside declaration <validateOps>",
+                                GetOperatorString(op));
+            mOpsFailed = true;
+        }
+    }
     if (mOptions.validateExpressionTypes && visit == PreVisit)
     {
         validateExpressionTypeBinary(node);
@@ -717,6 +859,16 @@ bool ValidateAST::visitUnary(Visit visit, TIntermUnary *node)
 {
     visitNode(visit, node);
 
+    if (visit == PreVisit && mOptions.validateOps)
+    {
+        const TOperator op = node->getOp();
+        if (!BuiltInGroup::IsBuiltIn(op) && !IsUnaryOp(op))
+        {
+            mDiagnostics->error(node->getLine(), "Found unary node with non-unary op <validateOps>",
+                                GetOperatorString(op));
+            mOpsFailed = true;
+        }
+    }
     if (visit == PreVisit && mOptions.validateBuiltInOps)
     {
         visitBuiltInFunction(node, node->getFunction());
@@ -1071,6 +1223,17 @@ bool ValidateAST::visitBranch(Visit visit, TIntermBranch *node)
 {
     visitNode(visit, node);
 
+    if (visit == PreVisit && mOptions.validateOps)
+    {
+        const TOperator op = node->getFlowOp();
+        if (!IsBranchOp(op))
+        {
+            mDiagnostics->error(node->getLine(),
+                                "Found branch node with non-branch op <validateOps>",
+                                GetOperatorString(op));
+            mOpsFailed = true;
+        }
+    }
     if (visit == PostVisit)
     {
         mIsBranchVisitedInBlock = true;
@@ -1086,10 +1249,11 @@ void ValidateAST::visitPreprocessorDirective(TIntermPreprocessorDirective *node)
 
 bool ValidateAST::validateInternal()
 {
-    return !mSingleParentFailed && !mVariableReferencesFailed && !mBuiltInOpsFailed &&
-           !mFunctionCallFailed && !mNoRawFunctionCallsFailed && !mNullNodesFailed &&
-           !mQualifiersFailed && !mPrecisionFailed && !mStructUsageFailed &&
-           !mExpressionTypesFailed && !mMultiDeclarationsFailed && !mNoStatementsAfterBranchFailed;
+    return !mSingleParentFailed && !mVariableReferencesFailed && !mOpsFailed &&
+           !mBuiltInOpsFailed && !mFunctionCallFailed && !mNoRawFunctionCallsFailed &&
+           !mNullNodesFailed && !mQualifiersFailed && !mPrecisionFailed && !mStructUsageFailed &&
+           !mExpressionTypesFailed && !mMultiDeclarationsFailed && !mNoSwizzleOfSwizzleFailed &&
+           !mNoStatementsAfterBranchFailed;
 }
 
 }  // anonymous namespace

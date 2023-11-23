@@ -9,6 +9,7 @@ TEST_CLASS = "platform"
 TEST_TYPE = "client"
 PURPOSE = "Tests installing a DLC and doing an N-to-N update with DLC present."
 TIME = "SHORT"
+PY_VERSION = 3
 
 DOC = """
 This test will first install a DLC and check that it was installed

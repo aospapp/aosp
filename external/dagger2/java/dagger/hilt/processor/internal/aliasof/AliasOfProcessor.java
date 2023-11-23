@@ -20,6 +20,7 @@ import static com.google.auto.common.MoreElements.asType;
 import static net.ltgt.gradle.incap.IncrementalAnnotationProcessorType.ISOLATING;
 
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import dagger.hilt.processor.internal.BaseProcessor;
 import dagger.hilt.processor.internal.ClassNames;
@@ -53,10 +54,16 @@ public final class AliasOfProcessor extends BaseProcessor {
     AnnotationMirror annotationMirror =
         Processors.getAnnotationMirror(element, ClassNames.ALIAS_OF);
 
-    TypeElement defineComponentScope =
-        Processors.getAnnotationClassValue(getElementUtils(), annotationMirror, "value");
+    ImmutableList<TypeElement> defineComponentScopes =
+        Processors.getAnnotationClassValues(getElementUtils(), annotationMirror, "value");
 
-    new AliasOfPropagatedDataGenerator(getProcessingEnv(), asType(element), defineComponentScope)
+    ProcessorErrors.checkState(
+        defineComponentScopes.size() >= 1,
+        element,
+        "@AliasOf annotation %s must declare at least one scope to alias.",
+        annotationMirror);
+
+    new AliasOfPropagatedDataGenerator(getProcessingEnv(), asType(element), defineComponentScopes)
         .generate();
   }
 }

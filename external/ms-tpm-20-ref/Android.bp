@@ -76,7 +76,7 @@ cc_defaults {
     ],
 }
 
-cc_library {
+cc_library_static {
     name: "ms-tpm-20-ref-lib",
     srcs: [
         "TPMCmd/Platform/src/*.c",
@@ -100,6 +100,17 @@ cc_library {
         "TPMCmd/tpm/include/Ossl",
         "TPMCmd/tpm/include/prototypes",
     ],
+    target: {
+        windows: {
+            enabled: true,
+            cflags: [
+                "-Wno-unknown-pragmas",
+            ],
+            host_ldlibs: [
+                "-lws2_32",
+            ],
+        },
+    },
     defaults: [ "ms-tpm-20-ref-defaults" ],
 }
 
@@ -108,7 +119,7 @@ cc_binary_host {
     srcs: [
         "TPMCmd/Simulator/src/TPMCmds.c",
     ],
-    shared_libs: [
+    static_libs: [
         "ms-tpm-20-ref-lib",
     ],
     defaults: [ "ms-tpm-20-ref-defaults" ],

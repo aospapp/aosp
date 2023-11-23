@@ -25,22 +25,24 @@ import android.app.Service;
 import android.os.Build.VERSION_CODES;
 import android.os.IBinder;
 import androidx.test.core.app.ApplicationProvider;
+import com.google.android.enterprise.connectedapps.ProfileConnectionHolder;
 import com.google.android.enterprise.connectedapps.RobolectricTestUtilities;
 import com.google.android.enterprise.connectedapps.TestExceptionCallbackListener;
 import com.google.android.enterprise.connectedapps.TestScheduledExecutorService;
+import com.google.android.enterprise.connectedapps.TestStringCallbackListenerImpl;
 import com.google.android.enterprise.connectedapps.TestVoidCallbackListenerImpl;
 import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfileException;
 import com.google.android.enterprise.connectedapps.testapp.configuration.TestApplication;
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
 import com.google.android.enterprise.connectedapps.testapp.types.ProfileTestCrossProfileType;
 import com.google.common.util.concurrent.ListenableFuture;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
-
 import org.robolectric.annotation.LooperMode;
 
 @LooperMode(LooperMode.Mode.LEGACY)
@@ -51,6 +53,8 @@ public class AutomaticConnectionManagementTest {
   private final Application context = ApplicationProvider.getApplicationContext();
   private final TestVoidCallbackListenerImpl testVoidCallbackListener =
       new TestVoidCallbackListenerImpl();
+  private final TestStringCallbackListenerImpl testStringCallbackListener =
+      new TestStringCallbackListenerImpl();
   private final TestExceptionCallbackListener testExceptionCallbackListener =
       new TestExceptionCallbackListener();
   private final TestScheduledExecutorService scheduledExecutorService =
@@ -61,6 +65,7 @@ public class AutomaticConnectionManagementTest {
       new RobolectricTestUtilities(testProfileConnector, scheduledExecutorService);
   private final ProfileTestCrossProfileType profileTestCrossProfileType =
       ProfileTestCrossProfileType.create(testProfileConnector);
+  private final Object connectionHolder = new Object();
 
   @Before
   public void setUp() {
@@ -73,7 +78,11 @@ public class AutomaticConnectionManagementTest {
     testUtilities.setRunningOnPersonalProfile();
     testUtilities.setRequestsPermissions(INTERACT_ACROSS_USERS);
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
-    testProfileConnector.stopManualConnectionManagement();
+  }
+
+  @After
+  public void teardown() {
+    testProfileConnector.clearConnectionHolders();
   }
 
   @Test
@@ -104,7 +113,7 @@ public class AutomaticConnectionManagementTest {
         .other()
         .asyncVoidMethod(testVoidCallbackListener, testExceptionCallbackListener);
     testUtilities.advanceTimeBySeconds(29);
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     testUtilities.advanceTimeBySeconds(31);
 
@@ -145,7 +154,7 @@ public class AutomaticConnectionManagementTest {
   public void callWhichTakesALongTime_doesNotDisconnectDuringCall() {
     profileTestCrossProfileType
         .other()
-        .asyncVoidMethodWithNonBlockingDelayWith50SecondTimeout(
+        .asyncVoidMethodWithNonBlockingDelay(
             testVoidCallbackListener, /* secondsDelay= */ 40, testExceptionCallbackListener);
 
     testUtilities.advanceTimeBySeconds(31);
@@ -157,7 +166,7 @@ public class AutomaticConnectionManagementTest {
   public void lessThanThirtySecondsAfterCallWhichTakesALongTime_doesNotDisconnect() {
     profileTestCrossProfileType
         .other()
-        .asyncVoidMethodWithNonBlockingDelayWith50SecondTimeout(
+        .asyncVoidMethodWithNonBlockingDelay(
             testVoidCallbackListener, /* secondsDelay= */ 40, testExceptionCallbackListener);
 
     testUtilities.advanceTimeBySeconds(69);
@@ -169,7 +178,7 @@ public class AutomaticConnectionManagementTest {
   public void thirtySecondsAfterCallWhichTakesALongTime_disconnects() {
     profileTestCrossProfileType
         .other()
-        .asyncVoidMethodWithNonBlockingDelayWith50SecondTimeout(
+        .asyncVoidMethodWithNonBlockingDelay(
             testVoidCallbackListener, /* secondsDelay= */ 40, testExceptionCallbackListener);
 
     testUtilities.advanceTimeBySeconds(70);
@@ -193,9 +202,9 @@ public class AutomaticConnectionManagementTest {
   }
 
   @Test
-  public void stopManualConnectionManagement_lessThan30SecondsLater_doesNotDisconnect() {
-    testUtilities.startConnectingAndWait();
-    testProfileConnector.stopManualConnectionManagement();
+  public void clearConnectionHolders_lessThan30SecondsLater_doesNotDisconnect() {
+    testUtilities.addDefaultConnectionHolderAndWait();
+    testProfileConnector.clearConnectionHolders();
 
     testUtilities.advanceTimeBySeconds(29);
 
@@ -203,13 +212,97 @@ public class AutomaticConnectionManagementTest {
   }
 
   @Test
-  public void stopManualConnectionManagement_moreThan30SecondsLater_disconnects() {
-    testUtilities.startConnectingAndWait();
-    testProfileConnector.stopManualConnectionManagement();
+  public void clearConnectionHolders_moreThan30SecondsLater_disconnects() {
+    testUtilities.addDefaultConnectionHolderAndWait();
+    testProfileConnector.clearConnectionHolders();
 
     testUtilities.advanceTimeBySeconds(29);
 
     assertThat(testProfileConnector.isConnected()).isTrue();
+  }
+
+  @Test
+  public void addConnectionHolder_moreThan30SecondsLater_doesNotDisconnect() {
+    testProfileConnector.addConnectionHolder(this);
+
+    testUtilities.advanceTimeBySeconds(31);
+
+    assertThat(testProfileConnector.isConnected()).isTrue();
+  }
+
+  @Test
+  public void removeConnectionHolder_lessThan30SecondsLater_doesNotDisconnect() {
+    testProfileConnector.addConnectionHolder(this);
+    testProfileConnector.removeConnectionHolder(this);
+
+    testUtilities.advanceTimeBySeconds(29);
+
+    assertThat(testProfileConnector.isConnected()).isTrue();
+  }
+
+  @Test
+  public void removeConnectionHolder_moreThan30SecondsLater_disconnects() {
+    testProfileConnector.addConnectionHolder(this);
+    testProfileConnector.removeConnectionHolder(this);
+
+    testUtilities.advanceTimeBySeconds(31);
+
+    assertThat(testProfileConnector.isConnected()).isFalse();
+  }
+
+  @Test
+  public void removeConnectionHolder_removingAlias_moreThan30SecondsLater_disconnects() {
+    testProfileConnector.addConnectionHolder(this);
+    testProfileConnector.addConnectionHolderAlias(connectionHolder, this);
+    testProfileConnector.removeConnectionHolder(connectionHolder);
+
+    testUtilities.advanceTimeBySeconds(31);
+
+    assertThat(testProfileConnector.isConnected()).isFalse();
+  }
+
+  @Test
+  public void removeConnectionHolder_removingWrapper_moreThan30SecondsLater_disconnects() {
+    ProfileConnectionHolder connectionHolder = testProfileConnector.addConnectionHolder(this);
+    testProfileConnector.removeConnectionHolder(connectionHolder);
+
+    testUtilities.advanceTimeBySeconds(31);
+
+    assertThat(testProfileConnector.isConnected()).isFalse();
+  }
+
+  @Test
+  public void
+      removeConnectionHolder_stillAnotherConnectionHolder_moreThan30SecondsLater_doesNotDisconnect() {
+    testProfileConnector.addConnectionHolder(this);
+    testProfileConnector.addConnectionHolder(connectionHolder);
+    testProfileConnector.removeConnectionHolder(this);
+
+    testUtilities.advanceTimeBySeconds(31);
+
+    assertThat(testProfileConnector.isConnected()).isTrue();
+  }
+
+  @Test
+  public void removeConnectionHolder_removingCallback_noResultOnCallback_moreThan30SecondsLater_disconnects() {
+    profileTestCrossProfileType.other()
+        .asyncMethodWhichNeverCallsBack(testStringCallbackListener, testExceptionCallbackListener);
+    testProfileConnector.removeConnectionHolder(testStringCallbackListener);
+
+    testUtilities.advanceTimeBySeconds(31);
+
+    assertThat(testProfileConnector.isConnected()).isFalse();
+  }
+
+  @Test
+  public void removeConnectionHolder_removingFuture_noResultOnFuture_moreThan30SecondsLater_disconnects() {
+    ListenableFuture<Void> future = profileTestCrossProfileType.other()
+        .listenableFutureMethodWhichNeverSetsTheValue();
+    testProfileConnector.removeConnectionHolder(future);
+
+    testUtilities.advanceTimeBySeconds(31);
+
+    assertThat(testProfileConnector.isConnected()).isFalse();
   }
 
   @Test

@@ -4,7 +4,7 @@
  *
  * See http://opengroup.org/onlinepubs/9699919799/utilities/df.html
 
-USE_DF(NEWTOY(df, "HPkhit*a[-HPh]", TOYFLAG_SBIN))
+USE_DF(NEWTOY(df, "HPkhit*a[-HPh]", TOYFLAG_BIN))
 
 config DF
   bool "df"
@@ -115,7 +115,7 @@ static void show_mt(struct mtab_list *mt, int measuring)
       suap[i] = (block*suap[i])/TT.units;
 
       if (FLAG(H)||FLAG(h))
-        human_readable(dsuapm[i+1], suap[i], FLAG(H) ? HR_1000 : 0);
+        human_readable(dsuapm[i+1], suap[i], HR_1000*FLAG(H));
       else sprintf(dsuapm[i+1], "%llu", suap[i]);
       dsuapm[i+2] = strchr(dsuapm[i+1], 0)+1;
     }

@@ -3,6 +3,7 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include <xnnpack.h>
 #include <xnnpack/aarch64-assembler.h>
 #include <xnnpack/allocator.h>
 #include <xnnpack/common.h>
@@ -14,6 +15,7 @@ namespace xnnpack {
 namespace aarch64 {
 
 TEST(AArch64Assembler, Initialization) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   xnn_code_buffer b;
   xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
   Assembler a(&b);
@@ -21,6 +23,7 @@ TEST(AArch64Assembler, Initialization) {
 }
 
 TEST(AArch64Assembler, BaseInstructionEncoding) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   xnn_code_buffer b;
   xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
   Assembler a(&b);
@@ -37,6 +40,8 @@ TEST(AArch64Assembler, BaseInstructionEncoding) {
   CHECK_ENCODING(0xEB0C02DF, a.cmp(x22, x12));
 
   CHECK_ENCODING(0x9A8F322E, a.csel(x14, x17, x15, kLO));
+
+  CHECK_ENCODING(0xD4400000, a.hlt());
 
   CHECK_ENCODING(0xA9403FEE, a.ldp(x14, x15, mem[sp]));
   CHECK_ENCODING(0xA8C13FEE, a.ldp(x14, x15, mem[sp], 16));
@@ -63,6 +68,8 @@ TEST(AArch64Assembler, BaseInstructionEncoding) {
 
   CHECK_ENCODING(0xAA0303E9, a.mov(x9, x3));
 
+  CHECK_ENCODING(0xD503201F, a.nop());
+
   CHECK_ENCODING(0xF98000A0, a.prfm(kPLDL1KEEP, mem[x5]));
   CHECK_ENCODING(0xF98020A0, a.prfm(kPLDL1KEEP, mem[x5, 64]));
   EXPECT_ERROR(Error::kInvalidOperand, a.prfm(kPLDL1KEEP, mem[x5, -8]));
@@ -80,6 +87,17 @@ TEST(AArch64Assembler, BaseInstructionEncoding) {
   EXPECT_ERROR(Error::kInvalidOperand, a.stp(x20, x21, mem[sp, 512]));
   EXPECT_ERROR(Error::kInvalidOperand, a.stp(x20, x21, mem[sp, -520]));
 
+  CHECK_ENCODING(0xF80FFFF4, a.str(x20, mem[sp, 255]++));
+  CHECK_ENCODING(0xF81B0FF4, a.str(x20, mem[sp, -80]++));
+  CHECK_ENCODING(0xF8100FF4, a.str(x20, mem[sp, -256]++));
+  CHECK_ENCODING(0xF90003F4, a.str(x20, mem[sp, 0]));
+  CHECK_ENCODING(0xF93FFFF4, a.str(x20, mem[sp, 32760]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.str(sp, mem[sp, -257]++));
+  EXPECT_ERROR(Error::kInvalidOperand, a.str(sp, mem[sp, 256]++));
+  EXPECT_ERROR(Error::kInvalidOperand, a.str(sp, mem[sp, 3]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.str(sp, mem[sp, -1]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.str(sp, mem[sp, 32768]));
+
   CHECK_ENCODING(0xF1008040, a.subs(x0, x2, 32));
   CHECK_ENCODING(0xF13FFC40, a.subs(x0, x2, 4095));
   EXPECT_ERROR(Error::kInvalidOperand, a.subs(x0, x2, -32));
@@ -94,6 +112,7 @@ TEST(AArch64Assembler, BaseInstructionEncoding) {
 }
 
 TEST(AArch64Assembler, SIMDInstructionEncoding) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   xnn_code_buffer b;
   xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
   Assembler a(&b);
@@ -101,6 +120,9 @@ TEST(AArch64Assembler, SIMDInstructionEncoding) {
   CHECK_ENCODING(0x5E180610, a.dup(d16, v16.d()[1]));
   EXPECT_ERROR(Error::kInvalidOperand, a.dup(d16, v16.d()[2]));
   EXPECT_ERROR(Error::kInvalidOperand, a.dup(d16, v16.s()[1]));
+
+  CHECK_ENCODING(0x4EA0F8B0, a.fabs(v16.v4s(), v5.v4s()));
+  EXPECT_ERROR(Error::kInvalidOperand, a.fabs(v16.v4s(), v5.v2s()));
 
   CHECK_ENCODING(0x4E25D690, a.fadd(v16.v4s(), v20.v4s(), v5.v4s()));
   EXPECT_ERROR(Error::kInvalidOperand, a.fadd(v16.v4s(), v20.v4s(), v5.v2s()));
@@ -115,6 +137,12 @@ TEST(AArch64Assembler, SIMDInstructionEncoding) {
   EXPECT_ERROR(Error::kInvalidOperand, a.fmla(v16.v4s(), v20.v2s(), v0.s()[0]));
   EXPECT_ERROR(Error::kInvalidOperand, a.fmla(v16.v2d(), v20.v2d(), v0.s()[0]));
   EXPECT_ERROR(Error::kInvalidLaneIndex, a.fmla(v16.v4s(), v20.v4s(), v0.s()[4]));
+
+  CHECK_ENCODING(0x6E29DC61, a.fmul(v1.v4s(), v3.v4s(), v9.v4s()));
+  EXPECT_ERROR(Error::kInvalidOperand, a.fmul(v16.v4s(), v20.v4s(), v5.v2s()));
+
+  CHECK_ENCODING(0x6EA0FBC2, a.fneg(v2.v4s(), v30.v4s()));
+  EXPECT_ERROR(Error::kInvalidOperand, a.fneg(v2.v4s(), v30.v16b()));
 
   CHECK_ENCODING(0x0CDF7060, a.ld1({v0.v8b()}, mem[x3], 8));
   EXPECT_ERROR(Error::kInvalidOperand, a.ld1({v0.v8b()}, mem[x3], 16));
@@ -159,8 +187,13 @@ TEST(AArch64Assembler, SIMDInstructionEncoding) {
 
   CHECK_ENCODING(0x4D60C902, a.ld2r({v2.v4s(), v3.v4s()}, mem[x8]));
   EXPECT_ERROR(Error::kInvalidOperand, a.ld2r({v2.v4s(), v3.v4s()}, mem[x8, 16]));
-  EXPECT_ERROR(Error::kInvalidOperand, a.ld2r({v2.v4s(), v4.v4s()}, mem[x8, 16]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.ld2r({v2.v4s(), v4.v4s()}, mem[x8]));
   EXPECT_ERROR(Error::kInvalidOperand, a.ld2r({v2.v4s(), v3.v8b()}, mem[x8]));
+
+  CHECK_ENCODING(0x4D40E906, a.ld3r({v6.v4s(), v7.v4s(), v8.v4s()}, mem[x8]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.ld3r({v6.v4s(), v7.v4s(), v8.v4s()}, mem[x8, 16]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.ld3r({v6.v4s(), v7.v4s(), v9.v4s()}, mem[x8]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.ld3r({v6.v4s(), v7.v2s(), v8.v4s()}, mem[x8]));
 
   CHECK_ENCODING(0x4EB21E50, a.mov(v16.v16b(), v18.v16b()));
   CHECK_ENCODING(0x0EB21E50, a.mov(v16.v8b(), v18.v8b()));
@@ -227,6 +260,7 @@ TEST(AArch64Assembler, SIMDInstructionEncoding) {
 }
 
 TEST(AArch64Assembler, Label) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   xnn_code_buffer b;
   xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
   Assembler a(&b);
@@ -282,6 +316,7 @@ TEST(AArch64Assembler, Label) {
 }
 
 TEST(AArch64Assembler, Tbnz) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   xnn_code_buffer b;
   xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
   Assembler a(&b);
@@ -310,6 +345,7 @@ TEST(AArch64Assembler, Tbnz) {
 }
 
 TEST(AArch64Assembler, Tbz) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   xnn_code_buffer b;
   xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
   Assembler a(&b);
@@ -338,6 +374,7 @@ TEST(AArch64Assembler, Tbz) {
 }
 
 TEST(AArch64Assembler, UnconditionalBranch) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   xnn_code_buffer b;
   xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
   Assembler a(&b);
@@ -361,6 +398,120 @@ TEST(AArch64Assembler, UnconditionalBranch) {
   a.b(l1);
 
   EXPECT_INSTR(0x17FFFFFF, *b2);
+
+  ASSERT_EQ(xnn_status_success, xnn_release_code_memory(&b));
+}
+
+TEST(AArch64Assembler, Align) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
+  xnn_code_buffer b;
+  xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
+  Assembler a(&b);
+
+  a.add(x0, x1, x2);
+  a.align(4);
+  EXPECT_EQ(0, reinterpret_cast<uintptr_t>(a.offset<uint32_t*>()) & 0x3);
+  EXPECT_EQ(4, a.code_size_in_bytes());
+
+  a.align(8);
+  EXPECT_EQ(0, reinterpret_cast<uintptr_t>(a.offset<uint32_t*>()) & 0x7);
+  EXPECT_EQ(8, a.code_size_in_bytes());
+
+  a.add(x0, x1, x2);
+  a.align(8);
+  EXPECT_EQ(0, reinterpret_cast<uintptr_t>(a.offset<uint32_t*>()) & 0x7);
+  EXPECT_EQ(16, a.code_size_in_bytes());
+
+  a.add(x0, x1, x2);
+  EXPECT_EQ(20, a.code_size_in_bytes());
+
+  a.align(16);
+  EXPECT_EQ(0, reinterpret_cast<uintptr_t>(a.offset<uint32_t*>()) & 0xF);
+  EXPECT_EQ(32, a.code_size_in_bytes());
+
+  a.add(x0, x1, x2);
+  a.add(x0, x1, x2);
+  EXPECT_EQ(40, a.code_size_in_bytes());
+
+  a.align(16);
+  EXPECT_EQ(0, reinterpret_cast<uintptr_t>(a.offset<uint32_t*>()) & 0xF);
+  EXPECT_EQ(48, a.code_size_in_bytes());
+
+  // Not power-of-two.
+  EXPECT_ERROR(Error::kInvalidOperand, a.align(6));
+  // Is power-of-two but is not a multiple of instruction size.
+  EXPECT_ERROR(Error::kInvalidOperand, a.align(2));
+
+  ASSERT_EQ(xnn_status_success, xnn_release_code_memory(&b));
+}
+
+TEST(AArch64Assembler, AssembleToEndOfBuffer) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
+  xnn_code_buffer b;
+  xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
+
+  Assembler a1(&b);
+  a1.emit32(1);
+  a1.finalize();
+
+  // Different assembler, but same code buffer.
+  Assembler a2(&b);
+  a2.emit32(2);
+  a2.finalize();
+
+  // Check that we wrote to end of buffer and did not overwrite.
+  uint32_t* p = (uint32_t*) b.start;
+  ASSERT_EQ(1, *p);
+  ASSERT_EQ(2, *(p+1));
+
+  ASSERT_EQ(8, b.size);
+
+  a2.reset();
+
+  ASSERT_EQ(4, b.size);
+  ASSERT_EQ((byte*)b.start + 4, a2.offset());
+
+  a2.emit32(3);
+  ASSERT_EQ(3, *(p+1));
+
+  ASSERT_EQ(xnn_status_success, xnn_release_code_memory(&b));
+}
+
+TEST(AArch64Assembler, FinalizeWithError) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
+  xnn_code_buffer b;
+  xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
+
+  Assembler a(&b);
+  // Write a valid instruction.
+  a.add(x1, x2, 32);
+  // Then write an invalid instruction.
+  a.ldp(x14, x15, mem[sp], 15);
+  // Since we have an error, size should not be updated.
+  a.finalize();
+  ASSERT_EQ(0, b.size);
+
+  ASSERT_EQ(xnn_status_success, xnn_release_code_memory(&b));
+}
+
+TEST(AArch64Assembler, BindOverflow) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
+  xnn_code_buffer b;
+  // Requested memory is rounded to page size.
+  xnn_allocate_code_memory(&b, 4);
+  Assembler a(&b);
+  Label l1;
+  for (int i = 0; i < b.capacity; i += 1 << kInstructionSizeInBytesLog2) {
+    a.add(x0, x0, 2);
+  }
+  EXPECT_EQ(Error::kNoError, a.error());
+
+  // This is out of bounds, not written.
+  a.tbz(x1, 1, l1);
+  EXPECT_EQ(Error::kOutOfMemory, a.error());
+
+  a.bind(l1);
+  ASSERT_EQ(false, l1.bound);
 
   ASSERT_EQ(xnn_status_success, xnn_release_code_memory(&b));
 }

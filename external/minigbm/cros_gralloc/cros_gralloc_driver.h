@@ -36,7 +36,7 @@ class cros_gralloc_driver
 	int32_t unlock(buffer_handle_t handle, int32_t *release_fence);
 
 	int32_t invalidate(buffer_handle_t handle);
-	int32_t flush(buffer_handle_t handle, int32_t *release_fence);
+	int32_t flush(buffer_handle_t handle);
 
 	int32_t get_backing_store(buffer_handle_t handle, uint64_t *out_store);
 	int32_t resource_info(buffer_handle_t handle, uint32_t strides[DRV_MAX_PLANES],
@@ -83,6 +83,7 @@ class cros_gralloc_driver
 	std::mutex mutex_;
 	std::unordered_map<uint32_t, std::unique_ptr<cros_gralloc_buffer>> buffers_;
 	std::unordered_map<cros_gralloc_handle_t, cros_gralloc_imported_handle_info> handles_;
+	bool mt8183_camera_quirk_ = false;
 };
 
 #endif

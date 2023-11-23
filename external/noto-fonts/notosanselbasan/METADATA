@@ -1,0 +1,17 @@
+# *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+#     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+#     DEPENDING ON IT IN YOUR PROJECT. ***
+name: "notosanselbasan"
+description:
+    "Noto is a global font collection for writing in all modern and ancientlanguages. Noto Sans Elbasan is an unmodulated (“sans serif”) design for textsin the historical European Elbasan script and in Greek. Ithas 79 glyphs."
+
+third_party {
+  url {
+    type: ARCHIVE
+    value: "https://github.com/google/fonts/tree/main/ofl/notosanselbasan"
+  }
+  version: "2.000"
+  license_note: "contains OFL fonts"
+  license_type: BY_EXCEPTION_ONLY
+  last_upgrade_date { year: 2018 month: 3 day: 19 }
+}

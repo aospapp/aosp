@@ -5,3 +5,4 @@ getpcaps
 setcap
 verify-caps
 compare-cap
+uns_test

@@ -21,31 +21,29 @@ import static com.google.common.collect.Multimaps.filterKeys;
 import static dagger.internal.codegen.base.Formatter.INDENT;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSetMultimap;
-import static dagger.model.BindingKind.MULTIBOUND_MAP;
+import static dagger.spi.model.BindingKind.MULTIBOUND_MAP;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
-import com.google.auto.common.MoreTypes;
-import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
+import com.squareup.javapoet.TypeName;
 import dagger.internal.codegen.base.MapType;
 import dagger.internal.codegen.binding.BindingDeclaration;
 import dagger.internal.codegen.binding.BindingDeclarationFormatter;
 import dagger.internal.codegen.binding.BindingNode;
 import dagger.internal.codegen.binding.ContributionBinding;
 import dagger.internal.codegen.binding.KeyFactory;
-import dagger.model.BindingGraph;
-import dagger.model.Key;
-import dagger.producers.Producer;
-import dagger.spi.BindingGraphPlugin;
-import dagger.spi.DiagnosticReporter;
+import dagger.internal.codegen.javapoet.TypeNames;
+import dagger.spi.model.Binding;
+import dagger.spi.model.BindingGraph;
+import dagger.spi.model.BindingGraphPlugin;
+import dagger.spi.model.DiagnosticReporter;
+import dagger.spi.model.Key;
 import java.util.Set;
 import javax.inject.Inject;
-import javax.inject.Provider;
-import javax.lang.model.type.DeclaredType;
 
 /**
  * Reports an error for any map binding with either more than one contribution with the same map key
@@ -91,36 +89,38 @@ final class MapMultibindingValidator implements BindingGraphPlugin {
    *   <li>{@code Map<K, Producer<V>>}
    * </ol>
    */
-  private ImmutableSet<dagger.model.Binding> mapMultibindings(BindingGraph bindingGraph) {
-    ImmutableSetMultimap<Key, dagger.model.Binding> mapMultibindings =
+  private ImmutableSet<Binding> mapMultibindings(BindingGraph bindingGraph) {
+    ImmutableSetMultimap<Key, Binding> mapMultibindings =
         bindingGraph.bindings().stream()
             .filter(node -> node.kind().equals(MULTIBOUND_MAP))
-            .collect(toImmutableSetMultimap(dagger.model.Binding::key, node -> node));
+            .collect(toImmutableSetMultimap(Binding::key, node -> node));
 
     // Mutlbindings for Map<K, V>
-    SetMultimap<Key, dagger.model.Binding> plainValueMapMultibindings =
+    SetMultimap<Key, Binding> plainValueMapMultibindings =
         filterKeys(mapMultibindings, key -> !MapType.from(key).valuesAreFrameworkType());
 
     // Multibindings for Map<K, Provider<V>> where Map<K, V> isn't in plainValueMapMultibindings
-    SetMultimap<Key, dagger.model.Binding> providerValueMapMultibindings =
+    SetMultimap<Key, Binding> providerValueMapMultibindings =
         filterKeys(
             mapMultibindings,
             key ->
-                MapType.from(key).valuesAreTypeOf(Provider.class)
+                MapType.from(key).valuesAreTypeOf(TypeNames.PROVIDER)
                     && !plainValueMapMultibindings.containsKey(keyFactory.unwrapMapValueType(key)));
 
     // Multibindings for Map<K, Producer<V>> where Map<K, V> isn't in plainValueMapMultibindings and
     // Map<K, Provider<V>> isn't in providerValueMapMultibindings
-    SetMultimap<Key, dagger.model.Binding> producerValueMapMultibindings =
+    SetMultimap<Key, Binding> producerValueMapMultibindings =
         filterKeys(
             mapMultibindings,
             key ->
-                MapType.from(key).valuesAreTypeOf(Producer.class)
+                MapType.from(key).valuesAreTypeOf(TypeNames.PRODUCER)
                     && !plainValueMapMultibindings.containsKey(keyFactory.unwrapMapValueType(key))
                     && !providerValueMapMultibindings.containsKey(
-                        keyFactory.rewrapMapKey(key, Producer.class, Provider.class).get()));
+                        keyFactory
+                            .rewrapMapKey(key, TypeNames.PRODUCER, TypeNames.PROVIDER)
+                            .get()));
 
-    return new ImmutableSet.Builder<dagger.model.Binding>()
+    return new ImmutableSet.Builder<Binding>()
         .addAll(plainValueMapMultibindings.values())
         .addAll(providerValueMapMultibindings.values())
         .addAll(producerValueMapMultibindings.values())
@@ -128,7 +128,7 @@ final class MapMultibindingValidator implements BindingGraphPlugin {
   }
 
   private ImmutableSet<ContributionBinding> mapBindingContributions(
-      dagger.model.Binding binding, BindingGraph bindingGraph) {
+      Binding binding, BindingGraph bindingGraph) {
     checkArgument(binding.kind().equals(MULTIBOUND_MAP));
     return bindingGraph.requestedBindings(binding).stream()
         .map(b -> (BindingNode) b)
@@ -137,7 +137,7 @@ final class MapMultibindingValidator implements BindingGraphPlugin {
   }
 
   private void checkForDuplicateMapKeys(
-      dagger.model.Binding multiboundMapBinding,
+      Binding multiboundMapBinding,
       ImmutableSet<ContributionBinding> contributions,
       DiagnosticReporter diagnosticReporter) {
     ImmutableSetMultimap<?, ContributionBinding> contributionsByMapKey =
@@ -156,11 +156,11 @@ final class MapMultibindingValidator implements BindingGraphPlugin {
   }
 
   private void checkForInconsistentMapKeyAnnotationTypes(
-      dagger.model.Binding multiboundMapBinding,
+      Binding multiboundMapBinding,
       ImmutableSet<ContributionBinding> contributions,
       DiagnosticReporter diagnosticReporter) {
-    ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
-        contributionsByMapKeyAnnotationType = indexByMapKeyAnnotationType(contributions);
+    ImmutableSetMultimap<TypeName, ContributionBinding> contributionsByMapKeyAnnotationType =
+        indexByMapKeyAnnotationType(contributions);
 
     if (contributionsByMapKeyAnnotationType.keySet().size() > 1) {
       diagnosticReporter.reportBinding(
@@ -171,19 +171,16 @@ final class MapMultibindingValidator implements BindingGraphPlugin {
     }
   }
 
-  private static ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
-      indexByMapKeyAnnotationType(ImmutableSet<ContributionBinding> contributions) {
+  private static ImmutableSetMultimap<TypeName, ContributionBinding> indexByMapKeyAnnotationType(
+      ImmutableSet<ContributionBinding> contributions) {
     return ImmutableSetMultimap.copyOf(
         Multimaps.index(
             contributions,
-            mapBinding ->
-                MoreTypes.equivalence()
-                    .wrap(mapBinding.mapKeyAnnotation().get().getAnnotationType())));
+            mapBinding -> TypeName.get(mapBinding.mapKeyAnnotation().get().getAnnotationType())));
   }
 
   private String inconsistentMapKeyAnnotationTypesErrorMessage(
-      ImmutableSetMultimap<Equivalence.Wrapper<DeclaredType>, ContributionBinding>
-          contributionsByMapKeyAnnotationType,
+      ImmutableSetMultimap<TypeName, ContributionBinding> contributionsByMapKeyAnnotationType,
       Key mapBindingKey) {
     StringBuilder message =
         new StringBuilder(mapBindingKey.toString())
@@ -191,7 +188,7 @@ final class MapMultibindingValidator implements BindingGraphPlugin {
     Multimaps.asMap(contributionsByMapKeyAnnotationType)
         .forEach(
             (annotationType, contributions) -> {
-              message.append('\n').append(INDENT).append(annotationType.get()).append(':');
+              message.append('\n').append(INDENT).append(annotationType).append(':');
               bindingDeclarationFormatter.formatIndentedList(message, contributions, 2);
             });
     return message.toString();

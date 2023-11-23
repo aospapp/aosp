@@ -42,9 +42,9 @@ namespace pw::thread::freertos {
 //
 class Options : public thread::Options {
  public:
-  constexpr Options() = default;
+  constexpr Options() {}
   constexpr Options(const Options&) = default;
-  constexpr Options(Options&& other) = default;
+  constexpr Options(Options&&) = default;
 
   // Sets the name for the FreeRTOS task, note that this will be truncated
   // based on configMAX_TASK_NAME_LEN.
@@ -86,13 +86,19 @@ class Options : public thread::Options {
     return *this;
   }
 
+  // Returns name of FreeRTOS task.
+  //
+  // Note that this thread name may not match the actual thread name. See the
+  // FreeRTOS documentation on how names must be <= configMAX_TASK_NAME_LEN in
+  // order to avoid truncation.
+  const char* name() const { return name_; }
+
  private:
   friend thread::Thread;
   // FreeRTOS requires a valid name when asserts are enabled,
   // configMAX_TASK_NAME_LEN may be as small as one character.
   static constexpr char kDefaultName[] = "pw::Thread";
 
-  const char* name() const { return name_; }
   UBaseType_t priority() const { return priority_; }
 #if PW_THREAD_FREERTOS_CONFIG_DYNAMIC_ALLOCATION_ENABLED
   size_t stack_size_words() const { return stack_size_words_; }

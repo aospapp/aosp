@@ -1,38 +1,14 @@
+use super::copysignf;
+use super::truncf;
 use core::f32;
 
-const TOINT: f32 = 1.0 / f32::EPSILON;
-
 #[cfg_attr(all(test, assert_no_panic), no_panic::no_panic)]
-pub fn roundf(mut x: f32) -> f32 {
-    let i = x.to_bits();
-    let e: u32 = i >> 23 & 0xff;
-    let mut y: f32;
-
-    if e >= 0x7f + 23 {
-        return x;
-    }
-    if e < 0x7f - 1 {
-        force_eval!(x + TOINT);
-        return 0.0 * x;
-    }
-    if i >> 31 != 0 {
-        x = -x;
-    }
-    y = x + TOINT - TOINT - x;
-    if y > 0.5f32 {
-        y = y + x - 1.0;
-    } else if y <= -0.5f32 {
-        y = y + x + 1.0;
-    } else {
-        y = y + x;
-    }
-    if i >> 31 != 0 {
-        -y
-    } else {
-        y
-    }
+pub fn roundf(x: f32) -> f32 {
+    truncf(x + copysignf(0.5 - 0.25 * f32::EPSILON, x))
 }
 
+// PowerPC tests are failing on LLVM 13: https://github.com/rust-lang/rust/issues/88520
+#[cfg(not(target_arch = "powerpc64"))]
 #[cfg(test)]
 mod tests {
     use super::roundf;
@@ -40,5 +16,15 @@ mod tests {
     #[test]
     fn negative_zero() {
         assert_eq!(roundf(-0.0_f32).to_bits(), (-0.0_f32).to_bits());
+    }
+
+    #[test]
+    fn sanity_check() {
+        assert_eq!(roundf(-1.0), -1.0);
+        assert_eq!(roundf(2.8), 3.0);
+        assert_eq!(roundf(-0.5), -1.0);
+        assert_eq!(roundf(0.5), 1.0);
+        assert_eq!(roundf(-1.5), -2.0);
+        assert_eq!(roundf(1.5), 2.0);
     }
 }

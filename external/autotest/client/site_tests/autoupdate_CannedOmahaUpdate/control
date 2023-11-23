@@ -16,5 +16,6 @@ CRITERIA = 'Do not run this test. See autoupdate_CatchBadSignatures.'
 TEST_CLASS = 'platform'
 TEST_CATEGORY = 'Functional'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 job.run_test('autoupdate_CannedOmahaUpdate')

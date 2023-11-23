@@ -148,6 +148,8 @@ class FunctionDefHelper {
       CHECK(!ret.empty());
       return ret[0];
     }
+    std::vector<string> original_node_names;
+    std::vector<string> original_func_names;
 
     NodeDef ToNodeDef() const;
   };
@@ -759,6 +761,37 @@ class FunctionLibraryRuntime {
 
     // If true, the function library runtime cache the function instantiation.
     bool use_function_cache = false;
+
+    // This interface is EXPERIMENTAL and subject to change.
+    //
+    // If True, allow optimizations which should be targeted at a limited
+    // set of small functions.  For example, running kernels synchronously can
+    // be faster under some conditions.
+    bool allow_small_function_optimizations = false;
+
+    // This interface is EXPERIMENTAL and subject to change.
+    //
+    // If True, allow graphs containing control flow nodes to be run on the
+    // single threaded executor.
+    bool allow_control_flow_sync_execution = false;
+
+    // TODO(b/176491312): Remove this if shape inference on import flag is
+    // removed. If True, allows mlir roundtrip to run shape inference on import.
+    bool shape_inference_on_tfe_dialect_import = true;
+
+    // Force int32 _Arg and _Retvals nodes to be left on device instead of
+    // pinning to host.
+    //
+    // Note that we do not pin int32 nodes to host for subgraphs running in
+    // TPU/XLA devices. So this is mainly used to handle the case of multi-CPU
+    // and GPU (non-XLA) graphs.
+    bool int_args_and_retvals_on_device = false;
+
+    // This interface is EXPERIMENTAL and subject to change.
+    //
+    // Instantiates the function for XLA compilation on device_type. If empty,
+    // function is not compiled.
+    std::string xla_compile_device_type;
   };
   typedef uint64 Handle;
   virtual Status Instantiate(const std::string& function_name, AttrSlice attrs,
@@ -801,13 +834,13 @@ class FunctionLibraryRuntime {
     // non-negative step IDs (contiguous, starting from 0), and
     // MasterSession generates 56-bit random step IDs whose MSB is
     // always 0, so a negative random step ID should suffice.
-    const int64 step_id = -std::abs(static_cast<int64>(random::New64()));
+    const int64_t step_id = -std::abs(static_cast<int64_t>(random::New64()));
 
     // op_id of the function running in eager mode. Set when we want to copy
     // remote outputs lazily. All components of a remote multi-device function
     // should use the same op_id, in order to correctly map remote output
     // tensors to the remote TensorHandles in the default device.
-    absl::optional<int64> op_id = absl::nullopt;
+    absl::optional<int64_t> op_id = absl::nullopt;
 
     RendezvousInterface* rendezvous = nullptr;
     CancellationManager* cancellation_manager = nullptr;
@@ -815,6 +848,8 @@ class FunctionLibraryRuntime {
     ScopedStepContainer* step_container = nullptr;
     StepStatsCollectorInterface* stats_collector = nullptr;
     CoordinationServiceAgent* coordination_service_agent = nullptr;
+
+    absl::optional<ManagedStackTrace> stack_trace = absl::nullopt;
 
     std::function<void(std::function<void()>)>* runner = nullptr;
 

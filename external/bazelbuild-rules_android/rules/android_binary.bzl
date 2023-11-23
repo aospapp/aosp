@@ -14,8 +14,9 @@
 
 """Bazel rule for building an APK."""
 
+load(":common.bzl", "common")
 load(":migration_tag_DONOTUSE.bzl", "add_migration_tag")
-load("@rules_android//rules/android_binary_internal:rule.bzl", "android_binary_internal_macro")
+load("//rules/android_binary_internal:rule.bzl", "android_binary_internal_macro")
 
 def android_binary(**attrs):
     """Bazel android_binary rule.
@@ -25,7 +26,7 @@ def android_binary(**attrs):
     Args:
       **attrs: Rule attributes
     """
-    android_binary_internal_name = ":%s_RESOURCES_DO_NOT_USE" % attrs["name"]
+    android_binary_internal_name = ":" + attrs["name"] + common.PACKAGED_RESOURCES_SUFFIX
     android_binary_internal_macro(
         **dict(
             attrs,

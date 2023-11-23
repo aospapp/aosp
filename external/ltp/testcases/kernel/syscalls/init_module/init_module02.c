@@ -22,6 +22,7 @@
 #define MODULE_NAME	"init_module.ko"
 
 static unsigned long size, zero_size;
+static int kernel_lockdown;
 static void *buf, *faulty_buf, *null_buf;
 
 static struct tst_cap cap_req = TST_CAP(TST_CAP_REQ, CAP_SYS_MODULE);
@@ -33,15 +34,16 @@ static struct tcase {
 	unsigned long *size;
 	const char *param;
 	int cap;
+	int skip_in_lockdown;
 	int exp_errno;
 } tcases[] = {
-	{"NULL-buffer", &null_buf, &size, "", 0, EFAULT},
-	{"faulty-buffer", &faulty_buf, &size, "", 0, EFAULT},
-	{"null-param", &buf, &size, NULL, 0, EFAULT},
-	{"zero-size", &buf, &zero_size, "", 0, ENOEXEC},
-	{"invalid_param", &buf, &size, "status=invalid", 0, EINVAL},
-	{"no-perm", &buf, &size, "", 1, EPERM},
-	{"module-exists", &buf, &size, "", 0, EEXIST},
+	{"NULL-buffer", &null_buf, &size, "", 0, 0, EFAULT},
+	{"faulty-buffer", &faulty_buf, &size, "", 0, 0, EFAULT},
+	{"null-param", &buf, &size, NULL, 0, 1, EFAULT},
+	{"zero-size", &buf, &zero_size, "", 0, 0, ENOEXEC},
+	{"invalid_param", &buf, &size, "status=invalid", 0, 1, EINVAL},
+	{"no-perm", &buf, &size, "", 1, 0, EPERM},
+	{"module-exists", &buf, &size, "", 0, 1, EEXIST},
 };
 
 static void setup(void)
@@ -51,6 +53,7 @@ static void setup(void)
 
 	tst_module_exists(MODULE_NAME, NULL);
 
+	kernel_lockdown = tst_lockdown_enabled();
 	fd = SAFE_OPEN(MODULE_NAME, O_RDONLY|O_CLOEXEC);
 	SAFE_FSTAT(fd, &sb);
 	size = sb.st_size;
@@ -64,6 +67,11 @@ static void run(unsigned int n)
 {
 	struct tcase *tc = &tcases[n];
 
+	if (tc->skip_in_lockdown && kernel_lockdown) {
+		tst_res(TCONF, "Kernel is locked down, skipping %s", tc->name);
+		return;
+	}
+
 	if (tc->cap)
 		tst_cap_action(&cap_drop);
 
@@ -71,8 +79,8 @@ static void run(unsigned int n)
 	if (tc->exp_errno == EEXIST)
 		tst_module_load(MODULE_NAME, NULL);
 
-	TST_EXP_FAIL(init_module(*tc->buf, *tc->size, tc->param), tc->exp_errno,
-		     "TestName: %s", tc->name);
+	TST_EXP_FAIL(init_module(*tc->buf, *tc->size, tc->param),
+		tc->exp_errno, "TestName: %s", tc->name);
 
 	if (tc->exp_errno == EEXIST)
 		tst_module_unload(MODULE_NAME);

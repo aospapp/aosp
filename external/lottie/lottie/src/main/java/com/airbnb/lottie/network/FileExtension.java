@@ -1,10 +1,11 @@
 package com.airbnb.lottie.network;
 
-import com.airbnb.lottie.utils.Logger;
+import androidx.annotation.RestrictTo;
 
 /**
  * Helpers for known Lottie file types.
  */
+@RestrictTo(RestrictTo.Scope.LIBRARY)
 public enum FileExtension {
   JSON(".json"),
   ZIP(".zip");
@@ -23,14 +24,4 @@ public enum FileExtension {
     return extension;
   }
 
-  public static FileExtension forFile(String filename) {
-    for (FileExtension e : values()) {
-      if (filename.endsWith(e.extension)) {
-        return e;
-      }
-    }
-    // Default to Json.
-    Logger.warning("Unable to find correct extension for " + filename);
-    return JSON;
-  }
 }

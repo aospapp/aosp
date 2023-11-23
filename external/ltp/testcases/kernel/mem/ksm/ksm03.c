@@ -59,8 +59,6 @@
 #include "mem.h"
 #include "ksm_common.h"
 
-static const struct tst_cgroup_group *cg;
-
 static void verify_ksm(void)
 {
 	create_same_memory(size, num, unit);
@@ -68,46 +66,35 @@ static void verify_ksm(void)
 
 static void setup(void)
 {
-	if (access(PATH_KSM, F_OK) == -1)
-		tst_brk(TCONF, "KSM configuration is not enabled");
-
-	if (access(PATH_KSM "merge_across_nodes", F_OK) == 0) {
-		SAFE_FILE_SCANF(PATH_KSM "merge_across_nodes",
-				"%d", &merge_across_nodes);
-		SAFE_FILE_PRINTF(PATH_KSM "merge_across_nodes", "1");
-	}
-
 	parse_ksm_options(opt_sizestr, &size, opt_numstr, &num, opt_unitstr, &unit);
 
-	tst_cgroup_require("memory", NULL);
-	cg = tst_cgroup_get_test_group();
-	SAFE_CGROUP_PRINTF(cg, "cgroup.procs", "%d", getpid());
-	SAFE_CGROUP_PRINTF(cg, "memory.max", "%lu", TESTMEM);
-}
-
-static void cleanup(void)
-{
-	if (access(PATH_KSM "merge_across_nodes", F_OK) == 0)
-		FILE_PRINTF(PATH_KSM "merge_across_nodes",
-				 "%d", merge_across_nodes);
-	tst_cgroup_cleanup();
+	SAFE_CG_PRINTF(tst_cg, "cgroup.procs", "%d", getpid());
+	SAFE_CG_PRINTF(tst_cg, "memory.max", "%lu", TESTMEM);
 }
 
 static struct tst_test test = {
 	.needs_root = 1,
 	.forks_child = 1,
 	.options = (struct tst_option[]) {
-		{"n:", &opt_numstr,  "-n       Number of processes"},
-		{"s:", &opt_sizestr, "-s       Memory allocation size in MB"},
-		{"u:", &opt_unitstr, "-u       Memory allocation unit in MB"},
+		{"n:", &opt_numstr,  "Number of processes"},
+		{"s:", &opt_sizestr, "Memory allocation size in MB"},
+		{"u:", &opt_unitstr, "Memory allocation unit in MB"},
 		{}
 	},
 	.setup = setup,
-	.cleanup = cleanup,
-	.save_restore = (const char * const[]) {
-		"?/sys/kernel/mm/ksm/max_page_sharing",
-		NULL,
+	.save_restore = (const struct tst_path_val[]) {
+		{"/sys/kernel/mm/ksm/run", NULL, TST_SR_TBROK},
+		{"/sys/kernel/mm/ksm/sleep_millisecs", NULL, TST_SR_TBROK},
+		{"/sys/kernel/mm/ksm/max_page_sharing", NULL,
+			TST_SR_SKIP_MISSING | TST_SR_TCONF_RO},
+		{"/sys/kernel/mm/ksm/merge_across_nodes", "1",
+			TST_SR_SKIP_MISSING | TST_SR_TCONF_RO},
+		{}
+	},
+	.needs_kconfigs = (const char *const[]){
+		"CONFIG_KSM=y",
+		NULL
 	},
 	.test_all = verify_ksm,
-	.min_kver = "2.6.32",
+	.needs_cgroup_ctrls = (const char *const []){ "memory", NULL },
 };

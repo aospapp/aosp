@@ -24,11 +24,11 @@ java_plugin(
     name = "test_plugin",
     srcs = ["TestPlugin.java"],
     deps = [
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
         "//java/dagger/spi",
-        "@google_bazel_common//third_party/java/auto:service",
-        "@google_bazel_common//third_party/java/javapoet",
+        "//third_party/java/auto:service",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
+        "//third_party/java/javapoet",
     ],
 )
 
@@ -45,12 +45,12 @@ GenJavaTests(
     ),
     functional = 0,
     test_only_deps = [
-        "@google_bazel_common//third_party/java/truth",
-        "@google_bazel_common//third_party/java/junit",
+        "//third_party/java/truth",
+        "//third_party/java/junit",
     ],
     deps = [
         ":test_lib",
         "//:dagger_with_compiler",
-        "@google_bazel_common//third_party/java/guava",
+        "//third_party/java/guava",
     ],
 )

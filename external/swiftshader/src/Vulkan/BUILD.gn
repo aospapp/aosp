@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import("//build_overrides/build.gni")
+import("//build_overrides/wayland.gni")
+import("//build/config/ozone.gni")
 import("../swiftshader.gni")
 import("vulkan.gni")
 
@@ -20,9 +22,14 @@ import("vulkan.gni")
 config("swiftshader_libvulkan_private_config") {
   if (is_linux) {
     defines = [
-      "VK_USE_PLATFORM_XCB_KHR",
       "VK_EXPORT=__attribute__((visibility(\"default\")))",
     ]
+    if (ozone_platform_x11) {
+      defines += [ "VK_USE_PLATFORM_XCB_KHR" ]
+    }
+    if (ozone_platform_wayland) {
+      defines += [ "VK_USE_PLATFORM_WAYLAND_KHR" ]
+    }
   } else if (is_chromeos) {
     defines = [
       "VK_EXPORT=__attribute__((visibility(\"default\")))",
@@ -57,6 +64,7 @@ config("swiftshader_libvulkan_private_config") {
   defines += [
      "SWIFTSHADER_ENABLE_ASTC",  # TODO(b/150130101)
      "SWIFTSHADER_LEGACY_PRECISION=true",  # TODO(chromium:1299047)
+     "SWIFTSHADER_ZERO_INITIALIZE_DEVICE_MEMORY",
   ]
 }
 
@@ -160,6 +168,8 @@ swiftshader_shared_library("swiftshader_libvulkan") {
 
   configs = [ ":swiftshader_libvulkan_private_config" ]
 
+  libs = []
+
   # TODO(capn): Use the same ICD name on both Windows and non-Windows.
   if (is_win) {
     output_name = "vk_swiftshader"
@@ -171,6 +181,10 @@ swiftshader_shared_library("swiftshader_libvulkan") {
     sources += [
       "Vulkan.rc",
       "vk_swiftshader.def",
+    ]
+    libs += [
+      "gdi32.lib",
+      "user32.lib",
     ]
   }
 

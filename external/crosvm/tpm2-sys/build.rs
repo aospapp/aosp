@@ -1,12 +1,14 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use anyhow::{bail, Result};
 use std::env;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+
+use anyhow::bail;
+use anyhow::Result;
 
 /// Returns the target triplet prefix for gcc commands. No prefix is required
 /// for native builds.
@@ -24,7 +26,7 @@ fn get_cross_compile_prefix() -> String {
     } else {
         env::var("CARGO_CFG_TARGET_ENV").unwrap()
     };
-    return format!("{}-{}-{}-", arch, os, env);
+    format!("{}-{}-{}-", arch, os, env)
 }
 
 fn build_libtpm2(out_dir: &Path) -> Result<()> {
@@ -47,6 +49,7 @@ fn build_libtpm2(out_dir: &Path) -> Result<()> {
         .arg(format!("AR={}ar", prefix))
         .arg(format!("CC={}gcc", prefix))
         .arg(format!("OBJCOPY={}objcopy", prefix))
+        .arg("CFLAGS=-Wno-error")
         .arg(format!("obj={}", out_dir.display()))
         .current_dir("libtpm2")
         .status()?;
@@ -57,6 +60,16 @@ fn build_libtpm2(out_dir: &Path) -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    // Skip installing dependencies when generating documents.
+    if std::env::var("CARGO_DOC").is_ok() {
+        return Ok(());
+    }
+
+    // libtpm2 is unix only
+    if std::env::var("CARGO_CFG_UNIX").is_err() {
+        return Ok(());
+    }
+
     // Use tpm2 package from the standard system location if available.
     if pkg_config::Config::new()
         .statik(true)

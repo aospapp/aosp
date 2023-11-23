@@ -9,6 +9,7 @@ ATTRIBUTES = "suite:faft_cr50_experimental"
 TIME = "SHORT"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 This test verifies Cr50 update works or recovery from erased nvmem.

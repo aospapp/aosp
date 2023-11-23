@@ -36,11 +36,11 @@ def _format_image_name(board, version):
 
 
 def get_stable_cros_image_name_v2(host_info):
-    """Retrieve the Chrome OS stable image name for a given board.
+    """Retrieve the ChromeOS stable image name for a given board.
 
     @param host_info: a host_info_store object.
 
-    @returns Name of a Chrome OS image to be installed in order to
+    @returns Name of a ChromeOS image to be installed in order to
             repair the given board.
     """
     if not host_info.cros_stable_version:

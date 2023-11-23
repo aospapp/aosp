@@ -24,6 +24,7 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+void calc_path_loss(struct wmediumd *ctx);
 int clear_config(struct wmediumd *ctx);
 int validate_config(const char* file);
 int load_config(struct wmediumd *ctx, const char *file, const char *per_file);

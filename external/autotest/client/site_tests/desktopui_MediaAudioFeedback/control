@@ -2,13 +2,18 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# TEST SOON TO BE DISABLED UNTIL MIGRATED TO PYTHON 3.
+# For instructions on how to: go/tauto-py3-migration
+# To re-enable migrate to Python 3.
+# If the test is not migrated by 1/14/22 it will be deleted.
+
 AUTHOR = "Chromium OS Project"
 NAME = "desktopui_MediaAudioFeedback"
 PURPOSE = "Verify sound from media files is audible"
 CRITERIA = """
 This test will fail if media files sound is not audible.
 """
-ATTRIBUTES = "suite:bvt-perbuild"
+ATTRIBUTES = ""
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "desktopui"

@@ -6,6 +6,7 @@ license {
     name: "external_wmediumd_license",
     visibility: [":__subpackages__"],
     license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
         "SPDX-license-identifier-GPL-2.0",
     ],
     license_text: [
@@ -24,13 +25,76 @@ cc_binary_host {
         "libconfig",
     ],
     visibility: [
-       "//device/google/cuttlefish/build",
+        "//device/google/cuttlefish/build",
+    ],
+}
+
+cc_library_host_static {
+    name: "libwmediumd_server",
+    shared_libs: [
+        "libgflags",
+        "libgrpc++_unsecure",
+        "libprotobuf-cpp-full",
+    ],
+    cflags: [
+        "-Wno-unused-parameter",
+    ],
+    generated_headers: [
+        "WmediumdServerProto_h",
+    ],
+    generated_sources: [
+        "WmediumdServerProto_cc",
+    ],
+    export_generated_headers: [
+        "WmediumdServerProto_h",
+    ],
+}
+
+filegroup {
+    name: "WmediumdServerProto",
+    srcs: [
+        "wmediumd_server/wmediumd.proto",
+    ],
+}
+
+// TODO(278065934): Add a module type for grpc service
+genrule {
+    name: "WmediumdServerProto_h",
+    tools: [
+        "aprotoc",
+        "protoc-gen-grpc-cpp-plugin",
+    ],
+    cmd: "$(location aprotoc) -Iexternal/wmediumd/wmediumd_server -Iexternal/protobuf/src --plugin=protoc-gen-grpc=$(location protoc-gen-grpc-cpp-plugin) $(in) --grpc_out=$(genDir) --cpp_out=$(genDir)",
+    srcs: [
+        ":WmediumdServerProto",
+    ],
+    out: [
+        "wmediumd.grpc.pb.h",
+        "wmediumd.pb.h",
+    ],
+}
+
+genrule {
+    name: "WmediumdServerProto_cc",
+    tools: [
+        "aprotoc",
+        "protoc-gen-grpc-cpp-plugin",
+    ],
+    cmd: "$(location aprotoc) -Iexternal/wmediumd/wmediumd_server -Iexternal/protobuf/src --plugin=protoc-gen-grpc=$(location protoc-gen-grpc-cpp-plugin) $(in) --grpc_out=$(genDir) --cpp_out=$(genDir)",
+    srcs: [
+        ":WmediumdServerProto",
+    ],
+    out: [
+        "wmediumd.grpc.pb.cc",
+        "wmediumd.pb.cc",
     ],
 }
 
 cc_binary_host {
     name: "wmediumd",
     srcs: [
+        "main.cc",
+        "wmediumd_server/wmediumd_server.cc",
         "wmediumd/*.c",
         "wmediumd/lib/*.c",
     ],
@@ -48,15 +112,22 @@ cc_binary_host {
         "-Wno-gnu-variable-sized-type-not-at-end",
         "-Wno-unused-function",
     ],
-    static_libs: [
+    shared_libs: [
+        "libbase",
         "libnl",
+        "libgflags",
+        "libgrpc++_unsecure",
+        "libprotobuf-cpp-full",
+    ],
+    static_libs: [
         "libconfig",
+        "libgrpc++_reflection",
+        "libwmediumd_server",
     ],
+    cpp_std: "c++17",
     visibility: [
-       "//device/google/cuttlefish/build",
+        "//device/google/cuttlefish/build",
     ],
-    stl: "none",
-    static_executable: true,
 }
 
 cc_binary_host {
@@ -68,7 +139,7 @@ cc_binary_host {
         "wmediumd/inc",
     ],
     visibility: [
-       "//device/google/cuttlefish/build",
+        "//device/google/cuttlefish/build",
     ],
     stl: "none",
     static_executable: true,

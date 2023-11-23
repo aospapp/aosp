@@ -9,20 +9,13 @@ struct OwnedAllocator : public flatbuffers::DefaultAllocator {};
 
 class TestHeapBuilder : public flatbuffers::FlatBufferBuilder {
  private:
-  // clang-format off
-  #if !defined(FLATBUFFERS_CPP98_STL)
   TestHeapBuilder(const TestHeapBuilder &);
   TestHeapBuilder &operator=(const TestHeapBuilder &);
-  #endif  // !defined(FLATBUFFERS_CPP98_STL)
-  // clang-format on
 
  public:
   TestHeapBuilder()
       : flatbuffers::FlatBufferBuilder(2048, new OwnedAllocator(), true) {}
 
-  // clang-format off
-  #if !defined(FLATBUFFERS_CPP98_STL)
-  // clang-format on
   TestHeapBuilder(TestHeapBuilder &&other)
       : FlatBufferBuilder(std::move(other)) {}
 
@@ -30,9 +23,6 @@ class TestHeapBuilder : public flatbuffers::FlatBufferBuilder {
     FlatBufferBuilder::operator=(std::move(other));
     return *this;
   }
-  // clang-format off
-  #endif  // !defined(FLATBUFFERS_CPP98_STL)
-  // clang-format on
 };
 
 // This class simulates flatbuffers::grpc::detail::SliceAllocatorMember
@@ -56,18 +46,12 @@ struct GrpcLikeMessageBuilder : private AllocatorMember,
     Swap(other);
   }
 
-  // clang-format off
-  #if !defined(FLATBUFFERS_CPP98_STL)
-  // clang-format on
   GrpcLikeMessageBuilder &operator=(GrpcLikeMessageBuilder &&other) {
     // Construct temporary and swap idiom
     GrpcLikeMessageBuilder temp(std::move(other));
     Swap(temp);
     return *this;
   }
-  // clang-format off
-  #endif  // !defined(FLATBUFFERS_CPP98_STL)
-  // clang-format on
 
   void Swap(GrpcLikeMessageBuilder &other) {
     // No need to swap member_allocator_ because it's stateless.
@@ -133,6 +117,9 @@ bool release_n_verify(flatbuffers::FlatBufferBuilder &fbb,
   return verify(buf, expected_name, color);
 }
 
+// forward-declared in test.cpp
+void FlatBufferBuilderTest();
+
 void FlatBufferBuilderTest() {
   using flatbuffers::FlatBufferBuilder;
 
@@ -153,6 +140,9 @@ void FlatBufferBuilderTest() {
   BuilderReuseTests<GrpcLikeMessageBuilder, GrpcLikeMessageBuilder>::run_tests(
       TestSelector(tests, tests + 4));
 }
+
+// forward-declared in test_builder.h
+void CheckTestGeneratedIsValid(const MyGame::Example::Color&);
 
 // Link-time check using pointer type.
 void CheckTestGeneratedIsValid(const MyGame::Example::Color &) {}

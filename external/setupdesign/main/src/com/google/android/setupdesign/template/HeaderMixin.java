@@ -27,6 +27,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.ViewTreeObserver;
+import android.view.ViewTreeObserver.OnPreDrawListener;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.AttrRes;
@@ -42,6 +43,7 @@ import com.google.android.setupdesign.util.HeaderAreaStyler;
 import com.google.android.setupdesign.util.LayoutStyler;
 import com.google.android.setupdesign.util.PartnerStyleHelper;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.ArrayList;
 
 /**
  * A {@link com.google.android.setupcompat.template.Mixin} for setting and getting the header text.
@@ -54,7 +56,10 @@ public class HeaderMixin implements Mixin {
   private float headerAutoSizeMinTextSizeInPx;
   private float headerAutoSizeLineExtraSpacingInPx;
   private int headerAutoSizeMaxLineOfMaxSize;
+  private float defaultTextSize = 0;
+  private int defaultLineHeight = 0;
   private static final int AUTO_SIZE_DEFAULT_MAX_LINES = 6;
+  ArrayList<OnPreDrawListener> titlePreDrawListeners = new ArrayList<>();
 
   /**
    * A {@link com.google.android.setupcompat.template.Mixin} for setting and getting the Header.
@@ -78,8 +83,11 @@ public class HeaderMixin implements Mixin {
         a.getColorStateList(R.styleable.SucHeaderMixin_sucHeaderTextColor);
 
     a.recycle();
-
-    // Try to update the flag of the uto size config settings
+    if (getTextView() != null) {
+      defaultTextSize = getTextView().getTextSize();
+      defaultLineHeight = getTextView().getLineHeight();
+    }
+    // Try to update the flag of the auto size config settings
     tryUpdateAutoTextSizeFlagWithPartnerConfig();
 
     // Set the header text
@@ -109,7 +117,11 @@ public class HeaderMixin implements Mixin {
     if (!autoTextSizeEnabled) {
       return;
     }
+    tryUpdateAutoTextConfigWithPartnerConfig();
+  }
 
+  private void tryUpdateAutoTextConfigWithPartnerConfig() {
+    Context context = templateLayout.getContext();
     if (PartnerConfigHelper.get(context)
         .isPartnerConfigAvailable(PartnerConfig.CONFIG_HEADER_AUTO_SIZE_MAX_TEXT_SIZE)) {
       headerAutoSizeMaxTextSizeInPx =
@@ -207,36 +219,66 @@ public class HeaderMixin implements Mixin {
     }
     // preset as the max size
     titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, headerAutoSizeMaxTextSizeInPx);
+    defaultTextSize = titleView.getTextSize();
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
       titleView.setLineHeight(
           Math.round(headerAutoSizeLineExtraSpacingInPx + headerAutoSizeMaxTextSizeInPx));
+      defaultLineHeight = titleView.getLineHeight();
     }
     titleView.setMaxLines(AUTO_SIZE_DEFAULT_MAX_LINES);
-
     // reset text size if the line count for max text size > headerAutoSizeMaxLineOfMaxTextSize
-    titleView
-        .getViewTreeObserver()
-        .addOnPreDrawListener(
-            new ViewTreeObserver.OnPreDrawListener() {
-              @Override
-              public boolean onPreDraw() {
-                // Remove listener to avoid this called every frame
-                titleView.getViewTreeObserver().removeOnPreDrawListener(this);
-                int lineCount = titleView.getLineCount();
-                if (lineCount > headerAutoSizeMaxLineOfMaxSize) {
-                  // reset text size
-                  titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, headerAutoSizeMinTextSizeInPx);
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    titleView.setLineHeight(
-                        Math.round(
-                            headerAutoSizeLineExtraSpacingInPx + headerAutoSizeMinTextSizeInPx));
-                  }
-                  titleView.invalidate();
-                  return false; // false to skip this frame
-                }
-                return true;
+    OnPreDrawListener titlePreDrawListener =
+        new ViewTreeObserver.OnPreDrawListener() {
+          @Override
+          public boolean onPreDraw() {
+            // Remove listener to avoid this called every frame
+            titleView.getViewTreeObserver().removeOnPreDrawListener(this);
+            int lineCount = titleView.getLineCount();
+            if (lineCount > headerAutoSizeMaxLineOfMaxSize) {
+              // reset text size
+              titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, headerAutoSizeMinTextSizeInPx);
+              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                titleView.setLineHeight(
+                    Math.round(headerAutoSizeLineExtraSpacingInPx + headerAutoSizeMinTextSizeInPx));
               }
-            });
+              titleView.invalidate();
+              return false; // false to skip this frame
+            }
+            return true;
+          }
+        };
+    titleView.getViewTreeObserver().addOnPreDrawListener(titlePreDrawListener);
+    titlePreDrawListeners.add(titlePreDrawListener);
+  }
+
+  private void resetTextSize(TextView titleView) {
+    if (titleView == null) {
+      return;
+    }
+    titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, defaultTextSize);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      titleView.setLineHeight(defaultLineHeight);
+    }
+    for (OnPreDrawListener titlePreDrawListener : titlePreDrawListeners) {
+      titleView.getViewTreeObserver().removeOnPreDrawListener(titlePreDrawListener);
+    }
+    titlePreDrawListeners.clear();
+  }
+
+  /**
+   * Enable or disable the auto size for header string. Which will adjust the font size of header
+   * string to fit the limitation of headerAutoSizeMaxLineOfMaxSize.
+   */
+  public void setAutoTextSizeEnabled(boolean autoTextSizeEnabled) {
+    this.autoTextSizeEnabled = autoTextSizeEnabled;
+    if (autoTextSizeEnabled) {
+      tryUpdateAutoTextConfigWithPartnerConfig();
+      if (autoTextSizeEnabled) {
+        autoAdjustTextSize(getTextView());
+      }
+    } else {
+      resetTextSize(getTextView());
+    }
   }
 
   /** Returns the current header text. */

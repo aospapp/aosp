@@ -45,7 +45,7 @@
 #endif
 
 /*!
- * @addtogroup ICU4C
+ * @addtogroup icu4c ICU4C
  * @{
  * \file
  * \brief Basic definitions for ICU, for both C and C++ APIs
@@ -70,18 +70,7 @@
 #   define U_SHOW_CPLUSPLUS_API 0
 #endif
 
-/** @{ API visibility control */
 
-/**
- * \def U_HIDE_DRAFT_API
- * Define this to 1 to request that draft API be "hidden"
- * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
- */
-/**
- * \def U_HIDE_INTERNAL_API
- * Define this to 1 to request that internal API be "hidden"
- * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
- */
 #if !U_DEFAULT_SHOW_DRAFT && !defined(U_SHOW_DRAFT_API)
 #define U_HIDE_DRAFT_API 1
 #endif
@@ -89,7 +78,6 @@
 #define U_HIDE_INTERNAL_API 1
 #endif
 
-/** @} */
 
 /*===========================================================================*/
 /* ICUDATA naming scheme                                                     */

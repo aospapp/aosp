@@ -1,14 +1,11 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # pylint: disable=missing-docstring
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
-from six.moves import range
-import six
 import errno
+import io
 import itertools
 import logging
 import os
@@ -17,17 +14,18 @@ import socket
 import subprocess
 import time
 import unittest
-from six.moves import urllib
-
-import common
-from autotest_lib.client.common_lib import autotemp
-from autotest_lib.client.common_lib import utils
-from autotest_lib.client.common_lib.test_utils import mock
 
 # mock 1.0.0 (in site-packages/chromite/third_party/mock.py)
 # which is an ancestor of Python's default library starting from Python 3.3.
 # See https://docs.python.org/3/library/unittest.mock.html
 import mock as pymock
+import six
+from six.moves import range, urllib
+
+import common
+
+from autotest_lib.client.common_lib import autotemp, utils
+from autotest_lib.client.common_lib.test_utils import mock
 
 metrics = utils.metrics_mock
 
@@ -168,6 +166,14 @@ class test_open_write_close(unittest.TestCase):
         test_file = mock.SaveDataAfterCloseStringIO()
         utils.open.expect_call("filename", "w").and_return(test_file)
         utils.open_write_close("filename", data)
+        self.god.check_playback()
+        self.assertEqual(data, test_file.final_data)
+
+    def test_binary_functionality(self):
+        data = bytearray([0, 1, 3, 23, 0, 71, 254, 255, 127, 128])
+        test_file = mock.SaveDataAfterCloseBytesIO()
+        utils.open.expect_call("filename", "wb").and_return(test_file)
+        utils.open_write_close("filename", data, is_binary=True)
         self.god.check_playback()
         self.assertEqual(data, test_file.final_data)
 
@@ -458,8 +464,8 @@ class test_urlretrieve(unittest.TestCase):
         data = object()
         timeout = 10
 
-        src_file = self.god.create_mock_class(file, "file")
-        dest_file = self.god.create_mock_class(file, "file")
+        src_file = self.god.create_mock_class(io.IOBase, "file")
+        dest_file = self.god.create_mock_class(io.IOBase, "file")
 
         (utils.urlopen.expect_call(url, data=data, timeout=timeout)
                 .and_return(src_file))
@@ -605,7 +611,7 @@ class test_sh_escape(unittest.TestCase):
                                 stderr=open(os.devnull, 'w'))
         stdout, _ = proc.communicate()
         self.assertEqual(proc.returncode, 0)
-        self.assertEqual(stdout[:-1], text)
+        self.assertEqual(stdout[:-1].decode(), text)
 
 
     def test_normal_string(self):
@@ -687,7 +693,7 @@ class test_sh_quote_word(test_sh_escape):
         quoted_word = utils.sh_quote_word(text)
         echoed_value = subprocess.check_output('echo %s' % quoted_word,
                                                shell=True)
-        self.assertEqual(echoed_value, text + '\n')
+        self.assertEqual(echoed_value.decode(), text + '\n')
 
 
 class test_nested_sh_quote_word(test_sh_quote_word):
@@ -701,7 +707,7 @@ class test_nested_sh_quote_word(test_sh_quote_word):
         nested_command = 'echo ' + utils.sh_quote_word(command)
         produced_command = subprocess.check_output(nested_command, shell=True)
         echoed_value = subprocess.check_output(produced_command, shell=True)
-        self.assertEqual(echoed_value, text + '\n')
+        self.assertEqual(echoed_value.decode(), text + '\n')
 
 
 class test_run(unittest.TestCase):
@@ -1553,7 +1559,7 @@ class test_timeout_error(unittest.TestCase):
             "Waiting for condition. Reason: Exception('illegal input',)",
             str(e))
         self.assertIsInstance(e.reason, Exception)
-        self.assertEqual('illegal input', e.reason.message)
+        self.assertEqual('illegal input', str(e.reason))
 
         # Positional message argument for backward compatibility.
         e = utils.TimeoutError('Waiting for condition',
@@ -1562,7 +1568,7 @@ class test_timeout_error(unittest.TestCase):
             "Waiting for condition. Reason: Exception('illegal input',)",
             str(e))
         self.assertIsInstance(e.reason, Exception)
-        self.assertEqual('illegal input', e.reason.message)
+        self.assertEqual('illegal input', str(e.reason))
 
 
 

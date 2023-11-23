@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #include <shared/macro.h>
 
@@ -42,7 +43,23 @@ char *path_make_absolute_cwd(const char *p) _must_check_ __attribute__((nonnull(
 int mkdir_p(const char *path, int len, mode_t mode);
 int mkdir_parents(const char *path, mode_t mode);
 unsigned long long stat_mstamp(const struct stat *st);
+
+/* time-related functions
+ * ************************************************************************ */
+#define USEC_PER_SEC	1000000ULL
+#define USEC_PER_MSEC	1000ULL
+#define MSEC_PER_SEC	1000ULL
+#define NSEC_PER_MSEC	1000000ULL
+
 unsigned long long ts_usec(const struct timespec *ts);
+unsigned long long ts_msec(const struct timespec *ts);
+unsigned long long now_usec(void);
+unsigned long long now_msec(void);
+int sleep_until_msec(unsigned long long msec);
+unsigned long long get_backoff_delta_msec(unsigned long long t0,
+					  unsigned long long tend,
+					  unsigned long long *delta);
+
 
 /* endianess and alignments                                                 */
 /* ************************************************************************ */

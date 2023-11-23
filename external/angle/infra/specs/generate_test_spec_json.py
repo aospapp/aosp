@@ -37,7 +37,17 @@ ADDITIONAL_MIXINS = {
                 '--gerrit-issue=${patch_issue}',
                 '--gerrit-patchset=${patch_set}',
                 '--buildbucket-id=${buildbucket_build_id}',
+                # This normally evaluates to "0", but will evaluate to "1" if
+                # "Use-Permissive-Angle-Pixel-Comparison: True" is present as a
+                # CL footer.
+                '--use-permissive-pixel-comparison=${use_permissive_angle_pixel_comparison}',
             ],
+        }
+    },
+    'timeout_120m': {
+        'swarming': {
+            'hard_timeout': 7200,
+            'io_timeout': 300
         }
     },
 }

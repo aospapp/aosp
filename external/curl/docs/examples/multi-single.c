@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
+ *
+ * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
 /* <DESC>
@@ -34,17 +36,8 @@
 /* curl stuff */
 #include <curl/curl.h>
 
-#ifdef _WIN32
-#define WAITMS(x) Sleep(x)
-#else
-/* Portable sleep for platforms other than Windows. */
-#define WAITMS(x)                               \
-  struct timeval wait = { 0, (x) * 1000 };      \
-  (void)select(0, NULL, NULL, NULL, &wait)
-#endif
-
 /*
- * Simply download a HTTP file.
+ * Simply download an HTTP file.
  */
 int main(void)
 {

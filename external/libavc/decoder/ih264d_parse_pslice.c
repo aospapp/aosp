@@ -1003,6 +1003,12 @@ WORD32 ih264d_parse_inter_slice_data_cabac(dec_struct_t * ps_dec,
 
         }
 
+        if(ps_dec->u1_enable_mb_info)
+        {
+            ih264d_populate_mb_info_map(ps_dec, ps_cur_mb_info, ps_cur_mb_info->u2_mbx << 1,
+                                        ps_cur_mb_info->u2_mby << 1, ps_cur_deblk_mb->u1_mb_qp);
+        }
+
         if(u1_mbaff)
         {
             ih264d_update_mbaff_left_nnz(ps_dec, ps_cur_mb_info);
@@ -1353,6 +1359,12 @@ WORD32 ih264d_parse_inter_slice_data_cavlc(dec_struct_t * ps_dec,
             uc_more_data_flag = MORE_RBSP_DATA(ps_bitstrm);
         }
         ps_cur_deblk_mb->u1_mb_qp = ps_dec->u1_qp;
+
+        if(ps_dec->u1_enable_mb_info)
+        {
+            ih264d_populate_mb_info_map(ps_dec, ps_cur_mb_info, ps_cur_mb_info->u2_mbx << 1,
+                                        ps_cur_mb_info->u2_mby << 1, ps_cur_deblk_mb->u1_mb_qp);
+        }
 
         if(u1_mbaff)
         {
@@ -2152,17 +2164,19 @@ WORD32 ih264d_parse_pslice(dec_struct_t *ps_dec, UWORD16 u2_first_mb_in_slice)
         ps_cur_slice->u1_cabac_init_idc = u4_temp;
         COPYTHECONTEXT("SH: cabac_init_idc",ps_cur_slice->u1_cabac_init_idc);
     }
-
-    /* Read slice_qp_delta */
-    WORD64 i8_temp = (WORD64)ps_pps->u1_pic_init_qp
-                        + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
-    if((i8_temp < MIN_H264_QP) || (i8_temp > MAX_H264_QP))
     {
-        return ERROR_INV_RANGE_QP_T;
+        WORD64 i8_temp;
+        /* Read slice_qp_delta */
+        i8_temp = (WORD64)ps_pps->u1_pic_init_qp
+                            + ih264d_sev(pu4_bitstrm_ofst, pu4_bitstrm_buf);
+        if((i8_temp < MIN_H264_QP) || (i8_temp > MAX_H264_QP))
+        {
+            return ERROR_INV_RANGE_QP_T;
+        }
+        ps_cur_slice->u1_slice_qp = i8_temp;
+        COPYTHECONTEXT("SH: slice_qp_delta",
+                        (WORD8)(ps_cur_slice->u1_slice_qp - ps_pps->u1_pic_init_qp));
     }
-    ps_cur_slice->u1_slice_qp = i8_temp;
-    COPYTHECONTEXT("SH: slice_qp_delta",
-                    (WORD8)(ps_cur_slice->u1_slice_qp - ps_pps->u1_pic_init_qp));
 
     if(ps_pps->u1_deblocking_filter_parameters_present_flag == 1)
     {

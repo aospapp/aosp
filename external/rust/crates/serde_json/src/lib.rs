@@ -104,7 +104,7 @@
 //! a JSON string to a Rust string with [`as_str()`] or avoiding the use of
 //! `Value` as described in the following section.
 //!
-//! [`as_str()`]: https://docs.serde.rs/serde_json/enum.Value.html#method.as_str
+//! [`as_str()`]: crate::Value::as_str
 //!
 //! The `Value` representation is sufficient for very basic tasks but can be
 //! tedious to work with for anything more significant. Error handling is
@@ -227,10 +227,10 @@
 //! });
 //! ```
 //!
-//! This is amazingly convenient but we have the problem we had before with
-//! `Value` which is that the IDE and Rust compiler cannot help us if we get it
-//! wrong. Serde JSON provides a better way of serializing strongly-typed data
-//! structures into JSON text.
+//! This is amazingly convenient, but we have the problem we had before with
+//! `Value`: the IDE and Rust compiler cannot help us if we get it wrong. Serde
+//! JSON provides a better way of serializing strongly-typed data structures
+//! into JSON text.
 //!
 //! # Creating JSON by serializing data structures
 //!
@@ -279,8 +279,8 @@
 //! # No-std support
 //!
 //! As long as there is a memory allocator, it is possible to use serde_json
-//! without the rest of the Rust standard library. This is supported on Rust
-//! 1.36+. Disable the default "std" feature and enable the "alloc" feature:
+//! without the rest of the Rust standard library. Disable the default "std"
+//! feature and enable the "alloc" feature:
 //!
 //! ```toml
 //! [dependencies]
@@ -290,17 +290,17 @@
 //! For JSON support in Serde without a memory allocator, please see the
 //! [`serde-json-core`] crate.
 //!
-//! [value]: https://docs.serde.rs/serde_json/value/enum.Value.html
-//! [from_str]: https://docs.serde.rs/serde_json/de/fn.from_str.html
-//! [from_slice]: https://docs.serde.rs/serde_json/de/fn.from_slice.html
-//! [from_reader]: https://docs.serde.rs/serde_json/de/fn.from_reader.html
-//! [to_string]: https://docs.serde.rs/serde_json/ser/fn.to_string.html
-//! [to_vec]: https://docs.serde.rs/serde_json/ser/fn.to_vec.html
-//! [to_writer]: https://docs.serde.rs/serde_json/ser/fn.to_writer.html
-//! [macro]: https://docs.serde.rs/serde_json/macro.json.html
+//! [value]: crate::value::Value
+//! [from_str]: crate::de::from_str
+//! [from_slice]: crate::de::from_slice
+//! [from_reader]: crate::de::from_reader
+//! [to_string]: crate::ser::to_string
+//! [to_vec]: crate::ser::to_vec
+//! [to_writer]: crate::ser::to_writer
+//! [macro]: crate::json
 //! [`serde-json-core`]: https://github.com/rust-embedded-community/serde-json-core
 
-#![doc(html_root_url = "https://docs.rs/serde_json/1.0.79")]
+#![doc(html_root_url = "https://docs.rs/serde_json/1.0.93")]
 // Ignored clippy lints
 #![allow(
     clippy::collapsible_else_if,
@@ -308,6 +308,7 @@
     clippy::deprecated_cfg_attr,
     clippy::doc_markdown,
     clippy::excessive_precision,
+    clippy::explicit_auto_deref,
     clippy::float_cmp,
     clippy::manual_range_contains,
     clippy::match_like_matches_macro,

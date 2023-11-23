@@ -16,12 +16,14 @@
 
 package com.tonicsystems.jarjar;
 
+import com.android.jarjar.StripAnnotation;
 import com.tonicsystems.jarjar.util.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
 import com.android.jarjar.RemoveAndroidCompatAnnotationsJarTransformer;
+import com.android.jarjar.StripAnnotationsJarTransformer;
 
 class MainProcessor implements JarProcessor
 {
@@ -42,6 +44,9 @@ class MainProcessor implements JarProcessor
         List<Zap> zapList = new ArrayList<Zap>();
         List<Rule> ruleList = new ArrayList<Rule>();
         List<Keep> keepList = new ArrayList<Keep>();
+        // ANDROID-BEGIN: b/222743634 Strip annotations from system module stubs
+        List<StripAnnotation> stripAnnotationList = new ArrayList<StripAnnotation>();
+        // ANDROID-END: b/222743634 Strip annotations from system module stubs
         for (PatternElement pattern : patterns) {
             if (pattern instanceof Zap) {
                 zapList.add((Zap) pattern);
@@ -49,7 +54,11 @@ class MainProcessor implements JarProcessor
                 ruleList.add((Rule) pattern);
             } else if (pattern instanceof Keep) {
                 keepList.add((Keep) pattern);
+            // ANDROID-BEGIN: b/222743634 Strip annotations from system module stubs
+            } else if (pattern instanceof StripAnnotation) {
+                stripAnnotationList.add((StripAnnotation) pattern);
             }
+            // ANDROID-END: b/222743634 Strip annotations from system module stubs
         }
 
         PackageRemapper pr = new PackageRemapper(ruleList, verbose);
@@ -65,6 +74,11 @@ class MainProcessor implements JarProcessor
         if (removeAndroidCompatAnnotations)
             processors.add(new RemoveAndroidCompatAnnotationsJarTransformer(pr));
         // ANDROID-END: b/146418363 Add an Android-specific transformer to strip compat annotation
+        // ANDROID-BEGIN: b/222743634 Strip annotations from system module stubs
+        if (!stripAnnotationList.isEmpty()) {
+            processors.add(new StripAnnotationsJarTransformer(stripAnnotationList));
+        }
+        // ANDROID-END: b/222743634 Strip annotations from system module stubs
         processors.add(new JarTransformerChain(new RemappingClassTransformer[]{ new RemappingClassTransformer(pr) }));
         processors.add(new ResourceProcessor(pr));
         chain = new JarProcessorChain(processors.toArray(new JarProcessor[processors.size()]));

@@ -18,43 +18,24 @@ package dagger.internal.codegen.binding;
 
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
-import static dagger.model.RequestKind.INSTANCE;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
-import dagger.Lazy;
-import dagger.internal.DoubleCheck;
-import dagger.internal.ProviderOfLazy;
 import dagger.internal.codegen.base.RequestKinds;
 import dagger.internal.codegen.javapoet.Expression;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.model.DependencyRequest;
-import dagger.model.RequestKind;
-import dagger.producers.Produced;
-import dagger.producers.Producer;
-import dagger.producers.internal.Producers;
+import dagger.spi.model.DependencyRequest;
+import dagger.spi.model.RequestKind;
 import java.util.Optional;
-import javax.inject.Provider;
 import javax.lang.model.type.TypeMirror;
 
 /** One of the core types initialized as fields in a generated component. */
 public enum FrameworkType {
-  /** A {@link Provider}. */
+  /** A {@link javax.inject.Provider}. */
   PROVIDER {
-    @Override
-    public Class<?> frameworkClass() {
-      return Provider.class;
-    }
-
-    @Override
-    public Optional<RequestKind> requestKind() {
-      return Optional.of(RequestKind.PROVIDER);
-    }
-
     @Override
     public CodeBlock to(RequestKind requestKind, CodeBlock from) {
       switch (requestKind) {
@@ -62,22 +43,24 @@ public enum FrameworkType {
           return CodeBlock.of("$L.get()", from);
 
         case LAZY:
-          return CodeBlock.of("$T.lazy($L)", DoubleCheck.class, from);
+          return CodeBlock.of("$T.lazy($L)", TypeNames.DOUBLE_CHECK, from);
 
         case PROVIDER:
           return from;
 
         case PROVIDER_OF_LAZY:
-          return CodeBlock.of("$T.create($L)", ProviderOfLazy.class, from);
+          return CodeBlock.of("$T.create($L)", TypeNames.PROVIDER_OF_LAZY, from);
 
         case PRODUCER:
-          return CodeBlock.of("$T.producerFromProvider($L)", Producers.class, from);
+          return CodeBlock.of("$T.producerFromProvider($L)", TypeNames.PRODUCERS, from);
 
         case FUTURE:
-          return CodeBlock.of("$T.immediateFuture($L)", Futures.class, to(INSTANCE, from));
+          return CodeBlock.of(
+              "$T.immediateFuture($L)", TypeNames.FUTURES, to(RequestKind.INSTANCE, from));
 
         case PRODUCED:
-          return CodeBlock.of("$T.successful($L)", Produced.class, to(INSTANCE, from));
+          return CodeBlock.of(
+              "$T.successful($L)", TypeNames.PRODUCED, to(RequestKind.INSTANCE, from));
 
         default:
           throw new IllegalArgumentException(
@@ -96,35 +79,23 @@ public enum FrameworkType {
           return from;
 
         case PROVIDER_OF_LAZY:
-          TypeMirror lazyType = types.rewrapType(from.type(), Lazy.class);
-          return Expression.create(types.wrapType(lazyType, Provider.class), codeBlock);
+          TypeMirror lazyType = types.rewrapType(from.type(), TypeNames.LAZY);
+          return Expression.create(types.wrapType(lazyType, TypeNames.PROVIDER), codeBlock);
 
         case FUTURE:
           return Expression.create(
-              types.rewrapType(from.type(), ListenableFuture.class), codeBlock);
+              types.rewrapType(from.type(), TypeNames.LISTENABLE_FUTURE), codeBlock);
 
         default:
           return Expression.create(
-              types.rewrapType(from.type(), RequestKinds.frameworkClass(requestKind)), codeBlock);
+              types.rewrapType(from.type(), RequestKinds.frameworkClassName(requestKind)),
+              codeBlock);
       }
     }
   },
 
-  /** A {@link Producer}. */
+  /** A {@link dagger.producers.Producer}. */
   PRODUCER_NODE {
-    @Override
-    public Class<?> frameworkClass() {
-      // TODO(cgdecker): Replace this with new class for representing internal producer nodes.
-      // Currently the new class is CancellableProducer, but it may be changed to ProducerNode and
-      // made to not implement Producer.
-      return Producer.class;
-    }
-
-    @Override
-    public Optional<RequestKind> requestKind() {
-      return Optional.empty();
-    }
-
     @Override
     public CodeBlock to(RequestKind requestKind, CodeBlock from) {
       switch (requestKind) {
@@ -145,7 +116,7 @@ public enum FrameworkType {
       switch (requestKind) {
         case FUTURE:
           return Expression.create(
-              types.rewrapType(from.type(), ListenableFuture.class),
+              types.rewrapType(from.type(), TypeNames.LISTENABLE_FUTURE),
               to(requestKind, from.codeBlock()));
 
         case PRODUCER:
@@ -156,8 +127,7 @@ public enum FrameworkType {
               String.format("Cannot request a %s from a %s", requestKind, this));
       }
     }
-  },
-  ;
+  };
 
   /** Returns the framework type appropriate for fields for a given binding type. */
   public static FrameworkType forBindingType(BindingType bindingType) {
@@ -182,15 +152,34 @@ public enum FrameworkType {
   }
 
   /** The class of fields of this type. */
-  public abstract Class<?> frameworkClass();
+  public ClassName frameworkClassName() {
+    switch (this) {
+      case PROVIDER:
+        return TypeNames.PROVIDER;
+      case PRODUCER_NODE:
+        // TODO(cgdecker): Replace this with new class for representing internal producer nodes.
+        // Currently the new class is CancellableProducer, but it may be changed to ProducerNode and
+        // made to not implement Producer.
+        return TypeNames.PRODUCER;
+    }
+    throw new AssertionError("Unknown value: " + this.name());
+  }
 
-  /** Returns the {@link #frameworkClass()} parameterized with a type. */
+  /** Returns the {@link #frameworkClassName()} parameterized with a type. */
   public ParameterizedTypeName frameworkClassOf(TypeName valueType) {
-    return ParameterizedTypeName.get(ClassName.get(frameworkClass()), valueType);
+    return ParameterizedTypeName.get(frameworkClassName(), valueType);
   }
 
   /** The request kind that an instance of this framework type can satisfy directly, if any. */
-  public abstract Optional<RequestKind> requestKind();
+  public RequestKind requestKind() {
+    switch (this) {
+      case PROVIDER:
+        return RequestKind.PROVIDER;
+      case PRODUCER_NODE:
+        return RequestKind.PRODUCER;
+    }
+    throw new AssertionError("Unknown value: " + this.name());
+  }
 
   /**
    * Returns a {@link CodeBlock} that evaluates to a requested object given an expression that

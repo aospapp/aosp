@@ -1,6 +1,5 @@
 import unittest
-
-from mock import MagicMock
+from unittest.mock import MagicMock
 
 from autotest_lib.server.cros.cfm.configurable_test import action_context
 from autotest_lib.server.cros.cfm.configurable_test import configurable_cfm_test
@@ -44,4 +43,3 @@ class TestConfigurableCfmTest(unittest.TestCase):
         runner.run_test(cfm_test)
         cfm_facade_mock.start_meeting_session.assert_called_once_with()
         self.assertEqual(5, cfm_facade_mock.mute_mic.call_count)
-

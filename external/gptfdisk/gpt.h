@@ -1,8 +1,11 @@
 /* gpt.h -- GPT and data structure definitions, types, and
    functions */
 
-/* This program is copyright (c) 2009-2011 by Roderick W. Smith. It is distributed
+/* This program is copyright (c) 2009-2022 by Roderick W. Smith. It is distributed
   under the terms of the GNU GPL version 2, as detailed in the COPYING file. */
+
+#ifndef __GPTSTRUCTS
+#define __GPTSTRUCTS
 
 #include <stdint.h>
 #include <sys/types.h>
@@ -12,9 +15,6 @@
 #include "bsd.h"
 #include "gptpart.h"
 
-#ifndef __GPTSTRUCTS
-#define __GPTSTRUCTS
-
 // Default values for sector alignment
 #define DEFAULT_ALIGNMENT 2048
 #define MAX_ALIGNMENT 65536
@@ -23,8 +23,6 @@
 // Below constant corresponds to a ~279GiB (300GB) disk, since the
 // smallest Advanced Format drive I know of is 320GB in size
 #define SMALLEST_ADVANCED_FORMAT UINT64_C(585937500)
-
-using namespace std;
 
 /****************************************
  *                                      *
@@ -67,7 +65,7 @@ protected:
    uint32_t numParts; // # of partitions the table can hold
    struct GPTHeader secondHeader;
    MBRData protectiveMBR;
-   string device; // device filename
+   std::string device; // device filename
    DiskIO myDisk;
    uint32_t blockSize; // device logical block size
    uint32_t physBlockSize; // device physical block size (or 0 if it can't be determined)
@@ -93,7 +91,7 @@ public:
    // Basic necessary functions....
    GPTData(void);
    GPTData(const GPTData &);
-   GPTData(string deviceFilename);
+   GPTData(std::string deviceFilename);
    virtual ~GPTData(void);
    GPTData & operator=(const GPTData & orig);
 
@@ -111,19 +109,19 @@ public:
    int FindInsanePartitions(void);
 
    // Load or save data from/to disk
-   int SetDisk(const string & deviceFilename);
+   int SetDisk(const std::string & deviceFilename);
    int SetDisk(const DiskIO & disk);
    DiskIO* GetDisk(void) {return &myDisk;}
-   int LoadMBR(const string & f) {return protectiveMBR.ReadMBRData(f);}
+   int LoadMBR(const std::string & f) {return protectiveMBR.ReadMBRData(f);}
    int WriteProtectiveMBR(void) {return protectiveMBR.WriteMBRData(&myDisk);}
    void PartitionScan(void);
-   int LoadPartitions(const string & deviceFilename);
+   int LoadPartitions(const std::string & deviceFilename);
    int ForceLoadGPTData(void);
    int LoadMainTable(void);
    int LoadSecondTableAsMain(void);
    int SaveGPTData(int quiet = 0);
-   int SaveGPTBackup(const string & filename);
-   int LoadGPTBackup(const string & filename);
+   int SaveGPTBackup(const std::string & filename);
+   int LoadGPTBackup(const std::string & filename);
    int SaveMBR(void);
    int DestroyGPT(void);
    int DestroyMBR(void);
@@ -186,7 +184,7 @@ public:
    uint64_t FindFirstUsedLBA(void);
    uint64_t FindFirstInLargest(void);
    uint64_t FindLastAvailable();
-   uint64_t FindLastInFree(uint64_t start);
+   uint64_t FindLastInFree(uint64_t start, bool align = false);
    uint64_t FindFreeBlocks(uint32_t *numSegments, uint64_t *largestSegment);
    int IsFree(uint64_t sector, uint32_t *partNum = NULL);
    int IsFreePartNum(uint32_t partNum);
@@ -205,9 +203,9 @@ public:
    void ReversePartitionBytes(); // for endianness
 
    // Attributes functions
-   int ManageAttributes(int partNum, const string & command, const string & bits);
+   int ManageAttributes(int partNum, const std::string & command, const std::string & bits);
    void ShowAttributes(const uint32_t partNum);
-   void GetAttribute(const uint32_t partNum, const string& attributeBits);
+   void GetAttribute(const uint32_t partNum, const std::string& attributeBits);
 
 }; // class GPTData
 

@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "faft_bios"
 PURPOSE = "Test hard-to-automate firmware scenarios."
 
@@ -44,10 +44,21 @@ _BUG_TEMPLATE = {
     'title': None,
 }
 
+def predicate(test):
+  if not hasattr(test, 'suite') or not hasattr(test, 'name'):
+    return False
+  if not NAME in test.suite.split(','):
+    return False
+  name = test.name
+  if 'tests' in args_dict and name not in args_dict['tests']:
+    return False
+  return True
+
 args_dict['file_bugs'] = False
 args_dict['name'] = 'faft_bios'
 args_dict['job'] = job
 args_dict['add_experimental'] = True
 args_dict['bug_template'] = _BUG_TEMPLATE
+args_dict['predicate'] = predicate
 
 dynamic_suite.reimage_and_run(**args_dict)

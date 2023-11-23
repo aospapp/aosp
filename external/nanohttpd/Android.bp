@@ -41,6 +41,12 @@ java_library {
         "webserver/src/main/**/*.java",
     ],
     sdk_version: "current",
+    errorprone: {
+        javacflags: [
+            "-Xep:BadShiftAmount:WARN",
+            "-Xep:DoubleBraceInitialization:WARN",
+        ],
+    },
 }
 
 java_library {
@@ -50,4 +56,9 @@ java_library {
         "websocket/src/main/**/*.java",
     ],
     sdk_version: "current",
+    errorprone: {
+        javacflags: [
+            "-Xep:BadShiftAmount:WARN",
+        ],
+    },
 }

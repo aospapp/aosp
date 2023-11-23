@@ -15,7 +15,9 @@
  */
 package com.google.android.enterprise.connectedapps.instrumented.utils;
 
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Base class for callback listeners which can block until a result is received.
@@ -24,16 +26,17 @@ import java.util.concurrent.CountDownLatch;
  * {@link #receive(Object)} when the callback completes.
  */
 public abstract class BlockingCallbackListener<E> {
-  private E callbackValue;
-  private final CountDownLatch latch = new CountDownLatch(1);
+  private BlockingQueue<E> results = new LinkedBlockingQueue<>();
+
+  public E await(long timeout, TimeUnit unit) throws InterruptedException {
+    return results.poll(timeout, unit);
+  }
 
   public E await() throws InterruptedException {
-    latch.await();
-    return callbackValue;
+    return await(10, TimeUnit.MINUTES);
   }
 
   protected void receive(E value) {
-    callbackValue = value;
-    latch.countDown();
+    results.offer(value);
   }
 }

@@ -72,8 +72,8 @@ class RecentRequestIds {
   // space to use. When the buffer is full, next_index_ points at the oldest
   // request_id.
   int next_index_ TF_GUARDED_BY(mu_) = 0;
-  std::vector<int64> circular_buffer_ TF_GUARDED_BY(mu_);
-  std::unordered_set<int64> set_ TF_GUARDED_BY(mu_);
+  std::vector<int64_t> circular_buffer_ TF_GUARDED_BY(mu_);
+  std::unordered_set<int64_t> set_ TF_GUARDED_BY(mu_);
 };
 
 // Implementation details
@@ -83,7 +83,7 @@ Status RecentRequestIds::TrackUnique(int64_t request_id,
                                      const string& method_name,
                                      const RequestWrapper* wrapper) {
   if (Insert(request_id)) {
-    return Status::OK();
+    return OkStatus();
   } else {
     return errors::Aborted("The same ", method_name,
                            " request was received twice. ",

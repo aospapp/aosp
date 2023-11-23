@@ -29,9 +29,9 @@ struct Triangle
 
 struct PlaneEquation  // z = A * x + B * y + C
 {
-	float4 A;
-	float4 B;
-	float4 C;
+	float A;
+	float B;
+	float C;
 };
 
 struct Primitive
@@ -39,15 +39,13 @@ struct Primitive
 	int yMin;
 	int yMax;
 
-	float4 xQuad;
-	float4 yQuad;
+	float x0;
+	float y0;
 
-	float pointCoordX;
-	float pointCoordY;
 	float pointSizeInv;
 
 	PlaneEquation z;
-	float4 zBias;
+	float zBias;
 	PlaneEquation w;
 	PlaneEquation V[MAX_INTERFACE_COMPONENTS];
 

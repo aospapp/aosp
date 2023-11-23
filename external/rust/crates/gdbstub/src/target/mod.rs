@@ -47,42 +47,76 @@
 //! becomes `fn resume(&mut self, ...) -> Result<_, MyEmuError>`, which makes it
 //! possible to preserve the target-specific error while using `gdbstub`!
 //!
-//! > _Aside:_ What's with all the `<Self::Arch as Arch>::` syntax?
-//!
-//! > As you explore `Target` and its many extension traits, you'll enounter
-//! many method signatures that use this pretty gnarly bit of Rust type syntax.
-//!
-//! > If [rust-lang/rust#38078](https://github.com/rust-lang/rust/issues/38078)
-//! gets fixed, then types like `<Self::Arch as Arch>::Foo` could be simplified
-//! to just `Self::Arch::Foo`, but until then, the much more explicit
-//! [fully qualified syntax](https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#fully-qualified-syntax-for-disambiguation-calling-methods-with-the-same-name)
-//! must be used instead.
-//!
-//! > To improve the readability and maintainability of your own implementation,
-//! it'd be best to swap out the fully qualified syntax with whatever concrete
-//! type is being used. e.g: on a 32-bit target, instead of cluttering up a
-//! method implementation with a parameter passed as `(addr: <Self::Arch as
-//! Arch>::Usize)`, just write `(addr: u32)` directly.
-//!
 //! ## Required Methods (Base Protocol)
 //!
 //! A minimal `Target` implementation only needs to implement a single method:
 //! [`Target::base_ops`](trait.Target.html#tymethod.base_ops). This method is
 //! used to select which set of [`base`](crate::target::ext::base)
 //! debugging operations will be used to control the target. These are
-//! fundamental operations such as starting/stopping execution, reading/writing
-//! memory, etc...
+//! fundamental operations such as reading/writing memory, etc...
 //!
 //! All other methods are entirely optional! Check out the
-//! [`ext`] module for a full list of currently supported protocol extensions.
+//! [`ext`](ext#modules) module for a full list of currently supported protocol
+//! extensions.
 //!
-//! ### Example: A Bare-Minimum Single Threaded `Target`
+//! ## Optional Protocol Extensions
+//!
+//! The GDB protocol is _massive_, and there are plenty of optional protocol
+//! extensions that targets can implement to enhance the base debugging
+//! experience.
+//!
+//! These protocol extensions range from relatively mundane things such as
+//! setting/removing breakpoints or reading/writing individual registers, but
+//! also include fancy things such as support for time travel debugging, running
+//! shell commands remotely, or even performing file IO on the target!
+//!
+//! `gdbstub` uses a somewhat unique approach to exposing these many features,
+//! called **Inlinable Dyn Extension Traits (IDETs)**. While this might sound a
+//! bit daunting, the API is actually quite straightforward, and described in
+//! great detail under the [`ext` module's documentation](ext).
+//!
+//! After getting the base protocol up and running, do take a moment to skim
+//! through and familiarize yourself with the [many different protocol
+//! extensions](ext# modules) that `gdbstub` implements. There are some really
+//! nifty ones that you might not even realize you need!
+//!
+//! As a suggestion on where to start, consider implementing some of the
+//! breakpoint related extensions under
+//! [`breakpoints`](crate::target::ext::breakpoints). While setting/removing
+//! breakpoints is technically an "optional" part of the GDB protocol, I'm sure
+//! you'd be hard pressed to find a debugger that doesn't support breakpoints.
+//!
+//! ### Note: Missing Protocol Extensions
+//!
+//! `gdbstub`'s development is guided by the needs of its contributors, with
+//! new features being added on an "as-needed" basis.
+//!
+//! If there's a GDB protocol extensions you're interested in that hasn't been
+//! implemented in `gdbstub` yet, (e.g: remote filesystem access, tracepoint
+//! support, etc...), consider opening an issue / filing a PR on the
+//! [`gdbstub` GitHub repo](https://github.com/daniel5151/gdbstub/).
+//!
+//! Check out the [GDB Remote Configuration Docs](https://sourceware.org/gdb/onlinedocs/gdb/Remote-Configuration.html)
+//! for a table of GDB commands + their corresponding Remote Serial Protocol
+//! packets.
+//!
+//! ### Example: A fairly minimal Single Threaded `Target`
+//!
+//! This example includes a handful of required and optional target features,
+//! and shows off the basics of how to work with IDETs.
 //!
 //! ```rust
+//! use gdbstub::common::Signal;
 //! use gdbstub::target::{Target, TargetResult};
 //! use gdbstub::target::ext::base::BaseOps;
-//! use gdbstub::target::ext::base::singlethread::SingleThreadOps;
-//! use gdbstub::target::ext::base::singlethread::{ResumeAction, GdbInterrupt, StopReason};
+//! use gdbstub::target::ext::base::singlethread::{
+//!     SingleThreadResumeOps, SingleThreadSingleStepOps
+//! };
+//! use gdbstub::target::ext::base::singlethread::{
+//!     SingleThreadBase, SingleThreadResume, SingleThreadSingleStep
+//! };
+//! use gdbstub::target::ext::breakpoints::{Breakpoints, SwBreakpoint};
+//! use gdbstub::target::ext::breakpoints::{BreakpointsOps, SwBreakpointOps};
 //!
 //! struct MyTarget;
 //!
@@ -90,18 +124,19 @@
 //!     type Error = ();
 //!     type Arch = gdbstub_arch::arm::Armv4t; // as an example
 //!
+//!     #[inline(always)]
 //!     fn base_ops(&mut self) -> BaseOps<Self::Arch, Self::Error> {
 //!         BaseOps::SingleThread(self)
 //!     }
+//!
+//!     // opt-in to support for setting/removing breakpoints
+//!     #[inline(always)]
+//!     fn support_breakpoints(&mut self) -> Option<BreakpointsOps<Self>> {
+//!         Some(self)
+//!     }
 //! }
 //!
-//! impl SingleThreadOps for MyTarget {
-//!     fn resume(
-//!         &mut self,
-//!         action: ResumeAction,
-//!         gdb_interrupt: GdbInterrupt<'_>,
-//!     ) -> Result<StopReason<u32>, ()> { todo!() }
-//!
+//! impl SingleThreadBase for MyTarget {
 //!     fn read_registers(
 //!         &mut self,
 //!         regs: &mut gdbstub_arch::arm::reg::ArmCoreRegs,
@@ -123,40 +158,61 @@
 //!         start_addr: u32,
 //!         data: &[u8],
 //!     ) -> TargetResult<(), Self> { todo!() }
+//!
+//!     // most targets will want to support at resumption as well...
+//!
+//!     #[inline(always)]
+//!     fn support_resume(&mut self) -> Option<SingleThreadResumeOps<Self>> {
+//!         Some(self)
+//!     }
+//! }
+//!
+//! impl SingleThreadResume for MyTarget {
+//!     fn resume(
+//!         &mut self,
+//!         signal: Option<Signal>,
+//!     ) -> Result<(), Self::Error> { todo!() }
+//!
+//!     // ...and if the target supports resumption, it'll likely want to support
+//!     // single-step resume as well
+//!
+//!     #[inline(always)]
+//!     fn support_single_step(
+//!         &mut self
+//!     ) -> Option<SingleThreadSingleStepOps<'_, Self>> {
+//!         Some(self)
+//!     }
+//! }
+//!
+//! impl SingleThreadSingleStep for MyTarget {
+//!     fn step(
+//!         &mut self,
+//!         signal: Option<Signal>,
+//!     ) -> Result<(), Self::Error> { todo!() }
+//! }
+//!
+//! impl Breakpoints for MyTarget {
+//!     // there are several kinds of breakpoints - this target uses software breakpoints
+//!     #[inline(always)]
+//!     fn support_sw_breakpoint(&mut self) -> Option<SwBreakpointOps<Self>> {
+//!         Some(self)
+//!     }
+//! }
+//!
+//! impl SwBreakpoint for MyTarget {
+//!     fn add_sw_breakpoint(
+//!         &mut self,
+//!         addr: u32,
+//!         kind: gdbstub_arch::arm::ArmBreakpointKind,
+//!     ) -> TargetResult<bool, Self> { todo!() }
+//!
+//!     fn remove_sw_breakpoint(
+//!         &mut self,
+//!         addr: u32,
+//!         kind: gdbstub_arch::arm::ArmBreakpointKind,
+//!     ) -> TargetResult<bool, Self> { todo!() }
 //! }
 //! ```
-//!
-//! ## Optional Methods (Protocol Extensions)
-//!
-//! The GDB protocol is _massive_, and there are plenty of optional protocol
-//! extensions that targets can implement to enhance the base debugging
-//! experience. These protocol extensions range from relatively mundane things
-//! such as setting/removing breakpoints or reading/writing individual
-//! registers, but also include fancy things such as  support for time travel
-//! debugging, running shell commands remotely, or even performing file IO on
-//! the target!
-//!
-//! As a starting point, consider implementing some of the breakpoint related
-//! extensions under [`breakpoints`](crate::target::ext::breakpoints). While
-//! setting/removing breakpoints is technically an "optional" part of the GDB
-//! protocol, I'm sure you'd be hard pressed to find a debugger that doesn't
-//! support breakpoints.
-//!
-//! Please make sure to read and understand [the documentation](ext) regarding
-//! how IDETs work!
-//!
-//! ### Note: Missing Protocol Extensions
-//!
-//! `gdbstub`'s development is guided by the needs of its contributors, with
-//! new features being added on an "as-needed" basis.
-//!
-//! If there's a GDB protocol extensions you're interested in that hasn't been
-//! implemented in `gdbstub` yet, (e.g: remote filesystem access, tracepoint
-//! support, etc...), consider opening an issue / filing a PR on GitHub!
-//!
-//! Check out the [GDB Remote Configuration Docs](https://sourceware.org/gdb/onlinedocs/gdb/Remote-Configuration.html)
-//! for a table of GDB commands + their corresponding Remote Serial Protocol
-//! packets.
 //!
 //! ## A note on error handling
 //!
@@ -164,19 +220,38 @@
 //! functions don't return a typical [`Result<T, Self::Error>`],
 //! and will instead return a [`TargetResult<T, Self>`].
 //!
-//! At first glance, this might look a bit strange, since it might look as
-//! though the `Err` variant of `TargetResult` is actually `Self` instead of
-//! `Self::Error`! Thankfully, there's a good reason for why that's the case,
-//! which you can read about as part of the [`TargetError`] documentation.
+//! At first glance this might look a bit strange, since it looks like the `Err`
+//! variant of `TargetResult` is `Self` instead of `Self::Error`!
 //!
-//! In a nutshell, `TargetResult` wraps a typical `Result<T, Self::Error>` with
-//! a few additional error types which can be reported back to the GDB client
-//! via the GDB RSP. For example, if the GDB client tried to read memory from
-//! invalid memory, instead of immediately terminating the entire debugging
-//! session, it's possible to simply return a `Err(TargetError::Errno(14)) //
-//! EFAULT`, which will notify the GDB client that the operation has failed.
-
-use crate::arch::Arch;
+//! Thankfully, there's a good reason for why that's the case. In a nutshell,
+//! `TargetResult` wraps a typical `Result<T, Self::Error>` with a few
+//! additional error types which can be reported back to the GDB client via the
+//! GDB RSP.
+//!
+//! For example, if the GDB client tried to read memory from invalid memory,
+//! instead of immediately terminating the entire debugging session, it's
+//! possible to simply return a `Err(TargetError::Errno(14)) // EFAULT`, which
+//! will notify the GDB client that the operation has failed.
+//!
+//! See the [`TargetError`] docs for more details.
+//!
+//! ## A note on all the `<Self::Arch as Arch>::` syntax
+//!
+//! As you explore `Target` and its many extension traits, you'll enounter
+//! many method signatures that use this pretty gnarly bit of Rust type syntax.
+//!
+//! If [rust-lang/rust#38078](https://github.com/rust-lang/rust/issues/38078)
+//! gets fixed, then types like `<Self::Arch as Arch>::Foo` could be simplified
+//! to just `Self::Arch::Foo`, but until then, the much more explicit
+//! [fully qualified syntax](https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#fully-qualified-syntax-for-disambiguation-calling-methods-with-the-same-name)
+//! must be used instead.
+//!
+//! To improve the readability and maintainability of your own implementation,
+//! it'd be best to swap out the fully qualified syntax with whatever concrete
+//! type is being used. e.g: on a 32-bit target, instead of cluttering up a
+//! method implementation with a parameter passed as `(addr: <Self::Arch as
+//! Arch>::Usize)`, just write `(addr: u32)` directly.
+use crate::arch::{Arch, SingleStepGdbBehavior};
 
 pub mod ext;
 
@@ -187,7 +262,7 @@ pub mod ext;
 ///
 /// The GDB Remote Serial Protocol has less-than-stellar support for error
 /// handling, typically taking the form of a single-byte
-/// [`errno`-style error codes](https://www-numi.fnal.gov/offline_software/srt_public_context/WebDocs/Errors/unix_system_errors.html).
+/// [`errno`-style error codes](https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/errnos.md).
 /// Moreover, often times the GDB client will simply _ignore_ the specific error
 /// code returned by the stub, and print a generic failure message instead.
 ///
@@ -206,8 +281,14 @@ pub mod ext;
 /// When using a custom target-specific fatal error type, users are encouraged
 /// to write the following impl to simplify error handling in `Target` methods:
 ///
-/// ```rust,ignore
-/// type MyTargetFatalError = ...; // Target-specific Fatal Error
+/// ```rust
+/// use gdbstub::target::TargetError;
+///
+/// /// Target-specific Fatal Error
+/// enum MyTargetFatalError {
+///     // ...
+/// }
+///
 /// impl From<MyTargetFatalError> for TargetError<MyTargetFatalError> {
 ///     fn from(e: MyTargetFatalError) -> Self {
 ///         TargetError::Fatal(e)
@@ -223,7 +304,7 @@ pub mod ext;
 pub enum TargetError<E> {
     /// A non-specific, non-fatal error has occurred.
     NonFatal,
-    /// I/O Error. Only available when the `std` feature is enabled.
+    /// Non-fatal I/O Error. Only available when the `std` feature is enabled.
     ///
     /// At the moment, this is just shorthand for
     /// `TargetError::NonFatal(e.raw_os_err().unwrap_or(121))`. Error code `121`
@@ -239,12 +320,8 @@ pub enum TargetError<E> {
     Errno(u8),
     /// A target-specific fatal error.
     ///
-    /// **WARNING:** Returning this error will immediately halt the target's
-    /// execution and return a `GdbStubError::TargetError` from `GdbStub::run`!
-    ///
-    /// Note that the debugging session will will _not_ be terminated, and can
-    /// be resumed by calling `GdbStub::run` after resolving the error and/or
-    /// setting up a post-mortem debugging environment.
+    /// **WARNING:** Returning this error will immediately terminate the GDB
+    /// debugging session, and return a top-level `GdbStubError::TargetError`!
     Fatal(E),
 }
 
@@ -263,7 +340,10 @@ impl<E> From<std::io::Error> for TargetError<E> {
     }
 }
 
-/// A specialized `Result` type for `Target` operations.
+/// A specialized `Result` type for `Target` operations. Supports reporting
+/// non-fatal errors back to the GDB client.
+///
+/// See [`TargetError`] for more details.
 ///
 /// _Note:_ While it's typically parameterized as `TargetResult<T, Self>`, the
 /// error value is in-fact `TargetError<Self::Error>` (not `Self`).
@@ -295,59 +375,346 @@ pub trait Target {
     ///
     /// For example, on a single-threaded target:
     ///
-    /// ```rust,ignore
+    /// ```rust
     /// use gdbstub::target::Target;
-    /// use gdbstub::target::base::singlethread::SingleThreadOps;
-    ///
-    /// impl SingleThreadOps for MyTarget {
-    ///     // ...
-    /// }
+    /// use gdbstub::target::ext::base::BaseOps;
+    /// use gdbstub::target::ext::base::singlethread::SingleThreadBase;
+    /// # use gdbstub::target::TargetResult;
+    /// # struct MyTarget;
     ///
     /// impl Target for MyTarget {
-    ///     fn base_ops(&mut self) -> base::BaseOps<Self::Arch, Self::Error> {
-    ///         base::BaseOps::SingleThread(self)
+    ///     // ...
+    ///     # type Arch = gdbstub_arch::arm::Armv4t;
+    ///     # type Error = ();
+    ///
+    ///     fn base_ops(&mut self) -> BaseOps<Self::Arch, Self::Error> {
+    ///         BaseOps::SingleThread(self)
     ///     }
     /// }
+    ///
+    /// // ...and then implement the associated base IDET
+    /// impl SingleThreadBase for MyTarget {
+    ///     // ...
+    /// #   fn read_registers(
+    /// #       &mut self,
+    /// #       regs: &mut gdbstub_arch::arm::reg::ArmCoreRegs,
+    /// #   ) -> TargetResult<(), Self> { todo!() }
+    /// #
+    /// #   fn write_registers(
+    /// #       &mut self,
+    /// #       regs: &gdbstub_arch::arm::reg::ArmCoreRegs
+    /// #   ) -> TargetResult<(), Self> { todo!() }
+    /// #
+    /// #   fn read_addrs(
+    /// #       &mut self,
+    /// #       start_addr: u32,
+    /// #       data: &mut [u8],
+    /// #   ) -> TargetResult<(), Self> { todo!() }
+    /// #
+    /// #   fn write_addrs(
+    /// #       &mut self,
+    /// #       start_addr: u32,
+    /// #       data: &[u8],
+    /// #   ) -> TargetResult<(), Self> { todo!() }
+    /// }
     /// ```
-    fn base_ops(&mut self) -> ext::base::BaseOps<Self::Arch, Self::Error>;
+    fn base_ops(&mut self) -> ext::base::BaseOps<'_, Self::Arch, Self::Error>;
 
-    /// Set/Remove software breakpoints.
+    /// If the target supports resumption, but hasn't implemented explicit
+    /// support for software breakpoints (via
+    /// [`SwBreakpoints`](ext::breakpoints::SwBreakpoint)), notify the user
+    /// that the GDB client may set "implicit" software breakpoints by
+    /// rewriting the target's instruction stream.
+    ///
+    /// Targets that wish to use the GDB client's implicit software breakpoint
+    /// handler must explicitly **opt-in** to this somewhat surprising GDB
+    /// feature by overriding this method to return `true`.
+    ///
+    /// If you are reading these docs after having encountered a
+    /// [`GdbStubError::ImplicitSwBreakpoints`] error, it's quite likely that
+    /// you'll want to implement explicit support for software breakpoints.
+    ///
+    /// # Context
+    ///
+    /// An "implicit" software breakpoint is set by the GDB client by manually
+    /// writing a software breakpoint instruction into target memory via the
+    /// target's `write_addrs` implementation. i.e: the GDB client will
+    /// overwrite the target's instruction stream with a software breakpoint
+    /// instruction, with the expectation that the target has a implemented a
+    /// breakpoint exception handler.
+    ///
+    /// # Implications
+    ///
+    /// While this is a reasonable (and useful!) bit of behavior when targeting
+    /// many classes of remote stub (e.g: bare-metal, separate process), there
+    /// are many `gdbstub` implementations that do _not_ implement "software
+    /// breakpoints" by naively rewriting the target's instruction stream.
+    ///
+    /// - e.g: a `gdbstub` implemented in an emulator is unlikely to implement
+    ///   "software breakpoints" by hooking into the emulated hardware's
+    ///   breakpoint handler, and would likely implement "breakpoints" by
+    ///   maintaining a list of addresses to stop at as part of its core
+    ///   interpreter loop.
+    /// - e.g: a `gdbstub` implemented in a hypervisor would require special
+    ///   coordination with the guest kernel to support software breakpoints, as
+    ///   there would need to be some way to distinguish between "in-guest"
+    ///   debugging, and "hypervisor" debugging.
+    ///
+    /// As such, `gdbstub` includes this `guard_rail_implicit_sw_breakpoints`
+    /// method.
+    ///
+    /// As the name suggests, this method acts as a "guard rail" that
+    /// warns users from accidentally opting into this "implicit" breakpoint
+    /// functionality, and being exceptionally confused as to why their
+    /// target is acting weird.
+    ///
+    /// If `gdbstub` detects that the target has not implemented a software
+    /// breakpoint handler, it will check if
+    /// `guard_rail_implicit_sw_breakpoints()` has been enabled, and if it
+    /// has not, it will trigger a runtime error that points the user at this
+    /// very documentation.
+    ///
+    /// # A note on breakpoints
+    ///
+    /// Aside from setting breakpoints at the explicit behest of the user (e.g:
+    /// when setting breakpoints via the `b` command in GDB), the GDB client may
+    /// also set/remove _temporary breakpoints_ as part of other commands.
+    ///
+    /// e.g: On targets without native support for hardware single-stepping,
+    /// calling `stepi` in GDB will result in the GDB client setting a temporary
+    /// breakpoint on the next instruction + resuming via `continue` instead.
+    ///
+    /// [`GdbStubError::ImplicitSwBreakpoints`]:
+    /// crate::stub::GdbStubError::ImplicitSwBreakpoints
     #[inline(always)]
-    fn breakpoints(&mut self) -> Option<ext::breakpoints::BreakpointsOps<Self>> {
+    fn guard_rail_implicit_sw_breakpoints(&self) -> bool {
+        false
+    }
+
+    /// Override the arch-level value for [`Arch::single_step_gdb_behavior`].
+    ///
+    /// If you are reading these docs after having encountered a
+    /// [`GdbStubError::SingleStepGdbBehavior`] error, you may need to either:
+    ///
+    /// - implement support for single-step
+    /// - disable existing support for single step
+    /// - be a Good Citizen and perform a quick test to see what kind of
+    ///   behavior your Arch exhibits.
+    ///
+    /// # WARNING
+    ///
+    /// Unless you _really_ know what you're doing (e.g: working on a dynamic
+    /// target implementation, attempting to fix the underlying bug, etc...),
+    /// you should **not** override this method, and instead follow the advice
+    /// the error gives you.
+    ///
+    /// Incorrectly setting this method may lead to "unexpected packet" runtime
+    /// errors!
+    ///
+    /// # Details
+    ///
+    /// This method provides an "escape hatch" for disabling a workaround for a
+    /// bug in the mainline GDB client implementation.
+    ///
+    /// To squelch all errors, this method can be set to return
+    /// [`SingleStepGdbBehavior::Optional`] (though as mentioned above - you
+    /// should only do so if you're sure that's the right behavior).
+    ///
+    /// For more information, see the documentation for
+    /// [`Arch::single_step_gdb_behavior`].
+    ///
+    /// [`GdbStubError::SingleStepGdbBehavior`]:
+    /// crate::stub::GdbStubError::SingleStepGdbBehavior
+    #[inline(always)]
+    fn guard_rail_single_step_gdb_behavior(&self) -> SingleStepGdbBehavior {
+        <Self::Arch as Arch>::single_step_gdb_behavior()
+    }
+
+    /// Enable/disable using the more efficient `X` packet to write to target
+    /// memory (as opposed to the basic `M` packet).
+    ///
+    /// By default, this method returns `true`.
+    ///
+    /// _Author's note:_ Unless you're _really_ trying to squeeze `gdbstub` onto
+    /// a particularly resource-constrained platform, you may as well leave this
+    /// optimization enabled.
+    #[inline(always)]
+    fn use_x_upcase_packet(&self) -> bool {
+        true
+    }
+
+    /// Whether `gdbstub` should provide a "stub" `resume` implementation on
+    /// targets without support for resumption.
+    ///
+    /// At the time of writing, the mainline GDB client does not gracefully
+    /// handle targets that do not support support resumption, and will hang
+    /// indefinitely if a user inadvertently attempts to `continue` or `step`
+    /// such a target.
+    ///
+    /// To make the `gdbstub` user experience a bit better, the library includes
+    /// bit of "stub" code to gracefully handle these cases.
+    ///
+    /// If a user attempts to resume a target that hasn't implemented support
+    /// for resumption, `gdbstub` will write a brief message back to the GDB
+    /// client console, and will immediately return a "stopped with TRAP" stop
+    /// reason.
+    ///
+    /// This method controls whether or not this bt of behavior is enabled.
+    ///
+    /// _Author's note:_ Unless you're _really_ trying to squeeze `gdbstub` onto
+    /// a particularly resource-constrained platform, you may as well leave this
+    /// enabled. The resulting stub code is entirely optimized out on targets
+    /// that implement support for resumption.
+    #[inline(always)]
+    fn use_resume_stub(&self) -> bool {
+        true
+    }
+
+    /// Enable/Disable the use of run-length encoding on outgoing packets.
+    ///
+    /// This is enabled by default, as RLE can save substantial amounts of
+    /// bandwidth down the wire.
+    ///
+    /// _Author's note:_ There are essentially no reasons to disable RLE, unless
+    /// you happen to be using a custom GDB client that doesn't support RLE.
+    #[inline(always)]
+    fn use_rle(&self) -> bool {
+        true
+    }
+
+    /// Whether to send a target description XML to the client.
+    ///
+    /// Setting this to `false` will override both
+    /// [`Target::support_target_description_xml_override`] and the associated
+    /// [`Arch::target_description_xml`].
+    ///
+    /// _Author's note:_ Having the GDB client autodetect your target's
+    /// architecture and register set is really useful, so unless you're
+    /// _really_ trying to squeeze `gdbstub` onto a particularly
+    /// resource-constrained platform, you may as well leave this enabled.
+    #[inline(always)]
+    fn use_target_description_xml(&self) -> bool {
+        true
+    }
+
+    /// (LLDB extension) Whether to send register information to the client.
+    ///
+    /// Setting this to `false` will override both
+    /// [`Target::support_lldb_register_info_override`] and the associated
+    /// [`Arch::lldb_register_info`].
+    ///
+    /// _Author's note:_ Having the LLDB client autodetect your target's
+    /// register set is really useful, so unless you're _really_ trying to
+    /// squeeze `gdbstub` onto a particularly resource-constrained platform, you
+    /// may as well leave this enabled.
+    #[inline(always)]
+    fn use_lldb_register_info(&self) -> bool {
+        true
+    }
+
+    /// Support for setting / removing breakpoints.
+    #[inline(always)]
+    fn support_breakpoints(&mut self) -> Option<ext::breakpoints::BreakpointsOps<'_, Self>> {
         None
     }
 
-    /// Handle custom GDB `monitor` commands.
+    /// Support for handling custom GDB `monitor` commands.
     #[inline(always)]
-    fn monitor_cmd(&mut self) -> Option<ext::monitor_cmd::MonitorCmdOps<Self>> {
+    fn support_monitor_cmd(&mut self) -> Option<ext::monitor_cmd::MonitorCmdOps<'_, Self>> {
         None
     }
 
     /// Support for Extended Mode operations.
     #[inline(always)]
-    fn extended_mode(&mut self) -> Option<ext::extended_mode::ExtendedModeOps<Self>> {
+    fn support_extended_mode(&mut self) -> Option<ext::extended_mode::ExtendedModeOps<'_, Self>> {
         None
     }
 
-    /// Handle requests to get the target's current section (or segment)
-    /// offsets.
+    /// Support for handling requests to get the target's current section (or
+    /// segment) offsets.
     #[inline(always)]
-    fn section_offsets(&mut self) -> Option<ext::section_offsets::SectionOffsetsOps<Self>> {
-        None
-    }
-
-    /// Override the target description XML specified by `Target::Arch`.
-    #[inline(always)]
-    fn target_description_xml_override(
+    fn support_section_offsets(
         &mut self,
-    ) -> Option<ext::target_description_xml_override::TargetDescriptionXmlOverrideOps<Self>> {
+    ) -> Option<ext::section_offsets::SectionOffsetsOps<'_, Self>> {
+        None
+    }
+
+    /// Support for overriding the target description XML specified by
+    /// `Target::Arch`.
+    #[inline(always)]
+    fn support_target_description_xml_override(
+        &mut self,
+    ) -> Option<ext::target_description_xml_override::TargetDescriptionXmlOverrideOps<'_, Self>>
+    {
+        None
+    }
+
+    /// (LLDB extension) Support for overriding the register info specified by
+    /// `Target::Arch`.
+    #[inline(always)]
+    fn support_lldb_register_info_override(
+        &mut self,
+    ) -> Option<ext::lldb_register_info_override::LldbRegisterInfoOverrideOps<'_, Self>> {
+        None
+    }
+
+    /// Support for reading the target's memory map.
+    #[inline(always)]
+    fn support_memory_map(&mut self) -> Option<ext::memory_map::MemoryMapOps<'_, Self>> {
+        None
+    }
+
+    /// Support for setting / removing syscall catchpoints.
+    #[inline(always)]
+    fn support_catch_syscalls(
+        &mut self,
+    ) -> Option<ext::catch_syscalls::CatchSyscallsOps<'_, Self>> {
+        None
+    }
+
+    /// Support for Host I/O operations.
+    #[inline(always)]
+    fn support_host_io(&mut self) -> Option<ext::host_io::HostIoOps<'_, Self>> {
+        None
+    }
+
+    /// Support for reading the current exec-file.
+    #[inline(always)]
+    fn support_exec_file(&mut self) -> Option<ext::exec_file::ExecFileOps<'_, Self>> {
+        None
+    }
+
+    /// Support for reading the target's Auxillary Vector.
+    #[inline(always)]
+    fn support_auxv(&mut self) -> Option<ext::auxv::AuxvOps<'_, Self>> {
         None
     }
 }
 
+macro_rules! __delegate {
+    (fn $op:ident(&mut $this:ident) $($sig:tt)*) => {
+        fn $op(&mut $this) $($sig)* {
+            (**$this).$op()
+        }
+    };
+
+    (fn $op:ident(&$this:ident) $($sig:tt)*) => {
+        fn $op(&$this) $($sig)* {
+            (**$this).$op()
+        }
+    }
+}
+
+macro_rules! __delegate_support {
+    ($ext:ident) => {
+        paste::paste! {
+            __delegate!(fn [<support_ $ext>](&mut self) -> Option<ext::$ext::[<$ext:camel Ops>]<'_, Self>>);
+        }
+    };
+}
+
 macro_rules! impl_dyn_target {
     ($type:ty) => {
-        #[allow(clippy::type_complexity)]
         impl<A, E> Target for $type
         where
             A: Arch,
@@ -355,38 +722,28 @@ macro_rules! impl_dyn_target {
             type Arch = A;
             type Error = E;
 
-            #[inline(always)]
-            fn base_ops(&mut self) -> ext::base::BaseOps<Self::Arch, Self::Error> {
-                (**self).base_ops()
-            }
+            __delegate!(fn base_ops(&mut self) -> ext::base::BaseOps<'_, Self::Arch, Self::Error>);
 
-            #[inline(always)]
-            fn breakpoints(&mut self) -> Option<ext::breakpoints::BreakpointsOps<Self>> {
-                (**self).breakpoints()
-            }
+            __delegate!(fn guard_rail_implicit_sw_breakpoints(&self) -> bool);
+            __delegate!(fn guard_rail_single_step_gdb_behavior(&self) -> SingleStepGdbBehavior);
 
-            #[inline(always)]
-            fn monitor_cmd(&mut self) -> Option<ext::monitor_cmd::MonitorCmdOps<Self>> {
-                (**self).monitor_cmd()
-            }
+            __delegate!(fn use_x_upcase_packet(&self) -> bool);
+            __delegate!(fn use_resume_stub(&self) -> bool);
+            __delegate!(fn use_rle(&self) -> bool);
+            __delegate!(fn use_target_description_xml(&self) -> bool);
+            __delegate!(fn use_lldb_register_info(&self) -> bool);
 
-            #[inline(always)]
-            fn extended_mode(&mut self) -> Option<ext::extended_mode::ExtendedModeOps<Self>> {
-                (**self).extended_mode()
-            }
-
-            #[inline(always)]
-            fn section_offsets(&mut self) -> Option<ext::section_offsets::SectionOffsetsOps<Self>> {
-                (**self).section_offsets()
-            }
-
-            #[inline(always)]
-            fn target_description_xml_override(
-                &mut self,
-            ) -> Option<ext::target_description_xml_override::TargetDescriptionXmlOverrideOps<Self>>
-            {
-                (**self).target_description_xml_override()
-            }
+            __delegate_support!(breakpoints);
+            __delegate_support!(monitor_cmd);
+            __delegate_support!(extended_mode);
+            __delegate_support!(section_offsets);
+            __delegate_support!(target_description_xml_override);
+            __delegate_support!(lldb_register_info_override);
+            __delegate_support!(memory_map);
+            __delegate_support!(catch_syscalls);
+            __delegate_support!(host_io);
+            __delegate_support!(exec_file);
+            __delegate_support!(auxv);
         }
     };
 }

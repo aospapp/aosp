@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Test Platform Team"
+AUTHOR = "ChromeOS Test Platform Team"
 NAME = "cros_test_platform"
 PURPOSE = "Entry point for cros_test_platform execution of autotest tests."
 

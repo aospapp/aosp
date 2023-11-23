@@ -1,0 +1,91 @@
+From 37809f94777e0a1c0cd6724cd7d8e9b804e283a9 Mon Sep 17 00:00:00 2001
+From: Motomu Utsumi <motomuman@google.com>
+Date: Thu, 12 Jan 2023 14:59:03 +0900
+Subject: [PATCH] cronet: Fix BUILD.gn to follow aosp/2374764
+
+aosp/2374764 removed some targets from the BUILD.gn but there are some
+targets that depend on the removed targets, which makes gn gen fail.
+This CL fixes clean up targets to fix this issue.
+
+Test: gn gen
+---
+ components/cronet/android/BUILD.gn | 31 ------------------------------
+ 1 file changed, 31 deletions(-)
+
+diff --git a/components/cronet/android/BUILD.gn b/components/cronet/android/BUILD.gn
+index 2e077665f93b9..f9d8bcf4bf878 100644
+--- a/components/cronet/android/BUILD.gn
++++ b/components/cronet/android/BUILD.gn
+@@ -526,23 +526,6 @@ java_prebuilt("package_impl_native_java") {
+   jar_excluded_patterns = [ "androidx/*/R*" ]
+ }
+ 
+-android_java_prebuilt("package_impl_util_java") {
+-  jar_path = "$_package_dir/cronet_impl_util_java.jar"
+-  deps = [
+-    ":package_api_java",
+-    ":repackage_util",
+-  ]
+-}
+-
+-android_java_prebuilt("package_impl_platform_java") {
+-  jar_path = "$_package_dir/cronet_impl_platform_java.jar"
+-  deps = [
+-    ":package_api_java",
+-    ":package_impl_common_java",
+-    ":repackage_platform",
+-  ]
+-}
+-
+ template("jar_src") {
+   action_with_pydeps(target_name) {
+     _rebased_src_search_dirs =
+@@ -632,12 +615,6 @@ jar_src("jar_cronet_impl_common_java_source") {
+   jar_path = "$_package_dir/cronet_impl_common_java-src.jar"
+ }
+ 
+-jar_src("jar_cronet_impl_util_java_source") {
+-  src_search_dirs = [ "java/src" ]
+-  source_deps = [ ":cronet_impl_java_util_java" ]
+-  jar_path = "$_package_dir/cronet_impl_util_java-src.jar"
+-}
+-
+ # List of patterns of .class files to exclude from the jar.
+ _jar_excluded_patterns = [
+   # Excludes Android support libraries crbug.com/832770.
+@@ -681,11 +658,6 @@ repackage_jars("repackage_api") {
+   deps = [ ":cronet_api_java" ]
+ }
+ 
+-repackage_jars("repackage_util") {
+-  output = "$_package_dir/cronet_impl_util_java.jar"
+-  deps = [ ":cronet_impl_java_util_java" ]
+-}
+-
+ # See crbug.com/1005836 for more info on why repackage_native requires 2 extra
+ # targets. These 3 targets exist to ensure the correct version of GEN_JNI
+ # (a generated class containing native method definitions) is included.
+@@ -725,7 +697,6 @@ repackage_jars("repackage_common") {
+   output = "$_package_dir/cronet_impl_common_java.jar"
+   deps = cronet_impl_common_java_deps_to_package + [
+            ":cronet_impl_common_base_java",
+-           ":cronet_impl_java_util_java",
+          ]
+ }
+ 
+@@ -1604,12 +1575,10 @@ group("cronet_package_android") {
+       ":jar_cronet_api_source",
+       ":jar_cronet_impl_common_java_source",
+       ":jar_cronet_impl_native_java_source",
+-      ":jar_cronet_impl_platform_java_source",
+       ":jar_cronet_sample_source",
+       ":repackage_api",
+       ":repackage_common",
+       ":repackage_native",
+-      ":repackage_platform",
+     ]
+     if (current_cpu == "arm" && arm_version == 7) {
+       deps += [ ":enforce_no_neon" ]
+-- 
+2.40.1.495.gc816e09b53d-goog
+

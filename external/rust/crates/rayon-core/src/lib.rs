@@ -26,7 +26,24 @@
 //! [`join()`]: struct.ThreadPool.html#method.join
 //! [`ThreadPoolBuilder`]: struct.ThreadPoolBuilder.html
 //!
-//! ## Restricting multiple versions
+//! # Global fallback when threading is unsupported
+//!
+//! Rayon uses `std` APIs for threading, but some targets have incomplete implementations that
+//! always return `Unsupported` errors. The WebAssembly `wasm32-unknown-unknown` and `wasm32-wasi`
+//! targets are notable examples of this. Rather than panicking on the unsupported error when
+//! creating the implicit global threadpool, Rayon configures a fallback mode instead.
+//!
+//! This fallback mode mostly functions as if it were using a single-threaded "pool", like setting
+//! `RAYON_NUM_THREADS=1`. For example, `join` will execute its two closures sequentially, since
+//! there is no other thread to share the work. However, since the pool is not running independent
+//! of the main thread, non-blocking calls like `spawn` may not execute at all, unless a lower-
+//! priority call like `broadcast` gives them an opening. The fallback mode does not try to emulate
+//! anything like thread preemption or `async` task switching, but `yield_now` or `yield_local`
+//! can also volunteer execution time.
+//!
+//! Explicit `ThreadPoolBuilder` methods always report their error without any fallback.
+//!
+//! # Restricting multiple versions
 //!
 //! In order to ensure proper coordination between threadpools, and especially
 //! to make sure there's only one global threadpool, `rayon-core` is actively
@@ -44,7 +61,6 @@
 //! conflicting requirements will need to be resolved before the build will
 //! succeed.
 
-#![doc(html_root_url = "https://docs.rs/rayon-core/1.9")]
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![deny(unreachable_pub)]
@@ -63,6 +79,7 @@ mod log;
 #[macro_use]
 mod private;
 
+mod broadcast;
 mod job;
 mod join;
 mod latch;
@@ -76,6 +93,7 @@ mod unwind;
 mod compile_fail;
 mod test;
 
+pub use self::broadcast::{broadcast, spawn_broadcast, BroadcastContext};
 pub use self::join::{join, join_context};
 pub use self::registry::ThreadBuilder;
 pub use self::scope::{in_place_scope, scope, Scope};
@@ -84,8 +102,20 @@ pub use self::spawn::{spawn, spawn_fifo};
 pub use self::thread_pool::current_thread_has_pending_tasks;
 pub use self::thread_pool::current_thread_index;
 pub use self::thread_pool::ThreadPool;
+pub use self::thread_pool::{yield_local, yield_now, Yield};
 
 use self::registry::{CustomSpawn, DefaultSpawn, ThreadSpawn};
+
+/// Returns the maximum number of threads that Rayon supports in a single thread-pool.
+///
+/// If a higher thread count is requested by calling `ThreadPoolBuilder::num_threads` or by setting
+/// the `RAYON_NUM_THREADS` environment variable, then it will be reduced to this maximum.
+///
+/// The value may vary between different targets, and is subject to change in new Rayon versions.
+pub fn max_num_threads() -> usize {
+    // We are limited by the bits available in the sleep counter's `AtomicUsize`.
+    crate::sleep::THREADS_MAX
+}
 
 /// Returns the number of threads in the current registry. If this
 /// code is executing within a Rayon thread-pool, then this will be
@@ -174,6 +204,7 @@ pub struct ThreadPoolBuilder<S = DefaultSpawn> {
 ///
 /// [`ThreadPoolBuilder`]: struct.ThreadPoolBuilder.html
 #[deprecated(note = "Use `ThreadPoolBuilder`")]
+#[derive(Default)]
 pub struct Configuration {
     builder: ThreadPoolBuilder,
 }
@@ -258,7 +289,7 @@ impl ThreadPoolBuilder {
     /// The threads in this pool will start by calling `wrapper`, which should
     /// do initialization and continue by calling `ThreadBuilder::run()`.
     ///
-    /// [`crossbeam::scope`]: https://docs.rs/crossbeam/0.7/crossbeam/fn.scope.html
+    /// [`crossbeam::scope`]: https://docs.rs/crossbeam/0.8/crossbeam/fn.scope.html
     ///
     /// # Examples
     ///
@@ -328,7 +359,7 @@ impl<S> ThreadPoolBuilder<S> {
     /// if the pool is leaked. Furthermore, the global thread pool doesn't terminate
     /// until the entire process exits!
     ///
-    /// [`crossbeam::scope`]: https://docs.rs/crossbeam/0.7/crossbeam/fn.scope.html
+    /// [`crossbeam::scope`]: https://docs.rs/crossbeam/0.8/crossbeam/fn.scope.html
     ///
     /// # Examples
     ///
@@ -371,6 +402,39 @@ impl<S> ThreadPoolBuilder<S> {
     ///
     ///     pool.install(|| println!("Hello from my fully custom thread!"));
     ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// This can also be used for a pool of scoped threads like [`crossbeam::scope`],
+    /// or [`std::thread::scope`] introduced in Rust 1.63, which is encapsulated in
+    /// [`build_scoped`](#method.build_scoped).
+    ///
+    /// [`std::thread::scope`]: https://doc.rust-lang.org/std/thread/fn.scope.html
+    ///
+    /// ```
+    /// # use rayon_core as rayon;
+    /// fn main() -> Result<(), rayon::ThreadPoolBuildError> {
+    ///     std::thread::scope(|scope| {
+    ///         let pool = rayon::ThreadPoolBuilder::new()
+    ///             .spawn_handler(|thread| {
+    ///                 let mut builder = std::thread::Builder::new();
+    ///                 if let Some(name) = thread.name() {
+    ///                     builder = builder.name(name.to_string());
+    ///                 }
+    ///                 if let Some(size) = thread.stack_size() {
+    ///                     builder = builder.stack_size(size);
+    ///                 }
+    ///                 builder.spawn_scoped(scope, || {
+    ///                     // Add any scoped initialization here, then run!
+    ///                     thread.run()
+    ///                 })?;
+    ///                 Ok(())
+    ///             })
+    ///             .build()?;
+    ///
+    ///         pool.install(|| println!("Hello from my custom scoped thread!"));
+    ///         Ok(())
+    ///     })
     /// }
     /// ```
     pub fn spawn_handler<F>(self, spawn: F) -> ThreadPoolBuilder<CustomSpawn<F>>
@@ -462,7 +526,7 @@ impl<S> ThreadPoolBuilder<S> {
     /// **Old environment variable:** `RAYON_NUM_THREADS` is a one-to-one
     /// replacement of the now deprecated `RAYON_RS_NUM_CPUS` environment
     /// variable. If both variables are specified, `RAYON_NUM_THREADS` will
-    /// be prefered.
+    /// be preferred.
     pub fn num_threads(mut self, num_threads: usize) -> Self {
         self.num_threads = num_threads;
         self
@@ -515,7 +579,7 @@ impl<S> ThreadPoolBuilder<S> {
     /// to true, however, workers will prefer to execute in a
     /// *breadth-first* fashion -- that is, they will search for jobs at
     /// the *bottom* of their local deque. (At present, workers *always*
-    /// steal from the bottom of other worker's deques, regardless of
+    /// steal from the bottom of other workers' deques, regardless of
     /// the setting of this flag.)
     ///
     /// If you think of the tasks as a tree, where a parent task
@@ -661,6 +725,10 @@ impl ThreadPoolBuildError {
     fn new(kind: ErrorKind) -> ThreadPoolBuildError {
         ThreadPoolBuildError { kind }
     }
+
+    fn is_unsupported(&self) -> bool {
+        matches!(&self.kind, ErrorKind::IOError(e) if e.kind() == io::ErrorKind::Unsupported)
+    }
 }
 
 const GLOBAL_POOL_ALREADY_INITIALIZED: &str =
@@ -734,15 +802,6 @@ impl<S> fmt::Debug for ThreadPoolBuilder<S> {
             .field("exit_handler", &exit_handler)
             .field("breadth_first", &breadth_first)
             .finish()
-    }
-}
-
-#[allow(deprecated)]
-impl Default for Configuration {
-    fn default() -> Self {
-        Configuration {
-            builder: Default::default(),
-        }
     }
 }
 

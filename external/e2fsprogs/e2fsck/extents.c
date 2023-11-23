@@ -196,7 +196,7 @@ static int find_blocks(ext2_filsys fs, blk64_t *blocknr, e2_blkcnt_t blockcnt,
 	return 0;
 }
 
-errcode_t rewrite_extent_replay(e2fsck_t ctx, struct extent_list *list,
+static errcode_t rewrite_extent_replay(e2fsck_t ctx, struct extent_list *list,
 				       struct ext2_inode_large *inode)
 {
 	errcode_t		retval;
@@ -526,7 +526,8 @@ errcode_t e2fsck_check_rebuild_extents(e2fsck_t ctx, ext2_ino_t ino,
 		 */
 		if (info.curr_entry == 1 &&
 		    !(extent.e_flags & EXT2_EXTENT_FLAGS_SECOND_VISIT) &&
-		    !eti.force_rebuild) {
+		    !eti.force_rebuild &&
+		    info.curr_level < MAX_EXTENT_DEPTH_COUNT) {
 			struct extent_tree_level *etl;
 
 			etl = eti.ext_info + info.curr_level;
@@ -580,6 +581,13 @@ errcode_t e2fsck_should_rebuild_extents(e2fsck_t ctx,
 	extents_per_block = (ctx->fs->blocksize -
 			     sizeof(struct ext3_extent_header)) /
 			    sizeof(struct ext3_extent);
+
+	/* If the extent tree is too deep, then rebuild it. */
+	if (info->max_depth > MAX_EXTENT_DEPTH_COUNT-1) {
+		pctx->blk = info->max_depth;
+		op = PR_1E_CAN_COLLAPSE_EXTENT_TREE;
+		goto rebuild;
+	}
 	/*
 	 * If we can consolidate a level or shorten the tree, schedule the
 	 * extent tree to be rebuilt.

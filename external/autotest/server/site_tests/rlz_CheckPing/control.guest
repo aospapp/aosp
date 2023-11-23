@@ -10,6 +10,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:rlz"
+PY_VERSION = 3
 DOC = """
 This tests the RLZ client install (CAI) and first-use event (CAF) pings are
 sent on first use of the device in guest mode, as long as the device has been

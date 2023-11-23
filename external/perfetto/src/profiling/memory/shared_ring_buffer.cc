@@ -51,7 +51,6 @@ constexpr auto kFDSeals = F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_SEAL;
 
 }  // namespace
 
-
 SharedRingBuffer::SharedRingBuffer(CreateFlag, size_t size) {
   size_t size_with_meta = size + kMetaPageSize;
   base::ScopedFile fd;
@@ -187,7 +186,7 @@ SharedRingBuffer::Buffer SharedRingBuffer::BeginWrite(
   PERFETTO_DCHECK(spinlock.locked());
   Buffer result;
 
-  base::Optional<PointerPositions> opt_pos = GetPointerPositions();
+  std::optional<PointerPositions> opt_pos = GetPointerPositions();
   if (!opt_pos) {
     meta_->stats.num_writes_corrupt++;
     errno = EBADF;
@@ -246,7 +245,7 @@ void SharedRingBuffer::EndWrite(Buffer buf) {
 }
 
 SharedRingBuffer::Buffer SharedRingBuffer::BeginRead() {
-  base::Optional<PointerPositions> opt_pos = GetPointerPositions();
+  std::optional<PointerPositions> opt_pos = GetPointerPositions();
   if (!opt_pos) {
     meta_->stats.num_reads_corrupt++;
     errno = EBADF;
@@ -288,12 +287,13 @@ SharedRingBuffer::Buffer SharedRingBuffer::BeginRead() {
   return Buffer(rd_ptr, size, write_avail(pos));
 }
 
-void SharedRingBuffer::EndRead(Buffer buf) {
+size_t SharedRingBuffer::EndRead(Buffer buf) {
   if (!buf)
-    return;
+    return 0;
   size_t size_with_header = base::AlignUp<kAlignment>(buf.size + kHeaderSize);
   meta_->read_pos.fetch_add(size_with_header, std::memory_order_relaxed);
   meta_->stats.num_reads_succeeded++;
+  return size_with_header;
 }
 
 bool SharedRingBuffer::IsCorrupt(const PointerPositions& pos) {
@@ -322,20 +322,20 @@ SharedRingBuffer& SharedRingBuffer::operator=(
 }
 
 // static
-base::Optional<SharedRingBuffer> SharedRingBuffer::Create(size_t size) {
+std::optional<SharedRingBuffer> SharedRingBuffer::Create(size_t size) {
   auto buf = SharedRingBuffer(CreateFlag(), size);
   if (!buf.is_valid())
-    return base::nullopt;
-  return base::make_optional(std::move(buf));
+    return std::nullopt;
+  return std::make_optional(std::move(buf));
 }
 
 // static
-base::Optional<SharedRingBuffer> SharedRingBuffer::Attach(
+std::optional<SharedRingBuffer> SharedRingBuffer::Attach(
     base::ScopedFile mem_fd) {
   auto buf = SharedRingBuffer(AttachFlag(), std::move(mem_fd));
   if (!buf.is_valid())
-    return base::nullopt;
-  return base::make_optional(std::move(buf));
+    return std::nullopt;
+  return std::make_optional(std::move(buf));
 }
 
 }  // namespace profiling

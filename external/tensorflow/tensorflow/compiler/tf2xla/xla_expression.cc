@@ -140,7 +140,7 @@ StatusOr<Tensor> XlaExpression::ResolveDynamism(xla::Client* client) const {
 
   // The XLA layout is specified minor to major, and TensorFlow uses a major to
   // minor order.
-  std::vector<int64> layout_indices(shape.dims());
+  std::vector<int64_t> layout_indices(shape.dims());
   std::iota(layout_indices.rbegin(), layout_indices.rend(), 0);
   xla::ValueInference value_inference(handle().builder());
   TF_ASSIGN_OR_RETURN(xla::LiteralSlice literal,
@@ -150,7 +150,7 @@ StatusOr<Tensor> XlaExpression::ResolveDynamism(xla::Client* client) const {
   return tensor;
 }
 
-StatusOr<absl::optional<Tensor>> XlaExpression::ResolveConstant(
+StatusOr<std::optional<Tensor>> XlaExpression::ResolveConstant(
     xla::Client* client, bool dynamic_dimension_is_minus_one,
     xla::ValueInferenceMode mode) const {
   switch (kind()) {
@@ -168,19 +168,19 @@ StatusOr<absl::optional<Tensor>> XlaExpression::ResolveConstant(
   TF_ASSIGN_OR_RETURN(TensorShape shape, GetShape());
   // The XLA layout is specified minor to major, and TensorFlow uses a major to
   // minor order.
-  std::vector<int64> layout_indices(shape.dims());
+  std::vector<int64_t> layout_indices(shape.dims());
   std::iota(layout_indices.rbegin(), layout_indices.rend(), 0);
   xla::Layout layout = xla::LayoutUtil::MakeLayout(layout_indices);
   if (mode == xla::ValueInferenceMode::kLowerBound ||
       mode == xla::ValueInferenceMode::kUpperBound ||
       mode == xla::ValueInferenceMode::kValue) {
-    std::vector<int64> layout_indices(shape.dims());
+    std::vector<int64_t> layout_indices(shape.dims());
     std::iota(layout_indices.rbegin(), layout_indices.rend(), 0);
     xla::ValueInference value_inference(handle().builder());
     TF_ASSIGN_OR_RETURN(xla::OptionalLiteral literal,
                         value_inference.AnalyzeConstant(handle(), mode));
     if (!literal.GetValue().has_value()) {
-      return {absl::nullopt};
+      return {std::nullopt};
     }
     Tensor tensor;
     TF_RETURN_IF_ERROR(LiteralToHostTensor(
@@ -191,7 +191,7 @@ StatusOr<absl::optional<Tensor>> XlaExpression::ResolveConstant(
   TF_ASSIGN_OR_RETURN(bool is_constant,
                       handle().builder()->IsConstant(handle()));
   if (!is_constant) {
-    return {absl::nullopt};
+    return {std::nullopt};
   }
 
   if (!client)

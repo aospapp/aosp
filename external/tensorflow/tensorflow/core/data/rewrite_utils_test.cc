@@ -64,11 +64,11 @@ FunctionDef XTimesX() {
 GraphDef GetRangeSquareDatasetDef(const int64_t range) {
   return GDef(
       {NDef("start", "Const", /*inputs=*/{},
-            {{"value", AsScalar<int64>(0)}, {"dtype", DT_INT64}}),
+            {{"value", AsScalar<int64_t>(0)}, {"dtype", DT_INT64}}),
        NDef("stop", "Const", /*inputs=*/{},
-            {{"value", AsScalar<int64>(range)}, {"dtype", DT_INT64}}),
+            {{"value", AsScalar<int64_t>(range)}, {"dtype", DT_INT64}}),
        NDef("step", "Const", /*inputs=*/{},
-            {{"value", AsScalar<int64>(1)}, {"dtype", DT_INT64}}),
+            {{"value", AsScalar<int64_t>(1)}, {"dtype", DT_INT64}}),
        NDef("range", "RangeDataset", /*inputs=*/{"start", "stop", "step"},
             {{"output_shapes", gtl::ArraySlice<TensorShape>{TensorShape()}},
              {"output_types", gtl::ArraySlice<DataType>{DT_INT64}}}),
@@ -85,6 +85,62 @@ TEST(GraphUtilTest, GetFetchNode) {
       GetGrapplerItem(&graph, &dataset_node, /*add_fake_sinks=*/false);
   EXPECT_THAT(grappler_item->fetch, ElementsAre("Sink"));
 }
+
+TEST(GraphUtilTest, GetFetchNodeDef) {
+  GraphDef graph = GetRangeSquareDatasetDef(10);
+  TF_ASSERT_OK_AND_ASSIGN(NodeDef dataset_nodedef, GetDatasetNodeDef(graph));
+  std::string dataset_node = dataset_nodedef.name();
+  std::unique_ptr<tensorflow::grappler::GrapplerItem> grappler_item =
+      GetGrapplerItem(&graph, &dataset_node, /*add_fake_sinks=*/false);
+  EXPECT_THAT(grappler_item->fetch, ElementsAre("Sink"));
+}
+
+struct SelectOptimizationsTestCase {
+  absl::flat_hash_set<string> experiments;
+  absl::flat_hash_set<tstring> optimizations_enabled;
+  absl::flat_hash_set<tstring> optimizations_disabled;
+  absl::flat_hash_set<tstring> optimizations_default;
+  std::vector<string> expected;
+};
+
+class SelectOptimizationsTest
+    : public ::testing::TestWithParam<SelectOptimizationsTestCase> {};
+
+TEST_P(SelectOptimizationsTest, DatasetUtils) {
+  const SelectOptimizationsTestCase test_case = GetParam();
+  auto optimizations = SelectOptimizations(
+      test_case.experiments, test_case.optimizations_enabled,
+      test_case.optimizations_disabled, test_case.optimizations_default);
+  EXPECT_THAT(std::vector<string>(optimizations.begin(), optimizations.end()),
+              ::testing::UnorderedElementsAreArray(test_case.expected));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Test, SelectOptimizationsTest,
+    ::testing::Values(
+        SelectOptimizationsTestCase{
+            /*experiments=*/{}, /*optimizations_enabled=*/{},
+            /*optimizations_disabled=*/{}, /*optimizations_default=*/{},
+            /*expected=*/{}},
+        SelectOptimizationsTestCase{
+            /*experiments=*/{"map_and_batch_fusion"},
+            /*optimizations_enabled=*/{"bar"},
+            /*optimizations_disabled=*/{}, /*optimizations_default=*/{"baz"},
+            /*expected=*/{"map_and_batch_fusion", "bar", "baz"}},
+        SelectOptimizationsTestCase{
+            /*experiments=*/{"this_is_not_an_optimization"},
+            /*optimizations_enabled=*/{"bar"},
+            /*optimizations_disabled=*/{}, /*optimizations_default=*/{"baz"},
+            /*expected=*/{"bar", "baz"}},
+        SelectOptimizationsTestCase{/*experiments=*/{},
+                                    /*optimizations_enabled=*/{"foo"},
+                                    /*optimizations_disabled=*/{"baz"},
+                                    /*optimizations_default=*/{"bar", "baz"},
+                                    /*expected=*/{"foo", "bar"}},
+        SelectOptimizationsTestCase{
+            /*experiments=*/{"foo"}, /*optimizations_enabled=*/{"bar"},
+            /*optimizations_disabled=*/{"foo"},
+            /*optimizations_default=*/{"baz"}, /*expected=*/{"bar", "baz"}}));
 
 }  // namespace
 }  // namespace data

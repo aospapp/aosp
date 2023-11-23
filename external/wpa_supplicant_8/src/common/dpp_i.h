@@ -19,8 +19,16 @@ struct dpp_global {
 	struct dl_list configurator; /* struct dpp_configurator */
 #ifdef CONFIG_DPP2
 	struct dl_list controllers; /* struct dpp_relay_controller */
+	struct dpp_relay_controller *tmp_controller;
 	struct dpp_controller *controller;
 	struct dl_list tcp_init; /* struct dpp_connection */
+	int relay_sock;
+	void *relay_msg_ctx;
+	void *relay_cb_ctx;
+	void (*relay_tx)(void *ctx, const u8 *addr, unsigned int freq,
+			 const u8 *msg, size_t len);
+	void (*relay_gas_resp_tx)(void *ctx, const u8 *addr, u8 dialog_token,
+				  int prot, struct wpabuf *buf);
 	void *cb_ctx;
 	int (*process_conf_obj)(void *ctx, struct dpp_authentication *auth);
 	bool (*tcp_msg_sent)(void *ctx, struct dpp_authentication *auth);
@@ -97,8 +105,6 @@ int dpp_get_subject_public_key(struct dpp_bootstrap_info *bi,
 int dpp_bootstrap_key_hash(struct dpp_bootstrap_info *bi);
 int dpp_keygen(struct dpp_bootstrap_info *bi, const char *curve,
 	       const u8 *privkey, size_t privkey_len);
-struct crypto_ec_key * dpp_set_keypair(const struct dpp_curve_params **curve,
-				       const u8 *privkey, size_t privkey_len);
 struct crypto_ec_key * dpp_gen_keypair(const struct dpp_curve_params *curve);
 int dpp_derive_k1(const u8 *Mx, size_t Mx_len, u8 *k1, unsigned int hash_len);
 int dpp_derive_k2(const u8 *Nx, size_t Nx_len, u8 *k2, unsigned int hash_len);
@@ -113,17 +119,17 @@ int dpp_derive_pmkid(const struct dpp_curve_params *curve,
 		     struct crypto_ec_key *peer_key, u8 *pmkid);
 struct crypto_ec_point *
 dpp_pkex_derive_Qi(const struct dpp_curve_params *curve, const u8 *mac_init,
-		   const char *code, const char *identifier,
+		   const char *code, size_t code_len, const char *identifier,
 		   struct crypto_ec **ret_ec);
 struct crypto_ec_point *
 dpp_pkex_derive_Qr(const struct dpp_curve_params *curve, const u8 *mac_resp,
-		   const char *code, const char *identifier,
+		   const char *code, size_t code_len, const char *identifier,
 		   struct crypto_ec **ret_ec);
 int dpp_pkex_derive_z(const u8 *mac_init, const u8 *mac_resp,
 		      u8 ver_init, u8 ver_resp,
 		      const u8 *Mx, size_t Mx_len,
 		      const u8 *Nx, size_t Nx_len,
-		      const char *code,
+		      const char *code, size_t code_len,
 		      const u8 *Kx, size_t Kx_len,
 		      u8 *z, unsigned int hash_len);
 int dpp_reconfig_derive_ke_responder(struct dpp_authentication *auth,
@@ -136,6 +142,7 @@ int dpp_reconfig_derive_ke_initiator(struct dpp_authentication *auth,
 struct crypto_ec_point * dpp_decrypt_e_id(struct crypto_ec_key *ppkey,
 					  struct crypto_ec_key *a_nonce,
 					  struct crypto_ec_key *e_prime_id);
+int dpp_derive_auth_i(struct dpp_authentication *auth, u8 *auth_i);
 char * dpp_sign_connector(struct dpp_configurator *conf,
 			  const struct wpabuf *dppcon);
 int dpp_test_gen_invalid_key(struct wpabuf *msg,

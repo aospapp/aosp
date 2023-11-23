@@ -1,0 +1,23 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/psci
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
+name: "psci"
+description: "Functions and constants for the Arm SMC Calling Convention (SMCCC) 1.4 and Arm Power State Coordination Interface (PSCI) 1.1 on aarch64."
+third_party {
+  url {
+    type: HOMEPAGE
+    value: "https://crates.io/crates/psci"
+  }
+  url {
+    type: ARCHIVE
+    value: "https://static.crates.io/crates/psci/psci-0.1.3.crate"
+  }
+  version: "0.1.3"
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2023
+    month: 4
+    day: 14
+  }
+}

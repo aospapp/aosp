@@ -32,6 +32,16 @@ license {
     ],
 }
 
+java_defaults {
+    name: "okhttp_errorprone_defaults",
+    errorprone: {
+        javacflags: [
+            "-Xep:InvalidTimeZoneID:WARN",
+            "-Xep:TryFailThrowable:WARN",
+        ],
+    },
+}
+
 // The source files that contribute to Android's core library APIs.
 filegroup {
     name: "okhttp_api_files",
@@ -49,6 +59,7 @@ nojarjar_visibility = [
 // non-jarjar'd version of okhttp to compile the tests against
 java_library {
     name: "okhttp-nojarjar",
+    defaults: ["okhttp_errorprone_defaults"],
     visibility: nojarjar_visibility,
     srcs: [
         "android/src/main/java/**/*.java",
@@ -91,12 +102,14 @@ filegroup {
 
 java_library {
     name: "okhttp",
+    defaults: ["okhttp_errorprone_defaults"],
     visibility: [
         "//art/build/apex",
         "//art/build/sdk",
         "//external/grpc-grpc-java/okhttp",
         "//external/robolectric-shadows",
-        "//libcore",
+        "//external/robolectric",
+        "//libcore:__subpackages__",
         "//packages/modules/ArtPrebuilt",
     ],
     srcs: [
@@ -125,6 +138,7 @@ java_library {
     visibility: [
         "//art/build/sdk",
         "//external/robolectric-shadows",
+        "//external/robolectric",
     ],
     static_libs: [
         "okhttp",
@@ -139,8 +153,14 @@ java_library {
 // third-party or unbundled applications or libraries that require OkHttp.
 java_library {
     name: "okhttp-norepackage",
+    defaults: ["okhttp_errorprone_defaults"],
     host_supported: true,
-
+    apex_available: [
+        "com.android.adservices",
+        "com.android.devicelock",
+        "com.android.extservices",
+        "com.android.ondevicepersonalization",
+    ],
     visibility: [
         "//art/build/sdk",
         "//external/grpc-grpc-java/okhttp",
@@ -164,6 +184,11 @@ java_library {
     // Build against a "core_current" as it cannot use "current" as it has to
     // build in manifests without frameworks/base.
     sdk_version: "core_current",
+    // Make sure that this will be added to the sdk snapshot for S.
+    min_sdk_version: "30",
+    // This jar is packaged as part of the ART module host exports, use -target 8 so that it works
+    // with old JDKs.
+    java_version: "1.8",
 }
 
 // Generate Version.java based on the version number from pom.xml.
@@ -192,6 +217,7 @@ java_library {
 
 java_library {
     name: "okhttp-tests-nojarjar",
+    defaults: ["okhttp_errorprone_defaults"],
     visibility: nojarjar_visibility,
     srcs: [
         "android/test/java/**/*.java",

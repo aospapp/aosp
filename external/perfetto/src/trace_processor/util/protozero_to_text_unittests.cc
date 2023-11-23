@@ -18,13 +18,14 @@
 
 #include "perfetto/ext/base/string_utils.h"
 #include "perfetto/protozero/scattered_heap_buffer.h"
-#include "protos/perfetto/trace/track_event/chrome_compositor_scheduler_state.pbzero.h"
-#include "protos/perfetto/trace/track_event/track_event.pbzero.h"
 #include "src/protozero/test/example_proto/test_messages.pbzero.h"
-#include "src/trace_processor/importers/track_event.descriptor.h"
+#include "src/trace_processor/importers/proto/track_event.descriptor.h"
 #include "src/trace_processor/test_messages.descriptor.h"
 #include "src/trace_processor/util/descriptors.h"
 #include "test/gtest_and_gmock.h"
+
+#include "protos/perfetto/trace/track_event/chrome_compositor_scheduler_state.pbzero.h"
+#include "protos/perfetto/trace/track_event/track_event.pbzero.h"
 
 namespace perfetto {
 namespace trace_processor {
@@ -596,6 +597,57 @@ TEST_F(ProtozeroToTextTestMessageTest, FieldLengthLimitedPackedFixed64Double) {
                   StartsWith("field_double: 42.125")));
 }
 
+TEST_F(ProtozeroToTextTestMessageTest, FieldLengthLimitedPackedSmallEnum) {
+  protozero::HeapBuffered<PackedRepeatedFields> msg;
+  protozero::PackedVarInt buf;
+  buf.Append(1);
+  buf.Append(0);
+  buf.Append(-1);
+  msg->set_small_enum(buf);
+
+  EXPECT_THAT(
+      base::SplitString(
+          ProtozeroToText(pool_, ".protozero.test.protos.PackedRepeatedFields",
+                          msg.SerializeAsArray(), kIncludeNewLines),
+          "\n"),
+      ElementsAre(Eq("small_enum: TO_BE"), Eq("small_enum: NOT_TO_BE"),
+                  Eq("51: -1")));
+}
+
+TEST_F(ProtozeroToTextTestMessageTest, FieldLengthLimitedPackedSignedEnum) {
+  protozero::HeapBuffered<PackedRepeatedFields> msg;
+  protozero::PackedVarInt buf;
+  buf.Append(1);
+  buf.Append(0);
+  buf.Append(-1);
+  buf.Append(-100);
+  msg->set_signed_enum(buf);
+
+  EXPECT_THAT(
+      base::SplitString(
+          ProtozeroToText(pool_, ".protozero.test.protos.PackedRepeatedFields",
+                          msg.SerializeAsArray(), kIncludeNewLines),
+          "\n"),
+      ElementsAre(Eq("signed_enum: POSITIVE"), Eq("signed_enum: NEUTRAL"),
+                  Eq("signed_enum: NEGATIVE"), Eq("52: -100")));
+}
+
+TEST_F(ProtozeroToTextTestMessageTest, FieldLengthLimitedPackedBigEnum) {
+  protozero::HeapBuffered<PackedRepeatedFields> msg;
+  protozero::PackedVarInt buf;
+  buf.Append(10);
+  buf.Append(100500);
+  buf.Append(-1);
+  msg->set_big_enum(buf);
+
+  EXPECT_THAT(
+      base::SplitString(
+          ProtozeroToText(pool_, ".protozero.test.protos.PackedRepeatedFields",
+                          msg.SerializeAsArray(), kIncludeNewLines),
+          "\n"),
+      ElementsAre(Eq("big_enum: BEGIN"), Eq("big_enum: END"), Eq("53: -1")));
+}
+
 TEST_F(ProtozeroToTextTestMessageTest, FieldLengthLimitedPackedFixedErrShort) {
   protozero::HeapBuffered<PackedRepeatedFields> msg;
   std::string buf;
@@ -669,6 +721,38 @@ TEST_F(ProtozeroToTextTestMessageTest, FieldLengthLimitedPackedVarIntGarbage) {
       "field_int32: 42\n"
       "field_int32: 105\n"
       "# Packed decoding failure for field field_int32\n");
+}
+
+TEST_F(ProtozeroToTextTestMessageTest, ExtraBytes) {
+  protozero::HeapBuffered<EveryField> msg;
+  EveryField* nested = msg->add_field_nested();
+  nested->set_field_string("hello");
+  std::string garbage("\377\377");
+  nested->AppendRawProtoBytes(garbage.data(), garbage.size());
+
+  // "protoc --decode", instead:
+  // * doesn't output anything.
+  // * returns an error on stderr.
+  EXPECT_EQ(ProtozeroToText(pool_, ".protozero.test.protos.EveryField",
+                            msg.SerializeAsArray(), kIncludeNewLines),
+            R"(field_nested {
+  field_string: "hello"
+  # Extra bytes: "\377\377"
+
+})");
+}
+
+TEST_F(ProtozeroToTextTestMessageTest, NonExistingType) {
+  protozero::HeapBuffered<EveryField> msg;
+  msg->set_field_string("hello");
+  ASSERT_EQ(EveryField::kFieldStringFieldNumber, 500);
+
+  // "protoc --decode", instead:
+  // * doesn't output anything.
+  // * returns an error on stderr.
+  EXPECT_EQ(ProtozeroToText(pool_, ".non.existing.type", msg.SerializeAsArray(),
+                            kIncludeNewLines),
+            R"(500: "hello")");
 }
 
 }  // namespace

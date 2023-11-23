@@ -49,7 +49,7 @@ do
   --refresh)
     refresh=true
     ;;
-  --refresh_if)
+  --refresh-if)
     refresh_if=true
     ;;
   --help)
@@ -94,7 +94,11 @@ then
 fi
 
 # Canonicalize CHOST to work around bug in original zlib's configure
-export CHOST=$(sh $TESTDIR/../tools/config.sub $CHOST)
+# (Don't export it if it wasn't already exported, else may cause
+# default compiler detection failure and shared library link error
+# when building both zlib and zlib-ng.
+# See https://github.com/zlib-ng/zlib-ng/issues/1219)
+CHOST=$(sh $TESTDIR/../tools/config.sub $CHOST)
 
 if test "$CHOST" = ""
 then
@@ -121,7 +125,7 @@ then
   git reset --hard FETCH_HEAD
   cd ..
   # Build unstripped, uninstalled, very debug shared library
-  CFLAGS="$CFLAGS -ggdb" sh src.d/configure $CONFIGURE_ARGS
+  CFLAGS="$CFLAGS -ggdb" src.d/configure $CONFIGURE_ARGS
   make -j2
   cd ..
   # Find shared library, extract its abi
@@ -134,12 +138,10 @@ then
   # caching abi files in git (but that would slow builds down).
 fi
 
-if test -f "$ABIFILE"
+if ! test -f "$ABIFILE"
 then
-  ABIFILE="$ABIFILE"
-else
-  echo "abicheck: SKIP: $ABIFILE not found; rerun with --refresh or --refresh_if"
-  exit 0
+  echo "abicheck: SKIP: $ABIFILE not found; rerun with --refresh or --refresh-if"
+  exit 1
 fi
 
 # Build unstripped, uninstalled, very debug shared library

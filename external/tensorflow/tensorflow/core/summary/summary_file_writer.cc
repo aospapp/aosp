@@ -49,7 +49,7 @@ class SummaryFileWriter : public SummaryWriterInterface {
     // Embed PID plus a unique counter as the leading portion of the filename
     // suffix to help prevent filename collisions between and within processes.
     int32_t pid = env_->GetProcessId();
-    static std::atomic<int64> file_id_counter(0);
+    static std::atomic<int64_t> file_id_counter(0);
     // Precede filename_suffix with "." if it doesn't already start with one.
     string sep = absl::StartsWith(filename_suffix, ".") ? "" : ".";
     const string uniquified_filename_suffix = absl::StrCat(
@@ -62,7 +62,7 @@ class SummaryFileWriter : public SummaryWriterInterface {
         "Could not initialize events writer.");
     last_flush_ = env_->NowMicros();
     is_initialized_ = true;
-    return Status::OK();
+    return OkStatus();
   }
 
   Status Flush() override {
@@ -156,7 +156,7 @@ class SummaryFileWriter : public SummaryWriterInterface {
         env_->NowMicros() - last_flush_ > 1000 * flush_millis_) {
       return InternalFlush();
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   string DebugString() const override { return "SummaryFileWriter"; }
@@ -174,7 +174,7 @@ class SummaryFileWriter : public SummaryWriterInterface {
     TF_RETURN_WITH_CONTEXT_IF_ERROR(events_writer_->Flush(),
                                     "Could not flush events file.");
     last_flush_ = env_->NowMicros();
-    return Status::OK();
+    return OkStatus();
   }
 
   bool is_initialized_;
@@ -204,7 +204,7 @@ Status CreateSummaryFileWriter(int max_queue, int flush_millis,
     return s;
   }
   *result = w;
-  return Status::OK();
+  return OkStatus();
 }
 
 }  // namespace tensorflow

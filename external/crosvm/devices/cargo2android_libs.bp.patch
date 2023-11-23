@@ -1,0 +1,16 @@
+target: {
+    host: {
+        features: [
+            "gfxstream",
+            "gpu",
+            "gpu_display",
+            "virgl_renderer",
+            "virgl_renderer_next",
+        ],
+        rustlibs: [
+            "libgpu_display",
+            "librutabaga_gfx",
+        ],
+        shared_libs: ["libgfxstream_backend"],
+    },
+}

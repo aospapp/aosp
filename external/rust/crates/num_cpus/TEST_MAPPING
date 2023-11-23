@@ -5,10 +5,25 @@
       "path": "external/rust/crates/anyhow"
     },
     {
+      "path": "external/rust/crates/async-stream"
+    },
+    {
       "path": "external/rust/crates/base64"
     },
     {
+      "path": "external/rust/crates/futures-channel"
+    },
+    {
+      "path": "external/rust/crates/futures-executor"
+    },
+    {
+      "path": "external/rust/crates/futures-test"
+    },
+    {
       "path": "external/rust/crates/futures-util"
+    },
+    {
+      "path": "external/rust/crates/hashbrown"
     },
     {
       "path": "external/rust/crates/ryu"
@@ -27,52 +42,37 @@
     },
     {
       "path": "external/rust/crates/unicode-xid"
+    },
+    {
+      "path": "external/uwb/src"
+    },
+    {
+      "path": "packages/modules/DnsResolver"
+    },
+    {
+      "path": "packages/modules/Virtualization/authfs"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
+    },
+    {
+      "path": "packages/modules/Virtualization/zipfuse"
+    },
+    {
+      "path": "system/security/keystore2"
+    },
+    {
+      "path": "system/security/keystore2/legacykeystore"
     }
   ],
   "presubmit": [
     {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "keystore2_selinux_concurrency_test"
-    },
-    {
       "name": "num_cpus_test_src_lib"
-    },
-    {
-      "name": "rustBinderTest"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ],
   "presubmit-rust": [
     {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "keystore2_selinux_concurrency_test"
-    },
-    {
       "name": "num_cpus_test_src_lib"
-    },
-    {
-      "name": "rustBinderTest"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ]
 }

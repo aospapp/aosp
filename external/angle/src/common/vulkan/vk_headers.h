@@ -11,31 +11,31 @@
 #define LIBANGLE_RENDERER_VULKAN_VK_HEADERS_H_
 
 #if ANGLE_SHARED_LIBVULKAN
-#    include "third_party/volk/volk.h"
+#    include <volk.h>
 #else
 #    include <vulkan/vulkan.h>
 #endif
 
-// For the unreleased VK_EXT_multisampled_render_to_single_sampled
-#if !defined(VK_EXT_multisampled_render_to_single_sampled)
-#    define VK_EXT_multisampled_render_to_single_sampled 1
-#    define VK_EXT_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_SPEC_VERSION 1
-#    define VK_EXT_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_EXTENSION_NAME \
+// For the unreleased VK_GOOGLEX_multisampled_render_to_single_sampled
+#if !defined(VK_GOOGLEX_multisampled_render_to_single_sampled)
+#    define VK_GOOGLEX_multisampled_render_to_single_sampled 1
+#    define VK_GOOGLEX_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_SPEC_VERSION 1
+#    define VK_GOOGLEX_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_EXTENSION_NAME \
         "VK_GOOGLEX_multisampled_render_to_single_sampled"
 
-#    define VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_FEATURES_EXT \
+#    define VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_FEATURES_GOOGLEX \
         ((VkStructureType)(1000376000))
-#    define VK_STRUCTURE_TYPE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_INFO_EXT \
+#    define VK_STRUCTURE_TYPE_MULTISAMPLED_RENDER_TO_SINGLE_SAMPLED_INFO_GOOGLEX \
         ((VkStructureType)(1000376001))
 
-typedef struct VkPhysicalDeviceMultisampledRenderToSingleSampledFeaturesEXT
+typedef struct VkPhysicalDeviceMultisampledRenderToSingleSampledFeaturesGOOGLEX
 {
     VkStructureType sType;
     const void *pNext;
     VkBool32 multisampledRenderToSingleSampled;
-} VkPhysicalDeviceMultisampledRenderToSingleSampledFeaturesEXT;
+} VkPhysicalDeviceMultisampledRenderToSingleSampledFeaturesGOOGLEX;
 
-typedef struct VkMultisampledRenderToSingleSampledInfoEXT
+typedef struct VkMultisampledRenderToSingleSampledInfoGOOGLEX
 {
     VkStructureType sType;
     const void *pNext;
@@ -43,8 +43,8 @@ typedef struct VkMultisampledRenderToSingleSampledInfoEXT
     VkSampleCountFlagBits rasterizationSamples;
     VkResolveModeFlagBits depthResolveMode;
     VkResolveModeFlagBits stencilResolveMode;
-} VkMultisampledRenderToSingleSampledInfoEXT;
-#endif /* VK_EXT_multisampled_render_to_single_sampled */
+} VkMultisampledRenderToSingleSampledInfoGOOGLEX;
+#endif /* VK_GOOGLEX_multisampled_render_to_single_sampled */
 
 #if !defined(ANGLE_SHARED_LIBVULKAN)
 
@@ -56,6 +56,7 @@ extern PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT;
 extern PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXT;
 extern PFN_vkCmdEndDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXT;
 extern PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabelEXT;
+extern PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT;
 
 // VK_EXT_debug_report
 extern PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT;
@@ -126,6 +127,34 @@ extern PFN_vkCreateStreamDescriptorSurfaceGGP vkCreateStreamDescriptorSurfaceGGP
 
 // VK_KHR_shared_presentable_image
 extern PFN_vkGetSwapchainStatusKHR vkGetSwapchainStatusKHR;
+
+// VK_EXT_extended_dynamic_state
+extern PFN_vkCmdBindVertexBuffers2EXT vkCmdBindVertexBuffers2EXT;
+extern PFN_vkCmdSetCullModeEXT vkCmdSetCullModeEXT;
+extern PFN_vkCmdSetDepthBoundsTestEnableEXT vkCmdSetDepthBoundsTestEnableEXT;
+extern PFN_vkCmdSetDepthCompareOpEXT vkCmdSetDepthCompareOpEXT;
+extern PFN_vkCmdSetDepthTestEnableEXT vkCmdSetDepthTestEnableEXT;
+extern PFN_vkCmdSetDepthWriteEnableEXT vkCmdSetDepthWriteEnableEXT;
+extern PFN_vkCmdSetFrontFaceEXT vkCmdSetFrontFaceEXT;
+extern PFN_vkCmdSetPrimitiveTopologyEXT vkCmdSetPrimitiveTopologyEXT;
+extern PFN_vkCmdSetScissorWithCountEXT vkCmdSetScissorWithCountEXT;
+extern PFN_vkCmdSetStencilOpEXT vkCmdSetStencilOpEXT;
+extern PFN_vkCmdSetStencilTestEnableEXT vkCmdSetStencilTestEnableEXT;
+extern PFN_vkCmdSetViewportWithCountEXT vkCmdSetViewportWithCountEXT;
+
+// VK_EXT_extended_dynamic_state2
+extern PFN_vkCmdSetDepthBiasEnableEXT vkCmdSetDepthBiasEnableEXT;
+extern PFN_vkCmdSetLogicOpEXT vkCmdSetLogicOpEXT;
+extern PFN_vkCmdSetPatchControlPointsEXT vkCmdSetPatchControlPointsEXT;
+extern PFN_vkCmdSetPrimitiveRestartEnableEXT vkCmdSetPrimitiveRestartEnableEXT;
+extern PFN_vkCmdSetRasterizerDiscardEnableEXT vkCmdSetRasterizerDiscardEnableEXT;
+
+// VK_KHR_fragment_shading_rate
+extern PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR vkGetPhysicalDeviceFragmentShadingRatesKHR;
+extern PFN_vkCmdSetFragmentShadingRateKHR vkCmdSetFragmentShadingRateKHR;
+
+// VK_GOOGLE_display_timing
+extern PFN_vkGetPastPresentationTimingGOOGLE vkGetPastPresentationTimingGOOGLE;
 
 }  // namespace rx
 

@@ -8,9 +8,9 @@ include ../Make.Rules
 #
 
 all:
-	make libcap_launch_test
+	$(MAKE) libcap_launch_test uns_test
 ifeq ($(PTHREADS),yes)
-	make psx_test libcap_psx_test libcap_psx_launch_test
+	$(MAKE) psx_test libcap_psx_test libcap_psx_launch_test
 endif
 
 install: all
@@ -22,7 +22,7 @@ ifeq ($(PTHREADS),yes)
 DEPS += ../libcap/libpsx.so
 endif
 else
-LDFLAGS += --static
+LDSTATIC = --static
 DEPS=../libcap/libcap.a
 ifeq ($(PTHREADS),yes)
 DEPS +=  ../libcap/libpsx.a
@@ -30,31 +30,32 @@ endif
 endif
 
 ../libcap/libcap.so:
-	make -C ../libcap libcap.so
+	$(MAKE) -C ../libcap libcap.so
 
 ../libcap/libcap.a:
-	make -C ../libcap libcap.a
+	$(MAKE) -C ../libcap libcap.a
 
 ifeq ($(PTHREADS),yes)
 ../libcap/libpsx.so:
-	make -C ../libcap libpsx.so
+	$(MAKE) -C ../libcap libpsx.so
 
 ../libcap/libpsx.a:
-	make -C ../libcap libpsx.a
+	$(MAKE) -C ../libcap libpsx.a
 endif
 
 ../progs/tcapsh-static:
-	make -C ../progs tcapsh-static
+	$(MAKE) -C ../progs tcapsh-static
 
 test:
 ifeq ($(PTHREADS),yes)
-	make run_psx_test run_libcap_psx_test
+	$(MAKE) run_psx_test run_libcap_psx_test
 endif
 
 sudotest: test
-	make run_libcap_launch_test
+	$(MAKE) run_uns_test
+	$(MAKE) run_libcap_launch_test
 ifeq ($(PTHREADS),yes)
-	make run_libcap_psx_launch_test run_exploit_test
+	$(MAKE) run_libcap_psx_launch_test run_exploit_test
 endif
 
 # unprivileged
@@ -62,15 +63,21 @@ run_psx_test: psx_test
 	./psx_test
 
 psx_test: psx_test.c $(DEPS)
-	$(CC) $(CFLAGS) $(IPATH) $< -o $@ $(LINKEXTRA) $(LIBPSXLIB) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(IPATH) $< -o $@ $(LINKEXTRA) $(LIBPSXLIB) $(LDSTATIC)
 
 run_libcap_psx_test: libcap_psx_test
 	./libcap_psx_test
 
 libcap_psx_test: libcap_psx_test.c $(DEPS)
-	$(CC) $(CFLAGS) $(IPATH) $< -o $@ $(LINKEXTRA) $(LIBCAPLIB) $(LIBPSXLIB) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(IPATH) $< -o $@ $(LINKEXTRA) $(LIBCAPLIB) $(LIBPSXLIB) $(LDSTATIC)
 
 # privileged
+uns_test: uns_test.c $(DEPS)
+	$(CC) $(CFLAGS) $(IPATH) $< -o $@ $(LINKEXTRA) $(LIBCAPLIB) $(LDSTATIC)
+
+run_uns_test: uns_test
+	echo exit | sudo ./uns_test
+
 run_libcap_launch_test: libcap_launch_test noop ../progs/tcapsh-static
 	sudo ./libcap_launch_test
 
@@ -78,13 +85,13 @@ run_libcap_psx_launch_test: libcap_psx_launch_test ../progs/tcapsh-static
 	sudo ./libcap_psx_launch_test
 
 libcap_launch_test: libcap_launch_test.c $(DEPS)
-	$(CC) $(CFLAGS) $(IPATH) $< -o $@ $(LINKEXTRA) $(LIBCAPLIB) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(IPATH) $< -o $@ $(LINKEXTRA) $(LIBCAPLIB) $(LDSTATIC)
 
 # This varies only slightly from the above insofar as it currently
 # only links in the pthreads fork support. TODO() we need to change
 # the source to do something interesting with pthreads.
 libcap_psx_launch_test: libcap_launch_test.c $(DEPS)
-	$(CC) $(CFLAGS) $(IPATH) -DWITH_PTHREADS $< -o $@ $(LINKEXTRA) $(LIBCAPLIB) $(LIBPSXLIB) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(IPATH) -DWITH_PTHREADS $< -o $@ $(LINKEXTRA) $(LIBCAPLIB) $(LIBPSXLIB) $(LDSTATIC)
 
 
 # This test demonstrates that libpsx is needed to secure multithreaded
@@ -99,18 +106,18 @@ exploit.o: exploit.c
 	$(CC) $(CFLAGS) $(IPATH) -c $<
 
 exploit: exploit.o $(DEPS)
-	$(CC) $(CFLAGS) $(IPATH) $< -o $@ $(LINKEXTRA) $(LIBCAPLIB) -lpthread $(LDFLAGS)
+	$(CC) $(CFLAGS) $(IPATH) $< -o $@ $(LINKEXTRA) $(LIBCAPLIB) -lpthread $(LDSTATIC)
 
 # Note, for some reason, the order of libraries is important to avoid
 # the exploit working for dynamic linking.
 noexploit: exploit.o $(DEPS)
-	$(CC) $(CFLAGS) $(IPATH) $< -o $@ $(LINKEXTRA) $(LIBPSXLIB) $(LIBCAPLIB) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(IPATH) $< -o $@ $(LINKEXTRA) $(LIBPSXLIB) $(LIBCAPLIB) $(LDSTATIC)
 
 # This one runs in a chroot with no shared library files.
 noop: noop.c
 	$(CC) $(CFLAGS) $< -o $@ --static
 
 clean:
-	rm -f psx_test libcap_psx_test libcap_launch_test *~
+	rm -f psx_test libcap_psx_test libcap_launch_test uns_test *~
 	rm -f libcap_launch_test libcap_psx_launch_test core noop
 	rm -f exploit noexploit exploit.o

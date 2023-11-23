@@ -67,7 +67,7 @@ class WindowDatasetOp::Dataset : public DatasetBase {
 
   std::unique_ptr<IteratorBase> MakeIteratorInternal(
       const string& prefix) const override {
-    return absl::make_unique<Iterator>(Iterator::Params{
+    return std::make_unique<Iterator>(Iterator::Params{
         this, name_utils::IteratorPrefix(kDatasetType, prefix)});
   }
 
@@ -86,7 +86,7 @@ class WindowDatasetOp::Dataset : public DatasetBase {
     return name_utils::DatasetDebugString(kDatasetType, params);
   }
 
-  int64 Cardinality() const override {
+  int64_t CardinalityInternal() const override {
     int64_t n = input_->Cardinality();
     if (n == kInfiniteCardinality || n == kUnknownCardinality) {
       return n;
@@ -107,7 +107,7 @@ class WindowDatasetOp::Dataset : public DatasetBase {
 
   Status InputDatasets(std::vector<const DatasetBase*>* inputs) const override {
     inputs->push_back(input_);
-    return Status::OK();
+    return OkStatus();
   }
 
   Status CheckExternalState() const override {
@@ -133,7 +133,7 @@ class WindowDatasetOp::Dataset : public DatasetBase {
                       {input_graph_node, window_size_node, window_shift_node,
                        window_stride_node, drop_remainder_node},
                       output));
-    return Status::OK();
+    return OkStatus();
   }
 
  private:
@@ -153,7 +153,7 @@ class WindowDatasetOp::Dataset : public DatasetBase {
       const int64_t window_shift = dataset()->window_shift_;
       const int64_t window_stride = dataset()->window_stride_;
       std::vector<std::vector<Tensor>> window_elements;
-      Status status = Status::OK();
+      Status status = OkStatus();
       {
         const size_t target_size = TargetBufferSize(window_size, window_stride);
 
@@ -162,7 +162,7 @@ class WindowDatasetOp::Dataset : public DatasetBase {
             (buffer_.empty() ||
              (dataset()->drop_remainder_ && buffer_.size() < target_size))) {
           *end_of_sequence = true;
-          return Status::OK();
+          return OkStatus();
         }
 
         // Add elements to the buffer.
@@ -187,7 +187,7 @@ class WindowDatasetOp::Dataset : public DatasetBase {
         if (buffer_.empty() ||
             (dataset()->drop_remainder_ && buffer_.size() < target_size)) {
           DCHECK(*end_of_sequence);
-          return Status::OK();
+          return OkStatus();
         }
 
         int num_elements = 1 + (buffer_.size() - 1) / window_stride;
@@ -252,7 +252,7 @@ class WindowDatasetOp::Dataset : public DatasetBase {
         TF_RETURN_IF_ERROR(
             StoreDatasetInVariantTensor(window_dataset, &out_tensors->back()));
       }
-      return Status::OK();
+      return OkStatus();
     }
 
    protected:
@@ -284,7 +284,7 @@ class WindowDatasetOp::Dataset : public DatasetBase {
               buffer_[i].result[j]));
         }
       }
-      return Status::OK();
+      return OkStatus();
     }
 
     Status RestoreInternal(IteratorContext* ctx,
@@ -314,7 +314,7 @@ class WindowDatasetOp::Dataset : public DatasetBase {
               &buffer_[i].result[j]));
         }
       }
-      return Status::OK();
+      return OkStatus();
     }
 
     TraceMeMetadata GetTraceMeMetadata() const override {
@@ -335,12 +335,12 @@ class WindowDatasetOp::Dataset : public DatasetBase {
                              const Status& status)
         TF_EXCLUSIVE_LOCKS_REQUIRED(mu_) {
       TF_RETURN_IF_ERROR(writer->WriteScalar(
-          CodeKey(index), static_cast<int64>(status.code())));
+          CodeKey(index), static_cast<int64_t>(status.code())));
       if (!status.ok()) {
         TF_RETURN_IF_ERROR(writer->WriteScalar(ErrorMessageKey(index),
                                                status.error_message()));
       }
-      return Status::OK();
+      return OkStatus();
     }
 
     Status ReadStatusLocked(IteratorStateReader* reader, size_t index,
@@ -355,9 +355,9 @@ class WindowDatasetOp::Dataset : public DatasetBase {
             reader->ReadScalar(ErrorMessageKey(index), &error_message));
         *status = Status(code, error_message);
       } else {
-        *status = Status::OK();
+        *status = OkStatus();
       }
-      return Status::OK();
+      return OkStatus();
     }
 
     string CodeKey(size_t index) {
@@ -379,9 +379,9 @@ class WindowDatasetOp::Dataset : public DatasetBase {
   };
 
   const DatasetBase* const input_;
-  const int64 window_size_;
-  const int64 window_shift_;
-  const int64 window_stride_;
+  const int64_t window_size_;
+  const int64_t window_shift_;
+  const int64_t window_stride_;
   const bool drop_remainder_;
   const DataTypeVector output_dtypes_;
   const std::vector<PartialTensorShape> output_shapes_;
@@ -394,19 +394,20 @@ WindowDatasetOp::WindowDatasetOp(OpKernelConstruction* ctx)
 void WindowDatasetOp::MakeDataset(OpKernelContext* ctx, DatasetBase* input,
                                   DatasetBase** output) {
   int64_t window_size = 0;
-  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, kSize, &window_size));
+  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64_t>(ctx, kSize, &window_size));
   OP_REQUIRES(
       ctx, window_size > 0,
       errors::InvalidArgument("Window size must be greater than zero."));
 
   int64_t window_shift = 0;
-  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, kShift, &window_shift));
+  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64_t>(ctx, kShift, &window_shift));
   OP_REQUIRES(
       ctx, window_shift > 0,
       errors::InvalidArgument("Window shift must be greater than zero."));
 
   int64_t window_stride = 0;
-  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, kStride, &window_stride));
+  OP_REQUIRES_OK(ctx,
+                 ParseScalarArgument<int64_t>(ctx, kStride, &window_stride));
   OP_REQUIRES(
       ctx, window_stride > 0,
       errors::InvalidArgument("Window stride must be greater than zero."));

@@ -59,9 +59,9 @@ angle::Result VkImageImageSiblingVk::initImpl(DisplayVk *displayVk)
     {
         // If EGL_TEXTURE_INTERNAL_FORMAT_ANGLE is provided for eglCreateImageKHR(),
         // the provided format will be used for mFormat and intendedFormat.
-        intendedFormatID = angle::Format::InternalFormatToID(mInternalFormat);
         GLenum type      = gl::GetSizedInternalFormatInfo(format.glInternalFormat).type;
         mFormat          = gl::Format(mInternalFormat, type);
+        intendedFormatID = angle::Format::InternalFormatToID(mFormat.info->sizedInternalFormat);
     }
     else
     {
@@ -70,10 +70,10 @@ angle::Result VkImageImageSiblingVk::initImpl(DisplayVk *displayVk)
     }
 
     // Create the image
-    mImage                              = new vk::ImageHelper();
     constexpr bool kIsRobustInitEnabled = false;
+    mImage                              = new vk::ImageHelper();
     mImage->init2DWeakReference(displayVk, mVkImage.release(), getSize(), false, intendedFormatID,
-                                actualImageFormatID, 1, kIsRobustInitEnabled);
+                                actualImageFormatID, mVkImageInfo.usage, 1, kIsRobustInitEnabled);
 
     return angle::Result::Continue;
 }
@@ -131,7 +131,6 @@ void VkImageImageSiblingVk::release(RendererVk *renderer)
     {
         // TODO: Handle the case where the EGLImage is used in two contexts not in the same share
         // group.  https://issuetracker.google.com/169868803
-        mImage->releaseImageAndViewGarbage(renderer);
         mImage->resetImageWeakReference();
         mImage->destroy(renderer);
         SafeDelete(mImage);

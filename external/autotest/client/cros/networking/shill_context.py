@@ -6,6 +6,7 @@
 
 import dbus
 import logging
+import six
 
 from contextlib import contextmanager
 
@@ -146,7 +147,11 @@ class ServiceAutoConnectContext(object):
         if not service_properties[
                 shill_proxy.ShillProxy.SERVICE_PROPERTY_PROFILE]:
             shill = shill_proxy.ShillProxy.get_proxy()
-            manager_properties = shill.manager.GetProperties(utf8_strings=True)
+            if six.PY2:
+                manager_properties = shill.manager.GetProperties(
+                        utf8_strings=True)
+            else:
+                manager_properties = shill.manager.GetProperties()
             active_profile = manager_properties[
                     shill_proxy.ShillProxy.MANAGER_PROPERTY_ACTIVE_PROFILE]
             logging.info('ServiceAutoConnectContext: change cellular service '

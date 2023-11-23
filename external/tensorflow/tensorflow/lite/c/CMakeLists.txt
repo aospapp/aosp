@@ -34,7 +34,26 @@ add_subdirectory(
   EXCLUDE_FROM_ALL
 )
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+
+if(CMAKE_SYSTEM_NAME MATCHES "Windows"
+    AND (MSVC AND (CMAKE_SIZEOF_VOID_P EQUAL 4)))
+  message("Disabling MSVC /O2 optimization for Win32")
+  set(CompFlags
+    CMAKE_CXX_FLAGS_RELEASE
+    CMAKE_CXX_FLAGS_MINSIZEREL
+    CMAKE_CXX_FLAGS_RELWITHDEBINFO
+    CMAKE_C_FLAGS_RELEASE
+    CMAKE_C_FLAGS_MINSIZEREL
+    CMAKE_C_FLAGS_RELWITHDEBINFO
+  )
+  foreach (CompFlag ${CompFlags})
+    string(REGEX REPLACE "(\/Ob. )" "" ${CompFlag} "${${CompFlag}}")
+    string(REPLACE "/O2" "/O1" ${CompFlag} "${${CompFlag}}")
+    list(REMOVE_DUPLICATES ${CompFlag})
+    set(${CompFlag} "${${CompFlag}}" CACHE INTERNAL "")
+  endforeach()
+endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "Windows"
     AND (MSVC AND (CMAKE_SIZEOF_VOID_P EQUAL 4)))

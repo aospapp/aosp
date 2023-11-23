@@ -171,6 +171,7 @@ using protos::gen::InterceptorDescriptor;
 
 namespace internal {
 class InterceptorTraceWriter;
+class InterceptorTraceWriterTest;
 class TracingMuxer;
 class TracingMuxerFake;
 class TracingMuxerImpl;
@@ -178,7 +179,7 @@ class TracingMuxerImpl;
 
 // A virtual base class for interceptors. Users should derive from the templated
 // subclass below instead of this one.
-class PERFETTO_EXPORT InterceptorBase {
+class PERFETTO_EXPORT_COMPONENT InterceptorBase {
  public:
   virtual ~InterceptorBase();
 
@@ -186,7 +187,7 @@ class PERFETTO_EXPORT InterceptorBase {
   // To define your own state, subclass this with the same name in the
   // interceptor class. A reference to the state can then be looked up through
   // context.GetThreadLocalState() in the trace packet interceptor function.
-  class ThreadLocalState {
+  class PERFETTO_EXPORT_COMPONENT ThreadLocalState {
    public:
     virtual ~ThreadLocalState();
   };
@@ -213,6 +214,7 @@ class PERFETTO_EXPORT InterceptorBase {
 
  private:
   friend class internal::InterceptorTraceWriter;
+  friend class internal::InterceptorTraceWriterTest;
   friend class internal::TracingMuxer;
   friend class internal::TracingMuxerFake;
   friend class internal::TracingMuxerImpl;
@@ -244,7 +246,7 @@ class PERFETTO_EXPORT InterceptorBase {
 
 // Templated interceptor instantiation. See above for usage.
 template <class InterceptorType>
-class PERFETTO_EXPORT Interceptor : public InterceptorBase {
+class PERFETTO_EXPORT_COMPONENT Interceptor : public InterceptorBase {
  public:
   // A context object provided to the ThreadLocalState constructor. Provides
   // access to the per-instance interceptor object.
@@ -252,14 +254,21 @@ class PERFETTO_EXPORT Interceptor : public InterceptorBase {
    public:
     ~ThreadLocalStateArgs() = default;
 
+    ThreadLocalStateArgs(const ThreadLocalStateArgs&) = delete;
+    ThreadLocalStateArgs& operator=(const ThreadLocalStateArgs&) = delete;
+
+    ThreadLocalStateArgs(ThreadLocalStateArgs&&) noexcept = default;
+    ThreadLocalStateArgs& operator=(ThreadLocalStateArgs&&) noexcept = default;
+
     // Return a locked reference to the interceptor session. The session object
     // will remain valid as long as the returned handle is in scope.
     LockedHandle<InterceptorType> GetInterceptorLocked() {
       auto* internal_state = static_state_->TryGet(data_source_instance_index_);
       if (!internal_state)
         return LockedHandle<InterceptorType>();
+      std::unique_lock<std::recursive_mutex> lock(internal_state->lock);
       return LockedHandle<InterceptorType>(
-          &internal_state->lock,
+          std::move(lock),
           static_cast<InterceptorType*>(internal_state->interceptor.get()));
     }
 

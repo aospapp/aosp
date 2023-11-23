@@ -147,6 +147,31 @@ int cap_compare(cap_t a, cap_t b)
 }
 
 /*
+ * cap_fill copies a bit-vector of capability state in a cap_t from
+ * one flag to another.
+ */
+int cap_fill(cap_t cap_d, cap_flag_t to, cap_flag_t from)
+{
+    if (!good_cap_t(cap_d)) {
+	errno = EINVAL;
+	return -1;
+    }
+
+    if (to < CAP_EFFECTIVE || to > CAP_INHERITABLE ||
+	from < CAP_EFFECTIVE || from > CAP_INHERITABLE) {
+	errno = EINVAL;
+	return -1;
+    }
+
+    int i;
+    for (i = 0; i < _LIBCAP_CAPABILITY_U32S; i++) {
+	cap_d->u[i].flat[to] = cap_d->u[i].flat[from];
+    }
+
+    return 0;
+}
+
+/*
  * cap_iab_get_vector reads the single bit value from an IAB vector set.
  */
 cap_flag_value_t cap_iab_get_vector(cap_iab_t iab, cap_iab_vector_t vec,

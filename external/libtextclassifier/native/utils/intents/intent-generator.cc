@@ -16,6 +16,8 @@
 
 #include "utils/intents/intent-generator.h"
 
+#include <memory>
+#include <string>
 #include <vector>
 
 #include "utils/base/logging.h"
@@ -37,6 +39,9 @@ namespace libtextclassifier3 {
 namespace {
 
 static constexpr const char* kReferenceTimeUsecKey = "reference_time_ms_utc";
+static constexpr const char* kEnableAddContactIntent =
+    "enable_add_contact_intent";
+static constexpr const char* kEnableSearchIntent = "enable_search_intent";
 
 // Lua environment for classfication result intent generation.
 class AnnotatorJniEnvironment : public JniLuaEnvironment {
@@ -47,11 +52,15 @@ class AnnotatorJniEnvironment : public JniLuaEnvironment {
                           const std::string& entity_text,
                           const ClassificationResult& classification,
                           const int64 reference_time_ms_utc,
-                          const reflection::Schema* entity_data_schema)
+                          const reflection::Schema* entity_data_schema,
+                          const bool enable_add_contact_intent,
+                          const bool enable_search_intent)
       : JniLuaEnvironment(resources, jni_cache, context, device_locales),
         entity_text_(entity_text),
         classification_(classification),
         reference_time_ms_utc_(reference_time_ms_utc),
+        enable_add_contact_intent_(enable_add_contact_intent),
+        enable_search_intent_(enable_search_intent),
         entity_data_schema_(entity_data_schema) {}
 
  protected:
@@ -62,11 +71,19 @@ class AnnotatorJniEnvironment : public JniLuaEnvironment {
 
     PushAnnotation(classification_, entity_text_, entity_data_schema_);
     lua_setfield(state_, /*idx=*/-2, "entity");
+
+    lua_pushboolean(state_, enable_add_contact_intent_);
+    lua_setfield(state_, /*idx=*/-2, kEnableAddContactIntent);
+
+    lua_pushboolean(state_, enable_search_intent_);
+    lua_setfield(state_, /*idx=*/-2, kEnableSearchIntent);
   }
 
   const std::string& entity_text_;
   const ClassificationResult& classification_;
   const int64 reference_time_ms_utc_;
+  const bool enable_add_contact_intent_;
+  const bool enable_search_intent_;
 
   // Reflection schema data.
   const reflection::Schema* const entity_data_schema_;
@@ -175,6 +192,7 @@ bool IntentGenerator::GenerateIntents(
     const int64 reference_time_ms_utc, const std::string& text,
     const CodepointSpan selection_indices, const jobject context,
     const reflection::Schema* annotations_entity_data_schema,
+    const bool enable_add_contact_intent, const bool enable_search_intent,
     std::vector<RemoteActionTemplate>* remote_actions) const {
   if (options_ == nullptr) {
     return false;
@@ -195,7 +213,8 @@ bool IntentGenerator::GenerateIntents(
       new AnnotatorJniEnvironment(
           resources_, jni_cache_.get(), context,
           ParseDeviceLocales(device_locales), entity_text, classification,
-          reference_time_ms_utc, annotations_entity_data_schema));
+          reference_time_ms_utc, annotations_entity_data_schema,
+          enable_add_contact_intent, enable_search_intent));
 
   if (!interpreter->Initialize()) {
     TC3_LOG(ERROR) << "Could not create Lua interpreter.";

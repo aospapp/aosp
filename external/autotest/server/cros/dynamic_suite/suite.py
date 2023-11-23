@@ -49,9 +49,11 @@ except ImportError as e:
     print('  - (not yet supported) be run after running ')
     print('    ../utils/build_externals.py')
 
-_FILE_BUG_SUITES = ['au', 'bvt', 'bvt-cq', 'bvt-inline', 'paygen_au_beta',
-                    'paygen_au_canary', 'paygen_au_dev', 'paygen_au_stable',
-                    'sanity', 'push_to_prod']
+_FILE_BUG_SUITES = [
+        'au', 'bvt', 'bvt-cq', 'bvt-inline', 'calibration', 'paygen_au_beta',
+        'paygen_au_canary', 'paygen_au_dev', 'paygen_au_stable', 'sanity',
+        'push_to_prod'
+]
 _AUTOTEST_DIR = global_config.global_config.get_config_value(
         'SCHEDULER', 'drone_installation_directory')
 
@@ -1207,7 +1209,7 @@ class _BaseSuite(object):
         # finish, we would lose the chance to report errors from the original
         # job.
         if self._has_retry(result) and rescheduled:
-             return
+            return
 
         if self._should_report(result):
             self._result_reporter.report(result)
@@ -1545,7 +1547,7 @@ class ProvisionSuite(_BaseSuite):
     """
     A suite for provisioning DUTs.
 
-    This is done by creating dummy_Pass tests.
+    This is done by creating stub_Pass tests.
     """
 
 
@@ -1649,7 +1651,7 @@ def _load_dummy_test(
     retriever = _ControlFileRetriever(cf_getter,
                                       run_prod_code=run_prod_code,
                                       test_args=test_args)
-    return retriever.retrieve_for_test('dummy_Pass')
+    return retriever.retrieve_for_test('stub_Pass')
 
 
 class _ComposedPredicate(object):

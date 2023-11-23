@@ -127,6 +127,9 @@ public class TransitionHelper {
   // TODO: Add new partner resource to determine which transition type would be apply.
   public static final int TRANSITION_CAPTIVE = 5;
 
+  /** Override the transition to a fade-through-from-right (or from-left for RTL locales). */
+  public static final int TRANSITION_FADE_THROUGH = 6;
+
   /**
    * No override. If this is specified as the transition, the enter/exit transition of the window
    * will not be set and keep original behavior.
@@ -154,11 +157,17 @@ public class TransitionHelper {
   private TransitionHelper() {}
 
   /**
-   * Apply the transition for going forward which is decided by partner resource {@link
-   * PartnerConfig#CONFIG_TRANSITION_TYPE} and system property {@code setupwizard.transition_type}.
-   * The default transition that will be applied is {@link #TRANSITION_SLIDE}. The timing to apply
-   * the transition is going forward from the previous activity to this, or going forward from this
-   * activity to the next.
+   * Apply the transition for going forward which is decided by {@code Animation.SudWindowAnimation}
+   * theme if the API level is equal or higher than {@link android.os.Build.VERSION_CODES#U}.
+   *
+   * <p>Otherwise, apply the transition for going forward which is decided by partner resource
+   * {@link PartnerConfig#CONFIG_TRANSITION_TYPE} and system property {@code
+   * setupwizard.transition_type} if the API level is equal or lower than {@link
+   * android.os.Build.VERSION_CODES#T}. The default transition that will be applied is {@link
+   * #TRANSITION_SLIDE}.
+   *
+   * <p>The timing to apply the transition is going forward from the previous activity to this, or
+   * going forward from this activity to the next.
    *
    * <p>For example, in the flow below, the forward transitions will be applied to all arrows
    * pointing to the right. Previous screen --> This screen --> Next screen
@@ -199,15 +208,63 @@ public class TransitionHelper {
   }
 
   /**
-   * Apply the transition for going forward. This is applied when going forward from the previous
-   * activity to this, or going forward from this activity to the next.
+   * Apply the transition for going forward which is decided by {@code Animation.SudWindowAnimation}
+   * theme if the API level is equal or higher than {@link android.os.Build.VERSION_CODES#U}.
+   *
+   * <p>Otherwise, apply the transition for going forward which is decided by the argument {@code
+   * transitionId} if the API level is equal or lower than {@link android.os.Build.VERSION_CODES#T}.
+   *
+   * <p>The timing to apply the transition is going forward from the previous activity to this, or
+   * going forward from this activity to the next.
+   */
+  @TargetApi(VERSION_CODES.LOLLIPOP)
+  public static void applyForwardTransition(Activity activity, @TransitionType int transitionId) {
+    applyForwardTransition(activity, transitionId, /* useClientTransitionSettings= */ false);
+  }
+
+  /**
+   * Apply the transition for going forward which is decided by {@code Animation.SudWindowAnimation}
+   * theme if the API level is equal or higher than {@link android.os.Build.VERSION_CODES#U}, and
+   * argument {@code useClientTransitionSettings} is false, and System property {@code
+   * suw_apply_glif_theme_controlled_transition} is true, and {@code TRANSITION_FADE_THOUGH}
+   * transition is not specified.
+   *
+   * <p>Otherwise, apply the transition for going forward which is decided by the argument {@code
+   * transitionId}, {@code shared_x_axis_activity} transition is used only when {@code
+   * TRANSITION_FADE_TROUGH} transition is specified, and System property {@code *
+   * suw_apply_glif_theme_controlled_transition} is true, and the API level is equal or more than
+   * {@link android.os.Build.VERSION_CODES#U}, other {@code transitionId} can be specified if the
+   * API level is equal or lower than {@link android.os.Build.VERSION_CODES#T}, or argument {@code
+   * useClientTransitionSettings} is true, or System property {@code
+   * suw_apply_glif_theme_controlled_transition} is false. The default transition that will be
+   * applied is {@link #TRANSITION_SLIDE}.
+   *
+   * <p>The timing to apply the transition is going forward from the previous activity to this, or
+   * going forward from this activity to the next.
    *
    * <p>For example, in the flow below, the forward transitions will be applied to all arrows
    * pointing to the right. Previous screen --> This screen --> Next screen
    */
   @TargetApi(VERSION_CODES.LOLLIPOP)
-  public static void applyForwardTransition(Activity activity, @TransitionType int transitionId) {
-    if (transitionId == TRANSITION_SLIDE) {
+  public static void applyForwardTransition(
+      Activity activity, @TransitionType int transitionId, boolean useClientTransitionSettings) {
+    if (BuildCompatUtils.isAtLeastU()
+        && !useClientTransitionSettings
+        && PartnerConfigHelper.isGlifThemeControlledTransitionApplied(activity)
+        && transitionId != TRANSITION_FADE_THROUGH) {
+      // Do nothing
+    } else if (BuildCompatUtils.isAtLeastU() && transitionId == TRANSITION_FADE_THROUGH) {
+      int openEnterTransition = R.anim.shared_x_axis_activity_open_enter;
+      if (PartnerConfigHelper.isGlifThemeControlledTransitionApplied(activity)) {
+        if (ThemeHelper.shouldApplyDynamicColor(activity)) {
+          openEnterTransition = R.anim.shared_x_axis_activity_open_enter_dynamic_color;
+        }
+        activity.overridePendingTransition(
+            openEnterTransition, R.anim.shared_x_axis_activity_open_exit);
+      } else {
+        activity.overridePendingTransition(R.anim.sud_slide_next_in, R.anim.sud_slide_next_out);
+      }
+    } else if (transitionId == TRANSITION_SLIDE) {
       activity.overridePendingTransition(R.anim.sud_slide_next_in, R.anim.sud_slide_next_out);
     } else if (transitionId == TRANSITION_FADE) {
       activity.overridePendingTransition(android.R.anim.fade_in, R.anim.sud_stay);
@@ -256,14 +313,21 @@ public class TransitionHelper {
   }
 
   /**
-   * Apply the transition for going backward which is decided by partner resource {@link
-   * PartnerConfig#CONFIG_TRANSITION_TYPE} and system property {@code setupwizard.transition_type}.
-   * The default transition that will be applied is {@link #TRANSITION_SLIDE}. The timing to apply
-   * the transition is going backward from the next activity to this, or going backward from this
-   * activity to the previous.
+   * Apply the transition for going backward which is decided by {@code
+   * Animation.SudWindowAnimation} theme if the API level is equal or higher than {@link
+   * android.os.Build.VERSION_CODES#U}.
+   *
+   * <p>Otherwise, apply the transition for going backward which is decided by partner resource
+   * {@link PartnerConfig#CONFIG_TRANSITION_TYPE} and system property {@code
+   * setupwizard.transition_type} if the API level is equal or lower than {@link
+   * android.os.Build.VERSION_CODES#T}. The default transition that will be applied is {@link
+   * #TRANSITION_SLIDE}.
+   *
+   * <p>The timing to apply the transition is going backward from the next activity to this, or
+   * going backward from this activity to the previous.
    *
    * <p>For example, in the flow below, the backward transitions will be applied to all arrows
-   * pointing to the left. Previous screen <-- This screen <-- Next screen
+   * pointing to the left. Previous screen <-- This screen <-- Next screen.
    */
   @TargetApi(VERSION_CODES.LOLLIPOP)
   public static void applyBackwardTransition(Activity activity) {
@@ -301,15 +365,64 @@ public class TransitionHelper {
   }
 
   /**
-   * Apply the transition for going backward. This is applied when going backward from the next
-   * activity to this, or going backward from this activity to the previous.
+   * Apply the transition for going backward which is decided by {@code
+   * Animation.SudWindowAnimation} theme if the API level is equal or higher than {@link
+   * android.os.Build.VERSION_CODES#U}.
+   *
+   * <p>Otherwise, apply the transition for going backward which is decided by the argument {@code
+   * transitionId} if the API level is equal or lower than {@link android.os.Build.VERSION_CODES#T}.
+   *
+   * <p>The timing to apply the transition is going backward from the next activity to this, or
+   * going backward from this activity to the previous.
+   */
+  @TargetApi(VERSION_CODES.LOLLIPOP)
+  public static void applyBackwardTransition(Activity activity, @TransitionType int transitionId) {
+    applyBackwardTransition(activity, transitionId, /* useClientTransitionSettings= */ false);
+  }
+
+  /**
+   * Apply the transition for going backward which is decided by {@code
+   * Animation.SudWindowAnimation} theme if the API level is equal or higher than {@link
+   * android.os.Build.VERSION_CODES#U}, and argument {@code useClientTransitionSettings} is false,
+   * and System property {@code suw_apply_glif_theme_controlled_transition} is true, and {@code
+   * TRANSITION_FADE_THOUGH} transition is not specified.
+   *
+   * <p>Otherwise, apply the transition for going backward which is decided by the argument {@code
+   * transitionId}, {@code shared_x_axis_activity} transition is used only when {@code
+   * TRANSITION_FADE_TROUGH} transition is specified, and System property {@code *
+   * suw_apply_glif_theme_controlled_transition} is true, and the API level is equal or more than
+   * {@link android.os.Build.VERSION_CODES#U}, other {@code transitionId} can be specified if the
+   * API level is equal or lower than {@link android.os.Build.VERSION_CODES#T}, or argument {@code
+   * useClientTransitionSettings} is true, or System property {@code
+   * suw_apply_glif_theme_controlled_transition} is false. The default transition that will be
+   * applied is {@link #TRANSITION_SLIDE}.
+   *
+   * <p>The timing to apply the transition is going backward from the next activity to this, or
+   * going backward from this activity to the previous.
    *
    * <p>For example, in the flow below, the backward transitions will be applied to all arrows
    * pointing to the left. Previous screen <-- This screen <-- Next screen
    */
   @TargetApi(VERSION_CODES.LOLLIPOP)
-  public static void applyBackwardTransition(Activity activity, @TransitionType int transitionId) {
-    if (transitionId == TRANSITION_SLIDE) {
+  public static void applyBackwardTransition(
+      Activity activity, @TransitionType int transitionId, boolean useClientTransitionSettings) {
+    if (BuildCompatUtils.isAtLeastU()
+        && !useClientTransitionSettings
+        && PartnerConfigHelper.isGlifThemeControlledTransitionApplied(activity)
+        && transitionId != TRANSITION_FADE_THROUGH) {
+      // Do nothing
+    } else if (BuildCompatUtils.isAtLeastU() && transitionId == TRANSITION_FADE_THROUGH) {
+      if (PartnerConfigHelper.isGlifThemeControlledTransitionApplied(activity)) {
+        int closeEnterTransition = R.anim.shared_x_axis_activity_close_enter;
+        if (ThemeHelper.shouldApplyDynamicColor(activity)) {
+          closeEnterTransition = R.anim.shared_x_axis_activity_close_enter_dynamic_color;
+        }
+        activity.overridePendingTransition(
+            closeEnterTransition, R.anim.shared_x_axis_activity_close_exit);
+      } else {
+        activity.overridePendingTransition(R.anim.sud_slide_back_in, R.anim.sud_slide_back_out);
+      }
+    } else if (transitionId == TRANSITION_SLIDE) {
       activity.overridePendingTransition(R.anim.sud_slide_back_in, R.anim.sud_slide_back_out);
     } else if (transitionId == TRANSITION_FADE) {
       activity.overridePendingTransition(R.anim.sud_stay, android.R.anim.fade_out);
@@ -352,8 +465,8 @@ public class TransitionHelper {
       } else {
         Log.w(TAG, "This API is supported from Android Sdk " + VERSION_CODES.LOLLIPOP);
       }
+      // For TRANSITION_NO_OVERRIDE or other values, do not override the transition
     }
-    // For TRANSITION_NO_OVERRIDE or other values, do not override the transition
   }
 
   /**

@@ -7,10 +7,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import json
 import logging
-import time
 import math
+import six
+import sys
+import time
 
 import common
 from autotest_lib.client.common_lib import error
@@ -24,19 +25,23 @@ from autotest_lib.server import afe_utils
 from autotest_lib.server import crashcollect
 from autotest_lib.server.cros import provisioner
 from autotest_lib.server.cros.dynamic_suite import tools
+from autotest_lib.server.cros.dynamic_suite import constants as ds_constants
+from autotest_lib.server.cros.servo.keyboard import servo_keyboard_flasher
+from autotest_lib.server.cros.repair import mac_address_helper
 from autotest_lib.server.hosts import cros_constants
 from autotest_lib.server.hosts import cros_firmware
 from autotest_lib.server.hosts import repair_utils
 from autotest_lib.site_utils.admin_audit import verifiers as audit_verify
 from autotest_lib.site_utils.admin_audit import constants as audit_const
+from autotest_lib.site_utils.admin_audit import battery_validator
 from six.moves import range
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
-from chromite.lib import timeout_util
+from autotest_lib.utils.frozen_chromite.lib import timeout_util
 
 DEFAULT_SERVO_RESET_TRIGGER = (
         'ping',
@@ -105,7 +110,6 @@ _CROS_USB_TRIGGERS = (
         'ping',
         'ssh',
         'writable',
-        'stop_start_ui',
 )
 _JETSTREAM_USB_TRIGGERS = (
         'ping',
@@ -115,6 +119,10 @@ _JETSTREAM_USB_TRIGGERS = (
 _CROS_FIRMWARE_TRIGGERS = (
         'ping',
         'ssh',
+)
+_CROS_AC_TRIGGERS = (
+        'ping',
+        'power',
 )
 _CROS_USB_DEPENDENCIES = ('usb_drive', )
 
@@ -154,6 +162,15 @@ class ACPowerVerifier(hosts.Verifier):
                     'Cannot determine AC power status')
 
     def _validate_battery(self, host, info):
+        host_info = host.host_info_store.get()
+        if host_info.get_label_value('power') == 'battery':
+            if 'Battery' not in info:
+                data = {'host': host.hostname, 'model': host_info.model}
+                metrics.Counter('chromeos/autotest/battery_not_detected'
+                                ).increment(fields=data)
+                logging.info('Battery is not presented but expected!'
+                             ' Probably hardware issue.')
+
         try:
             charging_state = info['Battery']['state']
             battery_level = float(info['Battery']['percentage'])
@@ -213,21 +230,26 @@ class ACPowerVerifier(hosts.Verifier):
     @property
     def description(self):
         # pylint: disable=missing-docstring
-        return 'The DUT is plugged in to AC power and battery is charing'
+        return 'The DUT is plugged in to AC power and battery is charging'
 
 
-class CrosVerisionVerifier(hosts.Verifier):
+class ProvisioningLabelsVerifier(hosts.Verifier):
     """Confirm that current ChromeOS image on the host is matches
-    to provision-cros_version label.
+    to provision labels.
 
     Some tests behavior may changed DUT image while they don't update
-    provision-cros_version label, which could cause the next test run
-    on the same host gets an unexpected OS version and yields false
-    positive test result.
+    provision-cros_version or provisioning-job_repo_url labels, which could
+    cause the next test run on the same host gets an unexpected data and
+    yields false positive test result.
     """
 
     @timeout_util.TimeoutDecorator(cros_constants.VERIFY_TIMEOUT_SEC)
     def verify(self, host):
+        self._verify_cros_version(host)
+        self._verify_job_repo_url(host)
+
+    def _verify_cros_version(self, host):
+        """Verify that cros-version match version on the host."""
         label_match = True
         try:
             label_match = host.verify_cros_version_label()
@@ -235,12 +257,26 @@ class CrosVerisionVerifier(hosts.Verifier):
             # We don't want fail this verifier for any errors that other
             # than a actual version mismatch, as that can make debugging
             # more challenge.
-            logging.warning('Unexpected error during verify cros verision'
-                            ' on %s; %s', host.hostname, e)
+            logging.warning(
+                    'Unexpected error during verify cros version on %s; %s',
+                    host.hostname, e)
 
         if not label_match:
             raise hosts.AutoservVerifyError('ChromeOS image on the host'
                                             ' does not match to cros-version'
+                                            ' label.')
+
+    def _verify_job_repo_url(self, host):
+        """Verify that job_repo_url match version on the host."""
+        info = host.host_info_store.get()
+        job_repo_url = info.attributes.get(ds_constants.JOB_REPO_URL, '')
+        if not job_repo_url:
+            logging.debug('job_repo_url is empty. Skip check.')
+            return
+        os_from_host = host.get_release_builder_path()
+        if not os_from_host in job_repo_url:
+            raise hosts.AutoservVerifyError('ChromeOS image on the host'
+                                            ' does not match to job_repo_url'
                                             ' label.')
 
     @property
@@ -364,28 +400,19 @@ class TPMStatusVerifier(hosts.Verifier):
             return
 
         try:
-            status = CryptohomeStatus(host)
+            status = TpmStatus(host)
         except hosts.AutoservVerifyError:
             logging.info('Cannot determine the Cryptohome valid status - '
                          'skipping check.')
             return
         try:
-            tpm = status['tpm']
-            if not tpm['enabled']:
+            if not status['is_enabled']:
                 raise hosts.AutoservVerifyError(
                         'TPM is not enabled -- Hardware is not working.')
-            if not tpm['can_connect']:
-                raise hosts.AutoservVerifyError(
-                        ('TPM connect failed -- '
-                         'last_error=%d.' % tpm['last_error']))
-            if tpm['owned'] and not tpm['can_load_srk']:
-                raise hosts.AutoservVerifyError(
-                        'Cannot load the TPM SRK')
-            if tpm['can_load_srk'] and not tpm['can_load_srk_pubkey']:
-                raise hosts.AutoservVerifyError(
-                        'Cannot load the TPM SRK public key')
+            if status['is_owned'] and not status['is_srk_default_auth']:
+                raise hosts.AutoservVerifyError('Cannot load the TPM SRK')
         except KeyError:
-            logging.info('Cannot determine the Cryptohome valid status - '
+            logging.info('Cannot determine the TPM valid status - '
                          'skipping check.')
 
     @property
@@ -535,6 +562,12 @@ class HWIDVerifier(hosts.Verifier):
                 req = host.run('vpd -g serial_number', ignore_status=True)
         return req.stdout
 
+    def _is_applicable(self, host):
+        if host.is_satlab():
+            logging.info('Not critical for Satlab. Skipping')
+            return False
+        return True
+
     @property
     def description(self):
         # pylint: disable=missing-docstring
@@ -648,7 +681,7 @@ class JetstreamTpmVerifier(hosts.Verifier):
     def verify(self, host):
         # pylint: disable=missing-docstring
         try:
-            status = CryptohomeStatus(host)
+            status = TpmStatus(host)
             if not status.tpm_enabled:
                 raise hosts.AutoservVerifyError('TPM is not enabled')
             if not status.tpm_owned:
@@ -710,14 +743,6 @@ class JetstreamServicesVerifier(hosts.Verifier):
     def verify(self, host):
         # pylint: disable=missing-docstring
         try:
-            if not host.upstart_status('ap-controller'):
-                raise hosts.AutoservVerifyError(
-                    'ap-controller service is not running')
-        except error.AutoservRunError:
-            raise hosts.AutoservVerifyError(
-                'ap-controller service not found')
-
-        try:
             host.run('pgrep ap-controller')
         except error.AutoservRunError:
             raise hosts.AutoservVerifyError(
@@ -741,7 +766,7 @@ class StopStartUIVerifier(hosts.Verifier):
     @timeout_util.TimeoutDecorator(cros_constants.VERIFY_TIMEOUT_SEC)
     def verify(self, host):
         try:
-            host.run('stop ui && start ui', ignore_status=True, timeout=10)
+            host.run('stop ui && start ui', ignore_status=True, timeout=45)
         except error.AutoservSSHTimeout:
             raise hosts.AutoservVerifyError(
                 "Got timeout when stop ui/start ui. DUT might crash.")
@@ -749,6 +774,36 @@ class StopStartUIVerifier(hosts.Verifier):
     @property
     def description(self):
         return 'The DUT image works fine when stop ui/start ui.'
+
+
+class GscToolPresentVerifier(hosts.Verifier):
+    """Verify that GSC tool is functional.
+
+    If board/model expected to have GSC tool but it does not have it then need
+    to re-image the host to recover it.
+    If host-info has label 'cr50' then we expect to have GSC tool on the host.
+    """
+
+    VERIFY_GSC_CMD = 'gsctool -a -f'
+
+    @timeout_util.TimeoutDecorator(cros_constants.VERIFY_TIMEOUT_SEC)
+    def verify(self, host):
+        r = host.run(self.VERIFY_GSC_CMD, ignore_status=True, timeout=10)
+        if r.exit_status != 0:
+            raise hosts.AutoservNonCriticalVerifyError(
+                    "GSC tool issue detected.")
+        logging.debug('GSC tool is functional.')
+
+    def _is_applicable(self, host):
+        host_info = host.host_info_store.get()
+        if host_info.get_label_value('cr50'):
+            return True
+        logging.info('GSC is not on the host.')
+        return False
+
+    @property
+    def description(self):
+        return 'Verify GSC tool is functional.'
 
 
 class ServoUSBDriveVerifier(hosts.Verifier):
@@ -779,8 +834,12 @@ class ServoUSBDriveVerifier(hosts.Verifier):
         usb_state = host_info.get_label_value(
                 audit_const.SERVO_USB_STATE_PREFIX)
         if usb_state and usb_state == audit_const.HW_STATE_NEED_REPLACEMENT:
-            raise hosts.AutoservNonCriticalVerifyError(
-                    'USB-drive marked for replacement')
+            # Allow to use USB-key marked for replacement.
+            # Goal to collect metrics to see if DUT still can recovered
+            return
+            # TODO(otabek): restory when fix crbug.com/1164408
+            # raise hosts.AutoservNonCriticalVerifyError(
+            #         'USB-drive marked for replacement')
 
         # The USB-drive detected and was not mark for replacement.
         # Set as normal for future audit.
@@ -824,6 +883,97 @@ class DUTStorageVerifier(hosts.Verifier):
         return 'Ensure DUT storage SMART information is in good state.'
 
 
+class AuditBattery(hosts.Verifier):
+    """Verify that battery on DUT is good to use.
+
+    Check if DUT drive is providing good SMART stats which not showing any
+    issues on it. The verifier can mark DUT for replacement if SMART stats
+    show outworn data.
+    """
+
+    @timeout_util.TimeoutDecorator(cros_constants.VERIFY_TIMEOUT_SEC)
+    def verify(self, host):
+        # pylint: disable=missing-docstring
+        state = None
+        try:
+            state = self._get_validator(host).validate()
+        except Exception as e:
+            # We do not want stop main process if it fail.
+            logging.debug('(Not critical) %s', e)
+        if not state:
+            raise hosts.AutoservNonCriticalVerifyError(
+                    'DUT battery did not detected or state cannot extracted.')
+        if state == audit_const.HW_STATE_NEED_REPLACEMENT:
+            logging.info('Detected issue with storage on the DUT.')
+            host.set_device_needs_replacement()
+
+    def _is_applicable(self, host):
+        return self._get_validator(host).is_battery_expected()
+
+    def _get_validator(self, host):
+        if not getattr(self, '_validator', None):
+            self._validator = battery_validator.BatteryValidator(host)
+        return self._validator
+
+    @property
+    def description(self):
+        return 'Ensure DUT battery is in good state.'
+
+
+class ServoKeyboardMapVerifier(hosts.Verifier):
+    """Not critical verify to flash servo keyboard for the host.
+
+    Check if host support servo keyboard and update if firmware is not present.
+    """
+
+    @timeout_util.TimeoutDecorator(cros_constants.VERIFY_TIMEOUT_SEC)
+    def verify(self, host):
+        try:
+            flasher = servo_keyboard_flasher.ServoKeyboardMapFlasher()
+            if flasher.is_image_supported(host):
+                flasher.update(host)
+        except Exception as e:
+            logging.debug('(Not critical) %s', e)
+            raise hosts.AutoservNonCriticalVerifyError(
+                    'Fail to verify/update servo keyboard map on the host.')
+
+    def _is_applicable(self, host):
+        if host.servo:
+            return True
+        return False
+
+    @property
+    def description(self):
+        return 'Verify and update servo keyboard map.'
+
+
+class ServoMacAddressVerifier(hosts.Verifier):
+    """Not critical verify to cache NIC mac address for the host on servo.
+
+    Servo_v4 plugged to the DUT and providing NIC for that. We caching mac
+    address on servod side for better debugging.
+    """
+
+    @timeout_util.TimeoutDecorator(cros_constants.VERIFY_TIMEOUT_SEC)
+    def verify(self, host):
+        try:
+            helper = mac_address_helper.MacAddressHelper()
+            helper.update_if_needed(host)
+        except Exception as e:
+            logging.debug('(Not critical) %s', e)
+            raise hosts.AutoservNonCriticalVerifyError(
+                    'Fail to verify/update servo NIC mac address for host.')
+
+    def _is_applicable(self, host):
+        if host.servo:
+            return True
+        return False
+
+    @property
+    def description(self):
+        return 'Verify and update cached NIC mac address.'
+
+
 class _ResetRepairAction(hosts.RepairAction):
     """Common handling for repair actions that reset a DUT."""
 
@@ -831,7 +981,6 @@ class _ResetRepairAction(hosts.RepairAction):
         """Collect logs from a successfully repaired DUT."""
         dirname = 'after_%s' % self.tag
         local_log_dir = crashcollect.get_crashinfo_dir(host, dirname)
-        host.collect_logs('/var/log', local_log_dir, ignore_errors=True)
         # Collect crash info.
         crashcollect.get_crashinfo(host, None)
 
@@ -903,6 +1052,11 @@ class ServoResetRepair(_ResetRepairAction):
         host.servo.get_power_state_controller().reset()
         self._check_reset_success(host)
 
+    def _is_applicable(self, host):
+        if host.servo:
+            return True
+        return False
+
     @property
     def description(self):
         # pylint: disable=missing-docstring
@@ -925,8 +1079,8 @@ class ServoCr50RebootRepair(_ResetRepairAction):
         finally:
             # cr50 reset will clear some some init like `ccd testlab open`
             # so we want to re-initialize servo after cr50 reset if the main
-            # device is ccd.
-            if host.servo.main_device_is_ccd():
+            # device uses cr50 console commands.
+            if host.servo.main_device_uses_gsc_drv():
                 host.servo.initialize_dut()
 
     def _is_applicable(self, host):
@@ -975,28 +1129,21 @@ class CrosRebootRepair(repair_utils.RebootRepair):
         return 'Reset GBB flags and Reboot the host'
 
 
-class LabelCleanupRepair(hosts.RepairAction):
-    """Cleanup unexpected labels for the host, e.g. mismatched
-    cros-version label.
+class ProvisioningLabelsRepair(hosts.RepairAction):
+    """Repair issue with provisioning labels for the host.
+
+    The repair is doing simple clean up of labels as next provisioning will
+    re-generate required fields.
     """
-    # The repair action currently only cleanup cros-version label, however
-    # we can extent it to cleanup other labels when there is need, and it
-    # should be able to determine which label to clean based on check the
-    # cached result from it's trigger list. (example: trigger verifiers can
-    # be access via self._trigger_list, and we can tell which verifier failed
-    # by check Verifier._is_good() method.)
 
     @timeout_util.TimeoutDecorator(cros_constants.SHORT_REPAIR_TIMEOUT_SEC)
     def repair(self, host):
-        logging.info('Removing %s label from the host', host.VERSION_PREFIX)
-        info = host.host_info_store.get()
-        info.clear_version_labels()
-        host.host_info_store.commit(info)
+        afe_utils.clean_provision_labels(host)
 
     @property
     def description(self):
         # pylint: disable=missing-docstring
-        return 'Cleanup unexpected labels for the host'
+        return 'Cleanup provisioning labels for the host'
 
 
 class EnrollmentCleanupRepair(hosts.RepairAction):
@@ -1081,6 +1228,7 @@ class ServoInstallRepair(hosts.RepairAction):
     # stage image to usb drive, install chromeos image.
     @timeout_util.TimeoutDecorator(60 * 60)
     def repair(self, host):
+        self.boot_in_recovery = False
         # pylint: disable=missing-docstring
         repair_utils.require_servo(host, ignore_state=True)
         image_name = host.get_cros_repair_image_name()
@@ -1111,13 +1259,260 @@ class ServoInstallRepair(hosts.RepairAction):
             logging.info('Staging image: %s on caching server.', image_name)
             _, update_url = host.stage_image_for_servo()
         afe_utils.clean_provision_labels(host)
-        host.servo_install(update_url, is_repair=True)
+        # Start process to install new image from USB
+        need_snk = host.require_snk_mode_in_recovery()
+
+        host.servo.get_power_state_controller().power_off()
+        if update_url:
+            try:
+                host.install_image_to_servo_usb(image_url=update_url)
+            except Exception as e:
+                # Format USB-storage as incorrect download image can cause
+                # false believe that image downloaded.
+                self._format_usb_storage(host)
+                # Powering DUT on as if leave it in off mode can cause issue
+                # with detecting ccd_cr50 on the board.
+                host.servo.get_power_state_controller().power_on()
+                six.reraise(error.AutotestError, str(e), sys.exc_info()[2])
+        else:
+            # Give the DUT some time to power_off if we skip
+            # download image to usb. (crbug.com/982993)
+            time.sleep(10)
+
+        host.boot_in_recovery_mode(need_snk=need_snk)
+        # Note that device successful booted from USB
+        # That mean fw RO is good.
+        self.boot_in_recovery = True
+        host.run_install_image(install_timeout=host.ADMIN_INSTALL_TIMEOUT * 2,
+                               need_snk=need_snk,
+                               is_repair=True)
         afe_utils.add_provision_labels(host, host.VERSION_PREFIX, image_name)
+        # Collect info which USB-key used for successful re-image.
+        host_info = host.host_info_store.get()
+        if host_info:
+            usb_state = host_info.get_label_value(
+                    audit_const.SERVO_USB_STATE_PREFIX)
+            metrics_data = {'host': host.hostname, 'usb_state': usb_state}
+            metrics.Counter('chromeos/autotest/usbkey_install_success'
+                            ).increment(fields=metrics_data)
+
+    def _format_usb_storage(self, host):
+        """Format USB-storage connected to servo."""
+        try:
+            # Format USB-storage to prevent corrupted image to be
+            # counted as good image.
+            usb_path = host.servo.probe_host_usb_dev()
+            logging.info('Formating %s', usb_path)
+            cmd = 'mkfs.ext4 -F %s' % usb_path
+            host._servo_host.run(cmd, ignore_status=True)
+        except Exception as e:
+            logging.info('(Not critical) fail to format USB-storage: %s', e)
 
     @property
     def description(self):
         # pylint: disable=missing-docstring
         return 'Reinstall from USB using servo'
+
+
+class ServoResetAfterUSBRepair(_ResetRepairAction):
+    """Repair a host by resetting it with servo.
+
+    This is follow up action for cases when device fail to boot as part of
+    USB-install. The repair will be applicable only if device was successful
+    booted from USB-key.
+    """
+
+    @timeout_util.TimeoutDecorator(cros_constants.REPAIR_TIMEOUT_SEC)
+    def repair(self, host):
+        # pylint: disable=missing-docstring
+        host.servo.get_power_state_controller().reset()
+        self._check_reset_success(host)
+
+    def _is_applicable(self, host):
+        if not host.servo:
+            return False
+        if host.is_marked_for_replacement():
+            logging.debug('The device marked for replacement.'
+                          ' Skip the action.')
+            return False
+        usb_install = host.get_repair_strategy_node('usb')
+        if not usb_install:
+            logging.debug('Strategy node not found! Skip repair action.')
+            return False
+        if not getattr(usb_install, 'boot_in_recovery', False):
+            logging.debug('Device did not boot in recovery mode.'
+                          ' Skip repair action.')
+            return False
+        return True
+
+    @property
+    def description(self):
+        # pylint: disable=missing-docstring
+        return 'Reset the DUT via servo after USB-install'
+
+
+class RecoverFwAfterUSBRepair(_ResetRepairAction):
+    """Recover FW on the host when host can boot in recovery mode.
+
+    This is follow up action for cases when device fail to boot as part of
+    USB-install but successful booted in recovery mode.
+
+    If host can boot in recovery mode but fail boot in default mode then
+    probably we have corrupted firmware. The repair try to recover firmware
+    on the host by booting from USB-key.
+    """
+
+    # Command to update firmware located on host
+    _FW_UPDATE_CMD = 'chromeos-firmwareupdate --mode=recovery'
+
+    @timeout_util.TimeoutDecorator(cros_constants.LONG_REPAIR_TIMEOUT_SEC)
+    def repair(self, host):
+        # pylint: disable=missing-docstring
+        # Switch USB_key to servo to wake up it as sometimes it can show
+        # USB-key direction to DUT but it is not yet seeing by DUT.
+        host.servo.switch_usbkey('host')
+        time.sleep(host.servo.USB_DETECTION_DELAY)
+        # Power off the DUT as in this case the host will boot
+        # in recovery mode with higher chance.
+        host.servo.get_power_state_controller().power_off()
+        # Give the DUT some time to power_off if we skip
+        # download image to usb. (crbug.com/982993)
+        time.sleep(10)
+
+        # Boot host in recovery mode as it is working and verified
+        # by another repair action.
+        need_snk = host.require_snk_mode_in_recovery()
+        try:
+            host.boot_in_recovery_mode(need_snk=need_snk)
+            logging.debug('Host booted in recovery mode')
+
+            result = host.run(self._FW_UPDATE_CMD, ignore_status=True)
+            if result.exit_status != 0:
+                logging.error('chromeos-firmwareupdate failed: %s',
+                              result.stdout.strip())
+            host.halt()
+        finally:
+            # We need reset the DUT no matter success or not,
+            # as we don't want leave the DUT in boot from usb state.
+            # N.B. The Servo API requires that we use power_on() here
+            # for two reasons:
+            #  1) After turning on a DUT in recovery mode, you must turn
+            #     it off and then on with power_on() once more to
+            #     disable recovery mode (this is a Parrot specific
+            #     requirement).
+            #  2) After power_off(), the only way to turn on is with
+            #     power_on() (this is a Storm specific requirement).
+            logging.debug('Power cycling DUT through servo.')
+            host.servo.get_power_state_controller().power_off()
+            host.servo.switch_usbkey('off')
+            if need_snk:
+                # Attempt to restore servo_v4 role to 'src' mode.
+                host.servo.set_servo_v4_role('src')
+            # Use cold-reset instead 'on' to increase the chance to boot DUT
+            host.servo.get_power_state_controller().reset()
+        self._check_reset_success(host)
+
+    def _is_applicable(self, host):
+        if not host.servo:
+            return False
+        if host.is_marked_for_replacement():
+            logging.debug('The device marked for replacement.'
+                          ' Skip the action.')
+            return False
+        usb_install = host.get_repair_strategy_node('usb')
+        if not usb_install:
+            logging.debug('Strategy node not found! Skip repair action.')
+            return False
+        if not getattr(usb_install, 'boot_in_recovery', False):
+            logging.debug('Device did not boot in recovery mode.'
+                          ' Skip repair action.')
+            return False
+        dhp = host.health_profile
+        if not dhp:
+            logging.info('Device health profile is not available, cannot'
+                         ' determine if firmware repair is needed.')
+            return False
+        if dhp.get_failed_repair_action(self.tag) > 2:
+            logging.info('Firmware recovery has been attempted and failed 3'
+                         ' times, no need to retry.')
+            return False
+        return True
+
+    @property
+    def description(self):
+        # pylint: disable=missing-docstring
+        return 'Recover FW on the host after USB-install'
+
+
+class RecoverACPowerRepair(_ResetRepairAction):
+    """Recover AC detection if AC is not detected.
+
+    The fix based on toggle PD negotiating on EC level of DUT.
+    Repair works only for the DUT which has EC and battery.
+    """
+
+    @timeout_util.TimeoutDecorator(cros_constants.REPAIR_TIMEOUT_SEC)
+    def repair(self, host):
+        # pylint: disable=missing-docstring
+        repair_utils.require_servo(host, ignore_state=True)
+        # Verify that EC is available and we can interact with that.
+        # Do not put it in '_is_applicable' to avoid extra DUT reset.
+        try:
+            host.servo.get_ec_board()
+        except Exception as e:
+            logging.debug('(Not critical) %s', e)
+            # if EC is off it will fail to execute any EC command
+            # to wake it up we do cold-reboot then we will have active ec
+            # connection for ~30 seconds
+            host.servo.get_power_state_controller().reset()
+        try:
+            if host.servo.get('battery_is_charging'):
+                # device is changing.
+                return
+        except Exception as e:
+            logging.debug('(Not critical) %s', e)
+            raise hosts.AutoservRepairError(
+                    'Fail to read battery metrics from EC')
+        # Simple off-on not always working stable in all cases as source-sink
+        # not working too in another cases. To cover more cases here we do
+        # both toggle to recover PD negotiation.
+        # Source/sink switching CC lines to make DUT work as supplying or
+        # consuming power (between Rp and Rd).
+        self._set_pd_dualrole(host, 'off')
+        self._set_pd_dualrole(host, 'on')
+        self._set_pd_dualrole(host, 'source')
+        self._set_pd_dualrole(host, 'sink')
+        # wait to reinitialize PD negotiation and charge a little bit
+        time.sleep(120)
+        # Recommended to reset EC after manipulation with PD
+        host.servo.get_power_state_controller().reset()
+        # Verify if repair well done.
+        if not host.servo.get('battery_is_charging'):
+            raise hosts.AutoservRepairError(
+                    'Fail recovery AC detection fo the DUT.',
+                    'failed_recover_usb_pd_ac')
+        self._check_reset_success(host)
+
+    def _set_pd_dualrole(self, host, role):
+        host.servo.set_nocheck('ec_uart_flush', 'off')
+        host.servo.set_nocheck('ec_uart_cmd', 'pd dualrole %s' % role)
+        host.servo.set_nocheck('ec_uart_flush', 'on')
+        time.sleep(1)
+
+    def _is_applicable(self, host):
+        if not host._servo_host.is_ec_supported():
+            logging.info('The board not support EC')
+            return False
+        host_info = host.host_info_store.get()
+        if host_info.get_label_value('power') != 'battery':
+            logging.info('The board does not have battery')
+            return False
+        return True
+
+    @property
+    def description(self):
+        # pylint: disable=missing-docstring
+        return 'Recovery AC of DUT'
 
 
 class JetstreamTpmRepair(hosts.RepairAction):
@@ -1180,7 +1575,7 @@ def _cros_verify_base_dag():
             (FirmwareVersionVerifier, 'rwfw', ('ssh', )),
             (PythonVerifier, 'python', ('ssh', )),
             (repair_utils.LegacyHostVerifier, 'cros', ('ssh', )),
-            (CrosVerisionVerifier, 'cros_version_label', ('ssh', )),
+            (ProvisioningLabelsVerifier, 'provisioning_labels', ('ssh', )),
     )
     return verify_dag
 
@@ -1190,6 +1585,10 @@ def _cros_verify_extended_dag():
     return (
             (StopStartUIVerifier, 'stop_start_ui', ('ssh', )),
             (DUTStorageVerifier, 'storage', ('ssh', )),
+            (AuditBattery, 'audit_battery', ()),
+            (GscToolPresentVerifier, 'dut_gsctool', ('ssh', )),
+            (ServoKeyboardMapVerifier, 'dut_servo_keyboard', ('ssh', )),
+            (ServoMacAddressVerifier, 'dut_servo_macaddr', ('ssh', )),
     )
 
 
@@ -1215,8 +1614,8 @@ def _cros_basic_repair_actions(
                     'ping',
                     'ssh',
             )),
-            (LabelCleanupRepair, 'label_cleanup', ('ssh', ),
-             ('cros_version_label', )),
+            (ProvisioningLabelsRepair, 'provisioning_labels_repair', ('ssh', ),
+             ('provisioning_labels', )),
 
             # N.B. FaftFirmwareRepair can't fix a 'good_provision' failure
             # directly, because it doesn't remove the flag file that triggers
@@ -1274,20 +1673,88 @@ def _cros_extended_repair_actions(provision_triggers=_CROS_PROVISION_TRIGGERS,
     return repair_actions
 
 
-def _cros_dedicated_repair_actions(firmware_triggers=_CROS_FIRMWARE_TRIGGERS,
-                                   usb_dependencies=_CROS_USB_DEPENDENCIES):
-    """Return the repair actions that only works for `CrosHost`"""
-
-    repair_actions = ((cros_firmware.GeneralFirmwareRepair, 'general_firmware',
-                       usb_dependencies, firmware_triggers), )
-    return repair_actions
-
-
 def _cros_repair_actions():
     """Return the repair actions for a `CrosHost`."""
-    repair_actions = (_cros_basic_repair_actions() +
-                      _cros_extended_repair_actions() +
-                      _cros_dedicated_repair_actions())
+
+    servo_reset_trigger = DEFAULT_SERVO_RESET_TRIGGER
+    firmware_triggers = _CROS_FIRMWARE_TRIGGERS
+    ac_triggers = _CROS_AC_TRIGGERS
+    usb_dependencies = _CROS_USB_DEPENDENCIES
+    provision_triggers = _CROS_PROVISION_TRIGGERS + (
+            'stop_start_ui',
+            'dut_gsctool',
+    )
+    powerwash_triggers = _CROS_POWERWASH_TRIGGERS
+    usb_triggers = _CROS_USB_TRIGGERS
+
+    repair_actions = (
+            # RPM cycling must precede Servo reset:  if the DUT has a dead
+            # battery, we need to reattach AC power before we reset via servo.
+            (repair_utils.RPMCycleRepair, 'rpm', (), (
+                    'ping',
+                    'ssh',
+                    'power',
+            )),
+            (ServoResetRepair, 'servoreset', (), servo_reset_trigger),
+            (ServoCr50RebootRepair, 'cr50_reset', (), servo_reset_trigger),
+            (ServoSysRqRepair, 'sysrq', (), (
+                    'ping',
+                    'ssh',
+            )),
+            (ProvisioningLabelsRepair, 'provisioning_labels_repair', ('ssh', ),
+             ('provisioning_labels', )),
+
+            # N.B. FaftFirmwareRepair can't fix a 'good_provision' failure
+            # directly, because it doesn't remove the flag file that triggers
+            # the failure.  We include it as a repair trigger because it's
+            # possible the the last update failed because of the firmware,
+            # and we want the repair steps below to be able to trust the
+            # firmware.
+            (cros_firmware.FaftFirmwareRepair, 'faft_firmware_repair', (), (
+                    'ping',
+                    'ssh',
+                    'fwstatus',
+                    'good_provision',
+            )),
+            (DevDefaultBootRepair, 'set_default_boot', ('ssh', ),
+             ('dev_default_boot', )),
+            (CrosRebootRepair, 'reboot', ('ssh', ), (
+                    'devmode',
+                    'writable',
+            )),
+            (EnrollmentCleanupRepair, 'cleanup_enrollment', ('ssh', ),
+             ('enrollment_state', )),
+            (cros_firmware.GeneralFirmwareRepair, 'general_firmware',
+             usb_dependencies, firmware_triggers),
+            (RecoverACPowerRepair, 'ac_recover', (), ac_triggers),
+            (ProvisionRepair, 'provision', usb_triggers + powerwash_triggers,
+             provision_triggers),
+            (PowerWashRepair, 'powerwash', usb_triggers,
+             powerwash_triggers + provision_triggers),
+            (
+                    ServoInstallRepair,
+                    'usb',
+                    usb_dependencies,
+                    # faft_tpm is a trigger of usb repair action but should
+                    # not be dependence of provision and powerwash repair
+                    # action, due to restriction of current structure, we
+                    # hardcode it here instead of put it into
+                    # _CROS_USB_TRIGGERS. TODO(xianuowang@) refactor the logic
+                    # to create action/verifier DAG for different host type
+                    # after we decouple infra from test autotest repo.
+                    usb_triggers + powerwash_triggers + provision_triggers +
+                    ('faft_tpm', )),
+            (ServoResetAfterUSBRepair, 'servo_reset_after_usb',
+             (usb_dependencies), (
+                     'ping',
+                     'ssh',
+             )),
+            (RecoverFwAfterUSBRepair, 'recover_fw_after_usb',
+             (usb_dependencies), (
+                     'ping',
+                     'ssh',
+             )),
+    )
     return repair_actions
 
 
@@ -1406,72 +1873,59 @@ def _is_virtual_machine(host):
             'qemu' in output.stdout.lower())
 
 
-class CryptohomeStatus(dict):
+class TpmStatus(dict):
     """Wrapper for getting cryptohome status from a host."""
 
     def __init__(self, host):
-        super(CryptohomeStatus, self).__init__()
-        self.update(_get_cryptohome_status(host))
-        self.tpm = self['tpm']
+        super(TpmStatus, self).__init__()
+        self.update(_get_tpm_status(host))
 
     @property
     def tpm_enabled(self):
         # pylint: disable=missing-docstring
-        return self.tpm.get('enabled') == True
+        return self.get('is_enabled') == True
 
     @property
     def tpm_owned(self):
         # pylint: disable=missing-docstring
-        return self.tpm.get('owned') == True
+        return self.get('is_owned') == True
 
     @property
     def tpm_can_load_srk(self):
         # pylint: disable=missing-docstring
-        return self.tpm.get('can_load_srk') == True
+        return self.tpm_owned and self.get('is_srk_default_auth') == True
 
     @property
     def tpm_can_load_srk_pubkey(self):
         # pylint: disable=missing-docstring
-        return self.tpm.get('can_load_srk_pubkey') == True
+        return self.tpm_owned and self.get('is_srk_default_auth') == True
 
 
-def _get_cryptohome_status(host):
-    """Returns a dictionary containing the cryptohome status.
+def _get_tpm_status(host):
+    """Returns a dictionary containing the TPM status.
 
     @param host: a hosts.Host object.
-    @returns A dictionary containing the cryptohome status.
+    @returns A dictionary containing the TPM status.
     @raises AutoservVerifyError: if the output could not be parsed or the TPM
        status is missing.
     @raises hosts.AutoservRunError: if the cryptohome command failed.
     """
-    # This cryptohome command emits status information in JSON format. It
-    # looks something like this:
-    # {
-    #    "installattrs": {
-    #       ...
-    #    },
-    #    "mounts": [ {
-    #       ...
-    #    } ],
-    #    "tpm": {
-    #       "being_owned": false,
-    #       "can_connect": true,
-    #       "can_decrypt": false,
-    #       "can_encrypt": false,
-    #       "can_load_srk": true,
-    #       "can_load_srk_pubkey": true,
-    #       "enabled": true,
-    #       "has_context": true,
-    #       "has_cryptohome_key": false,
-    #       "has_key_handle": false,
-    #       "last_error": 0,
-    #       "owned": true
-    #    }
-    # }
     try:
-        output = host.run('cryptohome --action=status').stdout.strip()
-        status = json.loads(output)
-        if 'tpm' not in status:
+        output = host.run(
+                'tpm_manager_client status --nonsensitive').stdout.strip()
+        lines = output.split('\n')[1:-1]
+        status = {}
+        for item in lines:
+            item = item.split(':')
+            if not item[0]:
+                continue
+            if len(item) == 1:
+                item.append('')
+            item = [x.strip() for x in item]
+            item[1] = True if item[1] == 'true' else item[1]
+            item[1] = False if item[1] == 'false' else item[1]
+            status[item[0]] = item[1]
+        if status['status'] != 'STATUS_SUCCESS':
             raise hosts.AutoservVerifyError('TPM status is missing')
         return status
     except ValueError:

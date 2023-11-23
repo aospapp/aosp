@@ -102,13 +102,13 @@ def test_module_available(module, raise_error=False):
         @return: The function to call based on the value of `module`
         """
 
-        def dummy_func(*args, **kargs):
-            """A dummy function silently pass."""
+        def stub_func(*args, **kargs):
+            """A stub function silently pass."""
             logging.debug('Module %s is not found. Call %s is skipped.', module,
                           f)
             if raise_error:
                 raise ImportError('Module %s is not found.' % module)
 
-        return f if module else dummy_func
+        return f if module else stub_func
 
     return decorator

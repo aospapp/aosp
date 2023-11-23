@@ -21,6 +21,8 @@ import yapf
 
 from yapf.yapflib import py3compat
 
+from yapftests import yapf_test_helper
+
 
 class IO(object):
   """IO is a thin wrapper around StringIO.
@@ -83,11 +85,11 @@ def patched_input(code):
     yapf.py3compat.raw_input = orig_raw_import
 
 
-class RunMainTest(unittest.TestCase):
+class RunMainTest(yapf_test_helper.YAPFTest):
 
   def testShouldHandleYapfError(self):
     """run_main should handle YapfError and sys.exit(1)."""
-    expected_message = 'yapf: Input filenames did not match any python files\n'
+    expected_message = 'yapf: input filenames did not match any python files\n'
     sys.argv = ['yapf', 'foo.c']
     with captured_output() as (out, err):
       with self.assertRaises(SystemExit):
@@ -96,11 +98,11 @@ class RunMainTest(unittest.TestCase):
       self.assertEqual(err.getvalue(), expected_message)
 
 
-class MainTest(unittest.TestCase):
+class MainTest(yapf_test_helper.YAPFTest):
 
   def testNoPythonFilesMatched(self):
-    with self.assertRaisesRegexp(yapf.errors.YapfError,
-                                 'did not match any python files'):
+    with self.assertRaisesRegex(yapf.errors.YapfError,
+                                'did not match any python files'):
       yapf.main(['yapf', 'foo.c'])
 
   def testEchoInput(self):
@@ -112,19 +114,19 @@ class MainTest(unittest.TestCase):
         self.assertEqual(out.getvalue(), code)
 
   def testEchoInputWithStyle(self):
-    code = 'def f(a = 1):\n    return 2*a\n'
-    chromium_code = 'def f(a=1):\n  return 2 * a\n'
+    code = 'def f(a = 1\n\n):\n    return 2*a\n'
+    yapf_code = 'def f(a=1):\n  return 2 * a\n'
     with patched_input(code):
       with captured_output() as (out, _):
-        ret = yapf.main(['-', '--style=chromium'])
+        ret = yapf.main(['-', '--style=yapf'])
         self.assertEqual(ret, 0)
-        self.assertEqual(out.getvalue(), chromium_code)
+        self.assertEqual(out.getvalue(), yapf_code)
 
   def testEchoBadInput(self):
     bad_syntax = '  a = 1\n'
     with patched_input(bad_syntax):
       with captured_output() as (_, _):
-        with self.assertRaisesRegexp(SyntaxError, 'unexpected indent'):
+        with self.assertRaisesRegex(yapf.errors.YapfError, 'unexpected indent'):
           yapf.main([])
 
   def testHelp(self):
@@ -135,10 +137,3 @@ class MainTest(unittest.TestCase):
       self.assertIn('indent_width=4', help_message)
       self.assertIn('The number of spaces required before a trailing comment.',
                     help_message)
-
-  def testVersion(self):
-    with captured_output() as (out, _):
-      ret = yapf.main(['-', '--version'])
-      self.assertEqual(ret, 0)
-      version = 'yapf {}\n'.format(yapf.__version__)
-      self.assertEqual(version, out.getvalue())

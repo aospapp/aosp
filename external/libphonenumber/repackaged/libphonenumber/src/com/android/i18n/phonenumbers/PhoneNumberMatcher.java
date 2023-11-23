@@ -25,6 +25,7 @@ import com.android.i18n.phonenumbers.Phonemetadata.PhoneMetadata;
 import com.android.i18n.phonenumbers.Phonenumber.PhoneNumber.CountryCodeSource;
 import com.android.i18n.phonenumbers.Phonenumber.PhoneNumber;
 import com.android.i18n.phonenumbers.internal.RegexCache;
+import com.android.i18n.phonenumbers.metadata.DefaultMetadataDependenciesProvider;
 import java.lang.Character.UnicodeBlock;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -576,7 +577,9 @@ final class PhoneNumberMatcher implements Iterator<PhoneNumberMatch> {
     }
     // If this didn't pass, see if there are any alternate formats that match, and try them instead.
     PhoneMetadata alternateFormats =
-        MetadataManager.getAlternateFormatsForCountry(number.getCountryCode());
+        DefaultMetadataDependenciesProvider.getInstance()
+            .getAlternateFormatsMetadataSource()
+              .getFormattingMetadataForCountryCallingCode(number.getCountryCode());
     String nationalSignificantNumber = util.getNationalSignificantNumber(number);
     if (alternateFormats != null) {
       for (NumberFormat alternateFormat : alternateFormats.getNumberFormatList()) {

@@ -358,7 +358,7 @@ public class Trie2Writable extends Trie2 {
     }
 
     /**
-     * initialValue is ignored if overwrite=TRUE
+     * initialValue is ignored if overwrite=true
      * @hide draft / provisional / internal are hidden on Android
      */
     private void fillBlock(int block, /*UChar32*/ int start, /*UChar32*/ int limit,
@@ -381,7 +381,7 @@ public class Trie2Writable extends Trie2 {
     /**
      * Set a value in a range of code points [start..end].
      * All code points c with start<=c<=end will get the value if
-     * overwrite is TRUE or if the old value is the initial value.
+     * overwrite is true or if the old value is the initial value.
      *
      * @param start the first code point to get the value
      * @param end the last code point to get the value (inclusive)
@@ -514,7 +514,7 @@ public class Trie2Writable extends Trie2 {
       * Set the values from a Trie2.Range.
       * 
       * All code points within the range will get the value if
-      * overwrite is TRUE or if the old value is the initial value.
+      * overwrite is true or if the old value is the initial value.
       *
       * Ranges with the lead surrogate flag set will set the alternate
       * lead-surrogate values in the Trie, rather than the code point values.
@@ -731,7 +731,7 @@ public class Trie2Writable extends Trie2 {
      *
      * The compaction
      * - removes blocks that are identical with earlier ones
-     * - overlaps adjacent blocks as much as possible (if overlap==TRUE)
+     * - overlaps adjacent blocks as much as possible (if overlap==true)
      * - moves blocks in steps of the data granularity
      * - moves and overlaps blocks that overlap with multiple values in the overlap region
      *

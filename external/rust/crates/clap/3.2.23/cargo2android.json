@@ -1,0 +1,7 @@
+{
+  "patch": "patches/Android.bp.diff",
+  "device": true,
+  "features": "std",
+  "run": true,
+  "tests": true
+}

@@ -25,20 +25,38 @@ from six.moves import range
 
 class _GoodVerifier(hosts.Verifier):
     """Verifier is always good"""
+
+    def __init__(self, tag, dependencies):
+        super(_GoodVerifier, self).__init__(tag, dependencies)
+        self._count = 0
+
     def verify(self, host):
+        self._count += 1
         pass
 
 
 class _BadVerifier(hosts.Verifier):
     """Verifier is always fail"""
+
+    def __init__(self, tag, dependencies):
+        super(_BadVerifier, self).__init__(tag, dependencies)
+        self._count = 0
+
     def verify(self, host):
+        self._count += 1
         raise Exception('Just not your day')
 
 
 class _SkipVerifier(hosts.Verifier):
     """Verifier is always not applicable"""
+
+    def __init__(self, tag, dependencies):
+        super(_SkipVerifier, self).__init__(tag, dependencies)
+        self._count = 0
+
     def verify(self, host):
-        pass
+        # this point should not be reached
+        self._count += 1
 
     def _is_applicable(self, host):
         return False
@@ -1397,11 +1415,11 @@ class VerifierResultTestCases(_DependencyNodeTestCase):
     def test_run_verifier_with_dependencies(self):
         """Check the result if dependency fail or not applicable."""
         verify_data = [
-            (_GoodVerifier, 'v1', []),
-            (_BadVerifier, 'v2', []),
-            (_SkipVerifier, 'v3', []),
-            (_GoodVerifier, 'v4', ['v2']),
-            (_GoodVerifier, 'v5', ['v3']),
+                (_GoodVerifier, 'v1', []),
+                (_BadVerifier, 'v2', []),
+                (_SkipVerifier, 'v3', []),
+                (_GoodVerifier, 'v4', ['v2']),
+                (_GoodVerifier, 'v5', ['v3']),
         ]
         strategy = hosts.RepairStrategy(verify_data, (), 'unittest')
         try:
@@ -1423,6 +1441,33 @@ class VerifierResultTestCases(_DependencyNodeTestCase):
                          strategy.verifier_is_good('v5'))
         self.assertEqual(repair.VERIFY_NOT_RUN,
                          strategy.verifier_is_good('v6'))
+        # Check have many time verifier run
+        self.assertEqual(1, strategy.node_by_tag('v1')._count)
+        self.assertEqual(1, strategy.node_by_tag('v2')._count)
+        self.assertEqual(0, strategy.node_by_tag('v3')._count)
+        self.assertEqual(0, strategy.node_by_tag('v4')._count)
+        self.assertEqual(1, strategy.node_by_tag('v5')._count)
+
+    def test_run_verifier_count_with_dependencies(self):
+        """Check the verifier will run only once."""
+        verify_data = [
+                (_GoodVerifier, 'v1', []),
+                (_GoodVerifier, 'v2', ['v1']),
+                (_GoodVerifier, 'v3', ['v1']),
+                (_GoodVerifier, 'v4', ['v2', 'v3']),
+                (_GoodVerifier, 'v5', ['v2', 'v3', 'v4']),
+        ]
+        strategy = hosts.RepairStrategy(verify_data, (), 'unittest')
+        try:
+            strategy.verify(self._fake_host, silent=True)
+        except Exception as e:
+            pass
+        # Check have many time verifier run
+        self.assertEqual(1, strategy.node_by_tag('v1')._count)
+        self.assertEqual(1, strategy.node_by_tag('v2')._count)
+        self.assertEqual(1, strategy.node_by_tag('v3')._count)
+        self.assertEqual(1, strategy.node_by_tag('v4')._count)
+        self.assertEqual(1, strategy.node_by_tag('v5')._count)
 
 
 if __name__ == '__main__':

@@ -117,7 +117,7 @@ abstract class Overrides {
         // can't be overridden.
         return false;
       }
-      if (!(overridden.getEnclosingElement() instanceof TypeElement)) {
+      if (!MoreElements.isType(overridden.getEnclosingElement())) {
         return false;
         // We don't know how this could happen but we avoid blowing up if it does.
       }
@@ -170,9 +170,14 @@ abstract class Overrides {
           return false;
         }
       } else {
-        return in.getKind().isInterface();
-        // Method mI in or inherited by interface I (JLS 9.4.1.1). We've already checked everything.
+        // Method mI in or inherited by interface I (JLS 9.4.1.1). We've already checked everything,
+        // except that `overrider` must also be in a subinterface of `overridden`.
         // If this is not an interface then we don't know what it is so we say no.
+        TypeElement overriderType = MoreElements.asType(overrider.getEnclosingElement());
+        return in.getKind().isInterface()
+            && typeUtils.isSubtype(
+                typeUtils.erasure(overriderType.asType()),
+                typeUtils.erasure(overriddenType.asType()));
       }
     }
 

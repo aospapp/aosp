@@ -209,7 +209,7 @@ For example, to find the type of track for `measure` events, the following query
 could be used.
 
 ```sql
-SELECT type
+SELECT track.type
 FROM slice
 JOIN track ON track.id = slice.track_id
 WHERE slice.name = 'measure'
@@ -256,10 +256,10 @@ It takes an `arg_set_id` and `key` as input and returns the value looked
 up in the `args` table.
 
 For example, to retrieve the `prev_comm` field for `sched_switch` events in
-the `raw` table.
+the `ftrace_event` table.
 ```sql
 SELECT EXTRACT_ARG(arg_set_id, 'prev_comm')
-FROM raw
+FROM ftrace_event
 WHERE name = 'sched_switch'
 ```
 
@@ -271,7 +271,7 @@ SELECT
     FROM args
     WHERE key = 'prev_comm' AND args.arg_set_id = raw.arg_set_id
   )
-FROM raw
+FROM ftrace_event
 WHERE name = 'sched_switch'
 ```
 
@@ -289,9 +289,11 @@ advantage of.
 
 ### Span join
 Span join is a custom operator table which computes the intersection of
-spans of time from two tables or views. A column (called the *partition*)
-can optionally be specified which divides the rows from each table into
-partitions before computing the intersection.
+spans of time from two tables or views. A span in this concept is a row in a
+table/view which contains a "ts" (timestamp) and "dur" (duration) columns.
+
+A column (called the *partition*) can optionally be specified which divides the
+rows from each table into partitions before computing the intersection.
 
 ![Span join block diagram](/docs/images/span-join.png)
 
@@ -309,7 +311,8 @@ SELECT
   cpu,
   value as freq
 FROM counter
-JOIN cpu_counter_track ON counter.track_id = cpu_counter_track.id;
+JOIN cpu_counter_track ON counter.track_id = cpu_counter_track.id
+WHERE cpu_counter_track.name = 'cpufreq';
 
 -- Create the span joined table which combines cpu frequency with
 -- scheduling slices.
@@ -329,6 +332,10 @@ WARNING: An important restriction on span joined tables is that spans from
 the same table in the same partition *cannot* overlap. For performance
 reasons, span join does not attempt to detect and error out in this situation;
 instead, incorrect rows will silently be produced.
+
+WARNING: Partitions mush be integers. Importantly, string partitions are *not*
+supported; note that strings *can* be converted to integers by
+applying the `HASH` function to the string column.
 
 Left and outer span joins are also supported; both function analogously to
 the left and outer joins from SQL.
@@ -779,10 +786,26 @@ the query/metric. The result is then compared to a 'golden' file and any
 difference is highlighted.
 
 All diff tests are organized under [test/trace_processor](/test/trace_processor)
+in `tests{_category name}.py` files as methods of a class in each file
 and are run by the script
 [`tools/diff_test_trace_processor.py`](/tools/diff_test_trace_processor.py).
-New tests can be added with the helper script
-[`tools/add_tp_diff_test.py`](/tools/add_tp_diff_test.py).
+To add a new test its enough to add a new method starting with `test_` in suitable
+python tests file.
+
+Methods can't take arguments and have to return `DiffTestBlueprint`:
+```python
+class DiffTestBlueprint:
+  trace: Union[Path, Json, Systrace, TextProto]
+  query: Union[str, Path, Metric]
+  out: Union[Path, Json, Csv, TextProto]
+```
+*Trace* and *Out*: For every type apart from `Path`, contents of the object will be treated as
+file contents so it has to follow the same rules.
+
+*Query*: For metric tests it is enough to provide the metric name. For query tests there
+can be a raw SQL statement, for example `"SELECT * FROM SLICE"` or path to an `.sql` file.
+
+
 
 NOTE: `trace_processor_shell` and associated proto descriptors needs to be
 built before running `tools/diff_test_trace_processor.py`. The easiest way
@@ -790,8 +813,7 @@ to do this is to run `tools/ninja -C <out directory>` both initially and on
 every change to trace processor code or builtin metrics.
 
 #### Choosing where to add diff tests
-When adding a new test with `tools/add_tp_diff_test.py`, the user is
-prompted for a folder to add the new test to. Often this can be confusing
+Choosing a folder with a diff tests often can be confusing
 as a test can fall into more than one category. This section is a guide
 to decide which folder to choose.
 

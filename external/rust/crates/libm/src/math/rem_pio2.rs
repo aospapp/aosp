@@ -50,7 +50,12 @@ pub(crate) fn rem_pio2(x: f64) -> (i32, f64, f64) {
 
     fn medium(x: f64, ix: u32) -> (i32, f64, f64) {
         /* rint(x/(pi/2)), Assume round-to-nearest. */
-        let f_n = x as f64 * INV_PIO2 + TO_INT - TO_INT;
+        let tmp = x as f64 * INV_PIO2 + TO_INT;
+        // force rounding of tmp to it's storage format on x87 to avoid
+        // excess precision issues.
+        #[cfg(all(target_arch = "x86", not(target_feature = "sse2")))]
+        let tmp = force_eval!(tmp);
+        let f_n = tmp - TO_INT;
         let n = f_n as i32;
         let mut r = x - f_n * PIO2_1;
         let mut w = f_n * PIO2_1T; /* 1st round, good to 85 bits */
@@ -167,21 +172,21 @@ pub(crate) fn rem_pio2(x: f64) -> (i32, f64, f64) {
     let mut z = f64::from_bits(ui);
     let mut tx = [0.0; 3];
     for i in 0..2 {
-        tx[i] = z as i32 as f64;
-        z = (z - tx[i]) * x1p24;
+        i!(tx,i, =, z as i32 as f64);
+        z = (z - i!(tx, i)) * x1p24;
     }
-    tx[2] = z;
+    i!(tx,2, =, z);
     /* skip zero terms, first term is non-zero */
     let mut i = 2;
-    while i != 0 && tx[i] == 0.0 {
+    while i != 0 && i!(tx, i) == 0.0 {
         i -= 1;
     }
     let mut ty = [0.0; 3];
     let n = rem_pio2_large(&tx[..=i], &mut ty, ((ix as i32) >> 20) - (0x3ff + 23), 1);
     if sign != 0 {
-        return (-n, -ty[0], -ty[1]);
+        return (-n, -i!(ty, 0), -i!(ty, 1));
     }
-    (n, ty[0], ty[1])
+    (n, i!(ty, 0), i!(ty, 1))
 }
 
 #[cfg(test)]
@@ -190,20 +195,28 @@ mod tests {
 
     #[test]
     fn test_near_pi() {
+        let arg = 3.141592025756836;
+        let arg = force_eval!(arg);
         assert_eq!(
-            rem_pio2(3.141592025756836),
+            rem_pio2(arg),
             (2, -6.278329573009626e-7, -2.1125998133974653e-23)
         );
+        let arg = 3.141592033207416;
+        let arg = force_eval!(arg);
         assert_eq!(
-            rem_pio2(3.141592033207416),
+            rem_pio2(arg),
             (2, -6.20382377148128e-7, -2.1125998133974653e-23)
         );
+        let arg = 3.141592144966125;
+        let arg = force_eval!(arg);
         assert_eq!(
-            rem_pio2(3.141592144966125),
+            rem_pio2(arg),
             (2, -5.086236681942706e-7, -2.1125998133974653e-23)
         );
+        let arg = 3.141592979431152;
+        let arg = force_eval!(arg);
         assert_eq!(
-            rem_pio2(3.141592979431152),
+            rem_pio2(arg),
             (2, 3.2584135866119817e-7, -2.1125998133974653e-23)
         );
     }

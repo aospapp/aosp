@@ -17,21 +17,21 @@ DROP VIEW IF EXISTS same_frame;
 CREATE VIEW same_frame AS
 SELECT COUNT(name) AS total_duplicate_frames
 FROM counters
-WHERE name='SAME_FRAME'
-AND value=1;
+WHERE name = 'SAME_FRAME'
+  AND value = 1;
 
 DROP VIEW IF EXISTS duplicate_frames_logged;
 CREATE VIEW duplicate_frames_logged AS
 SELECT CASE WHEN COUNT(name) > 0 THEN 1 ELSE 0 END AS logs_found
 FROM counters
-WHERE name='SAME_FRAME' AND value=0;
+WHERE name = 'SAME_FRAME' AND value = 0;
 
 DROP VIEW IF EXISTS dpu_underrun;
 CREATE VIEW dpu_underrun AS
 SELECT COUNT(name) AS total_dpu_underrun_count
 FROM counters
-WHERE name='DPU_UNDERRUN'
-AND value=1;
+WHERE name = 'DPU_UNDERRUN'
+  AND value = 1;
 
 DROP VIEW IF EXISTS non_repeated_panel_fps;
 CREATE VIEW non_repeated_panel_fps AS
@@ -61,15 +61,22 @@ FROM (
 )
 WHERE dur > 0;
 
+DROP VIEW IF EXISTS update_power_state_stats;
+CREATE VIEW update_power_state_stats AS
+SELECT
+  CAST(AVG(dur) / 1e3 AS INT64) AS avg_runtime_micro_secs
+FROM slice
+WHERE slice.name = 'DisplayPowerController#updatePowerState' AND slice.dur >= 0;
+
 DROP VIEW IF EXISTS display_metrics_output;
 CREATE VIEW display_metrics_output AS
 SELECT AndroidDisplayMetrics(
   'total_duplicate_frames', (SELECT total_duplicate_frames
-                            FROM same_frame),
+    FROM same_frame),
   'duplicate_frames_logged', (SELECT logs_found
-                            FROM duplicate_frames_logged),
+    FROM duplicate_frames_logged),
   'total_dpu_underrun_count', (SELECT total_dpu_underrun_count
-                              FROM dpu_underrun),
+    FROM dpu_underrun),
   'refresh_rate_switches', (SELECT COUNT(*) FROM panel_fps_spans),
   'refresh_rate_stats', (
     SELECT RepeatedField(metric)
@@ -84,5 +91,11 @@ SELECT AndroidDisplayMetrics(
       GROUP BY value
       ORDER BY value
     )
+  ),
+  'update_power_state', (
+    SELECT AndroidDisplayMetrics_UpdatePowerState(
+      'avg_runtime_micro_secs', avg_runtime_micro_secs
+    )
+    FROM update_power_state_stats
   )
 );

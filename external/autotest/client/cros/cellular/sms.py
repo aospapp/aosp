@@ -1,9 +1,16 @@
-#!/usr/bin/python2
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import dbus, logging
+
+from six.moves import zip
+
 from autotest_lib.client.common_lib import error
 
 sample = {
@@ -82,7 +89,7 @@ class SmsStore(object):
 
     def _sms_regen_list(self):
         response = ''
-        keys = self.smsdict.keys()
+        keys = list(self.smsdict.keys())
         keys.sort()
         for i in keys:
             pdu = self.smsdict[i]
@@ -121,7 +128,7 @@ class SmsTest(object):
     def test_get(self, index, expected):
         try:
             sms = self.gsmsms.Get(index)
-        except dbus.DBusException, db:
+        except dbus.DBusException as db:
             if expected is not None:
                 raise
             return
@@ -141,7 +148,7 @@ class SmsTest(object):
             if expected_success == False:
                 raise error.TestFail('SMS.Delete(%d) succeeded unexpectedly' %
                                      index)
-        except dbus.DBusException, db:
+        except dbus.DBusException as db:
             if expected_success:
                 raise
 

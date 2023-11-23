@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/act/mirred.c		mirred action
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2013 Cong Wang <xiyou.wangcong@gmail.com>
  */
 
@@ -47,14 +41,6 @@ static int mirred_msg_parser(struct rtnl_tc *tc, void *data)
 
 static void mirred_free_data(struct rtnl_tc *tc, void *data)
 {
-}
-
-static int mirred_clone(void *_dst, void *_src)
-{
-	struct rtnl_mirred *dst = _dst, *src = _src;
-
-	memcpy(&dst->m_parm, &src->m_parm, sizeof(src->m_parm));
-	return 0;
 }
 
 static void mirred_dump_line(struct rtnl_tc *tc, void *data,
@@ -187,19 +173,8 @@ int rtnl_mirred_set_policy(struct rtnl_act *act, int policy)
 	if (!(u = (struct rtnl_mirred *) rtnl_tc_data(TC_CAST(act))))
 		return -NLE_NOMEM;
 
-	if (policy > TC_ACT_REPEAT || policy < TC_ACT_OK)
-		return -NLE_INVAL;
+	u->m_parm.action = policy;
 
-	switch (u->m_parm.eaction) {
-	case TCA_EGRESS_MIRROR:
-	case TCA_EGRESS_REDIR:
-		u->m_parm.action = policy;
-		break;
-	case TCA_INGRESS_REDIR:
-	case TCA_INGRESS_MIRROR:
-	default:
-		return NLE_OPNOTSUPP;
-	}
 	return 0;
 }
 
@@ -220,7 +195,7 @@ static struct rtnl_tc_ops mirred_ops = {
 	.to_size		= sizeof(struct rtnl_mirred),
 	.to_msg_parser		= mirred_msg_parser,
 	.to_free_data		= mirred_free_data,
-	.to_clone		= mirred_clone,
+	.to_clone		= NULL,
 	.to_msg_fill		= mirred_msg_fill,
 	.to_dump = {
 	    [NL_DUMP_LINE]	= mirred_dump_line,

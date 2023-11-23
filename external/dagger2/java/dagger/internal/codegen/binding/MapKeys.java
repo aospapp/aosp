@@ -16,18 +16,29 @@
 
 package dagger.internal.codegen.binding;
 
+import static androidx.room.compiler.processing.XTypeKt.isArray;
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
+import static androidx.room.compiler.processing.compat.XConverters.toXProcessing;
 import static com.google.auto.common.AnnotationMirrors.getAnnotatedAnnotations;
 import static com.google.auto.common.AnnotationMirrors.getAnnotationValuesWithDefaults;
+import static com.google.auto.common.MoreElements.asExecutable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.squareup.javapoet.MethodSpec.methodBuilder;
 import static dagger.internal.codegen.base.MapKeyAccessibility.isMapKeyPubliclyAccessible;
 import static dagger.internal.codegen.binding.SourceFiles.elementBasedClassName;
+import static dagger.internal.codegen.xprocessing.XElements.getSimpleName;
+import static dagger.internal.codegen.xprocessing.XTypes.isDeclared;
+import static dagger.internal.codegen.xprocessing.XTypes.isPrimitive;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
-import static javax.lang.model.util.ElementFilter.methodsIn;
 
-import com.google.auto.common.MoreElements;
+import androidx.room.compiler.processing.XAnnotation;
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XProcessingEnv;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.auto.common.MoreTypes;
 import com.google.common.collect.ImmutableSet;
 import com.squareup.javapoet.ClassName;
@@ -35,25 +46,31 @@ import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import dagger.MapKey;
+import dagger.internal.codegen.base.DaggerSuperficialValidation;
 import dagger.internal.codegen.base.MapKeyAccessibility;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.langmodel.DaggerElements;
 import dagger.internal.codegen.langmodel.DaggerTypes;
+import dagger.internal.codegen.xprocessing.XElements;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.ArrayType;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.SimpleTypeVisitor6;
 
 /** Methods for extracting {@link MapKey} annotations and key code blocks from binding elements. */
 public final class MapKeys {
+
+  /**
+   * If {@code bindingElement} is annotated with a {@link MapKey} annotation, returns it.
+   *
+   * @throws IllegalArgumentException if the element is annotated with more than one {@code MapKey}
+   *     annotation
+   */
+  static Optional<AnnotationMirror> getMapKey(XElement bindingElement) {
+    return getMapKey(toJavac(bindingElement));
+  }
 
   /**
    * If {@code bindingElement} is annotated with a {@link MapKey} annotation, returns it.
@@ -73,6 +90,11 @@ public final class MapKeys {
     return getAnnotatedAnnotations(bindingElement, MapKey.class);
   }
 
+  /** Returns all of the {@link MapKey} annotations that annotate {@code bindingElement}. */
+  public static ImmutableSet<XAnnotation> getMapKeys(XElement bindingElement) {
+    return XElements.getAnnotatedAnnotations(bindingElement, TypeNames.MAP_KEY);
+  }
+
   /**
    * Returns the annotation value if {@code mapKey}'s type is annotated with
    * {@link MapKey @MapKey(unwrapValue = true)}.
@@ -89,10 +111,10 @@ public final class MapKeys {
         : Optional.empty();
   }
 
-  static TypeMirror mapKeyType(AnnotationMirror mapKeyAnnotation, DaggerTypes types) {
-    return unwrapValue(mapKeyAnnotation).isPresent()
-        ? getUnwrappedMapKeyType(mapKeyAnnotation.getAnnotationType(), types)
-        : mapKeyAnnotation.getAnnotationType();
+  static TypeMirror mapKeyType(XAnnotation mapKeyAnnotation) {
+    return unwrapValue(toJavac(mapKeyAnnotation)).isPresent()
+        ? toJavac(getUnwrappedMapKeyType(mapKeyAnnotation.getType()))
+        : toJavac(mapKeyAnnotation.getType());
   }
 
   /**
@@ -103,36 +125,24 @@ public final class MapKeys {
    *     has more than one member, or if its single member is an array
    * @throws NoSuchElementException if the annotation has no members
    */
-  public static DeclaredType getUnwrappedMapKeyType(
-      final DeclaredType mapKeyAnnotationType, final DaggerTypes types) {
+  public static XType getUnwrappedMapKeyType(XType mapKeyAnnotationType) {
     checkArgument(
-        MoreTypes.asTypeElement(mapKeyAnnotationType).getKind() == ElementKind.ANNOTATION_TYPE,
+        isDeclared(mapKeyAnnotationType)
+            && mapKeyAnnotationType.getTypeElement().isAnnotationClass(),
         "%s is not an annotation type",
         mapKeyAnnotationType);
 
-    final ExecutableElement onlyElement =
-        getOnlyElement(methodsIn(mapKeyAnnotationType.asElement().getEnclosedElements()));
-
-    SimpleTypeVisitor6<DeclaredType, Void> keyTypeElementVisitor =
-        new SimpleTypeVisitor6<DeclaredType, Void>() {
-
-          @Override
-          public DeclaredType visitArray(ArrayType t, Void p) {
-            throw new IllegalArgumentException(
-                mapKeyAnnotationType + "." + onlyElement.getSimpleName() + " cannot be an array");
-          }
-
-          @Override
-          public DeclaredType visitPrimitive(PrimitiveType t, Void p) {
-            return MoreTypes.asDeclared(types.boxedClass(t).asType());
-          }
-
-          @Override
-          public DeclaredType visitDeclared(DeclaredType t, Void p) {
-            return t;
-          }
-        };
-    return keyTypeElementVisitor.visit(onlyElement.getReturnType());
+    XMethodElement annotationValueMethod =
+        getOnlyElement(mapKeyAnnotationType.getTypeElement().getDeclaredMethods());
+    XType annotationValueType = annotationValueMethod.getReturnType();
+    if (isArray(annotationValueType)) {
+      throw new IllegalArgumentException(
+          mapKeyAnnotationType
+              + "."
+              + getSimpleName(annotationValueMethod)
+              + " cannot be an array");
+    }
+    return isPrimitive(annotationValueType) ? annotationValueType.boxed() : annotationValueType;
   }
 
   /**
@@ -145,11 +155,11 @@ public final class MapKeys {
    *     map} contribution.
    */
   public static CodeBlock getMapKeyExpression(
-      ContributionBinding binding, ClassName requestingClass, DaggerElements elements) {
+      ContributionBinding binding, ClassName requestingClass, XProcessingEnv processingEnv) {
     AnnotationMirror mapKeyAnnotation = binding.mapKeyAnnotation().get();
     return MapKeyAccessibility.isMapKeyAccessibleFrom(
             mapKeyAnnotation, requestingClass.packageName())
-        ? directMapKeyExpression(mapKeyAnnotation, elements)
+        ? directMapKeyExpression(mapKeyAnnotation, processingEnv)
         : CodeBlock.of("$T.create()", mapKeyProxyClassName(binding));
   }
 
@@ -166,19 +176,20 @@ public final class MapKeys {
    *     annotation
    */
   private static CodeBlock directMapKeyExpression(
-      AnnotationMirror mapKey, DaggerElements elements) {
+      AnnotationMirror mapKey, XProcessingEnv processingEnv) {
     Optional<? extends AnnotationValue> unwrappedValue = unwrapValue(mapKey);
     AnnotationExpression annotationExpression = new AnnotationExpression(mapKey);
 
     if (MoreTypes.asTypeElement(mapKey.getAnnotationType())
         .getQualifiedName()
         .contentEquals("dagger.android.AndroidInjectionKey")) {
-      TypeElement unwrappedType =
-          elements.checkTypePresent((String) unwrappedValue.get().getValue());
+      XTypeElement unwrappedType =
+          DaggerSuperficialValidation.requireTypeElement(
+              processingEnv, (String) unwrappedValue.get().getValue());
       return CodeBlock.of(
           "$T.of($S)",
           ClassName.get("dagger.android.internal", "AndroidInjectionKeys"),
-          ClassName.get(unwrappedType).reflectionName());
+          unwrappedType.getClassName().reflectionName());
     }
 
     if (unwrappedValue.isPresent()) {
@@ -195,8 +206,7 @@ public final class MapKeys {
    * DaggerTypes, DaggerElements)} is generated.
    */
   public static ClassName mapKeyProxyClassName(ContributionBinding binding) {
-    return elementBasedClassName(
-        MoreElements.asExecutable(binding.bindingElement().get()), "MapKey");
+    return elementBasedClassName(asExecutable(toJavac(binding.bindingElement().get())), "MapKey");
   }
 
   /**
@@ -205,7 +215,7 @@ public final class MapKeys {
    * accessible.
    */
   public static Optional<MethodSpec> mapKeyFactoryMethod(
-      ContributionBinding binding, DaggerTypes types, DaggerElements elements) {
+      ContributionBinding binding, XProcessingEnv processingEnv) {
     return binding
         .mapKeyAnnotation()
         .filter(mapKey -> !isMapKeyPubliclyAccessible(mapKey))
@@ -213,8 +223,8 @@ public final class MapKeys {
             mapKey ->
                 methodBuilder("create")
                     .addModifiers(PUBLIC, STATIC)
-                    .returns(TypeName.get(mapKeyType(mapKey, types)))
-                    .addStatement("return $L", directMapKeyExpression(mapKey, elements))
+                    .returns(TypeName.get(mapKeyType(toXProcessing(mapKey, processingEnv))))
+                    .addStatement("return $L", directMapKeyExpression(mapKey, processingEnv))
                     .build());
   }
 

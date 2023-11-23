@@ -1,4 +1,3 @@
-#![doc(html_root_url = "https://docs.rs/rayon/1.5")]
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![deny(unreachable_pub)]
@@ -77,6 +76,11 @@
 //! [the `collections` from `std`]: https://doc.rust-lang.org/std/collections/index.html
 //! [`std`]: https://doc.rust-lang.org/std/
 //!
+//! # Targets without threading
+//!
+//! Rayon has limited support for targets without `std` threading implementations.
+//! See the [`rayon_core`] documentation for more information about its global fallback.
+//!
 //! # Other questions?
 //!
 //! See [the Rayon FAQ][faq].
@@ -114,8 +118,43 @@ pub use rayon_core::ThreadBuilder;
 pub use rayon_core::ThreadPool;
 pub use rayon_core::ThreadPoolBuildError;
 pub use rayon_core::ThreadPoolBuilder;
-pub use rayon_core::{current_num_threads, current_thread_index};
+pub use rayon_core::{broadcast, spawn_broadcast, BroadcastContext};
+pub use rayon_core::{current_num_threads, current_thread_index, max_num_threads};
 pub use rayon_core::{in_place_scope, scope, Scope};
 pub use rayon_core::{in_place_scope_fifo, scope_fifo, ScopeFifo};
 pub use rayon_core::{join, join_context};
 pub use rayon_core::{spawn, spawn_fifo};
+pub use rayon_core::{yield_local, yield_now, Yield};
+
+/// We need to transmit raw pointers across threads. It is possible to do this
+/// without any unsafe code by converting pointers to usize or to AtomicPtr<T>
+/// then back to a raw pointer for use. We prefer this approach because code
+/// that uses this type is more explicit.
+///
+/// Unsafe code is still required to dereference the pointer, so this type is
+/// not unsound on its own, although it does partly lift the unconditional
+/// !Send and !Sync on raw pointers. As always, dereference with care.
+struct SendPtr<T>(*mut T);
+
+// SAFETY: !Send for raw pointers is not for safety, just as a lint
+unsafe impl<T: Send> Send for SendPtr<T> {}
+
+// SAFETY: !Sync for raw pointers is not for safety, just as a lint
+unsafe impl<T: Send> Sync for SendPtr<T> {}
+
+impl<T> SendPtr<T> {
+    // Helper to avoid disjoint captures of `send_ptr.0`
+    fn get(self) -> *mut T {
+        self.0
+    }
+}
+
+// Implement Clone without the T: Clone bound from the derive
+impl<T> Clone for SendPtr<T> {
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
+// Implement Copy without the T: Copy bound from the derive
+impl<T> Copy for SendPtr<T> {}

@@ -20,6 +20,7 @@ rust_library_host {
     ],
     rustlibs: [
         "libbindgen",
+        "libbindgen_cli",
         "libclap",
         "libenv_logger",
     ],

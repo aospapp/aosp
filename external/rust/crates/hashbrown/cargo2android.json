@@ -1,4 +1,9 @@
 {
   "device": true,
-  "run": true
+  "features": "ahash,default,inline-more,raw",
+  "run": true,
+  "tests": true,
+  "dependency-blocklist": [
+    "doc_comment"
+  ]
 }

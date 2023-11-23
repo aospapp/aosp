@@ -23,17 +23,17 @@ import static dagger.internal.codegen.CompilerMode.FAST_INIT_MODE;
 import static dagger.internal.codegen.Compilers.compilerWithOptions;
 import static dagger.internal.codegen.Compilers.daggerCompiler;
 import static dagger.internal.codegen.ComponentCreatorTest.CompilerType.JAVAC;
-import static dagger.internal.codegen.binding.ComponentCreatorAnnotation.COMPONENT_BUILDER;
-import static dagger.internal.codegen.binding.ComponentCreatorAnnotation.COMPONENT_FACTORY;
-import static dagger.internal.codegen.binding.ComponentCreatorKind.BUILDER;
-import static dagger.internal.codegen.binding.ComponentCreatorKind.FACTORY;
-import static dagger.internal.codegen.binding.ComponentKind.COMPONENT;
+import static dagger.internal.codegen.base.ComponentCreatorAnnotation.COMPONENT_BUILDER;
+import static dagger.internal.codegen.base.ComponentCreatorAnnotation.COMPONENT_FACTORY;
+import static dagger.internal.codegen.base.ComponentCreatorKind.BUILDER;
+import static dagger.internal.codegen.base.ComponentCreatorKind.FACTORY;
+import static dagger.internal.codegen.base.ComponentKind.COMPONENT;
 import static dagger.internal.codegen.binding.ErrorMessages.componentMessagesFor;
 
 import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
-import dagger.internal.codegen.binding.ComponentCreatorAnnotation;
+import dagger.internal.codegen.base.ComponentCreatorAnnotation;
 import java.util.Collection;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
@@ -162,6 +162,8 @@ public class ComponentCreatorTest extends ComponentCreatorTestHelper {
             GeneratedLines.generatedAnnotations(),
             "final class DaggerTestComponent implements TestComponent {",
             "  private final TestModule testModule;",
+            "",
+            "  private final DaggerTestComponent testComponent = this;",
             "",
             "  private DaggerTestComponent(TestModule testModuleParam) {",
             "    this.testModule = testModuleParam;",
@@ -360,6 +362,8 @@ public class ComponentCreatorTest extends ComponentCreatorTestHelper {
                 GeneratedLines.generatedAnnotations(),
                 "final class DaggerSimpleComponent implements SimpleComponent {",
                 "  private final Object object;",
+                "",
+                "  private final DaggerSimpleComponent simpleComponent = this;",
                 "",
                 "  private DaggerSimpleComponent(Object objectParam) {",
                 "    this.object = objectParam;",

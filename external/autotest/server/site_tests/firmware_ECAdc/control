@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_ECAdc"
 PURPOSE = "Servo based EC ADC test"
 CRITERIA = "This test will fail if EC ADC misbehalved."
@@ -12,7 +12,9 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
-DEPENDENCIES = "ec:cros"
+JOB_RETRIES = 0
+DEPENDENCIES = "ec:cros, servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 This is a stress test for EC ADC. We keep polling EC internal temperature

@@ -1,0 +1,71 @@
+From f5c7b8fa10ed6519f789b817eab40f959da8ce45 Mon Sep 17 00:00:00 2001
+From: Mohannad Farrag <aymanm@google.com>
+Date: Wed, 5 Apr 2023 12:43:32 +0000
+Subject: [PATCH] Add third_party/libevent/compat to includes
+
+libevent uses TAILQ from sys/queue.h, which is not part of posix.
+libevent includes an implementation in third_party/libevent/compat/sys/queue.h,
+add the directory to the include paths.
+
+Currently, sys/queue.h is being included from Chromium's libc which is not requred by the posix standard.
+Also looking at the makefile, It can be seen that `compat` was unconditionally added to the includes but this
+was not correctly reflected in the BUILD.gn
+
+Test: build
+Change-Id: I9f166e01e1757991a12cbbbb3bb1e47cd078c5be
+---
+ third_party/libevent/BUILD.gn | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/third_party/libevent/BUILD.gn b/third_party/libevent/BUILD.gn
+index f5cb1c5fe46b3..61e94cc0cd03f 100644
+--- a/third_party/libevent/BUILD.gn
++++ b/third_party/libevent/BUILD.gn
+@@ -2,6 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
++import("//build/config/cronet/config.gni")
+ import("//build/config/nacl/config.gni")
+ 
+ static_library("libevent") {
+@@ -35,28 +36,32 @@ static_library("libevent") {
+   ]
+ 
+   defines = [ "HAVE_CONFIG_H" ]
+-
++  if (is_cronet_build) {
++    include_dirs = [ "compat" ]
++  } else {
++    include_dirs = []
++  }
+   if (is_apple) {
+     sources += [
+       "kqueue.c",
+       "mac/config.h",
+       "mac/event-config.h",
+     ]
+-    include_dirs = [ "mac" ]
++    include_dirs += [ "mac" ]
+   } else if (is_linux || is_chromeos) {
+     sources += [
+       "epoll.c",
+       "linux/config.h",
+       "linux/event-config.h",
+     ]
+-    include_dirs = [ "linux" ]
++    include_dirs += [ "linux" ]
+   } else if (is_android) {
+     sources += [
+       "android/config.h",
+       "android/event-config.h",
+       "epoll.c",
+     ]
+-    include_dirs = [ "android" ]
++    include_dirs += [ "android" ]
+   }
+ 
+   if (!is_debug) {
+-- 
+2.40.0.577.gac1e443424-goog
+

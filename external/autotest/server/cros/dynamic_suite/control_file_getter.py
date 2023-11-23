@@ -105,7 +105,7 @@ class CacheingAndFilteringControlFileGetter(ControlFileGetter):
         """
         files = self._get_control_file_list(suite_name=suite_name)
         for cf_filter in self.CONTROL_FILE_FILTERS:
-          files = [path for path in files if not path.endswith(cf_filter)]
+            files = [path for path in files if not path.endswith(cf_filter)]
         self._files = files
         return self._files
 
@@ -203,10 +203,14 @@ class FileSystemGetter(CacheingAndFilteringControlFileGetter):
         # Some of our callers are ill-considered and request that we
         # search all of /usr/local/autotest (crbug.com/771823).
         # Fixing the callers immediately is somewhere between a
-        # nuisance and hard.  So, we have a blacklist, hoping two
+        # nuisance and hard.  So, we have a blocklist, hoping two
         # wrongs will somehow make it right.
-        blacklist = {
-            'site-packages', 'venv', 'results', 'logs', 'containers',
+        blocklist = {
+                'site-packages',
+                'venv',
+                'results',
+                'logs',
+                'containers',
         }
         while len(directories) > 0:
             directory = directories.pop()
@@ -214,7 +218,7 @@ class FileSystemGetter(CacheingAndFilteringControlFileGetter):
                 continue
             try:
                 for name in os.listdir(directory):
-                    if name in blacklist:
+                    if name in blocklist:
                         continue
                     fullpath = os.path.join(directory, name)
                     if os.path.isfile(fullpath):

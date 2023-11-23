@@ -4,9 +4,10 @@
 
 """Provides a factory method to create a host object."""
 
-import logging
 from contextlib import closing
 from contextlib import contextmanager
+import logging
+import os
 
 from autotest_lib.client.bin import local_host
 from autotest_lib.client.bin import utils
@@ -15,6 +16,7 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.server import utils as server_utils
 from autotest_lib.server.cros.dynamic_suite import constants
+from autotest_lib.server.hosts import android_host
 from autotest_lib.server.hosts import cros_host
 from autotest_lib.server.hosts import host_info
 from autotest_lib.server.hosts import jetstream_host
@@ -30,7 +32,7 @@ CONFIG = global_config.global_config
 # Default ssh options used in creating a host.
 DEFAULT_SSH_USER = 'root'
 DEFAULT_SSH_PASS = ''
-DEFAULT_SSH_PORT = 22
+DEFAULT_SSH_PORT = None
 DEFAULT_SSH_VERBOSITY = ''
 DEFAULT_SSH_OPTIONS = ''
 
@@ -43,16 +45,26 @@ _started_hostnames = set()
 host_types = [cros_host.CrosHost, labstation_host.LabstationHost,
               moblab_host.MoblabHost, jetstream_host.JetstreamHost,
               gce_host.GceHost]
-OS_HOST_DICT = {'cros': cros_host.CrosHost,
-                'jetstream': jetstream_host.JetstreamHost,
-                'moblab': moblab_host.MoblabHost,
-                'labstation': labstation_host.LabstationHost}
+OS_HOST_DICT = {
+        'android': android_host.AndroidHost,
+        'cros': cros_host.CrosHost,
+        'jetstream': jetstream_host.JetstreamHost,
+        'moblab': moblab_host.MoblabHost,
+        'labstation': labstation_host.LabstationHost
+}
+
+LOOKUP_DICT = {
+        'CrosHost': cros_host.CrosHost,
+        'JetstreamHost': jetstream_host.JetstreamHost,
+        'MoblabHost': moblab_host.MoblabHost,
+        'LabstationHost': labstation_host.LabstationHost
+}
 
 # Timeout for early connectivity check to the host, in seconds.
 _CONNECTIVITY_CHECK_TIMEOUT_S = 10
 
 
-def _get_host_arguments(machine):
+def _get_host_arguments(machine, **args):
     """Get parameters to construct a host object.
 
     There are currently 2 use cases for creating a host.
@@ -61,6 +73,8 @@ def _get_host_arguments(machine):
        are available as the variables ssh_user, ssh_pass etc.
     2. Directly through factory.create_host, in which case we use
        the same defaults as used in the server job to create a host.
+    3. Through neither of the above, in which case args can be provided
+       and should be respected if a globa
 
     @param machine: machine dict
     @return: A dictionary containing arguments for host specifically hostname,
@@ -73,27 +87,41 @@ def _get_host_arguments(machine):
     info = host_info_store.get()
 
     g = globals()
-    user = info.attributes.get('ssh_user', g.get('ssh_user', DEFAULT_SSH_USER))
+
+    # For each arg, try to fetch the arg from the globals...
+    # If its not there, then try to get it from **args.
+    # If its not there, use the default.
+    default_user = DEFAULT_SSH_USER if 'user' not in args else args['user']
+    user = info.attributes.get('ssh_user', g.get('ssh_user', default_user))
+
+    default_pass = DEFAULT_SSH_PASS if 'ssh_pass' not in args else args['ssh_pass']
     password = info.attributes.get('ssh_pass', g.get('ssh_pass',
-                                                     DEFAULT_SSH_PASS))
-    port = info.attributes.get('ssh_port', g.get('ssh_port', DEFAULT_SSH_PORT))
+                                                     default_pass))
+
+    default_port = DEFAULT_SSH_PORT if 'ssh_port' not in args else args['ssh_port']
+    port = info.attributes.get('ssh_port', g.get('ssh_port', default_port))
+
+    default_verbosity = DEFAULT_SSH_VERBOSITY if 'ssh_verbosity_flag' not in args else args['ssh_verbosity_flag']
     ssh_verbosity_flag = info.attributes.get('ssh_verbosity_flag',
                                              g.get('ssh_verbosity_flag',
-                                                   DEFAULT_SSH_VERBOSITY))
+                                                   default_verbosity))
+
+    default_options = DEFAULT_SSH_OPTIONS if 'ssh_options' not in args else args['ssh_options']
     ssh_options = info.attributes.get('ssh_options',
                                       g.get('ssh_options',
-                                            DEFAULT_SSH_OPTIONS))
+                                            default_options))
 
     hostname, user, password, port = server_utils.parse_machine(hostname, user,
                                                                 password, port)
-
+    if port:
+        port = int(port)
     host_args = {
             'hostname': hostname,
             'afe_host': afe_host,
             'host_info_store': host_info_store,
             'user': user,
             'password': password,
-            'port': int(port),
+            'port': port,
             'ssh_verbosity_flag': ssh_verbosity_flag,
             'ssh_options': ssh_options,
             'connection_pool': connection_pool,
@@ -118,16 +146,35 @@ def _detect_host(connectivity_class, hostname, **args):
     @returns: Class type of the first host class that returns True to the
               check_host method.
     """
+    preset_host = _preset_host(hostname)
+    if preset_host:
+        logging.debug("Using preset_host %s for %s ", preset_host.__name__,
+                      hostname)
+        return preset_host
     with closing(connectivity_class(hostname, **args)) as host:
         for host_module in host_types:
             logging.info('Attempting to autodetect if host is of type %s',
                          host_module.__name__)
             if host_module.check_host(host, timeout=10):
+                os.environ['HOST_%s' % hostname] = str(host_module.__name__)
                 return host_module
 
     logging.warning('Unable to apply conventional host detection methods, '
                     'defaulting to chromeos host.')
     return cros_host.CrosHost
+
+
+def _preset_host(hostname):
+    """Check the environmental variables to see if the host type has been set.
+
+    @param hostname: A string representing the host name of the device.
+
+    @returns: Class type of the host, if previously found & set in
+        _detect_host, else None.
+    """
+    preset_host = os.getenv('HOST_%s' % hostname)
+    if preset_host:
+        return LOOKUP_DICT.get(preset_host, None)
 
 
 def _choose_connectivity_class(hostname, ssh_port):
@@ -160,6 +207,20 @@ def _verify_connectivity(connectivity_class, hostname, **args):
                  ignore_timeout=False)
 
 
+def create_companion_hosts(companion_hosts):
+    """Wrapped for create_hosts for making host objects on companion duts.
+
+    @param companion_hosts: str or list of extra_host hostnames
+
+    @returns: A list of host objects for each host in companion_hosts
+    """
+    if not isinstance(companion_hosts, list):
+        companion_hosts = [companion_hosts]
+    hosts = []
+    for host in companion_hosts:
+        hosts.append(create_host(host))
+    return hosts
+
 # TODO(kevcheng): Update the creation method so it's not a research project
 # determining the class inheritance model.
 def create_host(machine, host_class=None, connectivity_class=None, **args):
@@ -188,7 +249,7 @@ def create_host(machine, host_class=None, connectivity_class=None, **args):
         deprecation.warn('server.create_hosts:connectivity_class')
         connectivity_class = None
 
-    detected_args = _get_host_arguments(machine)
+    detected_args = _get_host_arguments(machine, **args)
     hostname = detected_args.pop('hostname')
     afe_host = detected_args['afe_host']
     info_store = detected_args['host_info_store'].get()
@@ -199,6 +260,7 @@ def create_host(machine, host_class=None, connectivity_class=None, **args):
     for label in info_store.labels:
         if label.startswith(full_os_prefix):
             host_os = label[len(full_os_prefix):]
+            logging.debug('Detected host os: %s from info_store.', host_os)
             break
 
     connectivity_class = _choose_connectivity_class(hostname, args['port'])
@@ -206,6 +268,11 @@ def create_host(machine, host_class=None, connectivity_class=None, **args):
     host_class = (host_class
                   or OS_HOST_DICT.get(afe_host.attributes.get('os_type'))
                   or OS_HOST_DICT.get(host_os))
+
+    if host_class is android_host.AndroidHost:
+        # We don't have direct ssh access to Android devices, so we do
+        # not need connectivity_class for AndroidHost here.
+        connectivity_class = None
 
     if host_class is None:
         # TODO(pprabhu) If we fail to verify connectivity, we skip the costly
@@ -226,8 +293,13 @@ def create_host(machine, host_class=None, connectivity_class=None, **args):
             logging.debug('Defaulting to CrosHost.')
 
     # create a custom host class for this machine and return an instance of it
-    classes = (host_class, connectivity_class)
-    custom_host_class = type("%s_host" % hostname, classes, {})
+    if connectivity_class:
+        classes = (host_class, connectivity_class)
+        custom_host_class = type("%s_host" % hostname, classes, {})
+    else:
+        custom_host_class = host_class
+
+    logging.info('creating host class for {} w/ {}||'.format(hostname, args))
     host_instance = custom_host_class(hostname, **args)
 
     # call job_start if this is the first time this host is being used
@@ -296,6 +368,6 @@ def create_target_host(hostname, host_info_path=None, host_info_store=None,
     if servo_uart_logs_dir and host.servo:
         host.servo.uart_logs_dir = servo_uart_logs_dir
     try:
-      yield host
+        yield host
     finally:
-      host.close()
+        host.close()

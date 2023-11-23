@@ -48,14 +48,15 @@ public class AndroidXSmokeTest {
     @Before
     public void setUp() throws Exception {
         appSearch =
-                LocalStorage.createSearchSession(
+                LocalStorage.createSearchSessionAsync(
                                 new SearchContext.Builder(
                                                 ApplicationProvider.getApplicationContext(),
                                                 "database")
                                         .build())
                         .get();
         // Remove all data before test
-        appSearch.setSchema(new SetSchemaRequest.Builder().setForceOverride(true).build()).get();
+        appSearch.setSchemaAsync(new SetSchemaRequest.Builder().setForceOverride(true).build())
+            .get();
     }
 
     @Test
@@ -70,13 +71,13 @@ public class AndroidXSmokeTest {
                                         .setTokenizerType(StringPropertyConfig.TOKENIZER_TYPE_PLAIN)
                                         .build())
                         .build();
-        appSearch.setSchema(new SetSchemaRequest.Builder().addSchemas(schema).build()).get();
+        appSearch.setSchemaAsync(new SetSchemaRequest.Builder().addSchemas(schema).build()).get();
     }
 
     @Test
     public void smokeTestAnnotationProcessor() throws Exception {
         appSearch
-                .setSchema(
+                .setSchemaAsync(
                         new SetSchemaRequest.Builder()
                                 .addDocumentClasses(TestDocument.class)
                                 .build())
@@ -84,7 +85,7 @@ public class AndroidXSmokeTest {
 
         TestDocument input = new TestDocument("namespace", "id1", "avocado");
         appSearch
-                .put(new PutDocumentsRequest.Builder().addDocuments(input).build())
+                .putAsync(new PutDocumentsRequest.Builder().addDocuments(input).build())
                 .get()
                 .checkSuccess();
         SearchResults results =
@@ -93,10 +94,10 @@ public class AndroidXSmokeTest {
                         new SearchSpec.Builder()
                                 .setTermMatch(SearchSpec.TERM_MATCH_PREFIX)
                                 .build());
-        List<SearchResult> page = results.getNextPage().get();
+        List<SearchResult> page = results.getNextPageAsync().get();
         assertThat(page).hasSize(1);
         SearchResult result = page.get(0);
-        assertThat(results.getNextPage().get()).isEmpty();
+        assertThat(results.getNextPageAsync().get()).isEmpty();
 
         GenericDocument genericOutput = result.getGenericDocument();
         assertEquals("id1", genericOutput.getId());

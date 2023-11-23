@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 import logging
-import xmlrpclib
+import six
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
@@ -74,7 +74,7 @@ class firmware_FWupdateThenSleep(FirmwareTest):
         try:
             if self.flashed and self.is_firmware_saved():
                 self.restore_firmware()
-        except (EnvironmentError, xmlrpclib.Fault,
+        except (EnvironmentError, six.moves.xmlrpc_client.Fault,
                 error.AutoservError, error.TestBaseException):
             logging.error("Problem restoring firmware:", exc_info=True)
 
@@ -85,7 +85,7 @@ class firmware_FWupdateThenSleep(FirmwareTest):
                         self._original_sw_wp['start'],
                         self._original_sw_wp['length'],
                         self._original_sw_wp['enabled'])
-        except (EnvironmentError, xmlrpclib.Fault,
+        except (EnvironmentError, six.moves.xmlrpc_client.Fault,
                 error.AutoservError, error.TestBaseException):
             logging.error("Problem restoring SW write-protect:", exc_info=True)
 
@@ -151,7 +151,7 @@ class firmware_FWupdateThenSleep(FirmwareTest):
                 self.MODE, append, options, ignore_status=True)
 
         if result.exit_status == 255:
-            logging.warn("DUT network dropped during update.")
+            logging.warning("DUT network dropped during update.")
         elif result.exit_status != 0:
             if (image_fwids == before_fwids and
                     'Good. It seems nothing was changed.' in result.stdout):

@@ -8,6 +8,7 @@ TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:wifi_perf'
 MAX_RESULT_SIZE_KB = 1024 * 1024
+PY_VERSION = 3
 
 DOC = '''
 Run the stable Tast tests which measure WiFi performance.

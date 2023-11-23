@@ -42,18 +42,18 @@ java_library(
     javacopts = SOURCE_7_TARGET_7 + DOCLINT_HTML_AND_SYNTAX + DOCLINT_REFERENCES,
     tags = ["maven_coordinates=com.google.dagger:dagger-producers:" + POM_VERSION],
     exports = [
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:concurrent",
-        "@google_bazel_common//third_party/java/jsr330_inject",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/util/concurrent",
+        "//third_party/java/jsr330_inject",
     ],
     deps = [
         "//java/dagger:core",
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
-        "//java/dagger/internal/guava:concurrent",
-        "@google_bazel_common//third_party/java/checker_framework_annotations",
-        "@google_bazel_common//third_party/java/error_prone:annotations",
-        "@google_bazel_common//third_party/java/jsr330_inject",
+        "//third_party/java/checker_framework_annotations",
+        "//third_party/java/error_prone:annotations",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
+        "//third_party/java/guava/util/concurrent",
+        "//third_party/java/jsr330_inject",
     ],
 )
 

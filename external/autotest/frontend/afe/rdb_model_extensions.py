@@ -5,14 +5,11 @@
 """Model extensions common to both the server and client rdb modules.
 """
 
-
+import six
+from autotest_lib.client.common_lib import host_protections, host_states
+from autotest_lib.frontend import settings
 from django.core import exceptions as django_exceptions
 from django.db import models as dbmodels
-
-
-from autotest_lib.client.common_lib import host_protections
-from autotest_lib.client.common_lib import host_states
-from autotest_lib.frontend import settings
 
 
 class ModelValidators(object):
@@ -85,7 +82,7 @@ class ModelValidators(object):
         """
         new_data = dict(data)
         field_dict = cls.get_field_dict()
-        for name, obj in field_dict.iteritems():
+        for name, obj in six.iteritems(field_dict):
             if data.get(name) is not None:
                 continue
             if obj.default is not dbmodels.fields.NOT_PROVIDED:
@@ -202,4 +199,5 @@ class AbstractHostModel(dbmodels.Model, ModelValidators):
 
 
     class Meta:
+        """Extends dbmodels.Model.Meta"""
         abstract = True

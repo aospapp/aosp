@@ -10,9 +10,10 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:au-perbuild"
+PY_VERSION = 3
 DOC = """
 This tests that an update can be triggered by clicking the 'Check for updates'
-button in the Chrome OS Settings app.
+button in the ChromeOS Settings app.
 
 test_that <hostname>.cros autoupdate_FromUI.full --args="job_repo_url='http://<IP>:<port>/static/<board>-release/RXX-XXXX.X.X/autotest/packages'"
 """

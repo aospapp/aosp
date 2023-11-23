@@ -43,12 +43,11 @@ import vogar.util.Strings;
 
 
 /**
- * Android SDK commands such as adb, aapt and dx.
+ * Android SDK commands such as adb, aapt and d8.
  */
 public class AndroidSdk {
 
     private static final String D8_COMMAND_NAME = "d8";
-    private static final String DX_COMMAND_NAME = "dx";
     private static final String ARBITRARY_BUILD_TOOL_NAME = D8_COMMAND_NAME;
 
     private final Log log;
@@ -58,6 +57,8 @@ public class AndroidSdk {
     private final String desugarJarPath;
     private final Md5Cache dexCache;
     private final Language language;
+    private final boolean serialDexing;
+    private final boolean verboseDexStats;
 
     public static Collection<File> defaultExpectations() {
         return Collections.singletonList(new File("libcore/expectations/knownfailures.txt"));
@@ -71,7 +72,7 @@ public class AndroidSdk {
      */
     public static AndroidSdk createAndroidSdk(
             Log log, Mkdir mkdir, ModeId modeId, Language language,
-            boolean supportBuildFromSource) {
+            boolean supportBuildFromSource, boolean serialDexing, boolean verboseDexStats) {
         List<String> path = new Command.Builder(log).args("which", ARBITRARY_BUILD_TOOL_NAME)
                 .permitNonZeroExitStatus(true)
                 .execute();
@@ -99,7 +100,7 @@ public class AndroidSdk {
          * Android build tree (target):
          *  ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/aapt
          *  ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/adb
-         *  ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/dx
+         *  ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/d8
          *  ${ANDROID_BUILD_TOP}/out/host/linux-x86/bin/desugar.jar
          *  ${ANDROID_BUILD_TOP}/out/target/common/obj/JAVA_LIBRARIES/core-libart_intermediates
          *      /classes.jar
@@ -220,7 +221,7 @@ public class AndroidSdk {
         }
 
         return new AndroidSdk(log, mkdir, compilationClasspath, androidJarPath, desugarJarPath,
-                new HostFileCache(log, mkdir), language);
+                new HostFileCache(log, mkdir), language, serialDexing, verboseDexStats);
     }
 
     /** Logs jars that couldn't be found ands suggests a command for building them */
@@ -261,7 +262,8 @@ public class AndroidSdk {
 
     @VisibleForTesting
     AndroidSdk(Log log, Mkdir mkdir, File[] compilationClasspath, String androidJarPath,
-               String desugarJarPath, HostFileCache hostFileCache, Language language) {
+               String desugarJarPath, HostFileCache hostFileCache, Language language,
+               boolean serialDexing, boolean verboseDexStats) {
         this.log = log;
         this.mkdir = mkdir;
         this.compilationClasspath = compilationClasspath;
@@ -269,6 +271,8 @@ public class AndroidSdk {
         this.desugarJarPath = desugarJarPath;
         this.dexCache = new Md5Cache(log, "dex", hostFileCache);
         this.language = language;
+        this.serialDexing = serialDexing;
+        this.verboseDexStats = verboseDexStats;
     }
 
     // Goes up N levels in the filesystem hierarchy. Return the last file that exists if this goes
@@ -374,37 +378,28 @@ public class AndroidSdk {
          * same package they're testing, even when that's a core
          * library package. If you're actually just using this tool to
          * execute arbitrary code, this has the unfortunate
-         * side-effect of preventing "dx" from protecting you from
+         * side-effect of preventing "d8" from protecting you from
          * yourself.
-         *
-         * Memory options pulled from build/core/definitions.mk to
-         * handle large dx input when building dex for APK.
          */
 
         Command.Builder builder = new Command.Builder(log);
+        if (verboseDexStats) {
+            builder.args("/usr/bin/time").args("-v");
+        }
         switch (dexer) {
-            case DX:
-                builder.args(DX_COMMAND_NAME);
-                builder.args("-JXms16M").args("-JXmx1536M");
-                builder.args("--min-sdk-version=" + language.getMinApiLevel());
-                if (multidex) {
-                    builder.args("--multi-dex");
-                }
-                builder.args("--dex")
-                    .args("--output=" + output)
-                    .args("--core-library")
-                    .args(filePaths);
-                builder.execute();
-                break;
             case D8:
                 List<String> sanitizedOutputFilePaths;
                 try {
-                    sanitizedOutputFilePaths = removeDexFilesForD8(filePaths);
+                    sanitizedOutputFilePaths = removeDexFilesForD8(filePaths, outputTempDir);
                 } catch (IOException e) {
                     throw new RuntimeException("Error while removing dex files from archive", e);
                 }
                 builder.args(D8_COMMAND_NAME);
                 builder.args("-JXms16M").args("-JXmx1536M");
+                builder.args("-JXX:+TieredCompilation").args("-JXX:TieredStopAtLevel=1");
+                builder.args("-JDcom.android.tools.r8.emitRecordAnnotationsInDex");
+                builder.args("-JDcom.android.tools.r8.emitPermittedSubclassesAnnotationsInDex");
+                builder.args("--thread-count").args("1");
 
                 // d8 will not allow compiling with a single dex file as the target, but if given
                 // a directory name will start its output in classes.dex but may overflow into
@@ -473,26 +468,35 @@ public class AndroidSdk {
     }
 
     /**
+     * Generates a file path for a modified d8 input file.
+     * @param inputFile the d8 input file.
+     * @param outputDirectory the directory where the modified file should be written.
+     * @return the destination for the modified d8 input file.
+     */
+    private static File getModifiedD8Destination(File inputFile, File outputDirectory) {
+        String name = inputFile.getName();
+        int suffixStart = name.lastIndexOf('.');
+        if (suffixStart != -1) {
+            name = name.substring(0, suffixStart);
+        }
+        return new File(outputDirectory, name + "-d8.jar");
+    }
+
+    /**
       * Removes DEX files from an archive and preserves the rest.
       */
-    private List<String> removeDexFilesForD8(List<String> fileNames) throws IOException {
+    private List<String> removeDexFilesForD8(List<String> fileNames, File tempDir)
+            throws IOException {
         byte[] buffer = new byte[4096];
         List<String> processedFiles = new ArrayList<>(fileNames.size());
         for (String inputFileName : fileNames) {
-            String jarExtension = ".jar";
-            String outputFileName;
-            if (inputFileName.endsWith(jarExtension)) {
-                outputFileName =
-                    inputFileName.substring(0, inputFileName.length() - jarExtension.length())
-                    + "-d8" + jarExtension;
-            } else {
-                outputFileName = inputFileName + "-d8" + jarExtension;
-            }
+            File inputFile = new File(inputFileName);
+            File outputFile = getModifiedD8Destination(inputFile, tempDir);
             try (JarOutputStream outputJar =
-                    new JarOutputStream(new FileOutputStream(outputFileName))) {
+                    new JarOutputStream(new FileOutputStream(outputFile))) {
                 copyJarContentExcludingFiles(buffer, inputFileName, outputJar, ".dex");
             }
-            processedFiles.add(outputFileName);
+            processedFiles.add(outputFile.toString());
         }
         return processedFiles;
     }

@@ -12,9 +12,9 @@
  *     address specified as &tp is invalid
  */
 
-#include <sched.h>
 #include "time64_variants.h"
 #include "tst_timer.h"
+#include "tst_sched.h"
 
 static pid_t unused_pid;
 static pid_t inval_pid = -1;
@@ -55,7 +55,7 @@ static void setup(void)
 	bad_addr = tst_get_bad_addr(NULL);
 	tp.type = tv->ts_type;
 
-	if ((sched_setscheduler(0, SCHED_RR, &p)) == -1)
+	if ((sys_sched_setscheduler(0, SCHED_RR, &p)) == -1)
 		tst_res(TFAIL | TERRNO, "sched_setscheduler() failed");
 
 	unused_pid = tst_get_unused_pid();
@@ -67,23 +67,19 @@ static void run(unsigned int i)
 	struct test_cases_t *tc = &test_cases[i];
 	struct timerspec *ts;
 
+	if (tc->exp_errno == EFAULT
+		&& tv->sched_rr_get_interval == libc_sched_rr_get_interval) {
+		tst_res(TCONF, "EFAULT skipped for libc_variant");
+		return;
+	}
+
 	if (tc->exp_errno == EFAULT)
 		ts = bad_addr;
 	else
 		ts = tst_ts_get(tc->tp);
 
-	TEST(tv->sched_rr_get_interval(*tc->pid, ts));
-
-	if (TST_RET != -1) {
-		tst_res(TFAIL, "sched_rr_get_interval() passed unexpectedly");
-		return;
-	}
-
-	if (tc->exp_errno == TST_ERR)
-		tst_res(TPASS | TTERRNO, "sched_rr_get_interval() failed as expected");
-	else
-		tst_res(TFAIL | TTERRNO, "sched_rr_get_interval() failed unexpectedly: %s",
-			tst_strerrno(tc->exp_errno));
+	TST_EXP_FAIL(tv->sched_rr_get_interval(*tc->pid, ts), tc->exp_errno,
+	             "sched_rr_get_interval(%i, %p)", *tc->pid, ts);
 }
 
 static struct tst_test test = {

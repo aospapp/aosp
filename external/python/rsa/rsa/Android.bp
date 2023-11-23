@@ -29,13 +29,5 @@ python_library {
     libs: [
         "py-pyasn1",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     pkg_path: "rsa",
 }

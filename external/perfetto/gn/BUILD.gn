@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import("perfetto.gni")
+import("perfetto_python.gni")
 import("proto_library.gni")
 
 if (perfetto_root_path == "//") {
@@ -89,6 +90,7 @@ action("gen_buildflags") {
     "PERFETTO_STDERR_CRASH_DUMP=$enable_perfetto_stderr_crash_dump",
     "PERFETTO_X64_CPU_OPT=$enable_perfetto_x64_cpu_opt",
     "PERFETTO_LLVM_DEMANGLE=$enable_perfetto_llvm_demangle",
+    "PERFETTO_SYSTEM_CONSUMER=$enable_perfetto_system_consumer",
   ]
 
   rel_out_path = rebase_path(gen_header_path, "$root_build_dir")
@@ -211,6 +213,7 @@ protobuf_full_deps_allowlist = [
   "../src/trace_processor:trace_processor_shell",
   "../src/protozero/filtering:filter_util",
   "../tools/*",
+  "../src/tools/*",
 ]
 
 group("protoc") {
@@ -272,13 +275,8 @@ config("protobuf_gen_config") {
     "GOOGLE_PROTOBUF_NO_STATIC_INITIALIZER",
   ]
   cflags = []
-  if (is_clang || !is_win) {
-    cflags += [
-      "-Wno-unknown-warning-option",
-      "-Wno-deprecated",
-      "-Wno-undef",
-      "-Wno-zero-as-null-pointer-constant",
-    ]
+  if (!is_clang && !is_win) {
+    cflags += [ "-Wno-deprecated-declarations" ]
   }
   if (is_clang && is_win) {
     cflags += [
@@ -289,6 +287,12 @@ config("protobuf_gen_config") {
       "-Wno-undefined-reinterpret-cast",
       "-Wno-inconsistent-missing-destructor-override",
       "-Wno-unused-parameter",
+      "-Wno-shadow-field-in-constructor",
+      "-Wno-zero-as-null-pointer-constant",
+
+      # Fixed in upstream protobuf v3.22.0
+      # d37cbfd4485f("Update inlined_string_field.h"), but we don't have that.
+      "-Wno-undef",
     ]
   }
 
@@ -402,10 +406,26 @@ if (enable_perfetto_llvm_demangle) {
   }
 }
 
+# Allows overriding platform-specific functionality used by base at a
+# build-system level. This allows e.g. different implementations of base
+# functions in Google3.
+group("base_platform") {
+  public_deps = [ "../src/base:perfetto_base_default_platform" ]
+}
+
 # Used by fuzzers.
 if (enable_perfetto_fuzzers && use_libfuzzer) {
   group("libfuzzer") {
     assert(perfetto_root_path == "//")
     public_deps = [ "//buildtools:libfuzzer" ]
   }
+}
+
+# Python libraries which need to be installed on the system
+# or provided (for other build systems).
+perfetto_py_library("pandas_py") {
+}
+perfetto_py_library("tp_vendor_py") {
+}
+perfetto_py_library("protobuf_py") {
 }

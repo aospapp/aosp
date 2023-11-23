@@ -62,11 +62,9 @@ static constexpr Version ES_3_2 = Version(3, 2);
 template <typename T>
 using BufferBindingMap     = angle::PackedEnumMap<BufferBinding, T>;
 using BoundBufferMap       = BufferBindingMap<BindingPointer<Buffer>>;
-using SamplerBindingVector = std::vector<BindingPointer<Sampler>>;
 using TextureBindingVector = std::vector<BindingPointer<Texture>>;
 using TextureBindingMap    = angle::PackedEnumMap<TextureType, TextureBindingVector>;
 using ActiveQueryMap       = angle::PackedEnumMap<QueryType, BindingPointer<Query>>;
-using BufferVector         = std::vector<OffsetBindingPointer<Buffer>>;
 
 class ActiveTexturesCache final : angle::NonCopyable
 {
@@ -96,12 +94,14 @@ class State : angle::NonCopyable
           const OverlayType *overlay,
           const EGLenum clientType,
           const Version &clientVersion,
+          EGLint profileMask,
           bool debug,
           bool bindGeneratesResourceCHROMIUM,
           bool clientArraysEnabled,
           bool robustResourceInit,
           bool programBinaryCacheEnabled,
           EGLenum contextPriority,
+          bool hasRobustAccess,
           bool hasProtectedContent);
     ~State();
 
@@ -111,7 +111,9 @@ class State : angle::NonCopyable
     // Getters
     ContextID getContextID() const { return mID; }
     EGLenum getClientType() const { return mClientType; }
+    EGLint getProfileMask() const { return mProfileMask; }
     EGLenum getContextPriority() const { return mContextPriority; }
+    bool hasRobustAccess() const { return mHasRobustAccess; }
     bool hasProtectedContent() const { return mHasProtectedContent; }
     bool isDebugContext() const { return mIsDebugContext; }
     GLint getClientMajorVersion() const { return mClientVersion.major; }
@@ -126,6 +128,8 @@ class State : angle::NonCopyable
     bool isWebGL() const { return mExtensions.webglCompatibilityANGLE; }
 
     bool isWebGL1() const { return (isWebGL() && mClientVersion.major == 2); }
+
+    bool isGLES1() const { return mClientVersion < ES_2_0; }
 
     const TextureCaps &getTextureCap(GLenum internalFormat) const
     {
@@ -168,6 +172,10 @@ class State : angle::NonCopyable
     void setCullMode(CullFaceMode mode);
     void setFrontFace(GLenum front);
 
+    // EXT_depth_clamp
+    bool isDepthClampEnabled() const { return mRasterizer.depthClamp; }
+    void setDepthClamp(bool enabled);
+
     // Depth test state manipulation
     bool isDepthTestEnabled() const { return mDepthStencil.depthTest; }
     bool isDepthWriteEnabled() const { return mDepthStencil.depthTest && mDepthStencil.depthMask; }
@@ -177,23 +185,20 @@ class State : angle::NonCopyable
     float getNearPlane() const { return mNearZ; }
     float getFarPlane() const { return mFarZ; }
 
-    // Clip control extension
-    void setClipControl(GLenum origin, GLenum depth);
-    bool isClipControlDepthZeroToOne() const { return mClipControlDepth == GL_ZERO_TO_ONE_EXT; }
-    gl::ClipSpaceOrigin getClipSpaceOrigin() const
-    {
-        return mClipControlOrigin == GL_UPPER_LEFT_EXT ? ClipSpaceOrigin::UpperLeft
-                                                       : ClipSpaceOrigin::LowerLeft;
-    }
+    // EXT_clip_control
+    void setClipControl(ClipOrigin origin, ClipDepthMode depth);
+    ClipOrigin getClipOrigin() const { return mClipOrigin; }
+    ClipDepthMode getClipDepthMode() const { return mClipDepthMode; }
+    bool isClipDepthModeZeroToOne() const { return mClipDepthMode == ClipDepthMode::ZeroToOne; }
 
     // Blend state manipulation
-    bool isBlendEnabled() const { return mBlendStateExt.mEnabledMask.test(0); }
+    bool isBlendEnabled() const { return mBlendStateExt.getEnabledMask().test(0); }
     bool isBlendEnabledIndexed(GLuint index) const
     {
-        ASSERT(static_cast<size_t>(index) < mBlendStateExt.mMaxDrawBuffers);
-        return mBlendStateExt.mEnabledMask.test(index);
+        ASSERT(static_cast<size_t>(index) < mBlendStateExt.getDrawBufferCount());
+        return mBlendStateExt.getEnabledMask().test(index);
     }
-    DrawBufferMask getBlendEnabledDrawBufferMask() const { return mBlendStateExt.mEnabledMask; }
+    DrawBufferMask getBlendEnabledDrawBufferMask() const { return mBlendStateExt.getEnabledMask(); }
     void setBlend(bool enabled);
     void setBlendIndexed(bool enabled, GLuint index);
     void setBlendFactors(GLenum sourceRGB, GLenum destRGB, GLenum sourceAlpha, GLenum destAlpha);
@@ -209,6 +214,11 @@ class State : angle::NonCopyable
 
     // Stencil state maniupulation
     bool isStencilTestEnabled() const { return mDepthStencil.stencilTest; }
+    bool isStencilWriteEnabled() const
+    {
+        return mDepthStencil.stencilTest &&
+               !(mDepthStencil.isStencilNoOp() && mDepthStencil.isStencilBackNoOp());
+    }
     void setStencilTest(bool enabled);
     void setStencilParams(GLenum stencilFunc, GLint stencilRef, GLuint stencilMask);
     void setStencilBackParams(GLenum stencilBackFunc, GLint stencilBackRef, GLuint stencilBackMask);
@@ -226,7 +236,7 @@ class State : angle::NonCopyable
     // Depth bias/polygon offset state manipulation
     bool isPolygonOffsetFillEnabled() const { return mRasterizer.polygonOffsetFill; }
     void setPolygonOffsetFill(bool enabled);
-    void setPolygonOffsetParams(GLfloat factor, GLfloat units);
+    void setPolygonOffsetParams(GLfloat factor, GLfloat units, GLfloat clamp);
 
     // Multisample coverage state manipulation
     bool isSampleAlphaToCoverageEnabled() const { return mSampleAlphaToCoverage; }
@@ -246,10 +256,7 @@ class State : angle::NonCopyable
         ASSERT(maskNumber < mMaxSampleMaskWords);
         return mSampleMaskValues[maskNumber];
     }
-    std::array<GLbitfield, MAX_SAMPLE_MASK_WORDS> getSampleMaskValues() const
-    {
-        return mSampleMaskValues;
-    }
+    SampleMaskArray<GLbitfield> getSampleMaskValues() const { return mSampleMaskValues; }
     GLuint getMaxSampleMaskWords() const { return mMaxSampleMaskWords; }
 
     // Multisampling/alpha to one manipulation.
@@ -362,9 +369,25 @@ class State : angle::NonCopyable
         return mVertexArray;
     }
 
+    // QCOM_shading_rate helpers
+    void setShadingRate(GLenum rate);
+    ShadingRate getShadingRate() const { return mShadingRate; }
+
     // If both a Program and a ProgramPipeline are bound, the Program will
     // always override the ProgramPipeline.
     ProgramExecutable *getProgramExecutable() const { return mExecutable; }
+    ProgramExecutable *getLinkedProgramExecutable(const Context *context) const
+    {
+        if (mProgram)
+        {
+            mProgram->resolveLink(context);
+        }
+        else if (mProgramPipeline.get())
+        {
+            mProgramPipeline->resolveLink(context);
+        }
+        return mExecutable;
+    }
 
     // Program binding manipulation
     angle::Result setProgram(const Context *context, Program *newProgram);
@@ -385,6 +408,15 @@ class State : angle::NonCopyable
     }
 
     ProgramPipeline *getProgramPipeline() const { return mProgramPipeline.get(); }
+
+    ProgramPipeline *getLinkedProgramPipeline(const Context *context) const
+    {
+        if (mProgramPipeline.get())
+        {
+            mProgramPipeline->resolveLink(context);
+        }
+        return mProgramPipeline.get();
+    }
 
     // Transform feedback object (not buffer) binding manipulation
     void setTransformFeedbackBinding(const Context *context, TransformFeedback *transformFeedback);
@@ -458,13 +490,13 @@ class State : angle::NonCopyable
     {
         return mBoundUniformBuffersMask;
     }
-    const angle::BitSet<gl::IMPLEMENTATION_MAX_ATOMIC_COUNTER_BUFFER_BINDINGS>
-        &getAtomicCounterBuffersMask() const
+    const angle::BitSet<gl::IMPLEMENTATION_MAX_ATOMIC_COUNTER_BUFFER_BINDINGS> &
+    getAtomicCounterBuffersMask() const
     {
         return mBoundAtomicCounterBuffersMask;
     }
-    const angle::BitSet<gl::IMPLEMENTATION_MAX_SHADER_STORAGE_BUFFER_BINDINGS>
-        &getShaderStorageBuffersMask() const
+    const angle::BitSet<gl::IMPLEMENTATION_MAX_SHADER_STORAGE_BUFFER_BINDINGS> &
+    getShaderStorageBuffersMask() const
     {
         return mBoundShaderStorageBuffersMask;
     }
@@ -589,16 +621,25 @@ class State : angle::NonCopyable
     void setPatchVertices(GLuint value);
     GLuint getPatchVertices() const { return mPatchVertices; }
 
+    // GL_ANGLE_shader_pixel_local_storage
+    void setPixelLocalStorageActivePlanes(GLsizei n);
+    GLsizei getPixelLocalStorageActivePlanes() const { return mPixelLocalStorageActivePlanes; }
+
     // State query functions
     void getBooleanv(GLenum pname, GLboolean *params) const;
     void getFloatv(GLenum pname, GLfloat *params) const;
     angle::Result getIntegerv(const Context *context, GLenum pname, GLint *params) const;
     void getPointerv(const Context *context, GLenum pname, void **params) const;
-    void getIntegeri_v(GLenum target, GLuint index, GLint *data) const;
+    void getIntegeri_v(const Context *context, GLenum target, GLuint index, GLint *data) const;
     void getInteger64i_v(GLenum target, GLuint index, GLint64 *data) const;
     void getBooleani_v(GLenum target, GLuint index, GLboolean *data) const;
 
     bool isRobustResourceInitEnabled() const { return mRobustResourceInit; }
+
+    bool isDrawFramebufferBindingDirty() const
+    {
+        return mDirtyBits.test(DIRTY_BIT_DRAW_FRAMEBUFFER_BINDING);
+    }
 
     // Sets the dirty bit for the program executable.
     angle::Result onProgramExecutableChange(const Context *context, Program *program);
@@ -676,7 +717,7 @@ class State : angle::NonCopyable
         DIRTY_BIT_SAMPLE_SHADING,
         DIRTY_BIT_PATCH_VERTICES,
         DIRTY_BIT_EXTENDED,  // clip distances, mipmap generation hint, derivative hint,
-                             // EXT_clip_control
+                             // EXT_clip_control, EXT_depth_clamp
         DIRTY_BIT_INVALID,
         DIRTY_BIT_MAX = DIRTY_BIT_INVALID,
     };
@@ -687,8 +728,12 @@ class State : angle::NonCopyable
     {
         EXTENDED_DIRTY_BIT_CLIP_CONTROL,            // EXT_clip_control
         EXTENDED_DIRTY_BIT_CLIP_DISTANCES,          // clip distances
+        EXTENDED_DIRTY_BIT_DEPTH_CLAMP_ENABLED,     // EXT_depth_clamp
         EXTENDED_DIRTY_BIT_MIPMAP_GENERATION_HINT,  // mipmap generation hint
         EXTENDED_DIRTY_BIT_SHADER_DERIVATIVE_HINT,  // shader derivative hint
+        EXTENDED_DIRTY_BIT_SHADING_RATE,            // QCOM_shading_rate
+        EXTENDED_DIRTY_BIT_LOGIC_OP_ENABLED,        // ANGLE_logic_op
+        EXTENDED_DIRTY_BIT_LOGIC_OP,                // ANGLE_logic_op
         EXTENDED_DIRTY_BIT_INVALID,
         EXTENDED_DIRTY_BIT_MAX = EXTENDED_DIRTY_BIT_INVALID,
     };
@@ -710,6 +755,7 @@ class State : angle::NonCopyable
         DIRTY_OBJECT_IMAGES,    // Top-level dirty bit. Also see mDirtyImages.
         DIRTY_OBJECT_SAMPLERS,  // Top-level dirty bit. Also see mDirtySamplers.
         DIRTY_OBJECT_PROGRAM,
+        DIRTY_OBJECT_PROGRAM_PIPELINE_OBJECT,
         DIRTY_OBJECT_UNKNOWN,
         DIRTY_OBJECT_MAX = DIRTY_OBJECT_UNKNOWN,
     };
@@ -721,14 +767,14 @@ class State : angle::NonCopyable
     void setAllDirtyBits()
     {
         mDirtyBits.set();
+        mExtendedDirtyBits.set();
         mDirtyCurrentValues.set();
     }
 
     using ExtendedDirtyBits = angle::BitSet32<EXTENDED_DIRTY_BIT_MAX>;
     const ExtendedDirtyBits &getExtendedDirtyBits() const { return mExtendedDirtyBits; }
-    // TODO(https://anglebug.com/5631): Handle extended dirty bits on non-vulkan backends
-    ExtendedDirtyBits getAndResetExtendedDirtyBits() const;
     void clearExtendedDirtyBits() { mExtendedDirtyBits.reset(); }
+    void clearExtendedDirtyBits(const ExtendedDirtyBits &bitset) { mExtendedDirtyBits &= ~bitset; }
 
     using DirtyObjects = angle::BitSet<DIRTY_OBJECT_MAX>;
     void clearDirtyObjects() { mDirtyObjects.reset(); }
@@ -859,23 +905,18 @@ class State : angle::NonCopyable
 
     bool hasConstantAlphaBlendFunc() const
     {
-        return (mBlendFuncConstantAlphaDrawBuffers & mBlendStateExt.mEnabledMask).any();
+        return (mBlendFuncConstantAlphaDrawBuffers & mBlendStateExt.getEnabledMask()).any();
     }
 
     bool hasSimultaneousConstantColorAndAlphaBlendFunc() const
     {
-        return (mBlendFuncConstantColorDrawBuffers & mBlendStateExt.mEnabledMask).any() &&
+        return (mBlendFuncConstantColorDrawBuffers & mBlendStateExt.getEnabledMask()).any() &&
                hasConstantAlphaBlendFunc();
     }
 
     bool noSimultaneousConstantColorAndAlphaBlendFunc() const
     {
         return mNoSimultaneousConstantColorAndAlphaBlendFunc;
-    }
-
-    bool canEnableEarlyFragmentTestsOptimization() const
-    {
-        return !isSampleAlphaToCoverageEnabled();
     }
 
     const BufferVector &getOffsetBindingPointerUniformBuffers() const { return mUniformBuffers; }
@@ -913,6 +954,12 @@ class State : angle::NonCopyable
 
     bool hasDisplayTextureShareGroup() const { return mDisplayTextureShareGroup; }
 
+    void setLogicOpEnabled(bool enabled);
+    bool isLogicOpEnabled() const { return mLogicOpEnabled; }
+
+    void setLogicOp(LogicalOperation opcode);
+    LogicalOperation getLogicOp() const { return mLogicOp; }
+
   private:
     friend class Context;
 
@@ -941,14 +988,24 @@ class State : angle::NonCopyable
     angle::Result syncImages(const Context *context, Command command);
     angle::Result syncSamplers(const Context *context, Command command);
     angle::Result syncProgram(const Context *context, Command command);
+    angle::Result syncProgramPipelineObject(const Context *context, Command command);
 
     using DirtyObjectHandler = angle::Result (State::*)(const Context *context, Command command);
 
     static constexpr DirtyObjectHandler kDirtyObjectHandlers[DIRTY_OBJECT_MAX] = {
-        &State::syncActiveTextures,  &State::syncTexturesInit,    &State::syncImagesInit,
-        &State::syncReadAttachments, &State::syncDrawAttachments, &State::syncReadFramebuffer,
-        &State::syncDrawFramebuffer, &State::syncVertexArray,     &State::syncTextures,
-        &State::syncImages,          &State::syncSamplers,        &State::syncProgram};
+        &State::syncActiveTextures,
+        &State::syncTexturesInit,
+        &State::syncImagesInit,
+        &State::syncReadAttachments,
+        &State::syncDrawAttachments,
+        &State::syncReadFramebuffer,
+        &State::syncDrawFramebuffer,
+        &State::syncVertexArray,
+        &State::syncTextures,
+        &State::syncImages,
+        &State::syncSamplers,
+        &State::syncProgram,
+        &State::syncProgramPipelineObject};
 
     // Robust init must happen before Framebuffer init for the Vulkan back-end.
     static_assert(DIRTY_OBJECT_ACTIVE_TEXTURES < DIRTY_OBJECT_TEXTURES_INIT, "init order");
@@ -969,6 +1026,8 @@ class State : angle::NonCopyable
     static_assert(DIRTY_OBJECT_IMAGES == 9, "check DIRTY_OBJECT_IMAGES index");
     static_assert(DIRTY_OBJECT_SAMPLERS == 10, "check DIRTY_OBJECT_SAMPLERS index");
     static_assert(DIRTY_OBJECT_PROGRAM == 11, "check DIRTY_OBJECT_PROGRAM index");
+    static_assert(DIRTY_OBJECT_PROGRAM_PIPELINE_OBJECT == 12,
+                  "check DIRTY_OBJECT_PROGRAM_PIPELINE_OBJECT index");
 
     // Dispatch table for buffer update functions.
     static const angle::PackedEnumMap<BufferBinding, BufferBindingSetter> kBufferSetters;
@@ -976,7 +1035,9 @@ class State : angle::NonCopyable
     ContextID mID;
 
     EGLenum mClientType;
+    EGLint mProfileMask;
     EGLenum mContextPriority;
+    bool mHasRobustAccess;
     bool mHasProtectedContent;
     bool mIsDebugContext;
     Version mClientVersion;
@@ -1009,6 +1070,8 @@ class State : angle::NonCopyable
     bool mScissorTest;
     Rectangle mScissor;
 
+    bool mNoUnclampedBlendColor;
+
     BlendState mBlendState;  // Buffer zero blend state legacy struct
     BlendStateExt mBlendStateExt;
     ColorF mBlendColor;
@@ -1018,7 +1081,7 @@ class State : angle::NonCopyable
     bool mSampleCoverageInvert;
     bool mSampleMask;
     GLuint mMaxSampleMaskWords;
-    std::array<GLbitfield, MAX_SAMPLE_MASK_WORDS> mSampleMaskValues;
+    SampleMaskArray<GLbitfield> mSampleMaskValues;
     bool mIsSampleShadingEnabled;
     float mMinSampleShading;
 
@@ -1039,8 +1102,8 @@ class State : angle::NonCopyable
     float mNearZ;
     float mFarZ;
 
-    GLenum mClipControlOrigin;
-    GLenum mClipControlDepth;
+    ClipOrigin mClipOrigin;
+    ClipDepthMode mClipDepthMode;
 
     Framebuffer *mReadFramebuffer;
     Framebuffer *mDrawFramebuffer;
@@ -1124,14 +1187,21 @@ class State : angle::NonCopyable
     // GL_ANGLE_webgl_compatibility
     bool mTextureRectangleEnabled;
 
+    // GL_ANGLE_logic_op
+    bool mLogicOpEnabled;
+    LogicalOperation mLogicOp;
+
     // GL_KHR_parallel_shader_compile
     GLuint mMaxShaderCompilerThreads;
 
-    // GL_APPLE_clip_distance/GL_EXT_clip_cull_distance
+    // GL_APPLE_clip_distance / GL_EXT_clip_cull_distance / GL_ANGLE_clip_cull_distance
     ClipDistanceEnableBits mClipDistancesEnabled;
 
     // GL_EXT_tessellation_shader
     GLuint mPatchVertices;
+
+    // GL_ANGLE_shader_pixel_local_storage
+    GLsizei mPixelLocalStorageActivePlanes;
 
     // GLES1 emulation: state specific to GLES1
     GLES1State mGLES1State;
@@ -1168,6 +1238,13 @@ class State : angle::NonCopyable
     GLfloat mBoundingBoxMaxY;
     GLfloat mBoundingBoxMaxZ;
     GLfloat mBoundingBoxMaxW;
+
+    // QCOM_shading_rate
+    bool mShadingRatePreserveAspectRatio;
+    ShadingRate mShadingRate;
+
+    // GL_ARM_shader_framebuffer_fetch
+    bool mFetchPerSample;
 };
 
 ANGLE_INLINE angle::Result State::syncDirtyObjects(const Context *context,

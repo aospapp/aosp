@@ -16,11 +16,42 @@
 
 #include "src/trace_processor/importers/common/track_tracker.h"
 
+#include <optional>
+
 #include "src/trace_processor/importers/common/args_tracker.h"
 #include "src/trace_processor/importers/common/process_tracker.h"
+#include "src/trace_processor/storage/trace_storage.h"
 
 namespace perfetto {
 namespace trace_processor {
+
+namespace {
+
+const char* GetNameForGroup(TrackTracker::Group group) {
+  switch (group) {
+    case TrackTracker::Group::kMemory:
+      return "Memory";
+    case TrackTracker::Group::kIo:
+      return "IO";
+    case TrackTracker::Group::kVirtio:
+      return "Virtio";
+    case TrackTracker::Group::kNetwork:
+      return "Network";
+    case TrackTracker::Group::kPower:
+      return "Power";
+    case TrackTracker::Group::kDeviceState:
+      return "Device State";
+    case TrackTracker::Group::kThermals:
+      return "Thermals";
+    case TrackTracker::Group::kClockFrequency:
+      return "Clock Freqeuncy";
+    case TrackTracker::Group::kSizeSentinel:
+      PERFETTO_FATAL("Unexpected size passed as group");
+  }
+  PERFETTO_FATAL("For GCC");
+}
+
+}  // namespace
 
 TrackTracker::TrackTracker(TraceProcessorContext* context)
     : source_key_(context->storage->InternString("source")),
@@ -70,8 +101,9 @@ TrackId TrackTracker::InternCpuTrack(StringId name, uint32_t cpu) {
     return it->second;
   }
 
-  tables::TrackTable::Row row(name);
-  auto id = context_->storage->mutable_track_table()->Insert(row).id;
+  tables::CpuTrackTable::Row row(name);
+  row.cpu = cpu;
+  auto id = context_->storage->mutable_cpu_track_table()->Insert(row).id;
   cpu_tracks_[std::make_pair(name, cpu)] = id;
 
   return id;
@@ -192,7 +224,9 @@ TrackId TrackTracker::GetOrCreateTriggerTrack() {
   return *trigger_track_id_;
 }
 
-TrackId TrackTracker::InternGlobalCounterTrack(StringId name,
+TrackId TrackTracker::InternGlobalCounterTrack(TrackTracker::Group group,
+                                               StringId name,
+                                               SetArgsCallback callback,
                                                StringId unit,
                                                StringId description) {
   auto it = global_counter_tracks_by_name_.find(name);
@@ -201,11 +235,16 @@ TrackId TrackTracker::InternGlobalCounterTrack(StringId name,
   }
 
   tables::CounterTrackTable::Row row(name);
+  row.parent_id = InternTrackForGroup(group);
   row.unit = unit;
   row.description = description;
   TrackId track =
       context_->storage->mutable_counter_track_table()->Insert(row).id;
   global_counter_tracks_by_name_[name] = track;
+  if (callback) {
+    auto inserter = context_->args_tracker->AddArgsTo(track);
+    callback(inserter);
+  }
   return track;
 }
 
@@ -300,6 +339,57 @@ TrackId TrackTracker::InternGpuCounterTrack(StringId name, uint32_t gpu_id) {
   return track;
 }
 
+TrackId TrackTracker::InternEnergyCounterTrack(StringId name,
+                                               int32_t consumer_id,
+                                               StringId consumer_type,
+                                               int32_t ordinal) {
+  auto it = energy_counter_tracks_.find(std::make_pair(name, consumer_id));
+  if (it != energy_counter_tracks_.end()) {
+    return it->second;
+  }
+  tables::EnergyCounterTrackTable::Row row(name);
+  row.consumer_id = consumer_id;
+  row.consumer_type = consumer_type;
+  row.ordinal = ordinal;
+  TrackId track =
+      context_->storage->mutable_energy_counter_track_table()->Insert(row).id;
+  energy_counter_tracks_[std::make_pair(name, consumer_id)] = track;
+  return track;
+}
+
+TrackId TrackTracker::InternUidCounterTrack(StringId name, int32_t uid) {
+  auto it = uid_counter_tracks_.find(std::make_pair(name, uid));
+  if (it != uid_counter_tracks_.end()) {
+    return it->second;
+  }
+
+  tables::UidCounterTrackTable::Row row(name);
+  row.uid = uid;
+  TrackId track =
+      context_->storage->mutable_uid_counter_track_table()->Insert(row).id;
+  uid_counter_tracks_[std::make_pair(name, uid)] = track;
+  return track;
+}
+
+TrackId TrackTracker::InternEnergyPerUidCounterTrack(StringId name,
+                                                     int32_t consumer_id,
+                                                     int32_t uid) {
+  auto it = energy_per_uid_counter_tracks_.find(std::make_pair(name, uid));
+  if (it != energy_per_uid_counter_tracks_.end()) {
+    return it->second;
+  }
+
+  tables::EnergyPerUidCounterTrackTable::Row row(name);
+  row.consumer_id = consumer_id;
+  row.uid = uid;
+  TrackId track =
+      context_->storage->mutable_energy_per_uid_counter_track_table()
+          ->Insert(row)
+          .id;
+  energy_per_uid_counter_tracks_[std::make_pair(name, uid)] = track;
+  return track;
+}
+
 TrackId TrackTracker::CreateGpuCounterTrack(StringId name,
                                             uint32_t gpu_id,
                                             StringId description,
@@ -321,6 +411,19 @@ TrackId TrackTracker::CreatePerfCounterTrack(StringId name,
   row.cpu = cpu;
   row.is_timebase = is_timebase;
   return context_->storage->mutable_perf_counter_track_table()->Insert(row).id;
+}
+
+TrackId TrackTracker::InternTrackForGroup(TrackTracker::Group group) {
+  uint32_t group_idx = static_cast<uint32_t>(group);
+  const std::optional<TrackId>& group_id = group_track_ids_[group_idx];
+  if (group_id) {
+    return *group_id;
+  }
+
+  StringId id = context_->storage->InternString(GetNameForGroup(group));
+  TrackId track_id = context_->storage->mutable_track_table()->Insert({id}).id;
+  group_track_ids_[group_idx] = track_id;
+  return track_id;
 }
 
 }  // namespace trace_processor

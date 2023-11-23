@@ -1,0 +1,8 @@
+target/
+**/*.rs.bk
+.google.json
+TAGS
+package
+*.pyc
+core.*
+Cargo.lock

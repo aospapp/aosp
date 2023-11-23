@@ -44,7 +44,7 @@ TEST(TestReffedStatusCallback, CallsBackOK) {
 
 TEST(TestReffedStatusCallback, CallsBackFail) {
   bool called = false;
-  Status status = Status::OK();
+  Status status = OkStatus();
   auto done = [&called, &status](const Status& s) {
     called = true;
     status = s;
@@ -55,16 +55,17 @@ TEST(TestReffedStatusCallback, CallsBackFail) {
   EXPECT_FALSE(called);
   cb->Unref();
   EXPECT_TRUE(called);
-  // Equal to the first error.
-  EXPECT_EQ(status.code(), error::INTERNAL);
+  // Should be one of the two given error codes.
+  EXPECT_THAT(status.code(),
+              ::testing::AnyOf(error::INTERNAL, error::INVALID_ARGUMENT));
   // Both errors are reported.
-  EXPECT_TRUE(absl::StrContains(status.error_message(), "Internal: 1"));
-  EXPECT_TRUE(absl::StrContains(status.error_message(), "Invalid argument: 2"));
+  EXPECT_TRUE(absl::StrContains(status.error_message(), "1"));
+  EXPECT_TRUE(absl::StrContains(status.error_message(), "2"));
 }
 
 TEST(TestReffedStatusCallback, RefMulti) {
   int called = false;
-  Status status = Status::OK();
+  Status status = OkStatus();
   auto done = [&called, &status](const Status& s) {
     called = true;
     status = s;
@@ -80,8 +81,8 @@ TEST(TestReffedStatusCallback, RefMulti) {
   cb->Unref();  // Created by constructor.
   EXPECT_TRUE(called);
   // Both errors are reported.
-  EXPECT_TRUE(absl::StrContains(status.error_message(), "Internal: 1"));
-  EXPECT_TRUE(absl::StrContains(status.error_message(), "Internal: 2"));
+  EXPECT_TRUE(absl::StrContains(status.error_message(), "1"));
+  EXPECT_TRUE(absl::StrContains(status.error_message(), "2"));
 }
 
 TEST(TestReffedStatusCallback, MultiThreaded) {
@@ -113,8 +114,7 @@ TEST(TestReffedStatusCallback, MultiThreaded) {
 
   EXPECT_EQ(num_called.load(), 1);
   EXPECT_EQ(status.code(), error::INVALID_ARGUMENT);
-  EXPECT_TRUE(
-      absl::StrContains(status.error_message(), "Invalid argument: err"));
+  EXPECT_TRUE(absl::StrContains(status.error_message(), "err"));
 }
 
 }  // namespace

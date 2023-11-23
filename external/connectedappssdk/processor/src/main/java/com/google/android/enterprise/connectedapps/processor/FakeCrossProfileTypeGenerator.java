@@ -15,10 +15,14 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.getBuilderClassName;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.prepend;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.transformClassName;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.ABSTRACT_FAKE_PROFILE_CONNECTOR_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_AWARE_UTILS_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CurrentProfileGenerator.getCurrentProfileClassName;
+import static com.google.android.enterprise.connectedapps.processor.InterfaceGenerator.getCrossProfileTypeInterfaceClassName;
 import static com.google.android.enterprise.connectedapps.processor.InterfaceGenerator.getMultipleSenderInterfaceClassName;
 import static com.google.android.enterprise.connectedapps.processor.InterfaceGenerator.getSingleSenderCanThrowInterfaceClassName;
 import static com.google.android.enterprise.connectedapps.processor.InterfaceGenerator.getSingleSenderInterfaceClassName;
@@ -29,6 +33,7 @@ import com.google.android.enterprise.connectedapps.annotations.CustomProfileConn
 import com.google.android.enterprise.connectedapps.annotations.CustomProfileConnector.ProfileType;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTypeInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.GeneratorContext;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -45,12 +50,19 @@ class FakeCrossProfileTypeGenerator {
   private final CrossProfileTypeInfo crossProfileType;
   private final GeneratorContext generatorContext;
   private final GeneratorUtilities generatorUtilities;
+  private final ClassName fakeProfileConnectorClassName;
 
   public FakeCrossProfileTypeGenerator(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
     this.generatorContext = checkNotNull(generatorContext);
     this.generatorUtilities = new GeneratorUtilities(generatorContext);
     this.crossProfileType = checkNotNull(crossProfileType);
+    this.fakeProfileConnectorClassName =
+        crossProfileType.connectorInfo().isPresent()
+                && crossProfileType.connectorInfo().get().profileConnector().isPresent()
+            ? FakeProfileConnectorGenerator.getFakeProfileConnectorClassName(
+                crossProfileType.connectorInfo().get().profileConnector().get())
+            : ABSTRACT_FAKE_PROFILE_CONNECTOR_CLASSNAME;
   }
 
   void generate() {
@@ -68,13 +80,7 @@ class FakeCrossProfileTypeGenerator {
     ClassName builderClassName =
         getFakeCrossProfileTypeBuilderClassName(generatorContext, crossProfileType);
     ClassName crossProfileTypeInterfaceClassName =
-        InterfaceGenerator.getCrossProfileTypeInterfaceClassName(
-            generatorContext, crossProfileType);
-    ClassName fakeProfileConnectorClassName =
-        crossProfileType.profileConnector().isPresent()
-            ? FakeProfileConnectorGenerator.getFakeProfileConnectorClassName(
-                crossProfileType.profileConnector().get())
-            : ABSTRACT_FAKE_PROFILE_CONNECTOR_CLASSNAME;
+        getCrossProfileTypeInterfaceClassName(generatorContext, crossProfileType);
 
     TypeSpec.Builder classBuilder =
         TypeSpec.classBuilder(className)
@@ -188,8 +194,10 @@ class FakeCrossProfileTypeGenerator {
             .addStatement("return profiles(currentProfileIdentifier, otherProfileIdentifier)")
             .build());
 
-    if (!crossProfileType.profileConnector().isPresent()
-        || crossProfileType.profileConnector().get().primaryProfile() != ProfileType.NONE) {
+    if (!crossProfileType.connectorInfo().isPresent()
+        || !crossProfileType.connectorInfo().get().profileConnector().isPresent()
+        || crossProfileType.connectorInfo().get().profileConnector().get().primaryProfile()
+            != ProfileType.NONE) {
       generatePrimarySecondaryMethods(classBuilder);
     }
 
@@ -199,12 +207,6 @@ class FakeCrossProfileTypeGenerator {
   }
 
   private void addConstructor(TypeSpec.Builder classBuilder) {
-    ClassName fakeProfileConnectorClassName =
-        crossProfileType.profileConnector().isPresent()
-            ? FakeProfileConnectorGenerator.getFakeProfileConnectorClassName(
-                crossProfileType.profileConnector().get())
-            : ABSTRACT_FAKE_PROFILE_CONNECTOR_CLASSNAME;
-
     if (crossProfileType.isStatic()) {
       classBuilder.addMethod(
           MethodSpec.constructorBuilder()
@@ -300,11 +302,6 @@ class FakeCrossProfileTypeGenerator {
         getFakeCrossProfileTypeClassName(generatorContext, crossProfileType);
     ClassName builderClassName =
         getFakeCrossProfileTypeBuilderClassName(generatorContext, crossProfileType);
-    ClassName fakeProfileConnectorClassName =
-        crossProfileType.profileConnector().isPresent()
-            ? FakeProfileConnectorGenerator.getFakeProfileConnectorClassName(
-                crossProfileType.profileConnector().get())
-            : ABSTRACT_FAKE_PROFILE_CONNECTOR_CLASSNAME;
 
     TypeSpec.Builder classBuilder =
         TypeSpec.classBuilder(builderClassName)
@@ -327,6 +324,7 @@ class FakeCrossProfileTypeGenerator {
             .addJavadoc(
                 "Set the {@link $T} to be used to manage the state of this fake.\n",
                 fakeProfileConnectorClassName)
+            .addAnnotation(CanIgnoreReturnValue.class)
             .addModifiers(Modifier.PUBLIC)
             .returns(builderClassName)
             .addParameter(fakeProfileConnectorClassName, "connector")
@@ -369,6 +367,7 @@ class FakeCrossProfileTypeGenerator {
                 "Set the {@link $T} to be used when a call needs to be made to the personal"
                     + " profile.\n",
                 crossProfileType.className())
+            .addAnnotation(CanIgnoreReturnValue.class)
             .addModifiers(Modifier.PUBLIC)
             .returns(builderClassName)
             .addParameter(crossProfileType.className(), "personal")
@@ -386,6 +385,7 @@ class FakeCrossProfileTypeGenerator {
             .addJavadoc(
                 "Set the {@link $T} to be used when a call needs to be made to the work profile.\n",
                 crossProfileType.className())
+            .addAnnotation(CanIgnoreReturnValue.class)
             .addModifiers(Modifier.PUBLIC)
             .returns(builderClassName)
             .addParameter(crossProfileType.className(), "work")
@@ -455,23 +455,13 @@ class FakeCrossProfileTypeGenerator {
 
   static ClassName getFakeCrossProfileTypeClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    ClassName crossProfileTypeClassName =
-        InterfaceGenerator.getCrossProfileTypeInterfaceClassName(
-            generatorContext, crossProfileType);
-    return ClassName.get(
-        crossProfileTypeClassName.packageName(), "Fake" + crossProfileTypeClassName.simpleName());
+    return transformClassName(
+        getCrossProfileTypeInterfaceClassName(generatorContext, crossProfileType), prepend("Fake"));
   }
 
   static ClassName getFakeCrossProfileTypeBuilderClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    ClassName crossProfileTypeClassName =
-        InterfaceGenerator.getCrossProfileTypeInterfaceClassName(
-            generatorContext, crossProfileType);
-    return ClassName.get(
-        crossProfileTypeClassName.packageName()
-            + "."
-            + "Fake"
-            + crossProfileTypeClassName.simpleName(),
-        "Builder");
+    return getBuilderClassName(
+        getFakeCrossProfileTypeClassName(generatorContext, crossProfileType));
   }
 }

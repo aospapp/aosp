@@ -72,11 +72,11 @@ static void cleanup(void)
 static struct tst_test test = {
 	.needs_root = 1,
 	.options = (struct tst_option[]) {
-		{"s:", &nr_opt, "-s num   Set the number of the been allocated hugepages"},
+		{"s:", &nr_opt, "Set the number of the been allocated hugepages"},
 		{}
 	},
 	.setup = setup,
 	.cleanup = cleanup,
 	.test_all = test_hugeshmget,
-	.request_hugepages = 128,
+	.hugepages = {128, TST_REQUEST},
 };

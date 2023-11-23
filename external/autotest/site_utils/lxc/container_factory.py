@@ -11,7 +11,7 @@ from autotest_lib.site_utils.lxc import constants
 from autotest_lib.site_utils.lxc import container
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
@@ -102,15 +102,13 @@ class ContainerFactory(object):
                                                new_path=lxc_path,
                                                snapshot=use_snapshot,
                                                cleanup=self._force_cleanup)
-        except error.CmdError:
+        except error.CmdError as e:
             if not use_snapshot:
                 raise
             else:
-                logging.debug(
-                        'Creating snapshot clone failed.'
-                        ' Attempting without snapshot...'
-                        ' This forces cleanup of old cloned container.'
-                )
+                logging.debug('Creating snapshot clone failed: %s', e)
+                logging.debug('Attempting without snapshot...'
+                              ' This forces cleanup of old cloned container.')
                 return self._container_class.clone(src=self._base_container,
                                                    new_name=name,
                                                    new_path=lxc_path,

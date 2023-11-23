@@ -21,6 +21,11 @@ java_library {
         "okio/src/jvmMain/**/*.kt",
         "okio/src/commonMain/**/*.kt",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.devicelock",
+        "com.android.permission",
+    ],
     static_libs: [
         "guava-android-annotation-stubs",
     ],
@@ -28,5 +33,5 @@ java_library {
         "-Xmulti-platform",
     ],
     sdk_version: "current",
-    java_version: "1.7",
+    min_sdk_version: "30",
 }

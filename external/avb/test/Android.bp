@@ -40,15 +40,12 @@ python_test_host {
         "data/atx_unlock_credential.bin",
         "data/testkey_atx_puk.pem",
     ],
-    version: {
-        py2: {
-            enabled: false,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     test_config: "at_auth_unlock_unittest.xml",
+}
+
+filegroup {
+    name: "avb_testkey_rsa8192",
+    srcs: ["data/testkey_rsa8192.pem"],
 }
 
 filegroup {
@@ -59,4 +56,28 @@ filegroup {
 filegroup {
     name: "avb_testkey_rsa2048",
     srcs: ["data/testkey_rsa2048.pem"],
+}
+
+genrule {
+    name: "avb_testkey_rsa2048_pub_bin",
+    tools: ["avbtool"],
+    srcs: [":avb_testkey_rsa2048"],
+    out: ["data/testkey_rsa2048_pub.bin"],
+    cmd: "$(location avbtool) extract_public_key --key $(in) --output $(out)",
+}
+
+genrule {
+    name: "avb_testkey_rsa4096_pub_bin",
+    tools: ["avbtool"],
+    srcs: [":avb_testkey_rsa4096"],
+    out: ["data/testkey_rsa4096_pub.bin"],
+    cmd: "$(location avbtool) extract_public_key --key $(in) --output $(out)",
+}
+
+genrule {
+    name: "avb_testkey_rsa8192_pub_bin",
+    tools: ["avbtool"],
+    srcs: [":avb_testkey_rsa8192"],
+    out: ["data/testkey_rsa8192_pub.bin"],
+    cmd: "$(location avbtool) extract_public_key --key $(in) --output $(out)",
 }

@@ -32,9 +32,9 @@ java_library(
     srcs = glob(["**/*.java"]),
     javacopts = SOURCE_7_TARGET_7 + DOCLINT_HTML_AND_SYNTAX,
     tags = ["maven_coordinates=com.google.dagger:dagger:" + POM_VERSION],
-    exports = ["@google_bazel_common//third_party/java/jsr330_inject"],
+    exports = ["//third_party/java/jsr330_inject"],
     deps = [
-        "@google_bazel_common//third_party/java/jsr330_inject",
+        "//third_party/java/jsr330_inject",
     ],
 )
 
@@ -55,5 +55,5 @@ javadoc_library(
     srcs = [":javadoc-srcs"],
     exclude_packages = ["dagger.internal"],
     root_packages = ["dagger"],
-    deps = ["@google_bazel_common//third_party/java/jsr330_inject"],
+    deps = ["//third_party/java/jsr330_inject"],
 )

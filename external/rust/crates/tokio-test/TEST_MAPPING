@@ -2,6 +2,9 @@
 {
   "imports": [
     {
+      "path": "external/rust/crates/async-stream"
+    },
+    {
       "path": "external/rust/crates/tokio"
     }
   ],

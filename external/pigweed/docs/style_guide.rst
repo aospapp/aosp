@@ -3,11 +3,19 @@
 ===========
 Style Guide
 ===========
+- :ref:`cpp-style`
+- :ref:`owners-style`
+- :ref:`python-style`
+- :ref:`documentation-style`
+- :ref:`commit-style`
+
 .. tip::
-  Pigweed runs ``pw format`` as part of ``pw presubmit`` to perform some code
-  formatting checks. To speed up the review process, consider adding ``pw
-  presubmit`` as a git push hook using the following command:
-  ``pw presubmit --install``
+   Pigweed runs ``pw format`` as part of ``pw presubmit`` to perform some code
+   formatting checks. To speed up the review process, consider adding ``pw
+   presubmit`` as a git push hook using the following command:
+   ``pw presubmit --install``
+
+.. _cpp-style:
 
 ---------
 C++ style
@@ -28,10 +36,7 @@ embedded development beyond just C++ style.
 
 C++ standard
 ============
-Pigweed primarily uses the C++17 standard. A few modules maintain support for
-C++14, however (e.g. :ref:`module-pw_kvs` and its dependencies).
-
-All Pigweed C++ code must compile with ``-std=C++17`` in Clang and GCC. C++20
+All Pigweed C++ code must compile with ``-std=c++17`` in Clang and GCC. C++20
 features may be used as long as the code still compiles unmodified with C++17.
 See ``pw_polyfill/language_feature_macros.h`` for macros that provide C++20
 features when supported.
@@ -113,7 +118,6 @@ Permitted Headers
    * ``<optional>``
    * ``<random>``
    * ``<ratio>``
-   * ``<span>``
    * ``<string_view>``
    * ``<tuple>``
    * ``<type_traits>``
@@ -127,7 +131,10 @@ Permitted Headers
    * ``<algorithm>`` -- be wary of potential memory allocation
    * ``<atomic>`` -- not all MCUs natively support atomic operations
    * ``<bitset>`` -- conversions to or from strings are disallowed
-   * ``<functional>`` -- do **not** use ``std::function``
+   * ``<functional>`` -- do **not** use ``std::function``; use
+     :ref:`module-pw_function`
+   * ``<mutex>`` -- can use ``std::lock_guard``, use :ref:`module-pw_sync` for
+     mutexes
    * ``<new>`` -- for placement new
    * ``<numeric>`` -- be wary of code size with multiple template instantiations
 
@@ -135,15 +142,17 @@ Permitted Headers
    :class: error
 
    * Dynamic containers (``<list>``, ``<map>``, ``<set>``, ``<vector>``, etc.)
-   * Streams (``<iostream>``, ``<ostream>``, ``<fstream>``, etc.)
-   * ``<exception>``
-   * ``<future>``, ``<mutex>``, ``<thread>``
-   * ``<memory>``
+   * Streams (``<iostream>``, ``<ostream>``, ``<fstream>``, ``<sstream>`` etc.)
+     -- in some cases :ref:`module-pw_stream` can work instead
+   * ``<span>`` -- use :ref:`module-pw_span` instead. Downstream projects may
+     want to directly use ``std::span`` if it is available, but upstream must
+     use the ``pw::span`` version for compatability
+   * ``<string>`` -- can use :ref:`module-pw_string`
+   * ``<thread>`` -- can use :ref:`module-pw_thread`
+   * ``<future>`` -- eventually :ref:`module-pw_async` will offer this
+   * ``<exception>``, ``<stdexcept>`` -- no exceptions
+   * ``<memory>``, ``<scoped_allocator>`` -- no allocations
    * ``<regex>``
-   * ``<scoped_allocator>``
-   * ``<sstream>``
-   * ``<stdexcept>``
-   * ``<string>``
    * ``<valarray>``
 
 Headers not listed here should be carefully evaluated before they are used.
@@ -208,9 +217,249 @@ comment line, even if the blank comment line is the last line in the block.
 
 Control statements
 ==================
-All loops and conditional statements must use braces.
+
+Loops and conditionals
+----------------------
+All loops and conditional statements must use braces, and be on their own line.
+
+.. admonition:: **Yes**: Always use braces for line conditionals and loops:
+   :class: checkmark
+
+   .. code:: cpp
+
+      while (SomeCondition()) {
+        x += 2;
+      }
+      if (OtherCondition()) {
+        DoTheThing();
+      }
+
+
+.. admonition:: **No**: Missing braces
+   :class: error
+
+   .. code:: cpp
+
+      while (SomeCondition())
+        x += 2;
+      if (OtherCondition())
+        DoTheThing();
+
+.. admonition:: **No**: Statement on same line as condition
+   :class: error
+
+   .. code:: cpp
+
+      while (SomeCondition()) { x += 2; }
+      if (OtherCondition()) { DoTheThing(); }
+
 
 The syntax ``while (true)`` is preferred over ``for (;;)`` for infinite loops.
+
+.. admonition:: **Yes**:
+   :class: checkmark
+
+   .. code:: cpp
+
+      while (true) {
+        DoSomethingForever();
+      }
+
+.. admonition:: **No**:
+   :class: error
+
+   .. code:: cpp
+
+      for (;;) {
+        DoSomethingForever();
+      }
+
+
+Prefer early exit with ``return`` and ``continue``
+--------------------------------------------------
+Prefer to exit early from functions and loops to simplify code. This is the
+same same conventions as `LLVM
+<https://llvm.org/docs/CodingStandards.html#use-early-exits-and-continue-to-simplify-code>`_.
+We find this approach is superior to the "one return per function" style for a
+multitude of reasons:
+
+* **Visually**, the code is easier to follow, and takes less horizontal screen
+  space.
+* It makes it clear what part of the code is the **"main business" versus "edge
+  case handling"**.
+* For **functions**, parameter checking is in its own section at the top of the
+  function, rather than scattered around in the fuction body.
+* For **loops**, element checking is in its own section at the top of the loop,
+  rather than scattered around in the loop body.
+* Commit **deltas are simpler to follow** in code reviews; since adding a new
+  parameter check or loop element condition doesn't cause an indentation change
+  in the rest of the function.
+
+The guidance applies in two cases:
+
+* **Function early exit** - Early exits are for function parameter checking
+  and edge case checking at the top. The main functionality follows.
+* **Loop early exit** - Early exits in loops are for skipping an iteration
+  due to some edge case with an item getting iterated over. Loops may also
+  contain function exits, which should be structured the same way (see example
+  below).
+
+.. admonition:: **Yes**: Exit early from functions; keeping the main handling
+   at the bottom and de-dentend.
+   :class: checkmark
+
+   .. code:: cpp
+
+      Status DoSomething(Parameter parameter) {
+        // Parameter validation first; detecting incoming use errors.
+        PW_CHECK_INT_EQ(parameter.property(), 3, "Programmer error: frobnitz");
+
+        // Error case: Not in correct state.
+        if (parameter.other() == MyEnum::kBrokenState) {
+          LOG_ERROR("Device in strange state: %s", parametr.state_str());
+          return Status::InvalidPrecondition();
+        }
+
+        // Error case: Not in low power mode; shouldn't do anything.
+        if (parameter.power() != MyEnum::kLowPower) {
+          LOG_ERROR("Not in low power mode");
+          return Status::InvalidPrecondition();
+        }
+
+        // Main business for the function here.
+        MainBody();
+        MoreMainBodyStuff();
+      }
+
+.. admonition:: **No**: Main body of function is buried and right creeping.
+   Even though this is shorter than the version preferred by Pigweed due to
+   factoring the return statement, the logical structure is less obvious. A
+   function in Pigweed containing **nested conditionals indicates that
+   something complicated is happening with the flow**; otherwise it would have
+   the early bail structure; so pay close attention.
+   :class: error
+
+   .. code:: cpp
+
+      Status DoSomething(Parameter parameter) {
+        // Parameter validation first; detecting incoming use errors.
+        PW_CHECK_INT_EQ(parameter.property(), 3, "Programmer error: frobnitz");
+
+        // Error case: Not in correct state.
+        if (parameter.other() != MyEnum::kBrokenState) {
+          // Error case: Not in low power mode; shouldn't do anything.
+          if (parameter.power() == MyEnum::kLowPower) {
+            // Main business for the function here.
+            MainBody();
+            MoreMainBodyStuff();
+          } else {
+            LOG_ERROR("Not in low power mode");
+          }
+        } else {
+          LOG_ERROR("Device in strange state: %s", parametr.state_str());
+        }
+        return Status::InvalidPrecondition();
+      }
+
+.. admonition:: **Yes**: Bail early from loops; keeping the main handling at
+   the bottom and de-dentend.
+   :class: checkmark
+
+   .. code:: cpp
+
+      for (int i = 0; i < LoopSize(); ++i) {
+        // Early skip of item based on edge condition.
+        if (!CommonCase()) {
+          continue;
+        }
+        // Early exit of function based on error case.
+        int my_measurement = GetSomeMeasurement();
+        if (my_measurement < 10) {
+          LOG_ERROR("Found something strange; bailing");
+          return Status::Unknown();
+        }
+
+        // Main body of the loop.
+        ProcessItem(my_items[i], my_measurement);
+        ProcessItemMore(my_items[i], my_measurement, other_details);
+        ...
+      }
+
+.. admonition:: **No**: Right-creeping code with the main body buried inside
+   some nested conditional. This makes it harder to understand what is the
+   main purpose of the loop versus what is edge case handling.
+   :class: error
+
+   .. code:: cpp
+
+      for (int i = 0; i < LoopSize(); ++i) {
+        if (CommonCase()) {
+          int my_measurement = GetSomeMeasurement();
+          if (my_measurement >= 10) {
+            // Main body of the loop.
+            ProcessItem(my_items[i], my_measurement);
+            ProcessItemMore(my_items[i], my_measurement, other_details);
+            ...
+          } else {
+            LOG_ERROR("Found something strange; bailing");
+            return Status::Unknown();
+          }
+        }
+      }
+
+There are cases where this structure doesn't work, and in those cases, it is
+fine to structure the code differently.
+
+No ``else`` after ``return`` or ``continue``
+--------------------------------------------
+Do not put unnecessary ``} else {`` blocks after blocks that terminate with a
+return, since this causes unnecessary rightward indentation creep. This
+guidance pairs with the preference for early exits to reduce code duplication
+and standardize loop/function structure.
+
+.. admonition:: **Yes**: No else after return or continue
+   :class: checkmark
+
+   .. code:: cpp
+
+      // Note lack of else block due to return.
+      if (Failure()) {
+        DoTheThing();
+        return Status::ResourceExausted();
+      }
+
+      // Note lack of else block due to continue.
+      while (MyCondition()) {
+        if (SomeEarlyBail()) {
+          continue;
+        }
+        // Main handling of item
+        ...
+      }
+
+      DoOtherThing();
+      return OkStatus();
+
+.. admonition:: **No**: Else after return needlessly creeps right
+   :class: error
+
+   .. code:: cpp
+
+      if (Failure()) {
+        DoTheThing();
+        return Status::ResourceExausted();
+      } else {
+        while (MyCondition()) {
+          if (SomeEarlyBail()) {
+            continue;
+          } else {
+            // Main handling of item
+            ...
+          }
+        }
+        DoOtherThing();
+        return OkStatus();
+      }
 
 Include guards
 ==============
@@ -275,6 +524,16 @@ C++ code
   ``foo_bar`` style naming.  For consistency with other variables whose value is
   always fixed for the duration of the program, the naming convention is
   ``kCamelCase``, and so that is the style we use in Pigweed.
+* Trivial membor accessors should be named with ``snake_case()``. The Google
+  C++ style allows either ``snake_case()`` or ``CapsCase()``, but Pigweed
+  always uses ``snake_case()``.
+* Abstract base classes should be named generically, with derived types named
+  specifically. For example, ``Stream`` is an abstract base, and
+  ``SocketStream`` and ``StdioStream`` are an implementations of that
+  interface.  Any prefix or postfix indicating whether something is abstract or
+  concrete is not permitted; for example, ``IStream`` or ``SocketStreamImpl``
+  are both not permitted. These pre-/post-fixes add additional visual noise and
+  are irrelevant to consumers of these interfaces.
 
 C code
 ------
@@ -297,7 +556,7 @@ length of the prefix.
 
   * C functions (``int pw_foo_FunctionName(void);``),
   * variables used by C code (``int pw_foo_variable_name;``),
-  * constant variables used by C code (``int pw_foo_kConstantName;``),
+  * constant variables used by C code (``const int pw_foo_kConstantName;``),
   * structs used by C code (``typedef struct {} pw_foo_StructName;``), and
   * all of the above for ``extern "C"`` names in C++ code.
 
@@ -308,7 +567,8 @@ Preprocessor macros
 * Public Pigweed macros must be prefixed with the module name (e.g.
   ``PW_MY_MODULE_*``).
 * Private Pigweed macros must be prefixed with an underscore followed by the
-  module name (e.g. ``_PW_MY_MODULE_*``).
+  module name (e.g. ``_PW_MY_MODULE_*``). (This style may change, see
+  `b/234886184 <https://issuetracker.google.com/issues/234886184>`_).
 
 **Example**
 
@@ -363,6 +623,8 @@ Preprocessor macros
   }  // namespace nested_namespace
   }  // namespace pw::my_module
 
+See :ref:`docs-pw-style-macros` for details about macro usage.
+
 Namespace scope formatting
 ==========================
 All non-indented blocks (namespaces, ``extern "C"`` blocks, and preprocessor
@@ -407,6 +669,28 @@ them.
   }  // namespace
   }  // namespace pw::nested
 
+Using directives for literals
+=============================
+`Using-directives
+<https://en.cppreference.com/w/cpp/language/namespace#Using-directives>`_ (e.g.
+``using namespace ...``) are permitted in implementation files only for the
+purposes of importing literals such as ``std::chrono_literals`` or
+``pw::bytes::unit_literals``. Namespaces that contain any symbols other than
+literals are not permitted in a using-directive. This guidance also has no
+impact on `using-declarations
+<https://en.cppreference.com/w/cpp/language/namespace#Using-declarations>`_
+(e.g. ``using foo::Bar;``).
+
+Rationale: Literals improve code readability, making units clearer at the point
+of definition.
+
+.. code-block:: cpp
+
+  using namespace std::chrono;                    // Not allowed
+  using namespace std::literals::chrono_literals; // Allowed
+
+  constexpr std::chrono::duration delay = 250ms;
+
 Pointers and references
 =======================
 For pointer and reference types, place the asterisk or ampersand next to the
@@ -423,6 +707,8 @@ Prefer storing references over storing pointers. Pointers are required when the
 pointer can change its target or may be ``nullptr``. Otherwise, a reference or
 const reference should be used.
 
+.. _docs-pw-style-macros:
+
 Preprocessor macros
 ===================
 Macros should only be used when they significantly improve upon the C++ code
@@ -438,8 +724,9 @@ to ensure the macros are hard to use wrong.
 Stand-alone statement macros
 ----------------------------
 Macros that are standalone statements must require the caller to terminate the
-macro invocation with a semicolon. For example, the following does *not* conform
-to Pigweed's macro style:
+macro invocation with a semicolon (see `Swalling the Semicolon
+<https://gcc.gnu.org/onlinedocs/cpp/Swallowing-the-Semicolon.html>`_). For
+example, the following does *not* conform to Pigweed's macro style:
 
 .. code-block:: cpp
 
@@ -474,8 +761,7 @@ contents can be placed in a ``do { ... } while (0)`` loop.
     } while (0)
 
 Standalone macros at global scope that do not already require a semicolon can
-add a ``static_assert`` or throwaway struct declaration statement as their
-last line.
+add a ``static_assert`` declaration statement as their last line.
 
 .. code-block:: cpp
 
@@ -499,7 +785,7 @@ example:
 
 Macros in private implementation files (.cc)
 --------------------------------------------
-Macros within .cc files that should only used within one file should be
+Macros within .cc files that should only be used within one file should be
 undefined after their last use; for example:
 
 .. code-block:: cpp
@@ -556,17 +842,46 @@ interacting with a POSIX API in intentionally non-portable code. Never use
 POSIX functions with suitable standard or Pigweed alternatives, such as
 ``strnlen`` (use ``pw::string::NullTerminatedLength`` instead).
 
+.. _owners-style:
+
+--------------------
+Code Owners (OWNERS)
+--------------------
+If you use Gerrit for source code hosting and have the
+`code-owners <https://android-review.googlesource.com/plugins/code-owners/Documentation/backend-find-owners.html>`__
+plug-in enabled Pigweed can help you enforce consistent styling on those files
+and also detects some errors.
+
+The styling follows these rules.
+
+#. Content is grouped by type of line (Access grant, include, etc).
+#. Each grouping is sorted alphabetically.
+#. Groups are placed the following order with a blank line separating each
+   grouping.
+
+    * "set noparent" line
+    * "include" lines
+    * "file:" lines
+    * user grants (some examples: "*", "foo@example.com")
+    * "per-file:" lines
+
+This plugin will, by default, act upon any file named "OWNERS".
+
+.. _python-style:
+
 ------------
 Python style
 ------------
 Pigweed uses the standard Python style: PEP8, which is available on the web at
 https://www.python.org/dev/peps/pep-0008/. All Pigweed Python code should pass
-``yapf`` when configured for PEP8 style.
+``pw format``, which invokes ``black`` with a couple options.
 
-Python 3
-========
-Pigweed uses Python 3. Some modules may offer limited support for Python 2, but
-Python 3.6 or newer is required for most Pigweed code.
+Python versions
+===============
+Pigweed officially supports :ref:`a few Python versions
+<docs-concepts-python-version>`. Upstream Pigweed code must support those Python
+versions. The only exception is :ref:`module-pw_env_setup`, which must also
+support Python 2 and 3.6.
 
 ---------------
 Build files: GN
@@ -635,6 +950,8 @@ ambiguity with other build systems or tooling.
 Pigweed's Bazel files follow the `Bazel style guide
 <https://docs.bazel.build/versions/main/skylark/build-style.html>`_.
 
+.. _documentation-style:
+
 -------------
 Documentation
 -------------
@@ -678,13 +995,13 @@ for the ReST heading syntax.
    Document Title: Two Bars of Equals
    ==================================
    Document titles use equals ("====="), above and below. Capitalize the words
-   in the title, except for 'of' and 'the'.
+   in the title, except for 'a', 'of', and 'the'.
 
    ---------------------------
    Major Sections Within a Doc
    ---------------------------
-   Major sections use hypens ("----"), above and below. Capitalize the words in
-   the title, except for 'of' and 'the'.
+   Major sections use hyphens ("----"), above and below. Capitalize the words in
+   the title, except for 'a', 'of', and 'the'.
 
    Heading 1 - For Sections Within a Doc
    =====================================
@@ -692,7 +1009,7 @@ for the ReST heading syntax.
 
    Heading 2 - for subsections
    ---------------------------
-   Subsections use hypens ("----"). In many cases, these headings may be
+   Subsections use hyphens ("----"). In many cases, these headings may be
    sentence-like. In those cases, only the first letter should be capitalized.
    For example, FAQ subsections would have a title with "Why does the X do the
    Y?"; note the sentence capitalization (but not title capitalization).
@@ -817,10 +1134,493 @@ Consider using ``.. list-table::`` syntax, which is more maintainable and
 easier to edit for complex tables (`details
 <https://docutils.sourceforge.io/docs/ref/rst/directives.html#list-table>`_).
 
+Code Blocks
+===========
+Use code blocks from actual source code files wherever possible. This helps keep
+documentation fresh and removes duplicate code examples. There are a few ways to
+do this with Sphinx.
+
+Snippets
+--------
+The `literalinclude`_ directive creates a code blocks from source files. Entire
+files can be included or a just a subsection. The best way to do this is with
+the ``:start-after:`` and ``:end-before:`` options.
+
+Example:
+
+.. card::
+
+   Documentation Source (``.rst`` file)
+   ^^^
+
+   .. code-block:: rst
+
+      .. literalinclude:: run_doxygen.py
+         :start-after: [doxygen-environment-variables]
+         :end-before: [doxygen-environment-variables]
+
+.. card::
+
+   Source File
+   ^^^
+
+   .. code-block::
+
+      # DOCSTAG: [doxygen-environment-variables]
+      env = os.environ.copy()
+      env['PW_DOXYGEN_OUTPUT_DIRECTORY'] = str(output_dir.resolve())
+      env['PW_DOXYGEN_INPUT'] = ' '.join(pw_module_list)
+      env['PW_DOXYGEN_PROJECT_NAME'] = 'Pigweed'
+      # DOCSTAG: [doxygen-environment-variables]
+
+.. card::
+
+   Rendered Output
+   ^^^
+
+   .. code-block::
+
+      env = os.environ.copy()
+      env['PW_DOXYGEN_OUTPUT_DIRECTORY'] = str(output_dir.resolve())
+      env['PW_DOXYGEN_INPUT'] = ' '.join(pw_module_list)
+      env['PW_DOXYGEN_PROJECT_NAME'] = 'Pigweed'
+
+Python
+------
+Include Python API documentation from docstrings with `autodoc directives`_.
+Example:
+
+.. code-block:: rst
+
+   .. automodule:: pw_cli.log
+      :members:
+
+   .. automodule:: pw_console.embed
+      :members: PwConsoleEmbed
+      :undoc-members:
+      :show-inheritance:
+
+   .. autoclass:: pw_console.log_store.LogStore
+      :members: __init__
+      :undoc-members:
+      :show-inheritance:
+
+Include argparse command line help with the `argparse
+<https://sphinx-argparse.readthedocs.io/en/latest/usage.html>`_
+directive. Example:
+
+.. code-block:: rst
+
+   .. argparse::
+      :module: pw_watch.watch
+      :func: get_parser
+      :prog: pw watch
+      :nodefaultconst:
+      :nodescription:
+      :noepilog:
+
+
+Doxygen
+-------
+Doxygen comments in C, C++, and Java are surfaced in Sphinx using `Breathe
+<https://breathe.readthedocs.io/en/latest/index.html>`_.
+
+.. note::
+
+   Sources with doxygen comment blocks must be added to the
+   ``_doxygen_input_files`` list in ``//docs/BUILD.gn`` to be processed.
+
+Breathe provides various `directives
+<https://breathe.readthedocs.io/en/latest/directives.html>`_ for bringing
+Doxygen comments into Sphinx. These include the following:
+
+- `doxygenfile
+  <https://breathe.readthedocs.io/en/latest/directives.html#doxygenfile>`_ --
+  Documents everything in a source file.
+- `doxygenclass
+  <https://breathe.readthedocs.io/en/latest/directives.html#doxygenclass>`_ --
+  Documents a class and its members.
+
+  .. code-block:: rst
+
+     .. doxygenclass:: pw::sync::BinarySemaphore
+        :members:
+
+.. admonition:: See also
+
+  `Breathe directives to use in RST files <https://breathe.readthedocs.io/en/latest/directives.html>`_
+
+Example Doxygen Comment Block
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Start a Doxygen comment block using ``///`` (three forward slashes).
+
+.. code-block:: cpp
+
+   /// This is the documentation comment for the `PW_LOCK_RETURNED()` macro. It
+   /// describes how to use the macro.
+   ///
+   /// Doxygen comments can refer to other symbols using Sphinx cross
+   /// references. For example, @cpp_class{pw::InlineBasicString}, which is
+   /// shorthand for @crossref{cpp,class,pw::InlineBasicString}, links to a C++
+   /// class. @crossref{py,func,pw_tokenizer.proto.detokenize_fields} links to a
+   /// Python function.
+   ///
+   /// @param[out] dest The memory area to copy to.
+   /// @param[in]  src  The memory area to copy from.
+   /// @param[in]  n    The number of bytes to copy
+   ///
+   /// @retval OK         KVS successfully initialized.
+   /// @retval DATA_LOSS  KVS initialized and is usable, but contains corrupt data.
+   /// @retval UNKNOWN    Unknown error. KVS is not initialized.
+   ///
+   /// @rst
+   /// The ``@rst`` and ``@endrst`` commands form a block block of
+   /// reStructuredText that is rendered in Sphinx.
+   ///
+   /// .. warning::
+   ///    this is a warning admonition
+   ///
+   /// .. code-block:: cpp
+   ///
+   ///    void release(ptrdiff_t update = 1);
+   /// @endrst
+   ///
+   /// Example code block using Doxygen markup below. To override the language
+   /// use `@code{.cpp}`
+   ///
+   /// @code
+   ///   class Foo {
+   ///    public:
+   ///     Mutex* mu() PW_LOCK_RETURNED(mu) { return &mu; }
+   ///
+   ///    private:
+   ///     Mutex mu;
+   ///   };
+   /// @endcode
+   ///
+   /// @b The first word in this sentence is bold (The).
+   ///
+   #define PW_LOCK_RETURNED(x) __attribute__((lock_returned(x)))
+
+Doxygen Syntax
+^^^^^^^^^^^^^^
+Pigweed prefers to use RST wherever possible, but there are a few Doxygen
+syntatic elements that may be needed.
+
+Common Doxygen commands for use within a comment block:
+
+- ``@rst`` To start a reStructuredText block. This is a custom alias for
+  ``\verbatim embed:rst:leading-asterisk``.
+- `@code <https://www.doxygen.nl/manual/commands.html#cmdcode>`_ Start a code
+  block.
+- `@param <https://www.doxygen.nl/manual/commands.html#cmdparam>`_ Document
+  parameters, this may be repeated.
+- `@pre <https://www.doxygen.nl/manual/commands.html#cmdpre>`_ Starts a
+  paragraph where the precondition of an entity can be described.
+- `@post <https://www.doxygen.nl/manual/commands.html#cmdpost>`_ Starts a
+  paragraph where the postcondition of an entity can be described.
+- `@return <https://www.doxygen.nl/manual/commands.html#cmdreturn>`_ Single
+  paragraph to describe return value(s).
+- `@retval <https://www.doxygen.nl/manual/commands.html#cmdretval>`_ Document
+  return values by name. This is rendered as a definition list.
+- `@note <https://www.doxygen.nl/manual/commands.html#cmdnote>`_ Add a note
+  admonition to the end of documentation.
+- `@b <https://www.doxygen.nl/manual/commands.html#cmdb>`_ To bold one word.
+
+Doxygen provides `structural commands
+<https://doxygen.nl/manual/docblocks.html#structuralcommands>`_ that associate a
+comment block with a particular symbol. Example of these include ``@class``,
+``@struct``, ``@def``, ``@fn``, and ``@file``. Do not use these unless
+necessary, since they are redundant with the declarations themselves.
+
+One case where structural commands are necessary is when a single comment block
+describes multiple symbols. To group multiple symbols into a single comment
+block, include a structural commands for each symbol on its own line. For
+example, the following comment documents two macros:
+
+.. code-block:: cpp
+
+   /// @def PW_ASSERT_EXCLUSIVE_LOCK
+   /// @def PW_ASSERT_SHARED_LOCK
+   ///
+   /// Documents functions that dynamically check to see if a lock is held, and
+   /// fail if it is not held.
+
+.. seealso:: `All Doxygen commands <https://www.doxygen.nl/manual/commands.html>`_
+
+Cross-references
+^^^^^^^^^^^^^^^^
+Pigweed provides Doxygen aliases for creating Sphinx cross references within
+Doxygen comments. These should be used when referring to other symbols, such as
+functions, classes, or macros.
+
+.. inclusive-language: disable
+
+The basic alias is ``@crossref``, which supports any `Sphinx domain
+<https://www.sphinx-doc.org/en/master/usage/restructuredtext/domains.html>`_.
+For readability, aliases for commonnly used types are provided.
+
+.. inclusive-language: enable
+
+- ``@crossref{domain,type,identifier}`` Inserts a cross reference of any type in
+  any Sphinx domain. For example, ``@crossref{c,func,foo}`` is equivalent to
+  ``:c:func:`foo``` and links to the documentation for the C function ``foo``,
+  if it exists.
+- ``@c_macro{identifier}`` Equivalent to ``:c:macro:`identifier```.
+- ``@cpp_func{identifier}`` Equivalent to ``:cpp:func:`identifier```.
+- ``@cpp_class{identifier}`` Equivalent to ``:cpp:class:`identifier```.
+- ``@cpp_type{identifier}`` Equivalent to ``:cpp:type:`identifier```.
+
+.. note::
+
+   Use the `@` aliases described above for all cross references. Doxygen
+   provides other methods for cross references, but Sphinx cross references
+   offer several advantages:
+
+   - Sphinx cross references work for all identifiers known to Sphinx, including
+     those documented with e.g. ``.. cpp:class::`` or extracted from Python.
+     Doxygen references can only refer to identifiers known to Doxygen.
+   - Sphinx cross references always use consistent formatting. Doxygen cross
+     references sometimes render as plain text instead of code-style monospace,
+     or include ``()`` in macros that shouldn't have them.
+   - Sphinx cross references can refer to symbols that have not yet been
+     documented. They will be formatted correctly and become links once the
+     symbols are documented.
+   - Using Sphinx cross references in Doxygen comments makes cross reference
+     syntax more consistent within Doxygen comments and between RST and
+     Doxygen.
+
+Create cross reference links elsewhere in the document to symbols documented
+with Doxygen using standard Sphinx cross references, such as ``:cpp:class:`` and
+``:cpp:func:``.
+
+.. code-block:: rst
+
+   - :cpp:class:`pw::sync::BinarySemaphore::BinarySemaphore`
+   - :cpp:func:`pw::sync::BinarySemaphore::try_acquire`
+
+.. seealso::
+   - `C++ cross reference link syntax`_
+   - `C cross reference link syntax`_
+   - `Python cross reference link syntax`_
+
 .. _Sphinx: https://www.sphinx-doc.org/
 
 .. inclusive-language: disable
 
 .. _reStructuredText Primer: https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html
+.. _literalinclude: https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-literalinclude
+.. _C++ cross reference link syntax: https://www.sphinx-doc.org/en/master/usage/restructuredtext/domains.html#cross-referencing
+.. _C cross reference link syntax: https://www.sphinx-doc.org/en/master/usage/restructuredtext/domains.html#cross-referencing-c-constructs
+.. _Python cross reference link syntax: https://www.sphinx-doc.org/en/master/usage/restructuredtext/domains.html#cross-referencing-python-objects
+.. _autodoc directives: https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#directives
 
 .. inclusive-language: enable
+
+.. _commit-style:
+
+--------------
+Commit message
+--------------
+Pigweed commit message bodies and summaries are limited to 72 characters wide
+to improve readability. Commit summaries should also be prefixed with the name
+of the module that the commit is affecting. :ref:`Examples
+<docs-contributing-commit-message-examples>` of well and ill-formed commit
+messages are provided below.
+
+Consider the following when writing a commit message:
+
+#. **Documentation and comments are better** - Consider whether the commit
+   message contents would be better expressed in the documentation or code
+   comments. Docs and code comments are durable and readable later; commit
+   messages are rarely read after the change lands.
+#. **Include why the change is made, not just what the change is** - It is
+   important to include a "why" component in most commits. Sometimes, why is
+   evident - for example, reducing memory usage, or optimizing. But it is often
+   not. Err on the side of over-explaining why, not under-explaining why.
+
+.. _docs-contributing-commit-message-examples:
+
+Pigweed commit messages should conform to the following style:
+
+.. admonition:: **Yes**:
+   :class: checkmark
+
+   .. code:: none
+
+      pw_some_module: Short capitalized description
+
+      Details about the change here. Include a summary of the what, and a clear
+      description of why the change is needed for future maintainers.
+
+      Consider what parts of the commit message are better suited for
+      documentation.
+
+.. admonition:: **Yes**: Small number of modules affected; use {} syntax.
+   :class: checkmark
+
+   .. code:: none
+
+      pw_{foo, bar, baz}: Change something in a few places
+
+      When changes cross a few modules, include them with the syntax shown
+      above.
+
+.. admonition:: **Yes**: Targets are effectively modules, even though they're
+   nested, so they get a ``/`` character.
+   :class: checkmark
+
+   .. code:: none
+
+      targets/xyz123: Tweak support for XYZ's PQR
+
+.. admonition:: **Yes**: Uses imperative style for subject and text.
+   :class: checkmark
+
+   .. code:: none
+
+      pw_something: Add foo and bar functions
+
+      This commit correctly uses imperative present-tense style.
+
+.. admonition:: **No**: Uses non-imperative style for subject and text.
+   :class: error
+
+   .. code:: none
+
+      pw_something: Adds more things
+
+      Use present tense imperative style for subjects and commit. The above
+      subject has a plural "Adds" which is incorrect; should be "Add".
+
+.. admonition:: **Yes**: Use bulleted lists when multiple changes are in a
+   single CL. Prefer smaller CLs, but larger CLs are a practical reality.
+   :class: checkmark
+
+   .. code:: none
+
+      pw_complicated_module: Pre-work for refactor
+
+      Prepare for a bigger refactor by reworking some arguments before the larger
+      change. This change must land in downstream projects before the refactor to
+      enable a smooth transition to the new API.
+
+      - Add arguments to MyImportantClass::MyFunction
+      - Update MyImportantClass to handle precondition Y
+      - Add stub functions to be used during the transition
+
+.. admonition:: **No**: Run on paragraph instead of bulleted list
+   :class: error
+
+   .. code:: none
+
+      pw_foo: Many things in a giant BWOT
+
+      This CL does A, B, and C. The commit message is a Big Wall Of Text
+      (BWOT), which we try to discourage in Pigweed. Also changes X and Y,
+      because Z and Q. Furthermore, in some cases, adds a new Foo (with Bar,
+      because we want to). Also refactors qux and quz.
+
+.. admonition:: **No**: Doesn't capitalize the subject
+   :class: error
+
+   .. code:: none
+
+      pw_foo: do a thing
+
+      Above subject is incorrect, since it is a sentence style subject.
+
+.. admonition:: **Yes**: Doesn't capitalize the subject when subject's first
+   word is a lowercase identifier.
+   :class: checkmark
+
+   .. code:: none
+
+      pw_foo: std::unique_lock cleanup
+
+      This commit message demonstrates the subject when the subject has an
+      identifier for the first word. In that case, follow the identifier casing
+      instead of capitalizing.
+
+   However, imperative style subjects often have the identifier elsewhere in
+   the subject; for example:
+
+   .. code:: none
+
+     pw_foo: Improve use of std::unique_lock
+
+.. admonition:: **No**: Uses a non-standard ``[]`` to indicate module:
+   :class: error
+
+   .. code:: none
+
+      [pw_foo]: Do a thing
+
+.. admonition:: **No**: Has a period at the end of the subject
+   :class: error
+
+   .. code:: none
+
+      pw_bar: Do something great.
+
+.. admonition:: **No**: Puts extra stuff after the module which isn't a module.
+   :class: error
+
+   .. code:: none
+
+      pw_bar/byte_builder: Add more stuff to builder
+
+Footer
+======
+We support a number of `git footers`_ in the commit message, such as ``Bug:
+123`` in the message below:
+
+.. code:: none
+
+   pw_something: Add foo and bar functions
+
+   Bug: 123
+
+You are encouraged to use the following footers when appropriate:
+
+* ``Bug``: Associates this commit with a bug (issue in our `bug tracker`_). The
+  bug will be automatically updated when the change is submitted. When a change
+  is relevant to more than one bug, include multiple ``Bug`` lines, like so:
+
+  .. code:: none
+
+      pw_something: Add foo and bar functions
+
+      Bug: 123
+      Bug: 456
+
+* ``Fixed`` or ``Fixes``: Like ``Bug``, but automatically closes the bug when
+  submitted.
+
+  .. code:: none
+
+      pw_something: Fix incorrect use of foo
+
+      Fixes: 123
+
+In addition, we support all of the `Chromium CQ footers`_, but those are
+relatively rarely useful.
+
+.. _bug tracker: https://bugs.chromium.org/p/pigweed/issues/list
+.. _Chromium CQ footers: https://chromium.googlesource.com/chromium/src/+/refs/heads/main/docs/infra/cq.md#options
+.. _git footers: https://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/git-footers.html
+
+Copy-to-clipboard feature on code blocks
+========================================
+
+.. _sphinx-copybutton: https://sphinx-copybutton.readthedocs.io/en/latest/
+.. _Remove copybuttons using a CSS selector: https://sphinx-copybutton.readthedocs.io/en/latest/use.html#remove-copybuttons-using-a-css-selector
+
+The copy-to-clipboard feature on code blocks is powered by `sphinx-copybutton`_.
+
+``sphinx-copybutton`` recognizes ``$`` as an input prompt and automatically
+removes it.
+
+There is a workflow for manually removing the copy-to-clipboard button for a
+particular code block but it has not been implemented yet. See
+`Remove copybuttons using a CSS selector`_.

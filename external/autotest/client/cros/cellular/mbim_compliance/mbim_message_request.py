@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -11,8 +12,13 @@ Reference:
         http://www.usb.org/developers/docs/devclass_docs/
         MBIM10Errata1_073013.zip
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import math
+from six.moves import range
 
 from autotest_lib.client.cros.cellular.mbim_compliance import mbim_constants
 from autotest_lib.client.cros.cellular.mbim_compliance import mbim_errors

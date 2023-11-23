@@ -172,6 +172,26 @@ public final class DexMakerTest {
     }
 
     @Test
+    public void testLoadDeferredClassConstant() throws Exception {
+        /*
+         * public static String call() {
+         *   Class clazz = Generated.class;
+         *   return clazz.getSimpleName();
+         * }
+         */
+        MethodId<?, String> methodId = GENERATED.getMethod(TypeId.STRING, "call");
+        Code code = dexMaker.declare(methodId, PUBLIC | STATIC);
+        Local<Class> clazz = code.newLocal(TypeId.get(Class.class));
+        Local<String> retValue = code.newLocal(TypeId.STRING);
+        code.loadDeferredClassConstant(clazz, GENERATED);
+        MethodId<Class, String> getSimpleName = TypeId.get(Class.class).getMethod(TypeId.STRING, "getSimpleName");
+        code.invokeVirtual(getSimpleName, retValue, clazz);
+        code.returnValue(retValue);
+
+        assertEquals("Generated", getMethod().invoke(null));
+    }
+
+    @Test
     public void testCreateLocalMethodAsNull() throws Exception {
         /*
          * public void call(int value) {
@@ -478,6 +498,58 @@ public final class DexMakerTest {
         Field a = generatedClass.getField("a");
         Object instance = generatedClass.getConstructor(int.class).newInstance(0xabcd);
         assertEquals(0xabcd, a.get(instance));
+    }
+
+    @Test
+    public void testDeclareNativeMethod() throws Exception {
+        /*
+         * class Generated {
+         *   public Generated() {
+         *   }
+         *   public native void nativeMethod();
+         * }
+         */
+
+        addDefaultConstructor();
+        String nativeMethodName = "nativeMethod";
+        MethodId<?, Void> nativeMethodToGenerate = GENERATED.getMethod(TypeId.VOID, nativeMethodName);
+        dexMaker.declare(nativeMethodToGenerate, java.lang.reflect.Modifier.PUBLIC | java.lang.reflect.Modifier.NATIVE);
+
+        Class<?> generatedClass = generateAndLoad();
+        Object instance = generatedClass.getConstructor().newInstance();
+        Method nativeMethod = instance.getClass().getMethod(nativeMethodName);
+
+        assertTrue((nativeMethod.getModifiers() & NATIVE) != 0);
+        assertTrue((nativeMethod.getModifiers() & PUBLIC) != 0);
+        assertEquals(void.class, nativeMethod.getReturnType());
+        assertEquals(nativeMethodName, nativeMethod.getName());
+        assertEquals(nativeMethod.getParameterTypes().length, 0);
+    }
+
+    @Test
+    public void testDeclareAbstractClassWithAbstractMethod() throws Exception {
+        /*
+         * public abstract class AbstractClass {
+         *   public abstract void abstractMethod();
+         * }
+         */
+
+        dexMaker = new DexMaker();
+        dexMaker.declare(GENERATED, "AbstractClass.java", PUBLIC, TypeId.OBJECT);
+
+        String abstractMethodName = "abstractMethod";
+        MethodId<?, Void> nativeMethodToGenerate = GENERATED.getMethod(TypeId.VOID, abstractMethodName);
+        dexMaker.declare(nativeMethodToGenerate, java.lang.reflect.Modifier.PUBLIC | ABSTRACT);
+
+        Class<?> generatedClass = generateAndLoad();
+        Method nativeMethod = generatedClass.getMethod(abstractMethodName);
+
+        assertTrue((nativeMethod.getModifiers() & ABSTRACT) != 0);
+        assertTrue((nativeMethod.getModifiers() & PUBLIC) != 0);
+        assertEquals(void.class, nativeMethod.getReturnType());
+        assertEquals(abstractMethodName, nativeMethod.getName());
+        assertEquals(nativeMethod.getParameterTypes().length, 0);
+
     }
 
     @Test
@@ -1956,26 +2028,6 @@ public final class DexMakerTest {
     }
 
     @Test
-    public void testAbstractMethodsAreUnsupported() {
-        MethodId<?, Void> methodId = GENERATED.getMethod(TypeId.VOID, "call");
-        try {
-            dexMaker.declare(methodId, ABSTRACT);
-            fail();
-        } catch (IllegalArgumentException expected) {
-        }
-    }
-
-    @Test
-    public void testNativeMethodsAreUnsupported() {
-        MethodId<?, Void> methodId = GENERATED.getMethod(TypeId.VOID, "call");
-        try {
-            dexMaker.declare(methodId, NATIVE);
-            fail();
-        } catch (IllegalArgumentException expected) {
-        }
-    }
-
-    @Test
     public void testSynchronizedFieldsAreUnsupported() {
         try {
             FieldId<?, ?> fieldId = GENERATED.getField(TypeId.OBJECT, "synchronizedField");
@@ -2005,7 +2057,6 @@ public final class DexMakerTest {
     // TODO: don't generate multiple times (?)
     // TODO: test array types
     // TODO: test generating an interface
-    // TODO: declare native method or abstract method
     // TODO: get a thrown exception 'e' into a local
     // TODO: move a primitive or reference
 

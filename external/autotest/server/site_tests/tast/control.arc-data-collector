@@ -8,6 +8,7 @@ TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 ATTRIBUTES = 'suite:bvt-tast-android-pfq'
 MAX_RESULT_SIZE_KB = 50 * 1024
+PY_VERSION = 3
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True
@@ -29,11 +30,11 @@ See http://go/tast-failures for information about investigating failures.
 '''
 
 def run(machine):
-    # TODO(crbug.com/992303): Fix android condition.
     job.run_test('tast',
                  host=hosts.create_host(machine),
                  test_exprs=['("group:arc-data-collector")'],
                  ignore_test_failures=False, max_run_sec=1200,
-                 command_args=args)
+                 command_args=args,
+                 retries=2)
 
 parallel_simple(run, machines)

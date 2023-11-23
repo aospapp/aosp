@@ -40,19 +40,20 @@ struct virgl_context_blob {
    enum virgl_resource_fd_type type;
    union {
       int fd;
+      uint32_t opaque_handle;
       struct pipe_resource *pipe_resource;
    } u;
 
    uint32_t map_info;
 
-   void *renderer_data;
+   struct virgl_resource_opaque_fd_metadata opaque_fd_metadata;
 };
 
 struct virgl_context;
 
 typedef void (*virgl_context_fence_retire)(struct virgl_context *ctx,
-                                           uint64_t queue_id,
-                                           void *fence_cookie);
+                                           uint32_t ring_idx,
+                                           uint64_t fence_id);
 
 /**
  * Base class for renderer contexts.  For example, vrend_decode_ctx is a
@@ -79,6 +80,9 @@ struct virgl_context {
                            struct virgl_resource *res);
    void (*detach_resource)(struct virgl_context *ctx,
                            struct virgl_resource *res);
+   enum virgl_resource_fd_type (*export_opaque_handle)(struct virgl_context *ctx,
+                                                       struct virgl_resource *res,
+                                                       int *out_fd);
 
    int (*transfer_3d)(struct virgl_context *ctx,
                       struct virgl_resource *res,
@@ -88,19 +92,17 @@ struct virgl_context {
    /* These are used to create a virgl_resource from a context object.
     *
     * get_blob returns a virgl_context_blob from which a virgl_resource can be
-    * created.  get_blob_done is optional and allows the context to associate
-    * the newly created resource with the context object.
+    * created.
     *
     * Note that get_blob is a one-time thing.  The context object might be
     * destroyed or reject subsequent get_blob calls.
     */
    int (*get_blob)(struct virgl_context *ctx,
+                   uint32_t res_id,
                    uint64_t blob_id,
+                   uint64_t blob_size,
                    uint32_t blob_flags,
                    struct virgl_context_blob *blob);
-   void (*get_blob_done)(struct virgl_context *ctx,
-                         uint32_t res_id,
-                         struct virgl_context_blob *blob);
 
    int (*submit_cmd)(struct virgl_context *ctx,
                      const void *buffer,
@@ -118,8 +120,8 @@ struct virgl_context {
    /* submit a fence to the queue identified by queue_id */
    int (*submit_fence)(struct virgl_context *ctx,
                        uint32_t flags,
-                       uint64_t queue_id,
-                       void *fence_cookie);
+                       uint32_t ring_idx,
+                       uint64_t fence_id);
 };
 
 struct virgl_context_foreach_args {

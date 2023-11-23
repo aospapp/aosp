@@ -740,7 +740,7 @@ public class SmsFacade extends RpcReceiver {
     }
 
     private PendingIntent createBroadcastPendingIntent(String intentAction, Uri messageUri) {
-        Intent intent = new Intent(intentAction, messageUri);
+        Intent intent = new Intent(intentAction, messageUri).setPackage(mService.getPackageName());
         return PendingIntent.getBroadcast(mService, 0, intent, PendingIntent.FLAG_MUTABLE);
     }
 

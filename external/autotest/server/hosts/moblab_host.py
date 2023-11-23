@@ -19,7 +19,7 @@ from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 from autotest_lib.server.hosts import cros_host
 from autotest_lib.server.hosts import cros_repair
 
-from chromite.lib import timeout_util
+from autotest_lib.utils.frozen_chromite.lib import timeout_util
 import six
 
 AUTOTEST_INSTALL_DIR = global_config.global_config.get_config_value(
@@ -120,13 +120,7 @@ class MoblabHost(cros_host.CrosHost):
         @raises AutoservRunError: If the command failed.
         @raises AutoservSSHTimeout: Ssh connection has timed out.
         """
-        try:
-            result = host.run(
-                    'grep -q moblab /etc/lsb-release',
-                    ignore_status=True, timeout=timeout)
-        except (error.AutoservRunError, error.AutoservSSHTimeout):
-            return False
-        return result.exit_status == 0
+        return False
 
 
     def install_boto_file(self, boto_path=''):
@@ -213,16 +207,16 @@ class MoblabHost(cros_host.CrosHost):
                     existing_hosts.append(dut_ip)
 
     def _check_dut_ssh(self, dut_ip):
-       is_sshable = False
-       count = 0
-       while not is_sshable and count < 10:
-           cmd = ('ssh  -o ConnectTimeout=30 -o ConnectionAttempts=30'
-                  ' root@%s echo Testing' % dut_ip)
-           result = self.run(cmd)
-           is_sshable = 'Testing' in result.stdout
-           logging.info(is_sshable)
-           count += 1
-       return is_sshable
+        is_sshable = False
+        count = 0
+        while not is_sshable and count < 10:
+            cmd = ('ssh  -o ConnectTimeout=30 -o ConnectionAttempts=30'
+                   ' root@%s echo Testing' % dut_ip)
+            result = self.run(cmd)
+            is_sshable = 'Testing' in result.stdout
+            logging.info(is_sshable)
+            count += 1
+        return is_sshable
 
     def verify_software(self):
         """Create the autodir then do standard verify."""

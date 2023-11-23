@@ -7,9 +7,10 @@ from autotest_lib.server import utils
 AUTHOR = "allenwebb"
 NAME = "firmware_Cr50PinWeaverServer"
 PURPOSE = "Validate PinWeaver functionality on Cr50"
-ATTRIBUTES = "suite:experimental, suite:faft_cr50_pvt, suite:faft_cr50_prepvt"
+ATTRIBUTES = "suite:experimental, suite:faft_cr50_pvt, suite:faft_cr50_prepvt, suite:distributed_lab_qual_faft"
 TIME = "SHORT"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 Check that PinWeaver functionality on Cr50 works as intended across hard

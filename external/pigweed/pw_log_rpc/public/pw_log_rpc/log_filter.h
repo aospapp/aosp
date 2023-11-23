@@ -16,13 +16,13 @@
 
 #include <cstddef>
 #include <cstring>
-#include <span>
 
 #include "pw_assert/assert.h"
 #include "pw_bytes/span.h"
 #include "pw_containers/vector.h"
 #include "pw_log/proto/log.pwpb.h"
 #include "pw_log_rpc/internal/config.h"
+#include "pw_span/span.h"
 #include "pw_status/status.h"
 
 namespace pw::log_rpc {
@@ -42,17 +42,20 @@ class Filter {
 
     // Checks if the log level is greater or equal to this value when it
     // does not equal NOT_SET.
-    log::FilterRule::Level level_greater_than_or_equal =
-        log::FilterRule::Level::ANY_LEVEL;
+    log::pwpb::FilterRule::Level level_greater_than_or_equal =
+        log::pwpb::FilterRule::Level::ANY_LEVEL;
 
     // Checks if the log entry has any flag is set when it doesn't equal 0.
     uint32_t any_flags_set = 0;
 
     // Checks if the log entry module equals this value when not empty.
     Vector<std::byte, cfg::kMaxModuleNameBytes> module_equals{};
+
+    // Checks if the log entry thread equals this value when not empty.
+    Vector<std::byte, cfg::kMaxThreadNameBytes> thread_equals{};
   };
 
-  Filter(std::span<const std::byte> id, std::span<Rule> rules) : rules_(rules) {
+  Filter(span<const std::byte> id, span<Rule> rules) : rules_(rules) {
     PW_ASSERT(!id.empty());
     id_.assign(id.begin(), id.end());
   }
@@ -62,7 +65,7 @@ class Filter {
   Filter& operator=(const Filter&) = delete;
 
   ConstByteSpan id() const { return ConstByteSpan(id_.data(), id_.size()); }
-  std::span<const Rule> rules() const { return rules_; }
+  span<const Rule> rules() const { return rules_; }
 
   // Verifies a log entry against the filter's rules in the order they were
   // provided, stopping at the first rule that matches.
@@ -82,7 +85,7 @@ class Filter {
 
  private:
   Vector<std::byte, cfg::kMaxFilterIdBytes> id_;
-  std::span<Rule> rules_;
+  span<Rule> rules_;
 };
 
 }  // namespace pw::log_rpc

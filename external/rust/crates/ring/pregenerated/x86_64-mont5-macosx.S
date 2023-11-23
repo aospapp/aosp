@@ -8,22 +8,23 @@
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text	
 
 
 
-.globl	_GFp_bn_mul_mont_gather5
-.private_extern _GFp_bn_mul_mont_gather5
+.globl	_bn_mul_mont_gather5
+.private_extern _bn_mul_mont_gather5
 
 .p2align	6
-_GFp_bn_mul_mont_gather5:
+_bn_mul_mont_gather5:
 
 	movl	%r9d,%r9d
 	movq	%rsp,%rax
 
 	testl	$7,%r9d
 	jnz	L$mul_enter
-	leaq	_GFp_ia32cap_P(%rip),%r11
+	leaq	_OPENSSL_ia32cap_P(%rip),%r11
 	movl	8(%r11),%r11d
 	jmp	L$mul4x_enter
 
@@ -1086,15 +1087,15 @@ L$inner4x:
 	jmp	L$sqr4x_sub_entry
 
 
-.globl	_GFp_bn_power5
-.private_extern _GFp_bn_power5
+.globl	_bn_power5
+.private_extern _bn_power5
 
 .p2align	5
-_GFp_bn_power5:
+_bn_power5:
 
 	movq	%rsp,%rax
 
-	leaq	_GFp_ia32cap_P(%rip),%r11
+	leaq	_OPENSSL_ia32cap_P(%rip),%r11
 	movl	8(%r11),%r11d
 	andl	$0x80108,%r11d
 	cmpl	$0x80108,%r11d
@@ -1223,12 +1224,12 @@ L$power5_epilogue:
 
 
 
-.globl	_GFp_bn_sqr8x_internal
-.private_extern _GFp_bn_sqr8x_internal
-.private_extern	_GFp_bn_sqr8x_internal
+.globl	_bn_sqr8x_internal
+.private_extern _bn_sqr8x_internal
+.private_extern	_bn_sqr8x_internal
 
 .p2align	5
-_GFp_bn_sqr8x_internal:
+_bn_sqr8x_internal:
 __bn_sqr8x_internal:
 
 
@@ -2063,11 +2064,11 @@ L$sqr4x_sub_entry:
 	.byte	0xf3,0xc3
 
 
-.globl	_GFp_bn_from_montgomery
-.private_extern _GFp_bn_from_montgomery
+.globl	_bn_from_montgomery
+.private_extern _bn_from_montgomery
 
 .p2align	5
-_GFp_bn_from_montgomery:
+_bn_from_montgomery:
 
 	testl	$7,%r9d
 	jz	bn_from_mont8x
@@ -2190,7 +2191,7 @@ L$mul_by_1:
 .byte	0x67
 	movq	%rcx,%rbp
 .byte	102,73,15,110,218
-	leaq	_GFp_ia32cap_P(%rip),%r11
+	leaq	_OPENSSL_ia32cap_P(%rip),%r11
 	movl	8(%r11),%r11d
 	andl	$0x80108,%r11d
 	cmpl	$0x80108,%r11d
@@ -2914,11 +2915,11 @@ L$powerx5_epilogue:
 
 
 
-.globl	_GFp_bn_sqrx8x_internal
-.private_extern _GFp_bn_sqrx8x_internal
+.globl	_bn_sqrx8x_internal
+.private_extern _bn_sqrx8x_internal
 
 .p2align	5
-_GFp_bn_sqrx8x_internal:
+_bn_sqrx8x_internal:
 __bn_sqrx8x_internal:
 
 
@@ -3587,11 +3588,11 @@ L$sqrx4x_sub_entry:
 	.byte	0xf3,0xc3
 
 
-.globl	_GFp_bn_scatter5
-.private_extern _GFp_bn_scatter5
+.globl	_bn_scatter5
+.private_extern _bn_scatter5
 
 .p2align	4
-_GFp_bn_scatter5:
+_bn_scatter5:
 
 	cmpl	$0,%esi
 	jz	L$scatter_epilogue
@@ -3608,13 +3609,13 @@ L$scatter_epilogue:
 
 
 
-.globl	_GFp_bn_gather5
-.private_extern _GFp_bn_gather5
+.globl	_bn_gather5
+.private_extern _bn_gather5
 
 .p2align	5
-_GFp_bn_gather5:
+_bn_gather5:
 
-L$SEH_begin_GFp_bn_gather5:
+L$SEH_begin_bn_gather5:
 
 .byte	0x4c,0x8d,0x14,0x24
 
@@ -3773,7 +3774,7 @@ L$gather:
 	leaq	(%r10),%rsp
 
 	.byte	0xf3,0xc3
-L$SEH_end_GFp_bn_gather5:
+L$SEH_end_bn_gather5:
 
 
 .p2align	6

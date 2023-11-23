@@ -21,6 +21,7 @@
 
 #include "perfetto/base/export.h"
 #include "perfetto/protozero/message.h"
+#include "perfetto/protozero/scattered_stream_writer.h"
 
 namespace protozero {
 
@@ -37,13 +38,32 @@ class Message;
 // Think about this as a WeakPtr<Message> which calls
 // Message::Finalize() when going out of scope.
 
-class PERFETTO_EXPORT MessageHandleBase {
+class PERFETTO_EXPORT_COMPONENT MessageHandleBase {
  public:
-  ~MessageHandleBase();
+  ~MessageHandleBase() {
+    if (message_) {
+#if PERFETTO_DCHECK_IS_ON()
+      PERFETTO_DCHECK(generation_ == message_->generation_);
+#endif
+      FinalizeMessage();
+    }
+  }
 
   // Move-only type.
-  MessageHandleBase(MessageHandleBase&&) noexcept;
-  MessageHandleBase& operator=(MessageHandleBase&&);
+  MessageHandleBase(MessageHandleBase&& other) noexcept {
+    Move(std::move(other));
+  }
+
+  MessageHandleBase& operator=(MessageHandleBase&& other) noexcept {
+    // If the current handle was pointing to a message and is being reset to a
+    // new one, finalize the old message. However, if the other message is the
+    // same as the one we point to, don't finalize.
+    if (message_ && message_ != other.message_)
+      FinalizeMessage();
+    Move(std::move(other));
+    return *this;
+  }
+
   explicit operator bool() const {
 #if PERFETTO_DCHECK_IS_ON()
     PERFETTO_DCHECK(!message_ || generation_ == message_->generation_);
@@ -51,8 +71,29 @@ class PERFETTO_EXPORT MessageHandleBase {
     return !!message_;
   }
 
+  // Returns a (non-owned, it should not be deleted) pointer to the
+  // ScatteredStreamWriter used to write the message data. The Message becomes
+  // unusable after this point.
+  //
+  // The caller can now write directly, without using protozero::Message.
+  ScatteredStreamWriter* TakeStreamWriter() {
+    ScatteredStreamWriter* stream_writer = message_->stream_writer_;
+#if PERFETTO_DCHECK_IS_ON()
+    message_->set_handle(nullptr);
+#endif
+    message_ = nullptr;
+    return stream_writer;
+  }
+
  protected:
-  explicit MessageHandleBase(Message* = nullptr);
+  explicit MessageHandleBase(Message* message = nullptr) : message_(message) {
+#if PERFETTO_DCHECK_IS_ON()
+    generation_ = message_ ? message->generation_ : 0;
+    if (message_)
+      message_->set_handle(this);
+#endif
+  }
+
   Message* operator->() const {
 #if PERFETTO_DCHECK_IS_ON()
     PERFETTO_DCHECK(!message_ || generation_ == message_->generation_);
@@ -72,7 +113,16 @@ class PERFETTO_EXPORT MessageHandleBase {
     message_ = nullptr;
   }
 
-  void Move(MessageHandleBase&&);
+  void Move(MessageHandleBase&& other) {
+    message_ = other.message_;
+    other.message_ = nullptr;
+#if PERFETTO_DCHECK_IS_ON()
+    if (message_) {
+      generation_ = message_->generation_;
+      message_->set_handle(this);
+    }
+#endif
+  }
 
   void FinalizeMessage() { message_->Finalize(); }
 

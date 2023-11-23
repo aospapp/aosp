@@ -1,4 +1,5 @@
 from fontTools.misc.fixedTools import floatToFixedToFloat
+from fontTools.misc.testTools import stripVariableItemsFromTTX
 from fontTools.misc.textTools import Tag
 from fontTools import ttLib
 from fontTools import designspaceLib
@@ -457,6 +458,8 @@ class InstantiateItemVariationStoreTest(object):
 
         defaultDeltaArray = []
         for varidx, delta in sorted(defaultDeltas.items()):
+            if varidx == varStore.NO_VARIATION_INDEX:
+                continue
             major, minor = varidx >> 16, varidx & 0xFFFF
             if major == len(defaultDeltaArray):
                 defaultDeltaArray.append([])
@@ -1386,10 +1389,6 @@ def test_setMacOverlapFlags():
     assert b.components[0].flags & flagOverlapCompound != 0
 
 
-def _strip_ttLibVersion(string):
-    return re.sub(' ttLibVersion=".*"', "", string)
-
-
 @pytest.fixture
 def varfont2():
     f = ttLib.TTFont(recalcTimestamp=False)
@@ -1412,7 +1411,7 @@ def _dump_ttx(ttFont):
     ttFont2 = ttLib.TTFont(tmp, recalcBBoxes=False, recalcTimestamp=False)
     s = StringIO()
     ttFont2.saveXML(s)
-    return _strip_ttLibVersion(s.getvalue())
+    return stripVariableItemsFromTTX(s.getvalue())
 
 
 def _get_expected_instance_ttx(
@@ -1428,7 +1427,7 @@ def _get_expected_instance_ttx(
         "r",
         encoding="utf-8",
     ) as fp:
-        return _strip_ttLibVersion(fp.read())
+        return stripVariableItemsFromTTX(fp.read())
 
 
 class InstantiateVariableFontTest(object):
@@ -1978,3 +1977,35 @@ def test_main_exit_multiple_limits(varfont, tmpdir, capsys):
     captured = capsys.readouterr()
 
     assert "Specified multiple limits for the same axis" in captured.err
+
+
+def test_set_ribbi_bits():
+    varfont = ttLib.TTFont()
+    varfont.importXML(os.path.join(TESTDATA, "STATInstancerTest.ttx"))
+
+    for location in [instance.coordinates for instance in varfont["fvar"].instances]:
+        instance = instancer.instantiateVariableFont(
+            varfont, location, updateFontNames=True
+        )
+        name_id_2 = instance["name"].getDebugName(2)
+        mac_style = instance["head"].macStyle
+        fs_selection = instance["OS/2"].fsSelection & 0b1100001  # Just bits 0, 5, 6
+
+        if location["ital"] == 0:
+            if location["wght"] == 700:
+                assert name_id_2 == "Bold", location
+                assert mac_style == 0b01, location
+                assert fs_selection == 0b0100000, location
+            else:
+                assert name_id_2 == "Regular", location
+                assert mac_style == 0b00, location
+                assert fs_selection == 0b1000000, location
+        else:
+            if location["wght"] == 700:
+                assert name_id_2 == "Bold Italic", location
+                assert mac_style == 0b11, location
+                assert fs_selection == 0b0100001, location
+            else:
+                assert name_id_2 == "Italic", location
+                assert mac_style == 0b10, location
+                assert fs_selection == 0b0000001, location

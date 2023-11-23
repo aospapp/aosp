@@ -13,21 +13,18 @@
 // under the terms of the GNU GPL version 2, as detailed in the COPYING file.
 
 #define __STDC_LIMIT_MACROS
-#ifndef __STDC_CONSTANT_MACROS
 #define __STDC_CONSTANT_MACROS
-#endif
-
-#ifdef USE_UTF16
-#include <unicode/ustdio.h>
-#else
-#define UnicodeString string
-#endif
 
 #include <string.h>
 #include <stdio.h>
 #include <iostream>
 #include "gptpart.h"
 #include "attributes.h"
+#ifdef USE_UTF16
+#include <unicode/ustdio.h>
+#else
+#define UnicodeString std::string
+#endif
 
 using namespace std;
 
@@ -94,7 +91,6 @@ string GPTPart::GetDescription(void) {
    size_t pos = 0 ;
    while ( ( pos < NAME_SIZE ) && ( name[ pos ] != 0 ) ) {
       uint16_t cp = name[ pos ++ ] ;
-      if ( ! IsLittleEndian() ) ReverseBytes( & cp , 2 ) ;
       // first to utf32
       uint32_t uni ;
       if ( cp < 0xd800 || cp > 0xdfff ) {
@@ -245,7 +241,6 @@ void GPTPart::SetName(const string & theName) {
       // then to utf16le
       if ( uni < 0x10000 ) {
          name[ pos ] = (uint16_t) uni ;
-         if ( ! IsLittleEndian() ) ReverseBytes( name + pos , 2 ) ;
          pos ++ ;
       } // if
       else {
@@ -255,10 +250,8 @@ void GPTPart::SetName(const string & theName) {
          } // if
          uni -= 0x10000 ;
          name[ pos ] = (uint16_t)( uni >> 10 ) | 0xd800 ;
-         if ( ! IsLittleEndian() ) ReverseBytes( name + pos , 2 ) ;
          pos ++ ;
          name[ pos ] = (uint16_t)( uni & 0x3ff ) | 0xdc00 ;
-         if ( ! IsLittleEndian() ) ReverseBytes( name + pos , 2 ) ;
          pos ++ ;
       }
    } // for
@@ -418,14 +411,18 @@ int GPTPart::DoTheyOverlap(const GPTPart & other) {
 // Reverse the bytes of integral data types and of the UTF-16LE name;
 // used on big-endian systems.
 void GPTPart::ReversePartBytes(void) {
-   int i;
-
    ReverseBytes(&firstLBA, 8);
    ReverseBytes(&lastLBA, 8);
    ReverseBytes(&attributes, 8);
+   ReverseNameBytes();
+} // GPTPart::ReversePartBytes()
+
+void GPTPart::ReverseNameBytes(void) {
+   int i;
+
    for (i = 0; i < NAME_SIZE; i ++ )
       ReverseBytes(name + i, 2);
-} // GPTPart::ReverseBytes()
+} // GPTPart::ReverseNameBytes()
 
 /****************************************
  * Functions requiring user interaction *
@@ -436,7 +433,7 @@ void GPTPart::ReversePartBytes(void) {
 void GPTPart::ChangeType(void) {
    string line;
    int changeName;
-   PartType tempType = (GUIDData) "00000000-0000-0000-0000-000000000000";
+   PartType tempType = PartType::unusedPartType;
 
 #ifdef USE_UTF16
    changeName = (GetDescription() == GetUTypeName());
@@ -444,19 +441,19 @@ void GPTPart::ChangeType(void) {
    changeName = (GetDescription() == GetTypeName());
 #endif
 
-   cout << "Current type is '" << GetTypeName() << "'\n";
+   cout << "Current type is " << hex << GetHexType() << dec << " (" << GetTypeName() << ")\n";
    do {
-      cout << "Hex code or GUID (L to show codes, Enter = " << hex << DEFAULT_GPT_TYPE << dec << "): ";
+      cout << "Hex code or GUID (L to show codes, Enter = " << hex << GetHexType() << dec << "): ";
       line = ReadString();
       if ((line[0] == 'L') || (line[0] == 'l')) {
          partitionType.ShowAllTypes();
       } else {
          if (line.length() == 0)
-            tempType = DEFAULT_GPT_TYPE;
+            tempType = GetHexType();
          else
             tempType = line;
       } // if/else
-   } while (tempType == (GUIDData) "00000000-0000-0000-0000-000000000000");
+   } while (tempType == PartType::unusedPartType);
    partitionType = tempType;
    cout << "Changed type of partition to '" << partitionType.TypeName() << "'\n";
    if (changeName) {

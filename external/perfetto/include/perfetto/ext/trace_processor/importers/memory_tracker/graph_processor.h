@@ -31,7 +31,7 @@
 namespace perfetto {
 namespace trace_processor {
 
-class PERFETTO_EXPORT GraphProcessor {
+class PERFETTO_EXPORT_COMPONENT GraphProcessor {
  public:
   // This map does not own the pointers inside.
   using RawMemoryNodeMap =
@@ -80,7 +80,7 @@ class PERFETTO_EXPORT GraphProcessor {
   static void PropagateNumericsAndDiagnosticsRecursively(
       GlobalNodeGraph::Node* node);
 
-  static base::Optional<uint64_t> AggregateSizeForDescendantNode(
+  static std::optional<uint64_t> AggregateSizeForDescendantNode(
       GlobalNodeGraph::Node* root,
       GlobalNodeGraph::Node* descendant);
 

@@ -15,15 +15,21 @@
 
 import argparse
 import asyncio
+import base64
+import datetime
 import enum
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
+import time
 
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+
+import requests
 
 import pw_cli.log
 import pw_cli.process
@@ -31,41 +37,57 @@ import pw_cli.process
 # Global logger for the script.
 _LOG: logging.Logger = logging.getLogger(__name__)
 
+_ANSI_SEQUENCE_REGEX = re.compile(rb'\x1b[^m]*m')
+
+
+def _strip_ansi(bytes_with_sequences: bytes) -> bytes:
+    """Strip out ANSI escape sequences."""
+    return _ANSI_SEQUENCE_REGEX.sub(b'', bytes_with_sequences)
+
 
 def register_arguments(parser: argparse.ArgumentParser) -> None:
     """Registers command-line arguments."""
 
-    parser.add_argument('--root',
-                        type=str,
-                        default='out',
-                        help='Path to the root build directory')
-    parser.add_argument('-r',
-                        '--runner',
-                        type=str,
-                        required=True,
-                        help='Executable which runs a test on the target')
-    parser.add_argument('-m',
-                        '--timeout',
-                        type=float,
-                        help='Timeout for test runner in seconds')
-    parser.add_argument('runner_args',
-                        nargs="*",
-                        help='Arguments to forward to the test runner')
+    parser.add_argument(
+        '--root',
+        type=str,
+        default='out',
+        help='Path to the root build directory',
+    )
+    parser.add_argument(
+        '-r',
+        '--runner',
+        type=str,
+        required=True,
+        help='Executable which runs a test on the target',
+    )
+    parser.add_argument(
+        '-m', '--timeout', type=float, help='Timeout for test runner in seconds'
+    )
+    parser.add_argument(
+        '--coverage-profraw',
+        type=str,
+        help='The name of the coverage profraw file to produce with the'
+        ' coverage information from this test. Only provide this if the test'
+        ' should be run for coverage and is properly instrumented.',
+    )
+    parser.add_argument(
+        'runner_args', nargs="*", help='Arguments to forward to the test runner'
+    )
 
     # The runner script can either run binaries directly or groups.
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-g',
-                       '--group',
-                       action='append',
-                       help='Test groups to run')
-    group.add_argument('-t',
-                       '--test',
-                       action='append',
-                       help='Test binaries to run')
+    group.add_argument(
+        '-g', '--group', action='append', help='Test groups to run'
+    )
+    group.add_argument(
+        '-t', '--test', action='append', help='Test binaries to run'
+    )
 
 
 class TestResult(enum.Enum):
     """Result of a single unit test run."""
+
     UNKNOWN = 0
     SUCCESS = 1
     FAILURE = 2
@@ -73,10 +95,13 @@ class TestResult(enum.Enum):
 
 class Test:
     """A unit test executable."""
-    def __init__(self, name: str, file_path: str):
+
+    def __init__(self, name: str, file_path: str) -> None:
         self.name: str = name
         self.file_path: str = file_path
         self.status: TestResult = TestResult.UNKNOWN
+        self.start_time: datetime.datetime
+        self.duration_s: float
 
     def __repr__(self) -> str:
         return f'Test({self.name})'
@@ -92,6 +117,7 @@ class Test:
 
 class TestGroup:
     """Graph node representing a group of unit tests."""
+
     def __init__(self, name: str, tests: Iterable[Test]):
         self._name: str = name
         self._deps: Iterable['TestGroup'] = []
@@ -113,7 +139,9 @@ class TestGroup:
         for dep in self._deps:
             tests.update(
                 dep._all_test_dependencies(  # pylint: disable=protected-access
-                    processed_groups))
+                    processed_groups
+                )
+            )
 
         tests.update(self._tests)
         processed_groups.add(self._name)
@@ -126,15 +154,29 @@ class TestGroup:
 
 class TestRunner:
     """Runs unit tests by calling out to a runner script."""
-    def __init__(self,
-                 executable: str,
-                 args: Sequence[str],
-                 tests: Iterable[Test],
-                 timeout: Optional[float] = None):
+
+    def __init__(
+        self,
+        executable: str,
+        args: Sequence[str],
+        tests: Iterable[Test],
+        coverage_profraw: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> None:
         self._executable: str = executable
         self._args: Sequence[str] = args
         self._tests: List[Test] = list(tests)
+        self._coverage_profraw = coverage_profraw
         self._timeout = timeout
+        self._result_sink: Optional[Dict[str, str]] = None
+
+        # Access go/result-sink, if available.
+        ctx_path = Path(os.environ.get("LUCI_CONTEXT", ''))
+        if not ctx_path.is_file():
+            return
+
+        ctx = json.loads(ctx_path.read_text(encoding='utf-8'))
+        self._result_sink = ctx.get('result_sink', None)
 
     async def run_tests(self) -> None:
         """Runs all registered unit tests through the runner script."""
@@ -143,41 +185,129 @@ class TestRunner:
             total = str(len(self._tests))
             test_counter = f'Test {idx:{len(total)}}/{total}'
 
-            _LOG.info('%s: [ RUN] %s', test_counter, test.name)
+            _LOG.debug('%s: [ RUN] %s', test_counter, test.name)
 
             # Convert POSIX to native directory seperators as GN produces '/'
             # but the Windows test runner needs '\\'.
             command = [
                 str(Path(self._executable)),
-                str(Path(test.file_path)), *self._args
+                *self._args,
+                str(Path(test.file_path)),
             ]
 
             if self._executable.endswith('.py'):
                 command.insert(0, sys.executable)
 
+            test.start_time = datetime.datetime.now(datetime.timezone.utc)
+            start_time = time.monotonic()
             try:
-                process = await pw_cli.process.run_async(*command,
-                                                         timeout=self._timeout)
-                if process.returncode == 0:
-                    test.status = TestResult.SUCCESS
-                    test_result = 'PASS'
-                else:
-                    test.status = TestResult.FAILURE
-                    test_result = 'FAIL'
-
-                    _LOG.log(pw_cli.log.LOGLEVEL_STDOUT, '[%s]\n%s',
-                             pw_cli.color.colors().bold_white(process.pid),
-                             process.output.decode(errors='ignore').rstrip())
-
-                    _LOG.info('%s: [%s] %s', test_counter, test_result,
-                              test.name)
+                env = {}
+                if self._coverage_profraw is not None:
+                    env['LLVM_PROFILE_FILE'] = str(Path(self._coverage_profraw))
+                process = await pw_cli.process.run_async(
+                    *command, env=env, timeout=self._timeout
+                )
             except subprocess.CalledProcessError as err:
+                _LOG.error(err)
+                return
+            test.duration_s = time.monotonic() - start_time
+
+            if process.returncode == 0:
+                test.status = TestResult.SUCCESS
+                test_result = 'PASS'
+            else:
+                test.status = TestResult.FAILURE
+                test_result = 'FAIL'
+
+                _LOG.log(
+                    pw_cli.log.LOGLEVEL_STDOUT,
+                    '[Pid: %s]\n%s',
+                    pw_cli.color.colors().bold_white(process.pid),
+                    process.output.decode(errors='ignore').rstrip(),
+                )
+
+                _LOG.info(
+                    '%s: [%s] %s in %.3f s',
+                    test_counter,
+                    test_result,
+                    test.name,
+                    test.duration_s,
+                )
+
+            try:
+                self._maybe_upload_to_resultdb(test, process)
+            except requests.exceptions.HTTPError as err:
                 _LOG.error(err)
                 return
 
     def all_passed(self) -> bool:
         """Returns true if all unit tests passed."""
         return all(test.status is TestResult.SUCCESS for test in self._tests)
+
+    def _maybe_upload_to_resultdb(
+        self, test: Test, process: pw_cli.process.CompletedProcess
+    ):
+        """Uploads test result to ResultDB, if available."""
+        if self._result_sink is None:
+            # ResultDB integration not enabled.
+            return
+
+        test_result = {
+            # The test.name is not suitable as an identifier because it's just
+            # the basename of the test (channel_test). We want the full path,
+            # including the toolchain used.
+            "testId": test.file_path,
+            # ResultDB also supports CRASH and ABORT, but there's currently no
+            # way to distinguish these in pw_unit_test.
+            "status": "PASS" if test.status is TestResult.SUCCESS else "FAIL",
+            # The "expected" field is required. It could be used to report
+            # expected failures, but we don't currently support these in
+            # pw_unit_test.
+            "expected": test.status is TestResult.SUCCESS,
+            # Ensure to format the duration with '%.9fs' to avoid scientific
+            # notation.  If a value is too large or small and formatted with
+            # str() or '%s', python formats the value in scientific notation,
+            # like '1.1e-10', which is an invalid input for
+            # google.protobuf.duration.
+            "duration": "%.9fs" % test.duration_s,
+            "start_time": test.start_time.isoformat(),
+            "testMetadata": {
+                # Use the file path as the test name in the Milo UI. (If this is
+                # left unspecified, the UI will attempt to build a "good enough"
+                # name by truncating the testId. That produces less readable
+                # results.)
+                "name": test.file_path,
+            },
+            "summaryHtml": (
+                '<p><text-artifact '
+                'artifact-id="artifact-content-in-request"></p>'
+            ),
+            "artifacts": {
+                "artifact-content-in-request": {
+                    # Need to decode the bytes back to ASCII or they will not be
+                    # encodable by json.dumps.
+                    #
+                    # TODO(b/248349219): Instead of stripping the ANSI color
+                    # codes, convert them to HTML.
+                    "contents": base64.b64encode(
+                        _strip_ansi(process.output)
+                    ).decode('ascii'),
+                },
+            },
+        }
+
+        requests.post(
+            url='http://%s/prpc/luci.resultsink.v1.Sink/ReportTestResults'
+            % self._result_sink['address'],
+            headers={
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': 'ResultSink %s'
+                % self._result_sink['auth_token'],
+            },
+            data=json.dumps({'testResults': [test_result]}),
+            timeout=5.0,
+        ).raise_for_status()
 
 
 # Filename extension for unit test metadata files.
@@ -224,7 +354,8 @@ def find_binary(target: str) -> str:
             return potential_filename
 
     raise FileNotFoundError(
-        f'Could not find output binary for build target {target}')
+        f'Could not find output binary for build target {target}'
+    )
 
 
 def parse_metadata(metadata: List[str], root: str) -> Dict[str, TestGroup]:
@@ -239,6 +370,7 @@ def parse_metadata(metadata: List[str], root: str) -> Dict[str, TestGroup]:
         populated with the paths to their unit tests and references to their
         dependencies.
     """
+
     def canonicalize(path: str) -> str:
         """Removes a trailing slash from a GN target's directory.
 
@@ -248,7 +380,7 @@ def parse_metadata(metadata: List[str], root: str) -> Dict[str, TestGroup]:
         index = path.find(':')
         if index == -1 or path[index - 1] != '/':
             return path
-        return path[:index - 1] + path[index:]
+        return path[: index - 1] + path[index:]
 
     group_deps: List[Tuple[str, List[str]]] = []
     all_tests: Dict[str, Test] = {}
@@ -270,11 +402,13 @@ def parse_metadata(metadata: List[str], root: str) -> Dict[str, TestGroup]:
             elif entry['type'] == 'test':
                 test_directory = os.path.join(root, entry['test_directory'])
                 test_binary = find_binary(
-                    f'{test_directory}:{entry["test_name"]}')
+                    f'{test_directory}:{entry["test_name"]}'
+                )
 
                 if test_binary not in all_tests:
-                    all_tests[test_binary] = Test(entry['test_name'],
-                                                  test_binary)
+                    all_tests[test_binary] = Test(
+                        entry['test_name'], test_binary
+                    )
 
                 tests.append(all_tests[test_binary])
 
@@ -291,8 +425,9 @@ def parse_metadata(metadata: List[str], root: str) -> Dict[str, TestGroup]:
     return test_groups
 
 
-def tests_from_groups(group_names: Optional[Sequence[str]],
-                      root: str) -> List[Test]:
+def tests_from_groups(
+    group_names: Optional[Sequence[str]], root: str
+) -> List[Test]:
     """Returns unit tests belonging to test groups and their dependencies.
 
     If args.names is nonempty, only searches groups specified there.
@@ -330,8 +465,9 @@ def tests_from_paths(paths: Sequence[str]) -> List[Test]:
 async def find_and_run_tests(
     root: str,
     runner: str,
-    timeout: Optional[float],
     runner_args: Sequence[str] = (),
+    coverage_profraw: Optional[str] = None,
+    timeout: Optional[float] = None,
     group: Optional[Sequence[str]] = None,
     test: Optional[Sequence[str]] = None,
 ) -> int:
@@ -342,7 +478,9 @@ async def find_and_run_tests(
     else:
         tests = tests_from_groups(group, root)
 
-    test_runner = TestRunner(runner, runner_args, tests, timeout)
+    test_runner = TestRunner(
+        runner, runner_args, tests, coverage_profraw, timeout
+    )
     await test_runner.run_tests()
 
     return 0 if test_runner.all_passed() else 1
@@ -353,10 +491,12 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description=main.__doc__)
     register_arguments(parser)
-    parser.add_argument('-v',
-                        '--verbose',
-                        action='store_true',
-                        help='Output additional logs as the script runs')
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        action='store_true',
+        help='Output additional logs as the script runs',
+    )
 
     args_as_dict = dict(vars(parser.parse_args()))
     del args_as_dict['verbose']

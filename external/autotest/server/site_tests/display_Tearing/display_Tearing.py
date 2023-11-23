@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -165,7 +166,7 @@ class display_Tearing(test.test):
         """
         def _discard_delayed_frames(sequence):
             return [sequence[i]
-                    for i in xrange(len(sequence))
+                    for i in range(len(sequence))
                     if i == 0 or sequence[i] != sequence[i-1]]
 
         captured_color_sequence = _discard_delayed_frames(
@@ -193,7 +194,7 @@ class display_Tearing(test.test):
                 chameleon_port, self.TEST_COLOR_SEQUENCE)
         self._display_facade.close_tab(self._test_tab_descriptor)
         delay_time = [timestamp_list[i] - timestamp_list[i-1]
-                      for i in xrange(1, len(timestamp_list))]
+                      for i in range(1, len(timestamp_list))]
         logging.info('Captured %d frames\n'
                      'Checksum_table: %s\n'
                      'Captured_checksums: %s\n'

@@ -22,8 +22,12 @@ function generate() {
   mkdir -p $out
   for f in $files; do cp generated/$f $out/$f ; done
   rm -rf .config generated/
+
+  make allnoconfig KCONFIG_ALLCONFIG=.config-$which
 }
 
 generate "device"
 generate "linux"
 generate "mac"
+
+rm -rf .config

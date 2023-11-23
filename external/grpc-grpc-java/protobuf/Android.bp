@@ -38,4 +38,6 @@ java_library_host {
         "libprotobuf-java-full",
         "libprotobuf-java-util-full",
     ],
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
 }

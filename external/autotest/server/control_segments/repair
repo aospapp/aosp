@@ -21,7 +21,8 @@ def repair(machine):
         job.record('START', None, 'repair')
         target = hosts.create_target_machine(machine,
                                              try_lab_servo=True,
-                                             try_servo_repair=True)
+                                             try_servo_repair=True,
+                                             try_servo_recovery=True)
 
         try:
             # We don't need to collect logs or crash info if we're a

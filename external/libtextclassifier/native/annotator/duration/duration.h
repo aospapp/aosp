@@ -87,7 +87,7 @@ class DurationAnnotator {
 
   // Finds all duration instances in the input text.
   bool FindAll(const UnicodeText& context, const std::vector<Token>& tokens,
-               AnnotationUsecase annotation_usecase,
+               AnnotationUsecase annotation_usecase, ModeFlag mode,
                std::vector<AnnotatedSpan>* results) const;
 
  private:

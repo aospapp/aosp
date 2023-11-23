@@ -16,13 +16,13 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_library {
+android_test {
     name: "mobly-bundled-snippets",
     static_libs: [
         "androidx.test.runner",
+        "gson",
         "guava",
         "mobly-snippet-lib",
-        "gson-prebuilt-jar",
     ],
     srcs: [
         "src/main/**/*.java",

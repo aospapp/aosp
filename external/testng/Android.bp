@@ -102,6 +102,18 @@ java_library {
         "guice",
     ],
     libs: ["junit"],
+
+    errorprone: {
+        javacflags: [
+            "-Xep:ComparableType:WARN",
+            "-Xep:NonRuntimeAnnotation:WARN",
+            "-Xep:GetClassOnAnnotation:WARN",
+            "-Xep:RandomModInteger:WARN",
+            "-Xep:FormatString:WARN",
+            "-Xep:DoubleBraceInitialization:WARN",
+            "-Xep:UnusedCollectionModifiedInPlace:WARN",
+        ],
+    },
 }
 
 // TODO: also add the tests once we have testng working.

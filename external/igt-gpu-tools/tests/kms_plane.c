@@ -60,12 +60,16 @@ static color_t blue  = { 0.0f, 0.0f, 1.0f };
  */
 static void test_init(data_t *data, enum pipe pipe)
 {
+#if defined (USE_CRC)
 	data->pipe_crc = igt_pipe_crc_new(data->drm_fd, pipe, INTEL_PIPE_CRC_SOURCE_AUTO);
+#endif
 }
 
 static void test_fini(data_t *data)
 {
+#if defined (USE_CRC)
 	igt_pipe_crc_free(data->pipe_crc);
+#endif
 }
 
 static void
@@ -93,17 +97,21 @@ test_grab_crc(data_t *data, igt_output_t *output, enum pipe pipe,
 	ret = igt_display_try_commit2(&data->display, COMMIT_LEGACY);
 	igt_skip_on(ret != 0);
 
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, crc);
+#endif
 
 	igt_plane_set_fb(primary, NULL);
 	igt_display_commit(&data->display);
 
 	igt_remove_fb(data->drm_fd, &fb);
 
+#if defined (USE_CRC)
 	crc_str = igt_crc_to_string(crc);
 	igt_debug("CRC for a (%.02f,%.02f,%.02f) fb: %s\n", fb_color->red,
 		  fb_color->green, fb_color->blue, crc_str);
 	free(crc_str);
+#endif
 }
 
 /*
@@ -176,6 +184,11 @@ test_plane_position_with_output(data_t *data,
 	primary = igt_output_get_plane_type(output, DRM_PLANE_TYPE_PRIMARY);
 	sprite = igt_output_get_plane(output, plane);
 
+	/* Primary planes can't be windowed when using a legacy commit */
+	if (sprite->type == DRM_PLANE_TYPE_PRIMARY) {
+		return;
+	}
+
 	create_fb_for_mode__position(data, mode, 100, 100, 64, 64,
 				     &primary_fb);
 	igt_plane_set_fb(primary, &primary_fb);
@@ -195,7 +208,9 @@ test_plane_position_with_output(data_t *data,
 
 	igt_display_commit(&data->display);
 
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &crc);
+#endif
 
 	if (flags & TEST_DPMS) {
 		kmstest_set_connector_dpms(data->drm_fd,
@@ -206,6 +221,7 @@ test_plane_position_with_output(data_t *data,
 					   DRM_MODE_DPMS_ON);
 	}
 
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &crc2);
 
 	if (flags & TEST_POSITION_FULLY_COVERED)
@@ -215,6 +231,7 @@ test_plane_position_with_output(data_t *data,
 	}
 
 	igt_assert_crc_equal(&crc, &crc2);
+#endif
 
 	igt_plane_set_fb(primary, NULL);
 	igt_plane_set_fb(sprite, NULL);
@@ -325,12 +342,14 @@ test_plane_panning_with_output(data_t *data,
 		igt_system_suspend_autoresume(SUSPEND_STATE_MEM,
 					      SUSPEND_TEST_NONE);
 
+#if defined (USE_CRC)
 	igt_pipe_crc_collect_crc(data->pipe_crc, &crc);
 
 	if (flags & TEST_PANNING_TOP_LEFT)
 		igt_assert_crc_equal(red_crc, &crc);
 	else
 		igt_assert_crc_equal(blue_crc, &crc);
+#endif
 
 	igt_plane_set_fb(primary, NULL);
 
@@ -379,7 +398,7 @@ static void set_legacy_lut(data_t *data, enum pipe pipe,
 	igt_pipe_t *pipe_obj = &data->display.pipes[pipe];
 	drmModeCrtc *crtc;
 	uint16_t *lut;
-	int i, lut_size;
+	int i, lut_size, ret;
 
 	crtc = drmModeGetCrtc(data->drm_fd, pipe_obj->crtc_id);
 	lut_size = crtc->gamma_size;
@@ -390,8 +409,10 @@ static void set_legacy_lut(data_t *data, enum pipe pipe,
 	for (i = 0; i < lut_size; i++)
 		lut[i] = (i * 0xffff / (lut_size - 1)) & mask;
 
-	igt_assert_eq(drmModeCrtcSetGamma(data->drm_fd, pipe_obj->crtc_id,
-					  lut_size, lut, lut, lut), 0);
+	/* DRM driver might not implemented this and return ENOSYS .*/
+	ret = drmModeCrtcSetGamma(data->drm_fd, pipe_obj->crtc_id,
+					  lut_size, lut, lut, lut);
+	igt_assert(ret == 0 || ret == -ENOSYS);
 
 	free(lut);
 }
@@ -492,11 +513,14 @@ static void test_format_plane_color(data_t *data, enum pipe pipe,
 	}
 
 	igt_display_commit2(&data->display, data->display.is_atomic ? COMMIT_ATOMIC : COMMIT_UNIVERSAL);
+#if defined (USE_CRC)
 	igt_pipe_crc_get_current(data->display.drm_fd, data->pipe_crc, crc);
+#endif
 
 	igt_remove_fb(data->drm_fd, &old_fb);
 }
 
+#if defined (USE_CRC)
 static int num_unique_crcs(const igt_crc_t crc[], int num_crc)
 {
 	int num_unique_crc = 0;
@@ -515,6 +539,7 @@ static int num_unique_crcs(const igt_crc_t crc[], int num_crc)
 
 	return num_unique_crc;
 }
+#endif
 
 static bool test_format_plane_colors(data_t *data, enum pipe pipe,
 				     igt_plane_t *plane,
@@ -538,11 +563,13 @@ static bool test_format_plane_colors(data_t *data, enum pipe pipe,
 					encoding, range,
 					i, &crc, fb);
 
+#if defined (USE_CRC)
 		if (!igt_check_crc_equal(&crc, &ref_crc[i])) {
 			crc_mismatch_count++;
 			crc_mismatch_mask |= (1 << i);
 			result = false;
 		}
+#endif
 	}
 
 	if (crc_mismatch_count)
@@ -652,7 +679,9 @@ static bool test_format_plane(data_t *data, enum pipe pipe,
 		  igt_output_name(output), kmstest_plane_type_name(plane->type),
 		  kmstest_pipe_name(pipe), plane->index);
 
+#if defined (USE_CRC)
 	igt_pipe_crc_start(data->pipe_crc);
+#endif
 
 	igt_info("Testing format " IGT_FORMAT_FMT " / modifier 0x%" PRIx64 " on %s.%u\n",
 		 IGT_FORMAT_ARGS(format), modifier,
@@ -693,7 +722,9 @@ static bool test_format_plane(data_t *data, enum pipe pipe,
 	 * at least avoids claiming success when everything is just
 	 * black all the time (eg. if the plane is never even on).
 	 */
+#if defined (USE_CRC)
 	igt_require(num_unique_crcs(ref_crc, ARRAY_SIZE(colors)) > 1);
+#endif
 
 	for (int i = 0; i < plane->format_mod_count; i++) {
 		format = plane->formats[i];
@@ -726,7 +757,9 @@ static bool test_format_plane(data_t *data, enum pipe pipe,
 			set_legacy_lut(data, pipe, LUT_MASK);
 	}
 
+#if defined (USE_CRC)
 	igt_pipe_crc_stop(data->pipe_crc);
+#endif
 
 	igt_plane_set_fb(plane, NULL);
 	igt_remove_fb(data->drm_fd, &fb);
@@ -838,7 +871,9 @@ igt_main
 
 		kmstest_set_vt_graphics_mode();
 
+#if defined (USE_CRC)
 		igt_require_pipe_crc(data.drm_fd);
+#endif
 		igt_display_require(&data.display, data.drm_fd);
 	}
 

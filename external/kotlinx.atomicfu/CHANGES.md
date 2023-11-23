@@ -1,5 +1,75 @@
 # Change log for kotlinx.atomicfu
 
+# Version 0.18.5
+
+* Support JVM IR compiler plugin (#246).
+* Update Kotlin to 1.7.20. 
+* Added more tests for atomicfu-gradle-plugin (#255).
+
+# Version 0.18.4
+
+* Fix KGP compatibility bug with freeCompilerArgs modification (#247).
+* Update kotlinx.metadata to 0.5.0 (#245). 
+* Update gradle version to 6.8.3 (#244)
+
+# Version 0.18.3
+
+* Fix for atomicfu-gradle-plugin application to the MPP project (for Kotlin 1.7.20).
+
+# Version 0.18.2
+
+* In Kotlin 1.7.10 the name of `atomicfu-runtime` module was reverted back to `kotlinx-atomicfu-runtime`, 
+  as the renaming was an incompatible change. 
+  Fixed `atomicfu-gradle-plugin` to add `kotlinx-atomicfu-runtime` dependency directly.
+
+# Version 0.18.1
+
+* Fix for the compatibility issue: add `atomicfu-runtime` dependency directly since Kotlin 1.7.10.
+
+# Version 0.18.0
+
+* Update Kotlin to 1.7.0.
+* Fix kotlin 1.7 compatibility (#222).
+* Update JVM target to 1.8 (see KT-45165).
+* Fix for parsing Kotlin version in AtomicfuGradlePlugin.
+
+# Version 0.17.3
+
+* Adding compiler plugin dependency only for projects with KGP >= 1.6.20 (#226).
+* Compiler plugin runtime dependency fixes (#230).
+* Update README badges (#228).
+
+# Version 0.17.2
+
+* Update Kotlin to 1.6.20.
+* IR transformation for Kotlin/JS. (#215).
+* Update ASM to 9.3 for Java 18 support (#223)
+* Update kotlinx.metadata to 0.4.2.
+
+# Version 0.17.1
+
+* Support of `org.jetbrains.kotlin.js` plugin (#218).
+* Fixed configuration cache bug. (#216).
+* Bug fixes for delegated fields support (#179).
+
+# Version 0.17.0
+
+* Update Kotlin to 1.6.0.
+* Update ASM minimal api version to ASM7 (#203).
+* Add explicit module-info for JPMS compatibility (#201).
+
+# Version 0.16.3
+
+* Kotlin is updated to 1.5.30.
+* All references to Bintray are removed from artefacts POMs.
+* Added new Apple Silicon targets for K/N.
+
+# Version 0.16.2
+
+* Update Kotlin to 1.5.20.
+* ASM 9.1 for Java 15+ support (#190).
+* Removing extra atomicfu references from LVT.
+
 # Version 0.16.0
 
 * Update Kotlin to 1.5.0.

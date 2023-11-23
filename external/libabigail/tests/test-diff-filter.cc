@@ -808,6 +808,13 @@ InOutSpec in_out_specs[] =
    "data/test-diff-filter/test-PR27995-report-0.txt",
    "output/test-diff-filter/test-PR27995-report-0.txt",
   },
+  {
+   "data/test-diff-filter/test-PR28013-fn-variadic.c.0.abi",
+   "data/test-diff-filter/test-PR28013-fn-variadic.c.1.abi",
+   "--no-default-suppression",
+   "data/test-diff-filter/test-PR28013-fn-variadic.c.report.txt",
+   "output/test-diff-filter/test-PR28013-fn-variadic.c.report.txt",
+  },
   // This should be the last entry
   {NULL, NULL, NULL, NULL, NULL}
 };

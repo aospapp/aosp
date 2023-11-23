@@ -1,0 +1,60 @@
+From 785e5a8b836c1607fe273ec895d8d5accf93b42a Mon Sep 17 00:00:00 2001
+From: Edward Liaw <edliaw@google.com>
+Date: Wed, 11 May 2022 00:54:45 +0000
+Subject: [PATCH 23/24] userfaultfd: pagemap not supported < 5.14
+
+Disable uffd tests with pagemap until Android kernel catches up
+
+Bug: 232026677
+Signed-off-by: Edward Liaw <edliaw@google.com>
+---
+ tools/testing/selftests/vm/userfaultfd.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/tools/testing/selftests/vm/userfaultfd.c b/tools/testing/selftests/vm/userfaultfd.c
+index b37642be42054..a38d5ac456d1a 100644
+--- a/tools/testing/selftests/vm/userfaultfd.c
++++ b/tools/testing/selftests/vm/userfaultfd.c
+@@ -1330,6 +1330,11 @@ static int userfaultfd_minor_test(void)
+ #define PM_SWAP                       BIT_ULL(62)
+ #define PM_PRESENT                    BIT_ULL(63)
+ 
++/*
++ * b/232026677
++ * pagemap not compatible with < 5.14
++ */
++#ifndef __ANDROID__
+ static int pagemap_open(void)
+ {
+ 	int fd = open("/proc/self/pagemap", O_RDONLY);
+@@ -1455,6 +1460,7 @@ static void userfaultfd_pagemap_test(unsigned int test_pgsize)
+ 	close(pagemap_fd);
+ 	printf("done\n");
+ }
++#endif
+ 
+ static int userfaultfd_stress(void)
+ {
+@@ -1593,6 +1599,11 @@ static int userfaultfd_stress(void)
+ 		uffd_stats_report(uffd_stats, nr_cpus);
+ 	}
+ 
++/*
++ * b/232026677
++ * pagemap not compatible with < 5.14
++ */
++#ifndef __ANDROID__
+ 	if (test_type == TEST_ANON) {
+ 		/*
+ 		 * shmem/hugetlb won't be able to run since they have different
+@@ -1607,6 +1618,7 @@ static int userfaultfd_stress(void)
+ 		 */
+ 		userfaultfd_pagemap_test(page_size * 512);
+ 	}
++#endif
+ 
+ 	pthread_key_delete(long_jmp_key);
+ 
+-- 
+2.36.0.550.gb090851708-goog
+

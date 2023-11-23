@@ -71,8 +71,11 @@ IndexRange IndexConversionBufferMtl::getRangeForConvertedBuffer(size_t count)
 }
 
 // UniformConversionBufferMtl implementation
-UniformConversionBufferMtl::UniformConversionBufferMtl(ContextMtl *context, size_t offsetIn)
+UniformConversionBufferMtl::UniformConversionBufferMtl(ContextMtl *context,
+                                                       std::pair<size_t, size_t> offsetIn,
+                                                       size_t uniformBufferBlockSize)
     : ConversionBufferMtl(context, 0, mtl::kUniformBufferSettingOffsetMinAlignment),
+      uniformBufferBlockSize(uniformBufferBlockSize),
       offset(offsetIn)
 {}
 
@@ -359,17 +362,21 @@ IndexConversionBufferMtl *BufferMtl::getIndexConversionBuffer(ContextMtl *contex
     return &mIndexConversionBuffers.back();
 }
 
-ConversionBufferMtl *BufferMtl::getUniformConversionBuffer(ContextMtl *context, size_t offset)
+ConversionBufferMtl *BufferMtl::getUniformConversionBuffer(ContextMtl *context,
+                                                           std::pair<size_t, size_t> offset,
+                                                           size_t stdSize)
 {
     for (UniformConversionBufferMtl &buffer : mUniformConversionBuffers)
     {
-        if (buffer.offset == offset)
+        if (buffer.offset.first == offset.first)
         {
-            return &buffer;
+            if (buffer.offset.second <= offset.second &&
+                (offset.second - buffer.offset.second) % buffer.uniformBufferBlockSize == 0)
+                return &buffer;
         }
     }
 
-    mUniformConversionBuffers.emplace_back(context, offset);
+    mUniformConversionBuffers.emplace_back(context, offset, stdSize);
     return &mUniformConversionBuffers.back();
 }
 
@@ -395,7 +402,7 @@ void BufferMtl::markConversionBuffersDirty()
         buffer.convertedBuffer = nullptr;
         buffer.convertedOffset = 0;
     }
-    mRestartRangeCache.markDirty();
+    mRestartRangeCache.reset();
 }
 
 void BufferMtl::clearConversionBuffers()
@@ -403,7 +410,7 @@ void BufferMtl::clearConversionBuffers()
     mVertexConversionBuffers.clear();
     mIndexConversionBuffers.clear();
     mUniformConversionBuffers.clear();
-    mRestartRangeCache.markDirty();
+    mRestartRangeCache.reset();
 }
 
 template <typename T>
@@ -433,9 +440,9 @@ static std::vector<IndexRange> calculateRestartRanges(ContextMtl *ctx, mtl::Buff
 const std::vector<IndexRange> &BufferMtl::getRestartIndices(ContextMtl *ctx,
                                                             gl::DrawElementsType indexType)
 {
-    if (!mRestartRangeCache || mRestartRangeCache.indexType != indexType)
+    if (!mRestartRangeCache || mRestartRangeCache->indexType != indexType)
     {
-        mRestartRangeCache.markDirty();
+        mRestartRangeCache.reset();
         std::vector<IndexRange> ranges;
         switch (indexType)
         {
@@ -451,9 +458,9 @@ const std::vector<IndexRange> &BufferMtl::getRestartIndices(ContextMtl *ctx,
             default:
                 ASSERT(false);
         }
-        mRestartRangeCache = RestartRangeCache(std::move(ranges), indexType);
+        mRestartRangeCache.emplace(std::move(ranges), indexType);
     }
-    return mRestartRangeCache.ranges;
+    return mRestartRangeCache->ranges;
 }
 
 const std::vector<IndexRange> BufferMtl::getRestartIndicesFromClientData(

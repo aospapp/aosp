@@ -21,16 +21,15 @@
 #include "api/task_queue/task_queue_factory.h"
 #include "api/video/builtin_video_bitrate_allocator_factory.h"
 #include "api/video_codecs/video_decoder_factory.h"
-#include "api/video_codecs/video_encoder_config.h"
 #include "api/video_codecs/video_encoder_factory.h"
 #include "call/call.h"
 #include "call/rtp_config.h"
 #include "call/video_send_stream.h"
 #include "media/engine/webrtc_video_engine.h"
-#include "rtc_base/constructor_magic.h"
 #include "test/frame_generator_capturer.h"
 #include "test/rtp_file_reader.h"
 #include "test/rtp_file_writer.h"
+#include "video/config/video_encoder_config.h"
 
 namespace webrtc {
 
@@ -79,6 +78,11 @@ class RtpGenerator final : public webrtc::Transport {
  public:
   // Construct a new RtpGenerator using the specified options.
   explicit RtpGenerator(const RtpGeneratorOptions& options);
+
+  RtpGenerator() = delete;
+  RtpGenerator(const RtpGenerator&) = delete;
+  RtpGenerator& operator=(const RtpGenerator&) = delete;
+
   // Cleans up the VideoSendStream.
   ~RtpGenerator() override;
   // Generates an rtp_dump that is written out to
@@ -113,9 +117,6 @@ class RtpGenerator final : public webrtc::Transport {
   std::vector<uint32_t> durations_ms_;
   uint32_t start_ms_ = 0;
   std::unique_ptr<TaskQueueFactory> task_queue_;
-
-  // This object cannot be copied.
-  RTC_DISALLOW_IMPLICIT_CONSTRUCTORS(RtpGenerator);
 };
 
 }  // namespace webrtc

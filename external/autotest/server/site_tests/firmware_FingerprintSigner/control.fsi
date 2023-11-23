@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_FingerprintSigner.fsi"
 PURPOSE = """
 Verify that the signer ID is correct
@@ -16,8 +16,9 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
-DEPENDENCIES = "fingerprint"
+DEPENDENCIES = "fingerprint, servo_state:WORKING"
 JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """
 This test makes sure the firmware stored in the OS image is signed with MP keys,

@@ -75,5 +75,5 @@ public class AlarmBroadcastReceiver extends BroadcastReceiver {
             logger.debug("No interest in this intent: " + action);
         }
     }
-};
+}
 

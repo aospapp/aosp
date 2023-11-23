@@ -5,6 +5,9 @@
       "path": "external/rust/crates/base64"
     },
     {
+      "path": "external/rust/crates/hashbrown"
+    },
+    {
       "path": "external/rust/crates/libsqlite3-sys"
     },
     {
@@ -15,40 +18,28 @@
     },
     {
       "path": "external/rust/crates/unicode-xid"
+    },
+    {
+      "path": "packages/modules/Virtualization/apkdmverity"
+    },
+    {
+      "path": "packages/modules/Virtualization/microdroid_manager"
+    },
+    {
+      "path": "system/security/keystore2"
+    },
+    {
+      "path": "system/security/keystore2/legacykeystore"
     }
   ],
   "presubmit": [
     {
-      "name": "apkdmverity.test"
-    },
-    {
       "name": "either_test_src_lib"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "microdroid_manager_test"
     }
   ],
   "presubmit-rust": [
     {
-      "name": "apkdmverity.test"
-    },
-    {
       "name": "either_test_src_lib"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "microdroid_manager_test"
     }
   ]
 }

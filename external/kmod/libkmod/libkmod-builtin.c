@@ -246,7 +246,7 @@ bool kmod_builtin_iter_get_modname(struct kmod_builtin_iter *iter,
 
 	len = dot - line;
 
-	if (len > PATH_MAX) {
+	if (len >= PATH_MAX) {
 		sv_errno = ENAMETOOLONG;
 		goto fail;
 	}
@@ -313,7 +313,7 @@ ssize_t kmod_builtin_get_modinfo(struct kmod_ctx *ctx, const char *modname,
 	while (offset < iter->next) {
 		offset = get_string(iter, pos, &line, &linesz);
 		if (offset <= 0) {
-			count = (offset) ? -errno : -EOF;
+			count = (offset) ? -errno : -EINVAL;
 			free(*modinfo);
 			goto fail;
 		}

@@ -29,8 +29,9 @@ extern "C" {
 
 /* App-specific errors (across all commands) */
 enum {
-  NUGGET_ERROR_LOCKED = APP_SPECIFIC_ERROR,
+  NUGGET_ERROR_LOCKED = APP_SPECIFIC_ERROR + 0,
   NUGGET_ERROR_RETRY,
+  NUGGET_ERROR_VERIFY,
 };
 
 /****************************************************************************/
@@ -299,15 +300,15 @@ struct nugget_app_board_id {
   uint32_t inv;                         /* must equal ~type when setting */
 } __packed;
 
-#define NUGGET_PARAM_GET_EVENT_RECORD 0x0010
+#define NUGGET_PARAM_GET_EVENT_REPORT 0x0010
 /*
- * This retrieves one pending event_record (defined in citadel_events.h).
+ * This retrieves one pending event_report (defined in citadel_events.h).
  * If none are pending, it returns nothing.
  *
  * @param args         <none>
  * @param arg_len      0
- * @param reply        struct event_record
- * @param reply_len    sizeof struct event_record  OR  0
+ * @param reply        struct event_report
+ * @param reply_len    sizeof struct event_report  OR  0
  */
 
 #define NUGGET_PARAM_AP_IS_REBOOTING 0x0011
@@ -521,7 +522,7 @@ enum gsa_gsc_psk_state {
  * nonce || gsa_psk_state)
  */
 struct verify_psk_request {
-    char header[VERIFY_PSK_REQ_HEADER_SIZE];
+    uint8_t header[VERIFY_PSK_REQ_HEADER_SIZE];
     uint8_t version;
     uint8_t nonce[VERIFY_PSK_NONCE_SIZE];
     uint8_t gsa_psk_state;
@@ -540,9 +541,75 @@ struct secure_channel_retry_count_persist_storage {
  * Verify GSA GSC pre-shared key command
  *
  * @param args         struct verify_psk_request
- * @param arg_len      63 bytes
+ * @param arg_len      83 bytes
  * @param reply        psk verification result
  * @param reply_len    1 bytes
+ */
+
+#define NUGGET_PARAM_SECURE_TRANSPORT_HANDSHAKE 0x0019
+/*
+ * Secure transport handshak (noise protocol) command
+ *
+ * @param args         GSA EC public_key + AES_GCM256("MSGA") + AES_GSC_TAG
+ * @param arg_len      64 + 4 + 16 bytes = 84
+ * @param reply        GSC EC public_key + AES_GCM256("MSGB") + AES_GSC_TAG
+ *                     OR 1 byte error state
+ * @param reply_len    64 + 4 + 16 bytes = 84 OR 1
+ */
+
+#define NUGGET_PARAM_SECURE_TRANSPORT_REPORT_STATE 0x001a
+/*
+ * Secure transport report noise handshake state command
+ *
+ * @param args         GSA noise handshake state + report suez state
+ * @param arg_len      2
+ * @param reply        <none>
+ * @param reply_len    1
+ */
+
+#define NUGGET_PARAM_GET_BIG_EVENT_REPORT 0x001b
+/*
+ * This retrieves one pending big_event_report (defined in citadel_events.h).
+ * If none are pending, it returns nothing.
+ *
+ * @param args         <none>
+ * @param arg_len      0
+ * @param reply        struct big_event_report
+ * @param reply_len    sizeof struct big_event_report  OR  0
+ */
+
+#define NUGGET_PARAM_GET_FEATURE_SUPPORT 0x001c
+/*
+ * Get the specific feature supportness from the specific TA.
+ *
+ * @param args         feature_id
+ * @param arg_len      4 byte
+ * @param reply        0 or 1
+ * @param reply_len    1 byte
+ *
+ * @errors             APP_ERROR_BOGUS_ARGS
+ */
+
+#define NUGGET_PARAM_SECURE_TRANSPORT_USECASE_HANDSHAKE 0x001d
+/*
+ * Secure transport usecase handshake command
+ *
+ * @param args         AES_GCM256(struct secure_transport_usecase) +
+ *                     AES_GCM_TAG_SIZE
+ * @param arg_len      64 + 16 = 80 bytes
+ * @param reply        AES_GCM256(struct secure_transport_usecase) +
+ *                     AES_GCM_TAG_SIZE OR 1 byte error state
+ * @param reply_len    64 + 16 = 80 OR 1 bytes
+ */
+
+#define NUGGET_PARAM_SECURE_TRANSPORT_TEST 0x001e
+/*
+ * Secure transport test command
+ *
+ * @param args         1008 (1024 - 16 bytes AES_TAG_SIZE) bytes test data
+ * @param arg_len      1008 bytes
+ * @param reply        1008 (1024 - 16 bytes AES_TAG_SIZE) bytes test data
+ * @param reply_len    1008 bytes
  */
 
 /****************************************************************************/

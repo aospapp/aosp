@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,24 +11,41 @@
 )]
 mod xlib;
 
-use linux_input_sys::virtio_input_event;
 use std::cmp::max;
-use std::ffi::{c_void, CStr, CString};
-use std::mem::{transmute_copy, zeroed};
+use std::ffi::c_void;
+use std::ffi::CStr;
+use std::ffi::CString;
+use std::mem::transmute_copy;
+use std::mem::zeroed;
 use std::os::raw::c_ulong;
-use std::ptr::{null, null_mut, NonNull};
+use std::ptr::null;
+use std::ptr::null_mut;
+use std::ptr::NonNull;
 use std::rc::Rc;
 
-use libc::{shmat, shmctl, shmdt, shmget, IPC_CREAT, IPC_PRIVATE, IPC_RMID};
-
-use crate::{
-    keycode_converter::KeycodeTranslator, keycode_converter::KeycodeTypes, DisplayT,
-    EventDeviceKind, GpuDisplayError, GpuDisplayEvents, GpuDisplayFramebuffer, GpuDisplayResult,
-    GpuDisplaySurface, SurfaceType,
-};
-
-use base::{AsRawDescriptor, RawDescriptor};
+use base::AsRawDescriptor;
+use base::RawDescriptor;
 use data_model::VolatileSlice;
+use libc::shmat;
+use libc::shmctl;
+use libc::shmdt;
+use libc::shmget;
+use libc::IPC_CREAT;
+use libc::IPC_PRIVATE;
+use libc::IPC_RMID;
+use linux_input_sys::virtio_input_event;
+
+use crate::keycode_converter::KeycodeTranslator;
+use crate::keycode_converter::KeycodeTypes;
+use crate::DisplayT;
+use crate::EventDeviceKind;
+use crate::GpuDisplayError;
+use crate::GpuDisplayEvents;
+use crate::GpuDisplayFramebuffer;
+use crate::GpuDisplayResult;
+use crate::GpuDisplaySurface;
+use crate::SurfaceType;
+use crate::SysDisplayT;
 
 const BUFFER_COUNT: usize = 2;
 
@@ -678,6 +695,8 @@ impl DisplayT for DisplayX {
         }
     }
 }
+
+impl SysDisplayT for DisplayX {}
 
 impl AsRawDescriptor for DisplayX {
     fn as_raw_descriptor(&self) -> RawDescriptor {

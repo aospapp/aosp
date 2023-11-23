@@ -23,16 +23,12 @@
 
 #include "perfetto/ext/base/string_view.h"
 #include "perfetto/trace_processor/trace_blob_view.h"
+#include "src/trace_processor/importers/fuchsia/fuchsia_record.h"
 #include "src/trace_processor/storage/trace_storage.h"
 
 namespace perfetto {
 namespace trace_processor {
 namespace fuchsia_trace_utils {
-
-struct ThreadInfo {
-  uint64_t pid;
-  uint64_t tid;
-};
 
 template <class T>
 T ReadField(uint64_t word, size_t begin, size_t end) {
@@ -56,6 +52,7 @@ class ArgValue {
     kString,
     kPointer,
     kKoid,
+    kBool,
     kUnknown,
   };
 
@@ -122,6 +119,13 @@ class ArgValue {
     return v;
   }
 
+  static ArgValue Bool(bool value) {
+    ArgValue v;
+    v.type_ = ArgType::kBool;
+    v.bool_ = value;
+    return v;
+  }
+
   static ArgValue Unknown() {
     ArgValue v;
     v.type_ = ArgType::kUnknown;
@@ -171,6 +175,11 @@ class ArgValue {
     return koid_;
   }
 
+  uint64_t Bool() const {
+    PERFETTO_DCHECK(type_ == ArgType::kBool);
+    return bool_;
+  }
+
   Variadic ToStorageVariadic(TraceStorage*) const;
 
  private:
@@ -184,6 +193,7 @@ class ArgValue {
     StringId string_;
     uint64_t pointer_;
     uint64_t koid_;
+    bool bool_;
   };
 };
 
@@ -204,11 +214,12 @@ class RecordCursor {
   bool ReadTimestamp(uint64_t ticks_per_second, int64_t* ts_out);
   bool ReadInlineString(uint32_t string_ref_or_len,
                         base::StringView* string_out);
-  bool ReadInlineThread(ThreadInfo* thread_out);
+  bool ReadInlineThread(FuchsiaThreadInfo* thread_out);
 
   bool ReadInt64(int64_t* out);
   bool ReadUint64(uint64_t* out);
   bool ReadDouble(double* out);
+  bool ReadBlob(size_t num_bytes, std::vector<uint8_t>& out);
 
  private:
   bool ReadWords(size_t num_words, const uint8_t** data_out);

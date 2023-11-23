@@ -11,6 +11,12 @@
 #include "helpers.h"
 #include "liburing.h"
 
+#define RING_SIZE 128
+enum {
+	OP_NOP,
+	OP_REMOVE_BUFFERS
+};
+
 struct test_context {
 	struct io_uring *ring;
 	struct io_uring_sqe **sqes;
@@ -25,7 +31,8 @@ static void free_context(struct test_context *ctx)
 	memset(ctx, 0, sizeof(*ctx));
 }
 
-static int init_context(struct test_context *ctx, struct io_uring *ring, int nr)
+static int init_context(struct test_context *ctx, struct io_uring *ring, int nr,
+			int op)
 {
 	struct io_uring_sqe *sqe;
 	int i;
@@ -43,7 +50,14 @@ static int init_context(struct test_context *ctx, struct io_uring *ring, int nr)
 		sqe = io_uring_get_sqe(ring);
 		if (!sqe)
 			goto err;
-		io_uring_prep_nop(sqe);
+		switch (op) {
+		case OP_NOP:
+			io_uring_prep_nop(sqe);
+			break;
+		case OP_REMOVE_BUFFERS:
+			io_uring_prep_remove_buffers(sqe, 10, 1);
+			break;
+		};
 		sqe->user_data = i;
 		ctx->sqes[i] = sqe;
 	}
@@ -79,7 +93,7 @@ static int test_cancelled_userdata(struct io_uring *ring)
 	struct test_context ctx;
 	int ret, i, nr = 100;
 
-	if (init_context(&ctx, ring, nr))
+	if (init_context(&ctx, ring, nr, OP_NOP))
 		return 1;
 
 	for (i = 0; i < nr; i++)
@@ -113,7 +127,7 @@ static int test_thread_link_cancel(struct io_uring *ring)
 	struct test_context ctx;
 	int ret, i, nr = 100;
 
-	if (init_context(&ctx, ring, nr))
+	if (init_context(&ctx, ring, nr, OP_REMOVE_BUFFERS))
 		return 1;
 
 	for (i = 0; i < nr; i++)
@@ -132,12 +146,12 @@ static int test_thread_link_cancel(struct io_uring *ring)
 		bool fail = false;
 
 		if (i == 0)
-			fail = (ctx.cqes[i].res != -EINVAL);
+			fail = (ctx.cqes[i].res != -ENOENT);
 		else
 			fail = (ctx.cqes[i].res != -ECANCELED);
 
 		if (fail) {
-			printf("invalid status\n");
+			printf("invalid status %d\n", ctx.cqes[i].res);
 			goto err;
 		}
 	}
@@ -156,7 +170,7 @@ static int test_drain_with_linked_timeout(struct io_uring *ring)
 	struct test_context ctx;
 	int ret, i;
 
-	if (init_context(&ctx, ring, nr * 2))
+	if (init_context(&ctx, ring, nr * 2, OP_NOP))
 		return 1;
 
 	for (i = 0; i < nr; i++) {
@@ -186,7 +200,7 @@ static int run_drained(struct io_uring *ring, int nr)
 	struct test_context ctx;
 	int ret, i;
 
-	if (init_context(&ctx, ring, nr))
+	if (init_context(&ctx, ring, nr, OP_NOP))
 		return 1;
 
 	for (i = 0; i < nr; i++)
@@ -243,45 +257,29 @@ int main(int argc, char *argv[])
 {
 	struct io_uring ring, poll_ring, sqthread_ring;
 	struct io_uring_params p;
-	int ret, no_sqthread = 0;
+	int ret;
 
 	if (argc > 1)
 		return 0;
 
 	memset(&p, 0, sizeof(p));
-	ret = io_uring_queue_init_params(1000, &ring, &p);
+	ret = io_uring_queue_init_params(RING_SIZE, &ring, &p);
 	if (ret) {
-		printf("ring setup failed\n");
+		printf("ring setup failed %i\n", ret);
 		return 1;
 	}
 
-	ret = io_uring_queue_init(1000, &poll_ring, IORING_SETUP_IOPOLL);
+	ret = io_uring_queue_init(RING_SIZE, &poll_ring, IORING_SETUP_IOPOLL);
 	if (ret) {
 		printf("poll_ring setup failed\n");
 		return 1;
 	}
 
-	ret = t_create_ring(1000, &sqthread_ring,
-				IORING_SETUP_SQPOLL | IORING_SETUP_IOPOLL);
-	if (ret == T_SETUP_SKIP)
-		return 0;
-	else if (ret < 0)
-		return 1;
 
 	ret = test_cancelled_userdata(&poll_ring);
 	if (ret) {
 		printf("test_cancelled_userdata failed\n");
 		return ret;
-	}
-
-	if (no_sqthread) {
-		printf("test_thread_link_cancel: skipped, not root\n");
-	} else {
-		ret = test_thread_link_cancel(&sqthread_ring);
-		if (ret) {
-			printf("test_thread_link_cancel failed\n");
-			return ret;
-		}
 	}
 
 	if (!(p.features & IORING_FEAT_NODROP)) {
@@ -301,6 +299,19 @@ int main(int argc, char *argv[])
 	ret = test_drain_with_linked_timeout(&ring);
 	if (ret) {
 		printf("test_drain_with_linked_timeout failed\n");
+		return ret;
+	}
+
+	ret = t_create_ring(RING_SIZE, &sqthread_ring,
+				IORING_SETUP_SQPOLL | IORING_SETUP_IOPOLL);
+	if (ret == T_SETUP_SKIP)
+		return 0;
+	else if (ret < 0)
+		return 1;
+
+	ret = test_thread_link_cancel(&sqthread_ring);
+	if (ret) {
+		printf("test_thread_link_cancel failed\n");
 		return ret;
 	}
 

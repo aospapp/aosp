@@ -54,7 +54,7 @@ public class MainActivity extends Activity
     private boolean isPlaying = false;
 
     private int apiSelection = OBOE_API_AAUDIO;
-    private boolean aaudioSupported = true;
+    private boolean mAAudioRecommended = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -109,6 +109,7 @@ public class MainActivity extends Activity
             public void onClick(View v) {
                 if (((RadioButton)v).isChecked()) {
                     apiSelection = OBOE_API_AAUDIO;
+                    setSpinnersEnabled(true);
                 }
             }
         });
@@ -117,6 +118,7 @@ public class MainActivity extends Activity
             public void onClick(View v) {
                 if (((RadioButton)v).isChecked()) {
                     apiSelection = OBOE_API_OPENSL_ES;
+                    setSpinnersEnabled(false);
                 }
             }
         });
@@ -125,12 +127,12 @@ public class MainActivity extends Activity
     }
 
     private void EnableAudioApiUI(boolean enable) {
-        if(apiSelection == OBOE_API_AAUDIO && !aaudioSupported)
+        if(apiSelection == OBOE_API_AAUDIO && !mAAudioRecommended)
         {
             apiSelection = OBOE_API_OPENSL_ES;
         }
         findViewById(R.id.slesButton).setEnabled(enable);
-        if(!aaudioSupported) {
+        if(!mAAudioRecommended) {
             findViewById(R.id.aaudioButton).setEnabled(false);
         } else {
             findViewById(R.id.aaudioButton).setEnabled(enable);
@@ -138,6 +140,7 @@ public class MainActivity extends Activity
 
         ((RadioGroup)findViewById(R.id.apiSelectionGroup))
           .check(apiSelection == OBOE_API_AAUDIO ? R.id.aaudioButton : R.id.slesButton);
+        setSpinnersEnabled(enable);
     }
 
     @Override
@@ -150,7 +153,7 @@ public class MainActivity extends Activity
     protected void onResume() {
         super.onResume();
         LiveEffectEngine.create();
-        aaudioSupported = LiveEffectEngine.isAAudioSupported();
+        mAAudioRecommended = LiveEffectEngine.isAAudioRecommended();
         EnableAudioApiUI(true);
         LiveEffectEngine.setAPI(apiSelection);
     }
@@ -180,7 +183,6 @@ public class MainActivity extends Activity
 
         boolean success = LiveEffectEngine.setEffectOn(true);
         if (success) {
-            setSpinnersEnabled(false);
             statusText.setText(R.string.status_playing);
             toggleEffectButton.setText(R.string.stop_effect);
             isPlaying = true;
@@ -197,11 +199,16 @@ public class MainActivity extends Activity
         resetStatusView();
         toggleEffectButton.setText(R.string.start_effect);
         isPlaying = false;
-        setSpinnersEnabled(true);
         EnableAudioApiUI(true);
     }
 
     private void setSpinnersEnabled(boolean isEnabled){
+        if (((RadioButton)findViewById(R.id.slesButton)).isChecked())
+        {
+            isEnabled = false;
+            playbackDeviceSpinner.setSelection(0);
+            recordingDeviceSpinner.setSelection(0);
+        }
         recordingDeviceSpinner.setEnabled(isEnabled);
         playbackDeviceSpinner.setEnabled(isEnabled);
     }

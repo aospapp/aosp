@@ -322,7 +322,7 @@ tcu::TestStatus ImageSparseResidencyInstance::iterate (void)
 		queueRequirements.push_back(QueueRequirements(VK_QUEUE_SPARSE_BINDING_BIT, 1u));
 		queueRequirements.push_back(QueueRequirements(VK_QUEUE_COMPUTE_BIT, 1u));
 
-		createDeviceSupportingQueues(queueRequirements);
+		createDeviceSupportingQueues(queueRequirements, formatIsR64(m_format));
 	}
 
 	VkImageCreateInfo			imageCreateInfo;
@@ -529,7 +529,7 @@ tcu::TestStatus ImageSparseResidencyInstance::iterate (void)
 
 			const VkDeviceGroupBindSparseInfo devGroupBindSparseInfo =
 			{
-				VK_STRUCTURE_TYPE_DEVICE_GROUP_BIND_SPARSE_INFO_KHR,	//VkStructureType							sType;
+				VK_STRUCTURE_TYPE_DEVICE_GROUP_BIND_SPARSE_INFO,		//VkStructureType							sType;
 				DE_NULL,												//const void*								pNext;
 				firstDeviceID,											//deUint32									resourceDeviceIndex;
 				secondDeviceID,											//deUint32									memoryDeviceIndex;

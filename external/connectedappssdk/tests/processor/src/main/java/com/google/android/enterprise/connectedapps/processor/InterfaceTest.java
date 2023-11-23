@@ -55,7 +55,7 @@ public class InterfaceTest {
                 annotatedNotesCrossProfileType(annotationPrinter),
                 annotatedNotesProvider(annotationPrinter));
 
-    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender");
+    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender");
   }
 
   @Test
@@ -77,7 +77,7 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender")
         .contentsAsUtf8String()
         .contains("void refreshNotes()");
   }
@@ -105,12 +105,12 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender")
         .contentsAsUtf8String()
         .contains("void refreshNotes()");
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender")
         .contentsAsUtf8String()
         .contains("int anotherMethod(String s)");
   }
@@ -137,7 +137,7 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender")
         .contentsAsUtf8String()
         .doesNotContain("anotherMethod");
   }
@@ -151,8 +151,7 @@ public class InterfaceTest {
                 annotatedNotesCrossProfileType(annotationPrinter),
                 annotatedNotesProvider(annotationPrinter));
 
-    assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSenderCanThrow");
+    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSenderCanThrow");
   }
 
   @Test
@@ -174,7 +173,7 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSenderCanThrow")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSenderCanThrow")
         .contentsAsUtf8String()
         .contains("void refreshNotes() throws UnavailableProfileException");
   }
@@ -202,12 +201,12 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSenderCanThrow")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSenderCanThrow")
         .contentsAsUtf8String()
         .contains("void refreshNotes() throws UnavailableProfileException");
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSenderCanThrow")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSenderCanThrow")
         .contentsAsUtf8String()
         .contains("int anotherMethod(String s) throws UnavailableProfileException");
   }
@@ -234,7 +233,7 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSenderCanThrow")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSenderCanThrow")
         .contentsAsUtf8String()
         .doesNotContain("anotherMethod");
   }
@@ -258,9 +257,9 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSenderCanThrow")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSenderCanThrow")
         .contentsAsUtf8String()
-        .contains("ProfileNotesType_IfAvailable ifAvailable()");
+        .contains("NotesType_IfAvailable ifAvailable()");
   }
 
   @Test
@@ -272,7 +271,7 @@ public class InterfaceTest {
                 annotatedNotesCrossProfileType(annotationPrinter),
                 annotatedNotesProvider(annotationPrinter));
 
-    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_MultipleSender");
+    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".NotesType_MultipleSender");
   }
 
   @Test
@@ -294,7 +293,7 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_MultipleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_MultipleSender")
         .contentsAsUtf8String()
         .contains("void refreshNotes()");
   }
@@ -319,7 +318,7 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_MultipleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_MultipleSender")
         .contentsAsUtf8String()
         .contains("Map<Profile, Integer> refreshNotes()");
   }
@@ -344,7 +343,7 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_MultipleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_MultipleSender")
         .contentsAsUtf8String()
         .contains("Map<Profile, String> refreshNotes()");
   }
@@ -372,12 +371,12 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_MultipleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_MultipleSender")
         .contentsAsUtf8String()
         .contains("void refreshNotes()");
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_MultipleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_MultipleSender")
         .contentsAsUtf8String()
         .contains("Map<Profile, Integer> anotherMethod(String s)");
   }
@@ -404,7 +403,7 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_MultipleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_MultipleSender")
         .contentsAsUtf8String()
         .doesNotContain("anotherMethod");
   }
@@ -429,7 +428,7 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender")
         .contentsAsUtf8String()
         .contains("refreshNotes() throws IOException");
   }
@@ -457,15 +456,15 @@ public class InterfaceTest {
 
     // Order is not predictable
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender")
         .contentsAsUtf8String()
         .contains("refreshNotes() throws ");
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender")
         .contentsAsUtf8String()
         .contains("SQLException");
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender")
         .contentsAsUtf8String()
         .contains("IOException");
   }
@@ -491,7 +490,7 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender")
         .contentsAsUtf8String()
         .contains("refreshNotes() throws IOException");
   }
@@ -519,15 +518,15 @@ public class InterfaceTest {
 
     // Order is not predictable
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender")
         .contentsAsUtf8String()
         .contains("refreshNotes() throws ");
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender")
         .contentsAsUtf8String()
         .contains("SQLException");
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_SingleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_SingleSender")
         .contentsAsUtf8String()
         .contains("IOException");
   }
@@ -553,7 +552,7 @@ public class InterfaceTest {
             .compile(notesType, annotatedNotesProvider(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_MultipleSender")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_MultipleSender")
         .contentsAsUtf8String()
         .doesNotContain("refreshNotes()");
   }

@@ -319,6 +319,7 @@ perfetto_unittest_source_set("unittests") {
     "../../base",
     "../../base:test_support",
     "../../tracing/core",
+    "../../tracing/test:test_support",
     "../common:proc_utils",
     "../common:unwind_support",
   ]
@@ -357,8 +358,12 @@ source_set("end_to_end_tests") {
     "../../base",
     "../../base:test_support",
     "../../trace_processor:lib",
+    "../../tracing/test:test_support",
   ]
-  sources = [ "heapprofd_end_to_end_test.cc" ]
+  sources = [
+    "heapprofd_end_to_end_test.cc",
+    "heapprofd_producer_integrationtest.cc",
+  ]
   if (perfetto_build_with_android) {
     deps += [ ":heapprofd_client_api" ]
   } else {

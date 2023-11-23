@@ -9,3 +9,7 @@ _makenames
 cap_test
 libcap.pc
 libpsx.pc
+empty
+loader.txt
+cap_magic.o
+psx_magic.o

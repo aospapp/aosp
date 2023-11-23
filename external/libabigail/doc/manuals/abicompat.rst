@@ -77,6 +77,22 @@ Options
    Do not show information about where in the *second shared library*
    the respective type was changed.
 
+  * ``--ctf``
+
+    When comparing binaries, extract ABI information from CTF debug
+    information, if present.
+
+  * ``--fail-no-debug-info``
+
+    If no debug info was found, then this option makes the program to
+    fail.  Otherwise, without this option, the program will attempt to
+    compare properties of the binaries that are not related to debug
+    info, like pure ELF properties.
+
+  * ``--ignore-soname``
+
+    Ignore differences in the SONAME when doing a comparison
+
   * ``--weak-mode``
 
     This triggers the weak mode of ``abicompat``.  In this mode, only

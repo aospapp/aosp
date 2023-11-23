@@ -31,17 +31,24 @@
 
 namespace perfetto {
 
+namespace {
+constexpr uint32_t kProducerSocketTxTimeoutMs = 10;
+}
+
 // TODO(fmayer): implement per-uid connection limit (b/69093705).
 
 // Implements the publicly exposed factory method declared in
 // include/tracing/posix_ipc/posix_service_host.h.
 std::unique_ptr<ServiceIPCHost> ServiceIPCHost::CreateInstance(
-    base::TaskRunner* task_runner) {
-  return std::unique_ptr<ServiceIPCHost>(new ServiceIPCHostImpl(task_runner));
+    base::TaskRunner* task_runner,
+    TracingService::InitOpts init_opts) {
+  return std::unique_ptr<ServiceIPCHost>(
+      new ServiceIPCHostImpl(task_runner, init_opts));
 }
 
-ServiceIPCHostImpl::ServiceIPCHostImpl(base::TaskRunner* task_runner)
-    : task_runner_(task_runner) {}
+ServiceIPCHostImpl::ServiceIPCHostImpl(base::TaskRunner* task_runner,
+                                       TracingService::InitOpts init_opts)
+    : task_runner_(task_runner), init_opts_(init_opts) {}
 
 ServiceIPCHostImpl::~ServiceIPCHostImpl() {}
 
@@ -69,6 +76,19 @@ bool ServiceIPCHostImpl::Start(base::ScopedSocketHandle producer_socket_fd,
   return DoStart();
 }
 
+bool ServiceIPCHostImpl::Start(std::unique_ptr<ipc::Host> producer_host,
+                               std::unique_ptr<ipc::Host> consumer_host) {
+  PERFETTO_CHECK(!svc_);  // Check if already started.
+  PERFETTO_DCHECK(producer_host);
+  PERFETTO_DCHECK(consumer_host);
+
+  // Initialize the IPC transport.
+  producer_ipc_port_ = std::move(producer_host);
+  consumer_ipc_port_ = std::move(consumer_host);
+
+  return DoStart();
+}
+
 bool ServiceIPCHostImpl::DoStart() {
   // Create and initialize the platform-independent tracing business logic.
 #if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
@@ -78,12 +98,23 @@ bool ServiceIPCHostImpl::DoStart() {
   std::unique_ptr<SharedMemory::Factory> shm_factory(
       new PosixSharedMemory::Factory());
 #endif
-  svc_ = TracingService::CreateInstance(std::move(shm_factory), task_runner_);
+  svc_ = TracingService::CreateInstance(std::move(shm_factory), task_runner_,
+                                        init_opts_);
 
   if (!producer_ipc_port_ || !consumer_ipc_port_) {
     Shutdown();
     return false;
   }
+
+  // Lower the timeout for blocking socket sends to producers as we shouldn't
+  // normally exhaust the kernel send buffer unless the producer is
+  // unresponsive. We'll drop the connection if the timeout is hit (see
+  // UnixSocket::Send). Context in b/236813972, b/193234818.
+  // Consumer port continues using the default timeout (10s) as there are
+  // generally fewer consumer processes, and they're better behaved. Also the
+  // consumer port ipcs might exhaust the send buffer under normal operation
+  // due to large messages such as ReadBuffersResponse.
+  producer_ipc_port_->SetSocketSendTimeoutMs(kProducerSocketTxTimeoutMs);
 
   // TODO(fmayer): add a test that destroyes the ServiceIPCHostImpl soon after
   // Start() and checks that no spurious callbacks are issued.

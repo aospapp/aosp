@@ -20,9 +20,9 @@ def define_tests():
             main_package = '',
         ),
         test_common.define_test(
-            'dummy/Pass',
-            suites = ['dev_drone_image_test', 'dummy', 'dummyclientretries', 'push_to_prod', 'skylab_staging_test', 'something_else'],
-            main_package = 'autotest_lib.client.site_tests.dummy_Pass.dummy_Pass',
+            'stub/Pass',
+            suites = ['dev_drone_image_test', 'stub', 'stubclientretries', 'push_to_prod', 'skylab_staging_test', 'something_else'],
+            main_package = 'autotest_lib.client.site_tests.stub_Pass.stub_Pass',
         ),
         test_common.define_test(
             'dummy/PassServer',

@@ -154,6 +154,7 @@ const char *tgsi_property_names[TGSI_PROPERTY_COUNT] =
    "CS_USER_DATA_COMPONENTS_AMD",
    "LAYER_VIEWPORT_RELATIVE",
    "FS_BLEND_EQUATION_ADVANCED",
+   "SEPARABLE_PROGRAM",
 };
 
 const char *tgsi_return_type_names[TGSI_RETURN_TYPE_COUNT] =
@@ -213,12 +214,14 @@ const char *tgsi_fs_coord_pixel_center_names[2] =
    "INTEGER"
 };
 
-const char *tgsi_immediate_type_names[4] =
+const char *tgsi_immediate_type_names[6] =
 {
    "FLT32",
    "UINT32",
    "INT32",
-   "FLT64"
+   "FLT64",
+   "UINT64",
+   "INT64",
 };
 
 const char *tgsi_memory_names[3] =
@@ -231,12 +234,12 @@ const char *tgsi_memory_names[3] =
 static inline void UNUSED
 tgsi_strings_check(void)
 {
-   STATIC_ASSERT(Elements(tgsi_semantic_names) == TGSI_SEMANTIC_COUNT);
-   STATIC_ASSERT(Elements(tgsi_texture_names) == TGSI_TEXTURE_COUNT);
-   STATIC_ASSERT(Elements(tgsi_property_names) == TGSI_PROPERTY_COUNT);
-   STATIC_ASSERT(Elements(tgsi_primitive_names) == PIPE_PRIM_MAX);
-   STATIC_ASSERT(Elements(tgsi_interpolate_names) == TGSI_INTERPOLATE_COUNT);
-   STATIC_ASSERT(Elements(tgsi_return_type_names) == TGSI_RETURN_TYPE_COUNT);
+   STATIC_ASSERT(ARRAY_SIZE(tgsi_semantic_names) == TGSI_SEMANTIC_COUNT);
+   STATIC_ASSERT(ARRAY_SIZE(tgsi_texture_names) == TGSI_TEXTURE_COUNT);
+   STATIC_ASSERT(ARRAY_SIZE(tgsi_property_names) == TGSI_PROPERTY_COUNT);
+   STATIC_ASSERT(ARRAY_SIZE(tgsi_primitive_names) == PIPE_PRIM_MAX);
+   STATIC_ASSERT(ARRAY_SIZE(tgsi_interpolate_names) == TGSI_INTERPOLATE_COUNT);
+   STATIC_ASSERT(ARRAY_SIZE(tgsi_return_type_names) == TGSI_RETURN_TYPE_COUNT);
    (void) tgsi_processor_type_names;
    (void) tgsi_return_type_names;
    (void) tgsi_immediate_type_names;
@@ -248,8 +251,8 @@ tgsi_strings_check(void)
 const char *
 tgsi_file_name(unsigned file)
 {
-   STATIC_ASSERT(Elements(tgsi_file_names) == TGSI_FILE_COUNT);
-   if (file < Elements(tgsi_file_names))
+   STATIC_ASSERT(ARRAY_SIZE(tgsi_file_names) == TGSI_FILE_COUNT);
+   if (file < ARRAY_SIZE(tgsi_file_names))
       return tgsi_file_names[file];
    else
       return "invalid file";

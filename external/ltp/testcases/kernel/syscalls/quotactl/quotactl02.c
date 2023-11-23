@@ -1,37 +1,32 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (c) 2013-2019 FUJITSU LIMITED. All rights reserved
+ * Copyright (c) 2013-2021 FUJITSU LIMITED. All rights reserved
  * Author: DAN LI <li.dan@cn.fujitsu.com>
- * Author: Yang Xu <xuyang2018.jy@cn.fujitsu.com>
+ * Author: Yang Xu <xuyang2018.jy@fujitsu.com>
+ */
+
+/*\
+ * [Description]
  *
- * This testcase checks basic flags of quotactl(2) for an XFS file system:
- * 1) quotactl(2) succeeds to turn off xfs quota and get xfs quota off status
- *    for user.
- * 2) quotactl(2) succeeds to turn on xfs quota and get xfs quota on status
- *    for usr.
- * 3) quotactl(2) succeeds to set and use Q_XGETQUOTA to get xfs disk quota
- *    limits for user.
- * 4) quotactl(2) succeeds to set and use Q_XGETNEXTQUOTA to get xfs disk
- *    quota limits greater than or equal to ID for user.
- * 5) quotactl(2) succeeds to turn off xfs quota and get xfs quota off statv
- *    for user.
- * 6) quotactl(2) succeeds to turn on xfs quota and get xfs quota on statv
- *    for user.
- * 7) quotactl(2) succeeds to turn off xfs quota and get xfs quota off status
- *    for group.
- * 8) quotactl(2) succeeds to turn on xfs quota and get xfs quota on status
- *    for group.
- * 9) quotactl(2) succeeds to set and use Q_XGETQUOTA to get xfs disk quota
- *    limits for group.
- * 10)quotactl(2) succeeds to set and use Q_XGETNEXTQUOTA to get xfs disk
- *    quota limits for group.
- * 11)quotactl(2) succeeds to turn off xfs quota and get xfs quota off statv
- *    for group.
- * 12)quotactl(2) succeeds to turn on xfs quota and get xfs quota on statv
- *    for group.
+ * This testcases checks that quotactl(2) on xfs filesystem succeeds to:
+ *
+ * - turn off xfs quota and get xfs quota off status for user
+ * - turn on xfs quota and get xfs quota on status for user
+ * - set and use Q_XGETQUOTA to get xfs disk quota limits for user
+ * - set and use Q_XGETNEXTQUOTA to get xfs disk quota limits greater than or
+ *   equal to ID for user
+ * - turn off xfs quota and get xfs quota off statv for user
+ * - turn on xfs quota and get xfs quota on statv for user
+ * - turn off xfs quota and get xfs quota off status for group
+ * - turn on xfs quota and get xfs quota on status for group
+ * - set and use Q_XGETQUOTA to get xfs disk quota limits for group
+ * - set and use Q_XGETNEXTQUOTA to get xfs disk quota limits for group
+ * - turn off xfs quota and get xfs quota off statv for group
+ * - turn on xfs quota and get xfs quota on statv for gorup
  */
 
 #include "quotactl02.h"
+#include "quotactl_syscall_var.h"
 
 #ifdef HAVE_XFS_XQM_H
 static uint32_t qflagu = XFS_QUOTA_UDQ_ENFD;
@@ -105,9 +100,16 @@ static struct t_case {
 
 static void setup(void)
 {
-	test_id = geteuid();
+	quotactl_info();
+	fd = SAFE_OPEN(MNTPOINT, O_RDONLY);
 	check_support_cmd(USRQUOTA);
 	check_support_cmd(GRPQUOTA);
+}
+
+static void cleanup(void)
+{
+	if (fd > -1)
+		SAFE_CLOSE(fd);
 }
 
 static void verify_quota(unsigned int n)
@@ -128,11 +130,10 @@ static void verify_quota(unsigned int n)
 		return;
 	}
 
-	TEST(quotactl(tc->cmd, tst_device->dev, test_id, tc->addr));
-	if (TST_RET == -1) {
-		tst_res(TFAIL | TTERRNO, "quotactl() failed to %s", tc->des);
+	TST_EXP_PASS_SILENT(do_quotactl(fd, tc->cmd, tst_device->dev, test_id, tc->addr),
+		"do_quotactl()");
+	if (!TST_PASS)
 		return;
-	}
 
 	if (tc->flag)
 		tc->func_check(tc->check_subcmd, tc->des, *(int *)(tc->addr));
@@ -150,9 +151,11 @@ static struct tst_test test = {
 	.tcnt = ARRAY_SIZE(tcases),
 	.mount_device = 1,
 	.dev_fs_type = "xfs",
-	.mntpoint = mntpoint,
+	.mntpoint = MNTPOINT,
 	.mnt_data = "usrquota,grpquota",
 	.setup = setup,
+	.cleanup = cleanup,
+	.test_variants = QUOTACTL_SYSCALL_VARIANTS,
 };
 #else
 	TST_TEST_TCONF("System doesn't have <xfs/xqm.h>");

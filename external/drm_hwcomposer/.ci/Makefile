@@ -2,8 +2,8 @@
 INCLUDE_DIRS := . ../libdrm/include/drm include ./.ci/android_headers ./tests/test_include
 SYSTEM_INCLUDE_DIRS := /usr/include/libdrm
 
-CLANG := clang++-13
-CLANG_TIDY := clang-tidy-13
+CLANG := clang++-14
+CLANG_TIDY := clang-tidy-14
 OUT_DIR := /tmp/drm_hwcomposer/build
 SRC_DIR := .
 
@@ -43,6 +43,7 @@ TIDY_CHECKS_FINE := *                                   \
     -cppcoreguidelines-pro-type-vararg                  \
     -hicpp-vararg                                       \
     -hicpp-signed-bitwise                               \
+    -readability-identifier-length                      \
 
 TIDY_CHECKS_NORMAL :=                                   \
     $(TIDY_CHECKS_FINE)                                 \

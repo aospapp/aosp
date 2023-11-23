@@ -1,0 +1,47 @@
+diff --git a/Android.bp b/Android.bp
+index d6878ec..59ae682 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -59,6 +59,26 @@ rust_library {
+     min_sdk_version: "29",
+ }
+ 
++rust_library_rlib {
++    name: "libonce_cell_nostd",
++    crate_name: "once_cell",
++    cargo_env_compat: true,
++    cargo_pkg_version: "1.16.0",
++    srcs: ["src/lib.rs"],
++    edition: "2021",
++    features: [
++        "alloc",
++        "default",
++        "race",
++    ],
++    apex_available: [
++        "//apex_available:platform",
++        "//apex_available:anyapex"
++    ],
++    vendor_available: true,
++    min_sdk_version: "29",
++}
++
+ rust_test {
+     name: "once_cell_test_src_lib",
+     host_supported: true,
+@@ -79,7 +99,6 @@ rust_test {
+         "std",
+     ],
+     rustlibs: [
+-        "libcritical_section",
+         "libcrossbeam_utils",
+         "liblazy_static",
+         "libregex",
+@@ -106,7 +125,6 @@ rust_test {
+         "std",
+     ],
+     rustlibs: [
+-        "libcritical_section",
+         "libcrossbeam_utils",
+         "liblazy_static",
+         "libonce_cell",

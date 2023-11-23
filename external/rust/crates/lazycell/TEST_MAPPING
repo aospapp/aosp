@@ -3,28 +3,22 @@
   "imports": [
     {
       "path": "external/rust/crates/libsqlite3-sys"
+    },
+    {
+      "path": "system/security/keystore2"
+    },
+    {
+      "path": "system/security/keystore2/legacykeystore"
     }
   ],
   "presubmit": [
     {
-      "name": "keystore2_test"
-    },
-    {
       "name": "lazycell_test_src_lib"
-    },
-    {
-      "name": "legacykeystore_test"
     }
   ],
   "presubmit-rust": [
     {
-      "name": "keystore2_test"
-    },
-    {
       "name": "lazycell_test_src_lib"
-    },
-    {
-      "name": "legacykeystore_test"
     }
   ]
 }

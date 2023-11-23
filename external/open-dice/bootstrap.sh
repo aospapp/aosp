@@ -25,11 +25,14 @@
 # manually.
 git submodule update --init
 
-# Apply local submodule patches.
-git -C third_party/mbedtls/src am ../0001-Mark-basic-constraints-critical-as-appropriate.patch
-
 # Bootstrap the pigweed environment.
 . third_party/pigweed/src/bootstrap.sh
+
+# Copy the pigweed environment config with a path fixup.
+sed s/environment/third_party\\\/pigweed\\\/src\\\/environment/g \
+  < third_party/pigweed/src/build_overrides/pigweed_environment.gni \
+  > build_overrides/pigweed_environment.gni
+gn format build_overrides/pigweed_environment.gni
 
 # Setup the build.
 gn gen --export-compile-commands out

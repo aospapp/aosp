@@ -4,6 +4,7 @@
 
 from autotest_lib.server import utils
 
+PY_VERSION = 3
 AUTHOR = "chromeos-chameleon"
 NAME = "graphics_MultipleDisplays.aquarium_blob"
 PURPOSE = "Test multiple WebGL windows on internal and external displays."

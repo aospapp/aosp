@@ -20,6 +20,7 @@
 #include <array>
 #include <deque>
 #include <map>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -28,7 +29,6 @@
 #include "perfetto/base/logging.h"
 #include "perfetto/base/time.h"
 #include "perfetto/ext/base/hash.h"
-#include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/string_view.h"
 #include "perfetto/ext/base/utils.h"
 #include "perfetto/trace_processor/basic_types.h"
@@ -36,15 +36,17 @@
 #include "src/trace_processor/containers/string_pool.h"
 #include "src/trace_processor/storage/metadata.h"
 #include "src/trace_processor/storage/stats.h"
-#include "src/trace_processor/tables/android_tables.h"
-#include "src/trace_processor/tables/counter_tables.h"
-#include "src/trace_processor/tables/flow_tables.h"
-#include "src/trace_processor/tables/memory_tables.h"
-#include "src/trace_processor/tables/metadata_tables.h"
-#include "src/trace_processor/tables/profiler_tables.h"
-#include "src/trace_processor/tables/slice_tables.h"
-#include "src/trace_processor/tables/track_tables.h"
+#include "src/trace_processor/tables/android_tables_py.h"
+#include "src/trace_processor/tables/counter_tables_py.h"
+#include "src/trace_processor/tables/flow_tables_py.h"
+#include "src/trace_processor/tables/memory_tables_py.h"
+#include "src/trace_processor/tables/metadata_tables_py.h"
+#include "src/trace_processor/tables/profiler_tables_py.h"
+#include "src/trace_processor/tables/slice_tables_py.h"
+#include "src/trace_processor/tables/trace_proto_tables_py.h"
+#include "src/trace_processor/tables/track_tables_py.h"
 #include "src/trace_processor/types/variadic.h"
+#include "src/trace_processor/views/slice_views.h"
 
 namespace perfetto {
 namespace trace_processor {
@@ -71,8 +73,6 @@ using CounterId = tables::CounterTable::Id;
 
 using SliceId = tables::SliceTable::Id;
 
-using InstantId = tables::InstantTable::Id;
-
 using SchedId = tables::SchedSliceTable::Id;
 
 using MappingId = tables::StackProfileMappingTable::Id;
@@ -95,10 +95,8 @@ using ProcessMemorySnapshotId = tables::ProcessMemorySnapshotTable::Id;
 
 using SnapshotNodeId = tables::MemorySnapshotNodeTable::Id;
 
-// TODO(lalitm): this is a temporary hack while migrating the counters table and
-// will be removed when the migration is complete.
 static const TrackId kInvalidTrackId =
-    TrackId(std::numeric_limits<TrackId>::max());
+    TrackId(std::numeric_limits<uint32_t>::max());
 
 enum class RefType {
   kRefNoRef = 0,
@@ -156,13 +154,13 @@ class TraceStorage {
       return thread_instruction_deltas_;
     }
 
-    base::Optional<uint32_t> FindRowForSliceId(SliceId slice_id) const {
+    std::optional<uint32_t> FindRowForSliceId(SliceId slice_id) const {
       auto it =
           std::lower_bound(slice_ids().begin(), slice_ids().end(), slice_id);
       if (it != slice_ids().end() && *it == slice_id) {
         return static_cast<uint32_t>(std::distance(slice_ids().begin(), it));
       }
-      return base::nullopt;
+      return std::nullopt;
     }
 
     void UpdateThreadDeltasForSliceId(SliceId slice_id,
@@ -190,8 +188,7 @@ class TraceStorage {
   class SqlStats {
    public:
     static constexpr size_t kMaxLogEntries = 100;
-    uint32_t RecordQueryBegin(const std::string& query,
-                              int64_t time_started);
+    uint32_t RecordQueryBegin(const std::string& query, int64_t time_started);
     void RecordQueryFirstNext(uint32_t row, int64_t time_first_next);
     void RecordQueryEnd(uint32_t row, int64_t time_end);
     size_t size() const { return queries_.size(); }
@@ -254,14 +251,14 @@ class TraceStorage {
   }
 
   // Example usage: opt_cpu_failure = GetIndexedStats(stats::cpu_failure, 1);
-  base::Optional<int64_t> GetIndexedStats(size_t key, int index) {
+  std::optional<int64_t> GetIndexedStats(size_t key, int index) {
     PERFETTO_DCHECK(key < stats::kNumKeys);
     PERFETTO_DCHECK(stats::kTypes[key] == stats::kIndexed);
     auto kv = stats_[key].indexed_values.find(index);
     if (kv != stats_[key].indexed_values.end()) {
       return kv->second;
     }
-    return base::nullopt;
+    return std::nullopt;
   }
 
   class ScopedStatsTracer {
@@ -309,14 +306,111 @@ class TraceStorage {
     return string_pool_.Get(id);
   }
 
+  // Requests the removal of unused capacity.
+  // Matches the semantics of std::vector::shrink_to_fit.
+  void ShrinkToFitTables() {
+    // At the moment, we only bother calling ShrinkToFit on a set group
+    // of tables. If we wanted to extend this to every table, we'd need to deal
+    // with tracking all the tables in the storage: this is not worth doing
+    // given most memory is used by these tables.
+    thread_table_.ShrinkToFit();
+    process_table_.ShrinkToFit();
+    track_table_.ShrinkToFit();
+    counter_table_.ShrinkToFit();
+    slice_table_.ShrinkToFit();
+    raw_table_.ShrinkToFit();
+    sched_slice_table_.ShrinkToFit();
+    thread_state_table_.ShrinkToFit();
+    arg_table_.ShrinkToFit();
+  }
+
   const tables::ThreadTable& thread_table() const { return thread_table_; }
   tables::ThreadTable* mutable_thread_table() { return &thread_table_; }
 
   const tables::ProcessTable& process_table() const { return process_table_; }
   tables::ProcessTable* mutable_process_table() { return &process_table_; }
 
+  const tables::FiledescriptorTable& filedescriptor_table() const {
+    return filedescriptor_table_;
+  }
+  tables::FiledescriptorTable* mutable_filedescriptor_table() {
+    return &filedescriptor_table_;
+  }
+
   const tables::TrackTable& track_table() const { return track_table_; }
   tables::TrackTable* mutable_track_table() { return &track_table_; }
+
+  const tables::CounterTrackTable& counter_track_table() const {
+    return counter_track_table_;
+  }
+  tables::CounterTrackTable* mutable_counter_track_table() {
+    return &counter_track_table_;
+  }
+
+  const tables::CpuCounterTrackTable& cpu_counter_track_table() const {
+    return cpu_counter_track_table_;
+  }
+  tables::CpuCounterTrackTable* mutable_cpu_counter_track_table() {
+    return &cpu_counter_track_table_;
+  }
+
+  const tables::GpuCounterGroupTable& gpu_counter_group_table() const {
+    return gpu_counter_group_table_;
+  }
+  tables::GpuCounterGroupTable* mutable_gpu_counter_group_table() {
+    return &gpu_counter_group_table_;
+  }
+
+  const tables::GpuCounterTrackTable& gpu_counter_track_table() const {
+    return gpu_counter_track_table_;
+  }
+  tables::GpuCounterTrackTable* mutable_gpu_counter_track_table() {
+    return &gpu_counter_track_table_;
+  }
+
+  const tables::EnergyCounterTrackTable& energy_counter_track_table() const {
+    return energy_counter_track_table_;
+  }
+  tables::EnergyCounterTrackTable* mutable_energy_counter_track_table() {
+    return &energy_counter_track_table_;
+  }
+
+  const tables::UidCounterTrackTable& uid_counter_track_table() const {
+    return uid_counter_track_table_;
+  }
+  tables::UidCounterTrackTable* mutable_uid_counter_track_table() {
+    return &uid_counter_track_table_;
+  }
+
+  const tables::EnergyPerUidCounterTrackTable&
+  energy_per_uid_counter_track_table() const {
+    return energy_per_uid_counter_track_table_;
+  }
+  tables::EnergyPerUidCounterTrackTable*
+  mutable_energy_per_uid_counter_track_table() {
+    return &energy_per_uid_counter_track_table_;
+  }
+
+  const tables::IrqCounterTrackTable& irq_counter_track_table() const {
+    return irq_counter_track_table_;
+  }
+  tables::IrqCounterTrackTable* mutable_irq_counter_track_table() {
+    return &irq_counter_track_table_;
+  }
+
+  const tables::PerfCounterTrackTable& perf_counter_track_table() const {
+    return perf_counter_track_table_;
+  }
+  tables::PerfCounterTrackTable* mutable_perf_counter_track_table() {
+    return &perf_counter_track_table_;
+  }
+
+  const tables::ProcessCounterTrackTable& process_counter_track_table() const {
+    return process_counter_track_table_;
+  }
+  tables::ProcessCounterTrackTable* mutable_process_counter_track_table() {
+    return &process_counter_track_table_;
+  }
 
   const tables::ProcessTrackTable& process_track_table() const {
     return process_track_table_;
@@ -332,11 +426,11 @@ class TraceStorage {
     return &thread_track_table_;
   }
 
-  const tables::CounterTrackTable& counter_track_table() const {
-    return counter_track_table_;
+  const tables::ThreadStateTable& thread_state_table() const {
+    return thread_state_table_;
   }
-  tables::CounterTrackTable* mutable_counter_track_table() {
-    return &counter_track_table_;
+  tables::ThreadStateTable* mutable_thread_state_table() {
+    return &thread_state_table_;
   }
 
   const tables::ThreadCounterTrackTable& thread_counter_track_table() const {
@@ -346,53 +440,11 @@ class TraceStorage {
     return &thread_counter_track_table_;
   }
 
-  const tables::ProcessCounterTrackTable& process_counter_track_table() const {
-    return process_counter_track_table_;
-  }
-  tables::ProcessCounterTrackTable* mutable_process_counter_track_table() {
-    return &process_counter_track_table_;
-  }
-
-  const tables::CpuCounterTrackTable& cpu_counter_track_table() const {
-    return cpu_counter_track_table_;
-  }
-  tables::CpuCounterTrackTable* mutable_cpu_counter_track_table() {
-    return &cpu_counter_track_table_;
-  }
-
-  const tables::IrqCounterTrackTable& irq_counter_track_table() const {
-    return irq_counter_track_table_;
-  }
-  tables::IrqCounterTrackTable* mutable_irq_counter_track_table() {
-    return &irq_counter_track_table_;
-  }
-
   const tables::SoftirqCounterTrackTable& softirq_counter_track_table() const {
     return softirq_counter_track_table_;
   }
   tables::SoftirqCounterTrackTable* mutable_softirq_counter_track_table() {
     return &softirq_counter_track_table_;
-  }
-
-  const tables::GpuCounterTrackTable& gpu_counter_track_table() const {
-    return gpu_counter_track_table_;
-  }
-  tables::GpuCounterTrackTable* mutable_gpu_counter_track_table() {
-    return &gpu_counter_track_table_;
-  }
-
-  const tables::GpuCounterGroupTable& gpu_counter_group_table() const {
-    return gpu_counter_group_table_;
-  }
-  tables::GpuCounterGroupTable* mutable_gpu_counter_group_table() {
-    return &gpu_counter_group_table_;
-  }
-
-  const tables::PerfCounterTrackTable& perf_counter_track_table() const {
-    return perf_counter_track_table_;
-  }
-  tables::PerfCounterTrackTable* mutable_perf_counter_track_table() {
-    return &perf_counter_track_table_;
   }
 
   const tables::SchedSliceTable& sched_slice_table() const {
@@ -407,13 +459,6 @@ class TraceStorage {
 
   const tables::FlowTable& flow_table() const { return flow_table_; }
   tables::FlowTable* mutable_flow_table() { return &flow_table_; }
-
-  const tables::ThreadSliceTable& thread_slice_table() const {
-    return thread_slice_table_;
-  }
-  tables::ThreadSliceTable* mutable_thread_slice_table() {
-    return &thread_slice_table_;
-  }
 
   const VirtualTrackSlices& virtual_track_slices() const {
     return virtual_track_slices_;
@@ -433,14 +478,19 @@ class TraceStorage {
   const SqlStats& sql_stats() const { return sql_stats_; }
   SqlStats* mutable_sql_stats() { return &sql_stats_; }
 
-  const tables::InstantTable& instant_table() const { return instant_table_; }
-  tables::InstantTable* mutable_instant_table() { return &instant_table_; }
-
   const tables::AndroidLogTable& android_log_table() const {
     return android_log_table_;
   }
   tables::AndroidLogTable* mutable_android_log_table() {
     return &android_log_table_;
+  }
+
+  const tables::AndroidDumpstateTable& android_dumpstate_table() const {
+    return android_dumpstate_table_;
+  }
+
+  tables::AndroidDumpstateTable* mutable_android_dumpstate_table() {
+    return &android_dumpstate_table_;
   }
 
   const StatsMap& stats() const { return stats_; }
@@ -462,6 +512,13 @@ class TraceStorage {
 
   const tables::RawTable& raw_table() const { return raw_table_; }
   tables::RawTable* mutable_raw_table() { return &raw_table_; }
+
+  const tables::FtraceEventTable& ftrace_event_table() const {
+    return ftrace_event_table_;
+  }
+  tables::FtraceEventTable* mutable_ftrace_event_table() {
+    return &ftrace_event_table_;
+  }
 
   const tables::CpuTable& cpu_table() const { return cpu_table_; }
   tables::CpuTable* mutable_cpu_table() { return &cpu_table_; }
@@ -504,6 +561,15 @@ class TraceStorage {
   }
   tables::PackageListTable* mutable_package_list_table() {
     return &package_list_table_;
+  }
+
+  const tables::AndroidGameInterventionListTable&
+  android_game_intervention_list_table() const {
+    return android_game_intervention_list_table_;
+  }
+  tables::AndroidGameInterventionListTable*
+  mutable_android_game_intervenion_list_table() {
+    return &android_game_intervention_list_table_;
   }
 
   const tables::ProfilerSmapsTable& profiler_smaps_table() const {
@@ -561,6 +627,11 @@ class TraceStorage {
   tables::HeapGraphReferenceTable* mutable_heap_graph_reference_table() {
     return &heap_graph_reference_table_;
   }
+
+  const tables::CpuTrackTable& cpu_track_table() const {
+    return cpu_track_table_;
+  }
+  tables::CpuTrackTable* mutable_cpu_track_table() { return &cpu_track_table_; }
 
   const tables::GpuTrackTable& gpu_track_table() const {
     return gpu_track_table_;
@@ -628,10 +699,39 @@ class TraceStorage {
   actual_frame_timeline_slice_table() const {
     return actual_frame_timeline_slice_table_;
   }
-
   tables::ActualFrameTimelineSliceTable*
   mutable_actual_frame_timeline_slice_table() {
     return &actual_frame_timeline_slice_table_;
+  }
+
+  const tables::ExperimentalProtoPathTable& experimental_proto_path_table()
+      const {
+    return experimental_proto_path_table_;
+  }
+  tables::ExperimentalProtoPathTable* mutable_experimental_proto_path_table() {
+    return &experimental_proto_path_table_;
+  }
+
+  const tables::ExperimentalProtoContentTable&
+  experimental_proto_content_table() const {
+    return experimental_proto_content_table_;
+  }
+  tables::ExperimentalProtoContentTable*
+  mutable_experimental_proto_content_table() {
+    return &experimental_proto_content_table_;
+  }
+
+  const tables::ExpMissingChromeProcTable&
+  experimental_missing_chrome_processes_table() const {
+    return experimental_missing_chrome_processes_table_;
+  }
+  tables::ExpMissingChromeProcTable*
+  mutable_experimental_missing_chrome_processes_table() {
+    return &experimental_missing_chrome_processes_table_;
+  }
+
+  const views::ThreadSliceView& thread_slice_view() const {
+    return thread_slice_view_;
   }
 
   const StringPool& string_pool() const { return string_pool_; }
@@ -646,12 +746,12 @@ class TraceStorage {
 
   util::Status ExtractArg(uint32_t arg_set_id,
                           const char* key,
-                          base::Optional<Variadic>* result) {
+                          std::optional<Variadic>* result) {
     const auto& args = arg_table();
     RowMap filtered = args.FilterToRowMap(
         {args.arg_set_id().eq(arg_set_id), args.key().eq(key)});
     if (filtered.empty()) {
-      *result = base::nullopt;
+      *result = std::nullopt;
       return util::OkStatus();
     }
     if (filtered.size() > 1) {
@@ -706,11 +806,11 @@ class TraceStorage {
     return variadic_type_ids_[type];
   }
 
-  base::Optional<Variadic::Type> GetVariadicTypeForId(StringId id) const {
+  std::optional<Variadic::Type> GetVariadicTypeForId(StringId id) const {
     auto it =
         std::find(variadic_type_ids_.begin(), variadic_type_ids_.end(), id);
     if (it == variadic_type_ids_.end())
-      return base::nullopt;
+      return std::nullopt;
 
     int64_t idx = std::distance(variadic_type_ids_.begin(), it);
     return static_cast<Variadic::Type>(idx);
@@ -734,13 +834,15 @@ class TraceStorage {
   // Extra data extracted from the trace. Includes:
   // * metadata from chrome and benchmarking infrastructure
   // * descriptions of android packages
-  tables::MetadataTable metadata_table_{&string_pool_, nullptr};
+  tables::MetadataTable metadata_table_{&string_pool_};
 
   // Contains data from all the clock snapshots in the trace.
-  tables::ClockSnapshotTable clock_snapshot_table_{&string_pool_, nullptr};
+  tables::ClockSnapshotTable clock_snapshot_table_{&string_pool_};
 
   // Metadata for tracks.
-  tables::TrackTable track_table_{&string_pool_, nullptr};
+  tables::TrackTable track_table_{&string_pool_};
+  tables::ThreadStateTable thread_state_table_{&string_pool_};
+  tables::CpuTrackTable cpu_track_table_{&string_pool_, &track_table_};
   tables::GpuTrackTable gpu_track_table_{&string_pool_, &track_table_};
   tables::ProcessTrackTable process_track_table_{&string_pool_, &track_table_};
   tables::ThreadTrackTable thread_track_table_{&string_pool_, &track_table_};
@@ -759,28 +861,32 @@ class TraceStorage {
       &string_pool_, &counter_track_table_};
   tables::GpuCounterTrackTable gpu_counter_track_table_{&string_pool_,
                                                         &counter_track_table_};
-  tables::GpuCounterGroupTable gpu_counter_group_table_{&string_pool_, nullptr};
+  tables::EnergyCounterTrackTable energy_counter_track_table_{
+      &string_pool_, &counter_track_table_};
+  tables::UidCounterTrackTable uid_counter_track_table_{&string_pool_,
+                                                        &counter_track_table_};
+  tables::EnergyPerUidCounterTrackTable energy_per_uid_counter_track_table_{
+      &string_pool_, &uid_counter_track_table_};
+  tables::GpuCounterGroupTable gpu_counter_group_table_{&string_pool_};
   tables::PerfCounterTrackTable perf_counter_track_table_{
       &string_pool_, &counter_track_table_};
 
   // Args for all other tables.
-  tables::ArgTable arg_table_{&string_pool_, nullptr};
+  tables::ArgTable arg_table_{&string_pool_};
 
   // Information about all the threads and processes in the trace.
-  tables::ThreadTable thread_table_{&string_pool_, nullptr};
-  tables::ProcessTable process_table_{&string_pool_, nullptr};
+  tables::ThreadTable thread_table_{&string_pool_};
+  tables::ProcessTable process_table_{&string_pool_};
+  tables::FiledescriptorTable filedescriptor_table_{&string_pool_};
 
   // Slices coming from userspace events (e.g. Chromium TRACE_EVENT macros).
-  tables::SliceTable slice_table_{&string_pool_, nullptr};
+  tables::SliceTable slice_table_{&string_pool_};
 
   // Flow events from userspace events (e.g. Chromium TRACE_EVENT macros).
-  tables::FlowTable flow_table_{&string_pool_, nullptr};
+  tables::FlowTable flow_table_{&string_pool_};
 
   // Slices from CPU scheduling data.
-  tables::SchedSliceTable sched_slice_table_{&string_pool_, nullptr};
-
-  // Additional attributes for threads slices (sub-type of NestableSlices).
-  tables::ThreadSliceTable thread_slice_table_{&string_pool_, &slice_table_};
+  tables::SchedSliceTable sched_slice_table_{&string_pool_};
 
   // Additional attributes for virtual track slices (sub-type of
   // NestableSlices).
@@ -792,69 +898,71 @@ class TraceStorage {
 
   // The values from the Counter events from the trace. This includes CPU
   // frequency events as well systrace trace_marker counter events.
-  tables::CounterTable counter_table_{&string_pool_, nullptr};
+  tables::CounterTable counter_table_{&string_pool_};
 
   SqlStats sql_stats_;
 
-  // These are instantaneous events in the trace. They have no duration
-  // and do not have a value that make sense to track over time.
-  // e.g. signal events
-  tables::InstantTable instant_table_{&string_pool_, nullptr};
+  tables::RawTable raw_table_{&string_pool_};
+  tables::FtraceEventTable ftrace_event_table_{&string_pool_, &raw_table_};
 
-  // Raw events are every ftrace event in the trace. The raw event includes
-  // the timestamp and the pid. The args for the raw event will be in the
-  // args table. This table can be used to generate a text version of the
-  // trace.
-  tables::RawTable raw_table_{&string_pool_, nullptr};
+  tables::CpuTable cpu_table_{&string_pool_};
 
-  tables::CpuTable cpu_table_{&string_pool_, nullptr};
+  tables::CpuFreqTable cpu_freq_table_{&string_pool_};
 
-  tables::CpuFreqTable cpu_freq_table_{&string_pool_, nullptr};
+  tables::AndroidLogTable android_log_table_{&string_pool_};
 
-  tables::AndroidLogTable android_log_table_{&string_pool_, nullptr};
+  tables::AndroidDumpstateTable android_dumpstate_table_{&string_pool_};
 
-  tables::StackProfileMappingTable stack_profile_mapping_table_{&string_pool_,
-                                                                nullptr};
-  tables::StackProfileFrameTable stack_profile_frame_table_{&string_pool_,
-                                                            nullptr};
-  tables::StackProfileCallsiteTable stack_profile_callsite_table_{&string_pool_,
-                                                                  nullptr};
-  tables::StackSampleTable stack_sample_table_{&string_pool_, nullptr};
+  tables::StackProfileMappingTable stack_profile_mapping_table_{&string_pool_};
+  tables::StackProfileFrameTable stack_profile_frame_table_{&string_pool_};
+  tables::StackProfileCallsiteTable stack_profile_callsite_table_{
+      &string_pool_};
+  tables::StackSampleTable stack_sample_table_{&string_pool_};
   tables::HeapProfileAllocationTable heap_profile_allocation_table_{
-      &string_pool_, nullptr};
+      &string_pool_};
   tables::CpuProfileStackSampleTable cpu_profile_stack_sample_table_{
       &string_pool_, &stack_sample_table_};
-  tables::PerfSampleTable perf_sample_table_{&string_pool_, nullptr};
-  tables::PackageListTable package_list_table_{&string_pool_, nullptr};
-  tables::ProfilerSmapsTable profiler_smaps_table_{&string_pool_, nullptr};
+  tables::PerfSampleTable perf_sample_table_{&string_pool_};
+  tables::PackageListTable package_list_table_{&string_pool_};
+  tables::AndroidGameInterventionListTable
+      android_game_intervention_list_table_{&string_pool_};
+  tables::ProfilerSmapsTable profiler_smaps_table_{&string_pool_};
 
   // Symbol tables (mappings from frames to symbol names)
-  tables::SymbolTable symbol_table_{&string_pool_, nullptr};
-  tables::HeapGraphObjectTable heap_graph_object_table_{&string_pool_, nullptr};
-  tables::HeapGraphClassTable heap_graph_class_table_{&string_pool_, nullptr};
-  tables::HeapGraphReferenceTable heap_graph_reference_table_{&string_pool_,
-                                                              nullptr};
+  tables::SymbolTable symbol_table_{&string_pool_};
+  tables::HeapGraphObjectTable heap_graph_object_table_{&string_pool_};
+  tables::HeapGraphClassTable heap_graph_class_table_{&string_pool_};
+  tables::HeapGraphReferenceTable heap_graph_reference_table_{&string_pool_};
 
   tables::VulkanMemoryAllocationsTable vulkan_memory_allocations_table_{
-      &string_pool_, nullptr};
+      &string_pool_};
 
   tables::GraphicsFrameSliceTable graphics_frame_slice_table_{&string_pool_,
                                                               &slice_table_};
 
   // Metadata for memory snapshot.
-  tables::MemorySnapshotTable memory_snapshot_table_{&string_pool_, nullptr};
+  tables::MemorySnapshotTable memory_snapshot_table_{&string_pool_};
   tables::ProcessMemorySnapshotTable process_memory_snapshot_table_{
-      &string_pool_, nullptr};
-  tables::MemorySnapshotNodeTable memory_snapshot_node_table_{&string_pool_,
-                                                              nullptr};
-  tables::MemorySnapshotEdgeTable memory_snapshot_edge_table_{&string_pool_,
-                                                              nullptr};
+      &string_pool_};
+  tables::MemorySnapshotNodeTable memory_snapshot_node_table_{&string_pool_};
+  tables::MemorySnapshotEdgeTable memory_snapshot_edge_table_{&string_pool_};
 
   // FrameTimeline tables
   tables::ExpectedFrameTimelineSliceTable expected_frame_timeline_slice_table_{
       &string_pool_, &slice_table_};
   tables::ActualFrameTimelineSliceTable actual_frame_timeline_slice_table_{
       &string_pool_, &slice_table_};
+
+  tables::ExperimentalProtoPathTable experimental_proto_path_table_{
+      &string_pool_};
+  tables::ExperimentalProtoContentTable experimental_proto_content_table_{
+      &string_pool_};
+
+  tables::ExpMissingChromeProcTable
+      experimental_missing_chrome_processes_table_{&string_pool_};
+
+  views::ThreadSliceView thread_slice_view_{&slice_table_, &thread_track_table_,
+                                            &thread_table_};
 
   // The below array allow us to map between enums and their string
   // representations.
@@ -886,6 +994,9 @@ struct std::hash<::perfetto::trace_processor::CallsiteId>
 template <>
 struct std::hash<::perfetto::trace_processor::FrameId>
     : std::hash<::perfetto::trace_processor::BaseId> {};
+template <>
+struct std::hash<::perfetto::trace_processor::tables::HeapGraphObjectTable::Id>
+    : std::hash<::perfetto::trace_processor::BaseId> {};
 
 template <>
 struct std::hash<
@@ -896,8 +1007,8 @@ struct std::hash<
 
   result_type operator()(const argument_type& r) const {
     return std::hash<::perfetto::trace_processor::StringId>{}(r.name) ^
-           std::hash<::perfetto::base::Optional<
-               ::perfetto::trace_processor::MappingId>>{}(r.mapping) ^
+           std::hash<std::optional<::perfetto::trace_processor::MappingId>>{}(
+               r.mapping) ^
            std::hash<int64_t>{}(r.rel_pc);
   }
 };
@@ -911,8 +1022,8 @@ struct std::hash<
 
   result_type operator()(const argument_type& r) const {
     return std::hash<int64_t>{}(r.depth) ^
-           std::hash<::perfetto::base::Optional<
-               ::perfetto::trace_processor::CallsiteId>>{}(r.parent_id) ^
+           std::hash<std::optional<::perfetto::trace_processor::CallsiteId>>{}(
+               r.parent_id) ^
            std::hash<::perfetto::trace_processor::FrameId>{}(r.frame_id);
   }
 };

@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/nexthop.c	Routing Nexthop
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -351,10 +344,6 @@ int rtnl_route_nh_set_newdst(struct rtnl_nexthop *nh, struct nl_addr *addr)
 {
 	struct nl_addr *old = nh->rtnh_newdst;
 
-	if (!nl_addr_valid(nl_addr_get_binary_addr(addr),
-			   nl_addr_get_len(addr)))
-		return -NLE_INVAL;
-
 	if (addr) {
 		nh->rtnh_newdst = nl_addr_get(addr);
 		nh->ce_mask |= NH_ATTR_NEWDST;
@@ -377,10 +366,6 @@ struct nl_addr *rtnl_route_nh_get_newdst(struct rtnl_nexthop *nh)
 int rtnl_route_nh_set_via(struct rtnl_nexthop *nh, struct nl_addr *addr)
 {
 	struct nl_addr *old = nh->rtnh_via;
-
-	if (!nl_addr_valid(nl_addr_get_binary_addr(addr),
-			   nl_addr_get_len(addr)))
-		return -NLE_INVAL;
 
 	if (addr) {
 		nh->rtnh_via = nl_addr_get(addr);

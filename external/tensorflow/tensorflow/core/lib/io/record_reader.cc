@@ -111,7 +111,7 @@ Status RecordReader::ReadChecksummed(uint64 offset, size_t n, tstring* result) {
     return errors::DataLoss("corrupted record at ", offset);
   }
   result->resize(n);
-  return Status::OK();
+  return OkStatus();
 }
 
 Status RecordReader::GetMetadata(Metadata* md) {
@@ -164,12 +164,12 @@ Status RecordReader::GetMetadata(Metadata* md) {
   }
 
   md->stats = cached_metadata_->stats;
-  return Status::OK();
+  return OkStatus();
 }
 
 Status RecordReader::PositionInputStream(uint64 offset) {
   int64_t curr_pos = input_stream_->Tell();
-  int64_t desired_pos = static_cast<int64>(offset);
+  int64_t desired_pos = static_cast<int64_t>(offset);
   if (curr_pos > desired_pos || curr_pos < 0 /* EOF */ ||
       (curr_pos == desired_pos && last_read_failed_)) {
     last_read_failed_ = false;
@@ -179,7 +179,7 @@ Status RecordReader::PositionInputStream(uint64 offset) {
     TF_RETURN_IF_ERROR(input_stream_->SkipNBytes(desired_pos - curr_pos));
   }
   DCHECK_EQ(desired_pos, input_stream_->Tell());
-  return Status::OK();
+  return OkStatus();
 }
 
 Status RecordReader::ReadRecord(uint64* offset, tstring* record) {
@@ -206,7 +206,7 @@ Status RecordReader::ReadRecord(uint64* offset, tstring* record) {
 
   *offset += kHeaderSize + length + kFooterSize;
   DCHECK_EQ(*offset, input_stream_->Tell());
-  return Status::OK();
+  return OkStatus();
 }
 
 Status RecordReader::SkipRecords(uint64* offset, int num_to_skip,
@@ -238,7 +238,7 @@ Status RecordReader::SkipRecords(uint64* offset, int num_to_skip,
     DCHECK_EQ(*offset, input_stream_->Tell());
     (*num_skipped)++;
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 SequentialRecordReader::SequentialRecordReader(

@@ -148,6 +148,17 @@ cc_library_static {
             ],
         },
 
+        riscv64: {
+            local_include_dirs: [
+                "common/riscv",
+            ],
+
+            srcs: [
+                "decoder/riscv/impeg2d_function_selector.c",
+                "common/riscv/ideint_function_selector.c",
+            ],
+        },
+
         x86: {
             cflags: [
                 "-DX86",

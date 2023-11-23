@@ -18,6 +18,9 @@ import("$dir_pw_build/error.gni")
 import("$dir_pw_build/target_types.gni")
 import("$dir_pw_chrono/backend.gni")
 import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_sync/backend.gni")
+import("$dir_pw_thread/backend.gni")
+import("$dir_pw_unit_test/test.gni")
 
 config("public_include_path") {
   include_dirs = [ "public" ]
@@ -113,6 +116,24 @@ pw_source_set("timed_mutex_backend") {
   deps = [ ":check_system_clock_backend" ]
 }
 
+# This target provides the backend for pw::sync::RecursiveMutex.
+pw_source_set("recursive_mutex_backend") {
+  public_configs = [
+    ":public_include_path",
+    ":backend_config",
+  ]
+  public = [
+    "public/pw_sync_stl/recursive_mutex_inline.h",
+    "public/pw_sync_stl/recursive_mutex_native.h",
+    "public_overrides/pw_sync_backend/recursive_mutex_inline.h",
+    "public_overrides/pw_sync_backend/recursive_mutex_native.h",
+  ]
+  public_deps = [
+    "$dir_pw_sync:recursive_mutex.facade",
+    dir_pw_assert,
+  ]
+}
+
 # This target provides the backend for pw::sync::InterruptSpinLock.
 pw_source_set("interrupt_spin_lock") {
   public_configs = [
@@ -131,6 +152,36 @@ pw_source_set("interrupt_spin_lock") {
   ]
 }
 
+# This target provides the backend for pw::sync::ConditionVariable.
+pw_source_set("condition_variable_backend") {
+  allow_circular_includes_from = [ "$dir_pw_sync:condition_variable.facade" ]
+  public_configs = [
+    ":public_include_path",
+    ":backend_config",
+  ]
+  public = [
+    "public/pw_sync_stl/condition_variable_inline.h",
+    "public/pw_sync_stl/condition_variable_native.h",
+    "public_overrides/pw_sync_backend/condition_variable_inline.h",
+    "public_overrides/pw_sync_backend/condition_variable_native.h",
+  ]
+  public_deps = [ "$dir_pw_sync:condition_variable.facade" ]
+}
+
+pw_test("condition_variable_test") {
+  enable_if = pw_thread_THREAD_BACKEND == "$dir_pw_thread_stl:thread" &&
+              pw_sync_CONDITION_VARIABLE_BACKEND ==
+              "$dir_pw_sync_stl:condition_variable"
+  deps = [
+    "$dir_pw_sync:condition_variable_test",
+    "$dir_pw_thread_stl:test_threads",
+  ]
+}
+
 pw_doc_group("docs") {
   sources = [ "docs.rst" ]
+}
+
+pw_test_group("tests") {
+  tests = [ ":condition_variable_test" ]
 }

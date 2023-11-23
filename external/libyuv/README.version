@@ -1,3 +1,8 @@
-Version: r1732
+Version: r1837
 BugComponent: 42195
 Owner: lajos
+Local Modifications:
+ * Remove files/Android.mk (it messes with the android build system).
+ * Remove OWNERS files within files/ and all the subdirectories (except for
+   files/fuzz). Having these files breaks repo presubmit hooks since they
+   contain non @google.com email addresses.

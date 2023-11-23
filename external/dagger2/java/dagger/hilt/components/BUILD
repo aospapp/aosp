@@ -25,7 +25,7 @@ java_library(
     deps = [
         ":package_info",
         "//java/dagger/hilt:define_component",
-        "@google_bazel_common//third_party/java/jsr330_inject",
+        "//third_party/java/jsr330_inject",
     ],
 )
 

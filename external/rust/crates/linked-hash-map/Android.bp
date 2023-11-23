@@ -41,28 +41,17 @@ license {
 
 rust_library {
     name: "liblinked_hash_map",
+    // has rustc warnings
     host_supported: true,
     crate_name: "linked_hash_map",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.5.4",
+    cargo_pkg_version: "0.5.6",
     srcs: ["src/lib.rs"],
     edition: "2015",
-}
-
-rust_test {
-    name: "linked-hash-map_test_tests_test",
-    host_supported: true,
-    crate_name: "linked_hash_map",
-    cargo_env_compat: true,
-    cargo_pkg_version: "0.5.4",
-    srcs: ["tests/test.rs"],
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    test_options: {
-        unit_test: true,
-    },
-    edition: "2015",
-    rustlibs: [
-        "liblinked_hash_map",
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
     ],
+    product_available: true,
+    vendor_available: true,
 }

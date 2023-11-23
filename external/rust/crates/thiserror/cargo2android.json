@@ -1,7 +1,7 @@
 {
   "apex-available": [
     "//apex_available:platform",
-    "com.android.bluetooth",
+    "com.android.btservices",
     "com.android.compos",
     "com.android.resolv",
     "com.android.uwb",
@@ -11,5 +11,6 @@
   "device": true,
   "min-sdk-version": "29",
   "run": true,
-  "vendor-available": true
+  "vendor-available": true,
+  "product-available": true
 }

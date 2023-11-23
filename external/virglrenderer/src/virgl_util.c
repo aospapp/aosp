@@ -34,7 +34,7 @@
 #endif
 #include <unistd.h>
 
-#include "os/os_misc.h"
+#include "util/os_misc.h"
 #include "util/u_pointer.h"
 
 #include <assert.h>
@@ -53,20 +53,15 @@
 #include <stdio.h>
 #endif
 
-unsigned hash_func_u32(void *key)
+uint32_t hash_func_u32(const void *key)
 {
    intptr_t ip = pointer_to_intptr(key);
-   return (unsigned)(ip & 0xffffffff);
+   return (uint32_t)(ip & 0xffffffff);
 }
 
-int compare_func(void *key1, void *key2)
+bool equal_func(const void *key1, const void *key2)
 {
-   if (key1 < key2)
-      return -1;
-   if (key1 > key2)
-      return 1;
-   else
-      return 0;
+   return key1 == key2;
 }
 
 bool has_eventfd(void)
@@ -187,9 +182,14 @@ void trace_init(void)
 #endif
 
 #if ENABLE_TRACING == TRACE_WITH_PERFETTO
+static void on_tracing_state_change(bool enabled) {
+    virgl_log("%s: tracing state change: %d\n", __func__, enabled);
+}
+
 void trace_init(void)
 {
    struct vperfetto_min_config config = {
+      .on_tracing_state_change = on_tracing_state_change,
       .init_flags = VPERFETTO_INIT_FLAG_USE_SYSTEM_BACKEND,
             .filename = NULL,
             .shmem_size_hint_kb = 32 * 1024,

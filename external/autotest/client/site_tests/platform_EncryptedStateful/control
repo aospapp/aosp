@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 NAME = "platform_EncryptedStateful"
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 PURPOSE = "Verify mount-encrypted operates as expected"
 CRITERIA = """
 Fails if the mount-encrypted helper does not operated as expected
@@ -13,6 +13,7 @@ ATTRIBUTES = "suite:bvt-perbuild"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "security"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
     Ensures the mount-encrypted helper for mounting the encrypted statful

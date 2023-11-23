@@ -130,7 +130,7 @@ class verity_image(object):
         self.reset()
 
     def _create_image(self):
-        """Creates a dummy file."""
+        """Creates a placeholder file."""
         # TODO(wad) replace with python
         utils.system_output(self.dd_cmd % (self.file, self.blocks))
 

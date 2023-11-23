@@ -31,6 +31,9 @@ load(
     _log = "log",
 )
 
+# Depot-wide min SDK floor
+_DEPOT_MIN_SDK_FLOOR = 14
+
 _RESOURCE_FOLDER_TYPES = [
     "anim",
     "animator",
@@ -51,8 +54,8 @@ _RESOURCE_FOLDER_TYPES = [
 _RESOURCE_QUALIFIER_SEP = "-"
 
 _MANIFEST_MISSING_ERROR = (
-    "In target %s, manifest attribute is required when resource_files or " +
-    "assets are defined."
+    "In target %s, manifest attribute is required when resource_files, " +
+    "assets, or exports_manifest are specified."
 )
 
 _ASSET_DEFINITION_ERROR = (
@@ -113,6 +116,7 @@ _PACKAGED_FINAL_MANIFEST = "processed_manifest"
 _PACKAGED_RESOURCE_APK = "resources_apk"
 _PACKAGED_CLASS_JAR = "class_jar"
 _PACKAGED_VALIDATION_RESULT = "validation_result"
+_RESOURCE_PROGUARD_CONFIG = "resource_proguard_config"
 
 _ResourcesPackageContextInfo = provider(
     "Packaged resources context object",
@@ -123,7 +127,25 @@ _ResourcesPackageContextInfo = provider(
         _PACKAGED_VALIDATION_RESULT: "Validation result.",
         _R_JAVA: "JavaInfo for R.jar",
         _DATA_BINDING_LAYOUT_INFO: "Databinding layout info file.",
+        _RESOURCE_PROGUARD_CONFIG: "Resource proguard config",
         _PROVIDERS: "The list of all providers to propagate.",
+    },
+)
+
+# Manifest context attributes
+_PROCESSED_MANIFEST = "processed_manifest"
+
+_ManifestContextInfo = provider(
+    "Manifest context object",
+    fields = {
+        _PROCESSED_MANIFEST: "The manifest after the min SDK has been changed as necessary.",
+    },
+)
+
+_ManifestValidationContextInfo = provider(
+    "Manifest validation context object",
+    fields = {
+        _VALIDATION_OUTPUTS: "List of outputs given to OutputGroupInfo _validation group.",
     },
 )
 
@@ -373,10 +395,11 @@ def _is_resource_shrinking_enabled(
 
 def _should_shrink_resource_cycles(
         use_android_resource_cycle_shrinking,
-        resource_shrinking_enabled):
-    if use_android_resource_cycle_shrinking and not resource_shrinking_enabled:
-        fail("resource cycle shrinking can only be enabled when resource shrinking is enabled")
-    return use_android_resource_cycle_shrinking
+        resource_shrinking_enabled,
+        has_local_proguard_specs):
+    return (use_android_resource_cycle_shrinking and
+            resource_shrinking_enabled and
+            has_local_proguard_specs)
 
 def _filter_multi_cpu_configuration_targets(
         targets):
@@ -425,7 +448,9 @@ def _package(
         should_throw_on_conflict = True,
         enable_data_binding = False,
         enable_manifest_merging = True,
+        should_compile_java_srcs = True,
         aapt = None,
+        has_local_proguard_specs = False,
         android_jar = None,
         legacy_merger = None,
         xsltproc = None,
@@ -478,6 +503,7 @@ def _package(
         parameter is enabled. Without this setting, data binding expressions
         produce build failures.
       enable_manifest_merging: boolean. If true, manifest merging will be performed.
+      should_compile_java_srcs: boolean. If native android_binary should perform java compilation.
       aapt: FilesToRunProvider. The aapt executable or FilesToRunProvider.
       android_jar: File. The Android jar.
       legacy_merger: FilesToRunProvider. The legacy manifest merger executable.
@@ -597,6 +623,16 @@ def _package(
             host_javabase = host_javabase,
         )
 
+    resource_shrinking_enabled = _is_resource_shrinking_enabled(
+        shrink_resources,
+        use_android_resource_shrinking,
+    )
+    shrink_resource_cycles = _should_shrink_resource_cycles(
+        use_android_resource_cycle_shrinking,
+        resource_shrinking_enabled,
+        has_local_proguard_specs,
+    )
+
     resource_apk = ctx.actions.declare_file(ctx.label.name + "_migrated/.ap_")
     r_java = ctx.actions.declare_file("_migrated/" + ctx.label.name + ".srcjar")
     r_txt = ctx.actions.declare_file(ctx.label.name + "_migrated/_symbols/R.txt")
@@ -641,6 +677,7 @@ def _package(
         densities = densities,
         nocompress_extensions = nocompress_extensions,
         java_package = java_package,
+        shrink_resource_cycles = shrink_resource_cycles,
         version_name = manifest_values[_VERSION_NAME] if _VERSION_NAME in manifest_values else None,
         version_code = manifest_values[_VERSION_CODE] if _VERSION_CODE in manifest_values else None,
         android_jar = android_jar,
@@ -653,22 +690,13 @@ def _package(
     packaged_resources_ctx[_PACKAGED_FINAL_MANIFEST] = processed_manifest
     packaged_resources_ctx[_PACKAGED_RESOURCE_APK] = resource_apk
     packaged_resources_ctx[_PACKAGED_VALIDATION_RESULT] = resource_files_zip
-
-    resource_shrinking_enabled = _is_resource_shrinking_enabled(
-        shrink_resources,
-        use_android_resource_shrinking,
-    )
-    shrink_resource_cycles = _should_shrink_resource_cycles(
-        use_android_resource_cycle_shrinking,
-        resource_shrinking_enabled,
-    )
+    packaged_resources_ctx[_RESOURCE_PROGUARD_CONFIG] = proguard_cfg
 
     # Fix class jar name because some tests depend on {label_name}_resources.jar being the suffix of
-    # the path, with _RESOURCES_DO_NOT_USE removed from the label name.
-    _RESOURCES_SUFFIX = "_RESOURCES_DO_NOT_USE"
+    # the path, with _common.PACKAGED_RESOURCES_SUFFIX removed from the label name.
     class_jar_name = ctx.label.name + "_migrated/_resources.jar"
-    if ctx.label.name.endswith(_RESOURCES_SUFFIX):
-        label_name = ctx.label.name[:-len(_RESOURCES_SUFFIX)]
+    if ctx.label.name.endswith(_common.PACKAGED_RESOURCES_SUFFIX):
+        label_name = ctx.label.name.removesuffix(_common.PACKAGED_RESOURCES_SUFFIX)
         class_jar_name = ctx.label.name + "_migrated/" + label_name + "_resources.jar"
 
     class_jar = ctx.actions.declare_file(class_jar_name)
@@ -728,6 +756,7 @@ def _package(
         r_txt = r_txt,
         resources_zip = resource_files_zip,
         databinding_info = data_binding_layout_info,
+        should_compile_java_srcs = should_compile_java_srcs,
     ))
     return _ResourcesPackageContextInfo(**packaged_resources_ctx)
 
@@ -968,6 +997,149 @@ def _validate_resources(resource_files = None):
             res_type = path_segments[-2].partition(_RESOURCE_QUALIFIER_SEP)[0]
             if res_type not in _RESOURCE_FOLDER_TYPES:
                 fail(_INCORRECT_RESOURCE_LAYOUT_ERROR % resource_file)
+
+def _bump_min_sdk(
+        ctx,
+        manifest,
+        floor,
+        enforce_min_sdk_floor_tool):
+    """Bumps the min SDK attribute of AndroidManifest to the floor.
+
+    Args:
+      ctx: The rules context.
+      manifest: File. The AndroidManifest.xml file.
+      floor: int. The min SDK floor. Manifest is unchanged if floor <= 0.
+      enforce_min_sdk_floor_tool: FilesToRunProvider. The enforce_min_sdk_tool executable or
+        FilesToRunprovider
+
+    Returns:
+      A dict containing _ManifestContextInfo provider fields.
+    """
+    manifest_ctx = {}
+    if not manifest or floor <= 0:
+        manifest_ctx[_PROCESSED_MANIFEST] = manifest
+        return _ManifestContextInfo(**manifest_ctx)
+
+    args = ctx.actions.args()
+    args.add("-action", "bump")
+    args.add("-manifest", manifest)
+    args.add("-min_sdk_floor", floor)
+
+    out_dir = "_migrated/_min_sdk_bumped/" + ctx.label.name + "/"
+    log = ctx.actions.declare_file(
+        out_dir + "log.txt",
+    )
+    args.add("-log", log.path)
+
+    out_manifest = ctx.actions.declare_file(
+        out_dir + "AndroidManifest.xml",
+    )
+    args.add("-output", out_manifest.path)
+    ctx.actions.run(
+        executable = enforce_min_sdk_floor_tool,
+        inputs = [manifest],
+        outputs = [out_manifest, log],
+        arguments = [args],
+        mnemonic = "BumpMinSdkFloor",
+        progress_message = "Bumping up AndroidManifest min SDK %s" % str(ctx.label),
+    )
+    manifest_ctx[_PROCESSED_MANIFEST] = out_manifest
+
+    return _ManifestContextInfo(**manifest_ctx)
+
+def _set_default_min_sdk(
+        ctx,
+        manifest,
+        default,
+        enforce_min_sdk_floor_tool):
+    """ Sets the min SDK attribute of AndroidManifest to default if it is not already set.
+
+    Args:
+      ctx: The rules context.
+      manifest: File. The AndroidManifest.xml file.
+      default: string. The default value for min SDK. The manifest is unchanged if it already
+        specifies a min SDK.
+      enforce_min_sdk_floor_tool: FilesToRunProvider. The enforce_min_sdk_tool executable or
+        FilesToRunprovider
+
+    Returns:
+      A dict containing _ManifestContextInfo provider fields.
+    """
+    manifest_ctx = {}
+    if not manifest or not default:
+        manifest_ctx[_PROCESSED_MANIFEST] = manifest
+        return _ManifestContextInfo(**manifest_ctx)
+
+    args = ctx.actions.args()
+    args.add("-action", "set_default")
+    args.add("-manifest", manifest)
+    args.add("-default_min_sdk", default)
+
+    out_dir = "_migrated/_min_sdk_default_set/" + ctx.label.name + "/"
+    log = ctx.actions.declare_file(
+        out_dir + "log.txt",
+    )
+    args.add("-log", log.path)
+
+    out_manifest = ctx.actions.declare_file(
+        out_dir + "AndroidManifest.xml",
+    )
+    args.add("-output", out_manifest.path)
+    ctx.actions.run(
+        executable = enforce_min_sdk_floor_tool,
+        inputs = [manifest],
+        outputs = [out_manifest, log],
+        arguments = [args],
+        mnemonic = "SetDefaultMinSdkFloor",
+        progress_message = "Setting AndroidManifest min SDK to default %s" % str(ctx.label),
+    )
+    manifest_ctx[_PROCESSED_MANIFEST] = out_manifest
+
+    return _ManifestContextInfo(**manifest_ctx)
+
+def _validate_min_sdk(
+        ctx,
+        manifest,
+        floor,
+        enforce_min_sdk_floor_tool):
+    """Validates that the min SDK attribute of AndroidManifest is at least at the floor.
+
+    Args:
+      ctx: The rules context.
+      manifest: File. The AndroidManifest.xml file.
+      floor: int. The min SDK floor. No validation is done if floor <= 0.
+      enforce_min_sdk_floor_tool: FilesToRunProvider. The enforce_min_sdk_tool executable or
+        FilesToRunprovider
+
+    Returns:
+      A dict containing _ManifestValidationContextInfo provider fields.
+    """
+    manifest_validation_ctx = {_VALIDATION_OUTPUTS: []}
+    if not manifest or floor <= 0:
+        return _ManifestValidationContextInfo(**manifest_validation_ctx)
+
+    args = ctx.actions.args()
+    args.add("-action", "validate")
+    args.add("-manifest", manifest)
+    args.add("-min_sdk_floor", floor)
+
+    out_dir = "_migrated/_min_sdk_validated/" + ctx.label.name + "/"
+    log = ctx.actions.declare_file(
+        out_dir + "log.txt",
+    )
+    args.add("-log", log.path)
+
+    ctx.actions.run(
+        executable = enforce_min_sdk_floor_tool,
+        inputs = [manifest],
+        outputs = [log],
+        arguments = [args],
+        mnemonic = "ValidateMinSdkFloor",
+        progress_message = "Validating AndroidManifest min SDK %s" % str(ctx.label),
+    )
+    manifest_validation_ctx[_VALIDATION_OUTPUTS].append(log)
+
+    return _ManifestValidationContextInfo(**manifest_validation_ctx)
 
 def _process_starlark(
         ctx,
@@ -1668,6 +1840,18 @@ resources = struct(
 
     # Exposed for android_local_test and android_library
     generate_dummy_manifest = _generate_dummy_manifest,
+
+    # Exposed for android_library, aar_import, and android_binary
+    bump_min_sdk = _bump_min_sdk,
+
+    # Exposed for use in AOSP
+    set_default_min_sdk = _set_default_min_sdk,
+
+    # Exposed for android_binary
+    validate_min_sdk = _validate_min_sdk,
+
+    # Exposed for android_library, aar_import, and android_binary
+    DEPOT_MIN_SDK_FLOOR = _DEPOT_MIN_SDK_FLOOR,
 )
 
 testing = struct(

@@ -161,4 +161,4 @@ public class PresenceCapabilityTask extends PresenceTask{
 
         TaskManager.getDefault().removeTask(mTaskId);
     }
-};
+}

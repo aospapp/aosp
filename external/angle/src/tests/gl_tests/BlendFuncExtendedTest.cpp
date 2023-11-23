@@ -77,7 +77,7 @@ void CheckPixels(GLint x,
         {
             const auto px = x + xx;
             const auto py = y + yy;
-            EXPECT_PIXEL_COLOR_NEAR(px, py, color, 1);
+            EXPECT_PIXEL_COLOR_NEAR(px, py, color, 2);
         }
     }
 }
@@ -85,13 +85,13 @@ void CheckPixels(GLint x,
 const GLuint kWidth  = 100;
 const GLuint kHeight = 100;
 
-class EXTBlendFuncExtendedTest : public ANGLETest
+class EXTBlendFuncExtendedTest : public ANGLETest<>
 {};
 
-class EXTBlendFuncExtendedTestES3 : public ANGLETest
+class EXTBlendFuncExtendedTestES3 : public ANGLETest<>
 {};
 
-class EXTBlendFuncExtendedDrawTest : public ANGLETest
+class EXTBlendFuncExtendedDrawTest : public ANGLETest<>
 {
   protected:
     EXTBlendFuncExtendedDrawTest() : mProgram(0)
@@ -518,9 +518,6 @@ void main() {
 TEST_P(EXTBlendFuncExtendedDrawTestES3, FragmentArrayOutputLocationsAPI)
 {
     ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_blend_func_extended"));
-
-    // TODO: Investigate this mac-only failure.  http://angleproject.com/1085
-    ANGLE_SKIP_TEST_IF(IsOSX());
 
     // Suspected VK driver bug http://anglebug.com/5523
     ANGLE_SKIP_TEST_IF(IsVulkan() && (IsNVIDIA() || IsPixel2()));

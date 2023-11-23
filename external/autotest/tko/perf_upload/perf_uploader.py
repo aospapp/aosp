@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -13,12 +14,11 @@ must be logged in with an @google.com account to view chromeOS perf data there.
 
 """
 
-import httplib
+import six.moves.http_client
 import json
 import os
 import re
-import urllib
-import urllib2
+from six.moves import urllib
 
 import common
 from autotest_lib.tko import utils as tko_utils
@@ -43,7 +43,7 @@ _PRESENTATION_SHADOW_CONFIG_FILE = os.path.join(
         _ROOT_DIR, 'perf_dashboard_shadow_config.json')
 _SERVICE_ACCOUNT_FILE = '/creds/service_accounts/skylab-drone.json'
 
-# Format for Chrome and Chrome OS version strings.
+# Format for Chrome and ChromeOS version strings.
 VERSION_REGEXP = r'^(\d+)\.(\d+)\.(\d+)\.(\d+)$'
 
 
@@ -64,7 +64,7 @@ def _parse_config_file(config_file):
     @returns A dictionary mapping each unique autotest name to a dictionary
         of presentation config information.
 
-    @raises PerfUploadingError if config data or master name for the test
+    @raises PerfUploadingError if config data or main name for the test
         is missing from the config file.
 
     """
@@ -108,14 +108,14 @@ def _gather_presentation_info(config_data, test_name):
                 'No config data is specified for test %s in %s.' %
                 (test_name, _PRESENTATION_CONFIG_FILE))
     try:
-        master_name = presentation_dict['master_name']
+        main_name = presentation_dict['main_name']
     except KeyError:
         raise PerfUploadingError(
-                'No master name is specified for test %s in %s.' %
+                'No main name is specified for test %s in %s.' %
                 (test_name, _PRESENTATION_CONFIG_FILE))
     if 'dashboard_test_name' in presentation_dict:
         test_name = presentation_dict['dashboard_test_name']
-    return {'master_name': master_name, 'test_name': test_name}
+    return {'main_name': main_name, 'test_name': test_name}
 
 
 def _format_for_upload(board_name, cros_version, chrome_version,
@@ -127,7 +127,7 @@ def _format_for_upload(board_name, cros_version, chrome_version,
     specially-formatted JSON string.  In particular, the JSON object must be a
     dictionary with key "data", and value being a list of dictionaries where
     each dictionary contains all the information associated with a single
-    measured perf value: master name, bot name, test name, perf value, error
+    measured perf value: main name, bot name, test name, perf value, error
     value, units, and build version numbers.
 
     @param board_name: The string name of the image board name.
@@ -156,21 +156,24 @@ def _format_for_upload(board_name, cros_version, chrome_version,
           'charts': perf_values,
         }
 
+    # TODO b:169251326 terms below are set outside of this codebase and
+    # should be updated when possible ("master" -> "main"). # nocheck
+    # see catapult-project/catapult/dashboard/dashboard/add_point.py
     dash_entry = {
-        'master': presentation_info['master_name'],
-        'bot': 'cros-' + board_name,  # Prefix to clarify it's ChromeOS.
-        'point_id': _get_id_from_version(chrome_version, cros_version),
-        'versions': {
-            'cros_version': cros_version,
-            'chrome_version': chrome_version,
-        },
-        'supplemental': {
-            'default_rev': 'r_cros_version',
-            'hardware_identifier': hardware_id,
-            'hardware_hostname': hardware_hostname,
-            'jobname': jobname,
-        },
-        'chart_data': perf_values,
+            'master': presentation_info['main_name'],  # nocheck
+            'bot': 'cros-' + board_name,  # Prefix to clarify it's ChromeOS.
+            'point_id': _get_id_from_version(chrome_version, cros_version),
+            'versions': {
+                    'cros_version': cros_version,
+                    'chrome_version': chrome_version,
+            },
+            'supplemental': {
+                    'default_rev': 'r_cros_version',
+                    'hardware_identifier': hardware_id,
+                    'hardware_hostname': hardware_hostname,
+                    'jobname': jobname,
+            },
+            'chart_data': perf_values,
     }
     return {'data': json.dumps(dash_entry)}
 
@@ -181,7 +184,7 @@ def _get_version_numbers(test_attributes):
     @param test_attributes: The attributes property (which is a dict) of an
         autotest tko.models.test object.
 
-    @return A pair of strings (Chrome OS version, Chrome version).
+    @return A pair of strings (ChromeOS version, Chrome version).
 
     @raises PerfUploadingError if a version isn't formatted as expected.
     """
@@ -191,9 +194,10 @@ def _get_version_numbers(test_attributes):
     # Use the release milestone as the milestone if present, othewise prefix the
     # cros version with the with the Chrome browser milestone.
     if cros_milestone:
-      cros_version = "%s.%s" % (cros_milestone, cros_version)
+        cros_version = "%s.%s" % (cros_milestone, cros_version)
     else:
-      cros_version = chrome_version[:chrome_version.find('.') + 1] + cros_version
+        cros_version = chrome_version[:chrome_version.find('.') +
+                                      1] + cros_version
     if not re.match(VERSION_REGEXP, cros_version):
         raise PerfUploadingError('CrOS version "%s" does not match expected '
                                  'format.' % cros_version)
@@ -239,7 +243,7 @@ def _get_id_from_version(chrome_version, cros_version):
     """
 
     # Number of digits to use from each part of the version string for Chrome
-    # and Chrome OS versions when building a point ID out of these two versions.
+    # and ChromeOS versions when building a point ID out of these two versions.
     chrome_version_col_widths = [0, 0, 5, 3]
     cros_version_col_widths = [0, 5, 3, 2]
 
@@ -316,19 +320,19 @@ def _send_to_dashboard(data_obj):
     @raises PerfUploadingError if an exception was raised when uploading.
 
     """
-    encoded = urllib.urlencode(data_obj)
-    req = urllib2.Request(_DASHBOARD_UPLOAD_URL, encoded)
+    encoded = urllib.parse.urlencode(data_obj)
+    req = urllib.request.Request(_DASHBOARD_UPLOAD_URL, encoded)
     _add_oauth_token(req.headers)
     try:
-        urllib2.urlopen(req)
-    except urllib2.HTTPError as e:
+        urllib.request.urlopen(req)
+    except urllib.error.HTTPError as e:
         raise PerfUploadingError('HTTPError: %d %s for JSON %s\n' % (
                 e.code, e.msg, data_obj['data']))
-    except urllib2.URLError as e:
+    except urllib.error.URLError as e:
         raise PerfUploadingError(
                 'URLError: %s for JSON %s\n' %
                 (str(e.reason), data_obj['data']))
-    except httplib.HTTPException:
+    except six.moves.http_client.HTTPException:
         raise PerfUploadingError(
                 'HTTPException for JSON %s\n' % data_obj['data'])
 
@@ -399,4 +403,3 @@ def upload_test(job, test, jobname):
     else:
         tko_utils.dprint('Successfully uploaded perf data to the perf '
                          'dashboard for test %s.' % test_name)
-

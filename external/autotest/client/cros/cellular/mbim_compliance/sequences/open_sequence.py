@@ -1,9 +1,15 @@
+# Lint as: python2, python3
 # Copyright (c) 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import struct
+from six.moves import zip
 from usb import control
 
 import common
@@ -34,14 +40,14 @@ class NtbParameters(object):
 
 
     def __init__(self, *args):
-        _, field_names = zip(*self._FIELDS)
+        _, field_names = list(zip(*self._FIELDS))
         if len(args) != len(field_names):
             mbim_errors.log_and_raise(
                     mbim_errors.MBIMComplianceError,
                     'Expected %d arguments for %s constructor, got %d.' % (
                             len(field_names),self.__class__.__name__,len(args)))
 
-        fields = zip(field_names, args)
+        fields = list(zip(field_names, args))
         for field in fields:
             setattr(self, field[0], field[1])
 
@@ -51,7 +57,7 @@ class NtbParameters(object):
         """
         @returns The format string composed of concatenated field formats.
         """
-        field_formats, _ = zip(*cls._FIELDS)
+        field_formats, _ = list(zip(*cls._FIELDS))
         return ''.join(field_format for field_format in field_formats)
 
 

@@ -8,13 +8,14 @@
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text	
 
-.globl	_GFp_gcm_init_clmul
-.private_extern _GFp_gcm_init_clmul
+.globl	_gcm_init_clmul
+.private_extern _gcm_init_clmul
 
 .p2align	4
-_GFp_gcm_init_clmul:
+_gcm_init_clmul:
 
 L$_init_clmul:
 	movdqu	(%rsi),%xmm2
@@ -169,11 +170,11 @@ L$_init_clmul:
 	.byte	0xf3,0xc3
 
 
-.globl	_GFp_gcm_gmult_clmul
-.private_extern _GFp_gcm_gmult_clmul
+.globl	_gcm_gmult_clmul
+.private_extern _gcm_gmult_clmul
 
 .p2align	4
-_GFp_gcm_gmult_clmul:
+_gcm_gmult_clmul:
 
 L$_gmult_clmul:
 	movdqu	(%rdi),%xmm0
@@ -223,11 +224,11 @@ L$_gmult_clmul:
 	.byte	0xf3,0xc3
 
 
-.globl	_GFp_gcm_ghash_clmul
-.private_extern _GFp_gcm_ghash_clmul
+.globl	_gcm_ghash_clmul
+.private_extern _gcm_ghash_clmul
 
 .p2align	5
-_GFp_gcm_ghash_clmul:
+_gcm_ghash_clmul:
 
 L$_ghash_clmul:
 	movdqa	L$bswap_mask(%rip),%xmm10
@@ -241,7 +242,7 @@ L$_ghash_clmul:
 	jz	L$odd_tail
 
 	movdqu	16(%rsi),%xmm6
-	leaq	_GFp_ia32cap_P(%rip),%rax
+	leaq	_OPENSSL_ia32cap_P(%rip),%rax
 	movl	4(%rax),%eax
 	cmpq	$0x30,%rcx
 	jb	L$skip4x
@@ -610,11 +611,11 @@ L$done:
 	.byte	0xf3,0xc3
 
 
-.globl	_GFp_gcm_init_avx
-.private_extern _GFp_gcm_init_avx
+.globl	_gcm_init_avx
+.private_extern _gcm_init_avx
 
 .p2align	5
-_GFp_gcm_init_avx:
+_gcm_init_avx:
 
 	vzeroupper
 
@@ -720,11 +721,11 @@ L$init_start_avx:
 	.byte	0xf3,0xc3
 
 
-.globl	_GFp_gcm_ghash_avx
-.private_extern _GFp_gcm_ghash_avx
+.globl	_gcm_ghash_avx
+.private_extern _gcm_ghash_avx
 
 .p2align	5
-_GFp_gcm_ghash_avx:
+_gcm_ghash_avx:
 
 	vzeroupper
 

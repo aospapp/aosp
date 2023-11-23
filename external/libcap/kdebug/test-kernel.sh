@@ -47,12 +47,18 @@ file /root/getcap $HERE/../progs/getcap 0755 0 0
 file /root/capsh $HERE/../progs/capsh 0755 0 0
 file /root/getpcaps $HERE/../progs/getpcaps 0755 0 0
 file /root/tcapsh-static $HERE/../progs/tcapsh-static 0755 0 0
+file /root/exit $HERE/exit 0755 0 0
+file /root/uns_test $HERE/../tests/uns_test 0755 0 0
 EOF
 
 # convenience for some local experiments
 if [ -f "$HERE/extras.sh" ]; then
     echo "local, uncommitted enhancements to kernel test"
     . "$HERE/extras.sh"
+fi
+
+if [ -f "$HERE/interactive" ]; then
+    echo "file /root/interactive $HERE/interactive 0755 0 0" >> fs.conf
 fi
 
 COMMANDS="awk cat chmod cp dmesg fgrep id less ln ls mkdir mount pwd rm rmdir sh sort umount uniq vi"
@@ -73,4 +79,5 @@ qemu-system-$(uname -m) -m 1024 \
 		   -kernel $KERNEL \
 		   -initrd initramfs.img \
 		   -append "$APPEND" \
-		   -smp sockets=2,dies=1,cores=4
+		   -smp sockets=2,dies=1,cores=4 \
+		   -device isa-debug-exit

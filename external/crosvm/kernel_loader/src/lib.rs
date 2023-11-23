@@ -1,16 +1,23 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+//! Linux kernel ELF file loader.
+
 use std::ffi::CStr;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::mem;
 
 use base::AsRawDescriptor;
-use data_model::DataInit;
+use data_model::zerocopy_from_reader;
 use remain::sorted;
+use resources::AddressRange;
 use thiserror::Error;
-use vm_memory::{GuestAddress, GuestMemory};
+use vm_memory::GuestAddress;
+use vm_memory::GuestMemory;
+use zerocopy::FromBytes;
 
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]
@@ -19,23 +26,31 @@ use vm_memory::{GuestAddress, GuestMemory};
 #[allow(clippy::all)]
 mod elf;
 
-// Elf64_Ehdr is plain old data with no implicit padding.
-unsafe impl data_model::DataInit for elf::Elf64_Ehdr {}
+mod arm64;
 
-// Elf64_Phdr is plain old data with no implicit padding.
-unsafe impl data_model::DataInit for elf::Elf64_Phdr {}
+pub use arm64::load_arm64_kernel;
 
 #[sorted]
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum Error {
     #[error("trying to load big-endian binary on little-endian machine")]
-    BigEndianElfOnLittle,
+    BigEndianOnLittle,
     #[error("failed writing command line to guest memory")]
     CommandLineCopy,
     #[error("command line overflowed guest memory")]
     CommandLineOverflow,
-    #[error("invalid Elf magic number")]
-    InvalidElfMagicNumber,
+    #[error("invalid elf class")]
+    InvalidElfClass,
+    #[error("invalid elf version")]
+    InvalidElfVersion,
+    #[error("invalid entry point")]
+    InvalidEntryPoint,
+    #[error("invalid kernel offset")]
+    InvalidKernelOffset,
+    #[error("invalid kernel size")]
+    InvalidKernelSize,
+    #[error("invalid magic number")]
+    InvalidMagicNumber,
     #[error("invalid Program Header Address")]
     InvalidProgramHeaderAddress,
     #[error("invalid Program Header memory size")]
@@ -44,14 +59,18 @@ pub enum Error {
     InvalidProgramHeaderOffset,
     #[error("invalid program header size")]
     InvalidProgramHeaderSize,
-    #[error("unable to read elf header")]
-    ReadElfHeader,
+    #[error("no loadable program headers found")]
+    NoLoadableProgramHeaders,
+    #[error("program header address out of allowed address range")]
+    ProgramHeaderAddressOutOfRange,
+    #[error("unable to read header")]
+    ReadHeader,
     #[error("unable to read kernel image")]
     ReadKernelImage,
     #[error("unable to read program header")]
     ReadProgramHeader,
-    #[error("unable to seek to elf start")]
-    SeekElfStart,
+    #[error("unable to seek to kernel end")]
+    SeekKernelEnd,
     #[error("unable to seek to kernel start")]
     SeekKernelStart,
     #[error("unable to seek to program header")]
@@ -59,60 +78,140 @@ pub enum Error {
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Loads a kernel from a vmlinux elf image to a slice
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+/// Information about a kernel loaded with the [`load_elf`] function.
+pub struct LoadedKernel {
+    /// Address range containg the bounds of the loaded program headers.
+    /// `address_range.start` is the start of the lowest loaded program header.
+    /// `address_range.end` is the end of the highest loaded program header.
+    pub address_range: AddressRange,
+
+    /// Size of the kernel image in bytes.
+    pub size: u64,
+
+    /// Entry point address of the kernel.
+    pub entry: GuestAddress,
+}
+
+/// Loads a kernel from a 32-bit ELF image into memory.
+///
+/// The ELF file will be loaded at the physical address specified by the `p_paddr` fields of its
+/// program headers.
 ///
 /// # Arguments
 ///
 /// * `guest_mem` - The guest memory region the kernel is written to.
-/// * `kernel_start` - The offset into `guest_mem` at which to load the kernel.
+/// * `kernel_start` - The minimum guest address to allow when loading program headers.
 /// * `kernel_image` - Input vmlinux image.
-pub fn load_kernel<F>(
+/// * `phys_offset` - An offset in bytes to add to each physical address (`p_paddr`).
+pub fn load_elf32<F>(
     guest_mem: &GuestMemory,
     kernel_start: GuestAddress,
-    mut kernel_image: &mut F,
-) -> Result<u64>
+    kernel_image: &mut F,
+    phys_offset: u64,
+) -> Result<LoadedKernel>
 where
     F: Read + Seek + AsRawDescriptor,
 {
-    kernel_image
-        .seek(SeekFrom::Start(0))
-        .map_err(|_| Error::SeekElfStart)?;
-    let ehdr = elf::Elf64_Ehdr::from_reader(&mut kernel_image).map_err(|_| Error::ReadElfHeader)?;
+    load_elf_for_class(
+        guest_mem,
+        kernel_start,
+        kernel_image,
+        phys_offset,
+        Some(elf::ELFCLASS32),
+    )
+}
 
-    // Sanity checks
-    if ehdr.e_ident[elf::EI_MAG0 as usize] != elf::ELFMAG0 as u8
-        || ehdr.e_ident[elf::EI_MAG1 as usize] != elf::ELFMAG1
-        || ehdr.e_ident[elf::EI_MAG2 as usize] != elf::ELFMAG2
-        || ehdr.e_ident[elf::EI_MAG3 as usize] != elf::ELFMAG3
-    {
-        return Err(Error::InvalidElfMagicNumber);
-    }
-    if ehdr.e_ident[elf::EI_DATA as usize] != elf::ELFDATA2LSB as u8 {
-        return Err(Error::BigEndianElfOnLittle);
-    }
-    if ehdr.e_phentsize as usize != mem::size_of::<elf::Elf64_Phdr>() {
-        return Err(Error::InvalidProgramHeaderSize);
-    }
-    if (ehdr.e_phoff as usize) < mem::size_of::<elf::Elf64_Ehdr>() {
-        // If the program header is backwards, bail.
-        return Err(Error::InvalidProgramHeaderOffset);
-    }
+/// Loads a kernel from a 64-bit ELF image into memory.
+///
+/// The ELF file will be loaded at the physical address specified by the `p_paddr` fields of its
+/// program headers.
+///
+/// # Arguments
+///
+/// * `guest_mem` - The guest memory region the kernel is written to.
+/// * `kernel_start` - The minimum guest address to allow when loading program headers.
+/// * `kernel_image` - Input vmlinux image.
+/// * `phys_offset` - An offset in bytes to add to each physical address (`p_paddr`).
+pub fn load_elf64<F>(
+    guest_mem: &GuestMemory,
+    kernel_start: GuestAddress,
+    kernel_image: &mut F,
+    phys_offset: u64,
+) -> Result<LoadedKernel>
+where
+    F: Read + Seek + AsRawDescriptor,
+{
+    load_elf_for_class(
+        guest_mem,
+        kernel_start,
+        kernel_image,
+        phys_offset,
+        Some(elf::ELFCLASS64),
+    )
+}
 
-    kernel_image
-        .seek(SeekFrom::Start(ehdr.e_phoff))
-        .map_err(|_| Error::SeekProgramHeader)?;
-    let phdrs = (0..ehdr.e_phnum)
-        .enumerate()
-        .map(|_| {
-            elf::Elf64_Phdr::from_reader(&mut kernel_image).map_err(|_| Error::ReadProgramHeader)
-        })
-        .collect::<Result<Vec<elf::Elf64_Phdr>>>()?;
+/// Loads a kernel from a 32-bit or 64-bit ELF image into memory.
+///
+/// The ELF file will be loaded at the physical address specified by the `p_paddr` fields of its
+/// program headers.
+///
+/// # Arguments
+///
+/// * `guest_mem` - The guest memory region the kernel is written to.
+/// * `kernel_start` - The minimum guest address to allow when loading program headers.
+/// * `kernel_image` - Input vmlinux image.
+/// * `phys_offset` - An offset in bytes to add to each physical address (`p_paddr`).
+pub fn load_elf<F>(
+    guest_mem: &GuestMemory,
+    kernel_start: GuestAddress,
+    kernel_image: &mut F,
+    phys_offset: u64,
+) -> Result<LoadedKernel>
+where
+    F: Read + Seek + AsRawDescriptor,
+{
+    load_elf_for_class(guest_mem, kernel_start, kernel_image, phys_offset, None)
+}
 
-    let mut kernel_end = 0;
+fn load_elf_for_class<F>(
+    guest_mem: &GuestMemory,
+    kernel_start: GuestAddress,
+    kernel_image: &mut F,
+    phys_offset: u64,
+    ei_class: Option<u32>,
+) -> Result<LoadedKernel>
+where
+    F: Read + Seek + AsRawDescriptor,
+{
+    let elf = read_elf(kernel_image, ei_class)?;
+    let mut start = None;
+    let mut end = 0;
 
     // Read in each section pointed to by the program headers.
-    for phdr in &phdrs {
-        if phdr.p_type != elf::PT_LOAD || phdr.p_filesz == 0 {
+    for phdr in &elf.program_headers {
+        if phdr.p_type != elf::PT_LOAD {
+            continue;
+        }
+
+        let paddr = phdr
+            .p_paddr
+            .checked_add(phys_offset)
+            .ok_or(Error::ProgramHeaderAddressOutOfRange)?;
+
+        if paddr < kernel_start.offset() {
+            return Err(Error::ProgramHeaderAddressOutOfRange);
+        }
+
+        if start.is_none() {
+            start = Some(paddr);
+        }
+
+        end = paddr
+            .checked_add(phdr.p_memsz)
+            .ok_or(Error::InvalidProgramHeaderMemSize)?;
+
+        if phdr.p_filesz == 0 {
             continue;
         }
 
@@ -120,20 +219,36 @@ where
             .seek(SeekFrom::Start(phdr.p_offset))
             .map_err(|_| Error::SeekKernelStart)?;
 
-        let mem_offset = kernel_start
-            .checked_add(phdr.p_paddr)
-            .ok_or(Error::InvalidProgramHeaderAddress)?;
         guest_mem
-            .read_to_memory(mem_offset, kernel_image, phdr.p_filesz as usize)
+            .read_to_memory(GuestAddress(paddr), kernel_image, phdr.p_filesz as usize)
             .map_err(|_| Error::ReadKernelImage)?;
-
-        kernel_end = mem_offset
-            .offset()
-            .checked_add(phdr.p_memsz)
-            .ok_or(Error::InvalidProgramHeaderMemSize)?;
     }
 
-    Ok(kernel_end)
+    // We should have found at least one PT_LOAD program header. If not, `start` will not be set.
+    let start = start.ok_or(Error::NoLoadableProgramHeaders)?;
+
+    let size = end
+        .checked_sub(start)
+        .ok_or(Error::InvalidProgramHeaderSize)?;
+
+    let address_range = AddressRange { start, end };
+
+    // The entry point address must fall within one of the loaded sections.
+    // We approximate this by checking whether it within the bounds of the first and last sections.
+    let entry = elf
+        .file_header
+        .e_entry
+        .checked_add(phys_offset)
+        .ok_or(Error::InvalidEntryPoint)?;
+    if !address_range.contains(entry) {
+        return Err(Error::InvalidEntryPoint);
+    }
+
+    Ok(LoadedKernel {
+        address_range,
+        size,
+        entry: GuestAddress(entry),
+    })
 }
 
 /// Writes the command line string to the given memory slice.
@@ -167,15 +282,136 @@ pub fn load_cmdline(
     Ok(())
 }
 
+struct Elf64 {
+    file_header: elf::Elf64_Ehdr,
+    program_headers: Vec<elf::Elf64_Phdr>,
+}
+
+/// Reads the headers of an ELF32 or ELF64 object file.  Returns ELF file and program headers,
+/// converted to ELF64 format.  If `required_ei_class` is Some and the file's ELF ei_class doesn't
+/// match, an Err is returned.
+fn read_elf<F>(file: &mut F, required_ei_class: Option<u32>) -> Result<Elf64>
+where
+    F: Read + Seek + AsRawDescriptor,
+{
+    // Read the ELF identification (e_ident) block.
+    file.seek(SeekFrom::Start(0))
+        .map_err(|_| Error::SeekKernelStart)?;
+    let mut ident = [0u8; 16];
+    file.read_exact(&mut ident).map_err(|_| Error::ReadHeader)?;
+
+    // e_ident checks
+    if ident[elf::EI_MAG0 as usize] != elf::ELFMAG0 as u8
+        || ident[elf::EI_MAG1 as usize] != elf::ELFMAG1
+        || ident[elf::EI_MAG2 as usize] != elf::ELFMAG2
+        || ident[elf::EI_MAG3 as usize] != elf::ELFMAG3
+    {
+        return Err(Error::InvalidMagicNumber);
+    }
+    if ident[elf::EI_DATA as usize] != elf::ELFDATA2LSB as u8 {
+        return Err(Error::BigEndianOnLittle);
+    }
+    if ident[elf::EI_VERSION as usize] != elf::EV_CURRENT as u8 {
+        return Err(Error::InvalidElfVersion);
+    }
+
+    let ei_class = ident[elf::EI_CLASS as usize] as u32;
+    if let Some(required_ei_class) = required_ei_class {
+        if ei_class != required_ei_class {
+            return Err(Error::InvalidElfClass);
+        }
+    }
+    match ei_class {
+        elf::ELFCLASS32 => read_elf_by_type::<_, elf::Elf32_Ehdr, elf::Elf32_Phdr>(file),
+        elf::ELFCLASS64 => read_elf_by_type::<_, elf::Elf64_Ehdr, elf::Elf64_Phdr>(file),
+        _ => Err(Error::InvalidElfClass),
+    }
+}
+
+/// Reads the headers of an ELF32 or ELF64 object file.  Returns ELF file and program headers,
+/// converted to ELF64 format.  `FileHeader` and `ProgramHeader` are the ELF32 or ELF64 ehdr/phdr
+/// types to read from the file.  Caller should check that `file` is a valid ELF file before calling
+/// this function.
+fn read_elf_by_type<F, FileHeader, ProgramHeader>(mut file: &mut F) -> Result<Elf64>
+where
+    F: Read + Seek + AsRawDescriptor,
+    FileHeader: FromBytes + Default + Into<elf::Elf64_Ehdr>,
+    ProgramHeader: FromBytes + Default + Into<elf::Elf64_Phdr>,
+{
+    file.seek(SeekFrom::Start(0))
+        .map_err(|_| Error::SeekKernelStart)?;
+    let ehdr: FileHeader = zerocopy_from_reader(&mut file).map_err(|_| Error::ReadHeader)?;
+    let ehdr: elf::Elf64_Ehdr = ehdr.into();
+
+    if ehdr.e_phentsize as usize != mem::size_of::<ProgramHeader>() {
+        return Err(Error::InvalidProgramHeaderSize);
+    }
+    if (ehdr.e_phoff as usize) < mem::size_of::<FileHeader>() {
+        // If the program header is backwards, bail.
+        return Err(Error::InvalidProgramHeaderOffset);
+    }
+
+    file.seek(SeekFrom::Start(ehdr.e_phoff as u64))
+        .map_err(|_| Error::SeekProgramHeader)?;
+    let phdrs: Vec<ProgramHeader> = (0..ehdr.e_phnum)
+        .enumerate()
+        .map(|_| zerocopy_from_reader(&mut file).map_err(|_| Error::ReadProgramHeader))
+        .collect::<Result<Vec<ProgramHeader>>>()?;
+
+    Ok(Elf64 {
+        file_header: ehdr,
+        program_headers: phdrs.into_iter().map(|ph| ph.into()).collect(),
+    })
+}
+
+impl From<elf::Elf32_Ehdr> for elf::Elf64_Ehdr {
+    fn from(ehdr32: elf::Elf32_Ehdr) -> Self {
+        elf::Elf64_Ehdr {
+            e_ident: ehdr32.e_ident,
+            e_type: ehdr32.e_type as elf::Elf64_Half,
+            e_machine: ehdr32.e_machine as elf::Elf64_Half,
+            e_version: ehdr32.e_version as elf::Elf64_Word,
+            e_entry: ehdr32.e_entry as elf::Elf64_Addr,
+            e_phoff: ehdr32.e_phoff as elf::Elf64_Off,
+            e_shoff: ehdr32.e_shoff as elf::Elf64_Off,
+            e_flags: ehdr32.e_flags as elf::Elf64_Word,
+            e_ehsize: ehdr32.e_ehsize as elf::Elf64_Half,
+            e_phentsize: ehdr32.e_phentsize as elf::Elf64_Half,
+            e_phnum: ehdr32.e_phnum as elf::Elf64_Half,
+            e_shentsize: ehdr32.e_shentsize as elf::Elf64_Half,
+            e_shnum: ehdr32.e_shnum as elf::Elf64_Half,
+            e_shstrndx: ehdr32.e_shstrndx as elf::Elf64_Half,
+        }
+    }
+}
+
+impl From<elf::Elf32_Phdr> for elf::Elf64_Phdr {
+    fn from(phdr32: elf::Elf32_Phdr) -> Self {
+        elf::Elf64_Phdr {
+            p_type: phdr32.p_type as elf::Elf64_Word,
+            p_flags: phdr32.p_flags as elf::Elf64_Word,
+            p_offset: phdr32.p_offset as elf::Elf64_Off,
+            p_vaddr: phdr32.p_vaddr as elf::Elf64_Addr,
+            p_paddr: phdr32.p_paddr as elf::Elf64_Addr,
+            p_filesz: phdr32.p_filesz as elf::Elf64_Xword,
+            p_memsz: phdr32.p_memsz as elf::Elf64_Xword,
+            p_align: phdr32.p_align as elf::Elf64_Xword,
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use super::*;
     use std::fs::File;
     use std::io::Write;
-    use tempfile::tempfile;
-    use vm_memory::{GuestAddress, GuestMemory};
 
-    const MEM_SIZE: u64 = 0x8000;
+    use tempfile::tempfile;
+    use vm_memory::GuestAddress;
+    use vm_memory::GuestMemory;
+
+    use super::*;
+
+    const MEM_SIZE: u64 = 0x40_0000;
 
     fn create_guest_mem() -> GuestMemory {
         GuestMemory::new(&[(GuestAddress(0x0), MEM_SIZE)]).unwrap()
@@ -223,12 +459,23 @@ mod test {
         assert_eq!(val, b'\0');
     }
 
+    // Elf32 image that prints hello world on x86.
+    fn make_elf32_bin() -> File {
+        // test_elf32.bin built on Linux with gcc -m32 -static-pie
+        let bytes = include_bytes!("test_elf32.bin");
+        make_elf_bin(bytes)
+    }
+
     // Elf64 image that prints hello world on x86_64.
-    fn make_elf_bin() -> File {
-        let elf_bytes = include_bytes!("test_elf.bin");
+    fn make_elf64_bin() -> File {
+        let bytes = include_bytes!("test_elf64.bin");
+        make_elf_bin(bytes)
+    }
+
+    fn make_elf_bin(elf_bytes: &[u8]) -> File {
         let mut file = tempfile().expect("failed to create tempfile");
         file.write_all(elf_bytes)
-            .expect("failed to write elf to shared memoy");
+            .expect("failed to write elf to shared memory");
         file
     }
 
@@ -240,22 +487,38 @@ mod test {
     }
 
     #[test]
-    fn load_elf() {
+    fn load_elf32() {
         let gm = create_guest_mem();
         let kernel_addr = GuestAddress(0x0);
-        let mut image = make_elf_bin();
-        assert_eq!(Ok(16613), load_kernel(&gm, kernel_addr, &mut image));
+        let mut image = make_elf32_bin();
+        let kernel = load_elf(&gm, kernel_addr, &mut image, 0).unwrap();
+        assert_eq!(kernel.address_range.start, 0);
+        assert_eq!(kernel.address_range.end, 0xa_2038);
+        assert_eq!(kernel.size, 0xa_2038);
+        assert_eq!(kernel.entry, GuestAddress(0x3dc0));
+    }
+
+    #[test]
+    fn load_elf64() {
+        let gm = create_guest_mem();
+        let kernel_addr = GuestAddress(0x0);
+        let mut image = make_elf64_bin();
+        let kernel = load_elf(&gm, kernel_addr, &mut image, 0).expect("failed to load ELF");
+        assert_eq!(kernel.address_range.start, 0x20_0000);
+        assert_eq!(kernel.address_range.end, 0x20_0035);
+        assert_eq!(kernel.size, 0x35);
+        assert_eq!(kernel.entry, GuestAddress(0x20_000e));
     }
 
     #[test]
     fn bad_magic() {
         let gm = create_guest_mem();
         let kernel_addr = GuestAddress(0x0);
-        let mut bad_image = make_elf_bin();
+        let mut bad_image = make_elf64_bin();
         mutate_elf_bin(&bad_image, 0x1, 0x33);
         assert_eq!(
-            Err(Error::InvalidElfMagicNumber),
-            load_kernel(&gm, kernel_addr, &mut bad_image)
+            Err(Error::InvalidMagicNumber),
+            load_elf(&gm, kernel_addr, &mut bad_image, 0)
         );
     }
 
@@ -263,12 +526,12 @@ mod test {
     fn bad_endian() {
         // Only little endian is supported
         let gm = create_guest_mem();
-        let kernel_addr = GuestAddress(0x0);
-        let mut bad_image = make_elf_bin();
+        let kernel_addr = GuestAddress(0x20_0000);
+        let mut bad_image = make_elf64_bin();
         mutate_elf_bin(&bad_image, 0x5, 2);
         assert_eq!(
-            Err(Error::BigEndianElfOnLittle),
-            load_kernel(&gm, kernel_addr, &mut bad_image)
+            Err(Error::BigEndianOnLittle),
+            load_elf(&gm, kernel_addr, &mut bad_image, 0)
         );
     }
 
@@ -277,11 +540,21 @@ mod test {
         // program header has to be past the end of the elf header
         let gm = create_guest_mem();
         let kernel_addr = GuestAddress(0x0);
-        let mut bad_image = make_elf_bin();
+        let mut bad_image = make_elf64_bin();
         mutate_elf_bin(&bad_image, 0x20, 0x10);
         assert_eq!(
             Err(Error::InvalidProgramHeaderOffset),
-            load_kernel(&gm, kernel_addr, &mut bad_image)
+            load_elf(&gm, kernel_addr, &mut bad_image, 0)
         );
+    }
+
+    #[test]
+    fn paddr_below_start() {
+        let gm = create_guest_mem();
+        // test_elf.bin loads a phdr at 0x20_0000, so this will fail due to an out-of-bounds address
+        let kernel_addr = GuestAddress(0x30_0000);
+        let mut image = make_elf64_bin();
+        let res = load_elf(&gm, kernel_addr, &mut image, 0);
+        assert_eq!(res, Err(Error::ProgramHeaderAddressOutOfRange));
     }
 }

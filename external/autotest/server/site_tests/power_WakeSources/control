@@ -14,6 +14,7 @@ TEST_CLASS = "power"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
 ATTRIBUTES = "suite:power_build"
+PY_VERSION = 3
 
 DOC = """
 Tests the following

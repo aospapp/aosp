@@ -196,7 +196,9 @@ ProgramExecutable::ProgramExecutable()
       mImageUniformRange(0, 0),
       mAtomicCounterUniformRange(0, 0),
       mFragmentInoutRange(0, 0),
-      mUsesEarlyFragmentTestsOptimization(false),
+      mHasClipDistance(false),
+      mHasDiscard(false),
+      mEnablesPerSampleShading(false),
       // [GL_EXT_geometry_shader] Table 20.22
       mGeometryShaderInputPrimitiveType(PrimitiveMode::Triangles),
       mGeometryShaderOutputPrimitiveType(PrimitiveMode::TriangleStrip),
@@ -208,7 +210,7 @@ ProgramExecutable::ProgramExecutable()
       mTessGenVertexOrder(GL_NONE),
       mTessGenPointMode(GL_NONE)
 {
-    reset();
+    reset(true);
 }
 
 ProgramExecutable::ProgramExecutable(const ProgramExecutable &other)
@@ -244,17 +246,22 @@ ProgramExecutable::ProgramExecutable(const ProgramExecutable &other)
       mAtomicCounterBuffers(other.mAtomicCounterBuffers),
       mShaderStorageBlocks(other.mShaderStorageBlocks),
       mFragmentInoutRange(other.mFragmentInoutRange),
-      mUsesEarlyFragmentTestsOptimization(other.mUsesEarlyFragmentTestsOptimization),
+      mHasClipDistance(other.mHasClipDistance),
+      mHasDiscard(other.mHasDiscard),
+      mEnablesPerSampleShading(other.mEnablesPerSampleShading),
       mAdvancedBlendEquations(other.mAdvancedBlendEquations)
 {
-    reset();
+    reset(true);
 }
 
 ProgramExecutable::~ProgramExecutable() = default;
 
-void ProgramExecutable::reset()
+void ProgramExecutable::reset(bool clearInfoLog)
 {
-    resetInfoLog();
+    if (clearInfoLog)
+    {
+        resetInfoLog();
+    }
     mActiveAttribLocationsMask.reset();
     mAttributesTypeMask.reset();
     mAttributesMask.reset();
@@ -289,8 +296,10 @@ void ProgramExecutable::reset()
     mImageUniformRange         = RangeUI(0, 0);
     mAtomicCounterUniformRange = RangeUI(0, 0);
 
-    mFragmentInoutRange                 = RangeUI(0, 0);
-    mUsesEarlyFragmentTestsOptimization = false;
+    mFragmentInoutRange      = RangeUI(0, 0);
+    mHasClipDistance         = false;
+    mHasDiscard              = false;
+    mEnablesPerSampleShading = false;
     mAdvancedBlendEquations.reset();
 
     mGeometryShaderInputPrimitiveType  = PrimitiveMode::Triangles;
@@ -322,7 +331,10 @@ void ProgramExecutable::load(bool isSeparable, gl::BinaryInputStream *stream)
     unsigned int fragmentInoutRangeHigh = stream->readInt<uint32_t>();
     mFragmentInoutRange                 = RangeUI(fragmentInoutRangeLow, fragmentInoutRangeHigh);
 
-    mUsesEarlyFragmentTestsOptimization = stream->readBool();
+    mHasClipDistance = stream->readBool();
+
+    mHasDiscard              = stream->readBool();
+    mEnablesPerSampleShading = stream->readBool();
 
     static_assert(sizeof(mAdvancedBlendEquations.bits()) == sizeof(uint32_t));
     mAdvancedBlendEquations = BlendEquationBitSet(stream->readInt<uint32_t>());
@@ -554,7 +566,10 @@ void ProgramExecutable::save(bool isSeparable, gl::BinaryOutputStream *stream) c
     stream->writeInt(mFragmentInoutRange.low());
     stream->writeInt(mFragmentInoutRange.high());
 
-    stream->writeBool(mUsesEarlyFragmentTestsOptimization);
+    stream->writeBool(mHasClipDistance);
+
+    stream->writeBool(mHasDiscard);
+    stream->writeBool(mEnablesPerSampleShading);
     stream->writeInt(mAdvancedBlendEquations.bits());
 
     stream->writeInt(mLinkedShaderStages.bits());
@@ -745,16 +760,12 @@ std::string ProgramExecutable::getInfoLogString() const
 
 bool ProgramExecutable::isAttribLocationActive(size_t attribLocation) const
 {
-    // TODO(timvp): http://anglebug.com/3570: Enable this assert here somehow.
-    //    ASSERT(!mLinkingState);
     ASSERT(attribLocation < mActiveAttribLocationsMask.size());
     return mActiveAttribLocationsMask[attribLocation];
 }
 
 AttributesMask ProgramExecutable::getAttributesMask() const
 {
-    // TODO(timvp): http://anglebug.com/3570: Enable this assert here somehow.
-    //    ASSERT(!mLinkingState);
     return mAttributesMask;
 }
 
@@ -805,6 +816,39 @@ GLuint ProgramExecutable::getUniformIndexFromSamplerIndex(GLuint samplerIndex) c
     return samplerIndex + mSamplerUniformRange.low();
 }
 
+void ProgramExecutable::setActive(size_t textureUnit,
+                                  const SamplerBinding &samplerBinding,
+                                  const gl::LinkedUniform &samplerUniform)
+{
+    mActiveSamplersMask.set(textureUnit);
+    mActiveSamplerTypes[textureUnit]      = samplerBinding.textureType;
+    mActiveSamplerYUV[textureUnit]        = IsSamplerYUVType(samplerBinding.samplerType);
+    mActiveSamplerFormats[textureUnit]    = samplerBinding.format;
+    mActiveSamplerShaderBits[textureUnit] = samplerUniform.activeShaders();
+}
+
+void ProgramExecutable::setInactive(size_t textureUnit)
+{
+    mActiveSamplersMask.reset(textureUnit);
+    mActiveSamplerTypes[textureUnit] = TextureType::InvalidEnum;
+    mActiveSamplerYUV.reset(textureUnit);
+    mActiveSamplerFormats[textureUnit] = SamplerFormat::InvalidEnum;
+    mActiveSamplerShaderBits[textureUnit].reset();
+}
+
+void ProgramExecutable::hasSamplerTypeConflict(size_t textureUnit)
+{
+    // Conflicts are marked with InvalidEnum
+    mActiveSamplerYUV.reset(textureUnit);
+    mActiveSamplerTypes[textureUnit] = TextureType::InvalidEnum;
+}
+
+void ProgramExecutable::hasSamplerFormatConflict(size_t textureUnit)
+{
+    // Conflicts are marked with InvalidEnum
+    mActiveSamplerFormats[textureUnit] = SamplerFormat::InvalidEnum;
+}
+
 void ProgramExecutable::updateActiveSamplers(const ProgramState &programState)
 {
     const std::vector<SamplerBinding> &samplerBindings = programState.getSamplerBindings();
@@ -812,33 +856,26 @@ void ProgramExecutable::updateActiveSamplers(const ProgramState &programState)
     for (uint32_t samplerIndex = 0; samplerIndex < samplerBindings.size(); ++samplerIndex)
     {
         const SamplerBinding &samplerBinding = samplerBindings[samplerIndex];
-        uint32_t uniformIndex = programState.getUniformIndexFromSamplerIndex(samplerIndex);
-        const gl::LinkedUniform &samplerUniform = programState.getUniforms()[uniformIndex];
 
         for (GLint textureUnit : samplerBinding.boundTextureUnits)
         {
             if (++mActiveSamplerRefCounts[textureUnit] == 1)
             {
-                mActiveSamplerTypes[textureUnit]   = samplerBinding.textureType;
-                mActiveSamplerYUV[textureUnit]     = IsSamplerYUVType(samplerBinding.samplerType);
-                mActiveSamplerFormats[textureUnit] = samplerBinding.format;
-                mActiveSamplerShaderBits[textureUnit] = samplerUniform.activeShaders();
+                uint32_t uniformIndex = programState.getUniformIndexFromSamplerIndex(samplerIndex);
+                setActive(textureUnit, samplerBinding, programState.getUniforms()[uniformIndex]);
             }
             else
             {
-                if (mActiveSamplerTypes[textureUnit] != samplerBinding.textureType)
+                if (mActiveSamplerTypes[textureUnit] != samplerBinding.textureType ||
+                    mActiveSamplerYUV.test(textureUnit) !=
+                        IsSamplerYUVType(samplerBinding.samplerType))
                 {
-                    // Conflicts are marked with InvalidEnum
-                    mActiveSamplerTypes[textureUnit] = TextureType::InvalidEnum;
+                    hasSamplerTypeConflict(textureUnit);
                 }
-                if (mActiveSamplerYUV.test(textureUnit) !=
-                    IsSamplerYUVType(samplerBinding.samplerType))
-                {
-                    mActiveSamplerYUV[textureUnit] = false;
-                }
+
                 if (mActiveSamplerFormats[textureUnit] != samplerBinding.format)
                 {
-                    mActiveSamplerFormats[textureUnit] = SamplerFormat::InvalidEnum;
+                    hasSamplerFormatConflict(textureUnit);
                 }
             }
             mActiveSamplersMask.set(textureUnit);
@@ -876,43 +913,43 @@ void ProgramExecutable::setSamplerUniformTextureTypeAndFormat(
     bool foundYUV             = false;
     SamplerFormat foundFormat = SamplerFormat::InvalidEnum;
 
-    for (const SamplerBinding &binding : samplerBindings)
+    for (uint32_t samplerIndex = 0; samplerIndex < samplerBindings.size(); ++samplerIndex)
     {
+        const SamplerBinding &binding = samplerBindings[samplerIndex];
+
         // A conflict exists if samplers of different types are sourced by the same texture unit.
         // We need to check all bound textures to detect this error case.
         for (GLuint textureUnit : binding.boundTextureUnits)
         {
-            if (textureUnit == textureUnitIndex)
+            if (textureUnit != textureUnitIndex)
             {
-                if (!foundBinding)
+                continue;
+            }
+
+            if (!foundBinding)
+            {
+                foundBinding          = true;
+                foundType             = binding.textureType;
+                foundYUV              = IsSamplerYUVType(binding.samplerType);
+                foundFormat           = binding.format;
+                uint32_t uniformIndex = getUniformIndexFromSamplerIndex(samplerIndex);
+                setActive(textureUnit, binding, mUniforms[uniformIndex]);
+            }
+            else
+            {
+                if (foundType != binding.textureType ||
+                    foundYUV != IsSamplerYUVType(binding.samplerType))
                 {
-                    foundBinding = true;
-                    foundType    = binding.textureType;
-                    foundYUV     = IsSamplerYUVType(binding.samplerType);
-                    foundFormat  = binding.format;
+                    hasSamplerTypeConflict(textureUnit);
                 }
-                else
+
+                if (foundFormat != binding.format)
                 {
-                    if (foundType != binding.textureType)
-                    {
-                        foundType = TextureType::InvalidEnum;
-                    }
-                    if (foundYUV != IsSamplerYUVType(binding.samplerType))
-                    {
-                        foundYUV = false;
-                    }
-                    if (foundFormat != binding.format)
-                    {
-                        foundFormat = SamplerFormat::InvalidEnum;
-                    }
+                    hasSamplerFormatConflict(textureUnit);
                 }
             }
         }
     }
-
-    mActiveSamplerTypes[textureUnitIndex]   = foundType;
-    mActiveSamplerYUV[textureUnitIndex]     = foundYUV;
-    mActiveSamplerFormats[textureUnitIndex] = foundFormat;
 }
 
 void ProgramExecutable::updateCanDrawWith()
@@ -920,17 +957,17 @@ void ProgramExecutable::updateCanDrawWith()
     mCanDrawWith = hasLinkedShaderStage(ShaderType::Vertex);
 }
 
-void ProgramExecutable::saveLinkedStateInfo(const ProgramState &state)
+void ProgramExecutable::saveLinkedStateInfo(const Context *context, const ProgramState &state)
 {
     for (ShaderType shaderType : getLinkedShaderStages())
     {
         Shader *shader = state.getAttachedShader(shaderType);
         ASSERT(shader);
-        mLinkedOutputVaryings[shaderType] = shader->getOutputVaryings();
-        mLinkedInputVaryings[shaderType]  = shader->getInputVaryings();
-        mLinkedShaderVersions[shaderType] = shader->getShaderVersion();
-        mLinkedUniforms[shaderType]       = shader->getUniforms();
-        mLinkedUniformBlocks[shaderType]  = shader->getUniformBlocks();
+        mLinkedOutputVaryings[shaderType] = shader->getOutputVaryings(context);
+        mLinkedInputVaryings[shaderType]  = shader->getInputVaryings(context);
+        mLinkedShaderVersions[shaderType] = shader->getShaderVersion(context);
+        mLinkedUniforms[shaderType]       = shader->getUniforms(context);
+        mLinkedUniformBlocks[shaderType]  = shader->getUniformBlocks(context);
     }
 }
 
@@ -1037,6 +1074,17 @@ bool ProgramExecutable::linkValidateTransformFeedback(
             }
         }
         uniqueNames.insert(tfVaryingName);
+    }
+
+    // From OpneGLES spec. 11.1.2.1: A program will fail to link if:
+    // the count specified by TransformFeedbackVaryings is non-zero, but the
+    // program object has no vertex, tessellation evaluation, or geometry shader
+    if (transformFeedbackVaryingNames.size() > 0 &&
+        !gl::ShaderTypeSupportsTransformFeedback(getLinkedTransformFeedbackStage()))
+    {
+        mInfoLog << "Linked transform feedback stage " << getLinkedTransformFeedbackStage()
+                 << " does not support transform feedback varying.";
+        return false;
     }
 
     // Validate against program varyings.

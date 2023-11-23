@@ -9,6 +9,7 @@ TEST_CLASS = "platform"
 TEST_TYPE = "client"
 PURPOSE = "Tests triggering an update from the UI."
 TIME = "SHORT"
+PY_VERSION = 3
 DOC = """ Tests triggering an update from the UI. """
 
 job.run_test('autoupdate_UpdateFromUI')

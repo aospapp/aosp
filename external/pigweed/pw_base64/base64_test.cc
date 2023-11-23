@@ -205,8 +205,7 @@ TEST(Base64, Encode_SingleChar) {
   for (const EncodedData& data : kSingleCharTestData) {
     const size_t size = EncodedSize(data.binary_size);
     ASSERT_EQ(std::strlen(data.encoded_data), size);
-    Encode(std::as_bytes(std::span(data.binary_data, data.binary_size)),
-           output);
+    Encode(as_bytes(span(data.binary_data, data.binary_size)), output);
     output[size] = '\0';
     EXPECT_STREQ(data.encoded_data, output);
   }
@@ -217,8 +216,7 @@ TEST(Base64, Encode_RandomData) {
   for (const EncodedData& data : kRandomTestData) {
     const size_t size = EncodedSize(data.binary_size);
     ASSERT_EQ(std::strlen(data.encoded_data), size);
-    Encode(std::as_bytes(std::span(data.binary_data, data.binary_size)),
-           output);
+    Encode(as_bytes(span(data.binary_data, data.binary_size)), output);
     output[size] = '\0';
     EXPECT_STREQ(data.encoded_data, output);
   }
@@ -228,10 +226,29 @@ TEST(Base64, Encode_BoundaryCheck) {
   constexpr std::byte data[] = {std::byte{'h'}, std::byte{'i'}};
   char output[5] = {};
 
-  EXPECT_EQ(0u, Encode(data, std::span(output, 3)));
+  EXPECT_EQ(0u, Encode(data, span(output, 3)));
   EXPECT_STREQ("", output);
-  EXPECT_EQ(4u, Encode(data, std::span(output, 4)));
+  EXPECT_EQ(4u, Encode(data, span(output, 4)));
   EXPECT_STREQ("aGk=", output);
+}
+
+TEST(Base64, Encode_RandomData_ToInlineString) {
+  for (const EncodedData& data : kRandomTestData) {
+    auto b64 = Encode<11>(as_bytes(span(data.binary_data, data.binary_size)));
+    EXPECT_EQ(data.encoded_data, b64);
+  }
+}
+
+TEST(Base64, Encode_RandomData_ToInlineStringAppend) {
+  for (const EncodedData& data : kRandomTestData) {
+    InlineString<32> output("Wow:");
+
+    InlineString<32> expected(output);
+    expected.append(data.encoded_data);
+
+    Encode(as_bytes(span(data.binary_data, data.binary_size)), output);
+    EXPECT_EQ(expected, output);
+  }
 }
 
 TEST(Base64, Decode_SingleChar) {
@@ -256,9 +273,9 @@ TEST(Base64, Decode_BoundaryCheck) {
   constexpr const char encoded_data[] = "aGk=";
   std::byte output[4] = {};
 
-  EXPECT_EQ(0u, Decode(encoded_data, std::span(output, 2)));
+  EXPECT_EQ(0u, Decode(encoded_data, span(output, 2)));
   EXPECT_STREQ("", reinterpret_cast<const char*>(output));
-  EXPECT_EQ(2u, Decode(encoded_data, std::span(output, 3)));
+  EXPECT_EQ(2u, Decode(encoded_data, span(output, 3)));
   EXPECT_STREQ("hi", reinterpret_cast<const char*>(output));
 }
 
@@ -267,6 +284,18 @@ TEST(Base64, Decode_InPlace) {
   char buf[] = "VGhpcyBpcyBhIHNlY3JldCBtZXNzYWdl";
   EXPECT_EQ(sizeof(expected) - 1, Decode(buf, buf));
   EXPECT_EQ(0, std::memcmp(expected, buf, sizeof(expected) - 1));
+}
+
+TEST(Base64, DecodeString_InPlace) {
+  constexpr const char expected[] = "This is a secret message";
+  InlineBasicString buf = "VGhpcyBpcyBhIHNlY3JldCBtZXNzYWdl";
+  DecodeInPlace(buf);
+  EXPECT_EQ(sizeof(expected) - 1, buf.size());
+  EXPECT_EQ(expected, buf);
+
+  buf.clear();
+  DecodeInPlace(buf);
+  EXPECT_TRUE(buf.empty());
 }
 
 TEST(Base64, Decode_UrlSafeDecode) {
@@ -282,7 +311,7 @@ TEST(Base64, Decode_UrlSafeDecode) {
 TEST(Base64, Empty) {
   char buffer[] = "DO NOT TOUCH";
   EXPECT_EQ(0u, EncodedSize(0));
-  Encode(std::as_bytes(std::span("Something cool!!!", 0)), buffer);
+  Encode(as_bytes(span("Something cool!!!", 0)), buffer);
   EXPECT_STREQ("DO NOT TOUCH", buffer);
 
   EXPECT_EQ(0u, MaxDecodedSize(0));
@@ -295,11 +324,11 @@ TEST(Base64, ExampleFromRfc3548Section7) {
   constexpr uint8_t input[] = {0x14, 0xfb, 0x9c, 0x03, 0xd9, 0x7e};
   char output[EncodedSize(sizeof(input)) + 1] = {};
 
-  Encode(std::as_bytes(std::span(input)), output);
+  Encode(as_bytes(span(input)), output);
   EXPECT_STREQ("FPucA9l+", output);
-  Encode(std::as_bytes(std::span(input, 5)), output);
+  Encode(as_bytes(span(input, 5)), output);
   EXPECT_STREQ("FPucA9k=", output);
-  Encode(std::as_bytes(std::span(input, 4)), output);
+  Encode(as_bytes(span(input, 4)), output);
   EXPECT_STREQ("FPucAw==", output);
 
   EXPECT_EQ(6u, Decode("FPucA9l+", output));
@@ -314,19 +343,19 @@ TEST(Base64, ExampleFromRfc4648Section9) {
   char output[EncodedSize(sizeof("foobar")) + 1] = {};
   const std::byte* foobar = reinterpret_cast<const std::byte*>("foobar");
 
-  Encode(std::span(foobar, 0), output);
+  Encode(span(foobar, 0), output);
   EXPECT_STREQ("", output);
-  Encode(std::span(foobar, 1), output);
+  Encode(span(foobar, 1), output);
   EXPECT_STREQ("Zg==", output);
-  Encode(std::span(foobar, 2), output);
+  Encode(span(foobar, 2), output);
   EXPECT_STREQ("Zm8=", output);
-  Encode(std::span(foobar, 3), output);
+  Encode(span(foobar, 3), output);
   EXPECT_STREQ("Zm9v", output);
-  Encode(std::span(foobar, 4), output);
+  Encode(span(foobar, 4), output);
   EXPECT_STREQ("Zm9vYg==", output);
-  Encode(std::span(foobar, 5), output);
+  Encode(span(foobar, 5), output);
   EXPECT_STREQ("Zm9vYmE=", output);
-  Encode(std::span(foobar, 6), output);
+  Encode(span(foobar, 6), output);
   EXPECT_STREQ("Zm9vYmFy", output);
 
   std::memset(output, '\0', sizeof(output));

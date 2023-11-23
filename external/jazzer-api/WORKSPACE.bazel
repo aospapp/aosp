@@ -1,6 +1,6 @@
 workspace(name = "jazzer")
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file", "http_jar")
 load("//:repositories.bzl", "jazzer_dependencies")
 
 jazzer_dependencies()
@@ -32,28 +32,28 @@ http_archive(
     ],
     sha256 = "da607faed78c4cb5a5637ef74a36fdd2286f85ca5192222c4664efec2d529bb8",
     strip_prefix = "bazel-toolchain-0.6.3",
-    urls = ["https://github.com/grailbio/bazel-toolchain/archive/0.6.3.tar.gz"],
+    urls = ["https://github.com/grailbio/bazel-toolchain/archive/refs/tags/0.6.3.tar.gz"],
 )
 
 http_archive(
     name = "googletest",
-    sha256 = "9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb",
-    strip_prefix = "googletest-release-1.10.0",
-    url = "https://github.com/google/googletest/archive/release-1.10.0.tar.gz",
+    sha256 = "81964fe578e9bd7c94dfdb09c8e4d6e6759e19967e397dbea48d1c10e45d0df2",
+    strip_prefix = "googletest-release-1.12.1",
+    url = "https://github.com/google/googletest/archive/refs/tags/release-1.12.1.tar.gz",
 )
 
 http_archive(
     name = "rules_foreign_cc",
-    sha256 = "8ab257584256e2c7eefa0c4e0794ae3be3e8f634f9ec0356da0a653dfed5da9a",
-    strip_prefix = "rules_foreign_cc-76198edc790de8e8514bddaa3895d1145fccd6aa",
-    url = "https://github.com/bazelbuild/rules_foreign_cc/archive/76198edc790de8e8514bddaa3895d1145fccd6aa.tar.gz",
+    sha256 = "6041f1374ff32ba711564374ad8e007aef77f71561a7ce784123b9b4b88614fc",
+    strip_prefix = "rules_foreign_cc-0.8.0",
+    url = "https://github.com/bazelbuild/rules_foreign_cc/archive/refs/tags/0.8.0.tar.gz",
 )
 
 http_archive(
     name = "rules_jvm_external",
-    sha256 = "f36441aa876c4f6427bfb2d1f2d723b48e9d930b62662bf723ddfb8fc80f0140",
-    strip_prefix = "rules_jvm_external-4.1",
-    url = "https://github.com/bazelbuild/rules_jvm_external/archive/4.1.zip",
+    sha256 = "cd1a77b7b02e8e008439ca76fd34f5b07aecb8c752961f9640dea15e9e5ba1ca",
+    strip_prefix = "rules_jvm_external-4.2",
+    url = "https://github.com/bazelbuild/rules_jvm_external/archive/refs/tags/4.2.zip",
 )
 
 http_archive(
@@ -61,7 +61,13 @@ http_archive(
     build_file = "//third_party:libjpeg_turbo.BUILD",
     sha256 = "6a965adb02ad898b2ae48214244618fe342baea79db97157fdc70d8844ac6f09",
     strip_prefix = "libjpeg-turbo-2.0.90",
-    url = "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/2.0.90.tar.gz",
+    url = "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/refs/tags/2.0.90.tar.gz",
+)
+
+http_jar(
+    name = "org_kohsuke_args4j_args4j",
+    sha256 = "91ddeaba0b24adce72291c618c00bbdce1c884755f6c4dba9c5c46e871c69ed6",
+    url = "https://repo1.maven.org/maven2/args4j/args4j/2.33/args4j-2.33.jar",
 )
 
 load("@com_grail_bazel_toolchain//toolchain:deps.bzl", "bazel_toolchain_dependencies")
@@ -97,6 +103,10 @@ maven_install(
     artifacts = MAVEN_ARTIFACTS,
     fail_if_repin_required = True,
     maven_install_json = "//:maven_install.json",
+    override_targets = {
+        "org.jetbrains.kotlin:kotlin-reflect": "@com_github_jetbrains_kotlin//:kotlin-reflect",
+        "org.jetbrains.kotlin:kotlin-stdlib": "@com_github_jetbrains_kotlin//:kotlin-stdlib",
+    },
     repositories = [
         "https://repo1.maven.org/maven2",
     ],
@@ -106,3 +116,11 @@ maven_install(
 load("@maven//:defs.bzl", "pinned_maven_install")
 
 pinned_maven_install()
+
+http_file(
+    name = "genhtml",
+    downloaded_file_path = "genhtml",
+    executable = True,
+    sha256 = "4120cc9186a0687db218520a2d0dc9bae75d15faf41d87448b6b6c5140c19156",
+    urls = ["https://raw.githubusercontent.com/linux-test-project/lcov/6da8399c7a7a3370de2c69b16b092e945442ffcd/bin/genhtml"],
+)

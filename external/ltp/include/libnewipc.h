@@ -31,7 +31,6 @@
 #define MSGSIZE	1024
 #define MSGTYPE	1
 #define NR_MSGQUEUES	16
-#define min(a, b)	(((a) < (b)) ? (a) : (b))
 
 #define SEM_RD	0400
 #define SEM_ALT	0200
@@ -49,14 +48,14 @@ key_t getipckey(const char *file, const int lineno);
 #define GETIPCKEY() \
 	getipckey(__FILE__, __LINE__)
 
-int get_used_queues(const char *file, const int lineno);
+int get_used_sysvipc(const char *file, const int lineno, const char *sysvipc_file);
 #define GET_USED_QUEUES() \
-	get_used_queues(__FILE__, __LINE__)
+	get_used_sysvipc(__FILE__, __LINE__, "/proc/sysvipc/msg")
+#define GET_USED_SEGMENTS() \
+	get_used_sysvipc(__FILE__, __LINE__, "/proc/sysvipc/shm")
 
 void *probe_free_addr(const char *file, const int lineno);
 #define PROBE_FREE_ADDR() \
 	probe_free_addr(__FILE__, __LINE__)
-
-time_t get_ipc_timestamp(void);
 
 #endif /* newlibipc.h */

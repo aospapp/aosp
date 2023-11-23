@@ -16,38 +16,49 @@
 
 package dagger.internal.codegen.binding;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
 import static java.util.stream.Collectors.toList;
 
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
-import dagger.model.BindingKind;
-import dagger.model.DependencyRequest;
+import dagger.spi.model.BindingKind;
+import dagger.spi.model.DependencyRequest;
+import dagger.spi.model.Key;
 import java.util.Optional;
-import javax.inject.Inject;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 
 /** Represents the full members injection of a particular type. */
 @AutoValue
 public abstract class MembersInjectionBinding extends Binding {
+  static MembersInjectionBinding create(
+      Key key,
+      ImmutableSet<DependencyRequest> dependencies,
+      Optional<MembersInjectionBinding> unresolved,
+      ImmutableSortedSet<InjectionSite> injectionSites) {
+    return new AutoValue_MembersInjectionBinding(key, dependencies, unresolved, injectionSites);
+  }
+
   @Override
-  public final Optional<Element> bindingElement() {
+  public final Optional<XElement> bindingElement() {
     return Optional.of(membersInjectedType());
   }
 
-  public abstract TypeElement membersInjectedType();
+  public final XTypeElement membersInjectedType() {
+    return key().type().xprocessing().getTypeElement();
+  }
 
   @Override
   public abstract Optional<MembersInjectionBinding> unresolved();
 
   @Override
-  public Optional<TypeElement> contributingModule() {
+  public Optional<XTypeElement> contributingModule() {
     return Optional.empty();
   }
 
@@ -73,11 +84,13 @@ public abstract class MembersInjectionBinding extends Binding {
    * Returns {@code true} if any of this binding's injection sites are directly on the bound type.
    */
   public boolean hasLocalInjectionSites() {
-    return injectionSites()
-        .stream()
+    return injectionSites().stream()
         .anyMatch(
             injectionSite ->
-                injectionSite.element().getEnclosingElement().equals(membersInjectedType()));
+                injectionSite
+                    .element()
+                    .getEnclosingElement()
+                    .equals(toJavac(membersInjectedType())));
   }
 
   @Override
@@ -119,7 +132,7 @@ public abstract class MembersInjectionBinding extends Binding {
           .getEnclosingElement()
           .getEnclosedElements()
           .stream()
-          .filter(element -> isAnnotationPresent(element, Inject.class))
+          .filter(InjectionAnnotations::hasInjectAnnotation)
           .filter(element -> !element.getModifiers().contains(Modifier.PRIVATE))
           .filter(element -> element.getSimpleName().equals(this.element().getSimpleName()))
           .collect(toList())

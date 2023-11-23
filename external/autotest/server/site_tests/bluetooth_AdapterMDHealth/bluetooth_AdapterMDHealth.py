@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -64,7 +65,7 @@ class bluetooth_AdapterMDHealth(BluetoothAdapterQuickTests,
 
 
     @test_wrapper('One classic and one BLE connection',
-                  devices={'BLE_MOUSE':1, 'KEYBOARD':1})
+                  devices={'BLE_MOUSE':1, 'KEYBOARD':1}, supports_floss=True)
     def md_two_connections_test(self):
         """test whether DUT can connect to classic keyboard and ble mouse at the
            same time
@@ -78,7 +79,11 @@ class bluetooth_AdapterMDHealth(BluetoothAdapterQuickTests,
 
 
     @test_wrapper('Two BLE connections',
-                  devices={'BLE_MOUSE':1, 'BLE_KEYBOARD':1})
+                  devices={
+                          'BLE_MOUSE': 1,
+                          'BLE_KEYBOARD': 1
+                  },
+                  supports_floss=True)
     def md_two_ble_hid_connections_test(self):
         """ test whether DUT can connect to ble keyboard and ble mouse at the
             same time
@@ -91,7 +96,12 @@ class bluetooth_AdapterMDHealth(BluetoothAdapterQuickTests,
         self.pair_and_test_connection(devices)
 
 
-    @test_wrapper('Two classic connections', devices={'MOUSE':1, 'KEYBOARD':1})
+    @test_wrapper('Two classic connections',
+                  devices={
+                          'MOUSE': 1,
+                          'KEYBOARD': 1
+                  },
+                  supports_floss=True)
     def md_two_cl_hid_connections_test(self):
         """ test whether DUT can connect to classic mouse and classic keyboard
             at the same time
@@ -127,7 +137,8 @@ class bluetooth_AdapterMDHealth(BluetoothAdapterQuickTests,
                  num_iterations=1,
                  args_dict=None,
                  test_name=None,
-                 flag='Quick Health'):
+                 flag='Quick Health',
+                 floss=False):
         """Run the batch of Bluetooth stand health tests
 
         @param host: the DUT, usually a chromebook
@@ -137,6 +148,7 @@ class bluetooth_AdapterMDHealth(BluetoothAdapterQuickTests,
         self.quick_test_init(host,
                              use_btpeer=True,
                              flag=flag,
-                             args_dict=args_dict)
+                             args_dict=args_dict,
+                             floss=floss)
         self.md_health_batch_run(num_iterations, test_name)
         self.quick_test_cleanup()

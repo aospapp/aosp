@@ -17,11 +17,11 @@ package com.google.common.hash;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.annotations.Beta;
 import com.google.errorprone.annotations.Immutable;
 import java.security.Key;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.zip.Adler32;
@@ -42,7 +42,6 @@ import javax.crypto.spec.SecretKeySpec;
  * @author Kurt Alfred Kluever
  * @since 11.0
  */
-@Beta
 @ElementTypesAreNonnullByDefault
 public final class Hashing {
   /**
@@ -470,6 +469,30 @@ public final class Hashing {
   }
 
   /**
+   * Returns a hash function implementing the Fingerprint2011 hashing function (64 hash bits).
+   *
+   * <p>This is designed for generating persistent fingerprints of strings. It isn't
+   * cryptographically secure, but it produces a high-quality hash with few collisions. Fingerprints
+   * generated using this are byte-wise identical to those created using the C++ version, but note
+   * that this uses unsigned integers (see {@link com.google.common.primitives.UnsignedInts}).
+   * Comparisons between the two should take this into account.
+   *
+   * <p>Fingerprint2011() is a form of Murmur2 on strings up to 32 bytes and a form of CityHash for
+   * longer strings. It could have been one or the other throughout. The main advantage of the
+   * combination is that CityHash has a bunch of special cases for short strings that don't need to
+   * be replicated here. The result will never be 0 or 1.
+   *
+   * <p>This function is best understood as a <a
+   * href="https://en.wikipedia.org/wiki/Fingerprint_(computing)">fingerprint</a> rather than a true
+   * <a href="https://en.wikipedia.org/wiki/Hash_function">hash function</a>.
+   *
+   * @since 31.1
+   */
+  public static HashFunction fingerprint2011() {
+    return Fingerprint2011.FINGERPRINT_2011;
+  }
+
+  /**
    * Assigns to {@code hashCode} a "bucket" in the range {@code [0, buckets)}, in a uniform manner
    * that minimizes the need for remapping as {@code buckets} grows. That is, {@code
    * consistentHash(h, n)} equals:
@@ -621,7 +644,7 @@ public final class Hashing {
     List<HashFunction> list = new ArrayList<>();
     list.add(first);
     list.add(second);
-    list.addAll(Arrays.asList(rest));
+    Collections.addAll(list, rest);
     return new ConcatenatedHashFunction(list.toArray(new HashFunction[0]));
   }
 
@@ -642,7 +665,7 @@ public final class Hashing {
     for (HashFunction hashFunction : hashFunctions) {
       list.add(hashFunction);
     }
-    checkArgument(list.size() > 0, "number of hash functions (%s) must be > 0", list.size());
+    checkArgument(!list.isEmpty(), "number of hash functions (%s) must be > 0", list.size());
     return new ConcatenatedHashFunction(list.toArray(new HashFunction[0]));
   }
 

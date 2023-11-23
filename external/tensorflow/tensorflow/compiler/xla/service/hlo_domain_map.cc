@@ -16,10 +16,12 @@ limitations under the License.
 #include "tensorflow/compiler/xla/service/hlo_domain_map.h"
 
 #include <algorithm>
+#include <memory>
+#include <string>
+#include <utility>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/memory/memory.h"
 #include "tensorflow/compiler/xla/map_util.h"
 #include "tensorflow/compiler/xla/service/hlo_opcode.h"
 #include "tensorflow/compiler/xla/types.h"
@@ -27,14 +29,14 @@ limitations under the License.
 namespace xla {
 
 /* static */ StatusOr<std::unique_ptr<HloDomainMap>> HloDomainMap::Create(
-    HloComputation* computation, string domain_kind) {
+    HloComputation* computation, std::string domain_kind) {
   auto domain_map = absl::WrapUnique(new HloDomainMap(std::move(domain_kind)));
   TF_RETURN_IF_ERROR(domain_map->Populate(computation));
   return std::move(domain_map);
 }
 
 /* static */ StatusOr<std::unique_ptr<HloDomainMap>> HloDomainMap::Create(
-    HloModule* module, string domain_kind) {
+    HloModule* module, std::string domain_kind) {
   auto domain_map = absl::WrapUnique(new HloDomainMap(std::move(domain_kind)));
   for (HloComputation* computation : module->computations()) {
     TF_RETURN_IF_ERROR(domain_map->Populate(computation));
@@ -49,11 +51,11 @@ bool HloDomainMap::InSameDomain(const HloInstruction* instruction1,
   return domain_id1 >= 0 && domain_id1 == domain_id2;
 }
 
-int64 HloDomainMap::GetDomainId(const HloInstruction* instruction) const {
+int64_t HloDomainMap::GetDomainId(const HloInstruction* instruction) const {
   return FindOrDefault(instruction_to_domain_, instruction, -1);
 }
 
-int64 HloDomainMap::GetDomainMetadataId(
+int64_t HloDomainMap::GetDomainMetadataId(
     const HloInstruction* instruction) const {
   return FindOrDie(domain_metadata_id_, instruction);
 }
@@ -64,18 +66,18 @@ Status HloDomainMap::TryProcessEmptyDomain(HloInstruction* instruction) {
   // both sides.
   for (HloInstruction* operand : instruction->unique_operands()) {
     if (IsDomainInstruction(operand)) {
-      auto domain = absl::make_unique<DomainMetadata::Domain>();
+      auto domain = std::make_unique<DomainMetadata::Domain>();
       domain->enter_domains.insert(operand);
       domain->exit_domains.insert(instruction);
       TF_RETURN_IF_ERROR(InsertDomain(std::move(domain)));
     }
   }
   if (instruction == instruction->parent()->root_instruction()) {
-    auto domain = absl::make_unique<DomainMetadata::Domain>();
+    auto domain = std::make_unique<DomainMetadata::Domain>();
     domain->enter_domains.insert(instruction);
     TF_RETURN_IF_ERROR(InsertDomain(std::move(domain)));
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status HloDomainMap::Populate(HloComputation* computation) {
@@ -101,7 +103,7 @@ Status HloDomainMap::Populate(HloComputation* computation) {
     TF_RETURN_IF_ERROR(InsertDomain(std::move(domain)));
   }
   TF_RETURN_IF_ERROR(PopulateDomainMetadataMap());
-  return Status::OK();
+  return OkStatus();
 }
 
 Status HloDomainMap::PopulateDomainMetadataMap() {
@@ -109,7 +111,7 @@ Status HloDomainMap::PopulateDomainMetadataMap() {
   auto equal = [](const DomainMetadata* a, const DomainMetadata* b) {
     return a->Matches(*b);
   };
-  absl::flat_hash_map<const DomainMetadata*, int64, decltype(hash),
+  absl::flat_hash_map<const DomainMetadata*, int64_t, decltype(hash),
                       decltype(equal)>
       domain_metadata(1024, hash, equal);
 
@@ -137,7 +139,7 @@ Status HloDomainMap::PopulateDomainMetadataMap() {
       domain_metadata_id_[instruction] = domain_metadata_id;
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status HloDomainMap::InsertDomain(
@@ -147,7 +149,7 @@ Status HloDomainMap::InsertDomain(
   for (HloInstruction* instruction : instruction_domains_.back()->reach_set) {
     instruction_to_domain_[instruction] = domain_id;
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status HloDomainMap::ExpandDomain(HloInstruction* instruction,
@@ -188,13 +190,13 @@ Status HloDomainMap::ExpandDomain(HloInstruction* instruction,
       }
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 StatusOr<std::unique_ptr<DomainMetadata::Domain>> HloDomainMap::CreateDomain(
     HloInstruction* instruction,
     const InstructionOrderMap& instructions_order) const {
-  auto domain = absl::make_unique<DomainMetadata::Domain>();
+  auto domain = std::make_unique<DomainMetadata::Domain>();
   TF_RETURN_IF_ERROR(ExpandDomain(instruction, domain.get()));
   domain->instructions =
       MakeNonDomainInstructions(domain->reach_set, instructions_order);

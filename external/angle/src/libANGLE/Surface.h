@@ -11,6 +11,8 @@
 #ifndef LIBANGLE_SURFACE_H_
 #define LIBANGLE_SURFACE_H_
 
+#include <memory>
+
 #include <EGL/egl.h>
 
 #include "common/PackedEnums.h"
@@ -45,18 +47,21 @@ using SupportedTimestamps       = angle::PackedEnumBitSet<Timestamp>;
 
 struct SurfaceState final : private angle::NonCopyable
 {
-    SurfaceState(const egl::Config *configIn, const AttributeMap &attributesIn);
+    SurfaceState(SurfaceID idIn, const egl::Config *configIn, const AttributeMap &attributesIn);
     ~SurfaceState();
 
     bool isRobustResourceInitEnabled() const;
     bool hasProtectedContent() const;
     EGLint getPreferredSwapInterval() const;
 
+    SurfaceID id;
+
     EGLLabelKHR label;
     const egl::Config *config;
     AttributeMap attributes;
 
     bool timestampsEnabled;
+    bool autoRefreshEnabled;
     SupportedCompositorTiming supportedCompositorTimings;
     SupportedTimestamps supportedTimestamps;
     bool directComposition;
@@ -77,9 +82,9 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
     Error makeCurrent(const gl::Context *context);
     Error unMakeCurrent(const gl::Context *context);
     Error prepareSwap(const gl::Context *context);
-    Error swap(const gl::Context *context);
-    Error swapWithDamage(const gl::Context *context, const EGLint *rects, EGLint n_rects);
-    Error swapWithFrameToken(const gl::Context *context, EGLFrameTokenANGLE frameToken);
+    Error swap(gl::Context *context);
+    Error swapWithDamage(gl::Context *context, const EGLint *rects, EGLint n_rects);
+    Error swapWithFrameToken(gl::Context *context, EGLFrameTokenANGLE frameToken);
     Error postSubBuffer(const gl::Context *context,
                         EGLint x,
                         EGLint y,
@@ -104,9 +109,6 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
 
     void setFixedWidth(EGLint width);
     void setFixedHeight(EGLint height);
-
-    gl::Framebuffer *createDefaultFramebuffer(const gl::Context *context,
-                                              egl::Surface *readSurface);
 
     const Config *getConfig() const;
 
@@ -166,17 +168,22 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
                       GLenum binding,
                       const gl::ImageIndex &imageIndex) const override;
     bool isYUV() const override;
+    bool isExternalImageWithoutIndividualSync() const override;
+    bool hasFrontBufferUsage() const override;
 
-    void onAttach(const gl::Context *context, rx::Serial framebufferSerial) override {}
-    void onDetach(const gl::Context *context, rx::Serial framebufferSerial) override {}
+    void onAttach(const gl::Context *context, rx::UniqueSerial framebufferSerial) override {}
+    void onDetach(const gl::Context *context, rx::UniqueSerial framebufferSerial) override {}
+    SurfaceID id() const { return mState.id; }
     GLuint getId() const override;
 
     EGLint getOrientation() const { return mOrientation; }
 
     bool directComposition() const { return mState.directComposition; }
 
-    gl::InitState initState(const gl::ImageIndex &imageIndex) const override;
-    void setInitState(const gl::ImageIndex &imageIndex, gl::InitState initState) override;
+    gl::InitState initState(GLenum binding, const gl::ImageIndex &imageIndex) const override;
+    void setInitState(GLenum binding,
+                      const gl::ImageIndex &imageIndex,
+                      gl::InitState initState) override;
 
     bool isRobustResourceInitEnabled() const { return mRobustResourceInitialization; }
 
@@ -185,6 +192,9 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
     // EGL_ANDROID_get_frame_timestamps entry points
     void setTimestampsEnabled(bool enabled);
     bool isTimestampsEnabled() const;
+
+    // EGL_ANDROID_front_buffer_auto_refresh entry points
+    Error setAutoRefreshEnabled(bool enabled);
 
     const SupportedCompositorTiming &getSupportedCompositorTimings() const;
     Error getCompositorTiming(EGLint numTimestamps,
@@ -220,14 +230,13 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
 
   protected:
     Surface(EGLint surfaceType,
+            SurfaceID id,
             const egl::Config *config,
             const AttributeMap &attributes,
             bool forceRobustResourceInit,
             EGLenum buftype = EGL_NONE);
     ~Surface() override;
     rx::FramebufferAttachmentObjectImpl *getAttachmentImpl() const override;
-
-    gl::Framebuffer *createDefaultFramebuffer(const Display *display);
 
     // ANGLE-only method, used internally
     friend class gl::Texture;
@@ -294,7 +303,8 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
     // ObserverInterface implementation.
     void onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMessage message) override;
 
-    gl::InitState mInitState;
+    gl::InitState mColorInitState;
+    gl::InitState mDepthStencilInitState;
     angle::ObserverBinding mImplObserverBinding;
 };
 
@@ -302,6 +312,7 @@ class WindowSurface final : public Surface
 {
   public:
     WindowSurface(rx::EGLImplFactory *implFactory,
+                  SurfaceID id,
                   const Config *config,
                   EGLNativeWindowType window,
                   const AttributeMap &attribs,
@@ -313,10 +324,12 @@ class PbufferSurface final : public Surface
 {
   public:
     PbufferSurface(rx::EGLImplFactory *implFactory,
+                   SurfaceID id,
                    const Config *config,
                    const AttributeMap &attribs,
                    bool robustResourceInit);
     PbufferSurface(rx::EGLImplFactory *implFactory,
+                   SurfaceID id,
                    const Config *config,
                    EGLenum buftype,
                    EGLClientBuffer clientBuffer,
@@ -331,6 +344,7 @@ class PixmapSurface final : public Surface
 {
   public:
     PixmapSurface(rx::EGLImplFactory *implFactory,
+                  SurfaceID id,
                   const Config *config,
                   NativePixmapType nativePixmap,
                   const AttributeMap &attribs,
@@ -340,7 +354,7 @@ class PixmapSurface final : public Surface
     ~PixmapSurface() override;
 };
 
-class ANGLE_NO_DISCARD ScopedSurfaceRef
+class [[nodiscard]] ScopedSurfaceRef
 {
   public:
     ScopedSurfaceRef(Surface *surface) : mSurface(surface)
@@ -373,7 +387,7 @@ class SurfaceDeleter final
     const Display *mDisplay;
 };
 
-using SurfacePointer = angle::UniqueObjectPointerBase<Surface, SurfaceDeleter>;
+using SurfacePointer = std::unique_ptr<Surface, SurfaceDeleter>;
 
 }  // namespace egl
 

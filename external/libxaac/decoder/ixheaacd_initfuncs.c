@@ -46,6 +46,9 @@
 #include "ixheaacd_drc_data_struct.h"
 
 #include "ixheaacd_lt_predict.h"
+#include "ixheaacd_cnst.h"
+#include "ixheaacd_ec_defines.h"
+#include "ixheaacd_ec_struct_def.h"
 
 #include "ixheaacd_channelinfo.h"
 #include "ixheaacd_drc_dec.h"
@@ -75,6 +78,11 @@
 #include "ixheaacd_aacdec.h"
 #include "ixheaacd_mps_polyphase.h"
 #include "ixheaacd_config.h"
+#include "ixheaacd_qmf_dec.h"
+#include "ixheaacd_mps_macro_def.h"
+#include "ixheaacd_mps_struct_def.h"
+#include "ixheaacd_mps_res_rom.h"
+#include "ixheaacd_mps_aac_struct.h"
 #include "ixheaacd_mps_dec.h"
 
 #include "ixheaacd_struct_def.h"
@@ -108,6 +116,16 @@ WORD32 ixheaacd_set_aac_persistent_buffers(VOID *aac_persistent_mem_v,
          ALIGN_SIZE64(MAXSBRBYTES) * num_channel * sizeof(WORD8));
 
   persistent_used += ALIGN_SIZE64(MAXSBRBYTES) * num_channel * sizeof(WORD8);
+
+  aac_persistent_mem->prev_sbr_payload_buffer =
+      (WORD8 *)((WORD8 *)aac_persistent_mem_v + persistent_used);
+
+  memset((WORD8 *)aac_persistent_mem->prev_sbr_payload_buffer, 0,
+         ALIGN_SIZE64(MAXSBRBYTES) * num_channel *
+         sizeof(*(aac_persistent_mem->prev_sbr_payload_buffer)));
+
+  persistent_used += ALIGN_SIZE64(MAXSBRBYTES) * num_channel *
+         sizeof(*(aac_persistent_mem->prev_sbr_payload_buffer));
 
   {
     WORD32 i;
@@ -217,6 +235,31 @@ VOID ixheaacd_huff_tables_create(ia_aac_dec_tables_struct *ptr_aac_tables) {
   ptr_aac_tables->scale_factor_bands_short[11] =
       ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_8_128;
 
+  ptr_aac_tables->scale_factor_bands_short[12] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_96_120;
+  ptr_aac_tables->scale_factor_bands_short[13] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_96_120;
+  ptr_aac_tables->scale_factor_bands_short[14] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_96_120;
+  ptr_aac_tables->scale_factor_bands_short[15] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_48_120;
+  ptr_aac_tables->scale_factor_bands_short[16] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_48_120;
+  ptr_aac_tables->scale_factor_bands_short[17] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_48_120;
+  ptr_aac_tables->scale_factor_bands_short[18] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_24_120;
+  ptr_aac_tables->scale_factor_bands_short[19] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_24_120;
+  ptr_aac_tables->scale_factor_bands_short[20] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_16_120;
+  ptr_aac_tables->scale_factor_bands_short[21] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_16_120;
+  ptr_aac_tables->scale_factor_bands_short[22] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_16_120;
+  ptr_aac_tables->scale_factor_bands_short[23] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_8_120;
+
   ptr_aac_tables->scale_factor_bands_long[0] =
       ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_96_1024;
   ptr_aac_tables->scale_factor_bands_long[1] =
@@ -241,6 +284,31 @@ VOID ixheaacd_huff_tables_create(ia_aac_dec_tables_struct *ptr_aac_tables) {
       ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_16_1024;
   ptr_aac_tables->scale_factor_bands_long[11] =
       ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_8_1024;
+
+  ptr_aac_tables->scale_factor_bands_long[12] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_96_960;
+  ptr_aac_tables->scale_factor_bands_long[13] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_96_960;
+  ptr_aac_tables->scale_factor_bands_long[14] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_64_960;
+  ptr_aac_tables->scale_factor_bands_long[15] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_48_960;
+  ptr_aac_tables->scale_factor_bands_long[16] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_48_960;
+  ptr_aac_tables->scale_factor_bands_long[17] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_48_960;
+  ptr_aac_tables->scale_factor_bands_long[18] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_24_960;
+  ptr_aac_tables->scale_factor_bands_long[19] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_24_960;
+  ptr_aac_tables->scale_factor_bands_long[20] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_16_960;
+  ptr_aac_tables->scale_factor_bands_long[21] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_16_960;
+  ptr_aac_tables->scale_factor_bands_long[22] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_16_960;
+  ptr_aac_tables->scale_factor_bands_long[23] =
+      ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_8_960;
 
   ptr_aac_tables->scale_fac_bands_512[0] =
       ptr_aac_tables->pstr_huffmann_tables->ixheaacd_sfb_48_512;
@@ -354,8 +422,13 @@ ia_aac_decoder_struct *ixheaacd_aac_decoder_init(
     ptr_sbr_bitstream->no_elements = 0;
     ptr_sbr_bitstream->str_sbr_ele[0].ptr_sbr_data =
         &aac_persistent_mem->sbr_payload_buffer[ALIGN_SIZE64(MAXSBRBYTES) * i];
+    ptr_sbr_bitstream->str_sbr_ele[0].ptr_prev_sbr_data =
+        &aac_persistent_mem->prev_sbr_payload_buffer[ALIGN_SIZE64(MAXSBRBYTES) * i];
     ptr_sbr_bitstream->str_sbr_ele[0].sbr_ele_id = ID_SCE;
     ptr_sbr_bitstream->str_sbr_ele[0].size_payload = 0;
+    ptr_sbr_bitstream->str_sbr_ele[0].prev_size_payload = 0;
+    ptr_sbr_bitstream->str_sbr_ele[0].prev_sbr_ele_id = ID_SCE;
+    ptr_sbr_bitstream->str_sbr_ele[0].size_payload_old = 0;
   }
 
   {
@@ -368,6 +441,7 @@ ia_aac_decoder_struct *ixheaacd_aac_decoder_init(
                        sizeof(ia_sampling_rate_info_struct);
 
     WORD32 sampling_rate = p_state_enhaacplus_dec->sampling_rate;
+    WORD sfidx;
 
     i = 0;
     while ((i < num_entries) &&
@@ -382,18 +456,22 @@ ia_aac_decoder_struct *ixheaacd_aac_decoder_init(
     if (i == num_entries) {
       return NULL;
     }
+    sfidx = i;
 
-    if (frame_length == 1024) {
+    if (frame_length == 1024 || frame_length == 960) {
       WORD16 *psfb_table_idx[2];
       const WORD8 *psfb_width[2];
       WORD width_idx;
       WORD32 j;
 
+      if (frame_length == 960)
+        sfidx += 12;
+
       psfb_table_idx[0] = ptr_aac_tables->sfb_long_table;
       psfb_table_idx[1] = ptr_aac_tables->sfb_short_table;
 
-      psfb_width[0] = ptr_aac_tables->scale_factor_bands_long[i];
-      psfb_width[1] = ptr_aac_tables->scale_factor_bands_short[i];
+      psfb_width[0] = ptr_aac_tables->scale_factor_bands_long[sfidx];
+      psfb_width[1] = ptr_aac_tables->scale_factor_bands_short[sfidx];
 
       for (j = 1; j >= 0; j--) {
         const WORD8 *ptr_width = psfb_width[j];
@@ -428,7 +506,7 @@ ia_aac_decoder_struct *ixheaacd_aac_decoder_init(
       }
     } else {
       WORD16 *ptr_sfb_idx[2];
-      const WORD8 *ptr_sfb_width[2];
+      const WORD8 *ptr_sfb_width[2] = {0};
       WORD width_idx;
       WORD32 j;
 

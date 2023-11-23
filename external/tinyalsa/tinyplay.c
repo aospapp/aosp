@@ -33,6 +33,7 @@
 #include <string.h>
 #include <signal.h>
 #include <endian.h>
+#include <unistd.h>
 
 #define ID_RIFF 0x46464952
 #define ID_WAVE 0x45564157
@@ -59,7 +60,7 @@ struct chunk_fmt {
     uint16_t bits_per_sample;
 };
 
-static int close = 0;
+static int closing = 0;
 
 void play_sample(FILE *file, unsigned int card, unsigned int device, unsigned int channels,
                  unsigned int rate, unsigned int bits, unsigned int period_size,
@@ -69,7 +70,7 @@ void stream_close(int sig)
 {
     /* allow the stream to be closed gracefully */
     signal(sig, SIG_IGN);
-    close = 1;
+    closing = 1;
 }
 
 int main(int argc, char **argv)
@@ -270,7 +271,15 @@ void play_sample(FILE *file, unsigned int card, unsigned int device, unsigned in
             }
             data_sz -= num_read;
         }
-    } while (!close && num_read > 0 && data_sz > 0);
+    } while (!closing && num_read > 0 && data_sz > 0);
+
+    if (!closing) {
+        // drain the data in the ALSA ring buffer before closing the PCM device
+        unsigned long sleep_time_in_us =
+                (unsigned long) pcm_get_buffer_size(pcm) * 1000UL / ((unsigned long) rate / 1000UL);
+        printf("Draining... Wait %lu us\n", sleep_time_in_us);
+        usleep(sleep_time_in_us);
+    }
 
     free(buffer);
     pcm_close(pcm);

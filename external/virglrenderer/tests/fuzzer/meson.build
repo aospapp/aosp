@@ -32,10 +32,10 @@ virgl_fuzzer = executable(
    dependencies : [libvirglrenderer_dep, gallium_dep, epoxy_dep]
 )
 
-if with_venus
-   virgl_venus_fuzzer = executable(
-      'virgl_venus_fuzzer',
-      'virgl_venus_fuzzer.c',
+if with_drm
+   virgl_drm_fuzzer = executable(
+      'virgl_drm_fuzzer',
+      'virgl_drm_fuzzer.c',
       c_args : [ '-fsanitize=fuzzer' ],
       link_args : [ '-fsanitize=fuzzer' ],
       dependencies : [libvirglrenderer_dep]

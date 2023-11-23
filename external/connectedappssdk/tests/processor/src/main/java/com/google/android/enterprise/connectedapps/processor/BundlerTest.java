@@ -53,7 +53,7 @@ public class BundlerTest {
                 annotatedNotesProvider(annotationPrinter),
                 annotatedNotesCrossProfileType(annotationPrinter));
 
-    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_Bundler");
+    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".NotesType_Bundler");
   }
 
   @Test
@@ -66,8 +66,8 @@ public class BundlerTest {
                 annotatedNotesCrossProfileType(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_Bundler")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_Bundler")
         .contentsAsUtf8String()
-        .contains("ProfileNotesType_Bundler implements Bundler");
+        .contains("NotesType_Bundler implements Bundler");
   }
 }

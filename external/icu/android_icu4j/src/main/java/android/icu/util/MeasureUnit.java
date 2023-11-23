@@ -107,212 +107,151 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Enumeration for SI and binary prefixes, e.g. "kilo-", "nano-", "mebi-".
-     *
-     * @hide Only a subset of ICU is exposed in Android
-     * @hide draft / provisional / internal are hidden on Android
      */
     public enum MeasurePrefix {
 
         /**
          * SI prefix: yotta, 10^24.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         YOTTA(24, "yotta", 10),
 
         /**
          * SI prefix: zetta, 10^21.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         ZETTA(21, "zetta", 10),
 
         /**
          * SI prefix: exa, 10^18.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         EXA(18, "exa", 10),
 
         /**
          * SI prefix: peta, 10^15.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         PETA(15, "peta", 10),
 
         /**
          * SI prefix: tera, 10^12.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         TERA(12, "tera", 10),
 
         /**
          * SI prefix: giga, 10^9.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         GIGA(9, "giga", 10),
 
         /**
          * SI prefix: mega, 10^6.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         MEGA(6, "mega", 10),
 
         /**
          * SI prefix: kilo, 10^3.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         KILO(3, "kilo", 10),
 
         /**
          * SI prefix: hecto, 10^2.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         HECTO(2, "hecto", 10),
 
         /**
          * SI prefix: deka, 10^1.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         DEKA(1, "deka", 10),
 
         /**
          * The absence of an SI prefix.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         ONE(0, "", 10),
 
         /**
          * SI prefix: deci, 10^-1.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         DECI(-1, "deci", 10),
 
         /**
          * SI prefix: centi, 10^-2.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         CENTI(-2, "centi", 10),
 
         /**
          * SI prefix: milli, 10^-3.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         MILLI(-3, "milli", 10),
 
         /**
          * SI prefix: micro, 10^-6.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         MICRO(-6, "micro", 10),
 
         /**
          * SI prefix: nano, 10^-9.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         NANO(-9, "nano", 10),
 
         /**
          * SI prefix: pico, 10^-12.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         PICO(-12, "pico", 10),
 
         /**
          * SI prefix: femto, 10^-15.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         FEMTO(-15, "femto", 10),
 
         /**
          * SI prefix: atto, 10^-18.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         ATTO(-18, "atto", 10),
 
         /**
          * SI prefix: zepto, 10^-21.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         ZEPTO(-21, "zepto", 10),
 
         /**
          * SI prefix: yocto, 10^-24.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         YOCTO(-24, "yocto", 10),
 
         /**
          * IEC binary prefix: kibi, 1024^1.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         KIBI(1, "kibi", 1024),
 
         /**
          * IEC binary prefix: mebi, 1024^2.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         MEBI(2, "mebi", 1024),
 
         /**
          * IEC binary prefix: gibi, 1024^3.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         GIBI(3, "gibi", 1024),
 
         /**
          * IEC binary prefix: tebi, 1024^4.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         TEBI(4, "tebi", 1024),
 
         /**
          * IEC binary prefix: pebi, 1024^5.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         PEBI(5, "pebi", 1024),
 
         /**
          * IEC binary prefix: exbi, 1024^6.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         EXBI(6, "exbi", 1024),
 
         /**
          * IEC binary prefix: zebi, 1024^7.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         ZEBI(7, "zebi", 1024),
 
         /**
          * IEC binary prefix: yobi, 1024^8.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         YOBI(8, "yobi", 1024);
 
@@ -341,8 +280,6 @@ public class MeasureUnit implements Serializable {
          * Returns the base of the prefix. For example:
          * - if the prefix is "centi", the base will be 10.
          * - if the prefix is "gibi", the base will be 1024.
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         public int getBase() {
             return base;
@@ -352,8 +289,6 @@ public class MeasureUnit implements Serializable {
          * Returns the power of the prefix. For example:
          * - if the prefix is "centi", the power will be -2.
          * - if the prefix is "gibi", the power will be 3 (for base 1024).
-         *
-         * @hide draft / provisional / internal are hidden on Android
          */
         public int getPower() {
             return power;
@@ -468,7 +403,6 @@ public class MeasureUnit implements Serializable {
      * @param prefix The prefix, from MeasurePrefix.
      * @return A new SINGLE unit.
      * @throws UnsupportedOperationException if this unit is a COMPOUND or MIXED unit.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public MeasureUnit withPrefix(MeasurePrefix prefix) {
         SingleUnitImpl singleUnit = getSingleUnitImpl();
@@ -485,7 +419,6 @@ public class MeasureUnit implements Serializable {
      *
      * @return The prefix of this SINGLE unit, from MeasurePrefix.
      * @throws UnsupportedOperationException if the unit is COMPOUND or MIXED.
-     * @hide draft / provisional / internal are hidden on Android
      */
     public MeasurePrefix getPrefix() {
         return getSingleUnitImpl().getPrefix();
@@ -956,7 +889,6 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of concentr: item
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final MeasureUnit ITEM = MeasureUnit.internalGetInstance("concentr", "item");
 
@@ -967,7 +899,6 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of concentr: milligram-ofglucose-per-deciliter
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final MeasureUnit MILLIGRAM_OFGLUCOSE_PER_DECILITER = MeasureUnit.internalGetInstance("concentr", "milligram-ofglucose-per-deciliter");
 
@@ -1141,6 +1072,12 @@ public class MeasureUnit implements Serializable {
     public static final MeasureUnit NANOSECOND = MeasureUnit.internalGetInstance("duration", "nanosecond");
 
     /**
+     * Constant for unit of duration: quarter
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public static final MeasureUnit QUARTER = MeasureUnit.internalGetInstance("duration", "quarter");
+
+    /**
      * Constant for unit of duration: second
      */
     public static final TimeUnit SECOND = (TimeUnit) MeasureUnit.internalGetInstance("duration", "second");
@@ -1237,7 +1174,6 @@ public class MeasureUnit implements Serializable {
 
     /**
      * Constant for unit of force: kilowatt-hour-per-100-kilometer
-     * @hide draft / provisional / internal are hidden on Android
      */
     public static final MeasureUnit KILOWATT_HOUR_PER_100_KILOMETER = MeasureUnit.internalGetInstance("force", "kilowatt-hour-per-100-kilometer");
 
@@ -1480,9 +1416,11 @@ public class MeasureUnit implements Serializable {
     public static final MeasureUnit KILOGRAM = MeasureUnit.internalGetInstance("mass", "kilogram");
 
     /**
-     * Constant for unit of mass: metric-ton
+     * Constant for unit of mass: metric-ton (renamed to tonne in CLDR 42 / ICU 72).
+     * Note: In ICU 74 this will be deprecated in favor of TONNE, which is currently
+     * draft but will become stable in ICU 74, and which uses the preferred naming.
      */
-    public static final MeasureUnit METRIC_TON = MeasureUnit.internalGetInstance("mass", "metric-ton");
+    public static final MeasureUnit METRIC_TON = MeasureUnit.internalGetInstance("mass", "tonne");
 
     /**
      * Constant for unit of mass: microgram
@@ -1524,6 +1462,12 @@ public class MeasureUnit implements Serializable {
      * Constant for unit of mass: ton
      */
     public static final MeasureUnit TON = MeasureUnit.internalGetInstance("mass", "ton");
+
+    /**
+     * Constant for unit of mass: tonne
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public static final MeasureUnit TONNE = MeasureUnit.internalGetInstance("mass", "tonne");
 
     /**
      * Constant for unit of power: gigawatt

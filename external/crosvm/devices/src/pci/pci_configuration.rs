@@ -1,16 +1,20 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
+use anyhow::Context;
+use base::custom_serde::deserialize_seq_to_arr;
+use base::custom_serde::serialize_arr;
 use base::warn;
 use remain::sorted;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use thiserror::Error;
 
-use crate::pci::{PciAddress, PciInterruptPin};
+use crate::pci::PciInterruptPin;
 
 // The number of 32bit registers in the config space, 256 bytes.
 const NUM_CONFIGURATION_REGISTERS: usize = 64;
@@ -21,6 +25,7 @@ pub const COMMAND_REG_IO_SPACE_MASK: u32 = 0x0000_0001;
 pub const COMMAND_REG_MEMORY_SPACE_MASK: u32 = 0x0000_0002;
 const STATUS_REG: usize = 1;
 pub const STATUS_REG_CAPABILITIES_USED_MASK: u32 = 0x0010_0000;
+#[allow(dead_code)]
 #[cfg(unix)]
 pub const CLASS_REG: usize = 2;
 #[cfg(feature = "direct")]
@@ -54,7 +59,7 @@ pub enum PciHeaderType {
 
 /// Classes of PCI nodes.
 #[allow(dead_code)]
-#[derive(Copy, Clone, enumn::N, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, enumn::N, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PciClassCode {
     TooOld,
     MassStorage,
@@ -240,8 +245,17 @@ pub trait PciCapability {
 /// Contains the configuration space of a PCI node.
 /// See the [specification](https://en.wikipedia.org/wiki/PCI_configuration_space).
 /// The configuration space is accessed with DWORD reads and writes from the guest.
+#[derive(Serialize, Deserialize)]
 pub struct PciConfiguration {
+    #[serde(
+        serialize_with = "serialize_arr",
+        deserialize_with = "deserialize_seq_to_arr"
+    )]
     registers: [u32; NUM_CONFIGURATION_REGISTERS],
+    #[serde(
+        serialize_with = "serialize_arr",
+        deserialize_with = "deserialize_seq_to_arr"
+    )]
     writable_bits: [u32; NUM_CONFIGURATION_REGISTERS], // writable bits for each register.
     bar_used: [bool; NUM_BAR_REGS],
     bar_configs: [Option<PciBarConfiguration>; NUM_BAR_REGS],
@@ -250,14 +264,14 @@ pub struct PciConfiguration {
 }
 
 /// See pci_regs.h in kernel
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PciBarRegionType {
     Memory32BitRegion = 0,
     IoRegion = 0x01,
     Memory64BitRegion = 0x04,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PciBarPrefetchable {
     NotPrefetchable = 0,
     Prefetchable = 0x08,
@@ -265,7 +279,7 @@ pub enum PciBarPrefetchable {
 
 pub type PciBarIndex = usize;
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PciBarConfiguration {
     addr: u64,
     size: u64,
@@ -296,7 +310,7 @@ impl<'a> Iterator for PciBarIter<'a> {
 }
 
 #[sorted]
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum Error {
     #[error("address {0} size {1} too big")]
     BarAddressInvalid(u64, u64),
@@ -665,13 +679,11 @@ impl PciConfiguration {
         (next + 3) & !3
     }
 
-    pub fn suggested_interrupt_pin(pci_address: PciAddress) -> PciInterruptPin {
-        match pci_address.func % 4 {
-            0 => PciInterruptPin::IntA,
-            1 => PciInterruptPin::IntB,
-            2 => PciInterruptPin::IntC,
-            _ => PciInterruptPin::IntD,
-        }
+    pub fn restore(&mut self, data: serde_json::Value) -> anyhow::Result<()> {
+        let deser: PciConfiguration =
+            serde_json::from_value(data).context("failed to deserialize PciConfiguration")?;
+        *self = deser;
+        Ok(())
     }
 }
 
@@ -705,6 +717,10 @@ impl PciBarConfiguration {
 
     pub fn address(&self) -> u64 {
         self.addr
+    }
+
+    pub fn address_range(&self) -> std::ops::Range<u64> {
+        self.addr..self.addr + self.size
     }
 
     pub fn set_address(mut self, addr: u64) -> Self {
@@ -742,12 +758,12 @@ impl PciBarConfiguration {
 
 #[cfg(test)]
 mod tests {
-    use data_model::DataInit;
+    use zerocopy::AsBytes;
 
     use super::*;
 
     #[repr(packed)]
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, AsBytes)]
     #[allow(dead_code)]
     struct TestCap {
         _vndr: u8,
@@ -756,12 +772,9 @@ mod tests {
         foo: u8,
     }
 
-    // It is safe to implement DataInit; all members are simple numbers and any value is valid.
-    unsafe impl DataInit for TestCap {}
-
     impl PciCapability for TestCap {
         fn bytes(&self) -> &[u8] {
-            self.as_slice()
+            self.as_bytes()
         }
 
         fn id(&self) -> PciCapabilityID {
@@ -1281,5 +1294,140 @@ mod tests {
         assert_eq!(cfg.get_bar_addr(ROM_BAR_IDX), 0x12345000);
         assert_eq!(cfg.read_reg(ROM_BAR_REG), 0x12345000);
         assert_eq!(cfg.writable_bits[ROM_BAR_REG], 0xFFFFF801);
+    }
+
+    #[test]
+    fn pci_configuration_capability_snapshot_restore() -> anyhow::Result<()> {
+        let mut cfg = PciConfiguration::new(
+            0x1234,
+            0x5678,
+            PciClassCode::MultimediaController,
+            &PciMultimediaSubclass::AudioController,
+            Some(&TestPI::Test),
+            PciHeaderType::Device,
+            0xABCD,
+            0x2468,
+            0,
+        );
+
+        let snap_init = serde_json::to_value(&cfg).context("failed to snapshot")?;
+
+        // Add a capability.
+        let cap1 = TestCap {
+            _vndr: 0,
+            _next: 0,
+            len: 4,
+            foo: 0xAA,
+        };
+        cfg.add_capability(&cap1).unwrap();
+
+        let snap_mod = serde_json::to_value(&cfg).context("failed to snapshot mod")?;
+        cfg.restore(snap_init.clone())
+            .context("failed to restore snap_init")?;
+        let snap_restore_init =
+            serde_json::to_value(&cfg).context("failed to snapshot restored_init")?;
+        assert_eq!(snap_init, snap_restore_init);
+        assert_ne!(snap_init, snap_mod);
+        cfg.restore(snap_mod.clone())
+            .context("failed to restore snap_init")?;
+        let snap_restore_mod =
+            serde_json::to_value(&cfg).context("failed to snapshot restored_mod")?;
+        assert_eq!(snap_mod, snap_restore_mod);
+        Ok(())
+    }
+
+    #[test]
+    fn pci_configuration_pci_bar_snapshot_restore() -> anyhow::Result<()> {
+        let mut cfg = PciConfiguration::new(
+            0x1234,
+            0x5678,
+            PciClassCode::MultimediaController,
+            &PciMultimediaSubclass::AudioController,
+            Some(&TestPI::Test),
+            PciHeaderType::Device,
+            0xABCD,
+            0x2468,
+            0,
+        );
+
+        let snap_init = serde_json::to_value(&cfg).context("failed to snapshot")?;
+
+        // bar_num 0-1: 64-bit memory
+        cfg.add_pci_bar(
+            PciBarConfiguration::new(
+                0,
+                0x10,
+                PciBarRegionType::Memory64BitRegion,
+                PciBarPrefetchable::NotPrefetchable,
+            )
+            .set_address(0x0123_4567_89AB_CDE0),
+        )
+        .expect("add_pci_bar failed");
+
+        let snap_mod = serde_json::to_value(&cfg).context("failed to snapshot mod")?;
+        cfg.restore(snap_init.clone())
+            .context("failed to restore snap_init")?;
+        let snap_restore_init =
+            serde_json::to_value(&cfg).context("failed to snapshot restored_init")?;
+        assert_eq!(snap_init, snap_restore_init);
+        assert_ne!(snap_init, snap_mod);
+        cfg.restore(snap_mod.clone())
+            .context("failed to restore snap_init")?;
+        let snap_restore_mod =
+            serde_json::to_value(&cfg).context("failed to snapshot restored_mod")?;
+        assert_eq!(snap_mod, snap_restore_mod);
+        Ok(())
+    }
+
+    #[test]
+    fn pci_configuration_capability_pci_bar_snapshot_restore() -> anyhow::Result<()> {
+        let mut cfg = PciConfiguration::new(
+            0x1234,
+            0x5678,
+            PciClassCode::MultimediaController,
+            &PciMultimediaSubclass::AudioController,
+            Some(&TestPI::Test),
+            PciHeaderType::Device,
+            0xABCD,
+            0x2468,
+            0,
+        );
+
+        let snap_init = serde_json::to_value(&cfg).context("failed to snapshot")?;
+
+        // Add a capability.
+        let cap1 = TestCap {
+            _vndr: 0,
+            _next: 0,
+            len: 4,
+            foo: 0xAA,
+        };
+        cfg.add_capability(&cap1).unwrap();
+
+        // bar_num 0-1: 64-bit memory
+        cfg.add_pci_bar(
+            PciBarConfiguration::new(
+                0,
+                0x10,
+                PciBarRegionType::Memory64BitRegion,
+                PciBarPrefetchable::NotPrefetchable,
+            )
+            .set_address(0x0123_4567_89AB_CDE0),
+        )
+        .expect("add_pci_bar failed");
+
+        let snap_mod = serde_json::to_value(&cfg).context("failed to snapshot mod")?;
+        cfg.restore(snap_init.clone())
+            .context("failed to restore snap_init")?;
+        let snap_restore_init =
+            serde_json::to_value(&cfg).context("failed to snapshot restored_init")?;
+        assert_eq!(snap_init, snap_restore_init);
+        assert_ne!(snap_init, snap_mod);
+        cfg.restore(snap_mod.clone())
+            .context("failed to restore snap_init")?;
+        let snap_restore_mod =
+            serde_json::to_value(&cfg).context("failed to snapshot restored_mod")?;
+        assert_eq!(snap_mod, snap_restore_mod);
+        Ok(())
     }
 }

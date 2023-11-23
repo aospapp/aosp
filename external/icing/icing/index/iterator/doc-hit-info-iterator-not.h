@@ -50,6 +50,11 @@ class DocHitInfoIteratorNot : public DocHitInfoIterator {
 
   libtextclassifier3::Status Advance() override;
 
+  // The NOT operator is not suppose to be trimmed.
+  // We shouldn't generate suggestion for the last term if the last term belongs
+  // to NOT operator.
+  libtextclassifier3::StatusOr<TrimmedNode> TrimRightMostNode() && override;
+
   int32_t GetNumBlocksInspected() const override;
 
   int32_t GetNumLeafAdvanceCalls() const override;

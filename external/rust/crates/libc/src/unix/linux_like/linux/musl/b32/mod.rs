@@ -3,6 +3,7 @@ pub type c_ulong = u32;
 pub type nlink_t = u32;
 pub type blksize_t = ::c_long;
 pub type __u64 = ::c_ulonglong;
+pub type __s64 = ::c_longlong;
 pub type regoff_t = ::c_int;
 
 s! {
@@ -54,6 +55,9 @@ cfg_if! {
     } else if #[cfg(any(target_arch = "hexagon"))] {
         mod hexagon;
         pub use self::hexagon::*;
+    } else if #[cfg(any(target_arch = "riscv32"))] {
+        mod riscv32;
+        pub use self::riscv32::*;
     } else {
         // Unknown target_arch
     }

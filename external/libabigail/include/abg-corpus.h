@@ -44,10 +44,10 @@ public:
   enum origin
   {
     ARTIFICIAL_ORIGIN = 0,
-    NATIVE_XML_ORIGIN,
-    DWARF_ORIGIN,
-    CTF_ORIGIN,
-    LINUX_KERNEL_BINARY_ORIGIN
+    NATIVE_XML_ORIGIN = 1,
+    DWARF_ORIGIN      = 1 << 1,
+    CTF_ORIGIN        = 1 << 2,
+    LINUX_KERNEL_BINARY_ORIGIN = 1 << 3
   };
 
 private:
@@ -279,6 +279,18 @@ public:
   friend class type_base;
   friend class corpus_group;
 };// end class corpus.
+
+corpus::origin
+operator|(corpus::origin l, corpus::origin r);
+
+corpus::origin
+operator|=(corpus::origin &l, corpus::origin r);
+
+corpus::origin
+operator&(corpus::origin l, corpus::origin r);
+
+corpus::origin
+operator&=(corpus::origin &l, corpus::origin r);
 
 /// Abstracts the building of the set of exported variables and
 /// functions.

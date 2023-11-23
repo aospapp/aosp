@@ -10,7 +10,6 @@
 
 #include "modules/audio_device/linux/audio_device_alsa_linux.h"
 
-#include <assert.h>
 
 #include "modules/audio_device/audio_device_config.h"
 #include "rtc_base/logging.h"
@@ -98,7 +97,7 @@ AudioDeviceLinuxALSA::AudioDeviceLinuxALSA()
       _recordingDelay(0),
       _playoutDelay(0) {
   memset(_oldKeyState, 0, sizeof(_oldKeyState));
-  RTC_LOG(LS_INFO) << __FUNCTION__ << " created";
+  RTC_DLOG(LS_INFO) << __FUNCTION__ << " created";
 }
 
 // ----------------------------------------------------------------------------
@@ -106,7 +105,7 @@ AudioDeviceLinuxALSA::AudioDeviceLinuxALSA()
 // ----------------------------------------------------------------------------
 
 AudioDeviceLinuxALSA::~AudioDeviceLinuxALSA() {
-  RTC_LOG(LS_INFO) << __FUNCTION__ << " destroyed";
+  RTC_DLOG(LS_INFO) << __FUNCTION__ << " destroyed";
 
   Terminate();
 
@@ -178,26 +177,13 @@ int32_t AudioDeviceLinuxALSA::Terminate() {
   _mixerManager.Close();
 
   // RECORDING
-  if (_ptrThreadRec) {
-    rtc::PlatformThread* tmpThread = _ptrThreadRec.release();
-    mutex_.Unlock();
-
-    tmpThread->Stop();
-    delete tmpThread;
-
-    mutex_.Lock();
-  }
+  mutex_.Unlock();
+  _ptrThreadRec.Finalize();
 
   // PLAYOUT
-  if (_ptrThreadPlay) {
-    rtc::PlatformThread* tmpThread = _ptrThreadPlay.release();
-    mutex_.Unlock();
+  _ptrThreadPlay.Finalize();
+  mutex_.Lock();
 
-    tmpThread->Stop();
-    delete tmpThread;
-
-    mutex_.Lock();
-  }
 #if defined(WEBRTC_USE_X11)
   if (_XDisplay) {
     XCloseDisplay(_XDisplay);
@@ -217,7 +203,10 @@ bool AudioDeviceLinuxALSA::Initialized() const {
 
 int32_t AudioDeviceLinuxALSA::InitSpeaker() {
   MutexLock lock(&mutex_);
+  return InitSpeakerLocked();
+}
 
+int32_t AudioDeviceLinuxALSA::InitSpeakerLocked() {
   if (_playing) {
     return -1;
   }
@@ -229,7 +218,10 @@ int32_t AudioDeviceLinuxALSA::InitSpeaker() {
 
 int32_t AudioDeviceLinuxALSA::InitMicrophone() {
   MutexLock lock(&mutex_);
+  return InitMicrophoneLocked();
+}
 
+int32_t AudioDeviceLinuxALSA::InitMicrophoneLocked() {
   if (_recording) {
     return -1;
   }
@@ -421,22 +413,22 @@ int32_t AudioDeviceLinuxALSA::StereoRecordingIsAvailable(bool& available) {
 
   // Stop/uninitialize recording if initialized (and possibly started)
   if (_recIsInitialized) {
-    StopRecording();
+    StopRecordingLocked();
   }
 
   // Try init in stereo;
   _recChannels = 2;
-  if (InitRecording() == 0) {
+  if (InitRecordingLocked() == 0) {
     available = true;
   }
 
   // Stop/uninitialize recording
-  StopRecording();
+  StopRecordingLocked();
 
   // Recover previous states
   _recChannels = recChannels;
   if (recIsInitialized) {
-    InitRecording();
+    InitRecordingLocked();
   }
   if (recording) {
     StartRecording();
@@ -481,22 +473,22 @@ int32_t AudioDeviceLinuxALSA::StereoPlayoutIsAvailable(bool& available) {
 
   // Stop/uninitialize recording if initialized (and possibly started)
   if (_playIsInitialized) {
-    StopPlayout();
+    StopPlayoutLocked();
   }
 
   // Try init in stereo;
   _playChannels = 2;
-  if (InitPlayout() == 0) {
+  if (InitPlayoutLocked() == 0) {
     available = true;
   }
 
   // Stop/uninitialize recording
-  StopPlayout();
+  StopPlayoutLocked();
 
   // Recover previous states
   _playChannels = playChannels;
   if (playIsInitialized) {
-    InitPlayout();
+    InitPlayoutLocked();
   }
   if (playing) {
     StartPlayout();
@@ -549,8 +541,6 @@ int32_t AudioDeviceLinuxALSA::MicrophoneVolumeIsAvailable(bool& available) {
 
 int32_t AudioDeviceLinuxALSA::SetMicrophoneVolume(uint32_t volume) {
   return (_mixerManager.SetMicrophoneVolume(volume));
-
-  return 0;
 }
 
 int32_t AudioDeviceLinuxALSA::MicrophoneVolume(uint32_t& volume) const {
@@ -745,9 +735,13 @@ int32_t AudioDeviceLinuxALSA::RecordingIsAvailable(bool& available) {
 }
 
 int32_t AudioDeviceLinuxALSA::InitPlayout() {
+  MutexLock lock(&mutex_);
+  return InitPlayoutLocked();
+}
+
+int32_t AudioDeviceLinuxALSA::InitPlayoutLocked() {
   int errVal = 0;
 
-  MutexLock lock(&mutex_);
   if (_playing) {
     return -1;
   }
@@ -760,7 +754,7 @@ int32_t AudioDeviceLinuxALSA::InitPlayout() {
     return 0;
   }
   // Initialize the speaker (devices might have been added or removed)
-  if (InitSpeaker() == -1) {
+  if (InitSpeakerLocked() == -1) {
     RTC_LOG(LS_WARNING) << "InitSpeaker() failed";
   }
 
@@ -859,14 +853,15 @@ int32_t AudioDeviceLinuxALSA::InitPlayout() {
   } else {
     return -1;
   }
-
-  return 0;
 }
 
 int32_t AudioDeviceLinuxALSA::InitRecording() {
-  int errVal = 0;
-
   MutexLock lock(&mutex_);
+  return InitRecordingLocked();
+}
+
+int32_t AudioDeviceLinuxALSA::InitRecordingLocked() {
+  int errVal = 0;
 
   if (_recording) {
     return -1;
@@ -881,7 +876,7 @@ int32_t AudioDeviceLinuxALSA::InitRecording() {
   }
 
   // Initialize the microphone (devices might have been added or removed)
-  if (InitMicrophone() == -1) {
+  if (InitMicrophoneLocked() == -1) {
     RTC_LOG(LS_WARNING) << "InitMicrophone() failed";
   }
 
@@ -1000,8 +995,6 @@ int32_t AudioDeviceLinuxALSA::InitRecording() {
   } else {
     return -1;
   }
-
-  return 0;
 }
 
 int32_t AudioDeviceLinuxALSA::StartRecording() {
@@ -1027,11 +1020,13 @@ int32_t AudioDeviceLinuxALSA::StartRecording() {
     return -1;
   }
   // RECORDING
-  _ptrThreadRec.reset(new rtc::PlatformThread(
-      RecThreadFunc, this, "webrtc_audio_module_capture_thread",
-      rtc::kRealtimePriority));
-
-  _ptrThreadRec->Start();
+  _ptrThreadRec = rtc::PlatformThread::SpawnJoinable(
+      [this] {
+        while (RecThreadProcess()) {
+        }
+      },
+      "webrtc_audio_module_capture_thread",
+      rtc::ThreadAttributes().SetPriority(rtc::ThreadPriority::kRealtime));
 
   errVal = LATE(snd_pcm_prepare)(_handleRecord);
   if (errVal < 0) {
@@ -1058,28 +1053,25 @@ int32_t AudioDeviceLinuxALSA::StartRecording() {
 }
 
 int32_t AudioDeviceLinuxALSA::StopRecording() {
-  {
     MutexLock lock(&mutex_);
+    return StopRecordingLocked();
+}
 
-    if (!_recIsInitialized) {
-      return 0;
-    }
-
-    if (_handleRecord == NULL) {
-      return -1;
-    }
-
-    // Make sure we don't start recording (it's asynchronous).
-    _recIsInitialized = false;
-    _recording = false;
+int32_t AudioDeviceLinuxALSA::StopRecordingLocked() {
+  if (!_recIsInitialized) {
+    return 0;
   }
 
-  if (_ptrThreadRec) {
-    _ptrThreadRec->Stop();
-    _ptrThreadRec.reset();
+  if (_handleRecord == NULL) {
+    return -1;
   }
 
-  MutexLock lock(&mutex_);
+  // Make sure we don't start recording (it's asynchronous).
+  _recIsInitialized = false;
+  _recording = false;
+
+  _ptrThreadRec.Finalize();
+
   _recordingFramesLeft = 0;
   if (_recordingBuffer) {
     delete[] _recordingBuffer;
@@ -1145,10 +1137,13 @@ int32_t AudioDeviceLinuxALSA::StartPlayout() {
   }
 
   // PLAYOUT
-  _ptrThreadPlay.reset(new rtc::PlatformThread(
-      PlayThreadFunc, this, "webrtc_audio_module_play_thread",
-      rtc::kRealtimePriority));
-  _ptrThreadPlay->Start();
+  _ptrThreadPlay = rtc::PlatformThread::SpawnJoinable(
+      [this] {
+        while (PlayThreadProcess()) {
+        }
+      },
+      "webrtc_audio_module_play_thread",
+      rtc::ThreadAttributes().SetPriority(rtc::ThreadPriority::kRealtime));
 
   int errVal = LATE(snd_pcm_prepare)(_handlePlayout);
   if (errVal < 0) {
@@ -1162,27 +1157,23 @@ int32_t AudioDeviceLinuxALSA::StartPlayout() {
 }
 
 int32_t AudioDeviceLinuxALSA::StopPlayout() {
-  {
     MutexLock lock(&mutex_);
+    return StopPlayoutLocked();
+}
 
-    if (!_playIsInitialized) {
-      return 0;
-    }
-
-    if (_handlePlayout == NULL) {
-      return -1;
-    }
-
-    _playing = false;
+int32_t AudioDeviceLinuxALSA::StopPlayoutLocked() {
+  if (!_playIsInitialized) {
+    return 0;
   }
+
+  if (_handlePlayout == NULL) {
+    return -1;
+  }
+
+  _playing = false;
 
   // stop playout thread first
-  if (_ptrThreadPlay) {
-    _ptrThreadPlay->Stop();
-    _ptrThreadPlay.reset();
-  }
-
-  MutexLock lock(&mutex_);
+  _ptrThreadPlay.Finalize();
 
   _playoutFramesLeft = 0;
   delete[] _playoutBuffer;
@@ -1457,18 +1448,6 @@ int32_t AudioDeviceLinuxALSA::ErrorRecovery(int32_t error,
 //                                  Thread Methods
 // ============================================================================
 
-void AudioDeviceLinuxALSA::PlayThreadFunc(void* pThis) {
-  AudioDeviceLinuxALSA* device = static_cast<AudioDeviceLinuxALSA*>(pThis);
-  while (device->PlayThreadProcess()) {
-  }
-}
-
-void AudioDeviceLinuxALSA::RecThreadFunc(void* pThis) {
-  AudioDeviceLinuxALSA* device = static_cast<AudioDeviceLinuxALSA*>(pThis);
-  while (device->RecThreadProcess()) {
-  }
-}
-
 bool AudioDeviceLinuxALSA::PlayThreadProcess() {
   if (!_playing)
     return false;
@@ -1504,7 +1483,7 @@ bool AudioDeviceLinuxALSA::PlayThreadProcess() {
     Lock();
 
     _playoutFramesLeft = _ptrAudioBuffer->GetPlayoutData(_playoutBuffer);
-    assert(_playoutFramesLeft == _playoutFramesIn10MS);
+    RTC_DCHECK_EQ(_playoutFramesLeft, _playoutFramesIn10MS);
   }
 
   if (static_cast<uint32_t>(avail_frames) > _playoutFramesLeft)
@@ -1523,7 +1502,7 @@ bool AudioDeviceLinuxALSA::PlayThreadProcess() {
     UnLock();
     return true;
   } else {
-    assert(frames == avail_frames);
+    RTC_DCHECK_EQ(frames, avail_frames);
     _playoutFramesLeft -= frames;
   }
 
@@ -1573,7 +1552,7 @@ bool AudioDeviceLinuxALSA::RecThreadProcess() {
     UnLock();
     return true;
   } else if (frames > 0) {
-    assert(frames == avail_frames);
+    RTC_DCHECK_EQ(frames, avail_frames);
 
     int left_size =
         LATE(snd_pcm_frames_to_bytes)(_handleRecord, _recordingFramesLeft);

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -17,8 +18,8 @@ class platform_InputBrowserNav(test.test):
     """Tests if device suspends using shortcut keys."""
     version = 1
     _WAIT = 15
-    URL_1 = 'https://www.youtube.com'
-    URL_2 = 'https://www.yahoo.com'
+    URL_1 = 'https://www.youtube.com/'
+    URL_2 = 'https://www.yahoo.com/'
 
     def warmup(self):
         """Test setup."""
@@ -37,7 +38,7 @@ class platform_InputBrowserNav(test.test):
         self._player.blocking_playback_of_default_file(
             input_type='keyboard', filename='keyboard_f1')
         time.sleep(self._WAIT)
-        self.verify_url(tab, self.URL_1)
+        self.verify_url(tab.url, self.URL_1)
 
     def test_forward(self, tab):
         """Use keyboard shortcut to test Forward (F2) key.
@@ -48,7 +49,7 @@ class platform_InputBrowserNav(test.test):
         self._player.blocking_playback_of_default_file(
             input_type='keyboard', filename='keyboard_f2')
         time.sleep(self._WAIT)
-        self.verify_url(tab, self.URL_2)
+        self.verify_url(tab.url, self.URL_2)
 
     def test_refresh(self, tab):
         """Use keyboard shortcut to test Refresh (F3) key.
@@ -71,7 +72,7 @@ class platform_InputBrowserNav(test.test):
         time.sleep(self._WAIT)
 
         # Verify we are still on the second url.
-        self.verify_url(tab, self.URL_2)
+        self.verify_url(tab.url, self.URL_2)
         # Check to see not_refresh does not exist (results in exception).
         # If it does, the refresh was not successful.
         try:
@@ -80,7 +81,7 @@ class platform_InputBrowserNav(test.test):
         except exceptions.EvaluateException:
             logging.info("Refresh successful.")
 
-    def verify_url(self, tab, correct_url):
+    def verify_url(self, current_url, correct_url):
         """Verify tab's current url is the url wanted.
 
         @param tab: current tab.
@@ -89,7 +90,6 @@ class platform_InputBrowserNav(test.test):
         @raises: error.TestFail if incorrect url.
 
         """
-        current_url = tab.url.encode('utf8').rstrip('/')
         utils.poll_for_condition(
             lambda: current_url == correct_url,
             exception=error.TestFail('Incorrect navigation: %s'

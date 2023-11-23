@@ -73,7 +73,15 @@ static struct time64_variants variants[] = {
 
 static void setup(void)
 {
+	long unsigned utime;
+
 	tst_res(TINFO, "Testing variant: %s", variants[tst_variant].desc);
+
+	do {
+		SAFE_FILE_SCANF("/proc/self/stat",
+			"%*d %*s %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %lu",
+			&utime);
+	} while (utime == 0);
 }
 
 static void verify_clock_gettime(unsigned int i)

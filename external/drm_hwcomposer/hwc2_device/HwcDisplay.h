@@ -22,10 +22,10 @@
 #include <optional>
 
 #include "HwcDisplayConfigs.h"
+#include "compositor/LayerData.h"
 #include "drm/DrmAtomicStateManager.h"
 #include "drm/ResourceManager.h"
 #include "drm/VSyncWorker.h"
-#include "drmhwcomposer.h"
 #include "hwc2_device/HwcLayer.h"
 
 namespace android {
@@ -106,7 +106,7 @@ class HwcDisplay {
                                  float *min_luminance);
   HWC2::Error GetReleaseFences(uint32_t *num_elements, hwc2_layer_t *layers,
                                int32_t *fences);
-  HWC2::Error PresentDisplay(int32_t *present_fence);
+  HWC2::Error PresentDisplay(int32_t *out_present_fence);
   HWC2::Error SetActiveConfig(hwc2_config_t config);
   HWC2::Error ChosePreferredConfig();
   HWC2::Error SetClientTarget(buffer_handle_t target, int32_t acquire_fence,
@@ -180,6 +180,8 @@ class HwcDisplay {
     return !pipeline_;
   }
 
+  void Deinit();
+
  private:
   enum ClientFlattenningState : int32_t {
     Disabled = -3,
@@ -196,6 +198,8 @@ class HwcDisplay {
   HwcDisplayConfigs configs_;
 
   DrmHwcTwo *const hwc2_;
+
+  UniqueFd present_fence_;
 
   std::optional<DrmMode> staged_mode_;
   int64_t staged_mode_change_time_{};

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -8,26 +9,13 @@
 import logging
 import os
 import re
-import string
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import service_stopper
 from autotest_lib.client.cros.graphics import graphics_utils
 
-GLMARK2_TEST_RE = (
-    r'^\[(?P<scene>.*)\] (?P<options>.*): FPS: (?P<fps>\d+) FrameTime: '
-    r'(?P<frametime>\d+.\d+) ms$')
 GLMARK2_SCORE_RE = r'glmark2 Score: (\d+)'
-
-# perf value description strings may only contain letters, numbers, periods,
-# dashes and underscores.
-# But glmark2 test names are usually in the form:
-#   scene-name:opt=val:opt=v1,v2;v3,v4 or scene:<default>
-# which we convert to:
-#   scene-name.opt_val.opt_v1-v2_v3-v4 or scene.default
-description_table = string.maketrans(':,=;', '.-__')
-description_delete = '<>'
 
 
 class graphics_GLMark2(graphics_utils.GraphicsTest):

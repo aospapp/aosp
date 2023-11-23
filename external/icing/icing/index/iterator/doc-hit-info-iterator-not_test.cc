@@ -155,6 +155,17 @@ TEST(DocHitInfoIteratorNotTest, SectionIdsAlwaysNone) {
                           DocHitInfo(0, kSectionIdMaskNone)));
 }
 
+TEST(DocHitInfoIteratorNotTest, TrimNotIterator) {
+  std::vector<DocHitInfo> exclude_doc_hit_infos = {DocHitInfo(0)};
+  std::unique_ptr<DocHitInfoIterator> to_be_excluded_iterator =
+      std::make_unique<DocHitInfoIteratorDummy>(exclude_doc_hit_infos);
+
+  DocHitInfoIteratorNot not_iterator(std::move(to_be_excluded_iterator),
+                                     /*document_id_limit=*/5);
+  EXPECT_THAT(std::move(not_iterator).TrimRightMostNode(),
+              StatusIs(libtextclassifier3::StatusCode::INVALID_ARGUMENT));
+}
+
 }  // namespace
 
 }  // namespace lib

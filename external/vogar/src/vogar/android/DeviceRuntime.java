@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import vogar.Action;
-import vogar.Toolchain;
 import vogar.Variant;
 import vogar.Classpath;
 import vogar.Mode;
@@ -56,10 +55,18 @@ public final class DeviceRuntime implements Mode {
 
     @Override public Set<Task> installTasks() {
         Set<Task> result = new HashSet<Task>();
+        Task lastDexTask = null;
         // dex everything on the classpath and push it to the device.
         for (File classpathElement : run.classpath.getElements()) {
-            addCreateDexJarAndPushTasks(result, run.basenameOfJar(classpathElement),
+            Task currentDexTask = addCreateDexJarAndPushTasks(result, run.basenameOfJar(classpathElement),
                     classpathElement, null);
+            // If {@code serialDexing} is enabled, make each subsequent dex task
+            // depend on previous so any moment of time only one dexer (d8) instance is run
+            // simultaneously.
+            if (lastDexTask != null && run.serialDexing) {
+                currentDexTask.afterSuccess(lastDexTask);
+            }
+            lastDexTask = currentDexTask;
         }
         return result;
     }
@@ -131,7 +138,7 @@ public final class DeviceRuntime implements Mode {
         return result;
     }
 
-    private void addCreateDexJarAndPushTasks(
+    private Task addCreateDexJarAndPushTasks(
             Set<Task> tasks, String name, File jar, Action action) {
         File localDex = run.localDexFile(name);
         File localTempDir = run.localDir(name);
@@ -140,6 +147,7 @@ public final class DeviceRuntime implements Mode {
                 localTempDir);
         tasks.add(createDexJarTask);
         tasks.add(run.target.pushTask(localDex, deviceDex).afterSuccess(createDexJarTask));
+        return createDexJarTask;
     }
 
     private Task newCreateDexJarTask(Classpath classpath, File classpathElement, String name,

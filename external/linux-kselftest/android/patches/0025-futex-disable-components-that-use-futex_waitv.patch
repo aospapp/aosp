@@ -1,0 +1,89 @@
+From cd2c0ae67385695eec5b92d24ec291ba0c349973 Mon Sep 17 00:00:00 2001
+From: Edward Liaw <edliaw@google.com>
+Date: Fri, 1 Jul 2022 18:35:48 +0000
+Subject: [PATCH] futex: disable components that use futex_waitv
+
+futex_waitv is implemented in 5.16 so it is not available to Android.
+Instead of checking for ENOSYS, skip the test entirely.
+
+Bug: 234469895
+Test: atest vts_linux_kselftest_x86_32:futex_functional_run.sh_x86_32#futex_functional_run.sh_x86_32
+Test: atest vts_linux_kselftest_x86_64:futex_functional_run.sh_x86_64#futex_functional_run.sh_x86_64
+Signed-off-by: Edward Liaw <edliaw@google.com>
+Change-Id: Ie8e542cf6ba2f843be3b323c8c31df21522ad06c
+---
+ .../futex/functional/futex_wait_timeout.c         |  9 ++++++---
+ .../futex/functional/futex_wait_wouldblock.c      | 15 +++++++--------
+ 2 files changed, 13 insertions(+), 11 deletions(-)
+
+diff --git a/tools/testing/selftests/futex/functional/futex_wait_timeout.c b/tools/testing/selftests/futex/functional/futex_wait_timeout.c
+index 831f876a7b691..163cacb4dc602 100644
+--- a/tools/testing/selftests/futex/functional/futex_wait_timeout.c
++++ b/tools/testing/selftests/futex/functional/futex_wait_timeout.c
+@@ -60,7 +60,7 @@ void *get_pi_lock(void *arg)
+  */
+ static void test_timeout(int res, int *ret, char *test_name, int err)
+ {
+-	if (!res || !(errno & err)) {
++	if (!res || errno != err) {
+ 		ksft_test_result_fail("%s returned %d\n", test_name,
+ 				      res < 0 ? errno : res);
+ 		*ret = RET_FAIL;
+@@ -182,17 +182,20 @@ int main(int argc, char *argv[])
+ 	res = futex_lock_pi(&futex_pi, NULL, 0, FUTEX_CLOCK_REALTIME);
+ 	test_timeout(res, &ret, "futex_lock_pi invalid timeout flag", ENOSYS);
+ 
++/* b/234469895 futex_waitv not available */
++#ifndef __ANDROID__
+ 	/* futex_waitv with CLOCK_MONOTONIC */
+ 	if (futex_get_abs_timeout(CLOCK_MONOTONIC, &to, timeout_ns))
+ 		return RET_FAIL;
+ 	res = futex_waitv(&waitv, 1, 0, &to, CLOCK_MONOTONIC);
+-	test_timeout(res, &ret, "futex_waitv monotonic", ETIMEDOUT | ENOSYS);
++	test_timeout(res, &ret, "futex_waitv monotonic", ETIMEDOUT);
+ 
+ 	/* futex_waitv with CLOCK_REALTIME */
+ 	if (futex_get_abs_timeout(CLOCK_REALTIME, &to, timeout_ns))
+ 		return RET_FAIL;
+ 	res = futex_waitv(&waitv, 1, 0, &to, CLOCK_REALTIME);
+-	test_timeout(res, &ret, "futex_waitv realtime", ETIMEDOUT | ENOSYS);
++	test_timeout(res, &ret, "futex_waitv realtime", ETIMEDOUT);
++#endif
+ 
+ 	ksft_print_cnts();
+ 	return ret;
+diff --git a/tools/testing/selftests/futex/functional/futex_wait_wouldblock.c b/tools/testing/selftests/futex/functional/futex_wait_wouldblock.c
+index 0a67934590f04..c5abdb941767b 100644
+--- a/tools/testing/selftests/futex/functional/futex_wait_wouldblock.c
++++ b/tools/testing/selftests/futex/functional/futex_wait_wouldblock.c
+@@ -95,20 +95,19 @@ int main(int argc, char *argv[])
+ 		to.tv_nsec -= 1000000000;
+ 	}
+ 
++/* b/234469895 futex_waitv not available */
++#ifndef __ANDROID__
+ 	info("Calling futex_waitv on f1: %u @ %p with val=%u\n", f1, &f1, f1+1);
+ 	res = futex_waitv(&waitv, 1, 0, &to, CLOCK_MONOTONIC);
+ 	if (!res || errno != EWOULDBLOCK) {
+-		if (errno == ENOSYS)
+-			ksft_test_result_skip("futex_waitv syscall not available in this kernel\n");
+-		else {
+-			ksft_test_result_fail("futex_waitv returned: %d %s\n",
+-								res ? errno : res,
+-								res ? strerror(errno) : "");
+-			ret = RET_FAIL;
+-		}
++		ksft_test_result_pass("futex_waitv returned: %d %s\n",
++				      res ? errno : res,
++				      res ? strerror(errno) : "");
++		ret = RET_FAIL;
+ 	} else {
+ 		ksft_test_result_pass("futex_waitv\n");
+ 	}
++#endif
+ 
+ 	ksft_print_cnts();
+ 	return ret;
+-- 
+2.37.0.rc0.161.g10f37bed90-goog
+

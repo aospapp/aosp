@@ -26,26 +26,28 @@ class MockChannelInterface : public cricket::ChannelInterface {
  public:
   MOCK_METHOD(cricket::MediaType, media_type, (), (const, override));
   MOCK_METHOD(MediaChannel*, media_channel, (), (const, override));
-  MOCK_METHOD(const std::string&, transport_name, (), (const, override));
-  MOCK_METHOD(const std::string&, content_name, (), (const, override));
-  MOCK_METHOD(bool, enabled, (), (const, override));
-  MOCK_METHOD(bool, Enable, (bool), (override));
-  MOCK_METHOD(sigslot::signal1<ChannelInterface*>&,
-              SignalFirstPacketReceived,
-              (),
+  MOCK_METHOD(VoiceMediaChannel*, voice_media_channel, (), (const, override));
+  MOCK_METHOD(VideoMediaChannel*, video_media_channel, (), (const, override));
+  MOCK_METHOD(absl::string_view, transport_name, (), (const, override));
+  MOCK_METHOD(const std::string&, mid, (), (const, override));
+  MOCK_METHOD(void, Enable, (bool), (override));
+  MOCK_METHOD(void,
+              SetFirstPacketReceivedCallback,
+              (std::function<void()>),
               (override));
   MOCK_METHOD(bool,
               SetLocalContent,
               (const cricket::MediaContentDescription*,
                webrtc::SdpType,
-               std::string*),
+               std::string&),
               (override));
   MOCK_METHOD(bool,
               SetRemoteContent,
               (const cricket::MediaContentDescription*,
                webrtc::SdpType,
-               std::string*),
+               std::string&),
               (override));
+  MOCK_METHOD(bool, SetPayloadTypeDemuxingEnabled, (bool), (override));
   MOCK_METHOD(const std::vector<StreamParams>&,
               local_streams,
               (),

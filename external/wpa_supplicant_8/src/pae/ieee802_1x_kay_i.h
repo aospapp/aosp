@@ -45,7 +45,7 @@ struct ieee802_1x_kay_peer {
 	struct ieee802_1x_mka_sci sci;
 	u8 mi[MI_LEN];
 	u32 mn;
-	time_t expire;
+	os_time_t expire;
 	bool is_key_server;
 	u8 key_server_priority;
 	bool macsec_desired;
@@ -135,8 +135,8 @@ struct ieee802_1x_mka_participant {
 	struct ieee802_1x_mka_peer_id current_peer_id;
 	struct ieee802_1x_mka_sci current_peer_sci;
 
-	time_t cak_life;
-	time_t mka_life;
+	os_time_t cak_life;
+	os_time_t mka_life;
 	bool to_dist_sak;
 	bool to_use_sak;
 	bool new_sak;

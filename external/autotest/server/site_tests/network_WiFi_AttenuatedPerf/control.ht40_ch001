@@ -8,6 +8,7 @@ ATTRIBUTES = "suite:wifi_atten_perf"
 TIME = 'SHORT'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 This test uses netperf to measure the maximal receiving and transmitting

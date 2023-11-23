@@ -143,7 +143,6 @@ class ResultInfo(dict):
         @param parent_dir: Path to the parent directory.
         @param name: Name of the result file or directory.
         """
-        assert name != None
         self._name = name
 
         # Dictionary to store details of the given path is set to a keyval of
@@ -440,6 +439,8 @@ class ResultInfo(dict):
         @param original_info: A dictionary of the file's size and sub-directory
                 information.
         """
+        if utils_lib.DIRS not in self.details:
+            self.details[utils_lib.DIRS] = []
         self.details[utils_lib.DIRS].append(
                 ResultInfo(parent_dir=self._path,
                            name=name,

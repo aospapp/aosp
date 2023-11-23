@@ -9,8 +9,6 @@
 
 #include <assert.h>
 
-#include <fp16.h>
-
 #include <xnnpack/dwconv.h>
 #include <xnnpack/math.h>
 
@@ -25,15 +23,15 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_up4x25__scalar_imagic(
     size_t output_increment,
     size_t input_offset,
     const int8_t* zero,
-    const union xnn_qs8_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(channels != 0);
   assert(output_width != 0);
 
-  const float vmagic_bias = params->scalar_imagic.magic_bias;
-  const int32_t vmagic_min = params->scalar_imagic.magic_min;
-  const int32_t vmagic_max = params->scalar_imagic.magic_max;
-  const int32_t vmagic_bias_less_zero_point = params->scalar_imagic.magic_bias_less_zero_point;
+  const float vmagic_bias = params->fp32_scalar_imagic.magic_bias;
+  const int32_t vmagic_min = params->fp32_scalar_imagic.magic_min;
+  const int32_t vmagic_max = params->fp32_scalar_imagic.magic_max;
+  const int32_t vmagic_bias_less_zero_point = params->fp32_scalar_imagic.magic_bias_less_zero_point;
   do {
     const int8_t* i0 = input[0];
     assert(i0 != NULL);
@@ -594,10 +592,10 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_up4x25__scalar_imagic(
       vfpacc2 += vmagic_bias;
       vfpacc3 += vmagic_bias;
 
-      int32_t vout0 = (int32_t) fp32_to_bits(vfpacc0);
-      int32_t vout1 = (int32_t) fp32_to_bits(vfpacc1);
-      int32_t vout2 = (int32_t) fp32_to_bits(vfpacc2);
-      int32_t vout3 = (int32_t) fp32_to_bits(vfpacc3);
+      int32_t vout0 = (int32_t) float_as_uint32(vfpacc0);
+      int32_t vout1 = (int32_t) float_as_uint32(vfpacc1);
+      int32_t vout2 = (int32_t) float_as_uint32(vfpacc2);
+      int32_t vout3 = (int32_t) float_as_uint32(vfpacc3);
 
       vout0 = math_max_s32(vout0, vmagic_min);
       vout1 = math_max_s32(vout1, vmagic_min);
@@ -707,7 +705,7 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_up4x25__scalar_imagic(
         float vfpacc = (float) vacc * vscale;
 
         vfpacc += vmagic_bias;
-        int32_t vout = (int32_t) fp32_to_bits(vfpacc);
+        int32_t vout = (int32_t) float_as_uint32(vfpacc);
         vout = math_max_s32(vout, vmagic_min);
         vout = math_min_s32(vout, vmagic_max);
         vout -= vmagic_bias_less_zero_point;

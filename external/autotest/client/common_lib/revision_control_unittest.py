@@ -1,9 +1,14 @@
-#!/usr/bin/python2
-import logging, mox, os, shutil, tempfile, unittest, utils
+import logging
+import os
+import shutil
+import tempfile
+import unittest
 
 # This makes autotest_lib imports available.
 import common
+
 from autotest_lib.client.common_lib import revision_control
+from autotest_lib.client.common_lib import utils
 
 
 class GitRepoManager(object):
@@ -112,14 +117,14 @@ class GitRepoManager(object):
         If the dependent repo is empty pull from main.
         """
         # TODO b:169251326 terms below are set outside of this codebase
-        # and should be updated when possible. ("master" -> "main")
+        # and should be updated when possible. ("master" -> "main") # nocheck
         # Currently (but I believe it will eventually) does not support
-        # `reset --hard origin/main` (must be origin/master).
-        self.git_repo_manager.reinit_repo_at('master')
+        # `reset --hard origin/main` (must be origin/master). # nocheck
+        self.git_repo_manager.reinit_repo_at('master')  # nocheck
         self.commit_hash = self.git_repo_manager.get_latest_commit_hash()
 
 
-class RevisionControlUnittest(mox.MoxTestBase):
+class RevisionControlUnittest(unittest.TestCase):
     """
     A unittest to exercise build_externals.py's usage
     of revision_control.py's Git wrappers.
@@ -199,4 +204,4 @@ class RevisionControlUnittest(mox.MoxTestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+    unittest.main()

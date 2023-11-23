@@ -8,6 +8,7 @@
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text	
 
 .type	_aesni_ctr32_ghash_6x,@function
@@ -340,11 +341,11 @@ _aesni_ctr32_ghash_6x:
 	.byte	0xf3,0xc3
 .cfi_endproc	
 .size	_aesni_ctr32_ghash_6x,.-_aesni_ctr32_ghash_6x
-.globl	GFp_aesni_gcm_decrypt
-.hidden GFp_aesni_gcm_decrypt
-.type	GFp_aesni_gcm_decrypt,@function
+.globl	aesni_gcm_decrypt
+.hidden aesni_gcm_decrypt
+.type	aesni_gcm_decrypt,@function
 .align	32
-GFp_aesni_gcm_decrypt:
+aesni_gcm_decrypt:
 .cfi_startproc	
 	xorq	%r10,%r10
 
@@ -453,7 +454,7 @@ GFp_aesni_gcm_decrypt:
 	movq	%r10,%rax
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_aesni_gcm_decrypt,.-GFp_aesni_gcm_decrypt
+.size	aesni_gcm_decrypt,.-aesni_gcm_decrypt
 .type	_aesni_ctr32_6x,@function
 .align	32
 _aesni_ctr32_6x:
@@ -547,11 +548,11 @@ _aesni_ctr32_6x:
 .cfi_endproc	
 .size	_aesni_ctr32_6x,.-_aesni_ctr32_6x
 
-.globl	GFp_aesni_gcm_encrypt
-.hidden GFp_aesni_gcm_encrypt
-.type	GFp_aesni_gcm_encrypt,@function
+.globl	aesni_gcm_encrypt
+.hidden aesni_gcm_encrypt
+.type	aesni_gcm_encrypt,@function
 .align	32
-GFp_aesni_gcm_encrypt:
+aesni_gcm_encrypt:
 .cfi_startproc	
 	xorq	%r10,%r10
 
@@ -826,7 +827,7 @@ GFp_aesni_gcm_encrypt:
 	movq	%r10,%rax
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_aesni_gcm_encrypt,.-GFp_aesni_gcm_encrypt
+.size	aesni_gcm_encrypt,.-aesni_gcm_encrypt
 .align	64
 .Lbswap_mask:
 .byte	15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0

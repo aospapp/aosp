@@ -92,7 +92,7 @@
 static int global = 0;
 static int tab[3];
 
-#define CLEANUP(n) static void clnp##n(void * arg)\
+#define CLEANUP(n) static void clnp##n(void * arg PTS_ATTRIBUTE_UNUSED)\
 {\
 	tab[global]=n; \
 	global++; \
@@ -123,7 +123,8 @@ int main(void)
 	int ret = 0;
 	void *rval;
 	pthread_t child;
-	int i, j;
+	unsigned int i;
+	int j;
 
 	output_init();
 

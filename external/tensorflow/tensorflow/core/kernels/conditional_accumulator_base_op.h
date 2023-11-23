@@ -116,7 +116,7 @@ class ConditionalAccumulatorBaseOp : public OpKernel {
     h(0) = cinfo_.container();
     h(1) = cinfo_.name();
     accumulator_set_ = true;
-    return Status::OK();
+    return OkStatus();
   }
 };
 
@@ -179,7 +179,7 @@ class ConditionalAccumulatorBaseApplyGradientOp
     }
 
     // Actually try to apply gradient now
-    accumulator->TryApplyGrad(local_step_tensor->scalar<int64>()(), ctx);
+    accumulator->TryApplyGrad(local_step_tensor->scalar<int64_t>()(), ctx);
   }
 };
 

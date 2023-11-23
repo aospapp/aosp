@@ -12,9 +12,8 @@ package {
     default_applicable_licenses: ["external_robolectric-shadows_license"],
 }
 
-java_plugin {
-    name: "Robolectric_processor",
-    processor_class: "org.robolectric.annotation.processing.RobolectricProcessor",
+java_library_host {
+    name: "libRobolectric_processor",
     srcs: ["src/main/java/**/*.java"],
     java_resource_dirs: ["src/main/resources"],
     java_resources: ["sdks.txt"],
@@ -22,20 +21,27 @@ java_plugin {
     static_libs: [
         "Robolectric_annotations",
         "Robolectric_shadowapi",
-        "asm-commons-9.2",
+        "ow2-asm-commons",
         "guava",
-        "asm-tree-9.2",
-        "gson-prebuilt-jar",
-        "asm-9.2",
+        "ow2-asm-tree",
+        "gson",
+        "ow2-asm",
         "jsr305",
     ],
 
     openjdk9: {
         javacflags: [
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
             "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
             "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
         ],
     },
+}
+
+java_plugin {
+    name: "Robolectric_processor",
+    processor_class: "org.robolectric.annotation.processing.RobolectricProcessor",
+    static_libs: ["libRobolectric_processor"],
 }
 
 //#############################################
@@ -49,7 +55,7 @@ java_test_host {
 
     static_libs: [
         "Robolectric_annotations",
-        "Robolectric_processor",
+        "libRobolectric_processor",
         "Robolectric_shadowapi",
         "robolectric-javax.annotation-api-1.2",
         "robolectric-compile-testing-0.19",
@@ -59,7 +65,7 @@ java_test_host {
         "objenesis",
         "junit",
         "truth-prebuilt",
-        "gson-prebuilt-jar",
+        "gson",
         "jsr305",
     ],
 

@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 __author__ = 'raphtee@google.com (Travis Miller)'
 
@@ -29,25 +29,23 @@ class UtilsTest(unittest.TestCase):
     # parse_machine() test cases
     def test_parse_machine_good(self):
         '''test that parse_machine() is outputting the correct data'''
-        gooddata = (('host',                ('host', 'root', '', 22)),
-                    ('host:21',             ('host', 'root', '', 21)),
-                    ('user@host',           ('host', 'user', '', 22)),
-                    ('user:pass@host',      ('host', 'user', 'pass', 22)),
-                    ('user:pass@host:1234', ('host', 'user', 'pass', 1234)),
-
-                    ('user:pass@10.3.2.1',
-                     ('10.3.2.1', 'user', 'pass', 22)),
-                    ('user:pass@10.3.2.1:1234',
-                     ('10.3.2.1', 'user', 'pass', 1234)),
-
-                    ('::1',                 ('::1', 'root', '', 22)),
-                    ('user:pass@abdc::ef',  ('abdc::ef', 'user', 'pass', 22)),
-                    ('abdc::ef:99',         ('abdc::ef:99', 'root', '', 22)),
-                    ('user:pass@[abdc::ef:99]',
-                     ('abdc::ef:99', 'user', 'pass', 22)),
-                    ('user:pass@[abdc::ef]:1234',
-                     ('abdc::ef', 'user', 'pass', 1234)),
-                   )
+        gooddata = (
+                ('host', ('host', 'root', '', None)),
+                ('host:21', ('host', 'root', '', 21)),
+                ('user@host', ('host', 'user', '', None)),
+                ('user:pass@host', ('host', 'user', 'pass', None)),
+                ('user:pass@host:1234', ('host', 'user', 'pass', 1234)),
+                ('user:pass@10.3.2.1', ('10.3.2.1', 'user', 'pass', None)),
+                ('user:pass@10.3.2.1:1234', ('10.3.2.1', 'user', 'pass',
+                                             1234)),
+                ('::1', ('::1', 'root', '', None)),
+                ('user:pass@abdc::ef', ('abdc::ef', 'user', 'pass', None)),
+                ('abdc::ef:99', ('abdc::ef:99', 'root', '', None)),
+                ('user:pass@[abdc::ef:99]', ('abdc::ef:99', 'user', 'pass',
+                                             None)),
+                ('user:pass@[abdc::ef]:1234', ('abdc::ef', 'user', 'pass',
+                                               1234)),
+        )
         for machine, result in gooddata:
             self.assertEquals(utils.parse_machine(machine), result)
 

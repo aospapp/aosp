@@ -161,9 +161,9 @@ enum xnn_status xnn_setup_resize_bilinear2d_nchw_f32(
     resize_op->indirection_buffer = indirection_buffer;
 
     // Note: packed weights must be SIMD-aligned, so we can't use xnn_reallocate_memory
-    xnn_release_simd_memory(resize_op->packed_weights);
-    resize_op->packed_weights = xnn_allocate_simd_memory(packed_weights_size);
-    if (resize_op->packed_weights == NULL) {
+    xnn_release_simd_memory(resize_op->packed_weights.pointer);
+    resize_op->packed_weights.pointer = xnn_allocate_simd_memory(packed_weights_size);
+    if (resize_op->packed_weights.pointer == NULL) {
       xnn_log_error(
         "failed to allocate %zu bytes for %s operator packed weights",
         packed_weights_size, xnn_operator_type_to_string(xnn_operator_type_resize_bilinear_nchw_f32));
@@ -182,7 +182,7 @@ enum xnn_status xnn_setup_resize_bilinear2d_nchw_f32(
         input_pixel_stride_in_bytes,
         input_height, input_width,
         output_height, output_width,
-        input, resize_op->indirection_buffer, resize_op->packed_weights,
+        input, resize_op->indirection_buffer, resize_op->packed_weights.pointer,
         !!(flags & XNN_FLAG_ALIGN_CORNERS),
         !!(flags & XNN_FLAG_TENSORFLOW_LEGACY_MODE));
 
@@ -193,6 +193,8 @@ enum xnn_status xnn_setup_resize_bilinear2d_nchw_f32(
     resize_op->last_output_width = output_width;
   }
 
+  // Resize bilinear packed weights can change when the operator is resized, we will not use weights cache.
+  assert(resize_op->weights_cache == NULL);
   resize_op->context.resize_bilinear_chw = (struct resize_bilinear_chw_context) {
     .output_pixels = output_height * output_width,
     .channels = resize_op->channels,
@@ -200,25 +202,29 @@ enum xnn_status xnn_setup_resize_bilinear2d_nchw_f32(
     .indirect_input = resize_op->indirection_buffer,
     .input_offset = (size_t) ((uintptr_t) input - (uintptr_t) resize_op->last_input),
     .input_batch_stride = resize_op->input_pixel_stride * input_height * input_width * sizeof(float),
-    .packed_weights = resize_op->packed_weights,
+    .packed_weights = resize_op->packed_weights.pointer,
     .output = output,
     .output_batch_stride = resize_op->output_pixel_stride * output_height * output_width * sizeof(float),
     .output_channel_stride = output_height * output_width * sizeof(float),
     .ukernel = xnn_params.f32.ibilinear_chw.ukernel,
   };
 
-  const size_t num_threads = pthreadpool_get_threads_count(threadpool);
-  size_t output_channel_tile = resize_op->channels;
-  if (num_threads > 1) {
-    const size_t target_tiles_per_thread = 4;
-    const size_t max_channel_tile = divide_round_up(output_channel_tile, num_threads * target_tiles_per_thread);
-    if (max_channel_tile < output_channel_tile) {
-      const uint32_t output_channel_subtile = xnn_params.f32.ibilinear_chw.channel_tile;
-      output_channel_tile =
-        min(output_channel_tile,
-          divide_round_up(output_channel_tile, max_channel_tile * output_channel_subtile) * output_channel_subtile);
+  #if XNN_TEST_MODE
+    const size_t output_channel_tile = xnn_params.f32.ibilinear_chw.channel_tile;
+  #else
+    const size_t num_threads = pthreadpool_get_threads_count(threadpool);
+    size_t output_channel_tile = resize_op->channels;
+    if (num_threads > 1) {
+      const size_t target_tiles_per_thread = 4;
+      const size_t max_channel_tile = divide_round_up(output_channel_tile, num_threads * target_tiles_per_thread);
+      if (max_channel_tile < output_channel_tile) {
+        const uint32_t output_channel_subtile = xnn_params.f32.ibilinear_chw.channel_tile;
+        output_channel_tile =
+          min(output_channel_tile,
+            divide_round_up(output_channel_tile, max_channel_tile * output_channel_subtile) * output_channel_subtile);
+      }
     }
-  }
+  #endif
   resize_op->compute.type = xnn_parallelization_type_2d_tile_1d;
   resize_op->compute.task_2d_tile_1d = (pthreadpool_task_2d_tile_1d_t) xnn_compute_resize_bilinear_chw;
   resize_op->compute.range[0] = batch_size;

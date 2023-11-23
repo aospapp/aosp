@@ -13,13 +13,13 @@
 #     size_t mr,                x0
 #     size_t nc,                x1
 #     size_t kc,                x2 / x0
-#     const uint8_t*restrict a, x3
+#     const void*restrict a,    x3
 #     size_t a_stride,          x4
 #     const void*restrict w,    x5
-#     uint8_t*restrict c,       x6
+#     void*restrict c,          x6
 #     size_t cm_stride,         x7
 #     size_t cn_stride,         [sp] -> (x8)
-#     const union xnn_f16_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 8] -> (x8)
+#     const union xnn_f16_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 8] -> (x8)
 
 # d8-d15, x19-x30 need to be preserved if used. x18 is reserved by the OS.
 
@@ -71,7 +71,7 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x8__aarch64_neonfp16arith_ld64
         CSEL    x16, x6, x16, LO        //   c1 = c0
 
         # Load params
-        LDR     d6, [x8]
+        LDR     s6, [x8]
 
         ADD     x10, x9, x4             // a2 = a1 + a_stride
         ADD     x17, x16, x7            // c2 = c1 + cm_stride
@@ -123,6 +123,8 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x8__aarch64_neonfp16arith_ld64
         LDR     d3, [x11], 8
         LDR     d4, [x12], 8
         LDR     d5,  [x4], 8
+        LDR     q18, [x5], 16
+        LDR     q19, [x5], 16
         SUBS    x0, x0, 8
         FMLA    v20.8h, v16.8h,  v0.h[0]
         FMLA    v22.8h, v16.8h,  v1.h[0]
@@ -130,9 +132,6 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x8__aarch64_neonfp16arith_ld64
         FMLA    v26.8h, v16.8h,  v3.h[0]
         FMLA    v28.8h, v16.8h,  v4.h[0]
         FMLA    v30.8h, v16.8h,  v5.h[0]
-        LDR     q18, [x5], 16
-        LDR     q19, [x5], 16
-
         FMLA    v20.8h, v17.8h,  v0.h[1]
         FMLA    v22.8h, v17.8h,  v1.h[1]
         FMLA    v24.8h, v17.8h,  v2.h[1]
@@ -146,7 +145,6 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x8__aarch64_neonfp16arith_ld64
         FMLA    v26.8h, v18.8h,  v3.h[2]
         FMLA    v28.8h, v18.8h,  v4.h[2]
         FMLA    v30.8h, v18.8h,  v5.h[2]
-
         FMLA    v20.8h, v19.8h,  v0.h[3]
         FMLA    v22.8h, v19.8h,  v1.h[3]
         FMLA    v24.8h, v19.8h,  v2.h[3]
@@ -157,18 +155,12 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x8__aarch64_neonfp16arith_ld64
 
         # Is there a remainder?- 2 halffloats of A (4 bytes)
         TBNZ    x0, 2, 4f
-        # Is there a remainder?- 1 halffloats of A (2 bytes)
+        # Is there a remainder?- 1 halffloat of A (2 bytes)
         TBNZ    x0, 1, 5f
 2:
-        # Scale and Clamp
-        FMUL    v20.8h, v20.8h, v6.h[0]
-        DUP     v4.8h, v6.h[1]
-        FMUL    v22.8h, v22.8h, v6.h[0]
-        DUP     v5.8h, v6.h[2]
-        FMUL    v24.8h, v24.8h, v6.h[0]
-        FMUL    v26.8h, v26.8h, v6.h[0]
-        FMUL    v28.8h, v28.8h, v6.h[0]
-        FMUL    v30.8h, v30.8h, v6.h[0]
+        # Clamp
+        DUP     v4.8h, v6.h[0]
+        DUP     v5.8h, v6.h[1]
         FMAX    v20.8h, v20.8h, v4.8h
         FMAX    v22.8h, v22.8h, v4.8h
         FMAX    v24.8h, v24.8h, v4.8h
@@ -228,7 +220,6 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x8__aarch64_neonfp16arith_ld64
         FMLA    v26.8h, v17.8h,  v3.h[1]
         FMLA    v28.8h, v17.8h,  v4.h[1]
         FMLA    v30.8h, v17.8h,  v5.h[1]
-
         TBZ     x0, 1, 2b
 
 5:

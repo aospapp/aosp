@@ -19,7 +19,7 @@ class MockRPMClient(object):
         assert new_state == self._expected_state
 
 
-class MockMasterSsh(object):
+class MockMainSsh(object):
     def __init__(self):
         self.ssh_option = ""
 
@@ -39,7 +39,7 @@ class LabstationHostSkipInit(LabstationHost):
     """
     def __init__(self):
         self._is_localhost = False
-        self._master_ssh = MockMasterSsh()
+        self._main_ssh = MockMainSsh()
         self.env = {}
         self.user = "a"
         self.port = 7

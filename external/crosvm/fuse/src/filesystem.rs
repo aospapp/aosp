@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -9,12 +9,15 @@ use std::io;
 use std::mem;
 use std::time::Duration;
 
-use crate::sys;
-
 use crate::server::Mapper;
-pub use crate::sys::{
-    FsOptions, IoctlFlags, IoctlIovec, OpenOptions, RemoveMappingOne, SetattrValid, ROOT_ID,
-};
+use crate::sys;
+pub use crate::sys::FsOptions;
+pub use crate::sys::IoctlFlags;
+pub use crate::sys::IoctlIovec;
+pub use crate::sys::OpenOptions;
+pub use crate::sys::RemoveMappingOne;
+pub use crate::sys::SetattrValid;
+pub use crate::sys::ROOT_ID;
 
 const MAX_BUFFER_SIZE: u32 = 1 << 20;
 

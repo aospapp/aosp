@@ -24,13 +24,13 @@ $ python3 ./ptd/push_to_device.py --use-prebuilt-file ./cheets_arm-img-4885137.z
 ```
 
 Warning: If the command fails, check run\_push\_to\_device method in
-[provision_CheetsUpdate.py](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/master/server/site_tests/provision_CheetsUpdate/provision_CheetsUpdate.py) for required params.
+[provision_CheetsUpdate.py](https://chromium.googlesource.com/chromiumos/third_party/autotest/+/main/server/site_tests/provision_CheetsUpdate/provision_CheetsUpdate.py) for required params.
 
 ## Updating the autotest
 
-After you submit your changes, [Chrome OS lab deputy will push it to
+After you submit your changes, [ChromeOS lab deputy will push it to
 prod](https://sites.google.com/a/google.com/chromeos/for-team-members/infrastructure/chromeos-admin/push-to-prod).
-Send a heads up to [Chrome OS lab
+Send a heads up to [ChromeOS lab
 deputy](https://sites.google.com/a/google.com/chromeos/for-team-members/infrastructure/chrome-os-infrastructure-deputy)
 that this change is there.
 

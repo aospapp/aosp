@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
-import dagger.hilt.android.processor.AndroidCompilers;
+import dagger.hilt.android.testing.compile.HiltCompilerTests;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,7 +45,7 @@ public final class MyAppPreviousCompilationTest {
   }
 
   private Compiler compiler() {
-    return AndroidCompilers.compiler()
+    return HiltCompilerTests.compiler()
         .withOptions(
             String.format(
                 "-Adagger.hilt.disableCrossCompilationRootValidation=%s",
@@ -90,11 +90,11 @@ public final class MyAppPreviousCompilationTest {
       assertThat(compilation).hadErrorCount(1);
       assertThat(compilation)
           .hadErrorContaining(
-              "Cannot process app roots in this compilation unit since there are app roots in a "
+              "Cannot process new app roots when there are app roots from a "
                   + "previous compilation unit:"
-                  + "\n  \tApp roots in previous compilation unit: ["
-                  + "dagger.hilt.processor.internal.root.MyAppPreviousCompilation.MyApp]"
-                  + "\n  \tApp roots in this compilation unit: [test.AppRoot]");
+                  + "\n    App roots in previous compilation unit: "
+                  + "dagger.hilt.processor.internal.root.MyAppPreviousCompilation.MyApp"
+                  + "\n    App roots in this compilation unit: test.AppRoot");
     }
   }
 }

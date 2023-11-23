@@ -906,8 +906,8 @@ public class DateIntervalInfo implements Cloneable, Freezable<DateIntervalInfo>,
      * Get default order -- whether the first date in pattern is later date
      *                      or not.
      *
-     * return default date ordering in interval pattern. TRUE if the first date
-     *        in pattern is later date, FALSE otherwise.
+     * return default date ordering in interval pattern. true if the first date
+     *        in pattern is later date, false otherwise.
      */
     public boolean getDefaultOrder()
     {

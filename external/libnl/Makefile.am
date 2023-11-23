@@ -105,6 +105,7 @@ libnlinclude_netlink_route_HEADERS = \
 	include/netlink/route/class.h \
 	include/netlink/route/classifier.h \
 	include/netlink/route/link.h \
+	include/netlink/route/mdb.h \
 	include/netlink/route/neighbour.h \
 	include/netlink/route/neightbl.h \
 	include/netlink/route/netconf.h \
@@ -121,6 +122,7 @@ libnlinclude_netlink_route_actdir = $(libnlincludedir)/netlink/route/act
 libnlinclude_netlink_route_act_HEADERS = \
 	include/netlink/route/act/gact.h \
 	include/netlink/route/act/mirred.h \
+	include/netlink/route/act/nat.h \
 	include/netlink/route/act/skbedit.h \
 	include/netlink/route/act/vlan.h \
 	$(NULL)
@@ -129,6 +131,7 @@ libnlinclude_netlink_route_cls_HEADERS = \
 	include/netlink/route/cls/basic.h \
 	include/netlink/route/cls/cgroup.h \
 	include/netlink/route/cls/ematch.h \
+	include/netlink/route/cls/flower.h \
 	include/netlink/route/cls/fw.h \
 	include/netlink/route/cls/matchall.h \
 	include/netlink/route/cls/police.h \
@@ -151,7 +154,9 @@ libnlinclude_netlink_route_link_HEADERS = \
 	include/netlink/route/link/inet.h \
 	include/netlink/route/link/inet6.h \
 	include/netlink/route/link/info-api.h \
+	include/netlink/route/link/ip6gre.h \
 	include/netlink/route/link/ip6tnl.h \
+	include/netlink/route/link/ip6vti.h \
 	include/netlink/route/link/ipgre.h \
 	include/netlink/route/link/ipip.h \
 	include/netlink/route/link/ipvlan.h \
@@ -162,6 +167,7 @@ libnlinclude_netlink_route_link_HEADERS = \
 	include/netlink/route/link/ppp.h \
 	include/netlink/route/link/sit.h \
 	include/netlink/route/link/sriov.h \
+	include/netlink/route/link/team.h \
 	include/netlink/route/link/veth.h \
 	include/netlink/route/link/vlan.h \
 	include/netlink/route/link/vrf.h \
@@ -203,6 +209,7 @@ libnlinclude_netlink_cli_HEADERS = \
 	include/netlink/cli/ct.h \
 	include/netlink/cli/exp.h \
 	include/netlink/cli/link.h \
+	include/netlink/cli/mdb.h \
 	include/netlink/cli/neigh.h \
 	include/netlink/cli/qdisc.h \
 	include/netlink/cli/route.h \
@@ -253,6 +260,7 @@ noinst_HEADERS = \
 	include/linux-private/linux/socket.h \
 	include/linux-private/linux/tc_act/tc_gact.h \
 	include/linux-private/linux/tc_act/tc_mirred.h \
+	include/linux-private/linux/tc_act/tc_nat.h \
 	include/linux-private/linux/tc_act/tc_skbedit.h \
 	include/linux-private/linux/tc_act/tc_vlan.h \
 	include/linux-private/linux/tc_ematch/tc_em_meta.h \
@@ -261,12 +269,14 @@ noinst_HEADERS = \
 	include/netlink-private/cache-api.h \
 	include/netlink-private/genl.h \
 	include/netlink-private/netlink.h \
+	include/netlink-private/nl-auto.h \
 	include/netlink-private/object-api.h \
 	include/netlink-private/route/link/api.h \
 	include/netlink-private/route/link/sriov.h \
 	include/netlink-private/route/mpls.h \
 	include/netlink-private/route/nexthop-encap.h \
 	include/netlink-private/route/tc-api.h \
+	include/netlink-private/route/utils.h \
 	include/netlink-private/socket.h \
 	include/netlink-private/tc.h \
 	include/netlink-private/types.h \
@@ -371,6 +381,7 @@ lib_libnl_route_3_la_SOURCES = \
 	lib/route/act.c \
 	lib/route/act/gact.c \
 	lib/route/act/mirred.c \
+	lib/route/act/nat.c \
 	lib/route/act/skbedit.c \
 	lib/route/act/vlan.c \
 	lib/route/addr.c \
@@ -385,6 +396,7 @@ lib_libnl_route_3_la_SOURCES = \
 	lib/route/cls/ematch/meta.c \
 	lib/route/cls/ematch/nbyte.c \
 	lib/route/cls/ematch/text.c \
+	lib/route/cls/flower.c \
 	lib/route/cls/fw.c \
 	lib/route/cls/mall.c \
 	lib/route/cls/police.c \
@@ -399,7 +411,9 @@ lib_libnl_route_3_la_SOURCES = \
 	lib/route/link/ifb.c \
 	lib/route/link/inet.c \
 	lib/route/link/inet6.c \
+	lib/route/link/ip6gre.c \
 	lib/route/link/ip6tnl.c \
+	lib/route/link/ip6vti.c \
 	lib/route/link/ipgre.c \
 	lib/route/link/ipip.c \
 	lib/route/link/ipvlan.c \
@@ -409,11 +423,13 @@ lib_libnl_route_3_la_SOURCES = \
 	lib/route/link/ppp.c \
 	lib/route/link/sit.c \
 	lib/route/link/sriov.c \
+	lib/route/link/team.c \
 	lib/route/link/veth.c \
 	lib/route/link/vlan.c \
 	lib/route/link/vrf.c \
 	lib/route/link/vxlan.c \
 	lib/route/link/xfrmi.c \
+	lib/route/mdb.c \
 	lib/route/neigh.c \
 	lib/route/neightbl.c \
 	lib/route/netconf.c \
@@ -832,7 +848,25 @@ tests_ldadd = \
 	lib/libnl-3.la \
 	lib/libnl-nf-3.la \
 	lib/libnl-genl-3.la \
-	lib/libnl-route-3.la
+	lib/libnl-route-3.la \
+	$(NULL)
+
+if WITH_CHECK
+check_LTLIBRARIES += tests/libnl-test-util.la
+endif
+
+tests_libnl_test_util_la_SOURCES = \
+	tests/nl-test-util.h \
+	tests/nl-test-util.c \
+	$(NULL)
+tests_libnl_test_util_la_CPPFLAGS = \
+	$(tests_cppflags) \
+	$(CHECK_CFLAGS) \
+	$(NULL)
+tests_libnl_test_util_la_LIBADD = \
+	$(tests_ldadd) \
+	$(CHECK_LIBS) \
+	$(NULL)
 
 check_PROGRAMS += \
 	tests/test-complex-HTB-with-hash-filters \
@@ -913,11 +947,13 @@ tests_test_u32_filter_with_actions_LDADD          = $(tests_ldadd)
 check_PROGRAMS += \
 	tests/test-cache-mngr \
 	tests/test-genl \
-	tests/test-nf-cache-mngr
+	tests/test-nf-cache-mngr \
+	$(NULL)
 
 tests_cli_ldadd = \
 	$(tests_ldadd) \
-	src/lib/libnl-cli-3.la
+	src/lib/libnl-cli-3.la \
+	$(NULL)
 
 tests_test_cache_mngr_CPPFLAGS                    = $(tests_cppflags)
 tests_test_cache_mngr_LDADD                       = $(tests_cli_ldadd)
@@ -932,11 +968,12 @@ check_programs += tests/check-all
 endif
 
 tests_check_all_SOURCES = \
-	tests/check-addr.c \
 	tests/check-all.c \
-	tests/check-attr.c \
-	tests/check-ematch-tree-clone.c \
-	tests/util.h \
+	tests/cksuite-all-addr.c \
+	tests/cksuite-all-attr.c \
+	tests/cksuite-all-ematch-tree-clone.c \
+	tests/cksuite-all-netns.c \
+	tests/cksuite-all.h \
 	$(NULL)
 
 tests_check_all_CPPFLAGS = \
@@ -945,7 +982,34 @@ tests_check_all_CPPFLAGS = \
 
 tests_check_all_LDADD = \
 	$(tests_ldadd) \
-	$(CHECK_LIBS)
+	tests/libnl-test-util.la \
+	$(CHECK_LIBS) \
+	$(NULL)
+
+if WITH_CHECK
+if ENABLE_STATIC
+check_programs += tests/check-direct
+endif
+endif
+
+tests_check_direct_SOURCES = \
+	tests/check-direct.c \
+	$(NULL)
+
+tests_check_direct_CPPFLAGS = \
+	$(tests_cppflags) \
+	$(CHECK_CFLAGS) \
+	$(NULL)
+
+tests_check_direct_LDFLAGS = \
+	-static \
+	$(NULL)
+
+tests_check_direct_LDADD = \
+	$(tests_ldadd) \
+	tests/libnl-test-util.la \
+	$(CHECK_LIBS) \
+	$(NULL)
 
 ###############################################################################
 
@@ -1021,3 +1085,11 @@ EXTRA_DIST += \
 	libnl-route-3.sym \
 	libnl-xfrm-3.sym \
 	$(NULL)
+
+###############################################################################
+
+check-progs: all $(check_PROGRAMS) $(check_LTLIBRARIES)
+
+###############################################################################
+
+.PHONY = check-progs

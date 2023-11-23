@@ -30,7 +30,7 @@
 
 namespace sw {
 
-SpirvShader::ImageSampler *SpirvShader::getImageSampler(const vk::Device *device, uint32_t signature, uint32_t samplerId, uint32_t imageViewId)
+SpirvEmitter::ImageSampler *SpirvEmitter::getImageSampler(const vk::Device *device, uint32_t signature, uint32_t samplerId, uint32_t imageViewId)
 {
 	ImageInstructionSignature instruction(signature);
 	ASSERT(imageViewId != 0 && (samplerId != 0 || instruction.samplerMethod == Fetch || instruction.samplerMethod == Write));
@@ -125,7 +125,7 @@ SpirvShader::ImageSampler *SpirvShader::getImageSampler(const vk::Device *device
 	return (ImageSampler *)(routine->getEntry());
 }
 
-std::shared_ptr<rr::Routine> SpirvShader::emitWriteRoutine(ImageInstructionSignature instruction, const Sampler &samplerState)
+std::shared_ptr<rr::Routine> SpirvEmitter::emitWriteRoutine(ImageInstructionSignature instruction, const Sampler &samplerState)
 {
 	// TODO(b/129523279): Hold a separate mutex lock for the sampler being built.
 	rr::Function<Void(Pointer<Byte>, Pointer<SIMD::Float>, Pointer<SIMD::Float>, Pointer<Byte>)> function;
@@ -141,7 +141,7 @@ std::shared_ptr<rr::Routine> SpirvShader::emitWriteRoutine(ImageInstructionSigna
 	return function("sampler");
 }
 
-std::shared_ptr<rr::Routine> SpirvShader::emitSamplerRoutine(ImageInstructionSignature instruction, const Sampler &samplerState)
+std::shared_ptr<rr::Routine> SpirvEmitter::emitSamplerRoutine(ImageInstructionSignature instruction, const Sampler &samplerState)
 {
 	// TODO(b/129523279): Hold a separate mutex lock for the sampler being built.
 	rr::Function<Void(Pointer<Byte>, Pointer<SIMD::Float>, Pointer<SIMD::Float>, Pointer<Byte>)> function;
@@ -154,9 +154,9 @@ std::shared_ptr<rr::Routine> SpirvShader::emitSamplerRoutine(ImageInstructionSig
 		SIMD::Float uvwa[4];
 		SIMD::Float dRef;
 		SIMD::Float lodOrBias;  // Explicit level-of-detail, or bias added to the implicit level-of-detail (depending on samplerMethod).
-		Vector4f dsx;
-		Vector4f dsy;
-		Vector4i offset;
+		SIMD::Float dsx[4];
+		SIMD::Float dsy[4];
+		SIMD::Int offset[4];
 		SIMD::Int sampleId;
 		SamplerFunction samplerFunction = instruction.getSamplerFunction();
 
@@ -216,15 +216,15 @@ std::shared_ptr<rr::Routine> SpirvShader::emitSamplerRoutine(ImageInstructionSig
 			{
 				SIMD::Float dPdx;
 				SIMD::Float dPdy;
-				dPdx.x = Pointer<Float>(&dsx.x)[i];
-				dPdx.y = Pointer<Float>(&dsx.y)[i];
-				dPdx.z = Pointer<Float>(&dsx.z)[i];
+				dPdx.x = Pointer<Float>(&dsx[0])[i];
+				dPdx.y = Pointer<Float>(&dsx[1])[i];
+				dPdx.z = Pointer<Float>(&dsx[2])[i];
 
-				dPdy.x = Pointer<Float>(&dsy.x)[i];
-				dPdy.y = Pointer<Float>(&dsy.y)[i];
-				dPdy.z = Pointer<Float>(&dsy.z)[i];
+				dPdy.x = Pointer<Float>(&dsy[0])[i];
+				dPdy.y = Pointer<Float>(&dsy[1])[i];
+				dPdy.z = Pointer<Float>(&dsy[2])[i];
 
-				Vector4f sample = s.sampleTexture(texture, uvwa, dRef, lod[i], dPdx, dPdy, offset, sampleId);
+				SIMD::Float4 sample = s.sampleTexture(texture, uvwa, dRef, lod[i], dPdx, dPdy, offset, sampleId);
 
 				If(perLaneSampling)
 				{
@@ -249,7 +249,8 @@ std::shared_ptr<rr::Routine> SpirvShader::emitSamplerRoutine(ImageInstructionSig
 		}
 		else
 		{
-			Vector4f sample = s.sampleTexture(texture, uvwa, dRef, lodOrBias.x, (dsx.x), (dsy.x), offset, sampleId);
+			Float lod = Float(lodOrBias.x);
+			SIMD::Float4 sample = s.sampleTexture(texture, uvwa, dRef, lod, (dsx[0]), (dsy[0]), offset, sampleId);
 
 			Pointer<SIMD::Float> rgba = out;
 			rgba[0] = sample.x;
@@ -262,7 +263,7 @@ std::shared_ptr<rr::Routine> SpirvShader::emitSamplerRoutine(ImageInstructionSig
 	return function("sampler");
 }
 
-sw::FilterType SpirvShader::convertFilterMode(const vk::SamplerState *samplerState, VkImageViewType imageViewType, SamplerMethod samplerMethod)
+sw::FilterType SpirvEmitter::convertFilterMode(const vk::SamplerState *samplerState, VkImageViewType imageViewType, SamplerMethod samplerMethod)
 {
 	if(samplerMethod == Gather)
 	{
@@ -315,7 +316,7 @@ sw::FilterType SpirvShader::convertFilterMode(const vk::SamplerState *samplerSta
 	return FILTER_POINT;
 }
 
-sw::MipmapType SpirvShader::convertMipmapMode(const vk::SamplerState *samplerState)
+sw::MipmapType SpirvEmitter::convertMipmapMode(const vk::SamplerState *samplerState)
 {
 	if(!samplerState)
 	{
@@ -338,7 +339,7 @@ sw::MipmapType SpirvShader::convertMipmapMode(const vk::SamplerState *samplerSta
 	}
 }
 
-sw::AddressingMode SpirvShader::convertAddressingMode(int coordinateIndex, const vk::SamplerState *samplerState, VkImageViewType imageViewType)
+sw::AddressingMode SpirvEmitter::convertAddressingMode(int coordinateIndex, const vk::SamplerState *samplerState, VkImageViewType imageViewType)
 {
 	switch(imageViewType)
 	{

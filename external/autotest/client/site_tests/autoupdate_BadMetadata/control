@@ -9,6 +9,7 @@ TEST_CLASS = "platform"
 TEST_TYPE = "client"
 PURPOSE = "Test an update with bad metadata in the omaha response."
 TIME = "SHORT"
+PY_VERSION = 3
 
 DOC = """
 Test an update with bad metadata in the omaha response.

@@ -19,15 +19,8 @@ limitations under the License.
 #include "tensorflow/core/platform/stringpiece.h"
 #include "tensorflow/core/platform/types.h"
 
-// The following line is used by copybara to set or unset the USE_OSS_FARMHASH
-// preprocessor symbol as needed. Please do not remove.
-#define USE_OSS_FARMHASH
-
-#ifdef USE_OSS_FARMHASH
-#include <farmhash.h>
-#else
-#include "util/hash/farmhash_fingerprint.h"
-#endif
+// Use "libtextclassifier_hash_static" for farmhash
+#include "utils/hash/farmhash.h"
 
 namespace tensorflow {
 
@@ -107,7 +100,8 @@ inline Fprint128 Fingerprint128(const StringPiece s) {
           ::util::Uint128High64(fingerprint)};
 #else
   const auto fingerprint = farmhash::Fingerprint128(s.data(), s.size());
-  return {absl::Uint128Low64(fingerprint), absl::Uint128High64(fingerprint)};
+  return {farmhash::Uint128Low64(fingerprint),
+          farmhash::Uint128High64(fingerprint)};
 #endif
 }
 

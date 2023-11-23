@@ -11,27 +11,27 @@
 
 static int get_new_sb(struct f2fs_super_block *sb)
 {
-	u_int32_t zone_size_bytes;
-	u_int64_t zone_align_start_offset;
-	u_int32_t blocks_for_sit, blocks_for_nat, blocks_for_ssa;
-	u_int32_t sit_segments, nat_segments, diff, total_meta_segments;
-	u_int32_t total_valid_blks_available;
-	u_int32_t sit_bitmap_size, max_sit_bitmap_size;
-	u_int32_t max_nat_bitmap_size, max_nat_segments;
-	u_int32_t segment_size_bytes = 1 << (get_sb(log_blocksize) +
+	uint32_t zone_size_bytes;
+	uint64_t zone_align_start_offset;
+	uint32_t blocks_for_sit, blocks_for_nat, blocks_for_ssa;
+	uint32_t sit_segments, nat_segments, diff, total_meta_segments;
+	uint32_t total_valid_blks_available;
+	uint32_t sit_bitmap_size, max_sit_bitmap_size;
+	uint32_t max_nat_bitmap_size, max_nat_segments;
+	uint32_t segment_size_bytes = 1 << (get_sb(log_blocksize) +
 					get_sb(log_blocks_per_seg));
-	u_int32_t blks_per_seg = 1 << get_sb(log_blocks_per_seg);
-	u_int32_t segs_per_zone = get_sb(segs_per_sec) * get_sb(secs_per_zone);
+	uint32_t blks_per_seg = 1 << get_sb(log_blocks_per_seg);
+	uint32_t segs_per_zone = get_sb(segs_per_sec) * get_sb(secs_per_zone);
 
 	set_sb(block_count, c.target_sectors >>
 				get_sb(log_sectors_per_block));
 
 	zone_size_bytes = segment_size_bytes * segs_per_zone;
 	zone_align_start_offset =
-		((u_int64_t) c.start_sector * DEFAULT_SECTOR_SIZE +
+		((uint64_t) c.start_sector * DEFAULT_SECTOR_SIZE +
 		2 * F2FS_BLKSIZE + zone_size_bytes - 1) /
 		zone_size_bytes * zone_size_bytes -
-		(u_int64_t) c.start_sector * DEFAULT_SECTOR_SIZE;
+		(uint64_t) c.start_sector * DEFAULT_SECTOR_SIZE;
 
 	set_sb(segment_count, (c.target_sectors * c.sector_size -
 				zone_align_start_offset) / segment_size_bytes /
@@ -76,7 +76,7 @@ static int get_new_sb(struct f2fs_super_block *sb)
 		/* use cp_payload if free space of f2fs_checkpoint is not enough */
 		if (max_sit_bitmap_size + max_nat_bitmap_size >
 						MAX_BITMAP_SIZE_IN_CKPT) {
-			u_int32_t diff =  max_sit_bitmap_size +
+			uint32_t diff =  max_sit_bitmap_size +
 						max_nat_bitmap_size -
 						MAX_BITMAP_SIZE_IN_CKPT;
 			set_sb(cp_payload, F2FS_BLK_ALIGN(diff));
@@ -146,9 +146,11 @@ safe_resize:
 						get_sb(segs_per_sec));
 
 	/* Let's determine the best reserved and overprovisioned space */
-	c.new_overprovision = get_best_overprovision(sb);
+	if (c.new_overprovision == 0)
+		c.new_overprovision = get_best_overprovision(sb);
+
 	c.new_reserved_segments =
-		(2 * (100 / c.new_overprovision + 1) + 6) *
+		(100 / c.new_overprovision + 1 + NR_CURSEG_TYPE) *
 						get_sb(segs_per_sec);
 
 	if ((get_sb(segment_count_main) - 2) < c.new_reserved_segments ||
@@ -173,7 +175,7 @@ static void migrate_main(struct f2fs_sb_info *sbi, unsigned int offset)
 
 	ASSERT(raw != NULL);
 
-	for (i = TOTAL_SEGS(sbi) - 1; i >= 0; i--) {
+	for (i = MAIN_SEGS(sbi) - 1; i >= 0; i--) {
 		se = get_seg_entry(sbi, i);
 		if (!se->valid_blocks)
 			continue;
@@ -238,7 +240,7 @@ static void migrate_ssa(struct f2fs_sb_info *sbi,
 	block_t new_sum_blkaddr = get_newsb(ssa_blkaddr);
 	block_t end_sum_blkaddr = get_newsb(main_blkaddr);
 	block_t expand_sum_blkaddr = new_sum_blkaddr +
-					TOTAL_SEGS(sbi) - offset;
+					MAIN_SEGS(sbi) - offset;
 	block_t blkaddr;
 	int ret;
 	void *zero_block = calloc(BLOCK_SZ, 1);
@@ -256,7 +258,7 @@ static void migrate_ssa(struct f2fs_sb_info *sbi,
 		}
 	} else {
 		blkaddr = end_sum_blkaddr - 1;
-		offset = TOTAL_SEGS(sbi) - 1;
+		offset = MAIN_SEGS(sbi) - 1;
 		while (blkaddr >= new_sum_blkaddr) {
 			if (blkaddr >= expand_sum_blkaddr) {
 				ret = dev_write_block(zero_block, blkaddr--);
@@ -410,7 +412,7 @@ static void migrate_sit(struct f2fs_sb_info *sbi,
 		DBG(3, "Write zero sit: %x\n", get_newsb(sit_blkaddr) + index);
 	}
 
-	for (segno = 0; segno < TOTAL_SEGS(sbi); segno++) {
+	for (segno = 0; segno < MAIN_SEGS(sbi); segno++) {
 		struct f2fs_sit_entry *sit;
 
 		se = get_seg_entry(sbi, segno);
@@ -457,7 +459,7 @@ static void rebuild_checkpoint(struct f2fs_sb_info *sbi,
 	block_t new_cp_blks = 1 + get_newsb(cp_payload);
 	block_t orphan_blks = 0;
 	block_t new_cp_blk_no, old_cp_blk_no;
-	u_int32_t crc = 0;
+	uint32_t crc = 0;
 	u32 flags;
 	void *buf;
 	int i, ret;
@@ -473,8 +475,18 @@ static void rebuild_checkpoint(struct f2fs_sb_info *sbi,
 	set_cp(overprov_segment_count, (get_newsb(segment_count_main) -
 			get_cp(rsvd_segment_count)) *
 			c.new_overprovision / 100);
+
+	/* give 2 sections (DATA and NODE) to trigger GC in advance */
+	if (get_cp(overprov_segment_count) < get_cp(rsvd_segment_count))
+		set_cp(overprov_segment_count, get_cp(rsvd_segment_count));
+
 	set_cp(overprov_segment_count, get_cp(overprov_segment_count) +
-						get_cp(rsvd_segment_count));
+						2 * get_sb(segs_per_sec));
+
+	DBG(0, "Info: Overprovision ratio = %.3lf%%\n", c.new_overprovision);
+	DBG(0, "Info: Overprovision segments = %u (GC reserved = %u)\n",
+					get_cp(overprov_segment_count),
+					c.new_reserved_segments);
 
 	free_segment_count = get_free_segments(sbi);
 	new_segment_count = get_newsb(segment_count_main) -
@@ -591,6 +603,27 @@ static void rebuild_checkpoint(struct f2fs_sb_info *sbi,
 	DBG(0, "Info: Done to rebuild checkpoint blocks\n");
 }
 
+static int f2fs_resize_check(struct f2fs_sb_info *sbi, struct f2fs_super_block *new_sb)
+{
+	struct f2fs_checkpoint *cp = F2FS_CKPT(sbi);
+	block_t user_block_count;
+	unsigned int overprov_segment_count;
+
+	overprov_segment_count = (get_newsb(segment_count_main) -
+			c.new_reserved_segments) *
+			c.new_overprovision / 100;
+
+	overprov_segment_count += 2 * get_newsb(segs_per_sec);
+
+	user_block_count = (get_newsb(segment_count_main) -
+			overprov_segment_count) * c.blks_per_seg;
+
+	if (get_cp(valid_block_count) > user_block_count)
+		return -1;
+
+	return 0;
+}
+
 static int f2fs_resize_grow(struct f2fs_sb_info *sbi)
 {
 	struct f2fs_super_block *sb = F2FS_RAW_SUPER(sbi);
@@ -606,6 +639,9 @@ static int f2fs_resize_grow(struct f2fs_sb_info *sbi)
 
 	memcpy(new_sb, F2FS_RAW_SUPER(sbi), sizeof(*new_sb));
 	if (get_new_sb(new_sb))
+		return -1;
+
+	if (f2fs_resize_check(sbi, new_sb) < 0)
 		return -1;
 
 	/* check nat availability */
@@ -651,11 +687,8 @@ static int f2fs_resize_shrink(struct f2fs_sb_info *sbi)
 	struct f2fs_super_block *sb = F2FS_RAW_SUPER(sbi);
 	struct f2fs_super_block new_sb_raw;
 	struct f2fs_super_block *new_sb = &new_sb_raw;
-	struct f2fs_checkpoint *cp = F2FS_CKPT(sbi);
 	block_t old_end_blkaddr, old_main_blkaddr;
 	block_t new_end_blkaddr, new_main_blkaddr, tmp_end_blkaddr;
-	block_t user_block_count;
-	unsigned int overprov_segment_count;
 	unsigned int offset;
 	int err = -1;
 
@@ -666,15 +699,7 @@ static int f2fs_resize_shrink(struct f2fs_sb_info *sbi)
 	if (get_new_sb(new_sb))
 		return -1;
 
-	overprov_segment_count = (get_newsb(segment_count_main) -
-			c.new_reserved_segments) *
-			c.new_overprovision / 100;
-	overprov_segment_count += c.new_reserved_segments;
-
-	user_block_count = (get_newsb(segment_count_main) -
-			overprov_segment_count) * c.blks_per_seg;
-
-	if (get_cp(valid_block_count) > user_block_count)
+	if (f2fs_resize_check(sbi, new_sb) < 0)
 		return -1;
 
 	/* check nat availability */

@@ -75,6 +75,10 @@ endif
 # This define specifies DDR type for BLE
 $(eval $(call add_define,CONFIG_DDR4))
 
+# This define specifies DDR topology for BLE
+DDR_TOPOLOGY	?= 0
+$(eval $(call add_define,DDR_TOPOLOGY))
+
 MARVELL_GIC_SOURCES	:=	drivers/arm/gic/common/gic_common.c	\
 				drivers/arm/gic/v2/gicv2_main.c		\
 				drivers/arm/gic/v2/gicv2_helpers.c	\
@@ -166,7 +170,7 @@ endif
 BLE_PATH	?=  $(PLAT_COMMON_BASE)/ble
 
 include ${BLE_PATH}/ble.mk
-$(eval $(call MAKE_BL,e))
+$(eval $(call MAKE_BL,ble))
 
 clean realclean distclean: mrvl_clean
 

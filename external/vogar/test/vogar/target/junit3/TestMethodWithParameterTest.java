@@ -20,7 +20,7 @@ import junit.framework.TestCase;
 
 public class TestMethodWithParameterTest extends TestCase {
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "JUnit3TestNotRun"})
     public void testParameterized(int i) {
     }
 }

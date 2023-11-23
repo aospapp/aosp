@@ -15,6 +15,7 @@ limitations under the License.
 
 #include "tensorflow/core/util/strided_slice_op.h"
 
+#include <algorithm>
 #include <array>
 #include <iterator>
 
@@ -30,7 +31,7 @@ constexpr int32_t kShrinkAxis = -1, kNewAxis = -2;
 // Sparse slicing specification
 // if one does foo[3:5, ..., -3], this will have 3 length tensors
 struct StridedSliceSparseSpec {
-  int64 dims;
+  int64_t dims;
   int32 num_add_axis_after_ellipsis;
   const Tensor* begin_tensor;
   const Tensor* end_tensor;
@@ -46,14 +47,14 @@ struct StridedSliceSparseSpec {
 // each inlinedVector will have 10 entries whereas the
 // sparse had 3 length tensors.
 struct StridedSliceDenseSpec {
-  const int64 dims;
+  const int64_t dims;
   int32 begin_mask;
   int32 end_mask;
   bool begin_valid;
   bool end_valid;
-  gtl::InlinedVector<int64, 4>& begin;
-  gtl::InlinedVector<int64, 4>& end;
-  gtl::InlinedVector<int64, 4>& strides;
+  gtl::InlinedVector<int64_t, 4>& begin;
+  gtl::InlinedVector<int64_t, 4>& end;
+  gtl::InlinedVector<int64_t, 4>& strides;
   // This vector helps construct the final shape of the slice.
   // The final tensor is reduced in rank whenever a single index e.g. foo[3]
   // is called for. The final tensor increases in rank with tf.newaxis
@@ -163,7 +164,7 @@ static Status TF_MUST_USE_RESULT BuildDenseSpec(
       }
     }
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status ValidateStridedSliceOp(
@@ -173,8 +174,9 @@ Status ValidateStridedSliceOp(
     int32_t new_axis_mask, int32_t shrink_axis_mask,
     PartialTensorShape* processing_shape, PartialTensorShape* final_shape,
     bool* is_identity, bool* is_simple_slice, bool* slice_dim0,
-    gtl::InlinedVector<int64, 4>* begin, gtl::InlinedVector<int64, 4>* end,
-    gtl::InlinedVector<int64, 4>* strides, StridedSliceShapeSpec* shape_spec) {
+    gtl::InlinedVector<int64_t, 4>* begin, gtl::InlinedVector<int64_t, 4>* end,
+    gtl::InlinedVector<int64_t, 4>* strides,
+    StridedSliceShapeSpec* shape_spec) {
   const bool begin_is_wrong =
       begin_tensor != nullptr &&
       !(TensorShapeUtils::IsVector(begin_tensor->shape()) &&
@@ -259,9 +261,11 @@ Status ValidateStridedSliceOp(
   if (strides_tensor.dtype() == DT_INT32) {
     TF_RETURN_IF_ERROR(BuildDenseSpec<int32>(sparse_spec, &dense_spec));
   } else if (strides_tensor.dtype() == DT_INT64) {
-    TF_RETURN_IF_ERROR(BuildDenseSpec<int64>(sparse_spec, &dense_spec));
+    TF_RETURN_IF_ERROR(BuildDenseSpec<int64_t>(sparse_spec, &dense_spec));
+  } else if (strides_tensor.dtype() == DT_INT16) {
+    TF_RETURN_IF_ERROR(BuildDenseSpec<int16_t>(sparse_spec, &dense_spec));
   } else {
-    LOG(FATAL) << "begin must be either int32 or int64";
+    LOG(FATAL) << "begin must be either int16, int32 or int64";
   }
 
   // Step 3: Make implicit ranges (non-zero begin_masks and end_masks) explicit
@@ -271,9 +275,9 @@ Status ValidateStridedSliceOp(
   *is_simple_slice = true;
   processing_shape->Clear();
   for (int i = 0; i < input_shape.dims(); ++i) {
-    int64& begin_i = (*begin)[i];
-    int64& end_i = (*end)[i];
-    int64& stride_i = (*strides)[i];
+    int64_t& begin_i = (*begin)[i];
+    int64_t& end_i = (*end)[i];
+    int64_t& stride_i = (*strides)[i];
     int64_t dim_i = input_shape.dim_size(i);
     if (stride_i == 0) {
       return errors::InvalidArgument("strides[", i, "] must be non-zero");
@@ -284,9 +288,9 @@ Status ValidateStridedSliceOp(
       continue;
     }
 
-    const std::array<int64, 2> masks = {
+    const std::array<int64_t, 2> masks = {
         {dense_spec.begin_mask & (1 << i), dense_spec.end_mask & (1 << i)}};
-    const std::array<int64, 2> valid_range = {
+    const std::array<int64_t, 2> valid_range = {
         {stride_i > 0 ? 0 : -1, stride_i > 0 ? dim_i : dim_i - 1}};
 
     auto canonical = [stride_i, dim_i, masks, valid_range](int64_t x, int c) {
@@ -412,7 +416,7 @@ Status ValidateStridedSliceOp(
     }
   }
 
-  return Status::OK();
+  return OkStatus();
 }
 
 Status ValidateStridedSliceOp(
@@ -422,8 +426,9 @@ Status ValidateStridedSliceOp(
     int32_t new_axis_mask, int32_t shrink_axis_mask,
     TensorShape* processing_shape, TensorShape* final_shape, bool* is_identity,
     bool* is_simple_slice, bool* slice_dim0,
-    gtl::InlinedVector<int64, 4>* begin, gtl::InlinedVector<int64, 4>* end,
-    gtl::InlinedVector<int64, 4>* strides, StridedSliceShapeSpec* shape_spec) {
+    gtl::InlinedVector<int64_t, 4>* begin, gtl::InlinedVector<int64_t, 4>* end,
+    gtl::InlinedVector<int64_t, 4>* strides,
+    StridedSliceShapeSpec* shape_spec) {
   // Validate with PartialTensorShape output
   PartialTensorShape partial_processing_shape, partial_final_shape;
   TF_RETURN_IF_ERROR(ValidateStridedSliceOp(
@@ -439,7 +444,91 @@ Status ValidateStridedSliceOp(
                             partial_processing_shape.DebugString(), " and ",
                             partial_final_shape.DebugString());
   }
-  return Status::OK();
+  return OkStatus();
+}
+
+StridedSliceAssignBCast::StridedSliceAssignBCast(
+    const StridedSliceAssignBCast::Vec& input_shape,
+    const StridedSliceAssignBCast::Vec& output_shape)
+    : valid_(true),
+      broadcasting_required_(false),
+      reshape_(output_shape.size()),
+      bcast_(output_shape.size()),
+      result_shape_(output_shape) {
+  // The input needs to be reshaped to have the same number of dimensions as
+  // the output. This is accomplished by either prepending with ones or removing
+  // leading, as necessary.
+  size_t input_start = 0;
+  size_t prepend_size = 0;
+  if (output_shape.size() < input_shape.size()) {
+    // Numpy allows assigning a larger rank array to smaller as long as
+    // broadcasting would otherwise work and the prefix dimensions are all 1.
+    // Though this behavior is undocumented, we allow it here for consistency.
+    // See https://github.com/numpy/numpy/issues/21744 for details.
+    input_start = input_shape.size() - output_shape.size();
+    for (size_t i = 0; i < input_start; ++i) {
+      if (input_shape[i] != 1) {
+        valid_ = false;
+        return;
+      }
+    }
+  } else {
+    prepend_size = output_shape.size() - input_shape.size();
+  }
+  std::fill_n(reshape_.begin(), prepend_size, 1);
+  std::copy(input_shape.begin() + input_start, input_shape.end(),
+            reshape_.begin() + prepend_size);
+
+  // In order to broadcast, dimensions must either be equal or one.
+  for (size_t i = 0; i < output_shape.size(); ++i) {
+    if (reshape_[i] == output_shape[i]) {
+      bcast_[i] = 1;
+    } else if (reshape_[i] == 1) {
+      bcast_[i] = output_shape[i];
+      broadcasting_required_ = true;
+    } else {
+      valid_ = false;
+      return;
+    }
+  }
+}
+
+bool StridedSliceAssignBCast::RemapDimensions(
+    int64_t num_dims, const StridedSliceAssignBCast::Vec& dimension_map) {
+  // Each element in the map corresponds to the original result shape, so
+  // the sizes must be equal.
+  if (dimension_map.size() != result_shape_.size()) {
+    return false;
+  }
+
+  // Ensure all indices are within-bounds before any modifications are made -
+  // otherwise we could be left in a corrupted state.
+  for (size_t i = 0; i < dimension_map.size(); ++i) {
+    int64_t dim = dimension_map[i];
+    if (dim >= num_dims) {
+      return false;
+    }
+  }
+
+  Vec old_reshape = std::move(reshape_);
+  Vec old_bcast = std::move(bcast_);
+  Vec old_result_shape = std::move(result_shape_);
+  reshape_ = Vec(num_dims);
+  bcast_ = Vec(num_dims);
+  result_shape_ = Vec(num_dims);
+  std::fill_n(reshape_.begin(), num_dims, 1);
+  std::fill_n(bcast_.begin(), num_dims, 1);
+  std::fill_n(result_shape_.begin(), num_dims, 1);
+  for (size_t i = 0; i < dimension_map.size(); ++i) {
+    int64_t dim = dimension_map[i];
+    if (dim >= 0) {
+      reshape_[dim] = old_reshape[i];
+      bcast_[dim] = old_bcast[i];
+      result_shape_[dim] = old_result_shape[i];
+    }
+  }
+
+  return true;
 }
 
 }  // namespace tensorflow

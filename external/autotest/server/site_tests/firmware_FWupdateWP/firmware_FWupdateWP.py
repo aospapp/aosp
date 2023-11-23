@@ -28,14 +28,14 @@ class firmware_FWupdateWP(FirmwareTest):
 
         stripped_bios = self.faft_client.bios.strip_modified_fwids()
         if stripped_bios:
-            logging.warn(
+            logging.warning(
                     "Fixed the previously modified BIOS FWID(s): %s",
                     stripped_bios)
 
         if self.faft_config.chrome_ec:
             stripped_ec = self.faft_client.ec.strip_modified_fwids()
             if stripped_ec:
-                logging.warn(
+                logging.warning(
                         "Fixed the previously modified EC FWID(s): %s",
                         stripped_ec)
 

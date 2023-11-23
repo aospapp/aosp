@@ -26,11 +26,12 @@ namespace android {
 class BufferInfoLibdrm : public LegacyBufferInfoGetter {
  public:
   using LegacyBufferInfoGetter::LegacyBufferInfoGetter;
-  int ConvertBoInfo(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
+  auto GetBoInfo(buffer_handle_t handle) -> std::optional<BufferInfo> override;
   int ValidateGralloc() override;
 
  private:
-  bool GetYuvPlaneInfo(int num_fds, buffer_handle_t handle, hwc_drm_bo_t *bo);
+  bool GetYuvPlaneInfo(uint32_t hal_format, int num_fds, buffer_handle_t handle,
+                       BufferInfo *bo);
 };
 
 }  // namespace android

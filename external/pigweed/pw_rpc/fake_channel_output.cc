@@ -26,14 +26,14 @@
 namespace pw::rpc::internal::test {
 
 void FakeChannelOutput::clear() {
-  LockGuard lock(mutex_);
+  std::lock_guard lock(mutex_);
   payloads_.clear();
   packets_.clear();
   send_status_ = OkStatus();
   return_after_packet_count_ = -1;
 }
 
-Status FakeChannelOutput::HandlePacket(std::span<const std::byte> buffer) {
+Status FakeChannelOutput::HandlePacket(span<const std::byte> buffer) {
   // If the buffer is empty, this is just releasing an unused buffer.
   if (buffer.empty()) {
     return OkStatus();
@@ -63,26 +63,23 @@ Status FakeChannelOutput::HandlePacket(std::span<const std::byte> buffer) {
   CopyPayloadToBuffer(packet);
 
   switch (packet.type()) {
-    case PacketType::REQUEST:
+    case pwpb::PacketType::REQUEST:
       return OkStatus();
-    case PacketType::RESPONSE:
+    case pwpb::PacketType::RESPONSE:
       total_response_packets_ += 1;
       return OkStatus();
-    case PacketType::CLIENT_STREAM:
+    case pwpb::PacketType::CLIENT_STREAM:
       return OkStatus();
-    case PacketType::DEPRECATED_SERVER_STREAM_END:
-      PW_CRASH("Deprecated PacketType %d", static_cast<int>(packet.type()));
-    case PacketType::CLIENT_ERROR:
+    case pwpb::PacketType::CLIENT_ERROR:
       PW_LOG_WARN("FakeChannelOutput received client error: %s",
                   packet.status().str());
       return OkStatus();
-    case PacketType::SERVER_ERROR:
+    case pwpb::PacketType::SERVER_ERROR:
       PW_LOG_WARN("FakeChannelOutput received server error: %s",
                   packet.status().str());
       return OkStatus();
-    case PacketType::DEPRECATED_CANCEL:
-    case PacketType::SERVER_STREAM:
-    case PacketType::CLIENT_STREAM_END:
+    case pwpb::PacketType::SERVER_STREAM:
+    case pwpb::PacketType::CLIENT_STREAM_END:
       return OkStatus();
   }
   PW_CRASH("Unhandled PacketType %d", static_cast<int>(result.value().type()));
@@ -104,11 +101,11 @@ void FakeChannelOutput::CopyPayloadToBuffer(Packet& packet) {
   const size_t start = payloads_.size();
   payloads_.resize(payloads_.size() + payload.size());
   std::memcpy(&payloads_[start], payload.data(), payload.size());
-  packet.set_payload(std::span(&payloads_[start], payload.size()));
+  packet.set_payload(span(&payloads_[start], payload.size()));
 }
 
 void FakeChannelOutput::LogPackets() const {
-  LockGuard lock(mutex_);
+  std::lock_guard lock(mutex_);
 
   PW_LOG_INFO("%u packets have been sent through this FakeChannelOutput",
               static_cast<unsigned>(packets_.size()));

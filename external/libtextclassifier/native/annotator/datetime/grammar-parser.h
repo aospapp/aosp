@@ -22,6 +22,7 @@
 
 #include "annotator/datetime/datetime-grounder.h"
 #include "annotator/datetime/parser.h"
+#include "annotator/model_generated.h"
 #include "annotator/types.h"
 #include "utils/base/statusor.h"
 #include "utils/grammar/analyzer.h"
@@ -37,7 +38,8 @@ class GrammarDatetimeParser : public DatetimeParser {
   explicit GrammarDatetimeParser(const grammar::Analyzer& analyzer,
                                  const DatetimeGrounder& datetime_grounder,
                                  const float target_classification_score,
-                                 const float priority_score);
+                                 const float priority_score,
+                                 ModeFlag enabled_modes);
 
   // Parses the dates in 'input' and fills result. Makes sure that the results
   // do not overlap.
@@ -61,6 +63,7 @@ class GrammarDatetimeParser : public DatetimeParser {
   const DatetimeGrounder& datetime_grounder_;
   const float target_classification_score_;
   const float priority_score_;
+  const ModeFlag enabled_modes_;
 };
 
 }  // namespace libtextclassifier3

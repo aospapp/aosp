@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -27,6 +28,7 @@ class power_CPUFreq(test.test):
         self._cpus = [cpufreq(dirname) for dirname in dirs]
         for cpu in self._cpus:
             cpu.save_state()
+            cpu.disable_constraints()
 
         # Store the setting if the system has CPUQuiet feature
         if os.path.exists(SYSFS_CPUQUIET_ENABLE):
@@ -88,6 +90,12 @@ class power_CPUFreq(test.test):
             raise error.TestFail('Not enough frequencies supported!')
 
         for cpu in cpus:
+            this_frequencies = cpu.get_available_frequencies()
+            if set(available_frequencies) != set(this_frequencies):
+                raise error.TestError(
+                    "Can't fallback to parallel test: %s / %s differ: %r / %r" %
+                    (cpu, cpu0, available_frequencies, this_frequencies))
+
             if 'userspace' not in cpu.get_available_governors():
                 raise error.TestError('userspace governor not supported')
 
@@ -108,7 +116,7 @@ class power_CPUFreq(test.test):
         try:
             freq = cpu.get_current_frequency()
         except IOError:
-            logging.warn('Frequency getting failed.  Retrying once.')
+            logging.warning('Frequency getting failed.  Retrying once.')
             time.sleep(.1)
             freq = cpu.get_current_frequency()
 
@@ -150,12 +158,15 @@ class cpufreq(object):
         if self.get_driver() == 'acpi-cpufreq':
             self.enable_boost()
 
+    def __str__(self):
+        return os.path.basename(os.path.dirname(self.__base_path))
+
     def __write_file(self, file_name, data):
         path = os.path.join(self.__base_path, file_name)
         try:
             utils.open_write_close(path, data)
         except IOError as e:
-            logging.warn('write of %s failed: %s', path, str(e))
+            logging.warning('write of %s failed: %s', path, str(e))
 
     def __read_file(self, file_name):
         path = os.path.join(self.__base_path, file_name)
@@ -181,6 +192,11 @@ class cpufreq(object):
             data = getattr(self, fname).strip()
             logging.info(fname + ': ' + data)
             self.__write_file(fname, data)
+
+    def disable_constraints(self):
+        logging.info('disabling min/max constraints:')
+        self.__write_file('scaling_min_freq', str(self.get_min_frequency()))
+        self.__write_file('scaling_max_freq', str(self.get_max_frequency()))
 
     def get_available_governors(self):
         governors = self.__read_file('scaling_available_governors')
@@ -214,19 +230,19 @@ class cpufreq(object):
         logging.info('current frequency: %s', freq)
         return freq
 
+    def get_min_frequency(self):
+        freq = int(self.__read_file('cpuinfo_min_freq'))
+        logging.info('min frequency: %s', freq)
+        return freq
+
+    def get_max_frequency(self):
+        freq = int(self.__read_file('cpuinfo_max_freq'))
+        logging.info('max frequency: %s', freq)
+        return freq
+
     def set_frequency(self, frequency):
         logging.info('setting frequency to %d', frequency)
-        if frequency >= self.get_current_frequency():
-            file_list = [
-                'scaling_max_freq', 'scaling_min_freq', 'scaling_setspeed'
-            ]
-        else:
-            file_list = [
-                'scaling_min_freq', 'scaling_max_freq', 'scaling_setspeed'
-            ]
-
-        for fname in file_list:
-            self.__write_file(fname, str(frequency))
+        self.__write_file('scaling_setspeed', str(frequency))
 
     def disable_boost(self):
         """Disable boost.

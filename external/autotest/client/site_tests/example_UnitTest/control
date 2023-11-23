@@ -12,6 +12,7 @@ TIME='MEDIUM'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "example"
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
 This is an example unit test.

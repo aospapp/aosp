@@ -56,7 +56,7 @@ class ServoV4ChargeManager(object):
 
         Make sure that Servo is v4 and can manage charging. Make sure that DUT
         responds to Servo charging commands. Restore Servo v4 power role after
-        sanity check.
+        confidence check.
 
         @param host: CrosHost object representing the DUT or None.
                      If host is None, then the is_ac_connected check on the
@@ -70,7 +70,7 @@ class ServoV4ChargeManager(object):
             raise error.TestNAError('Servo setup does not support PD control. '
                                     'Check logs for details.')
 
-        self._original_role = self._servo.get('servo_v4_role')
+        self._original_role = self._servo.get('servo_pd_role')
         if self._original_role == 'snk':
             self.start_charging()
             self.stop_charging()
@@ -150,7 +150,7 @@ class ServoV4ChargeManager(object):
 
         @raises error.TestError: if the role did not change successfully.
         """
-        self._servo.set_nocheck('servo_v4_role', role)
+        self._servo.set_nocheck('servo_pd_role', role)
         # Sometimes the role reverts quickly. Add a short delay to let the new
         # role stabilize.
         time.sleep(_ROLE_SETTLING_DELAY_SEC)
@@ -162,7 +162,7 @@ class ServoV4ChargeManager(object):
                      delay_sec=_DELAY_SEC, backoff=_BACKOFF)
         def check_servo_role(role):
             """Check if servo role is as expected, if not, retry."""
-            if self._servo.get('servo_v4_role') != role:
+            if self._servo.get('servo_pd_role') != role:
                 raise error.TestError('Servo v4 failed to set its PD role to '
                                       '%s.' % role)
         check_servo_role(role)
@@ -176,7 +176,7 @@ class ServoV4ChargeManager(object):
             if not self._servo.has_control('charger_connected'):
                 # TODO(coconutruben): remove this check once labs have the
                 # latest hdctools with the required control.
-                logging.warn('Could not verify %r control as the '
+                logging.warning('Could not verify %r control as the '
                               'control is not available on servod.',
                               'charger_connected')
                 return

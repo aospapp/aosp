@@ -74,6 +74,7 @@ public class SimpleFormatterTest extends TestCase {
     }
 
     public void testFormat() {
+        long logEventTimeMillis = 0;
         String str = sf.format(lr);
         Throwable t;
 
@@ -92,10 +93,10 @@ public class SimpleFormatterTest extends TestCase {
             }
         });
         lr.setSequenceNumber(12321312);
-        lr.setMillis(0);
+        lr.setMillis(logEventTimeMillis);
         str = sf.format(lr);
         Calendar cal = Calendar.getInstance();
-        cal.setTimeInMillis(12321312);
+        cal.setTimeInMillis(logEventTimeMillis);
         assertTrue(str.indexOf(String.valueOf(cal.get(Calendar.YEAR))) >= 0);
         assertTrue(str.indexOf("class") > 0);
         assertTrue(str.indexOf("method") > 0);

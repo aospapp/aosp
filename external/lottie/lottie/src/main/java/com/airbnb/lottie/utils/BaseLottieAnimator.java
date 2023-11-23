@@ -19,6 +19,7 @@ public abstract class BaseLottieAnimator extends ValueAnimator {
   @Override public void setStartDelay(long startDelay) {
     throw new UnsupportedOperationException("LottieAnimator does not support setStartDelay.");
   }
+
   @Override public ValueAnimator setDuration(long duration) {
     throw new UnsupportedOperationException("LottieAnimator does not support setDuration.");
   }
@@ -39,11 +40,11 @@ public abstract class BaseLottieAnimator extends ValueAnimator {
     updateListeners.clear();
   }
 
-  public void addListener(ValueAnimator.AnimatorListener listener) {
+  public void addListener(Animator.AnimatorListener listener) {
     listeners.add(listener);
   }
 
-  public void removeListener(ValueAnimator.AnimatorListener listener) {
+  public void removeListener(Animator.AnimatorListener listener) {
     listeners.remove(listener);
   }
 

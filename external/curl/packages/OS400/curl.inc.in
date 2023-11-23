@@ -5,7 +5,7 @@
       *                            | (__| |_| |  _ <| |___
       *                             \___|\___/|_| \_\_____|
       *
-      * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+      * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
       *
       * This software is licensed as described in the file COPYING, which
       * you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
       *
       * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF
       * ANY KIND, either express or implied.
+      *
+      * SPDX-License-Identifier: curl
       *
       *
       **************************************************************************
@@ -148,6 +150,8 @@
      d                 c                   X'10000000'
      d CURL_VERSION_GSASL...
      d                 c                   X'20000000'
+     d CURL_VERSION_THREADSAFE...
+     d                 c                   X'40000000'
       *
      d CURL_HTTPPOST_FILENAME...
      d                 c                   X'00000001'
@@ -1202,7 +1206,7 @@
      d                 c                   00110
      d  CURLOPT_PROXYAUTH...
      d                 c                   00111
-     d  CURLOPT_FTP_RESPONSE_TIMEOUT...
+     d  CURLOPT_SERVER_RESPONSE_TIMEOUT...
      d                 c                   00112
      d  CURLOPT_SERVER_RESPONSE_TIMEOUT...                                      Alias
      d                 c                   00112
@@ -1585,6 +1589,8 @@
      d                 c                   40310
      d  CURLOPT_MAXLIFETIME_CONN...
      d                 c                   00314
+     d  CURLOPT_MIME_OPTIONS...
+     d                 c                   00315
       *
       /if not defined(CURL_NO_OLDIES)
      d  CURLOPT_FILE   c                   10001
@@ -1675,6 +1681,9 @@
      d                 c                   19
      d  CURLFORM_CONTENTLEN...
      d                 c                   20
+      *
+     d CURLMIMEOPT_FORMESCAPE...
+     d                 c                   X'00000001'
       *
      d CURLINFO        s             10i 0 based(######ptr######)               Enum
      d  CURLINFO_EFFECTIVE_URL...                                               CURLINFO_STRING + 1
@@ -2311,7 +2320,7 @@
      d                                     qualified
      d  name                           *                                        const char *
      d  id                                 like(CURLoption)
-     d  type                               like(curl_easytyoe)
+     d  type                               like(curl_easytype)
      d  flags                        10u 0
       *
      d curl_hstsentry...
@@ -2921,7 +2930,7 @@
       *
      d curl_easy_option_by_name...
      d                 pr              *   extproc('curl_easy_option_by_name')  curl_easyoption *
-     d  name                           *   value option(*string)
+     d  name                           *   value options(*string)
       *
      d curl_easy_option_by_id...
      d                 pr              *   extproc('curl_easy_option_by_id')    curl_easyoption *
@@ -3108,7 +3117,7 @@
      d curl_easy_option_by_name_ccsid...
      d                 pr              *   extproc(                             curl_easyoption *
      d                                      'curl_easy_option_by_name_ccsid')
-     d  name                           *   value option(*string)
+     d  name                           *   value options(*string)
      d  ccsid                        10u 0 value
       *
      d curl_easy_option_get_name_ccsid...

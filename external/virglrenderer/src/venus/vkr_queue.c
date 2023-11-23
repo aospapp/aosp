@@ -7,15 +7,17 @@
 
 #include "venus-protocol/vn_protocol_renderer_queue.h"
 
+#include "vkr_context.h"
 #include "vkr_physical_device.h"
 #include "vkr_queue_gen.h"
 
 struct vkr_queue_sync *
 vkr_device_alloc_queue_sync(struct vkr_device *dev,
                             uint32_t fence_flags,
-                            uint64_t queue_id,
-                            void *fence_cookie)
+                            uint32_t ring_idx,
+                            uint64_t fence_id)
 {
+   struct vn_device_proc_table *vk = &dev->proc_table;
    struct vkr_queue_sync *sync;
 
    if (vkr_renderer_flags & VKR_RENDERER_ASYNC_FENCE_CB)
@@ -38,7 +40,7 @@ vkr_device_alloc_queue_sync(struct vkr_device *dev,
          .pNext = dev->physical_device->KHR_external_fence_fd ? &export_info : NULL,
       };
       VkResult result =
-         vkCreateFence(dev->base.handle.device, &create_info, NULL, &sync->fence);
+         vk->CreateFence(dev->base.handle.device, &create_info, NULL, &sync->fence);
       if (result != VK_SUCCESS) {
          free(sync);
          return NULL;
@@ -50,12 +52,13 @@ vkr_device_alloc_queue_sync(struct vkr_device *dev,
       if (vkr_renderer_flags & VKR_RENDERER_ASYNC_FENCE_CB)
          mtx_unlock(&dev->free_sync_mutex);
 
-      vkResetFences(dev->base.handle.device, 1, &sync->fence);
+      vk->ResetFences(dev->base.handle.device, 1, &sync->fence);
    }
 
+   sync->device_lost = false;
    sync->flags = fence_flags;
-   sync->queue_id = queue_id;
-   sync->fence_cookie = fence_cookie;
+   sync->ring_idx = ring_idx;
+   sync->fence_id = fence_id;
 
    return sync;
 }
@@ -78,6 +81,7 @@ vkr_queue_get_signaled_syncs(struct vkr_queue *queue,
                              bool *queue_empty)
 {
    struct vkr_device *dev = queue->device;
+   struct vn_device_proc_table *vk = &dev->proc_table;
    struct vkr_queue_sync *sync, *tmp;
 
    assert(!(vkr_renderer_flags & VKR_RENDERER_ASYNC_FENCE_CB));
@@ -101,9 +105,11 @@ vkr_queue_get_signaled_syncs(struct vkr_queue *queue,
       mtx_unlock(&queue->mutex);
    } else {
       LIST_FOR_EACH_ENTRY_SAFE (sync, tmp, &queue->pending_syncs, head) {
-         VkResult result = vkGetFenceStatus(dev->base.handle.device, sync->fence);
-         if (result == VK_NOT_READY)
-            break;
+         if (!sync->device_lost) {
+            VkResult result = vk->GetFenceStatus(dev->base.handle.device, sync->fence);
+            if (result == VK_NOT_READY)
+               break;
+         }
 
          bool is_last_sync = sync->head.next == &queue->pending_syncs;
 
@@ -123,11 +129,13 @@ vkr_queue_sync_retire(struct vkr_context *ctx,
                       struct vkr_device *dev,
                       struct vkr_queue_sync *sync)
 {
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    if (vkr_renderer_flags & VKR_RENDERER_ASYNC_FENCE_CB) {
-      ctx->base.fence_retire(&ctx->base, sync->queue_id, sync->fence_cookie);
+      ctx->base.fence_retire(&ctx->base, sync->ring_idx, sync->fence_id);
       vkr_device_free_queue_sync(dev, sync);
    } else {
-      vkDestroyFence(dev->base.handle.device, sync->fence, NULL);
+      vk->DestroyFence(dev->base.handle.device, sync->fence, NULL);
       sync->fence = VK_NULL_HANDLE;
 
       /* move to the ctx to be retired and freed at the next retire_fences */
@@ -170,6 +178,9 @@ vkr_queue_destroy(struct vkr_context *ctx, struct vkr_queue *queue)
    list_del(&queue->busy_head);
    list_del(&queue->base.track_head);
 
+   if (queue->ring_idx > 0)
+      ctx->sync_queues[queue->ring_idx] = NULL;
+
    if (queue->base.id)
       vkr_context_remove_object(ctx, &queue->base);
    else
@@ -182,11 +193,12 @@ vkr_queue_thread(void *arg)
    struct vkr_queue *queue = arg;
    struct vkr_context *ctx = queue->context;
    struct vkr_device *dev = queue->device;
+   struct vn_device_proc_table *vk = &dev->proc_table;
    const uint64_t ns_per_sec = 1000000000llu;
    char thread_name[16];
 
    snprintf(thread_name, ARRAY_SIZE(thread_name), "vkr-queue-%d", ctx->base.ctx_id);
-   pipe_thread_setname(thread_name);
+   u_thread_setname(thread_name);
 
    mtx_lock(&queue->mutex);
    while (true) {
@@ -201,8 +213,13 @@ vkr_queue_thread(void *arg)
 
       mtx_unlock(&queue->mutex);
 
-      VkResult result =
-         vkWaitForFences(dev->base.handle.device, 1, &sync->fence, false, ns_per_sec * 3);
+      VkResult result;
+      if (sync->device_lost) {
+         result = VK_ERROR_DEVICE_LOST;
+      } else {
+         result = vk->WaitForFences(dev->base.handle.device, 1, &sync->fence, true,
+                                    ns_per_sec * 3);
+      }
 
       mtx_lock(&queue->mutex);
 
@@ -212,7 +229,7 @@ vkr_queue_thread(void *arg)
       list_del(&sync->head);
 
       if (vkr_renderer_flags & VKR_RENDERER_ASYNC_FENCE_CB) {
-         ctx->base.fence_retire(&ctx->base, sync->queue_id, sync->fence_cookie);
+         ctx->base.fence_retire(&ctx->base, sync->ring_idx, sync->fence_id);
          vkr_device_free_queue_sync(queue->device, sync);
       } else {
          list_addtail(&sync->head, &queue->signaled_syncs);
@@ -350,6 +367,26 @@ vkr_dispatch_vkGetDeviceQueue2(struct vn_dispatch_context *dispatch,
       return;
    }
 
+   const VkDeviceQueueTimelineInfoMESA *timeline_info = vkr_find_struct(
+      args->pQueueInfo->pNext, VK_STRUCTURE_TYPE_DEVICE_QUEUE_TIMELINE_INFO_MESA);
+   if (timeline_info) {
+      if (timeline_info->ringIdx == 0 ||
+          timeline_info->ringIdx >= ARRAY_SIZE(ctx->sync_queues)) {
+         vkr_log("invalid ring_idx %d", timeline_info->ringIdx);
+         vkr_cs_decoder_set_fatal(&ctx->decoder);
+         return;
+      }
+
+      if (ctx->sync_queues[timeline_info->ringIdx]) {
+         vkr_log("sync_queue %d already bound", timeline_info->ringIdx);
+         vkr_cs_decoder_set_fatal(&ctx->decoder);
+         return;
+      }
+
+      queue->ring_idx = timeline_info->ringIdx;
+      ctx->sync_queues[timeline_info->ringIdx] = queue;
+   }
+
    const vkr_object_id id =
       vkr_cs_handle_load_id((const void **)args->pQueue, VK_OBJECT_TYPE_QUEUE);
    vkr_queue_assign_object_id(ctx, queue, id);
@@ -359,17 +396,24 @@ static void
 vkr_dispatch_vkQueueSubmit(UNUSED struct vn_dispatch_context *dispatch,
                            struct vn_command_vkQueueSubmit *args)
 {
+   struct vkr_queue *queue = vkr_queue_from_handle(args->queue);
+   struct vn_device_proc_table *vk = &queue->device->proc_table;
+
    vn_replace_vkQueueSubmit_args_handle(args);
-   args->ret = vkQueueSubmit(args->queue, args->submitCount, args->pSubmits, args->fence);
+   args->ret =
+      vk->QueueSubmit(args->queue, args->submitCount, args->pSubmits, args->fence);
 }
 
 static void
 vkr_dispatch_vkQueueBindSparse(UNUSED struct vn_dispatch_context *dispatch,
                                struct vn_command_vkQueueBindSparse *args)
 {
+   struct vkr_queue *queue = vkr_queue_from_handle(args->queue);
+   struct vn_device_proc_table *vk = &queue->device->proc_table;
+
    vn_replace_vkQueueBindSparse_args_handle(args);
    args->ret =
-      vkQueueBindSparse(args->queue, args->bindInfoCount, args->pBindInfo, args->fence);
+      vk->QueueBindSparse(args->queue, args->bindInfoCount, args->pBindInfo, args->fence);
 }
 
 static void
@@ -379,6 +423,18 @@ vkr_dispatch_vkQueueWaitIdle(struct vn_dispatch_context *dispatch,
    struct vkr_context *ctx = dispatch->data;
    /* no blocking call */
    vkr_cs_decoder_set_fatal(&ctx->decoder);
+}
+
+static void
+vkr_dispatch_vkQueueSubmit2(UNUSED struct vn_dispatch_context *dispatch,
+                            struct vn_command_vkQueueSubmit2 *args)
+{
+   struct vkr_queue *queue = vkr_queue_from_handle(args->queue);
+   struct vn_device_proc_table *vk = &queue->device->proc_table;
+
+   vn_replace_vkQueueSubmit2_args_handle(args);
+   args->ret =
+      vk->QueueSubmit2(args->queue, args->submitCount, args->pSubmits, args->fence);
 }
 
 static void
@@ -399,16 +455,22 @@ static void
 vkr_dispatch_vkResetFences(UNUSED struct vn_dispatch_context *dispatch,
                            struct vn_command_vkResetFences *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkResetFences_args_handle(args);
-   args->ret = vkResetFences(args->device, args->fenceCount, args->pFences);
+   args->ret = vk->ResetFences(args->device, args->fenceCount, args->pFences);
 }
 
 static void
 vkr_dispatch_vkGetFenceStatus(UNUSED struct vn_dispatch_context *dispatch,
                               struct vn_command_vkGetFenceStatus *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkGetFenceStatus_args_handle(args);
-   args->ret = vkGetFenceStatus(args->device, args->fence);
+   args->ret = vk->GetFenceStatus(args->device, args->fence);
 }
 
 static void
@@ -416,20 +478,42 @@ vkr_dispatch_vkWaitForFences(struct vn_dispatch_context *dispatch,
                              struct vn_command_vkWaitForFences *args)
 {
    struct vkr_context *ctx = dispatch->data;
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
 
-   /* Being single-threaded, we cannot afford potential blocking calls.  It
-    * also leads to GPU lost when the wait never returns and can only be
-    * unblocked by a following command (e.g., vkCmdWaitEvents that is
-    * unblocked by a following vkSetEvent).
-    */
-   if (args->timeout) {
+   vn_replace_vkWaitForFences_args_handle(args);
+   args->ret = vk->WaitForFences(args->device, args->fenceCount, args->pFences,
+                                 args->waitAll, args->timeout);
+
+   if (args->ret == VK_ERROR_DEVICE_LOST)
+      vkr_cs_decoder_set_fatal(&ctx->decoder);
+}
+
+static void
+vkr_dispatch_vkResetFenceResource100000MESA(
+   struct vn_dispatch_context *dispatch,
+   struct vn_command_vkResetFenceResource100000MESA *args)
+{
+   struct vkr_context *ctx = dispatch->data;
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+   int fd = -1;
+
+   vn_replace_vkResetFenceResource100000MESA_args_handle(args);
+
+   const VkFenceGetFdInfoKHR info = {
+      .sType = VK_STRUCTURE_TYPE_FENCE_GET_FD_INFO_KHR,
+      .fence = args->fence,
+      .handleType = VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT,
+   };
+   VkResult result = vk->GetFenceFdKHR(args->device, &info, &fd);
+   if (result != VK_SUCCESS) {
       vkr_cs_decoder_set_fatal(&ctx->decoder);
       return;
    }
 
-   vn_replace_vkWaitForFences_args_handle(args);
-   args->ret = vkWaitForFences(args->device, args->fenceCount, args->pFences,
-                               args->waitAll, args->timeout);
+   if (fd >= 0)
+      close(fd);
 }
 
 static void
@@ -451,9 +535,10 @@ vkr_dispatch_vkGetSemaphoreCounterValue(UNUSED struct vn_dispatch_context *dispa
                                         struct vn_command_vkGetSemaphoreCounterValue *args)
 {
    struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
 
    vn_replace_vkGetSemaphoreCounterValue_args_handle(args);
-   args->ret = dev->GetSemaphoreCounterValue(args->device, args->semaphore, args->pValue);
+   args->ret = vk->GetSemaphoreCounterValue(args->device, args->semaphore, args->pValue);
 }
 
 static void
@@ -462,15 +547,13 @@ vkr_dispatch_vkWaitSemaphores(struct vn_dispatch_context *dispatch,
 {
    struct vkr_context *ctx = dispatch->data;
    struct vkr_device *dev = vkr_device_from_handle(args->device);
-
-   /* no blocking call */
-   if (args->timeout) {
-      vkr_cs_decoder_set_fatal(&ctx->decoder);
-      return;
-   }
+   struct vn_device_proc_table *vk = &dev->proc_table;
 
    vn_replace_vkWaitSemaphores_args_handle(args);
-   args->ret = dev->WaitSemaphores(args->device, args->pWaitInfo, args->timeout);
+   args->ret = vk->WaitSemaphores(args->device, args->pWaitInfo, args->timeout);
+
+   if (args->ret == VK_ERROR_DEVICE_LOST)
+      vkr_cs_decoder_set_fatal(&ctx->decoder);
 }
 
 static void
@@ -478,9 +561,65 @@ vkr_dispatch_vkSignalSemaphore(UNUSED struct vn_dispatch_context *dispatch,
                                struct vn_command_vkSignalSemaphore *args)
 {
    struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
 
    vn_replace_vkSignalSemaphore_args_handle(args);
-   args->ret = dev->SignalSemaphore(args->device, args->pSignalInfo);
+   args->ret = vk->SignalSemaphore(args->device, args->pSignalInfo);
+}
+
+static void
+vkr_dispatch_vkWaitSemaphoreResource100000MESA(
+   struct vn_dispatch_context *dispatch,
+   struct vn_command_vkWaitSemaphoreResource100000MESA *args)
+{
+   struct vkr_context *ctx = dispatch->data;
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+   int fd = -1;
+
+   vn_replace_vkWaitSemaphoreResource100000MESA_args_handle(args);
+
+   const VkSemaphoreGetFdInfoKHR info = {
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
+      .semaphore = args->semaphore,
+      .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+   };
+   VkResult result = vk->GetSemaphoreFdKHR(args->device, &info, &fd);
+   if (result != VK_SUCCESS) {
+      vkr_cs_decoder_set_fatal(&ctx->decoder);
+      return;
+   }
+
+   if (fd >= 0)
+      close(fd);
+}
+
+static void
+vkr_dispatch_vkImportSemaphoreResource100000MESA(
+   struct vn_dispatch_context *dispatch,
+   struct vn_command_vkImportSemaphoreResource100000MESA *args)
+{
+   struct vkr_context *ctx = dispatch->data;
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
+   vn_replace_vkImportSemaphoreResource100000MESA_args_handle(args);
+
+   const VkImportSemaphoreResourceInfo100000MESA *res_info =
+      args->pImportSemaphoreResourceInfo;
+
+   /* resourceId 0 is for importing a signaled payload to sync_fd fence */
+   assert(!res_info->resourceId);
+
+   const VkImportSemaphoreFdInfoKHR import_info = {
+      .sType = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR,
+      .semaphore = res_info->semaphore,
+      .flags = VK_SEMAPHORE_IMPORT_TEMPORARY_BIT,
+      .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+      .fd = -1,
+   };
+   if (vk->ImportSemaphoreFdKHR(args->device, &import_info) != VK_SUCCESS)
+      vkr_cs_decoder_set_fatal(&ctx->decoder);
 }
 
 static void
@@ -501,24 +640,33 @@ static void
 vkr_dispatch_vkGetEventStatus(UNUSED struct vn_dispatch_context *dispatch,
                               struct vn_command_vkGetEventStatus *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkGetEventStatus_args_handle(args);
-   args->ret = vkGetEventStatus(args->device, args->event);
+   args->ret = vk->GetEventStatus(args->device, args->event);
 }
 
 static void
 vkr_dispatch_vkSetEvent(UNUSED struct vn_dispatch_context *dispatch,
                         struct vn_command_vkSetEvent *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkSetEvent_args_handle(args);
-   args->ret = vkSetEvent(args->device, args->event);
+   args->ret = vk->SetEvent(args->device, args->event);
 }
 
 static void
 vkr_dispatch_vkResetEvent(UNUSED struct vn_dispatch_context *dispatch,
                           struct vn_command_vkResetEvent *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkResetEvent_args_handle(args);
-   args->ret = vkResetEvent(args->device, args->event);
+   args->ret = vk->ResetEvent(args->device, args->event);
 }
 
 void
@@ -531,6 +679,9 @@ vkr_context_init_queue_dispatch(struct vkr_context *ctx)
    dispatch->dispatch_vkQueueSubmit = vkr_dispatch_vkQueueSubmit;
    dispatch->dispatch_vkQueueBindSparse = vkr_dispatch_vkQueueBindSparse;
    dispatch->dispatch_vkQueueWaitIdle = vkr_dispatch_vkQueueWaitIdle;
+
+   /* VK_KHR_synchronization2 */
+   dispatch->dispatch_vkQueueSubmit2 = vkr_dispatch_vkQueueSubmit2;
 }
 
 void
@@ -543,6 +694,9 @@ vkr_context_init_fence_dispatch(struct vkr_context *ctx)
    dispatch->dispatch_vkResetFences = vkr_dispatch_vkResetFences;
    dispatch->dispatch_vkGetFenceStatus = vkr_dispatch_vkGetFenceStatus;
    dispatch->dispatch_vkWaitForFences = vkr_dispatch_vkWaitForFences;
+
+   dispatch->dispatch_vkResetFenceResource100000MESA =
+      vkr_dispatch_vkResetFenceResource100000MESA;
 }
 
 void
@@ -556,6 +710,11 @@ vkr_context_init_semaphore_dispatch(struct vkr_context *ctx)
       vkr_dispatch_vkGetSemaphoreCounterValue;
    dispatch->dispatch_vkWaitSemaphores = vkr_dispatch_vkWaitSemaphores;
    dispatch->dispatch_vkSignalSemaphore = vkr_dispatch_vkSignalSemaphore;
+
+   dispatch->dispatch_vkWaitSemaphoreResource100000MESA =
+      vkr_dispatch_vkWaitSemaphoreResource100000MESA;
+   dispatch->dispatch_vkImportSemaphoreResource100000MESA =
+      vkr_dispatch_vkImportSemaphoreResource100000MESA;
 }
 
 void

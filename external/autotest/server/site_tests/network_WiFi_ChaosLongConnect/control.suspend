@@ -2,10 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# TEST IS DISABLED UNTIL MIGRATED TO PYTHON 3.
+# For instructions on how to: go/tauto-py3-migration
+# To re-enable migrate to Python 3.
+# If the test is not migrated by 1/14/22 it will be deleted.
+
 AUTHOR = 'asnagarajan, wiley, jabele'
 NAME = 'network_WiFi_ChaosLongConnect.suspend'
 TIME = 'LONG'
 TEST_TYPE = 'server'
+PY_VERSION = 3
 
 DOC = """
 This script iterates through all of the access points in the AP compatibility

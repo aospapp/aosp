@@ -140,6 +140,12 @@ class SystemFacadeRemoteAdapter(object):
         """
         return self._system_proxy.get_and_discard_bg_worker_output()
 
+    def get_energy_usage(self):
+        """
+        Gets the energy counter value as a string.
+        """
+        return self._system_proxy.get_energy_usage()
+
     def stop_bg_worker(self):
         """
         Stop the worker.

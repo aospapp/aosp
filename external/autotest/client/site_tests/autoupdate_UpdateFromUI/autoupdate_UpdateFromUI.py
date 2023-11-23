@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -12,7 +13,7 @@ from autotest_lib.client.cros.update_engine import update_engine_test
 from telemetry.core import exceptions
 
 class autoupdate_UpdateFromUI(update_engine_test.UpdateEngineTest):
-    """Starts an update from the Chrome OS Settings app. """
+    """Starts an update from the ChromeOS Settings app. """
     version = 1
 
     _NOTIFICATION_INTERVAL = 1
@@ -52,7 +53,7 @@ class autoupdate_UpdateFromUI(update_engine_test.UpdateEngineTest):
 
     def run_once(self, payload_url):
         """
-        Tests that a Chrome OS software update can be completed from the UI,
+        Tests that a ChromeOS software update can be completed from the UI,
         and that the post-update notification appears when the update is
         complete.
 
@@ -81,9 +82,15 @@ class autoupdate_UpdateFromUI(update_engine_test.UpdateEngineTest):
                 tab.Navigate('chrome://os-settings/help')
                 tab.WaitForDocumentReadyStateToBeComplete()
                 self._take_screenshot('before_check_for_updates.png')
+                request_update_js = '''
+                    async function checkForUpdate() {
+                        return await import('chrome://os-settings/chromeos/os_settings.js').then(m =>
+                          m.AboutPageBrowserProxyImpl.getInstance().requestUpdate());
+                    }
+                    checkForUpdate();
+                '''
                 try:
-                    tab.EvaluateJavaScript('settings.AboutPageBrowserProxyImpl'
-                                           '.getInstance().requestUpdate()')
+                    tab.EvaluateJavaScript(request_update_js)
                 except exceptions.EvaluateException:
                     raise error.TestFail(
                         'Failed to find and click Check For Updates button.')

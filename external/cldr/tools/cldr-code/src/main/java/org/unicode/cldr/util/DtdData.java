@@ -117,7 +117,7 @@ public class DtdData extends XMLFileReader.SimpleHandler {
         private final Set<String> commentsPre;
         private Set<String> commentsPost;
         private boolean isDeprecatedAttribute;
-        public AttributeStatus attributeStatus = AttributeStatus.distinguished; // default unless reset by annotations
+        public AttributeStatus attributeStatus = AttributeStatus.distinguished; // default unless reset by annotations, or for xml: attributes
         private Set<String> deprecatedValues = Collections.emptySet();
         public MatchValue matchValue;
         private final Comparator<String> attributeValueComparator;
@@ -136,6 +136,8 @@ public class DtdData extends XMLFileReader.SimpleHandler {
                         System.out.println(element.getName() + ":" + element.getChildren());
                     }
                 }
+            } else if (name.startsWith("xml:")) {
+                attributeStatus = AttributeStatus.metadata;
             }
             mode = mode2;
             defaultValue = value2 == null ? null
@@ -221,7 +223,6 @@ public class DtdData extends XMLFileReader.SimpleHandler {
 
         public void addComment(String commentIn) {
             if (commentIn.startsWith("@")) {
-                // there are exactly 2 cases: deprecated and ordered
                 switch (commentIn) {
                 case "@METADATA":
                     attributeStatus = AttributeStatus.metadata;
@@ -235,7 +236,8 @@ public class DtdData extends XMLFileReader.SimpleHandler {
                 default:
                     int colonPos = commentIn.indexOf(':');
                     if (colonPos < 0) {
-                        throw new IllegalArgumentException("Unrecognized annotation: " + commentIn);
+                        throw new IllegalArgumentException(element.name + " " + name +
+                            "= : Unrecognized ATTLIST annotation: " + commentIn);
                     }
                     String command = commentIn.substring(0, colonPos);
                     String argument = commentIn.substring(colonPos + 1);
@@ -245,12 +247,14 @@ public class DtdData extends XMLFileReader.SimpleHandler {
                         break;
                     case "@MATCH":
                         if (matchValue != null) {
-                            throw new IllegalArgumentException("Conflicting @MATCH: " + matchValue.getName() + " & " + argument);
+                            throw new IllegalArgumentException(element.name + " " + name +
+                                "= : Conflicting @MATCH: " + matchValue.getName() + " & " + argument);
                         }
                         matchValue = MatchValue.of(argument);
                         break;
                     default:
-                        throw new IllegalArgumentException("Unrecognized annotation: " + commentIn);
+                        throw new IllegalArgumentException(element.name + " " + name +
+                            "= : Unrecognized ATTLIST annotation: " + commentIn);
                     }
                 }
                 return;
@@ -380,6 +384,7 @@ public class DtdData extends XMLFileReader.SimpleHandler {
         private String model;
         private boolean isOrderedElement;
         private boolean isDeprecatedElement;
+        private boolean isTechPreviewElement;
         private ElementStatus elementStatus = ElementStatus.regular;
 
         private Element(String name2) {
@@ -481,7 +486,7 @@ public class DtdData extends XMLFileReader.SimpleHandler {
 
         public void addComment(String addition) {
             if (addition.startsWith("@")) {
-                // there are exactly 3 cases: deprecated, ordered, and metadata
+                // there are exactly 4 cases: deprecated, ordered, techPreview and metadata
                 switch (addition) {
                 case "@ORDERED":
                     isOrderedElement = true;
@@ -492,8 +497,21 @@ public class DtdData extends XMLFileReader.SimpleHandler {
                 case "@METADATA":
                     elementStatus = ElementStatus.metadata;
                     break;
+                case "@TECHPREVIEW":
+                    isTechPreviewElement = true;
+                    break;
                 default:
-                    throw new IllegalArgumentException("Unrecognized annotation: " + addition);
+                    if (addition.startsWith("@MATCH") ||
+                        addition.startsWith("@VALUE")) {
+                        // Try to catch this case
+                        throw new IllegalArgumentException(name +
+                            ": Unrecognized ELEMENT annotation (this isn't ATTLIST!): " +
+                            addition);
+                    } else {
+                        throw new IllegalArgumentException(name +
+                            ": Unrecognized ELEMENT annotation: " +
+                            addition);
+                    }
                 }
                 return;
             }
@@ -538,6 +556,10 @@ public class DtdData extends XMLFileReader.SimpleHandler {
 
         public boolean isOrdered() {
             return isOrderedElement;
+        }
+
+        public boolean isTechPreview() {
+            return isTechPreviewElement;
         }
 
         public ElementStatus getElementStatus() {
@@ -679,6 +701,21 @@ public class DtdData extends XMLFileReader.SimpleHandler {
      * Special form using version, used only by tests, etc.
      */
     public static DtdData getInstance(DtdType type, String version) {
+        // Map out versions that had no DTD
+        if (version != null) {
+            switch (version) {
+            case "1.1.1":
+                version="1.1";
+                break;
+            case "1.4.1":
+                version="1.4";
+                break;
+            case "1.5.1":
+                version="1.5.0.1";
+                break;
+            default:
+            }
+        }
         File directory = version == null ? CLDRConfig.getInstance().getCldrBaseDirectory()
             : new File(CLDRPaths.ARCHIVE_DIRECTORY + "/cldr-" + version);
 
@@ -726,7 +763,9 @@ public class DtdData extends XMLFileReader.SimpleHandler {
             }
         }
         if (simpleHandler.ROOT.children.size() == 0) {
-            throw new IllegalArgumentException(); // should never happen
+            throw new IllegalArgumentException("Internal Error: DtdData.getInstance(" +
+                type + ", ...): readFile() failed to return any children!");
+            // should never happen
         }
         simpleHandler.finish();
         simpleHandler.freeze();
@@ -742,7 +781,12 @@ public class DtdData extends XMLFileReader.SimpleHandler {
         StringReader s = new StringReader("<?xml version='1.0' encoding='UTF-8' ?>"
             + "<!DOCTYPE " + type
             + " SYSTEM '" + file.getAbsolutePath() + "'>");
-        xfr.read(type.toString(), s, -1, true); //  DTD_TYPE_TO_FILE.get(type)
+        try {
+            xfr.read(type.toString(), s, -1, true); //  DTD_TYPE_TO_FILE.get(type)
+        } catch (IllegalArgumentException iae) {
+            // rethrow
+            throw new IllegalArgumentException("Error while reading " + type, iae);
+        }
     }
 
     private void freeze() {
@@ -1020,6 +1064,9 @@ public class DtdData extends XMLFileReader.SimpleHandler {
         if (isOrdered(current.name)) {
             b.append(COMMENT_PREFIX + "<!--@ORDERED-->");
         }
+        if (isTechPreview(current.name)) {
+            b.append(COMMENT_PREFIX + "<!--@TECHPREVIEW-->");
+        }
         if (current.getElementStatus() != ElementStatus.regular) {
             b.append(COMMENT_PREFIX + "<!--@"
                 + current.getElementStatus().toString().toUpperCase(Locale.ROOT)
@@ -1083,7 +1130,7 @@ public class DtdData extends XMLFileReader.SimpleHandler {
                 b.append(COMMENT_PREFIX + "<!--@DEPRECATED-->");
             } else if (!deprecatedValues.isEmpty()) {
                 b.append(COMMENT_PREFIX + "<!--@DEPRECATED:" + Joiner.on(", ")
-                    .join(deprecatedValues) + "-->");
+                .join(deprecatedValues) + "-->");
             }
         }
         if (current.children.size() > 0) {
@@ -1181,10 +1228,8 @@ public class DtdData extends XMLFileReader.SimpleHandler {
 
     //@SuppressWarnings("unused")
     public boolean isDeprecated(String elementName, String attributeName, String attributeValue) {
-        Element element = nameToElement.get(elementName);
-        if (element == null) {
-            throw new IllegalByDtdException(elementName, attributeName, attributeValue);
-        } else if (element.isDeprecatedElement) {
+        Element element = getElementThrowingIfNull(elementName, null, null);
+        if (element.isDeprecatedElement) {
             return true;
         }
         if ("*".equals(attributeName) || "_q".equals(attributeName)) {
@@ -1199,16 +1244,34 @@ public class DtdData extends XMLFileReader.SimpleHandler {
         return attribute.deprecatedValues.contains(attributeValue); // don't need special test for "*"
     }
 
+    /**
+     * Returns whether an element (specified by its full name) is ordered. This method
+     * understands all elements in the DTDs used (including the ICU extensions), but will
+     * throw IllegalByDtdException for unknown elements. See CLDR-8614 for more background.
+     */
     public boolean isOrdered(String elementName) {
+        Element element = getElementThrowingIfNull(elementName, null, null);
+        return element.isOrdered();
+    }
+
+    public Element getElementThrowingIfNull(String elementName, String attributeName, String value) {
         Element element = nameToElement.get(elementName);
         if (element == null) {
-            if (elementName.startsWith("icu:")) {
-                return false;
-            }
-            throw new IllegalByDtdException(elementName, null, null);
+            throw new IllegalByDtdException(elementName, attributeName, value);
         }
-        return element.isOrderedElement;
+        return element;
     }
+
+    /**
+     * Returns whether an element (specified by its full name) is a tech preview. This method
+     * understands all elements in the DTDs used (including the ICU extensions), but will
+     * throw IllegalByDtdException for unknown elements. See CLDR-8614 for more background.
+     */
+    public boolean isTechPreview(String elementName) {
+        Element element = getElementThrowingIfNull(elementName, null, null);
+        return element.isTechPreview();
+    }
+
 
     public AttributeStatus getAttributeStatus(String elementName, String attributeName) {
         if ("_q".equals(attributeName)) {
@@ -1241,6 +1304,8 @@ public class DtdData extends XMLFileReader.SimpleHandler {
         "morning1", "morning2", "afternoon1", "afternoon2", "evening1", "evening2", "night1", "night2",
         // The ones on the following line are no longer used actively. Can be removed later?
         "earlyMorning", "morning", "midDay", "afternoon", "evening", "night", "weeHours").freeze();
+    static MapComparator<String> dateTimeFormatOrder = new MapComparator<String>().add(
+        "standard", "atTime").freeze();
     static MapComparator<String> listPatternOrder = new MapComparator<String>().add(
         "start", "middle", "end", "2", "3").freeze();
     static MapComparator<String> widthOrder = new MapComparator<String>().add(
@@ -1270,6 +1335,19 @@ public class DtdData extends XMLFileReader.SimpleHandler {
         "minute", "minute-short", "minute-narrow",
         "second", "second-short", "second-narrow",
         "zone", "zone-short", "zone-narrow").freeze();
+    static MapComparator<String> nameFieldOrder = new MapComparator<String>().add(
+        "prefix", "given", "given-informal", "given2",
+        "surname", "surname-prefix", "surname-core", "surname2", "suffix").freeze();
+    static MapComparator<String> orderValueOrder = new MapComparator<String>().add(
+        "givenFirst", "surnameFirst", "sorting").freeze();
+    static MapComparator<String> lengthValueOrder = new MapComparator<String>().add(
+        "long", "medium", "short").freeze();
+    static MapComparator<String> usageValueOrder = new MapComparator<String>().add(
+        "referring", "addressing", "monogram").freeze();
+    static MapComparator<String> formalityValueOrder = new MapComparator<String>().add(
+        "formal", "informal").freeze();
+    static MapComparator<String> sampleNameItemOrder = new MapComparator<String>().add(
+        "givenOnly", "givenSurnameOnly", "given12Surname", "full").freeze();
 
     /* TODO: change this to be data-file driven. Can do with new Unit preferences info; also put them in a more meaningful order (metric vs other; size) */
 
@@ -1300,6 +1378,7 @@ public class DtdData extends XMLFileReader.SimpleHandler {
         "digital-byte", "digital-bit",
         "duration-century", "duration-decade",
         "duration-year", "duration-year-person",
+        "duration-quarter",
         "duration-month", "duration-month-person",
         "duration-week", "duration-week-person",
         "duration-day", "duration-day-person",
@@ -1332,7 +1411,7 @@ public class DtdData extends XMLFileReader.SimpleHandler {
         "light-candela",
         "light-lumen",
         "light-solar-luminosity",
-        "mass-metric-ton", "mass-kilogram", "mass-gram", "mass-milligram", "mass-microgram",
+        "mass-tonne", "mass-metric-ton", "mass-kilogram", "mass-gram", "mass-milligram", "mass-microgram",
         "mass-ton", "mass-stone", "mass-pound", "mass-ounce",
         "mass-ounce-troy", "mass-carat",
         "mass-dalton",
@@ -1376,7 +1455,7 @@ public class DtdData extends XMLFileReader.SimpleHandler {
         "volume-jigger",
         "volume-pinch",
         "volume-quart-imperial"
-       // "volume-pint-imperial"
+        // "volume-pint-imperial"
         ).freeze();
 
     static MapComparator<String> countValueOrder = new MapComparator<String>().add(
@@ -1390,7 +1469,7 @@ public class DtdData extends XMLFileReader.SimpleHandler {
     static final Comparator<String> COMP = (Comparator) CLDRConfig.getInstance().getCollator();
 
     // Hack for US
-    static final Comparator<String> UNICODE_SET_COMPARATOR = new Comparator<String>() {
+    static final Comparator<String> UNICODE_SET_COMPARATOR = new Comparator<>() {
         @Override
         public int compare(String o1, String o2) {
             if (o1.contains("{")) {
@@ -1437,7 +1516,21 @@ public class DtdData extends XMLFileReader.SimpleHandler {
                 comp = unitOrder;
             } else if (element.equals("dayPeriod")) {
                 comp = dayPeriodOrder;
+            } else if (element.equals("dateTimeFormat")) {
+                comp = dateTimeFormatOrder;
+            } else if (element.equals("nameField")) {
+                comp = nameFieldOrder;
             }
+        } else if (attribute.equals("order") && element.equals("personName")) {
+            comp = orderValueOrder;
+        } else if (attribute.equals("length") && element.equals("personName")) {
+            comp = lengthValueOrder;
+        } else if (attribute.equals("usage") && element.equals("personName")) {
+            comp = usageValueOrder;
+        } else if (attribute.equals("formality")) {
+            comp = formalityValueOrder;
+        } else if (attribute.equals("item") && element.equals("sampleName")) {
+            comp = sampleNameItemOrder;
         } else if (attribute.equals("count") && !element.equals("minDays")) {
             comp = countValueOrder;
         } else if (attribute.equals("cp") && element.equals("annotation")) {

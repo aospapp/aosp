@@ -13,6 +13,7 @@ MAX_RESULT_SIZE_KB = 512000
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "telemetry"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 Run a pre-defined set of benchmarks on the DUT and create a sampled profile

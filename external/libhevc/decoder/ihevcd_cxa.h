@@ -130,6 +130,16 @@ typedef enum {
     IHEVCD_UNSUPPORTED_CHROMA_FMT_IDC,
 
     /**
+     * Frame info output buffer null
+     */
+    IHEVCD_FRAME_INFO_OP_BUF_NULL,
+
+    /**
+     * Frame info insufficient buffer
+     */
+    IHEVCD_INSUFFICIENT_METADATA_BUFFER,
+
+    /**
      * Generic failure
      */
     IHEVCD_FAIL                             = 0x7FFFFFFF
@@ -161,6 +171,11 @@ typedef struct {
 
 typedef struct {
     ivd_create_ip_t                         s_ivd_create_ip_t;
+
+    /**
+     * enable_frm_info
+     */
+    UWORD32                                 u4_enable_frame_info;
 }ihevcd_cxa_create_ip_t;
 
 
@@ -178,8 +193,60 @@ typedef struct {
      * ivd_video_decode_ip_t
      */
     ivd_video_decode_ip_t                   s_ivd_video_decode_ip_t;
+
+    /**
+     * 8x8 block QP map
+     */
+    UWORD8                                  *pu1_8x8_blk_qp_map;
+
+    /**
+     * 8x8 block type map
+     */
+    UWORD8                                  *pu1_8x8_blk_type_map;
+
+    /**
+     * 8x8 block QP map size
+     */
+    UWORD32                                 u4_8x8_blk_qp_map_size;
+
+    /**
+     * 8x8 block type map size
+     */
+    UWORD32                                 u4_8x8_blk_type_map_size;
 }ihevcd_cxa_video_decode_ip_t;
 
+/*********************************************************************************/
+/* QP and CU/Block type maps are defined for each 8x8 coding unit.               */
+/* QP can range from <1, 51> and block type can be INTER/INTRA/SKIP.             */
+/*                                                                               */
+/* A frame with a resolution of WdxHt has a total of                             */
+/* (align8(Wd) x align8(Ht)) / 64 entries for QP and Block type map each.        */
+/*                                                                               */
+/* For example, for a frame of size 60x60 shown in the figure down, both         */
+/* maps (QP and Block type) have the same layout.                                */
+/* Each block represents an 8x8 sub-block. Both width and height are aligned to  */
+/* next largest multiple of 8, 64 in this case.                                  */
+/*                                                                               */
+/*     0     8     16    24    32    40    48    56   64                         */
+/*  0   ------------------------------------------------                         */
+/*     | 0th | 1st | 2nd | 3rd | 4th | 5th | 6th | 7th |                         */
+/*  8   ------------------------------------------------                         */
+/*     | 8th | 9th | 10th | -  |  -  | -   | -   |  -  |                         */
+/* 16   ------------------------------------------------                         */
+/*     |  -  |  -  |  -   | -  |  -  |  -  |  -  |  -  |                         */
+/* 24   ------------------------------------------------                         */
+/*     |  -  |  -  |  -   | -  |  -  |  -  |  -  |  -  |                         */
+/* 32   ------------------------------------------------                         */
+/*     |  -  |  -  |  -   | -  |  -  |  -  |  -  |  -  |                         */
+/* 40   ------------------------------------------------                         */
+/*     |  -  |  -  |  -   | -  |  -  |  -  |  -  |  -  |                         */
+/* 48   ------------------------------------------------                         */
+/*     |  -  |  -  |  -   | -  |  -  |  -  |  -  |  -  |                         */
+/* 56   ------------------------------------------------                         */
+/*     |  -  |  -  |  -   | -  |  -  |  -  |  -  |  -  |                         */
+/* 64   ------------------------------------------------                         */
+/*                                                                               */
+/*********************************************************************************/
 
 typedef struct {
 
@@ -187,6 +254,26 @@ typedef struct {
      * ivd_video_decode_op_t
      */
     ivd_video_decode_op_t                   s_ivd_video_decode_op_t;
+
+    /**
+     * 8x8 block QP map
+     */
+    UWORD8                                  *pu1_8x8_blk_qp_map;
+
+    /**
+     * 8x8 block type map
+     */
+    UWORD8                                  *pu1_8x8_blk_type_map;
+
+    /**
+     * 8x8 block QP map size
+     */
+    UWORD32                                 u4_8x8_blk_qp_map_size;
+
+    /**
+     * 8x8 block type map size
+     */
+    UWORD32                                 u4_8x8_blk_type_map_size;
 }ihevcd_cxa_video_decode_op_t;
 
 

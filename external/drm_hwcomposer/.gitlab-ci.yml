@@ -1,11 +1,11 @@
-image: ubuntu:21.10
+image: ubuntu:22.04
 
 variables:
   DEBIAN_FRONTEND: noninteractive
 
 before_script:
   - apt-get --quiet update --yes >/dev/null
-  - apt-get --quiet install --yes clang-13 clang-tidy-13 clang-format-13 git libdrm-dev blueprint-tools libgtest-dev make >/dev/null
+  - apt-get --quiet install --yes clang-14 clang-tidy-14 clang-format-14 git libdrm-dev blueprint-tools libgtest-dev make >/dev/null
 
 stages:
   - build

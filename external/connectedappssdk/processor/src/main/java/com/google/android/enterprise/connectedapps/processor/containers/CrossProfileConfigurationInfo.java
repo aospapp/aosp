@@ -15,29 +15,18 @@
  */
 package com.google.android.enterprise.connectedapps.processor.containers;
 
-import static java.util.stream.Collectors.toSet;
-
 import com.google.android.enterprise.connectedapps.annotations.CrossProfileConfiguration;
-import com.google.android.enterprise.connectedapps.processor.SupportedTypes;
-import com.google.android.enterprise.connectedapps.processor.TypeUtils;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.squareup.javapoet.ClassName;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Optional;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
 
 /** Wrapper of a {@link CrossProfileConfiguration} annotated class. */
 @AutoValue
 public abstract class CrossProfileConfigurationInfo {
-
-  public static final String CROSS_PROFILE_CONNECTOR_QUALIFIED_NAME =
-      "com.google.android.enterprise.connectedapps.CrossProfileConnector";
 
   public abstract TypeElement configurationElement();
 
@@ -55,65 +44,44 @@ public abstract class CrossProfileConfigurationInfo {
     return ClassName.get(configurationElement());
   }
 
-  public abstract ProfileConnectorInfo profileConnector();
+  public abstract ConnectorInfo connectorInfo();
 
   public static CrossProfileConfigurationInfo create(
       ValidatorContext context, ValidatorCrossProfileConfigurationInfo configuration) {
-    Collection<ProviderClassInfo> providerClasses =
-        configuration.providerClassElements().stream()
-            .map(
-                m ->
-                    ProviderClassInfo.create(
-                        context, ValidatorProviderClassInfo.create(context.processingEnv(), m)))
-            .collect(toSet());
+    ImmutableSet.Builder<ProviderClassInfo> providerClassesBuilder = ImmutableSet.builder();
+    configuration.providerClassElements().stream()
+        .map(m -> ProviderClassInfo.create(context, ValidatorProviderClassInfo.create(context, m)))
+        .forEach(providerClassesBuilder::add);
+    ImmutableSet<ProviderClassInfo> providerClasses = providerClassesBuilder.build();
 
-    ProfileConnectorInfo profileConnectorInfo =
+    ConnectorInfo connectorInfo =
         providerClasses.stream()
             .flatMap(m -> m.allCrossProfileTypes().stream())
-            .map(CrossProfileTypeInfo::profileConnector)
+            .map(CrossProfileTypeInfo::connectorInfo)
             .flatMap(Streams::stream)
             .findFirst()
-            .orElseGet(
-                () ->
-                    ProfileConnectorInfo.create(
-                        context.processingEnv(),
-                        getConfiguredConnectorOrDefault(context, configuration),
-                        context.globalSupportedTypes()));
+            .orElseGet(() -> defaultConnector(context, configuration));
 
     return new AutoValue_CrossProfileConfigurationInfo(
         configuration.configurationElement(),
-        ImmutableSet.copyOf(providerClasses),
+        providerClasses,
         configuration.serviceSuperclass(),
         configuration.serviceClass(),
-        profileConnectorInfo);
+        connectorInfo);
   }
 
-  private static TypeElement getConfiguredConnectorOrDefault(
+  private static ConnectorInfo defaultConnector(
       ValidatorContext context, ValidatorCrossProfileConfigurationInfo configuration) {
-    return configuration
-        .connector()
-        .orElseGet(() -> context.elements().getTypeElement(CROSS_PROFILE_CONNECTOR_QUALIFIED_NAME));
-  }
-
-  private static Collection<Type> convertTypeMirrorToSupportedTypes(
-      SupportedTypes supportedTypes, TypeMirror typeMirror) {
-    if (TypeUtils.isGeneric(typeMirror)) {
-      return convertGenericTypeMirrorToSupportedTypes(supportedTypes, typeMirror);
-    }
-    return Collections.singleton(supportedTypes.getType(typeMirror));
-  }
-
-  private static Collection<Type> convertGenericTypeMirrorToSupportedTypes(
-      SupportedTypes supportedTypes, TypeMirror typeMirror) {
-    Collection<Type> types = new HashSet<>();
-    TypeMirror genericType = TypeUtils.removeTypeArguments(typeMirror);
-    Type supportedType = supportedTypes.getType(genericType);
-    if (!supportedType.isSupportedWithAnyGenericType()) {
-      for (TypeMirror typeArgument : TypeUtils.extractTypeArguments(typeMirror)) {
-        types.addAll(convertTypeMirrorToSupportedTypes(supportedTypes, typeArgument));
+    if (configuration.connector().isPresent()) {
+      if (ConnectorInfo.isProfileConnector(context, configuration.connector().get())) {
+        return ConnectorInfo.forProfileConnector(
+            context, configuration.connector().get(), context.globalSupportedTypes());
+      } else if (ConnectorInfo.isUserConnector(context, configuration.connector().get())) {
+        return ConnectorInfo.forUserConnector(
+            context, configuration.connector().get(), context.globalSupportedTypes());
       }
     }
-    types.add(supportedTypes.getType(genericType));
-    return types;
+
+    return ConnectorInfo.unspecified(context, context.globalSupportedTypes());
   }
 }

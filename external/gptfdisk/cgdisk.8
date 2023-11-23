@@ -1,6 +1,6 @@
-.\" Copyright 2011-2018 Roderick W. Smith (rodsmith@rodsbooks.com)
+.\" Copyright 2011-2022 Roderick W. Smith (rodsmith@rodsbooks.com)
 .\" May be distributed under the GNU General Public License
-.TH "CGDISK" "8" "1.0.4" "Roderick W. Smith" "GPT fdisk Manual"
+.TH "CGDISK" "8" "1.0.9" "Roderick W. Smith" "GPT fdisk Manual"
 .SH "NAME"
 cgdisk \- Curses-based GUID partition table (GPT) manipulator
 .SH "SYNOPSIS"
@@ -25,7 +25,7 @@ disks.
 
 For information on MBR vs. GPT, as well as GPT terminology and structure,
 see the extended GPT fdisk documentation at
-\fIhttp://www.rodsbooks.com/gdisk/\fR or consult Wikipedia.
+\fIhttps://www.rodsbooks.com/gdisk/\fR or consult Wikipedia.
 
 The \fBcgdisk\fR program employs a user interface similar to that of Linux's
 \fBcfdisk\fR, but \fBcgdisk\fR modifies GPT partitions. It also has the
@@ -172,7 +172,7 @@ text editor.
 
 Available options are as described below. (Note that \fBcgdisk\fR provides
 a much more limited set of options than its sibling \fBgdisk\fR. If you
-need to perform partition table recovery, hybrid MBR modifcation, or other
+need to perform partition table recovery, hybrid MBR modification, or other
 advanced operations, you should consult the \fBgdisk\fR documentation.)
 
 .TP 
@@ -186,8 +186,13 @@ new disks, GPT fdisk attempts to align partitions on 1 MiB boundaries
 performance for all of these disk types. On pre\-partitioned disks, GPT
 fdisk attempts to identify the alignment value used on that disk, but will
 set 8-sector alignment on disks larger than 300 GB even if lesser alignment
-values are detected. In either case, it can be changed by using this
-option.
+values are detected. In either case, it can be changed by using this option.
+The alignment value also affects the default end sector value when creating
+a new partition; it will be aligned to one less than a multiple of the
+alignment value, when possible. This should keep partitions a multiple of
+the alignment value in size. Some disk encryption tools require partitions
+to be sized to some value, typically 4096 bytes, so the default alignment of
+1 MiB works well for them.
 
 .TP 
 .B Backup
@@ -263,9 +268,9 @@ two\-byte hexadecimal number. You may also enter a GUID directly, if you
 have one and \fBcgdisk\fR doesn't know it. If you don't know the type code
 for your partition, you can type \fBL\fR to see a list of known type codes.
 The type code list may optionally be filtered by a search string; for
-instance, entering \fI\fBLinux\fR\fR shows only partition type codes with
+instance, entering \fI\fBlinux\fR\fR shows only partition type codes with
 descriptions that include the string \fILinux\fR. This search is performed
-case\-sensitively.
+case\-insensitively.
 
 .TP 
 .B Verify
@@ -369,7 +374,7 @@ Contributors:
 
 * Justin Maggard (justin.maggard@netgear.com)
 
-* Dwight Schauer (dschauer@gmail.com)
+* Dwight Schauer (das@teegra.net)
 
 * Florian Zumbiehl (florz@florz.de)
 
@@ -384,11 +389,11 @@ Contributors:
 .BR sgdisk (8),
 .BR fixparts (8).
 
-\fIhttp://en.wikipedia.org/wiki/GUID_Partition_Table\fR
+\fIhttps://en.wikipedia.org/wiki/GUID_Partition_Table\fR
 
-\fIhttp://developer.apple.com/technotes/tn2006/tn2166.html\fR
+\fIhttps://developer.apple.com/technotes/tn2006/tn2166.html\fR
 
-\fIhttp://www.rodsbooks.com/gdisk/\fR
+\fIhttps://www.rodsbooks.com/gdisk/\fR
 
 .SH "AVAILABILITY"
 The \fBcgdisk\fR command is part of the \fIGPT fdisk\fR package and is

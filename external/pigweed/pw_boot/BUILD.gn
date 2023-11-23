@@ -32,3 +32,6 @@ pw_facade("pw_boot") {
 pw_doc_group("docs") {
   sources = [ "docs.rst" ]
 }
+
+pw_test_group("tests") {
+}

@@ -24,7 +24,8 @@ namespace pw::kvs::internal {
 namespace {
 
 // Returns true if the container conatins the value.
-// TODO: At some point move this to pw_containers, along with adding tests.
+// TODO(hepler): At some point move this to pw_containers, along with adding
+// tests.
 template <typename Container, typename T>
 bool Contains(const Container& container, const T& value) {
   return std::find(std::begin(container), std::end(container), value) !=
@@ -36,8 +37,8 @@ bool Contains(const Container& container, const T& value) {
 Status Sectors::Find(FindMode find_mode,
                      SectorDescriptor** found_sector,
                      size_t size,
-                     std::span<const Address> addresses_to_skip,
-                     std::span<const Address> reserved_addresses) {
+                     span<const Address> addresses_to_skip,
+                     span<const Address> reserved_addresses) {
   SectorDescriptor* first_empty_sector = nullptr;
   bool at_least_two_empty_sectors = (find_mode == kGarbageCollect);
 
@@ -102,7 +103,7 @@ Status Sectors::Find(FindMode find_mode,
     }
 
     // Skip sectors in the skip list.
-    if (Contains(std::span(temp_sectors_to_skip_, sectors_to_skip), sector)) {
+    if (Contains(span(temp_sectors_to_skip_, sectors_to_skip), sector)) {
       continue;
     }
 
@@ -162,9 +163,9 @@ SectorDescriptor& Sectors::WearLeveledSectorFromIndex(size_t idx) const {
   return descriptors_[(Index(last_new_) + 1 + idx) % descriptors_.size()];
 }
 
-// TODO: Consider breaking this function into smaller sub-chunks.
+// TODO(hepler): Consider breaking this function into smaller sub-chunks.
 SectorDescriptor* Sectors::FindSectorToGarbageCollect(
-    std::span<const Address> reserved_addresses) const {
+    span<const Address> reserved_addresses) const {
   const size_t sector_size_bytes = partition_.sector_size_bytes();
   SectorDescriptor* sector_candidate = nullptr;
   size_t candidate_bytes = 0;
@@ -174,8 +175,7 @@ SectorDescriptor* Sectors::FindSectorToGarbageCollect(
     temp_sectors_to_skip_[i] = &FromAddress(reserved_addresses[i]);
     DBG("    Skip sector %u", Index(reserved_addresses[i]));
   }
-  const std::span sectors_to_skip(temp_sectors_to_skip_,
-                                  reserved_addresses.size());
+  const span sectors_to_skip(temp_sectors_to_skip_, reserved_addresses.size());
 
   // Step 1: Try to find a sectors with stale keys and no valid keys (no
   // relocation needed). Use the first such sector found, as that will help the

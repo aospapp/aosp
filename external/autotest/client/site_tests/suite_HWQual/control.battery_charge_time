@@ -2,12 +2,13 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "HWQualBatteryChargeTime"
 TIME = "LONG"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "suite"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test measures the battery charging time and enforces constraints. Before

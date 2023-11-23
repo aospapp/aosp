@@ -21,6 +21,7 @@
 #include <sstream>
 #include <cstdio>
 #include <time.h>
+#include <string>
 
 
 
@@ -41,6 +42,22 @@ void SwizzleAndroidNn4dTensorToArmNn(const armnn::TensorShape& inTensorShape, co
     assert(inTensorShape.GetNumDimensions() == 4U);
 
     armnnUtils::Permute(armnnUtils::Permuted(inTensorShape, mappings), mappings, input, output, dataTypeSize);
+}
+
+template<typename Dimensions>
+auto GetDimensionsSpecificity(const Dimensions& dimensions)
+{
+    // We can't use std::vector<bool> since that is a specialization that packs
+    // bits, so use a string of bools instead. This also has the benefit of
+    // using small string optimization.
+    std::basic_string<bool> specificity(dimensions.size(), false);
+
+    for (std::size_t i = 0; i < dimensions.size(); ++i)
+    {
+        specificity[i] = dimensions.data()[i] != 0;
+    }
+
+    return specificity;
 }
 
 } // anonymous namespace
@@ -65,7 +82,6 @@ void SwizzleAndroidNn4dTensorToArmNn(const armnn::TensorInfo& tensor, const void
         assert(0);
     }
 }
-
 void* GetMemoryFromPool(V1_0::DataLocation location, const std::vector<android::nn::RunTimePoolInfo>& memPools)
 {
     // find the location within the pool
@@ -108,20 +124,8 @@ armnn::TensorInfo GetTensorInfoForOperand(const V1_0::Operand& operand)
     }
     else
     {
-        bool dimensionsSpecificity[5] = { true, true, true, true, true };
-        int count = 0;
-        std::for_each(operand.dimensions.data(),
-                      operand.dimensions.data() +  operand.dimensions.size(),
-                      [&](const unsigned int val)
-                      {
-                          if (val == 0)
-                          {
-                              dimensionsSpecificity[count] = false;
-                          }
-                          count++;
-                      });
-
-        TensorShape tensorShape(operand.dimensions.size(), operand.dimensions.data(), dimensionsSpecificity);
+        auto dimensionsSpecificity = GetDimensionsSpecificity(operand.dimensions);
+        TensorShape tensorShape(operand.dimensions.size(), operand.dimensions.data(), dimensionsSpecificity.data());
         ret = TensorInfo(tensorShape, type);
     }
 
@@ -177,20 +181,8 @@ armnn::TensorInfo GetTensorInfoForOperand(const V1_2::Operand& operand)
     }
     else
     {
-        bool dimensionsSpecificity[5] = { true, true, true, true, true };
-        int count = 0;
-        std::for_each(operand.dimensions.data(),
-                      operand.dimensions.data() +  operand.dimensions.size(),
-                      [&](const unsigned int val)
-                      {
-                          if (val == 0)
-                          {
-                              dimensionsSpecificity[count] = false;
-                          }
-                          count++;
-                      });
-
-        TensorShape tensorShape(operand.dimensions.size(), operand.dimensions.data(), dimensionsSpecificity);
+        auto dimensionsSpecificity = GetDimensionsSpecificity(operand.dimensions);
+        TensorShape tensorShape(operand.dimensions.size(), operand.dimensions.data(), dimensionsSpecificity.data());
         ret = TensorInfo(tensorShape, type);
     }
 
@@ -276,20 +268,8 @@ armnn::TensorInfo GetTensorInfoForOperand(const V1_3::Operand& operand)
         }
         else
         {
-            bool dimensionsSpecificity[5] = { true, true, true, true, true };
-            int count = 0;
-            std::for_each(operand.dimensions.data(),
-                          operand.dimensions.data() +  operand.dimensions.size(),
-                          [&](const unsigned int val)
-                          {
-                              if (val == 0)
-                              {
-                                  dimensionsSpecificity[count] = false;
-                              }
-                              count++;
-                          });
-
-            TensorShape tensorShape(operand.dimensions.size(), operand.dimensions.data(), dimensionsSpecificity);
+            auto dimensionsSpecificity = GetDimensionsSpecificity(operand.dimensions);
+            TensorShape tensorShape(operand.dimensions.size(), operand.dimensions.data(), dimensionsSpecificity.data());
             ret = TensorInfo(tensorShape, type);
         }
     }

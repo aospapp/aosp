@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/argh_shared
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "argh_shared"
 description: "Derive-based argument parsing optimized for code size"
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/argh_shared/argh_shared-0.1.7.crate"
+    value: "https://static.crates.io/crates/argh_shared/argh_shared-0.1.10.crate"
   }
-  version: "0.1.7"
+  version: "0.1.10"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2022
-    month: 1
-    day: 13
+    year: 2023
+    month: 2
+    day: 1
   }
 }

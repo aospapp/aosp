@@ -21,7 +21,25 @@ import javax.imageio.stream.ImageOutputStream;
 public class ImageUtil {
   private static boolean initialized;
 
+  public static class ImageInfo {
+
+    public final int width;
+    public final int height;
+    public final String mimeType;
+
+    ImageInfo(int width, int height, String mimeType) {
+      this.width = width;
+      this.height = height;
+      this.mimeType = mimeType;
+    }
+  }
+
   public static Point getImageSizeFromStream(InputStream is) {
+    ImageInfo info = getImageInfoFromStream(is);
+    return new Point(info.width, info.height);
+  }
+
+  public static ImageInfo getImageInfoFromStream(InputStream is) {
     if (!initialized) {
       // Stops ImageIO from creating temp files when reading images
       // from input stream.
@@ -37,7 +55,7 @@ public class ImageUtil {
       ImageReader reader = readers.next();
       try {
         reader.setInput(imageStream);
-        return new Point(reader.getWidth(0), reader.getHeight(0));
+        return new ImageInfo(reader.getWidth(0), reader.getHeight(0), "image/" + reader.getFormatName());
       } finally {
         reader.dispose();
       }

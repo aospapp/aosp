@@ -1,15 +1,19 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 mod pci_bridge;
 mod pcie_device;
 mod pcie_host;
+mod pcie_port;
 mod pcie_rp;
+mod pcie_switch;
 
 pub use pci_bridge::PciBridge;
-pub use pcie_host::PcieHostRootPort;
+pub use pcie_host::PcieHostPort;
 pub use pcie_rp::PcieRootPort;
+pub use pcie_switch::PcieDownstreamPort;
+pub use pcie_switch::PcieUpstreamPort;
 
 #[allow(dead_code)]
 #[derive(Clone, Copy)]
@@ -65,21 +69,3 @@ const PCIE_ROOTSTA_OFFSET: usize = 0x20;
 const PCIE_ROOTSTA_PME_REQ_ID_MASK: u32 = 0xFFFF;
 const PCIE_ROOTSTA_PME_STATUS: u32 = 0x10000;
 const PCIE_ROOTSTA_PME_PENDING: u32 = 0x20000;
-
-const PMC_CAP_CONTROL_STATE_OFFSET: usize = 1;
-const PMC_CAP_PME_SUPPORT_D0: u16 = 0x800;
-const PMC_CAP_PME_SUPPORT_D3_HOT: u16 = 0x4000;
-const PMC_CAP_PME_SUPPORT_D3_COLD: u16 = 0x8000;
-const PMC_CAP_VERSION: u16 = 0x2;
-const PMC_PME_STATUS: u16 = 0x8000;
-const PMC_PME_ENABLE: u16 = 0x100;
-const PMC_POWER_STATE_MASK: u16 = 0x3;
-const PMC_POWER_STATE_D0: u16 = 0;
-const PMC_POWER_STATE_D3: u16 = 0x3;
-
-#[derive(PartialEq)]
-pub enum PciDevicePower {
-    D0 = 0,
-    D3 = 3,
-    Unsupported = 0xFF,
-}

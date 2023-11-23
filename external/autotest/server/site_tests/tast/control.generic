@@ -4,6 +4,7 @@
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
+from autotest_lib.server.site_tests.tast import tast
 
 AUTHOR = 'Chromium OS team'
 NAME = 'tast.generic'
@@ -13,6 +14,7 @@ TEST_TYPE = 'Server'
 # via test_that.
 ATTRIBUTES = ''
 MAX_RESULT_SIZE_KB = 256 * 1024
+PY_VERSION = 3
 
 # tast.py uses binaries installed from autotest_server_package.tar.bz2.
 REQUIRE_SSP = True
@@ -31,10 +33,13 @@ Autotest.
 Examples:
     test_that --args=tast_expr=example.Pass ${DUT} tast.generic
     test_that --args=tast_expr='("group:mainline")' ${DUT} tast.generic
+    test_that --args='tast_expr=example.RuntimeVars tast.example.strvar="Hello_World"' ${DUT} tast.generic
 '''
 
+command_args, varslist = tast.split_arguments(args)
+
 def run(machine):
-    args_dict = utils.args_to_dict(args)
+    args_dict = utils.args_to_dict(command_args)
     try:
         expr = args_dict['tast_expr']
     except KeyError:
@@ -44,6 +49,8 @@ def run(machine):
                  host=hosts.create_host(machine),
                  test_exprs=[expr],
                  ignore_test_failures=False, max_run_sec=3600,
-                 command_args=args)
+                 command_args=command_args,
+                 varslist=varslist,
+                 is_cft=is_cft)
 
 parallel_simple(run, machines)

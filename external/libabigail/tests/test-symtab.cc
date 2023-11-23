@@ -420,9 +420,9 @@ TEST_CASE("Symtab::KernelSymtabsWithCRC", "[symtab, crc, kernel, ksymtab]")
   {
     const std::string  binary = base_path + "one_of_each.ko";
     const corpus_sptr& corpus = assert_symbol_count(binary, 2, 2);
-    CHECK(corpus->lookup_function_symbol("exported_function")->get_crc() != 0);
-    CHECK(corpus->lookup_function_symbol("exported_function_gpl")->get_crc() != 0);
-    CHECK(corpus->lookup_variable_symbol("exported_variable")->get_crc() != 0);
-    CHECK(corpus->lookup_variable_symbol("exported_variable_gpl")->get_crc() != 0);
+    CHECK(corpus->lookup_function_symbol("exported_function")->get_crc());
+    CHECK(corpus->lookup_function_symbol("exported_function_gpl")->get_crc());
+    CHECK(corpus->lookup_variable_symbol("exported_variable")->get_crc());
+    CHECK(corpus->lookup_variable_symbol("exported_variable_gpl")->get_crc());
   }
 }

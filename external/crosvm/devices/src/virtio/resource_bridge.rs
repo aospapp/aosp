@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,13 +6,15 @@
 //! that are backed by file descriptors.
 
 use std::fmt;
-use std::fs::File;
 
+use base::with_as_descriptor;
+use base::SafeDescriptor;
+use base::Tube;
+use base::TubeError;
 use remain::sorted;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use thiserror::Error;
-
-use base::{with_as_descriptor, Tube, TubeError};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ResourceRequest {
@@ -29,7 +31,7 @@ pub struct PlaneInfo {
 #[derive(Serialize, Deserialize)]
 pub struct BufferInfo {
     #[serde(with = "with_as_descriptor")]
-    pub file: File,
+    pub handle: SafeDescriptor,
     pub planes: [PlaneInfo; RESOURE_PLANE_NUM],
     pub modifier: u64,
 }
@@ -40,7 +42,7 @@ pub enum ResourceInfo {
     Buffer(BufferInfo),
     Fence {
         #[serde(with = "with_as_descriptor")]
-        file: File,
+        handle: SafeDescriptor,
     },
 }
 

@@ -75,6 +75,7 @@
 #include <memory>
 #include <utility>
 
+#include "icing/absl_ports/canonical_errors.h"
 #include "icing/legacy/core/icing-packed-pod.h"
 #include "icing/legacy/core/icing-string-util.h"
 #include "icing/legacy/core/icing-timer.h"
@@ -82,9 +83,11 @@
 #include "icing/legacy/index/icing-filesystem.h"
 #include "icing/legacy/index/icing-flash-bitmap.h"
 #include "icing/legacy/index/icing-mmapper.h"
+#include "icing/legacy/index/proto/icing-dynamic-trie-header.pb.h"
 #include "icing/util/i18n-utils.h"
 #include "icing/util/logging.h"
 #include "icing/util/math-util.h"
+#include "icing/util/status-macros.h"
 
 using std::inplace_merge;
 using std::lower_bound;
@@ -101,15 +104,9 @@ namespace {
 constexpr uint32_t kInvalidNodeIndex = (1U << 24) - 1;
 constexpr uint32_t kInvalidNextIndex = ~0U;
 
-// Returns the number of valid nexts in the array.
-int GetValidNextsSize(IcingDynamicTrie::Next *next_array_start,
-                      int next_array_length) {
-  int valid_nexts_length = 0;
-  for (; valid_nexts_length < next_array_length &&
-         next_array_start[valid_nexts_length].node_index() != kInvalidNodeIndex;
-       ++valid_nexts_length) {
-  }
-  return valid_nexts_length;
+void ResetMutableNext(IcingDynamicTrie::Next &mutable_next) {
+  mutable_next.set_val(0xff);
+  mutable_next.set_node_index(kInvalidNodeIndex);
 }
 }  // namespace
 
@@ -313,7 +310,7 @@ class IcingDynamicTrie::IcingDynamicTrieStorage {
   // REQUIRES: nodes_left() > 0.
   Node *AllocNode();
   // REQUIRES: nexts_left() >= kMaxNextArraySize.
-  Next *AllocNextArray(int size);
+  libtextclassifier3::StatusOr<Next *> AllocNextArray(int size);
   void FreeNextArray(Next *next, int log2_size);
   // REQUIRES: suffixes_left() >= strlen(suffix) + 1 + value_size()
   uint32_t MakeSuffix(const char *suffix, const void *value,
@@ -466,8 +463,7 @@ bool IcingDynamicTrie::IcingDynamicTrieStorage::Init() {
     if (i == 0) {
       // Header.
       if (file_size != IcingMMapper::system_page_size()) {
-        ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-            "Trie hdr wrong size: %" PRIu64, file_size);
+        ICING_LOG(ERROR) << "Trie hdr wrong size: " << file_size;
         goto failed;
       }
 
@@ -528,8 +524,7 @@ bool IcingDynamicTrie::IcingDynamicTrieStorage::Init() {
                                    sizeof(char), hdr_.hdr.suffixes_size(),
                                    hdr_.hdr.max_suffixes_size(),
                                    &crcs_->array_crcs[SUFFIX], init_crcs)) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Trie mmap suffix failed");
+    ICING_LOG(ERROR) << "Trie mmap suffix failed";
     goto failed;
   }
 
@@ -677,8 +672,7 @@ bool IcingDynamicTrie::IcingDynamicTrieStorage::Sync() {
   }
 
   if (!WriteHeader()) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Flushing trie header failed: %s", strerror(errno));
+    ICING_LOG(ERROR) << "Flushing trie header failed: " << strerror(errno);
     success = false;
   }
 
@@ -692,8 +686,7 @@ bool IcingDynamicTrie::IcingDynamicTrieStorage::Sync() {
   }
 
   if (total_flushed > 0) {
-    ICING_VLOG(1) << IcingStringUtil::StringPrintf("Flushing %u pages of trie",
-                                                   total_flushed);
+    ICING_VLOG(1) << "Flushing " << total_flushed << " pages of trie";
   }
 
   return success;
@@ -736,10 +729,11 @@ IcingDynamicTrie::Node *IcingDynamicTrie::IcingDynamicTrieStorage::AllocNode() {
   return GetMutableNode(hdr_.hdr.num_nodes() - 1);
 }
 
-IcingDynamicTrie::Next *
+libtextclassifier3::StatusOr<IcingDynamicTrie::Next *>
 IcingDynamicTrie::IcingDynamicTrieStorage::AllocNextArray(int size) {
   if (size > kMaxNextArraySize) {
-    ICING_LOG(FATAL) << "Array size exceeds the max 'next' array size";
+    return absl_ports::InternalError(
+        "Array size exceeds the max 'next' array size");
   }
 
   if (nexts_left() < static_cast<uint32_t>(kMaxNextArraySize)) {
@@ -769,8 +763,7 @@ IcingDynamicTrie::IcingDynamicTrieStorage::AllocNextArray(int size) {
 
   // Fill with char 0xff so we are sorted properly.
   for (int i = 0; i < aligned_size; i++) {
-    ret[i].set_val(0xff);
-    ret[i].set_node_index(kInvalidNodeIndex);
+    ResetMutableNext(ret[i]);
   }
   return ret;
 }
@@ -824,8 +817,7 @@ uint32_t IcingDynamicTrie::IcingDynamicTrieStorage::UpdateCrc() {
 uint32_t IcingDynamicTrie::IcingDynamicTrieStorage::UpdateCrcInternal(
     bool write_hdr) {
   if (write_hdr && !WriteHeader()) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Flushing trie header failed: %s", strerror(errno));
+    ICING_LOG(ERROR) << "Flushing trie header failed: " << strerror(errno);
   }
 
   crcs_->header_crc = GetHeaderCrc();
@@ -919,8 +911,7 @@ bool IcingDynamicTrie::IcingDynamicTrieStorage::Header::SerializeToArray(
 bool IcingDynamicTrie::IcingDynamicTrieStorage::Header::Verify() {
   // Check version.
   if (hdr.version() != kCurVersion) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Trie version %u mismatch", hdr.version());
+    ICING_LOG(ERROR) << "Trie version " << hdr.version() << " mismatch";
     return false;
   }
 
@@ -1162,9 +1153,8 @@ bool IcingDynamicTrie::Sync() {
 
   Warm();
 
-  ICING_VLOG(1) << IcingStringUtil::StringPrintf(
-      "Syncing dynamic trie %s took %.3fms", filename_base_.c_str(),
-      timer.Elapsed() * 1000.);
+  ICING_VLOG(1) << "Syncing dynamic trie " << filename_base_.c_str()
+      << " took " << timer.Elapsed() * 1000 << "ms";
 
   return success;
 }
@@ -1214,8 +1204,7 @@ std::unique_ptr<IcingFlashBitmap> IcingDynamicTrie::OpenAndInitBitmap(
     const IcingFilesystem *filesystem) {
   auto bitmap = std::make_unique<IcingFlashBitmap>(filename, filesystem);
   if (!bitmap->Init() || (verify && !bitmap->Verify())) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf("Init of %s failed",
-                                                      filename.c_str());
+    ICING_LOG(ERROR) << "Init of " << filename.c_str() << " failed";
     return nullptr;
   }
   return bitmap;
@@ -1245,16 +1234,14 @@ bool IcingDynamicTrie::InitPropertyBitmaps() {
   vector<std::string> files;
   if (!filesystem_->GetMatchingFiles((property_bitmaps_prefix_ + "*").c_str(),
                                      &files)) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Could not get files at prefix %s", property_bitmaps_prefix_.c_str());
+    ICING_LOG(ERROR) << "Could not get files at prefix " << property_bitmaps_prefix_;
     goto failed;
   }
   for (size_t i = 0; i < files.size(); i++) {
     // Decode property id from filename.
     size_t property_id_start_idx = files[i].rfind('.');
     if (property_id_start_idx == std::string::npos) {
-      ICING_LOG(ERROR) << IcingStringUtil::StringPrintf("Malformed filename %s",
-                                                        files[i].c_str());
+      ICING_LOG(ERROR) << "Malformed filename " << files[i];
       continue;
     }
     property_id_start_idx++;  // skip dot
@@ -1262,8 +1249,7 @@ bool IcingDynamicTrie::InitPropertyBitmaps() {
     uint32_t property_id =
         strtol(files[i].c_str() + property_id_start_idx, &end, 10);  // NOLINT
     if (!end || end != (files[i].c_str() + files[i].size())) {
-      ICING_LOG(ERROR) << IcingStringUtil::StringPrintf("Malformed filename %s",
-                                                        files[i].c_str());
+      ICING_LOG(ERROR) << "Malformed filename " << files[i];
       continue;
     }
     std::unique_ptr<IcingFlashBitmap> bitmap = OpenAndInitBitmap(
@@ -1271,8 +1257,7 @@ bool IcingDynamicTrie::InitPropertyBitmaps() {
         runtime_options_.storage_policy == RuntimeOptions::kMapSharedWithCrc,
         filesystem_);
     if (!bitmap) {
-      ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-          "Open prop bitmap failed: %s", files[i].c_str());
+      ICING_LOG(ERROR) << "Open prop bitmap failed: " << files[i];
       goto failed;
     }
     bitmap->Truncate(truncate_idx);
@@ -1314,50 +1299,6 @@ void IcingDynamicTrie::OnSleep() {
 
   // Update crcs so we can verify when we come back.
   UpdateCrc();
-}
-
-IcingDynamicTrie::NewValueMap::~NewValueMap() {}
-
-bool IcingDynamicTrie::Compact(
-    const NewValueMap &old_tvi_to_new_value, IcingDynamicTrie *out,
-    std::unordered_map<uint32_t, uint32_t> *old_to_new_tvi) const {
-  if (old_to_new_tvi == nullptr) {
-    ICING_LOG(ERROR) << "TVI is null";
-  }
-
-  if (!is_initialized()) {
-    ICING_LOG(FATAL) << "DynamicTrie not initialized";
-  }
-
-  PropertyReadersAll prop_readers(*this);
-
-  old_to_new_tvi->clear();
-  old_to_new_tvi->rehash(size() * 2);
-
-  for (Iterator it_all(*this, ""); it_all.IsValid(); it_all.Advance()) {
-    uint32_t value_index = it_all.GetValueIndex();
-    const void *new_value = old_tvi_to_new_value.GetNewValue(value_index);
-    if (!new_value) continue;
-
-    uint32_t new_value_index;
-    if (!out->Insert(it_all.GetKey(), new_value, &new_value_index, false)) {
-      return false;
-    }
-
-    old_to_new_tvi->insert({value_index, new_value_index});
-
-    // Copy properties.
-    for (size_t i = 0; i < prop_readers.size(); i++) {
-      if (prop_readers.HasProperty(i, value_index)) {
-        if (!out->SetProperty(new_value_index, i)) {
-          // Ouch. We need to bail.
-          return false;
-        }
-      }
-    }
-  }
-
-  return true;
 }
 
 uint32_t IcingDynamicTrie::size() const {
@@ -1550,9 +1491,7 @@ bool IcingDynamicTrie::ResetNext(uint32_t next_index) {
   if (mutable_next == nullptr) {
     return false;
   }
-
-  mutable_next->set_val(0);
-  mutable_next->set_node_index(kInvalidNodeIndex);
+  ResetMutableNext(*mutable_next);
   return true;
 }
 
@@ -1570,13 +1509,15 @@ bool IcingDynamicTrie::SortNextArray(const Node *node) {
     return false;
   }
 
-  std::sort(next_array_start, next_array_start + next_array_buffer_size - 1);
+  std::sort(next_array_start, next_array_start + next_array_buffer_size);
   return true;
 }
 
-bool IcingDynamicTrie::Insert(const char *key, const void *value,
-                              uint32_t *value_index, bool replace,
-                              bool *pnew_key) {
+libtextclassifier3::Status IcingDynamicTrie::Insert(const char *key,
+                                                    const void *value,
+                                                    uint32_t *value_index,
+                                                    bool replace,
+                                                    bool *pnew_key) {
   if (!is_initialized()) {
     ICING_LOG(FATAL) << "DynamicTrie not initialized";
   }
@@ -1592,8 +1533,7 @@ bool IcingDynamicTrie::Insert(const char *key, const void *value,
   if (!(storage_->nodes_left() >= 2 + key_len + 1 &&
         storage_->nexts_left() >= 2 + key_len + 1 + kMaxNextArraySize &&
         storage_->suffixes_left() >= key_len + 1 + value_size())) {
-    // No more space left.
-    return false;
+    return absl_ports::ResourceExhaustedError("No more space left");
   }
 
   uint32_t best_node_index;
@@ -1635,7 +1575,7 @@ bool IcingDynamicTrie::Insert(const char *key, const void *value,
             storage_->GetSuffixIndex(prev_suffix_cur + 1), value_size());
         memcpy(mutable_prev_suffix_cur, value, value_size());
       }
-      return true;
+      return libtextclassifier3::Status::OK;
     }
 
     if (*prev_suffix_cur == *key_cur) {
@@ -1649,7 +1589,7 @@ bool IcingDynamicTrie::Insert(const char *key, const void *value,
     int common_len = prev_suffix_cur - prev_suffix;
     for (int i = 0; i < common_len; i++) {
       // Create a single-branch child node.
-      Next *split_next = storage_->AllocNextArray(1);
+      ICING_ASSIGN_OR_RETURN(Next * split_next, storage_->AllocNextArray(1));
       split_node->set_next_index(storage_->GetNextArrayIndex(split_next));
       split_node->set_is_leaf(false);
       split_node->set_log2_num_children(0);
@@ -1661,7 +1601,7 @@ bool IcingDynamicTrie::Insert(const char *key, const void *value,
     }
 
     // Fill a split.
-    Next *split_next = storage_->AllocNextArray(2);
+    ICING_ASSIGN_OR_RETURN(Next * split_next, storage_->AllocNextArray(2));
     split_node->set_next_index(storage_->GetNextArrayIndex(split_next));
     split_node->set_is_leaf(false);
     split_node->set_log2_num_children(1);
@@ -1720,7 +1660,7 @@ bool IcingDynamicTrie::Insert(const char *key, const void *value,
     Next *new_next = cur_next;
     if (next_len == (next_array_buffer_size)) {
       // Allocate a new, larger, array.
-      new_next = storage_->AllocNextArray(next_len + 1);
+      ICING_ASSIGN_OR_RETURN(new_next, storage_->AllocNextArray(next_len + 1));
       memcpy(new_next, cur_next, sizeof(Next) * next_len);
     }
 
@@ -1741,7 +1681,8 @@ bool IcingDynamicTrie::Insert(const char *key, const void *value,
 
       // 8 == log2(256)
       if (log2_num_children >= 8) {
-        ICING_LOG(FATAL) << "Number of children exceeds the max allowed size";
+        return absl_ports::InternalError(
+            "Number of children exceeds the max allowed size");
       }
 
       mutable_best_node->set_log2_num_children(log2_num_children + 1);
@@ -1755,7 +1696,7 @@ bool IcingDynamicTrie::Insert(const char *key, const void *value,
   storage_->inc_num_keys();
 
   if (pnew_key) *pnew_key = true;
-  return true;
+  return libtextclassifier3::Status::OK;
 }
 
 const void *IcingDynamicTrie::GetValueAtIndex(uint32_t value_index) const {
@@ -1804,11 +1745,12 @@ bool IcingDynamicTrie::Find(const char *key, void *value,
 }
 
 IcingDynamicTrie::Iterator::Iterator(const IcingDynamicTrie &trie,
-                                     const char *prefix)
+                                     const char *prefix, bool reverse)
     : cur_key_(prefix),
       cur_suffix_(nullptr),
       cur_suffix_len_(0),
       single_leaf_match_(false),
+      reverse_(reverse),
       trie_(trie) {
   if (!trie.is_initialized()) {
     ICING_LOG(FATAL) << "DynamicTrie not initialized";
@@ -1817,19 +1759,29 @@ IcingDynamicTrie::Iterator::Iterator(const IcingDynamicTrie &trie,
   Reset();
 }
 
-void IcingDynamicTrie::Iterator::LeftBranchToLeaf(uint32_t node_index) {
+void IcingDynamicTrie::Iterator::BranchToLeaf(uint32_t node_index,
+                                              BranchType branch_type) {
   // Go down the trie, following the left-most child until we hit a
   // leaf. Push to stack and cur_key nodes and chars as we go.
-  for (; !trie_.storage_->GetNode(node_index)->is_leaf();
-       node_index =
-           trie_.storage_
-               ->GetNext(trie_.storage_->GetNode(node_index)->next_index(), 0)
-               ->node_index()) {
-    branch_stack_.push_back(Branch(node_index));
-    cur_key_.push_back(
-        trie_.storage_
-            ->GetNext(trie_.storage_->GetNode(node_index)->next_index(), 0)
-            ->val());
+  // When reverse_ is true, the method will follow the right-most child.
+  const Node *node = trie_.storage_->GetNode(node_index);
+  while (!node->is_leaf()) {
+    const Next *next_start = trie_.storage_->GetNext(node->next_index(), 0);
+    int child_idx;
+    if (branch_type == BranchType::kRightMost) {
+      uint32_t next_array_size = 1u << node->log2_num_children();
+      child_idx = trie_.GetValidNextsSize(next_start, next_array_size) - 1;
+    } else {
+      // node isn't a leaf. So it must have >0 children.
+      // 0 is the left-most child.
+      child_idx = 0;
+    }
+    const Next &child_next = next_start[child_idx];
+    branch_stack_.push_back(Branch(node_index, child_idx));
+    cur_key_.push_back(child_next.val());
+
+    node_index = child_next.node_index();
+    node = trie_.storage_->GetNode(node_index);
   }
 
   // We're at a leaf.
@@ -1865,7 +1817,7 @@ void IcingDynamicTrie::Iterator::Reset() {
   // Two cases/states:
   //
   // - Found an intermediate node. If we matched all of prefix
-  //   (cur_key_), LeftBranchToLeaf.
+  //   (cur_key_), BranchToLeaf.
   //
   // - Found a leaf node, which is the ONLY matching key for this
   //   prefix. Check that suffix matches the prefix. Then we set
@@ -1888,7 +1840,9 @@ void IcingDynamicTrie::Iterator::Reset() {
     cur_suffix_len_ = strlen(cur_suffix_);
     single_leaf_match_ = true;
   } else if (static_cast<size_t>(key_offset) == cur_key_.size()) {
-    LeftBranchToLeaf(node_index);
+    BranchType branch_type =
+        (reverse_) ? BranchType::kRightMost : BranchType::kLeftMost;
+    BranchToLeaf(node_index, branch_type);
   }
 }
 
@@ -1915,19 +1869,25 @@ bool IcingDynamicTrie::Iterator::Advance() {
   while (!branch_stack_.empty()) {
     Branch *branch = &branch_stack_.back();
     const Node *node = trie_.storage_->GetNode(branch->node_idx);
-    branch->child_idx++;
-    if (branch->child_idx < (1 << node->log2_num_children()) &&
-        trie_.storage_->GetNext(node->next_index(), branch->child_idx)
-                ->node_index() != kInvalidNodeIndex) {
-      // Successfully incremented to the next child. Update the char
-      // value at this depth.
-      cur_key_[cur_key_.size() - 1] =
-          trie_.storage_->GetNext(node->next_index(), branch->child_idx)->val();
-      // We successfully found a sub-trie to explore.
-      LeftBranchToLeaf(
-          trie_.storage_->GetNext(node->next_index(), branch->child_idx)
-              ->node_index());
-      return true;
+    if (reverse_) {
+      branch->child_idx--;
+    } else {
+      branch->child_idx++;
+    }
+    if (branch->child_idx >= 0 &&
+        branch->child_idx < (1 << node->log2_num_children())) {
+      const Next *child_next =
+          trie_.storage_->GetNext(node->next_index(), branch->child_idx);
+      if (child_next->node_index() != kInvalidNodeIndex) {
+        // Successfully incremented to the next child. Update the char
+        // value at this depth.
+        cur_key_[cur_key_.size() - 1] = child_next->val();
+        // We successfully found a sub-trie to explore.
+        BranchType branch_type =
+            (reverse_) ? BranchType::kRightMost : BranchType::kLeftMost;
+        BranchToLeaf(child_next->node_index(), branch_type);
+        return true;
+      }
     }
     branch_stack_.pop_back();
     cur_key_.resize(cur_key_.size() - 1);
@@ -2116,22 +2076,34 @@ const IcingDynamicTrie::Next *IcingDynamicTrie::GetNextByChar(
   return found;
 }
 
+int IcingDynamicTrie::GetValidNextsSize(
+    const IcingDynamicTrie::Next *next_array_start,
+    int next_array_length) const {
+  // Only searching for key char 0xff is not sufficient, as 0xff can be a valid
+  // character. We must also specify kInvalidNodeIndex as the target node index
+  // when searching the next array.
+  return LowerBound(next_array_start, next_array_start + next_array_length,
+                    /*key_char=*/0xff, /*node_index=*/kInvalidNodeIndex) -
+         next_array_start;
+}
+
 const IcingDynamicTrie::Next *IcingDynamicTrie::LowerBound(
-    const Next *start, const Next *end, uint8_t key_char) const {
+    const Next *start, const Next *end, uint8_t key_char,
+    uint32_t node_index) const {
   // Above this value will use binary search instead of linear
   // search. 16 was chosen from running some benchmarks with
   // different values.
   static const uint32_t kBinarySearchCutoff = 16;
 
+  Next key_next(key_char, node_index);
   if (end - start >= kBinarySearchCutoff) {
     // Binary search.
-    Next key_next(key_char, 0);
     return lower_bound(start, end, key_next);
   } else {
     // Linear search.
     const Next *found;
     for (found = start; found < end; found++) {
-      if (found->val() >= key_char) {
+      if (!(*found < key_next)) {
         // Should have gotten match.
         break;
       }
@@ -2275,6 +2247,41 @@ std::vector<int> IcingDynamicTrie::FindBranchingPrefixLengths(const char *key,
   return prefix_lengths;
 }
 
+bool IcingDynamicTrie::IsBranchingTerm(const char *key) const {
+  if (!is_initialized()) {
+    ICING_LOG(FATAL) << "DynamicTrie not initialized";
+  }
+
+  if (storage_->empty()) {
+    return false;
+  }
+
+  uint32_t best_node_index;
+  int key_offset;
+  FindBestNode(key, &best_node_index, &key_offset, /*prefix=*/true);
+  const Node *cur_node = storage_->GetNode(best_node_index);
+
+  if (cur_node->is_leaf()) {
+    return false;
+  }
+
+  // There is no intermediate node for key in the trie.
+  if (key[key_offset] != '\0') {
+    return false;
+  }
+
+  // Found key as an intermediate node, but key is not a valid term stored in
+  // the trie. In this case, we need at least two children for key to be a
+  // branching term.
+  if (GetNextByChar(cur_node, '\0') == nullptr) {
+    return cur_node->log2_num_children() >= 1;
+  }
+
+  // The intermediate node for key must have more than two children for key to
+  // be a branching term, one of which represents the leaf node for key itself.
+  return cur_node->log2_num_children() > 1;
+}
+
 void IcingDynamicTrie::GetDebugInfo(int verbosity, std::string *out) const {
   Stats stats;
   CollectStats(&stats);
@@ -2284,8 +2291,7 @@ void IcingDynamicTrie::GetDebugInfo(int verbosity, std::string *out) const {
   vector<std::string> files;
   if (!filesystem_->GetMatchingFiles((property_bitmaps_prefix_ + "*").c_str(),
                                      &files)) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Could not get files at prefix %s", property_bitmaps_prefix_.c_str());
+    ICING_LOG(ERROR) << "Could not get files at prefix " << property_bitmaps_prefix_;
     return;
   }
   for (size_t i = 0; i < files.size(); i++) {
@@ -2357,8 +2363,7 @@ IcingFlashBitmap *IcingDynamicTrie::OpenOrCreatePropertyBitmap(
   }
 
   if (property_id > kMaxPropertyId) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Property id %u out of range", property_id);
+    ICING_LOG(ERROR) << "Property id " << property_id << " out of range";
     return nullptr;
   }
 
@@ -2500,7 +2505,26 @@ bool IcingDynamicTrie::Delete(const std::string_view key) {
   for (uint32_t next_index : nexts_to_reset) {
     ResetNext(next_index);
   }
-  SortNextArray(last_multichild_node);
+
+  if (last_multichild_node != nullptr) {
+    SortNextArray(last_multichild_node);
+    uint32_t next_array_buffer_size =
+        1u << last_multichild_node->log2_num_children();
+    Next *next_array_start = this->storage_->GetMutableNextArray(
+        last_multichild_node->next_index(), next_array_buffer_size);
+    uint32_t num_children =
+        GetValidNextsSize(next_array_start, next_array_buffer_size);
+    // Shrink the next array if we can.
+    if (num_children == next_array_buffer_size / 2) {
+      Node *mutable_node = storage_->GetMutableNode(
+          storage_->GetNodeIndex(last_multichild_node));
+      mutable_node->set_log2_num_children(mutable_node->log2_num_children() -
+                                          1);
+      // Add the unused second half of the next array to the free list.
+      storage_->FreeNextArray(next_array_start + next_array_buffer_size / 2,
+                              mutable_node->log2_num_children());
+    }
+  }
 
   return true;
 }
@@ -2512,8 +2536,7 @@ bool IcingDynamicTrie::ClearPropertyForAllValues(uint32_t property_id) {
 
   PropertyReadersAll readers(*this);
   if (!readers.Exists(property_id)) {
-    ICING_VLOG(1) << IcingStringUtil::StringPrintf(
-        "Properties for id %u don't exist", property_id);
+    ICING_VLOG(1) << "Properties for id " << property_id << " don't exist";
     return true;
   }
 

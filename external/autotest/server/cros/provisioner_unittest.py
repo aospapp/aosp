@@ -1,11 +1,10 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import mock
-import mox
 import unittest
+from unittest import mock
 
 import common
 from autotest_lib.client.common_lib.cros import kernel_utils
@@ -60,26 +59,26 @@ class TestErrorClassifications(unittest.TestCase):
         self.assertIn(_StubUpdateError._SUMMARY, stub.failure_summary)
 
     def test_host_update_error(self):
-        """Sanity test the `HostUpdateError` classifier."""
+        """Test the `HostUpdateError` classifier."""
         exception = provisioner.HostUpdateError('chromeos6-row3-rack3-host19',
                                                 'Fake message')
         self.assertTrue(isinstance(exception.failure_summary, str))
 
     def test_image_install_error(self):
-        """Sanity test the `ImageInstallError` classifier."""
+        """Test the `ImageInstallError` classifier."""
         exception = provisioner.ImageInstallError(
                 'chromeos6-row3-rack3-host19', 'chromeos4-devserver7.cros',
                 'Fake message')
         self.assertTrue(isinstance(exception.failure_summary, str))
 
     def test_new_build_update_error(self):
-        """Sanity test the `NewBuildUpdateError` classifier."""
+        """Test the `NewBuildUpdateError` classifier."""
         exception = provisioner.NewBuildUpdateError('R68-10621.0.0',
                                                     'Fake message')
         self.assertTrue(isinstance(exception.failure_summary, str))
 
 
-class TestProvisioner(mox.MoxTestBase):
+class TestProvisioner(unittest.TestCase):
     """Test provisioner module."""
 
     def testParseBuildFromUpdateUrlwithUpdate(self):
@@ -96,31 +95,34 @@ class TestProvisioner(mox.MoxTestBase):
                       'R28-4444.0.0-b2996')
         script_name = 'fubar'
         local_script = '/usr/local/bin/%s' % script_name
-        host = self.mox.CreateMockAnything()
+
+        host = mock.MagicMock()
         cros_provisioner = provisioner.ChromiumOSProvisioner(update_url,
                                                              host=host)
-        host.path_exists(local_script).AndReturn(True)
+        host.path_exists.return_value = True
 
-        self.mox.ReplayAll()
         # Simple case:  file exists on DUT
         self.assertEqual(cros_provisioner._get_remote_script(script_name),
                          local_script)
-        self.mox.VerifyAll()
+        host.path_exists.assert_called_with(local_script)
 
-        self.mox.ResetAll()
         fake_shell = '/bin/ash'
         tmp_script = '/usr/local/tmp/%s' % script_name
-        fake_result = self.mox.CreateMockAnything()
-        fake_result.stdout = '#!%s\n' % fake_shell
-        host.path_exists(local_script).AndReturn(False)
-        host.run(mox.IgnoreArg())
-        host.run(mox.IgnoreArg()).AndReturn(fake_result)
+        fake_res = fake_result('#!%s\n' % fake_shell)
 
-        self.mox.ReplayAll()
+        host.path_exists.return_value = False
+        host.run.return_value = fake_res
+
         # Complicated case:  script not on DUT, so try to download it.
         self.assertEqual(cros_provisioner._get_remote_script(script_name),
                          '%s %s' % (fake_shell, tmp_script))
-        self.mox.VerifyAll()
+        host.path_exists.assert_called_with(local_script)
+
+
+class fake_result(object):
+    """A fake result with stdout attribute."""
+    def __init__(self, result):
+        self.stdout = result
 
 
 class TestProvisioner2(unittest.TestCase):

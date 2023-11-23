@@ -112,7 +112,7 @@ public final class InlineStaticMockMaker implements MockMaker {
      * are modified, some are not. This list helps the {@link MockMethodAdvice} help figure out if a
      * object's method calls should be intercepted.
      */
-    private final HashMap<Object, InvocationHandlerAdapter> markerToHandler = new HashMap<>();
+    private final Map<Object, InvocationHandlerAdapter> markerToHandler = new MarkerToHandlerMap();
     private final Map<Class, Object> classToMarker = new HashMap<>();
 
     /**
@@ -126,8 +126,7 @@ public final class InlineStaticMockMaker implements MockMaker {
     public InlineStaticMockMaker() {
         if (INITIALIZATION_ERROR != null) {
             throw new RuntimeException("Could not initialize inline mock maker.\n" + "\n" +
-                    "Release: Android " + Build.VERSION.RELEASE_OR_CODENAME + " "
-                    + Build.VERSION.INCREMENTAL
+                    "Release: Android " + Build.VERSION.RELEASE + " " + Build.VERSION.INCREMENTAL
                     + "Device: " + Build.BRAND + " " + Build.MODEL, INITIALIZATION_ERROR);
         }
 

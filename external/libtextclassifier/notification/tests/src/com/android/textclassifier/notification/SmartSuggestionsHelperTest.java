@@ -86,9 +86,8 @@ public class SmartSuggestionsHelperTest {
     }
 
     @Override
-    TextClassifier createTextClassificationSession() {
+    void onTextClassificationSessionCreated() {
       numOfSessionsCreated += 1;
-      return super.createTextClassificationSession();
     }
 
     int getNumOfSessionsCreated() {
@@ -260,9 +259,11 @@ public class SmartSuggestionsHelperTest {
     assertThat(firstEvent.getEntityTypes())
         .asList()
         .containsExactly(ConversationAction.TYPE_TEXT_REPLY, ConversationAction.TYPE_OPEN_URL);
+    assertThat(firstEvent.getEventContext().getPackageName()).isEqualTo(PACKAGE_NAME);
     TextClassifierEvent secondEvent = textClassifierEvents.get(1);
     assertThat(secondEvent.getEventType()).isEqualTo(TextClassifierEvent.TYPE_SMART_ACTION);
     assertThat(secondEvent.getEntityTypes()[0]).isEqualTo(ConversationAction.TYPE_TEXT_REPLY);
+    assertThat(secondEvent.getEventContext().getPackageName()).isEqualTo(PACKAGE_NAME);
   }
 
   @Test

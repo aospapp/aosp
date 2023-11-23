@@ -30,14 +30,14 @@ class firmware_Bmpblk(FirmwareTest):
         logging.debug('cbfstool layout output:\n\n%s', layout)
         print_cbfs_cmd_options=''
         if 'BOOT_STUB' in layout:
-          print_cbfs_cmd_options=' -r BOOT_STUB'
+            print_cbfs_cmd_options=' -r BOOT_STUB'
         try:
             files = self.faft_client.system.run_shell_command_get_output(
                     PRINT_CBFS_CMD + print_cbfs_cmd_options)
             files = '\n'.join(files)
             logging.debug('cbfstool print output:\n\n%s', files)
             if 'romstage' not in files:
-                raise error.TestError("Sanity check failed: Can't read CBFS")
+                raise error.TestError("Quick check failed: Can't read CBFS")
             if 'vbgfx.bin' not in files:
                 raise error.TestNAError('This board has no firmware screens')
             if 'vbgfx_not_scaled' in files:

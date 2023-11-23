@@ -7,11 +7,15 @@
         <version>9</version>
     </parent>
 
+    <prerequisites>
+        <maven>3.8</maven>
+    </prerequisites>
+
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.antlr</groupId>
     <artifactId>antlr-master</artifactId>
     <packaging>pom</packaging>
-    <version>3.5.2</version>
+    <version>3.5.3</version>
     <name>ANTLR 3 Master build control POM</name>
     <description>Master build POM for ANTLR 3</description>
     <url>http://antlr.org</url>
@@ -52,12 +56,13 @@
     -->
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java5.home>${env.JAVA5_HOME}</java5.home>
-        <java6.home>${env.JAVA6_HOME}</java6.home>
-        <bootclasspath.java5>${java5.home}/lib/rt.jar</bootclasspath.java5>
-        <bootclasspath.java6>${java6.home}/lib/rt.jar</bootclasspath.java6>
-        <bootclasspath.compile>${bootclasspath.java5}</bootclasspath.compile>
-        <bootclasspath.testCompile>${bootclasspath.java6}</bootclasspath.testCompile>
+        <jdk>1.8</jdk>
+        <junit.version>4.13</junit.version>
+        <st4.version>4.3.1</st4.version>
+        <antlr.version>2.7.7</antlr.version>
+        <stringtemplate.version>3.2.1</stringtemplate.version>
+        <required-maven-version>3.3.1</required-maven-version>
+        <mavenVersion>3.8.4</mavenVersion>
     </properties>
 
     <licenses>
@@ -84,7 +89,7 @@
         <url>https://github.com/antlr/antlr3/tree/master</url>
         <connection>scm:git:git://github.com/antlr/antlr3.git</connection>
         <developerConnection>scm:git:git@github.com:antlr/antlr3.git</developerConnection>
-      <tag>3.5.2</tag>
+      <tag>HEAD</tag>
   </scm>
   <!--
 
@@ -101,28 +106,28 @@
             <dependency>
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
-                <version>4.10</version>
+                <version>${junit.version}</version>
                 <scope>test</scope>
             </dependency>
 
             <dependency>
                 <groupId>antlr</groupId>
                 <artifactId>antlr</artifactId>
-                <version>2.7.7</version>
+                <version>${antlr.version}</version>
                 <scope>compile</scope>
             </dependency>
 
             <dependency>
               <groupId>org.antlr</groupId>
               <artifactId>stringtemplate</artifactId>
-              <version>3.2.1</version>
+              <version>${stringtemplate.version}</version>
               <scope>compile</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.antlr</groupId>
                 <artifactId>ST4</artifactId>
-                <version>4.0.8</version>
+                <version>${st4.version}</version>
                 <scope>compile</scope>
             </dependency>
 
@@ -141,12 +146,22 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-compiler-plugin</artifactId>
+                        <version>3.8.1</version>
+                        <configuration>
+                            <source>${jdk}</source>
+                            <target>${jdk}</target>
+                        </configuration>
+                    </plugin>
+                    <!--
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
                         <executions>
                             <execution>
                                 <id>default-compile</id>
                                 <configuration>
-                                    <source>1.5</source>
-                                    <target>1.5</target>
+                                    <source>${jdk}</source>
+                                    <target>${jdk}</target>
                                     <compilerArgs>
                                         <arg>-Xlint</arg>
                                         <arg>-Xlint:-serial</arg>
@@ -158,8 +173,8 @@
                             <execution>
                                 <id>default-testCompile</id>
                                 <configuration>
-                                    <source>1.6</source>
-                                    <target>1.6</target>
+                                    <source>${jdk}</source>
+                                    <target>${jdk}</target>
                                     <compilerArgs>
                                         <arg>-Xlint</arg>
                                         <arg>-Xlint:-serial</arg>
@@ -170,6 +185,7 @@
                             </execution>
                         </executions>
                     </plugin>
+                    -->
                 </plugins>
             </build>
         </profile>
@@ -220,50 +236,18 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
+                <version>3.8.1</version>
                 <configuration>
-                    <sourceDirectory>src</sourceDirectory>
-                    <showWarnings>true</showWarnings>
-                    <showDeprecation>true</showDeprecation>
-                    <compilerArgs>
-                        <arg>-Xlint</arg>
-                        <arg>-Xlint:-serial</arg>
-                    </compilerArgs>
-                </configuration>
-
-                <executions>
-                    <execution>
-                        <id>default-compile</id>
-                        <configuration>
-                            <source>1.5</source>
-                            <target>1.5</target>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>default-testCompile</id>
-                        <configuration>
-                            <source>1.6</source>
-                            <target>1.6</target>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-release-plugin</artifactId>
-                <!-- override the version inherited from the parent -->
-                <version>2.5</version>
-                <configuration>
-                    <arguments>-Psonatype-oss-release ${release.arguments}</arguments>
+                    <source>${jdk}</source>
+                    <target>${jdk}</target>
                 </configuration>
             </plugin>
+
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <!-- override the version inherited from the parent -->
-                <version>2.17</version>
+                <version>2.12.4</version>
             </plugin>
 
             <plugin>
@@ -286,39 +270,41 @@
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <!-- override the version inherited from the parent -->
-                <version>2.9.1</version>
-                <configuration>
-                    <quiet>true</quiet>
-                </configuration>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
                 <!-- override the version inherited from the parent -->
                 <version>1.5</version>
             </plugin>
 
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.0.0-M2</version>
+                <executions>
+                    <execution>
+                        <id>enforce-maven</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireMavenVersion>
+                                    <version>${required-maven-version}</version>
+                                </requireMavenVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
 
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
-
-    <reporting>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <version>2.9.1</version>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jxr-plugin</artifactId>
-                <version>2.3</version>
-            </plugin>
-        </plugins>
-    </reporting>
 
 </project>

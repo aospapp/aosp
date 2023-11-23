@@ -1,0 +1,29 @@
+# Copyright 2019 The Fuchsia Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# This file is used when publishing to crates.io
+
+[package]
+edition = "2018"
+name = "zerocopy-derive"
+version = "0.3.2"
+authors = ["Joshua Liebow-Feeser <joshlf@google.com>"]
+description = "Custom derive for traits from the zerocopy crate"
+license-file = "../LICENSE"
+repository = "https://github.com/google/zerocopy"
+
+exclude = [".*"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.1"
+quote = "1.0.10"
+syn = { version = "1.0.5", features = ["visit"] }
+
+[dev-dependencies]
+rustversion = "1.0"
+trybuild = "1.0"
+zerocopy = { path = "../" }

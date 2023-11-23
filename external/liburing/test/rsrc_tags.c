@@ -27,11 +27,15 @@ static bool check_cq_empty(struct io_uring *ring)
 	struct io_uring_cqe *cqe = NULL;
 	int ret;
 
-	sleep(1); /* doesn't happen immediately, so wait */
+	usleep(1000); /* doesn't happen immediately, so wait */
 	ret = io_uring_peek_cqe(ring, &cqe); /* nothing should be there */
 	return ret == -EAGAIN;
 }
 
+/*
+ * There are io_uring_register_buffers_tags() and other wrappers,
+ * but they may change, so hand-code to specifically test this ABI.
+ */
 static int register_rsrc(struct io_uring *ring, int type, int nr,
 			  const void *arg, const __u64 *tags)
 {
@@ -40,8 +44,8 @@ static int register_rsrc(struct io_uring *ring, int type, int nr,
 
 	memset(&reg, 0, sizeof(reg));
 	reg.nr = nr;
-	reg.data = (__u64)arg;
-	reg.tags = (__u64)tags;
+	reg.data = (__u64)(uintptr_t)arg;
+	reg.tags = (__u64)(uintptr_t)tags;
 
 	reg_type = IORING_REGISTER_FILES2;
 	if (type != TEST_IORING_RSRC_FILE)
@@ -52,6 +56,10 @@ static int register_rsrc(struct io_uring *ring, int type, int nr,
 	return ret ? -errno : 0;
 }
 
+/*
+ * There are io_uring_register_buffers_update_tag() and other wrappers,
+ * but they may change, so hand-code to specifically test this ABI.
+ */
 static int update_rsrc(struct io_uring *ring, int type, int nr, int off,
 			const void *arg, const __u64 *tags)
 {
@@ -60,8 +68,8 @@ static int update_rsrc(struct io_uring *ring, int type, int nr, int off,
 
 	memset(&up, 0, sizeof(up));
 	up.offset = off;
-	up.data = (__u64)arg;
-	up.tags = (__u64)tags;
+	up.data = (__u64)(uintptr_t)arg;
+	up.tags = (__u64)(uintptr_t)tags;
 	up.nr = nr;
 
 	up_type = IORING_REGISTER_FILES_UPDATE2;
@@ -75,17 +83,17 @@ static int update_rsrc(struct io_uring *ring, int type, int nr, int off,
 static bool has_rsrc_update(void)
 {
 	struct io_uring ring;
-	char buf[1024];
-	struct iovec vec = {.iov_base = buf, .iov_len = sizeof(buf), };
 	int ret;
 
 	ret = io_uring_queue_init(1, &ring, 0);
-	if (ret)
-		return false;
+	if (ret) {
+		fprintf(stderr, "io_uring_queue_init() failed, %d\n", ret);
+		exit(1);
+	}
 
-	ret = register_rsrc(&ring, TEST_IORING_RSRC_BUFFER, 1, &vec, NULL);
+	ret = ring.features & IORING_FEAT_RSRC_TAGS;
 	io_uring_queue_exit(&ring);
-	return ret != -EINVAL;
+	return ret;
 }
 
 static int test_tags_generic(int nr, int type, void *rsrc, int ring_flags)
@@ -314,7 +322,7 @@ static int test_files(int ring_flags)
 	struct io_uring ring;
 	const int nr = 50;
 	int off = 5, i, ret, fd;
-	int files[nr];
+	__s32 files[nr];
 	__u64 tags[nr], tag;
 
 	for (i = 0; i < nr; ++i) {

@@ -1,4 +1,4 @@
-/* Copyright 2021 The Chromium OS Authors. All rights reserved.
+/* Copyright 2021 The ChromiumOS Authors
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -87,7 +87,7 @@ bool parse_config_line(const char *config_line, struct config_entry *entry)
 
 static bool match_special_directive(const char *line)
 {
-	return (strcmp(line, "% minijail-config-file v0\n") == 0);
+	return streq(line, "% minijail-config-file v0\n");
 }
 
 bool parse_config_file(FILE *config_file, struct config_entry_list *list)
@@ -131,8 +131,9 @@ bool parse_config_file(FILE *config_file, struct config_entry_list *list)
 	/*
 	 * getmultiline() behaves similarly with getline(3). It returns -1
 	 * when read into EOF or the following errors.
+	 * Caveat: EINVAL may happen when EOF is encountered in a valid stream.
 	 */
-	if (errno == EINVAL || errno == ENOMEM) {
+	if ((errno == EINVAL && config_file == NULL) || errno == ENOMEM) {
 		return false;
 	}
 

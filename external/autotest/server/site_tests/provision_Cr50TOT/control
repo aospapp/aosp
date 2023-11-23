@@ -14,6 +14,7 @@ TEST_CATEGORY = "System"
 TEST_CLASS = "provision"
 TEST_TYPE = "Server"
 DEPENDENCIES = "servo_state:WORKING,cr50-ro-keyid:dev"
+PY_VERSION = 3
 
 DOC = """
 Update the Cr50 to the TOT image from the latest reef build. This requires that

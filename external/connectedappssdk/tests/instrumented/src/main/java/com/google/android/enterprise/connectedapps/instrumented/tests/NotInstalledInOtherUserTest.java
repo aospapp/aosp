@@ -25,7 +25,6 @@ import com.google.android.enterprise.connectedapps.instrumented.utils.Instrument
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
 import com.google.android.enterprise.connectedapps.testapp.types.ProfileTestCrossProfileType;
 import com.google.common.util.concurrent.ListenableFuture;
-
 import org.junit.AfterClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,7 +47,7 @@ public class NotInstalledInOtherUserTest {
       new InstrumentedTestUtilities(context, connector);
 
   @AfterClass
-  public static void teardown() {
+  public static void teardownClass() {
     utilities.ensureNoWorkProfile();
   }
 

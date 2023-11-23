@@ -35,7 +35,7 @@ struct UpdateVariableAndFill_Philox<CPUDevice, Distribution> {
       TF_UNLOCK_FUNCTION() {
     int64_t output_size = arg->output_size;
     int64_t alg_tag_skip = arg->alg_tag_skip;
-    ScopedUnlockUnrefVar* state_var_guard = arg->not_used;
+    ScopedUnlockUnrefVar* state_var_guard = arg->state_var_guard;
     Tensor* state_tensor = arg->state_tensor;
 
     auto state_tensor_flat = state_tensor->flat<StateElementType>();
@@ -63,11 +63,11 @@ Status CheckState(const Tensor& state) {
     return errors::InvalidArgument(
         "RNG state must have one and only one dimension, not ", state.dims());
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status CheckPhiloxState(const Tensor& state, int64_t alg_tag_skip = 0) {
-  static_assert(std::is_same<StateElementType, int64>::value,
+  static_assert(std::is_same<StateElementType, int64_t>::value,
                 "StateElementType must be int64");
   static_assert(std::is_same<PhiloxRandom::ResultElementType, uint32>::value,
                 "PhiloxRandom::ResultElementType must be uint32");
@@ -78,7 +78,7 @@ Status CheckPhiloxState(const Tensor& state, int64_t alg_tag_skip = 0) {
         " must be at least ",
         min_size, "; got ", state.NumElements());
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 template <typename Device, typename Distribution>
@@ -113,11 +113,11 @@ Status UpdateVariableAndFill(
     UpdateVariableAndFill_Philox_Arg arg;
     arg.output_size = output_size;
     arg.alg_tag_skip = alg_tag_skip;
-    arg.not_used = &state_var_guard;
+    arg.state_var_guard = &state_var_guard;
     arg.state_tensor = var_tensor;
     functor::UpdateVariableAndFill_Philox<Device, Distribution>()(
         ctx, ctx->eigen_device<Device>(), dist, &arg, output_data);
-    return Status::OK();
+    return OkStatus();
   } else {
     return errors::InvalidArgument("Unsupported algorithm id: ", alg);
   }
@@ -165,7 +165,7 @@ Status GetScalar(const Tensor& tensor, int input_idx, T* result) {
                                    ", not ", DataTypeString(tensor.dtype()));
   }
   *result = tensor.flat<T>()(0);
-  return Status::OK();
+  return OkStatus();
 }
 
 template <typename AlgEnumType>
@@ -173,7 +173,7 @@ Status GetAlg(OpKernelContext* ctx, int input_idx, Algorithm* alg) {
   AlgEnumType alg_id;
   TF_RETURN_IF_ERROR(GetScalar(ctx->input(input_idx), input_idx, &alg_id));
   *alg = Algorithm(alg_id);
-  return Status::OK();
+  return OkStatus();
 }
 
 template <typename Device, class Distribution>
@@ -183,7 +183,7 @@ class StatefulRandomOpV2 : public OpKernel {
 
   void Compute(OpKernelContext* ctx) override {
     Algorithm alg;
-    OP_REQUIRES_OK(ctx, GetAlg<int64>(ctx, 1, &alg));
+    OP_REQUIRES_OK(ctx, GetAlg<int64_t>(ctx, 1, &alg));
     StatefulRandomCompute<Device>(ctx, Distribution(), /*state_input_idx=*/0,
                                   /*shape_input_idx=*/2,
                                   /*read_alg_from_state=*/false, alg);
@@ -197,7 +197,7 @@ class StatefulUniformIntOp : public OpKernel {
 
   void Compute(OpKernelContext* ctx) override {
     Algorithm alg;
-    OP_REQUIRES_OK(ctx, GetAlg<int64>(ctx, 1, &alg));
+    OP_REQUIRES_OK(ctx, GetAlg<int64_t>(ctx, 1, &alg));
     const Tensor& minval = ctx->input(3);
     const Tensor& maxval = ctx->input(4);
     OP_REQUIRES(ctx, TensorShapeUtils::IsScalar(minval.shape()),
@@ -234,7 +234,7 @@ class StatefulUniformFullIntOp : public OpKernel {
 
   void Compute(OpKernelContext* ctx) override {
     Algorithm alg;
-    OP_REQUIRES_OK(ctx, GetAlg<int64>(ctx, 1, &alg));
+    OP_REQUIRES_OK(ctx, GetAlg<int64_t>(ctx, 1, &alg));
     StatefulRandomCompute<Device>(
         ctx,
         random::UniformFullIntDistribution<random::PhiloxRandom, IntType>(),
@@ -257,8 +257,8 @@ struct RngSkip_Philox<CPUDevice> {
 
 }  // end namespace functor
 
-template <typename Device, typename AlgEnumType = int64,
-          typename DeltaType = int64, bool read_old_value = false>
+template <typename Device, typename AlgEnumType = int64_t,
+          typename DeltaType = int64_t, bool read_old_value = false>
 class RngSkipOp : public OpKernel {
  public:
   explicit RngSkipOp(OpKernelConstruction* ctx) : OpKernel(ctx) {}

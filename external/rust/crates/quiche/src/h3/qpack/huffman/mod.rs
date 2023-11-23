@@ -24,8 +24,6 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::octets;
-
 use super::Error;
 use super::Result;
 
@@ -101,6 +99,10 @@ pub fn encode_output_length(src: &[u8], low: bool) -> Result<usize> {
 
     if bits & 7 != 0 {
         len += 1;
+    }
+
+    if len > src.len() {
+        return Err(Error::InflatedHuffmanEncoding);
     }
 
     Ok(len)

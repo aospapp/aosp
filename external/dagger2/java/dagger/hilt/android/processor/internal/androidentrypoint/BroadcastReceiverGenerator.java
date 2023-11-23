@@ -78,6 +78,7 @@ public final class BroadcastReceiverGenerator {
 
     Generators.addInjectionMethods(metadata, builder);
     Generators.copyLintAnnotations(metadata.element(), builder);
+    Generators.copySuppressAnnotations(metadata.element(), builder);
 
     // Add an unused field used as a marker to let the bytecode injector know this receiver will
     // need to be injected with a super.onReceive call. This is only necessary if no concrete

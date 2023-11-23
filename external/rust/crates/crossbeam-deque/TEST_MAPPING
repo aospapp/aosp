@@ -5,6 +5,9 @@
       "path": "external/rust/crates/base64"
     },
     {
+      "path": "external/rust/crates/hashbrown"
+    },
+    {
       "path": "external/rust/crates/tinytemplate"
     },
     {

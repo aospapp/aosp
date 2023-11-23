@@ -1,8 +1,10 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 import logging
 import os
+import shutil
 import time
 
 from autotest_lib.client.common_lib import error
@@ -14,6 +16,7 @@ class power_Display(power_test.power_Test):
     """class for power_Display test.
     """
     version = 1
+    tmp_path = '/tmp'
 
     # TODO(tbroch) find more patterns that typical display vendors use to show
     # average and worstcase display power.
@@ -26,15 +29,26 @@ class power_Display(power_test.power_Test):
         @param secs_per_page: time in seconds to display page and measure power.
         @param brightness: flag for brightness setting to use for testing.
                            possible value are 'max' (100%) and 'all' (all manual
-                           brightness steps in Chrome OS)
+                           brightness steps in ChromeOS)
         """
         if pages is None:
             pages = self.PAGES
 
-        with chrome.Chrome(init_network_controller=True) as self.cr:
-            http_path = os.path.join(self.job.testdir, 'power_Display', 'html')
-            self.cr.browser.platform.SetHTTPServerDirectories(http_path)
-            tab = self.cr.browser.tabs.New()
+        # https://crbug.com/1288417
+        # Copy file to tmpdir to avoid the need of setting up local http server.
+        file_path = os.path.join(self.bindir, 'html')
+        dest_path = os.path.join(self.tmp_path, 'html')
+        shutil.copytree(file_path, dest_path)
+        http_path = 'file://' + dest_path
+
+        # --disable-sync disables test account info sync, eg. Wi-Fi credentials,
+        # so that each test run does not remember info from last test run.
+        extra_browser_args = ['--disable-sync']
+        # b/228256145 to avoid powerd restart
+        extra_browser_args.append('--disable-features=FirmwareUpdaterApp')
+        with chrome.Chrome(init_network_controller=True,
+                           extra_browser_args=extra_browser_args) as self.cr:
+            tab = self.cr.browser.tabs[0]
             tab.Activate()
 
             # Just measure power in full-screen.
@@ -42,6 +56,9 @@ class power_Display(power_test.power_Test):
             if not fullscreen:
                 with keyboard.Keyboard() as keys:
                     keys.press_key('f4')
+
+            # Stop services again as Chrome might have restarted them.
+            self._services.stop_services()
 
             if brightness not in ['', 'all', 'max']:
                 raise error.TestFail(
@@ -68,7 +85,7 @@ class power_Display(power_test.power_Test):
             for name in pages:
                 url = os.path.join(http_path, name + '.html')
                 logging.info('Navigating to url: %s', url)
-                tab.Navigate(self.cr.browser.platform.http_server.UrlOf(url))
+                tab.Navigate(url)
                 tab.WaitForDocumentReadyStateToBeComplete()
 
                 for nonlinear, linear in brightnesses:
@@ -80,3 +97,5 @@ class power_Display(power_test.power_Test):
                     self.loop_sleep(loop, secs_per_page)
                     self.checkpoint_measurements(tagname, loop_start)
                     loop += 1
+
+        shutil.rmtree(dest_path)

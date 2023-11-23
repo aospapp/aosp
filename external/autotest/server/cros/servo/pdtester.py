@@ -33,8 +33,10 @@ class PDTester(chrome_ec.ChromeEC):
     # USB charging command delays in seconds.
     USBC_COMMAND_DELAY = 0.5
     # PDTester USBC commands.
-    USBC_ROLE= 'usbc_role' # TODO(b:140256624): deprecate by USBC_PR
-    USBC_PR= 'usbc_pr'
+    USBC_DRSWAP = 'usbc_drswap'
+    USBC_PRSWAP = 'usbc_prswap'
+    USBC_ROLE = 'usbc_role'  # TODO(b:140256624): deprecate by USBC_PR
+    USBC_PR = 'usbc_pr'
     USBC_MUX = 'usbc_mux'
     RE_USBC_ROLE_VOLTAGE = r'src(\d+)v'
     USBC_SRC_CAPS = 'ada_srccaps'
@@ -61,6 +63,8 @@ class PDTester(chrome_ec.ChromeEC):
         'sink': 'SNK_READY',
         'source': 'SRC_READY'}
     POLL_STATE_SECS = 2
+    FIRST_PD_SETUP_ELEMENT = ['servo_v4', 'servo_v4p1']
+    SECOND_PD_SETUP_ELEMENT = ['servo_micro', 'c2d2']
 
     def __init__(self, servo, servod_proxy):
         """Initialize and keep the servo object.
@@ -69,8 +73,9 @@ class PDTester(chrome_ec.ChromeEC):
         @param servod_proxy: Servod proxy for pdtester host
         """
         self.servo_type = servo.get_servo_version()
-        if 'servo_v4' in self.servo_type:
-            uart_prefix = 'servo_v4_uart'
+        pd_tester_device = self.servo_type.split('_with_')[0]
+        if pd_tester_device in self.FIRST_PD_SETUP_ELEMENT:
+            uart_prefix = pd_tester_device + "_uart"
         else:
             uart_prefix = 'ec_uart'
 
@@ -149,14 +154,18 @@ class PDTester(chrome_ec.ChromeEC):
             srccaps = self.get_adapter_source_caps()
         except PDTesterError:
             # htctools and servov4 is not updated, fallback to the old path.
-            logging.warn('hdctools or servov4 firmware too old, fallback to '
+            logging.warning('hdctools or servov4 firmware too old, fallback to '
                          'fixed charging voltages.')
             return list(self.USBC_CHARGING_VOLTAGES_LEGACY.keys())
 
         # insert 0 voltage for sink
         vols = [0]
         for pdo in srccaps:
-            vols.append(pdo[0]/1000)
+            # Only include the voltages that are in USBC_CHARGING_VOLTAGES
+            if pdo[0] / 1000 in self.USBC_CHARGING_VOLTAGES:
+                vols.append(pdo[0] / 1000)
+            else:
+                logging.debug("Omitting unsupported PDO = %s", pdo)
         return vols
 
     def charge(self, voltage):
@@ -166,14 +175,23 @@ class PDTester(chrome_ec.ChromeEC):
         """
         charging_voltages = self.get_charging_voltages()
         if voltage not in charging_voltages:
-            logging.warning('Unsupported voltage(%s) of the adapter. '
-                            'Maybe firmware or servod too old? '
-                            'sudo servo_updater -b servo_v4; '
-                            'sudo emerge hdctools' % voltage)
+            logging.warning(
+                    'Unsupported voltage(%s) of the adapter. '
+                    'Maybe firmware or servod too old? '
+                    'sudo servo_updater -b servo_v4; '
+                    'sudo emerge hdctools', voltage)
+        if voltage not in self.USBC_CHARGING_VOLTAGES:
+            raise PDTesterError(
+                    'Cannot set voltage to %s, not supported by %s' %
+                    (voltage, self.USBC_PR))
 
         try:
             self.set(self.USBC_PR, self.USBC_CHARGING_VOLTAGES[voltage])
         except:
+            if voltage not in self.USBC_CHARGING_VOLTAGES_LEGACY:
+                raise PDTesterError(
+                        'Cannot set voltage to %s, not supported by %s' %
+                        (voltage, self.USBC_ROLE))
             self.set(self.USBC_ROLE,
                      self.USBC_CHARGING_VOLTAGES_LEGACY[voltage])
         time.sleep(self.USBC_COMMAND_DELAY)
@@ -184,10 +202,11 @@ class PDTester(chrome_ec.ChromeEC):
         try:
             usbc_pr = self.get(self.USBC_PR)
         except:
-            logging.warn('Unsupported control(%s). '
-                         'Maybe firmware or servod too old? '
-                         'sudo servo_updater -b servo_v4; '
-                         'sudo emerge hdctools' % self.USBC_PR)
+            logging.warning(
+                    'Unsupported control(%s). '
+                    'Maybe firmware or servod too old? '
+                    'sudo servo_updater -b servo_v4; '
+                    'sudo emerge hdctools', self.USBC_PR)
             usbc_pr = self.get(self.USBC_ROLE)
         m = re.match(self.RE_USBC_ROLE_VOLTAGE, usbc_pr)
         if m:
@@ -225,3 +244,21 @@ class PDTester(chrome_ec.ChromeEC):
                                 'should be either \'dp\' or \'usb\'.' % mux)
         self.set(self.USBC_MUX, mux)
         time.sleep(self.USBC_COMMAND_DELAY)
+
+    def allow_pr_swap(self, allow):
+        """Issue usbc_action prswap PDTester command
+
+        @param allow: a bool for ACK or NACK to PR_SWAP
+                      command requested by DUT
+        @returns value of prswap in PDTester FW
+        """
+        self.set(self.USBC_PRSWAP, int(allow))
+
+    def allow_dr_swap(self, allow):
+        """Issue usbc_action drswap PDTester command
+
+        @param allow: a bool for ACK or NACK to DR_SWAP
+                      command requested by DUT
+        @returns value of drswap in PDTester FW
+        """
+        self.set(self.USBC_DRSWAP, int(allow))

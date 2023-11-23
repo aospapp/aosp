@@ -4,10 +4,13 @@
  * Ported to LTP: Wayne Boyer
  * Copyright (c) 2016 Cyril Hrubis <chrubis@suse.cz>
  */
-/*
- *  Verify that any user can successfully increase the nice value of
- *  the process by passing an increment value (< max. applicable limits) to
- *  nice() system call.
+
+/*\
+ * [Description]
+ *
+ * Verify that any user can successfully increase the nice value of
+ * the process by passing an increment value (< max. applicable limits) to
+ * nice() system call.
  */
 #include <unistd.h>
 #include <stdlib.h>
@@ -16,11 +19,13 @@
 #include "tst_test.h"
 
 #define	NICEINC	2
+#define MAX_PRIO 19
 
 static void nice_test(void)
 {
 	int new_nice;
 	int orig_nice;
+	int exp_nice;
 
 	orig_nice = SAFE_GETPRIORITY(PRIO_PROCESS, 0);
 
@@ -37,10 +42,11 @@ static void nice_test(void)
 	}
 
 	new_nice = SAFE_GETPRIORITY(PRIO_PROCESS, 0);
+	exp_nice = MIN(MAX_PRIO, (orig_nice + NICEINC));
 
-	if (new_nice != (orig_nice + NICEINC)) {
+	if (new_nice != exp_nice) {
 		tst_res(TFAIL, "Process priority %i, expected %i",
-		        new_nice, orig_nice + NICEINC);
+				new_nice, exp_nice);
 		return;
 	}
 

@@ -42,14 +42,19 @@ rust_library {
     host_supported: true,
     crate_name: "csv",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.1.6",
+    cargo_pkg_version: "1.2.0",
     srcs: ["src/lib.rs"],
-    edition: "2018",
+    edition: "2021",
     rustlibs: [
-        "libbstr",
         "libcsv_core",
         "libitoa",
         "libryu",
         "libserde",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

@@ -16,6 +16,8 @@
 #include <fcntl.h> /* For open(3) */
 #include <iostream>
 #include <memory>
+#include <map>
+#include <algorithm>
 
 #include "ctf-api.h"
 
@@ -58,12 +60,20 @@ public:
 
   /// A map associating CTF type ids with libabigail IR types.  This
   /// is used to reuse already generated types.
-  unordered_map<ctf_id_t,type_base_sptr> types_map;
+  unordered_map<string,type_base_sptr> types_map;
+
+  /// A set associating unknown CTF type ids
+  std::set<ctf_id_t> unknown_types_set;
 
   /// libelf handler for the ELF file from which we read the CTF data,
   /// and the corresponding file descriptor.
   Elf *elf_handler;
   int elf_fd;
+
+  /// libelf handler for the ELF file from which we read the CTF data,
+  /// and the corresponding file descriptor found in external .debug file
+  Elf *elf_handler_dbg;
+  int elf_fd_dbg;
 
   /// The symtab read from the ELF file.
   symtab_reader::symtab_sptr symtab;
@@ -74,28 +84,172 @@ public:
   ctf_sect_t symtab_sect;
   ctf_sect_t strtab_sect;
 
-  /// Associate a given CTF type ID with a given libabigail IR type.
-  void add_type(ctf_id_t ctf_type, type_base_sptr type)
+  corpus_sptr			cur_corpus_;
+  corpus_group_sptr		cur_corpus_group_;
+  corpus::exported_decls_builder* exported_decls_builder_;
+  // The set of directories under which to look for debug info.
+  vector<char**>		debug_info_root_paths_;
+
+  /// Setter of the exported decls builder object.
+  ///
+  /// Note that this @ref read_context is not responsible for the live
+  /// time of the exported_decls_builder object.  The corpus is.
+  ///
+  /// @param b the new builder.
+  void
+  exported_decls_builder(corpus::exported_decls_builder* b)
+  {exported_decls_builder_ = b;}
+
+  /// Getter of the exported decls builder object.
+  ///
+  /// @return the exported decls builder.
+  corpus::exported_decls_builder*
+  exported_decls_builder()
+  {return exported_decls_builder_;}
+
+  /// If a given function decl is suitable for the set of exported
+  /// functions of the current corpus, this function adds it to that
+  /// set.
+  ///
+  /// @param fn the function to consider for inclusion into the set of
+  /// exported functions of the current corpus.
+  void
+  maybe_add_fn_to_exported_decls(function_decl* fn)
   {
-    types_map.insert(std::make_pair(ctf_type, type));
+    if (fn)
+      if (corpus::exported_decls_builder* b = exported_decls_builder())
+	b->maybe_add_fn_to_exported_fns(fn);
+  }
+
+  /// If a given variable decl is suitable for the set of exported
+  /// variables of the current corpus, this variable adds it to that
+  /// set.
+  ///
+  /// @param fn the variable to consider for inclusion into the set of
+  /// exported variables of the current corpus.
+  void
+  maybe_add_var_to_exported_decls(var_decl* var)
+  {
+    if (var)
+      if (corpus::exported_decls_builder* b = exported_decls_builder())
+	b->maybe_add_var_to_exported_vars(var);
+  }
+
+  /// Getter of the current corpus group being constructed.
+  ///
+  /// @return current the current corpus being constructed, if any, or
+  /// nil.
+  const corpus_group_sptr
+  current_corpus_group() const
+  {return cur_corpus_group_;}
+
+  /// Test if there is a corpus group being built.
+  ///
+  /// @return if there is a corpus group being built, false otherwise.
+  bool
+  has_corpus_group() const
+  {return bool(cur_corpus_group_);}
+
+  /// Return the main corpus from the current corpus group, if any.
+  ///
+  /// @return the main corpus of the current corpus group, if any, nil
+  /// if no corpus group is being constructed.
+  corpus_sptr
+  main_corpus_from_current_group()
+  {
+    if (cur_corpus_group_)
+      return cur_corpus_group_->get_main_corpus();
+    return corpus_sptr();
+  }
+
+  /// Test if the current corpus being built is the main corpus of the
+  /// current corpus group.
+  ///
+  /// @return return true iff the current corpus being built is the
+  /// main corpus of the current corpus group.
+  bool
+  current_corpus_is_main_corpus_from_current_group()
+  {
+    corpus_sptr main_corpus = main_corpus_from_current_group();
+
+    if (main_corpus && main_corpus.get() == cur_corpus_.get())
+      return true;
+
+    return false;
+  }
+
+  /// Return true if the current corpus is part of a corpus group
+  /// being built and if it's not the main corpus of the group.
+  ///
+  /// For instance, this would return true if we are loading a linux
+  /// kernel *module* that is part of the current corpus group that is
+  /// being built.  In this case, it means we should re-use types
+  /// coming from the "vmlinux" binary that is the main corpus of the
+  /// group.
+  ///
+  /// @return the corpus group the current corpus belongs to, if the
+  /// current corpus is part of a corpus group being built. Nil otherwise.
+  corpus_sptr
+  should_reuse_type_from_corpus_group()
+  {
+    if (has_corpus_group())
+      if (corpus_sptr main_corpus = main_corpus_from_current_group())
+	if (!current_corpus_is_main_corpus_from_current_group())
+	  return current_corpus_group();
+
+    return corpus_sptr();
+  }
+
+  /// Associate a given CTF type ID with a given libabigail IR type.
+  ///
+  /// @param dic the dictionnary the type belongs to.
+  ///
+  /// @param ctf_type the type ID.
+  ///
+  /// @param type the type to associate to the ID.
+  void
+  add_type(ctf_dict_t *dic, ctf_id_t ctf_type, type_base_sptr type)
+  {
+    string key = dic_type_key(dic, ctf_type);
+    types_map.insert(std::make_pair(key, type));
+  }
+
+  /// Insert a given CTF unknown type ID.
+  ///
+  /// @param ctf_type the unknown type ID to be added.
+  void
+  add_unknown_type(ctf_id_t ctf_type)
+  {
+    unknown_types_set.insert(ctf_type);
   }
 
   /// Lookup a given CTF type ID in the types map.
   ///
+  /// @param dic the dictionnary the type belongs to.
+  ///
   /// @param ctf_type the type ID of the type to lookup.
-  type_base_sptr lookup_type(ctf_id_t ctf_type)
+  type_base_sptr
+  lookup_type(ctf_dict_t *dic, ctf_id_t ctf_type)
   {
     type_base_sptr result;
+    std::string key = dic_type_key(dic, ctf_type);
 
-    auto search = types_map.find(ctf_type);
+    auto search = types_map.find(key);
     if (search != types_map.end())
       result = search->second;
 
     return result;
   }
 
+  /// Lookup a given CTF unknown type ID in the unknown set.
+  /// @param ctf_type the unknown type ID to lookup.
+  bool
+  lookup_unknown_type(ctf_id_t ctf_type)
+  { return unknown_types_set.find(ctf_type) != unknown_types_set.end(); }
+
   /// Canonicalize all the types stored in the types map.
-  void canonicalize_all_types(void)
+  void
+  canonicalize_all_types(void)
   {
     for (auto t = types_map.begin(); t != types_map.end(); t++)
       canonicalize (t->second);
@@ -104,17 +258,59 @@ public:
   /// Constructor.
   ///
   /// @param elf_path the path to the ELF file.
-  read_context(const string& elf_path, ir::environment *env)
+  ///
+  /// @param debug_info_root_paths vector with the paths
+  /// to directories where .debug file is located.
+  ///
+  /// @param env the environment used by the current context.
+  /// This environment contains resources needed by the reader and by
+  /// the types and declarations that are to be created later.  Note
+  /// that ABI artifacts that are to be compared all need to be
+  /// created within the same environment.
+  read_context(const string& elf_path,
+               const vector<char**>& debug_info_root_paths,
+               ir::environment *env) :
+   ctfa(NULL)
+  {
+    initialize(elf_path, debug_info_root_paths, env);
+  }
+
+  /// Initializer of read_context.
+  ///
+  /// @param elf_path the path to the elf file the context is to be
+  /// used for.
+  ///
+  /// @param debug_info_root_paths vector with the paths
+  /// to directories where .debug file is located.
+  ///
+  /// @param environment the environment used by the current context.
+  /// This environment contains resources needed by the reader and by
+  /// the types and declarations that are to be created later.  Note
+  /// that ABI artifacts that are to be compared all need to be
+  /// created within the same environment.
+  ///
+  /// Please also note that the life time of this environment object
+  /// must be greater than the life time of the resulting @ref
+  /// read_context the context uses resources that are allocated in
+  /// the environment.
+  void
+  initialize(const string& elf_path,
+             const vector<char**>& debug_info_root_paths,
+             ir::environment *env)
   {
     types_map.clear();
     filename = elf_path;
     ir_env = env;
     elf_handler = NULL;
+    elf_handler_dbg = NULL;
     elf_fd = -1;
-    ctfa = NULL;
+    elf_fd_dbg = -1;
+    symtab.reset();
+    cur_corpus_group_.reset();
+    exported_decls_builder_ = 0;
+    debug_info_root_paths_ = debug_info_root_paths;
   }
 
-  /// Destructor of the @ref read_context type.
   ~read_context()
   {
     ctf_close(ctfa);
@@ -153,13 +349,18 @@ process_ctf_typedef(read_context *ctxt,
     return result;
 
   const char *typedef_name = ctf_type_name_raw(ctf_dictionary, ctf_type);
+  if (corpus_sptr corp = ctxt->should_reuse_type_from_corpus_group())
+    if (result = lookup_typedef_type(typedef_name, *corp))
+      return result;
+
   type_base_sptr utype = lookup_type(ctxt, corp, tunit,
                                      ctf_dictionary, ctf_utype);
 
   if (!utype)
     return result;
 
-  result = dynamic_pointer_cast<typedef_decl>(ctxt->lookup_type(ctf_type));
+  result = dynamic_pointer_cast<typedef_decl>(ctxt->lookup_type(ctf_dictionary,
+                                                                ctf_type));
   if (result)
     return result;
 
@@ -180,7 +381,7 @@ process_ctf_typedef(read_context *ctxt,
   if (result)
     {
       add_decl_to_scope(result, tunit->get_global_scope());
-      ctxt->add_type(ctf_type, result);
+      ctxt->add_type(ctf_dictionary, ctf_type, result);
     }
 
   return result;
@@ -225,9 +426,20 @@ process_ctf_base_type(read_context *ctxt,
       type_base_sptr void_type = ctxt->ir_env->get_void_type();
       decl_base_sptr type_declaration = get_type_declaration(void_type);
       result = is_type_decl(type_declaration);
+      canonicalize(result);
     }
   else
     {
+      if (corpus_sptr corp = ctxt->should_reuse_type_from_corpus_group())
+        {
+          string normalized_type_name = type_name;
+          integral_type int_type;
+          if (parse_integral_type(type_name, int_type))
+            normalized_type_name = int_type.to_string();
+          if (result = lookup_basic_type(normalized_type_name, *corp))
+            return result;
+        }
+
       result = lookup_basic_type(type_name, *corp);
       if (!result)
         result.reset(new type_decl(ctxt->ir_env,
@@ -242,10 +454,30 @@ process_ctf_base_type(read_context *ctxt,
   if (result)
     {
       add_decl_to_scope(result, tunit->get_global_scope());
-      ctxt->add_type(ctf_type, result);
+      ctxt->add_type(ctf_dictionary, ctf_type, result);
     }
 
   return result;
+}
+
+/// Build the IR node for a variadic parameter type.
+///
+/// @param ctxt the read context to use.
+///
+/// @return the variadic parameter type.
+static decl_base_sptr
+build_ir_node_for_variadic_parameter_type(read_context &ctxt,
+                                          translation_unit_sptr tunit)
+{
+
+  ir::environment* env = ctxt.ir_env;
+  ABG_ASSERT(env);
+  type_base_sptr t = env->get_variadic_parameter_type();
+  decl_base_sptr type_declaration = get_type_declaration(t);
+  if (!has_scope(type_declaration))
+    add_decl_to_scope(type_declaration, tunit->get_global_scope());
+  canonicalize(t);
+  return type_declaration;
 }
 
 /// Build and return a function type libabigail IR.
@@ -298,12 +530,26 @@ process_ctf_function_type(read_context *ctxt,
       function_decl::parameter_sptr parm
         (new function_decl::parameter(arg_type, "",
                                       location(),
-                                      vararg_p && (i == argc - 1),
+                                      false,
                                       false /* is_artificial */));
       function_parms.push_back(parm);
     }
 
-  result = dynamic_pointer_cast<function_type>(ctxt->lookup_type(ctf_type));
+  if (vararg_p)
+    {
+      type_base_sptr arg_type =
+       is_type(build_ir_node_for_variadic_parameter_type(*ctxt, tunit));
+
+      function_decl::parameter_sptr parm
+       (new function_decl::parameter(arg_type, "",
+                                     location(),
+                                     true,
+                                     false /* is_artificial */));
+      function_parms.push_back(parm);
+    }
+
+  result = dynamic_pointer_cast<function_type>(ctxt->lookup_type(ctf_dictionary,
+                                                                 ctf_type));
   if (result)
     return result;
 
@@ -319,7 +565,7 @@ process_ctf_function_type(read_context *ctxt,
       result->set_is_artificial(true);
       decl_base_sptr function_type_decl = get_type_declaration(result);
       add_decl_to_scope(function_type_decl, tunit->get_global_scope());
-      ctxt->add_type(ctf_type, result);
+      ctxt->add_type(ctf_dictionary, ctf_type, result);
     }
 
   return result;
@@ -350,7 +596,7 @@ process_ctf_sou_members(read_context *ctxt,
   while ((member_size = ctf_member_next(ctf_dictionary, ctf_type,
                                         &member_next, &member_name,
                                         &member_ctf_type,
-                                        CTF_MN_RECURSE)) >= 0)
+                                        0 /* flags */)) >= 0)
     {
       ctf_membinfo_t membinfo;
 
@@ -384,6 +630,66 @@ process_ctf_sou_members(read_context *ctxt,
     fprintf(stderr, "ERROR from ctf_member_next\n");
 }
 
+/// Create a declaration-only union or struct type and add it to the
+/// IR.
+///
+/// @param ctxt the read context.
+/// @param tunit the current IR translation unit.
+/// @param ctf_dictionary the CTF dictionary being read.
+/// @param ctf_type the CTF type ID of the source type.
+/// @return the resulting IR node created.
+
+static type_base_sptr
+process_ctf_forward_type(read_context *ctxt,
+                         translation_unit_sptr tunit,
+                         ctf_dict_t *ctf_dictionary,
+                         ctf_id_t ctf_type)
+{
+  decl_base_sptr result;
+  std::string type_name = ctf_type_name_raw(ctf_dictionary,
+                                            ctf_type);
+  bool type_is_anonymous = (type_name == "");
+  uint32_t kind = ctf_type_kind_forwarded (ctf_dictionary, ctf_type);
+
+  if (kind == CTF_K_UNION)
+    {
+      union_decl_sptr
+       union_fwd(new union_decl(ctxt->ir_env,
+                                type_name,
+                                /*alignment=*/0,
+                                location(),
+                                decl_base::VISIBILITY_DEFAULT,
+                                type_is_anonymous));
+      union_fwd->set_is_declaration_only(true);
+      result = union_fwd;
+    }
+  else
+    {
+      if (!type_is_anonymous)
+        if (corpus_sptr corp = ctxt->should_reuse_type_from_corpus_group())
+          if (result = lookup_class_type(type_name, *corp))
+            return is_type(result);
+
+      class_decl_sptr
+       struct_fwd(new class_decl(ctxt->ir_env, type_name,
+                                 /*alignment=*/0, /*size=*/0,
+                                 true /* is_struct */,
+                                 location(),
+                                 decl_base::VISIBILITY_DEFAULT,
+                                 type_is_anonymous));
+      struct_fwd->set_is_declaration_only(true);
+      result = struct_fwd;
+    }
+
+  if (!result)
+    return is_type(result);
+
+  add_decl_to_scope(result, tunit->get_global_scope());
+  ctxt->add_type(ctf_dictionary, ctf_type, is_type(result));
+
+  return is_type(result);
+}
+
 /// Build and return a struct type libabigail IR.
 ///
 /// @param ctxt the read context.
@@ -403,8 +709,13 @@ process_ctf_struct_type(read_context *ctxt,
 {
   class_decl_sptr result;
   std::string struct_type_name = ctf_type_name_raw(ctf_dictionary,
-                                                 ctf_type);
+                                                   ctf_type);
   bool struct_type_is_anonymous = (struct_type_name == "");
+
+  if (!struct_type_is_anonymous)
+    if (corpus_sptr corp = ctxt->should_reuse_type_from_corpus_group())
+      if (result = lookup_class_type(struct_type_name, *corp))
+        return result;
 
   /* The libabigail IR encodes C struct types in `class' IR nodes.  */
   result.reset(new class_decl(ctxt->ir_env,
@@ -424,7 +735,7 @@ process_ctf_struct_type(read_context *ctxt,
      at this point even if the members haven't been added to the IR
      node yet.  */
   add_decl_to_scope(result, tunit->get_global_scope());
-  ctxt->add_type(ctf_type, result);
+  ctxt->add_type(ctf_dictionary, ctf_type, result);
 
   /* Now add the struct members as specified in the CTF type description.
      This is C, so named types can only be defined in the global
@@ -457,6 +768,11 @@ process_ctf_union_type(read_context *ctxt,
                                                    ctf_type);
   bool union_type_is_anonymous = (union_type_name == "");
 
+  if (!union_type_is_anonymous)
+    if (corpus_sptr corp = ctxt->should_reuse_type_from_corpus_group())
+      if (result = lookup_union_type(union_type_name, *corp))
+        return result;
+
   /* Create the corresponding libabigail union IR node.  */
   result.reset(new union_decl(ctxt->ir_env,
                                 union_type_name,
@@ -473,7 +789,7 @@ process_ctf_union_type(read_context *ctxt,
      at this point even if the members haven't been added to the IR
      node yet.  */
   add_decl_to_scope(result, tunit->get_global_scope());
-  ctxt->add_type(ctf_type, result);
+  ctxt->add_type(ctf_dictionary, ctf_type, result);
 
   /* Now add the union members as specified in the CTF type description.
      This is C, so named types can only be defined in the global
@@ -529,7 +845,8 @@ process_ctf_array_type(read_context *ctxt,
   if (!index_type)
     return result;
 
-  result = dynamic_pointer_cast<array_type_def>(ctxt->lookup_type(ctf_type));
+  result = dynamic_pointer_cast<array_type_def>(ctxt->lookup_type(ctf_dictionary,
+                                                                  ctf_type));
   if (result)
     return result;
 
@@ -568,7 +885,7 @@ process_ctf_array_type(read_context *ctxt,
     {
       decl_base_sptr array_type_decl = get_type_declaration(result);
       add_decl_to_scope(array_type_decl, tunit->get_global_scope());
-      ctxt->add_type(ctf_type, result);
+      ctxt->add_type(ctf_dictionary, ctf_type, result);
     }
 
   return result;
@@ -597,6 +914,11 @@ process_ctf_qualified_type(read_context *ctxt,
   if (!utype)
     return result;
 
+  result = dynamic_pointer_cast<type_base>(ctxt->lookup_type(ctf_dictionary,
+                                                             ctf_type));
+  if (result)
+    return result;
+
   qualified_type_def::CV qualifiers = qualified_type_def::CV_NONE;
   if (type_kind == CTF_K_CONST)
     qualifiers |= qualified_type_def::CV_CONST;
@@ -607,13 +929,16 @@ process_ctf_qualified_type(read_context *ctxt,
   else
     ABG_ASSERT_NOT_REACHED;
 
-  result.reset(new qualified_type_def(utype, qualifiers, location()));
+  // qualifiers are not be use in functions
+  if (is_function_type(utype))
+    return result;
 
+  result.reset(new qualified_type_def(utype, qualifiers, location()));
   if (result)
     {
       decl_base_sptr qualified_type_decl = get_type_declaration(result);
       add_decl_to_scope(qualified_type_decl, tunit->get_global_scope());
-      ctxt->add_type(ctf_type, result);
+      ctxt->add_type(ctf_dictionary, ctf_type, result);
     }
 
   return result;
@@ -647,7 +972,8 @@ process_ctf_pointer_type(read_context *ctxt,
   if (!target_type)
     return result;
 
-  result = dynamic_pointer_cast<pointer_type_def>(ctxt->lookup_type(ctf_type));
+  result = dynamic_pointer_cast<pointer_type_def>(ctxt->lookup_type(ctf_dictionary,
+                                                                    ctf_type));
   if (result)
     return result;
 
@@ -658,7 +984,7 @@ process_ctf_pointer_type(read_context *ctxt,
   if (result)
     {
       add_decl_to_scope(result, tunit->get_global_scope());
-      ctxt->add_type(ctf_type, result);
+      ctxt->add_type(ctf_dictionary, ctf_type, result);
     }
 
   return result;
@@ -681,6 +1007,12 @@ process_ctf_enum_type(read_context *ctxt,
                       ctf_id_t ctf_type)
 {
   enum_type_decl_sptr result;
+  std::string enum_name = ctf_type_name_raw(ctf_dictionary, ctf_type);
+
+  if (!enum_name.empty())
+    if (corpus_sptr corp = ctxt->should_reuse_type_from_corpus_group())
+      if (result = lookup_enum_type(enum_name, *corp))
+        return result;
 
   /* Build a signed integral type for the type of the enumerators, aka
      the underlying type.  The size of the enumerators in bytes is
@@ -714,13 +1046,12 @@ process_ctf_enum_type(read_context *ctxt,
       return result;
     }
 
-  const char *enum_name = ctf_type_name_raw(ctf_dictionary, ctf_type);
-  result.reset(new enum_type_decl(enum_name, location(),
-                                  utype, enms, enum_name));
+  result.reset(new enum_type_decl(enum_name.c_str(), location(),
+                                  utype, enms, enum_name.c_str()));
   if (result)
     {
       add_decl_to_scope(result, tunit->get_global_scope());
-      ctxt->add_type(ctf_type, result);
+      ctxt->add_type(ctf_dictionary, ctf_type, result);
     }
 
   return result;
@@ -749,7 +1080,10 @@ process_ctf_type(read_context *ctxt,
   int type_kind = ctf_type_kind(ctf_dictionary, ctf_type);
   type_base_sptr result;
 
-  if ((result = ctxt->lookup_type(ctf_type)))
+  if (ctxt->lookup_unknown_type(ctf_type))
+    return nullptr;
+
+  if ((result = ctxt->lookup_type(ctf_dictionary, ctf_type)))
     return result;
 
   switch (type_kind)
@@ -813,6 +1147,13 @@ process_ctf_type(read_context *ctxt,
         result = is_type(struct_decl);
         break;
       }
+    case CTF_K_FORWARD:
+      {
+        result = process_ctf_forward_type(ctxt, tunit,
+					  ctf_dictionary,
+                                          ctf_type);
+      }
+      break;
     case CTF_K_UNION:
       {
         union_decl_sptr union_decl
@@ -827,7 +1168,10 @@ process_ctf_type(read_context *ctxt,
     }
 
   if (!result)
-    fprintf(stderr, "NOT PROCESSED TYPE %lu\n", ctf_type);
+    {
+      fprintf(stderr, "NOT PROCESSED TYPE %lu\n", ctf_type);
+      ctxt->add_unknown_type(ctf_type);
+    }
 
   return result;
 }
@@ -851,7 +1195,7 @@ lookup_type(read_context *ctxt, corpus_sptr corp,
             translation_unit_sptr tunit, ctf_dict_t *ctf_dictionary,
             ctf_id_t ctf_type)
 {
-  type_base_sptr result = ctxt->lookup_type(ctf_type);
+  type_base_sptr result = ctxt->lookup_type(ctf_dictionary, ctf_type);
 
   if (!result)
     result = process_ctf_type(ctxt, corp, tunit, ctf_dictionary, ctf_type);
@@ -859,8 +1203,8 @@ lookup_type(read_context *ctxt, corpus_sptr corp,
 }
 
 /// Process a CTF archive and create libabigail IR for the types,
-/// variables and function declarations found in the archive.  The IR
-/// is added to the given corpus.
+/// variables and function declarations found in the archive, iterating
+/// over public symbols.  The IR is added to the given corpus.
 ///
 /// @param ctxt the read context containing the CTF archive to
 /// process.
@@ -875,45 +1219,51 @@ process_ctf_archive(read_context *ctxt, corpus_sptr corp)
   ir_translation_unit->set_language(translation_unit::LANG_C);
   corp->add(ir_translation_unit);
 
-  /* Iterate over the CTF dictionaries in the archive.  */
   int ctf_err;
   ctf_dict_t *ctf_dict;
-  ctf_next_t *dict_next = NULL;
-  const char *archive_name;
+  const auto symtab = ctxt->symtab;
+  symtab_reader::symtab_filter filter = symtab->make_filter();
+  filter.set_public_symbols();
+  std::string dict_name;
 
-  while ((ctf_dict = ctf_archive_next(ctxt->ctfa, &dict_next, &archive_name,
-                                      0 /* skip_parent */, &ctf_err)) != NULL)
+  if (corp->get_origin() & corpus::LINUX_KERNEL_BINARY_ORIGIN)
     {
-      /* Iterate over the CTF types stored in this archive.  */
-      ctf_id_t ctf_type;
-      int type_flag;
-      ctf_next_t *type_next = NULL;
+      tools_utils::base_name(ctxt->filename, dict_name);
 
-      while ((ctf_type = ctf_type_next(ctf_dict, &type_next, &type_flag,
-                                       1 /* want_hidden */)) != CTF_ERR)
+      if (dict_name != "vmlinux")
+        // remove .ko suffix
+        dict_name.erase(dict_name.length() - 3, 3);
+
+      std::replace(dict_name.begin(), dict_name.end(), '-', '_');
+    }
+
+  if ((ctf_dict = ctf_dict_open(ctxt->ctfa,
+                                dict_name.empty() ? NULL : dict_name.c_str(),
+                                &ctf_err)) == NULL)
+    {
+      fprintf(stderr, "ERROR dictionary not found\n");
+      abort();
+    }
+
+  for (const auto& symbol : symtab_reader::filtered_symtab(*symtab, filter))
+    {
+      std::string sym_name = symbol->get_name();
+      ctf_id_t ctf_sym_type;
+
+      ctf_sym_type = ctf_lookup_variable(ctf_dict, sym_name.c_str());
+      if (ctf_sym_type == (ctf_id_t) -1
+          && !(corp->get_origin() & corpus::LINUX_KERNEL_BINARY_ORIGIN))
+        // lookup in function objects
+        ctf_sym_type = ctf_lookup_by_symbol_name(ctf_dict, sym_name.c_str());
+
+      if (ctf_sym_type == (ctf_id_t) -1)
+        continue;
+
+      if (ctf_type_kind(ctf_dict, ctf_sym_type) != CTF_K_FUNCTION)
         {
-          process_ctf_type(ctxt, corp, ir_translation_unit,
-                            ctf_dict, ctf_type);
-        }
-      if (ctf_errno(ctf_dict) != ECTF_NEXT_END)
-        fprintf(stderr, "ERROR from ctf_type_next\n");
-
-      /* Canonicalize all the types generated above.  This must be
-         done "a posteriori" because the processing of types may
-         require other related types to not be already
-         canonicalized.  */
-      ctxt->canonicalize_all_types();
-
-      /* Iterate over the CTF variables stored in this archive.  */
-      ctf_id_t ctf_var_type;
-      ctf_next_t *var_next = NULL;
-      const char *var_name;
-
-      while ((ctf_var_type = ctf_variable_next(ctf_dict, &var_next, &var_name))
-             != CTF_ERR)
-        {
+          const char *var_name = sym_name.c_str();
           type_base_sptr var_type = lookup_type(ctxt, corp, ir_translation_unit,
-                                                ctf_dict, ctf_var_type);
+                                                ctf_dict, ctf_sym_type);
           if (!var_type)
             /* Ignore variable if its type can't be sorted out.  */
             continue;
@@ -924,50 +1274,42 @@ process_ctf_archive(read_context *ctxt, corpus_sptr corp)
                                              location(),
                                              var_name));
 
+          var_declaration->set_symbol(symbol);
           add_decl_to_scope(var_declaration,
-                             ir_translation_unit->get_global_scope());
+                            ir_translation_unit->get_global_scope());
+          var_declaration->set_is_in_public_symbol_table(true);
+          ctxt->maybe_add_var_to_exported_decls(var_declaration.get());
         }
-      if (ctf_errno(ctf_dict) != ECTF_NEXT_END)
-        fprintf(stderr, "ERROR from ctf_variable_next\n");
+      else
+        {
+          const char *func_name = sym_name.c_str();
+          ctf_id_t ctf_sym = ctf_sym_type;
+          type_base_sptr func_type = lookup_type(ctxt, corp, ir_translation_unit,
+                                                 ctf_dict, ctf_sym);
+          if (!func_type)
+            /* Ignore function if its type can't be sorted out.  */
+            continue;
 
-      /* Iterate over the CTF functions stored in this archive.  */
-      ctf_next_t *func_next = NULL;
-      const char *func_name = NULL;
-      ctf_id_t ctf_sym;
+          function_decl_sptr func_declaration;
+          func_declaration.reset(new function_decl(func_name,
+                                                   func_type,
+                                                   0 /* is_inline */,
+                                                   location()));
 
-      while ((ctf_sym = ctf_symbol_next(ctf_dict, &func_next, &func_name,
-                                        1 /* functions symbols only */) != CTF_ERR))
-      {
-        ctf_id_t ctf_func_type = ctf_lookup_by_name(ctf_dict, func_name);
-        type_base_sptr func_type = lookup_type(ctxt, corp, ir_translation_unit,
-                                               ctf_dict, ctf_func_type);
-        if (!func_type)
-          /* Ignore function if its type can't be sorted out.  */
-          continue;
-
-        elf_symbols func_elf_symbols = ctxt->symtab->lookup_symbol(func_name);
-        if (func_elf_symbols.size() == 0
-            || func_elf_symbols[0]->get_binding() == elf_symbol::LOCAL_BINDING)
-          /* Ignore local functions.  */
-          continue;
-
-        function_decl_sptr func_declaration;
-        func_declaration.reset(new function_decl(func_name,
-                                                 func_type,
-                                                 0 /* is_inline */,
-                                                 location()));
-
-        add_decl_to_scope(func_declaration,
-                           ir_translation_unit->get_global_scope());
-      }
-      if (ctf_errno(ctf_dict) != ECTF_NEXT_END)
-        fprintf(stderr, "ERROR from ctf_symbol_next\n");
-
-      ctf_dict_close(ctf_dict);
+          func_declaration->set_symbol(symbol);
+          add_decl_to_scope(func_declaration,
+                            ir_translation_unit->get_global_scope());
+          func_declaration->set_is_in_public_symbol_table(true);
+          ctxt->maybe_add_fn_to_exported_decls(func_declaration.get());
+        }
     }
-  if (ctf_err != ECTF_NEXT_END)
-    fprintf(stderr, "ERROR from ctf_archive_next\n");
 
+  ctf_dict_close(ctf_dict);
+  /* Canonicalize all the types generated above.  This must be
+     done "a posteriori" because the processing of types may
+     require other related types to not be already
+     canonicalized.  */
+  ctxt->canonicalize_all_types();
 }
 
 /// Open the ELF file described by the given read context.
@@ -1010,6 +1352,10 @@ close_elf_handler (read_context *ctxt)
   /* Finish the ELF handler and close the associated file.  */
   elf_end(ctxt->elf_handler);
   close(ctxt->elf_fd);
+
+  /* Finish the ELF handler and close the associated debug file.  */
+  elf_end(ctxt->elf_handler_dbg);
+  close(ctxt->elf_fd_dbg);
 }
 
 /// Fill a CTF section description with the information in a given ELF
@@ -1036,43 +1382,137 @@ fill_ctf_section(Elf_Scn *elf_section, ctf_sect_t *ctf_section)
   ctf_section->cts_entsize = section_header->sh_entsize;
 }
 
+/// Find a CTF section and debug symbols in a given ELF using
+/// .gnu_debuglink section.
+///
+/// @param ctxt the read context.
+/// @param ctf_dbg_section the CTF section to fill with the raw data.
+static void
+find_alt_debuginfo(read_context *ctxt, Elf_Scn **ctf_dbg_scn)
+{
+  std::string name;
+  Elf_Data *data;
+
+  Elf_Scn *section = elf_helpers::find_section
+    (ctxt->elf_handler, ".gnu_debuglink", SHT_PROGBITS);
+
+  if (section
+      && (data = elf_getdata(section, NULL))
+      && data->d_size != 0)
+    name = (char *) data->d_buf;
+
+  int fd = -1;
+  Elf *hdlr = NULL;
+  *ctf_dbg_scn = NULL;
+
+  if (!name.empty())
+    for (vector<char**>::const_iterator i = ctxt->debug_info_root_paths_.begin();
+         i != ctxt->debug_info_root_paths_.end();
+         ++i)
+      {
+        std::string file_path;
+        if (!tools_utils::find_file_under_dir(**i, name, file_path))
+          continue;
+
+        if ((fd = open(file_path.c_str(), O_RDONLY)) == -1)
+          continue;
+
+        if ((hdlr = elf_begin(fd, ELF_C_READ, NULL)) == NULL)
+          {
+            close(fd);
+            continue;
+          }
+
+        ctxt->symtab =
+          symtab_reader::symtab::load(hdlr, ctxt->ir_env, nullptr);
+
+        // unlikely .ctf was designed to be present in stripped file
+        *ctf_dbg_scn =
+          elf_helpers::find_section(hdlr, ".ctf", SHT_PROGBITS);
+          break;
+
+        elf_end(hdlr);
+        close(fd);
+      }
+
+  // If we don't have a symbol table, use current one in ELF file
+  if (!ctxt->symtab)
+    ctxt->symtab =
+     symtab_reader::symtab::load(ctxt->elf_handler, ctxt->ir_env, nullptr);
+
+  ctxt->elf_handler_dbg = hdlr;
+  ctxt->elf_fd_dbg = fd;
+}
+
 /// Slurp certain information from the ELF file described by a given
 /// read context and install it in a libabigail corpus.
 ///
 /// @param ctxt the read context
 /// @param corp the libabigail corpus in which to install the info.
-///
-/// @return 0 if there is an error.
-/// @return 1 otherwise.
-
-static int
-slurp_elf_info(read_context *ctxt, corpus_sptr corp)
+/// @param status the resulting status flags.
+static void
+slurp_elf_info(read_context *ctxt,
+               corpus_sptr corp,
+               elf_reader::status& status)
 {
   /* Set the ELF architecture.  */
-  GElf_Ehdr eh_mem;
-  GElf_Ehdr *ehdr = gelf_getehdr(ctxt->elf_handler, &eh_mem);
+  GElf_Ehdr *ehdr, eh_mem;
+  Elf_Scn *symtab_scn;
+  Elf_Scn *ctf_scn, *ctf_dbg_scn;
+  Elf_Scn *strtab_scn;
+
+  if (!(ehdr = gelf_getehdr(ctxt->elf_handler, &eh_mem)))
+      return;
+
   corp->set_architecture_name(elf_helpers::e_machine_to_string(ehdr->e_machine));
 
-  /* Read the symtab from the ELF file and set it in the corpus.  */
-  ctxt->symtab =
-    symtab_reader::symtab::load(ctxt->elf_handler, ctxt->ir_env,
-                                0 /* No suppressions.  */);
+  find_alt_debuginfo(ctxt, &ctf_dbg_scn);
+  ABG_ASSERT(ctxt->symtab);
   corp->set_symtab(ctxt->symtab);
 
-  /* Get the raw ELF section contents for libctf.  */
-  Elf_Scn *ctf_scn = elf_helpers::find_section(ctxt->elf_handler, ".ctf", SHT_PROGBITS);
-  Elf_Scn *symtab_scn = elf_helpers::find_symbol_table_section(ctxt->elf_handler);
-  Elf_Scn *strtab_scn = elf_helpers::find_strtab_for_symtab_section(ctxt->elf_handler,
-                                                                    symtab_scn);
+  if (corp->get_origin() & corpus::LINUX_KERNEL_BINARY_ORIGIN)
+    {
+      status |= elf_reader::STATUS_OK;
+      return;
+    }
 
-  if (ctf_scn == NULL || symtab_scn == NULL || strtab_scn == NULL)
-    return 0;
+  /* Get the raw ELF section contents for libctf.  */
+  const char *ctf_name = ".ctf";
+  ctf_scn = elf_helpers::find_section_by_name(ctxt->elf_handler, ctf_name);
+  if (ctf_scn == NULL)
+    {
+      if (ctf_dbg_scn)
+        ctf_scn = ctf_dbg_scn;
+      else
+        {
+          status |= elf_reader::STATUS_DEBUG_INFO_NOT_FOUND;
+          return;
+        }
+    }
+
+  // ET_{EXEC,DYN} needs .dyn{sym,str} in ctf_arc_bufopen
+  const char *symtab_name = ".dynsym";
+  const char *strtab_name = ".dynstr";
+
+  if (ehdr->e_type == ET_REL)
+    {
+      symtab_name = ".symtab";
+      strtab_name = ".strtab";
+    }
+
+  symtab_scn = elf_helpers::find_section_by_name(ctxt->elf_handler, symtab_name);
+  strtab_scn = elf_helpers::find_section_by_name(ctxt->elf_handler, strtab_name);
+  if (symtab_scn == NULL || strtab_scn == NULL)
+    {
+      status |= elf_reader::STATUS_NO_SYMBOLS_FOUND;
+      return;
+    }
 
   fill_ctf_section(ctf_scn, &ctxt->ctf_sect);
   fill_ctf_section(symtab_scn, &ctxt->symtab_sect);
   fill_ctf_section(strtab_scn, &ctxt->strtab_sect);
 
-  return 1;
+  status |= elf_reader::STATUS_OK;
 }
 
 /// Create and return a new read context to process CTF information
@@ -1083,9 +1523,12 @@ slurp_elf_info(read_context *ctxt, corpus_sptr corp)
 
 read_context_sptr
 create_read_context(const std::string& elf_path,
+                    const vector<char**>& debug_info_root_paths,
                     ir::environment *env)
 {
-  read_context_sptr result(new read_context(elf_path, env));
+  read_context_sptr result(new read_context(elf_path,
+                                            debug_info_root_paths,
+                                            env));
   return result;
 }
 
@@ -1104,36 +1547,63 @@ read_corpus(read_context *ctxt, elf_reader::status &status)
 {
   corpus_sptr corp
     = std::make_shared<corpus>(ctxt->ir_env, ctxt->filename);
-
-  /* Be optimist.  */
-  status = elf_reader::STATUS_OK;
+  ctxt->cur_corpus_ = corp;
+  status = elf_reader::STATUS_UNKNOWN;
 
   /* Open the ELF file.  */
   if (!open_elf_handler(ctxt))
-    {
-      status = elf_reader::STATUS_DEBUG_INFO_NOT_FOUND;
       return corp;
-    }
 
-  /* Set some properties of the corpus first.  */
-  corp->set_origin(corpus::CTF_ORIGIN);
-  if (!slurp_elf_info(ctxt, corp))
-    {
-      status = elf_reader::STATUS_NO_SYMBOLS_FOUND;
+  bool is_linux_kernel = elf_helpers::is_linux_kernel(ctxt->elf_handler);
+  corpus::origin origin = corpus::CTF_ORIGIN;
+
+  if (is_linux_kernel)
+    origin |= corpus::LINUX_KERNEL_BINARY_ORIGIN;
+  corp->set_origin(origin);
+
+  if (ctxt->cur_corpus_group_)
+    ctxt->cur_corpus_group_->add_corpus(ctxt->cur_corpus_);
+
+  slurp_elf_info(ctxt, corp, status);
+  if (!is_linux_kernel
+      && ((status & elf_reader::STATUS_DEBUG_INFO_NOT_FOUND) |
+          (status & elf_reader::STATUS_NO_SYMBOLS_FOUND)))
       return corp;
-    }
 
-  /* Build the ctfa from the contents of the relevant ELF sections,
-     and process the CTF archive in the read context, if any.
-     Information about the types, variables, functions, etc contained
-     in the archive are added to the given corpus.  */
+  // Set the set of exported declaration that are defined.
+  ctxt->exported_decls_builder
+   (ctxt->cur_corpus_->get_exported_decls_builder().get());
+
   int errp;
-  ctxt->ctfa = ctf_arc_bufopen(&ctxt->ctf_sect, &ctxt->symtab_sect,
-                               &ctxt->strtab_sect, &errp);
-  if (ctxt->ctfa == NULL)
-    status = elf_reader::STATUS_DEBUG_INFO_NOT_FOUND;
+  if (corp->get_origin() & corpus::LINUX_KERNEL_BINARY_ORIGIN)
+    {
+      std::string filename;
+      if (tools_utils::base_name(ctxt->filename, filename)
+          && filename == "vmlinux")
+        {
+          std::string vmlinux_ctfa_path = ctxt->filename + ".ctfa";
+          ctxt->ctfa = ctf_arc_open(vmlinux_ctfa_path.c_str(), &errp);
+        }
+    }
   else
-    process_ctf_archive(ctxt, corp);
+    /* Build the ctfa from the contents of the relevant ELF sections,
+       and process the CTF archive in the read context, if any.
+       Information about the types, variables, functions, etc contained
+       in the archive are added to the given corpus.  */
+    ctxt->ctfa = ctf_arc_bufopen(&ctxt->ctf_sect, &ctxt->symtab_sect,
+                                 &ctxt->strtab_sect, &errp);
+
+  ctxt->ir_env->canonicalization_is_done(false);
+  if (ctxt->ctfa == NULL)
+    status |= elf_reader::STATUS_DEBUG_INFO_NOT_FOUND;
+  else
+    {
+      process_ctf_archive(ctxt, corp);
+      ctxt->cur_corpus_->sort_functions();
+      ctxt->cur_corpus_->sort_variables();
+    }
+
+  ctxt->ir_env->canonicalization_is_done(true);
 
   /* Cleanup and return.  */
   close_elf_handler(ctxt);
@@ -1153,6 +1623,96 @@ read_corpus(read_context *ctxt, elf_reader::status &status)
 corpus_sptr
 read_corpus(const read_context_sptr &ctxt, elf_reader::status &status)
 {return read_corpus(ctxt.get(), status);}
+
+/// Set the @ref corpus_group being created to the current read context.
+///
+/// @param ctxt the read_context to consider.
+///
+/// @param group the @ref corpus_group to set.
+void
+set_read_context_corpus_group(read_context& ctxt,
+                              corpus_group_sptr& group)
+{
+  ctxt.cur_corpus_group_ = group;
+}
+
+/// Read a corpus and add it to a given @ref corpus_group.
+///
+/// @param ctxt the reading context to consider.
+///
+/// @param group the @ref corpus_group to add the new corpus to.
+///
+/// @param status output parameter. The status of the read.  It is set
+/// by this function upon its completion.
+corpus_sptr
+read_and_add_corpus_to_group_from_elf(read_context* ctxt,
+                                      corpus_group& group,
+                                      elf_reader::status& status)
+{
+  corpus_sptr result;
+  corpus_sptr corp = read_corpus(ctxt, status);
+  if (status & elf_reader::STATUS_OK)
+    {
+      if (!corp->get_group())
+        group.add_corpus(corp);
+      result = corp;
+    }
+
+  return result;
+}
+
+/// Re-initialize a read_context so that it can re-used to read
+/// another binary.
+///
+/// @param ctxt the context to re-initialize.
+///
+/// @param elf_path the path to the elf file the context is to be used
+/// for.
+///
+/// @param environment the environment used by the current context.
+/// This environment contains resources needed by the reader and by
+/// the types and declarations that are to be created later.  Note
+/// that ABI artifacts that are to be compared all need to be created
+/// within the same environment.
+///
+/// Please also note that the life time of this environment object
+/// must be greater than the life time of the resulting @ref
+/// read_context the context uses resources that are allocated in the
+/// environment.
+void
+reset_read_context(read_context_sptr	&ctxt,
+                   const std::string&	 elf_path,
+                   const vector<char**>& debug_info_root_path,
+                   ir::environment*	 environment)
+{
+  if (ctxt)
+    ctxt->initialize(elf_path, debug_info_root_path, environment);
+}
+
+/// Returns a key to be use in types_map dict conformed by
+/// dictionary id and the CTF type id for a given type.
+///
+/// CTF id types are unique by child dictionary, but CTF id
+/// types in parent dictionary are unique across the all
+/// dictionaries in the CTF archive, to differentiate
+/// one each other this member function relies in
+/// ctf_type_isparent function.
+///
+/// @param dic the pointer to CTF dictionary where the @p type
+/// was found.
+///
+/// @param type the id for given CTF type.
+std::string
+dic_type_key(ctf_dict_t *dic, ctf_id_t ctf_type)
+{
+  std::stringstream key;
+
+  if (ctf_type_isparent (dic, ctf_type))
+    key << std::hex << ctf_type;
+  else
+    key << std::hex << ctf_type << '-' << ctf_cuname(dic);
+  return key.str();
+}
 
 } // End of namespace ctf_reader
 } // End of namespace abigail

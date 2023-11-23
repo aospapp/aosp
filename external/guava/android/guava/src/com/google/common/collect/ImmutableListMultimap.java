@@ -39,7 +39,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * detailed at {@link ImmutableCollection}.
  *
  * <p>See the Guava User Guide article on <a href=
- * "https://github.com/google/guava/wiki/ImmutableCollectionsExplained"> immutable collections</a>.
+ * "https://github.com/google/guava/wiki/ImmutableCollectionsExplained">immutable collections</a>.
  *
  * @author Jared Levy
  * @since 2.0
@@ -301,7 +301,7 @@ public class ImmutableListMultimap<K, V> extends ImmutableMultimap<K, V>
       }
     }
 
-    return new ImmutableListMultimap<>(builder.build(), size);
+    return new ImmutableListMultimap<>(builder.buildOrThrow(), size);
   }
 
   ImmutableListMultimap(ImmutableMap<K, ImmutableList<V>> map, int size) {
@@ -414,7 +414,7 @@ public class ImmutableListMultimap<K, V> extends ImmutableMultimap<K, V>
 
     ImmutableMap<Object, ImmutableList<Object>> tmpMap;
     try {
-      tmpMap = builder.build();
+      tmpMap = builder.buildOrThrow();
     } catch (IllegalArgumentException e) {
       throw (InvalidObjectException) new InvalidObjectException(e.getMessage()).initCause(e);
     }

@@ -17,6 +17,7 @@
 package com.google.android.textclassifier;
 
 import android.content.res.AssetFileDescriptor;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -654,41 +655,49 @@ public final class AnnotatorModel implements AutoCloseable {
       private boolean usePodNer = true;
       private boolean useVocabAnnotator = true;
 
+      @CanIgnoreReturnValue
       public Builder setLocales(@Nullable String locales) {
         this.locales = locales;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setDetectedTextLanguageTags(@Nullable String detectedTextLanguageTags) {
         this.detectedTextLanguageTags = detectedTextLanguageTags;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setAnnotationUsecase(int annotationUsecase) {
         this.annotationUsecase = annotationUsecase;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUserLocationLat(double userLocationLat) {
         this.userLocationLat = userLocationLat;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUserLocationLng(double userLocationLng) {
         this.userLocationLng = userLocationLng;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUserLocationAccuracyMeters(float userLocationAccuracyMeters) {
         this.userLocationAccuracyMeters = userLocationAccuracyMeters;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUsePodNer(boolean usePodNer) {
         this.usePodNer = usePodNer;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUseVocabAnnotator(boolean useVocabAnnotator) {
         this.useVocabAnnotator = useVocabAnnotator;
         return this;
@@ -761,6 +770,8 @@ public final class AnnotatorModel implements AutoCloseable {
     private final boolean usePodNer;
     private final boolean triggerDictionaryOnBeginnerWords;
     private final boolean useVocabAnnotator;
+    private final boolean enableAddContactIntent;
+    private final boolean enableSearchIntent;
 
     private ClassificationOptions(
         long referenceTimeMsUtc,
@@ -774,7 +785,9 @@ public final class AnnotatorModel implements AutoCloseable {
         String userFamiliarLanguageTags,
         boolean usePodNer,
         boolean triggerDictionaryOnBeginnerWords,
-        boolean useVocabAnnotator) {
+        boolean useVocabAnnotator,
+        boolean enableAddContactIntent,
+        boolean enableSearchIntent) {
       this.referenceTimeMsUtc = referenceTimeMsUtc;
       this.referenceTimezone = referenceTimezone;
       this.locales = locales;
@@ -787,6 +800,8 @@ public final class AnnotatorModel implements AutoCloseable {
       this.usePodNer = usePodNer;
       this.triggerDictionaryOnBeginnerWords = triggerDictionaryOnBeginnerWords;
       this.useVocabAnnotator = useVocabAnnotator;
+      this.enableAddContactIntent = enableAddContactIntent;
+      this.enableSearchIntent = enableSearchIntent;
     }
 
     /** Can be used to build a ClassificationOptions instance. */
@@ -803,65 +818,91 @@ public final class AnnotatorModel implements AutoCloseable {
       private boolean usePodNer = true;
       private boolean triggerDictionaryOnBeginnerWords = false;
       private boolean useVocabAnnotator = true;
+      private boolean enableAddContactIntent = false;
+      private boolean enableSearchIntent = false;
 
+      @CanIgnoreReturnValue
       public Builder setReferenceTimeMsUtc(long referenceTimeMsUtc) {
         this.referenceTimeMsUtc = referenceTimeMsUtc;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setReferenceTimezone(String referenceTimezone) {
         this.referenceTimezone = referenceTimezone;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setLocales(@Nullable String locales) {
         this.locales = locales;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setDetectedTextLanguageTags(@Nullable String detectedTextLanguageTags) {
         this.detectedTextLanguageTags = detectedTextLanguageTags;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setAnnotationUsecase(int annotationUsecase) {
         this.annotationUsecase = annotationUsecase;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUserLocationLat(double userLocationLat) {
         this.userLocationLat = userLocationLat;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUserLocationLng(double userLocationLng) {
         this.userLocationLng = userLocationLng;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUserLocationAccuracyMeters(float userLocationAccuracyMeters) {
         this.userLocationAccuracyMeters = userLocationAccuracyMeters;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUserFamiliarLanguageTags(String userFamiliarLanguageTags) {
         this.userFamiliarLanguageTags = userFamiliarLanguageTags;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUsePodNer(boolean usePodNer) {
         this.usePodNer = usePodNer;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setTrigerringDictionaryOnBeginnerWords(
           boolean triggerDictionaryOnBeginnerWords) {
         this.triggerDictionaryOnBeginnerWords = triggerDictionaryOnBeginnerWords;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUseVocabAnnotator(boolean useVocabAnnotator) {
         this.useVocabAnnotator = useVocabAnnotator;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setEnableAddContactIntent(boolean enableAddContactIntent) {
+        this.enableAddContactIntent = enableAddContactIntent;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setEnableSearchIntent(boolean enableSearchIntent) {
+        this.enableSearchIntent = enableSearchIntent;
         return this;
       }
 
@@ -878,7 +919,9 @@ public final class AnnotatorModel implements AutoCloseable {
             userFamiliarLanguageTags,
             usePodNer,
             triggerDictionaryOnBeginnerWords,
-            useVocabAnnotator);
+            useVocabAnnotator,
+            enableAddContactIntent,
+            enableSearchIntent);
       }
     }
 
@@ -935,6 +978,14 @@ public final class AnnotatorModel implements AutoCloseable {
 
     public boolean getUseVocabAnnotator() {
       return useVocabAnnotator;
+    }
+
+    public boolean getEnableAddContactIntent() {
+      return enableAddContactIntent;
+    }
+
+    public boolean getEnableSearchIntent() {
+      return enableSearchIntent;
     }
   }
 
@@ -1011,81 +1062,97 @@ public final class AnnotatorModel implements AutoCloseable {
       private boolean triggerDictionaryOnBeginnerWords = false;
       private boolean useVocabAnnotator = true;
 
+      @CanIgnoreReturnValue
       public Builder setReferenceTimeMsUtc(long referenceTimeMsUtc) {
         this.referenceTimeMsUtc = referenceTimeMsUtc;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setReferenceTimezone(String referenceTimezone) {
         this.referenceTimezone = referenceTimezone;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setLocales(@Nullable String locales) {
         this.locales = locales;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setDetectedTextLanguageTags(@Nullable String detectedTextLanguageTags) {
         this.detectedTextLanguageTags = detectedTextLanguageTags;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setEntityTypes(Collection<String> entityTypes) {
         this.entityTypes = entityTypes;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setAnnotateMode(int annotateMode) {
         this.annotateMode = annotateMode;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setAnnotationUsecase(int annotationUsecase) {
         this.annotationUsecase = annotationUsecase;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setHasLocationPermission(boolean hasLocationPermission) {
         this.hasLocationPermission = hasLocationPermission;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setHasPersonalizationPermission(boolean hasPersonalizationPermission) {
         this.hasPersonalizationPermission = hasPersonalizationPermission;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setIsSerializedEntityDataEnabled(boolean isSerializedEntityDataEnabled) {
         this.isSerializedEntityDataEnabled = isSerializedEntityDataEnabled;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUserLocationLat(double userLocationLat) {
         this.userLocationLat = userLocationLat;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUserLocationLng(double userLocationLng) {
         this.userLocationLng = userLocationLng;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUserLocationAccuracyMeters(float userLocationAccuracyMeters) {
         this.userLocationAccuracyMeters = userLocationAccuracyMeters;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUsePodNer(boolean usePodNer) {
         this.usePodNer = usePodNer;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setTriggerDictionaryOnBeginnerWords(boolean triggerDictionaryOnBeginnerWords) {
         this.triggerDictionaryOnBeginnerWords = triggerDictionaryOnBeginnerWords;
         return this;
       }
 
+      @CanIgnoreReturnValue
       public Builder setUseVocabAnnotator(boolean useVocabAnnotator) {
         this.useVocabAnnotator = useVocabAnnotator;
         return this;

@@ -42,7 +42,7 @@ rust_library {
     host_supported: true,
     crate_name: "pin_project",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.0.10",
+    cargo_pkg_version: "1.0.12",
     srcs: ["src/lib.rs"],
     edition: "2018",
     proc_macros: ["libpin_project_internal"],
@@ -50,4 +50,6 @@ rust_library {
         "//apex_available:platform",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
 }

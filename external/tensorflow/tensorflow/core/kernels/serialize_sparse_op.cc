@@ -23,9 +23,11 @@ limitations under the License.
 
 #include "tensorflow/core/common_runtime/dma_helper.h"
 #include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/framework/op_requires.h"
 #include "tensorflow/core/framework/register_types.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor.pb.h"
+#include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/tensor_util.h"
 #include "tensorflow/core/framework/types.h"
 #include "tensorflow/core/framework/variant.h"
@@ -106,7 +108,7 @@ bool SerializeSparseOp<Variant>::IsExpensive() {
 template <>
 Status SerializeSparseOp<tstring>::Initialize(Tensor* result) {
   *result = Tensor(DT_STRING, TensorShape({3}));
-  return Status::OK();
+  return OkStatus();
 }
 
 template <>
@@ -115,7 +117,7 @@ Status SerializeSparseOp<tstring>::Serialize(const Tensor& input,
   TensorProto proto;
   input.AsProtoTensorContent(&proto);
   *result = proto.SerializeAsString();
-  return Status::OK();
+  return OkStatus();
 }
 
 REGISTER_KERNEL_BUILDER(Name("SerializeSparse")
@@ -126,14 +128,14 @@ REGISTER_KERNEL_BUILDER(Name("SerializeSparse")
 template <>
 Status SerializeSparseOp<Variant>::Initialize(Tensor* result) {
   *result = Tensor(DT_VARIANT, TensorShape({3}));
-  return Status::OK();
+  return OkStatus();
 }
 
 template <>
 Status SerializeSparseOp<Variant>::Serialize(const Tensor& input,
                                              Variant* result) {
   *result = input;
-  return Status::OK();
+  return OkStatus();
 }
 
 REGISTER_KERNEL_BUILDER(Name("SerializeSparse")
@@ -193,7 +195,7 @@ struct SerializeGroups<T, tstring> {
       Tensor output_indices = Tensor(DT_INT64, {num_entries, rank - 1});
       Tensor output_values = Tensor(DataTypeToEnum<T>::value, {num_entries});
 
-      auto output_indices_t = output_indices.matrix<int64>();
+      auto output_indices_t = output_indices.matrix<int64_t>();
       auto output_values_t = output_values.vec<T>();
 
       for (int i = 0; i < num_entries; ++i) {
@@ -212,7 +214,7 @@ struct SerializeGroups<T, tstring> {
       serialize_empty_element(empty_b);
     }
 
-    return Status::OK();
+    return OkStatus();
   }
 };
 
@@ -296,9 +298,9 @@ struct SerializeGroups<T, Variant> {
       Tensor& output_values = serialized_sparse_t(b, 1).emplace<Tensor>(
           T_type, TensorShape({num_entries}));
 
-      int64* output_indices_ptr =
-          static_cast<int64*>(DMAHelper::base(&output_indices));
-      const int64* indices_ptr = indices.data();
+      int64_t* output_indices_ptr =
+          static_cast<int64_t*>(DMAHelper::base(&output_indices));
+      const int64_t* indices_ptr = indices.data();
 
       T* output_values_ptr = static_cast<T*>(DMAHelper::base(&output_values));
       const T* values_ptr = values.data();
@@ -327,7 +329,7 @@ struct SerializeGroups<T, Variant> {
       serialize_empty_element(empty_b);
     }
 
-    return Status::OK();
+    return OkStatus();
   }
 };
 
@@ -366,15 +368,18 @@ class SerializeManySparseOp : public OpKernel {
         errors::InvalidArgument(
             "Rank of input SparseTensor should be > 1, but saw rank: ", rank));
 
-    TensorShape tensor_input_shape(input_shape->vec<int64>());
-    gtl::InlinedVector<int64, 8> std_order(rank);
+    TensorShape tensor_input_shape;
+    OP_REQUIRES_OK(context,
+                   TensorShape::BuildTensorShape(input_shape->vec<int64_t>(),
+                                                 &tensor_input_shape));
+    gtl::InlinedVector<int64_t, 8> std_order(rank);
     std::iota(std_order.begin(), std_order.end(), 0);
     SparseTensor input_st;
     OP_REQUIRES_OK(context, SparseTensor::Create(*input_indices, *input_values,
                                                  tensor_input_shape, std_order,
                                                  &input_st));
 
-    auto input_shape_t = input_shape->vec<int64>();
+    auto input_shape_t = input_shape->vec<int64_t>();
     const int64_t N = input_shape_t(0);
 
     Tensor* serialized_sparse;
@@ -384,7 +389,7 @@ class SerializeManySparseOp : public OpKernel {
     OP_REQUIRES_OK(context, input_st.IndicesValid());
 
     Tensor output_shape(DT_INT64, {rank - 1});
-    auto output_shape_t = output_shape.vec<int64>();
+    auto output_shape_t = output_shape.vec<int64_t>();
     for (int d = 1; d < rank; d++) output_shape_t(d - 1) = input_shape_t(d);
 
     // Get groups by minibatch dimension

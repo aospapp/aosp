@@ -78,7 +78,9 @@
 #if HAVE_PATHS_H
 #include <paths.h>
 #endif
+#ifndef MKSH_NOPWNAM
 #include <pwd.h>
+#endif
 #include <setjmp.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -191,9 +193,9 @@
 #endif
 
 #ifdef EXTERN
-__RCSID("$MirOS: src/bin/mksh/sh.h,v 1.898 2020/05/16 22:38:23 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/sh.h,v 1.904 2020/10/31 03:53:06 tg Exp $");
 #endif
-#define MKSH_VERSION "R59 2020/05/16"
+#define MKSH_VERSION "R59 2020/10/31"
 
 /* arithmetic types: C implementation */
 #if !HAVE_CAN_INTTYPES
@@ -246,10 +248,6 @@ typedef u_int8_t uint8_t;
 #endif
 
 /* other standard types */
-
-#if !HAVE_RLIM_T
-typedef unsigned long rlim_t;
-#endif
 
 #if !HAVE_SIG_T
 #undef sig_t
@@ -668,7 +666,7 @@ char *ucstrstr(char *, const char *);
 #endif
 #endif
 
-#if (!defined(MKSH_BUILDMAKEFILE4BSD) && !defined(MKSH_BUILDSH)) || (MKSH_BUILD_R != 592)
+#if (!defined(MKSH_BUILDMAKEFILE4BSD) && !defined(MKSH_BUILDSH)) || (MKSH_BUILD_R != 593)
 #error Must run Build.sh to compile this.
 extern void thiswillneverbedefinedIhope(void);
 int
@@ -2522,7 +2520,7 @@ void sethistfile(const char *);
 char **histpos(void) MKSH_A_PURE;
 int histnum(int);
 #endif
-int findhist(int, int, const char *, bool) MKSH_A_PURE;
+int findhist(int, const char *, bool, bool) MKSH_A_PURE;
 char **hist_get_newest(bool);
 void inittraps(void);
 void alarm_init(void);

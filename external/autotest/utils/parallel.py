@@ -1,4 +1,10 @@
+# Lint as: python2, python3
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import os, sys
+import six
+from six.moves import range
 
 
 class ParallelError(Exception):
@@ -31,9 +37,9 @@ class ParallelExecute(object):
                 functions[fn] = set()
 
         dependents = {}
-        for fn, deps in functions.iteritems():
+        for fn, deps in six.iteritems(functions):
             dependents[fn] = []
-        for fn, deps in functions.iteritems():
+        for fn, deps in six.iteritems(functions):
             for dep in deps:
                 dependents[dep].append(fn)
 
@@ -55,7 +61,7 @@ class ParallelExecute(object):
 
 
     def run_until_completion(self):
-        for fn, deps in self.functions.iteritems():
+        for fn, deps in six.iteritems(self.functions):
             if len(deps) == 0:
                 self.ready_to_run.append(fn)
 
@@ -63,7 +69,7 @@ class ParallelExecute(object):
         while len(self.pid_map) > 0 or len(self.ready_to_run) > 0:
             max_allowed = self.max_procs - len(self.pid_map)
             max_able = len(self.ready_to_run)
-            for i in xrange(min(max_allowed, max_able)):
+            for i in range(min(max_allowed, max_able)):
                 self._run(self.ready_to_run.pop())
 
             # Handle one proc that's finished.

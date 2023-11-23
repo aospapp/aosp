@@ -18,7 +18,6 @@ package com.google.android.enterprise.connectedapps.processor.containers;
 import com.google.android.enterprise.connectedapps.processor.annotationdiscovery.AnnotationFinder;
 import com.google.android.enterprise.connectedapps.testing.annotations.CrossProfileTest;
 import com.google.auto.value.AutoValue;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
 
 /** Wrapper of a {@link CrossProfileTest} annotated class. */
@@ -30,10 +29,9 @@ public abstract class ValidatorCrossProfileTestInfo {
   public abstract TypeElement configurationElement();
 
   public static ValidatorCrossProfileTestInfo create(
-      ProcessingEnvironment processingEnv, TypeElement crossProfileTestElement) {
+      Context context, TypeElement crossProfileTestElement) {
     CrossProfileTestAnnotationInfo annotationInfo =
-        AnnotationFinder.extractCrossProfileTestAnnotationInfo(
-            crossProfileTestElement, processingEnv.getTypeUtils(), processingEnv.getElementUtils());
+        AnnotationFinder.extractCrossProfileTestAnnotationInfo(context, crossProfileTestElement);
     return new AutoValue_ValidatorCrossProfileTestInfo(
         crossProfileTestElement, annotationInfo.configuration());
   }

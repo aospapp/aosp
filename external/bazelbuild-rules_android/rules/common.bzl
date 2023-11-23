@@ -14,13 +14,11 @@
 
 """Bazel common library for the Android rules."""
 
-load(":java.bzl", _java = "java")
-load(":utils.bzl", "get_android_sdk", "get_android_toolchain", _log = "log")
+load(":utils.bzl", "get_android_toolchain", _log = "log")
+load("//rules/android_common:reexport_android_common.bzl", _native_android_common = "native_android_common")
 
-# TODO(ostonge): Remove once kotlin/jvm_library.internal.bzl
-# is updated and released to use the java.resolve_package function
-def _java_package(label, custom_package):
-    return _java.resolve_package_from_label(label, custom_package)
+# Suffix attached to the Starlark portion of android_binary target
+_PACKAGED_RESOURCES_SUFFIX = "_RESOURCES_DO_NOT_USE"
 
 # Validates that the packages listed under "deps" all have the given constraint. If a package
 # does not have this attribute, an error is generated.
@@ -45,44 +43,6 @@ def _get_host_javabase(ctx):
         _log.error("Missing _host_javabase attr")
     return ctx.attr._host_javabase
 
-def _sign_apk(ctx, unsigned_apk, signed_apk, keystore = None, signing_keys = [], signing_lineage = None):
-    """Signs an apk. Usage of keystore is deprecated. Prefer using signing_keys."""
-    inputs = [unsigned_apk]
-    signer_args = ctx.actions.args()
-    signer_args.add("sign")
-
-    if signing_keys:
-        inputs.extend(signing_keys)
-        for i, key in enumerate(signing_keys):
-            if i > 0:
-                signer_args.add("--next-signer")
-            signer_args.add("--ks")
-            signer_args.add(key.path)
-            signer_args.add("--ks-pass")
-            signer_args.add("pass:android")
-        if signing_lineage:
-            inputs.append(signing_lineage)
-            signer_args.add("--lineage", signing_lineage.path)
-    elif keystore:
-        inputs.append(keystore)
-        signer_args.add("--ks", keystore.path)
-        signer_args.add("--ks-pass", "pass:android")
-
-    signer_args.add("--v1-signing-enabled", ctx.fragments.android.apk_signing_method_v1)
-    signer_args.add("--v1-signer-name", "CERT")
-    signer_args.add("--v2-signing-enabled", ctx.fragments.android.apk_signing_method_v2)
-    signer_args.add("--out", signed_apk.path)
-    signer_args.add(unsigned_apk.path)
-    ctx.actions.run(
-        executable = get_android_sdk(ctx).apk_signer,
-        inputs = inputs,
-        outputs = [signed_apk],
-        arguments = [signer_args],
-        mnemonic = "ApkSignerTool",
-        progress_message = "Signing APK for %s" % unsigned_apk.path,
-    )
-    return signed_apk
-
 def _filter_zip(ctx, in_zip, out_zip, filters = []):
     """Creates a copy of a zip file with files that match filters."""
     args = ctx.actions.args()
@@ -101,11 +61,22 @@ def _filter_zip(ctx, in_zip, out_zip, filters = []):
         progress_message = "Filtering %s" % in_zip.short_path,
     )
 
+def _create_signer_properties(ctx, oldest_key):
+    properties = ctx.actions.declare_file("%s/keystore.properties" % ctx.label.name)
+    ctx.actions.expand_template(
+        template = ctx.file._bundle_keystore_properties,
+        output = properties,
+        substitutions = {"%oldest_key%": oldest_key.short_path},
+    )
+    return properties
+
 common = struct(
+    PACKAGED_RESOURCES_SUFFIX = _PACKAGED_RESOURCES_SUFFIX,
     check_rule = _check_rule,
+    create_signer_properties = _create_signer_properties,
     get_host_javabase = _get_host_javabase,
     get_java_toolchain = _get_java_toolchain,
     filter_zip = _filter_zip,
-    java_package = _java_package,
-    sign_apk = _sign_apk,
 )
+
+android_common = _native_android_common

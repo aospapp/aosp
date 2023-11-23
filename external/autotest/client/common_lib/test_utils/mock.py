@@ -1,7 +1,14 @@
+# Lint as: python2, python3
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 __author__ = "raphtee@google.com (Travis Miller)"
 
 
-import re, collections, StringIO, sys, unittest
+import re, collections, six, sys, unittest
+
+import six
+from six.moves import zip
 
 
 class StubNotFoundError(Exception):
@@ -14,7 +21,7 @@ class CheckPlaybackError(Exception):
     pass
 
 
-class SaveDataAfterCloseStringIO(StringIO.StringIO):
+class SaveDataAfterCloseStringIO(six.StringIO):
     """Saves the contents in a final_data property when close() is called.
 
     Useful as a mock output file object to test both that the file was
@@ -24,12 +31,45 @@ class SaveDataAfterCloseStringIO(StringIO.StringIO):
       final_data: Set to the StringIO's getvalue() data when close() is
           called.  None if close() has not been called.
     """
+
     final_data = None
+
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
 
     def close(self):
         self.final_data = self.getvalue()
-        StringIO.StringIO.close(self)
+        six.StringIO.close(self)
 
+
+class SaveDataAfterCloseBytesIO(six.BytesIO):
+    """Saves the contents in a final_data property when close() is called.
+
+    Useful as a mock output file object to test both that the file was
+    closed and what was written.
+
+    Properties:
+      final_data: Set to the BytesIO's getvalue() data when close() is
+          called.  None if close() has not been called.
+    """
+    final_data = None
+
+
+    def __enter__(self):
+        return self
+
+
+    def __exit__(self, type, value, traceback):
+        self.close()
+
+
+    def close(self):
+        self.final_data = self.getvalue()
+        six.BytesIO.close(self)
 
 
 class argument_comparator(object):
@@ -44,7 +84,8 @@ class equality_comparator(argument_comparator):
 
     @staticmethod
     def _types_match(arg1, arg2):
-        if isinstance(arg1, basestring) and isinstance(arg2, basestring):
+        if isinstance(arg1, six.string_types) and isinstance(
+                arg2, six.string_types):
             return True
         return type(arg1) == type(arg2)
 
@@ -68,7 +109,7 @@ class equality_comparator(argument_comparator):
             if not cls._compare(sorted(actual_arg.keys()),
                                 sorted(expected_arg.keys())):
                 return False
-            for key, value in actual_arg.iteritems():
+            for key, value in six.iteritems(actual_arg):
                 if not cls._compare(value, expected_arg[key]):
                     return False
         elif actual_arg != expected_arg:
@@ -102,7 +143,7 @@ class regex_comparator(argument_comparator):
 
 class is_string_comparator(argument_comparator):
     def is_satisfied_by(self, parameter):
-        return isinstance(parameter, basestring)
+        return isinstance(parameter, six.string_types)
 
 
     def __str__(self):
@@ -137,7 +178,7 @@ class base_mapping(object):
         self.symbol = symbol
         self.args = [equality_comparator(arg) for arg in args]
         self.dargs = dict((key, equality_comparator(value))
-                          for key, value in dargs.iteritems())
+                          for key, value in six.iteritems(dargs))
         self.error = None
 
 
@@ -150,14 +191,14 @@ class base_mapping(object):
                 return False
 
         # check for incorrect dargs
-        for key, value in dargs.iteritems():
+        for key, value in six.iteritems(dargs):
             if key not in self.dargs:
                 return False
             if not self.dargs[key].is_satisfied_by(value):
                 return False
 
         # check for missing dargs
-        for key in self.dargs.iterkeys():
+        for key in six.iterkeys(self.dargs):
             if key not in dargs:
                 return False
 
@@ -294,6 +335,21 @@ class mock_god(object):
         playback = self.__method_playback
         errors = self.errors
 
+
+        class RecordingMockMeta(type):
+            """Metaclass to override default class invocation behavior.
+
+            Normally, calling a class like a function creates and initializes an
+            instance of that class. This metaclass causes class invocation to
+            have no side effects and to return nothing, instead recording the
+            call in the mock_god object to be inspected or asserted against as a
+            part of a test.
+            """
+            def __call__(self, *args, **kwargs):
+                return playback(name, *args, **kwargs)
+
+
+        @six.add_metaclass(RecordingMockMeta)
         class cls_sub(cls):
             cls_count = 0
 
@@ -310,14 +366,9 @@ class mock_god(object):
                 return obj
 
 
-            def __new__(typ, *args, **dargs):
-                return playback(name, *args, **dargs)
-
-
             @classmethod
             def make_new(typ, *args, **dargs):
-                obj = super(cls_sub, typ).__new__(typ, *args,
-                                                  **dargs)
+                obj = super(cls_sub, typ).__new__(typ, *args, **dargs)
 
                 typ.cls_count += 1
                 obj_name = "%s_%s" % (name, typ.cls_count)
@@ -461,8 +512,9 @@ class mock_god(object):
 
     def __method_playback(self, symbol, *args, **dargs):
         if self._debug:
-            print >> sys.__stdout__, (' * Mock call: ' +
-                                      _dump_function_call(symbol, args, dargs))
+            print((' * Mock call: ' +
+                   _dump_function_call(symbol, args, dargs)),
+                  file=sys.__stdout__)
 
         if len(self.recording) != 0:
             func_call = self.recording[0]
@@ -499,7 +551,7 @@ class mock_god(object):
 
     def _append_error(self, error):
         if self._debug:
-            print >> sys.__stdout__, ' *** ' + error
+            print(' *** ' + error, file=sys.__stdout__)
         if self._fail_fast:
             raise CheckPlaybackError(error)
         self.errors.append(error)
@@ -512,9 +564,9 @@ class mock_god(object):
         """
         if len(self.errors) > 0:
             if self._debug:
-                print '\nPlayback errors:'
+                print('\nPlayback errors:')
             for error in self.errors:
-                print >> sys.__stdout__, error
+                print(error, file=sys.__stdout__)
 
             if self._ut:
                 self._ut.fail('\n'.join(self.errors))
@@ -525,7 +577,7 @@ class mock_god(object):
             for func_call in self.recording:
                 error = "%s not called" % (func_call,)
                 errors.append(error)
-                print >> sys.__stdout__, error
+                print(error, file=sys.__stdout__)
 
             if self._ut:
                 self._ut.fail('\n'.join(errors))
@@ -539,8 +591,8 @@ class mock_god(object):
         self.orig_stdout = sys.stdout
         self.orig_stderr = sys.stderr
 
-        self.mock_streams_stdout = StringIO.StringIO('')
-        self.mock_streams_stderr = StringIO.StringIO('')
+        self.mock_streams_stdout = six.StringIO('')
+        self.mock_streams_stderr = six.StringIO('')
 
         sys.stdout = self.mock_streams_stdout
         sys.stderr = self.mock_streams_stderr
@@ -569,6 +621,6 @@ def _dump_function_call(symbol, args, dargs):
     arg_vec = []
     for arg in args:
         arg_vec.append(_arg_to_str(arg))
-    for key, val in dargs.iteritems():
+    for key, val in six.iteritems(dargs):
         arg_vec.append("%s=%s" % (key, _arg_to_str(val)))
     return "%s(%s)" % (symbol, ', '.join(arg_vec))

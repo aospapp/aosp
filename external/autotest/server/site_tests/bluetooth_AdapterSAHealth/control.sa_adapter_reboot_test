@@ -16,6 +16,7 @@ TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth'
+PY_VERSION = 3
 
 DOC = """Server side bluetooth adapter stress tests involving reboot.
     First we test powering on the adapter, reboot the DUT, and make sure

@@ -6,7 +6,7 @@ if(POLICY CMP0077)
   cmake_policy(SET CMP0077 NEW)
 endif()
 
-project(CpuFeatures VERSION 0.6.0 LANGUAGES C)
+project(CpuFeatures VERSION 0.7.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 
@@ -17,22 +17,17 @@ if(NOT CMAKE_BUILD_TYPE)
       FORCE)
 endif(NOT CMAKE_BUILD_TYPE)
 
-# BUILD_TESTING is a standard CMake variable, but we declare it here to make it
-# prominent in the GUI.
-option(BUILD_TESTING "Enable test (depends on googletest)." OFF)
 # BUILD_SHARED_LIBS is a standard CMake variable, but we declare it here to make
 # it prominent in the GUI.
 # cpu_features uses bit-fields which are - to some extends - implementation-defined (see https://en.cppreference.com/w/c/language/bit_field).
 # As a consequence it is discouraged to use cpu_features as a shared library because different compilers may interpret the code in different ways.
 # Prefer static linking from source whenever possible.
 option(BUILD_SHARED_LIBS "Build library as shared." OFF)
-# PIC
-option(BUILD_PIC "Build with Position Independant Code." OFF) # Default is off at least for GCC
 
 # Force PIC on unix when building shared libs
 # see: https://en.wikipedia.org/wiki/Position-independent_code
 if(BUILD_SHARED_LIBS AND UNIX)
-  set(BUILD_PIC ON)
+  option(CMAKE_POSITION_INDEPENDENT_CODE "Build with Position Independant Code." ON)
 endif()
 
 include(CheckIncludeFile)
@@ -57,10 +52,10 @@ set(PROCESSOR_IS_POWER FALSE)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^mips")
   set(PROCESSOR_IS_MIPS TRUE)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)")
+  set(PROCESSOR_IS_AARCH64 TRUE)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm")
   set(PROCESSOR_IS_ARM TRUE)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^aarch64")
-  set(PROCESSOR_IS_AARCH64 TRUE)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(AMD64|amd64)|(^i.86$)")
   set(PROCESSOR_IS_X86 TRUE)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(powerpc|ppc)")
@@ -70,22 +65,19 @@ endif()
 macro(add_cpu_features_headers_and_sources HDRS_LIST_NAME SRCS_LIST_NAME)
   list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpu_features_macros.h)
   list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpu_features_cache_info.h)
+  file(GLOB IMPL_SOURCES CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/src/impl_*.c")
+  list(APPEND ${SRCS_LIST_NAME} ${IMPL_SOURCES})
   if(PROCESSOR_IS_MIPS)
       list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpuinfo_mips.h)
-      list(APPEND ${SRCS_LIST_NAME} ${PROJECT_SOURCE_DIR}/src/cpuinfo_mips.c)
   elseif(PROCESSOR_IS_ARM)
       list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpuinfo_arm.h)
-      list(APPEND ${SRCS_LIST_NAME} ${PROJECT_SOURCE_DIR}/src/cpuinfo_arm.c)
   elseif(PROCESSOR_IS_AARCH64)
       list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpuinfo_aarch64.h)
-      list(APPEND ${SRCS_LIST_NAME} ${PROJECT_SOURCE_DIR}/src/cpuinfo_aarch64.c)
   elseif(PROCESSOR_IS_X86)
       list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpuinfo_x86.h)
       list(APPEND ${SRCS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/internal/cpuid_x86.h)
-      list(APPEND ${SRCS_LIST_NAME} ${PROJECT_SOURCE_DIR}/src/cpuinfo_x86.c)
   elseif(PROCESSOR_IS_POWER)
       list(APPEND ${HDRS_LIST_NAME} ${PROJECT_SOURCE_DIR}/include/cpuinfo_ppc.h)
-      list(APPEND ${SRCS_LIST_NAME} ${PROJECT_SOURCE_DIR}/src/cpuinfo_ppc.c)
   else()
     message(FATAL_ERROR "Unsupported architectures ${CMAKE_SYSTEM_PROCESSOR}")
   endif()
@@ -104,7 +96,6 @@ add_library(utils OBJECT
   ${PROJECT_SOURCE_DIR}/src/stack_line_reader.c
   ${PROJECT_SOURCE_DIR}/src/string_view.c
 )
-set_property(TARGET utils PROPERTY POSITION_INDEPENDENT_CODE ${BUILD_PIC})
 setup_include_and_definitions(utils)
 
 #
@@ -125,7 +116,6 @@ if(UNIX)
   if(HAVE_STRONG_GETAUXVAL)
     target_compile_definitions(unix_based_hardware_detection PRIVATE HAVE_STRONG_GETAUXVAL)
   endif()
-  set_property(TARGET unix_based_hardware_detection PROPERTY POSITION_INDEPENDENT_CODE ${BUILD_PIC})
 endif()
 
 #
@@ -142,7 +132,6 @@ add_library(cpu_features ${CPU_FEATURES_HDRS} ${CPU_FEATURES_SRCS})
 set_target_properties(cpu_features PROPERTIES PUBLIC_HEADER "${CPU_FEATURES_HDRS}")
 setup_include_and_definitions(cpu_features)
 target_link_libraries(cpu_features PUBLIC ${CMAKE_DL_LIBS})
-set_property(TARGET cpu_features PROPERTY POSITION_INDEPENDENT_CODE ${BUILD_PIC})
 target_include_directories(cpu_features
   PUBLIC $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/cpu_features>
 )
@@ -233,6 +222,7 @@ install(TARGETS cpu_features list_cpu_features
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 install(EXPORT CpuFeaturesTargets
   NAMESPACE CpuFeatures::

@@ -50,7 +50,7 @@ cc_defaults {
     vendor_available: true,
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
     shared_libs: [
         "libz",
@@ -165,6 +165,100 @@ cc_library_static {
         "libgrpc_base",
         "libprotobuf-c-nano",
     ],
+}
+
+genrule {
+    name: "reflection_proto_h",
+    tools: [
+        "aprotoc",
+        "protoc-gen-grpc-cpp-plugin",
+    ],
+    cmd: "$(location aprotoc) -Iexternal/grpc-grpc --plugin=protoc-gen-grpc=$(location protoc-gen-grpc-cpp-plugin) $(in) --grpc_out=$(genDir) --cpp_out=$(genDir)",
+    srcs: [
+        "src/proto/grpc/reflection/v1alpha/reflection.proto",
+    ],
+    out: [
+        "src/proto/grpc/reflection/v1alpha/reflection.pb.h",
+        "src/proto/grpc/reflection/v1alpha/reflection.grpc.pb.h"
+    ],
+}
+
+genrule {
+    name: "reflection_proto_cc",
+    tools: [
+        "aprotoc",
+        "protoc-gen-grpc-cpp-plugin",
+    ],
+    cmd: "$(location aprotoc) -Iexternal/grpc-grpc --plugin=protoc-gen-grpc=$(location protoc-gen-grpc-cpp-plugin) $(in) --grpc_out=$(genDir) --cpp_out=$(genDir)",
+    srcs: [
+        "src/proto/grpc/reflection/v1alpha/reflection.proto",
+    ],
+    out: [
+        "src/proto/grpc/reflection/v1alpha/reflection.pb.cc",
+        "src/proto/grpc/reflection/v1alpha/reflection.grpc.pb.cc"
+    ],
+}
+
+cc_library_host_static {
+    name: "libgrpc++_reflection",
+    defaults: ["grpc_defaults"],
+    srcs: [
+        "src/cpp/ext/proto_server_reflection.cc",
+        "src/cpp/ext/proto_server_reflection_plugin.cc",
+    ],
+    generated_headers: [
+        "reflection_proto_h",
+    ],
+    export_generated_headers: [
+        "reflection_proto_h",
+    ],
+    generated_sources: [
+        "reflection_proto_cc",
+    ],
+    local_include_dirs: [
+        "include",
+    ],
+    static_libs: [
+        "libgrpc_base",
+        "libprotobuf-cpp-full",
+    ],
+}
+
+cc_library_host_static {
+    name: "grpc_cli_libs",
+    srcs: [
+        "test/cpp/util/cli_call.cc",
+        "test/cpp/util/cli_credentials.cc",
+        "test/cpp/util/grpc_tool.cc",
+        "test/cpp/util/proto_file_parser.cc",
+        "test/cpp/util/service_describer.cc",
+        "test/cpp/util/proto_reflection_descriptor_database.cc",
+        "test/cpp/util/test_config_cc.cc",
+    ],
+    local_include_dirs: [
+        "include"
+    ],
+    static_libs: [
+        "libgflags",
+        "libgrpc_base",
+    ],
+    generated_headers: [
+        "reflection_proto_h",
+    ],
+    export_generated_headers: [
+        "reflection_proto_h",
+    ],
+    generated_sources: [
+        "reflection_proto_cc",
+    ],
+    shared_libs: [
+        "libprotobuf-cpp-full",
+    ],
+    cflags: [
+        "-Wno-unused-parameter",
+    ],
+    export_include_dirs: ["."],
+    visibility: ["//device/google/cuttlefish:__subpackages__"],
 }
 
 cc_library_static {
@@ -1142,6 +1236,13 @@ cc_library_static {
     ],
 }
 
+cc_library_headers {
+    name: "libgrpc++_internal_headers",
+    defaults: ["grpc_defaults"],
+    export_include_dirs: ["."],
+    visibility: ["//visibility:public"],
+}
+
 // gRPC C++ library target with no encryption or authentication
 cc_library_shared {
     name: "libgrpc++_unsecure",
@@ -1162,7 +1263,6 @@ cc_library_shared {
     ],
     export_include_dirs: [
         "include",
-        ".",
     ],
 }
 
@@ -1193,21 +1293,5 @@ cc_library_shared {
     ],
     export_include_dirs: [
         "include",
-        ".",
     ],
-}
-
-// gRPC python library target
-python_library_host {
-    name: "py-grpc",
-    srcs: ["src/python/**/*.py"],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
-    pkg_path: "grpc",
 }

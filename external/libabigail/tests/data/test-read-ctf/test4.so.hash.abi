@@ -10,5 +10,11 @@
     <qualified-type-def type-id='a84c031d' const='yes' id='9b45d938'/>
     <pointer-type-def type-id='9b45d938' size-in-bits='64' alignment-in-bits='64' id='80f4b756'/>
     <qualified-type-def type-id='80f4b756' restrict='yes' id='9d26089a'/>
+    <function-decl name='cpy' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8' elf-symbol-id='cpy'>
+      <parameter type-id='266fe297'/>
+      <parameter type-id='9d26089a'/>
+      <parameter type-id='f0981eeb'/>
+      <return type-id='26a90f95'/>
+    </function-decl>
   </abi-instr>
 </abi-corpus>

@@ -79,13 +79,6 @@ cpuset_log_error()
 	done < "$1"
 }
 
-version_check()
-{
-	if tst_kvcmp -lt "2.6.28"; then
-		tst_brkm TCONF "kernel is below 2.6.28"
-	fi
-}
-
 ncpus_check()
 {
 	if [ $NR_CPUS -lt $1 ]; then
@@ -134,6 +127,13 @@ cpuset_check()
 	tst_brkm TCONF "Cpuset is not supported"
 }
 
+machine_check()
+{
+	if tst_virt_hyperv; then
+		tst_brkm TCONF "Microsoft Hyper-V detected, no support for CPU hotplug"
+	fi
+}
+
 # optional parameters (pass both or none of them):
 # $1 - required number of cpus (default 2)
 # $2 - required number of memory nodes (default 2)
@@ -143,12 +143,11 @@ check()
 
 	cpuset_check
 
-	version_check
-
 	ncpus_check ${1:-2}
 
 	nnodes_check ${2:-2}
 
+	machine_check
 }
 
 # Create /dev/cpuset & mount the cgroup file system with cpuset

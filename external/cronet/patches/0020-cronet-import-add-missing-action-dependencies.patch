@@ -1,0 +1,48 @@
+From 66e157b4b79a6b26350396995546f75891c65d1a Mon Sep 17 00:00:00 2001
+From: Patrick Rohr <prohr@google.com>
+Date: Fri, 28 Apr 2023 14:11:11 -0700
+Subject: [PATCH] cronet import: add missing action dependencies
+
+*_pins.json file dependencies were missing in
+transport_security_state_unittest_data. Since the existing inputs
+property was used in args, it is renamed to extra_args.
+
+Test: try to build
+Change-Id: I56e6e50decac24fe6e8f33ea73bad152067984b5
+---
+ net/http/BUILD.gn | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/net/http/BUILD.gn b/net/http/BUILD.gn
+index a1296819af88d..52589fc28b38a 100644
+--- a/net/http/BUILD.gn
++++ b/net/http/BUILD.gn
+@@ -48,16 +48,22 @@ compiled_action_foreach("transport_security_state_unittest_data") {
+     "transport_security_state_static_unittest3.json",
+   ]
+ 
+-  # Inputs in order expected by the command line of the tool.
+-  inputs = [
++  # extra_args in order expected by the command line of the tool.
++  extra_args = [
+     "transport_security_state_static_unittest.pins",
+     "transport_security_state_static_unittest.template",
+   ]
++
++  inputs = [
++    "transport_security_state_static_unittest1_pins.json",
++    "transport_security_state_static_unittest2_pins.json",
++    "transport_security_state_static_unittest3_pins.json",
++  ] + extra_args
+   outputs = [ "$target_gen_dir/{{source_name_part}}.h" ]
+   args =
+       [ rebase_path("{{source_name_part}}.json", root_build_dir) ] +
+       [ rebase_path("{{source_name_part}}_pins.json", root_build_dir) ] +
+-      rebase_path(inputs, root_build_dir) + rebase_path(outputs, root_build_dir)
++      rebase_path(extra_args, root_build_dir) + rebase_path(outputs, root_build_dir)
+ }
+ 
+ # This has separated source_set not to let other compiles wait for the
+-- 
+2.40.1.495.gc816e09b53d-goog
+

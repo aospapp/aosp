@@ -36,8 +36,6 @@
 
 #ifdef HAVE_NUMA_V2
 
-static const struct tst_cgroup_group *cg;
-
 static void verify_oom(void)
 {
 #ifdef TST_ABI32
@@ -45,9 +43,29 @@ static void verify_oom(void)
 #endif
 	testoom(0, 0, ENOMEM, 1);
 
-	if (SAFE_CGROUP_HAS(cg, "memory.swap.max")) {
-		SAFE_CGROUP_PRINTF(cg, "memory.swap.max", "%lu", TESTMEM);
+	if (SAFE_CG_HAS(tst_cg, "memory.swap.max")) {
+		tst_res(TINFO, "OOM on MEMCG with special memswap limitation:");
+		/*
+		 * Cgroup v2 tracks memory and swap in separate, which splits
+		 * memory and swap counter. So with swappiness enable (default
+		 * value is 60 on RHEL), it likely has part of memory swapping
+		 * out during the allocating.
+		 *
+		 * To get more opportunities to reach the swap limitation,
+		 * let's scale down the value of 'memory.swap.max' to only
+		 * 1MB for CGroup v2.
+		 */
+		if (!TST_CG_VER_IS_V1(tst_cg, "memory"))
+			SAFE_CG_PRINTF(tst_cg, "memory.swap.max", "%lu", MB);
+		else
+			SAFE_CG_PRINTF(tst_cg, "memory.swap.max", "%lu", TESTMEM + MB);
+
 		testoom(0, 1, ENOMEM, 1);
+
+		if (TST_CG_VER_IS_V1(tst_cg, "memory"))
+			SAFE_CG_PRINTF(tst_cg, "memory.swap.max", "%lu", ~0UL);
+		else
+			SAFE_CG_PRINT(tst_cg, "memory.swap.max", "max");
 	}
 
 	/* OOM for MEMCG with mempolicy */
@@ -64,26 +82,24 @@ static void setup(void)
 	overcommit = get_sys_tune("overcommit_memory");
 	set_sys_tune("overcommit_memory", 1, 1);
 
-	tst_cgroup_require("memory", NULL);
-	cg = tst_cgroup_get_test_group();
-	SAFE_CGROUP_PRINTF(cg, "cgroup.procs", "%d", getpid());
-	SAFE_CGROUP_PRINTF(cg, "memory.max", "%lu", TESTMEM);
+	SAFE_CG_PRINTF(tst_cg, "cgroup.procs", "%d", getpid());
+	SAFE_CG_PRINTF(tst_cg, "memory.max", "%lu", TESTMEM);
 }
 
 static void cleanup(void)
 {
 	if (overcommit != -1)
 		set_sys_tune("overcommit_memory", overcommit, 0);
-	tst_cgroup_cleanup();
 }
 
 static struct tst_test test = {
 	.needs_root = 1,
 	.forks_child = 1,
-	.timeout = -1,
+	.max_runtime = TST_UNLIMITED_RUNTIME,
 	.setup = setup,
 	.cleanup = cleanup,
 	.test_all = verify_oom,
+	.needs_cgroup_ctrls = (const char *const []){ "memory", NULL },
 };
 
 #else

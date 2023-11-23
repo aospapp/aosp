@@ -36,6 +36,7 @@ pw_source_set("pw_metric") {
     dir_pw_log,
     dir_pw_tokenizer,
   ]
+  deps = [ dir_pw_span ]
 }
 
 # This gives access to the "PW_METRIC_GLOBAL()" macros, for globally-registered
@@ -60,16 +61,32 @@ pw_proto_library("metric_service_proto") {
 
 # TODO(keir): Consider moving the nanopb service into the nanopb/ directory
 # instead of having it directly inside pw_metric/.
+
+# Common MetricWalker/MetricWriter used by RPC service.
+pw_source_set("metric_walker") {
+  visibility = [ ":*" ]
+  public = [ "pw_metric_private/metric_walker.h" ]
+  deps = [
+    ":pw_metric",
+    "$dir_pw_assert:assert",
+    "$dir_pw_containers",
+    "$dir_pw_status",
+    "$dir_pw_tokenizer",
+  ]
+}
+
 if (dir_pw_third_party_nanopb != "") {
   pw_source_set("metric_service_nanopb") {
     public_configs = [ ":default_config" ]
     public_deps = [
       ":metric_service_proto.nanopb_rpc",
       ":pw_metric",
+      dir_pw_span,
     ]
     public = [ "public/pw_metric/metric_service_nanopb.h" ]
     deps = [
       ":metric_service_proto.nanopb_rpc",
+      ":metric_walker",
       "$dir_pw_containers:vector",
       dir_pw_tokenizer,
     ]
@@ -86,12 +103,47 @@ if (dir_pw_third_party_nanopb != "") {
   }
 }
 
+pw_source_set("metric_service_pwpb") {
+  public_configs = [ ":default_config" ]
+  public_deps = [
+    ":metric_service_proto.pwpb_rpc",
+    ":metric_service_proto.raw_rpc",
+    ":metric_walker",
+    ":pw_metric",
+    "$dir_pw_bytes",
+    "$dir_pw_containers",
+    "$dir_pw_rpc/raw:server_api",
+  ]
+  public = [ "public/pw_metric/metric_service_pwpb.h" ]
+  deps = [
+    ":metric_service_proto.pwpb",
+    ":metric_service_proto.raw_rpc",
+    "$dir_pw_assert",
+    "$dir_pw_containers:vector",
+    "$dir_pw_preprocessor",
+    "$dir_pw_span",
+    "$dir_pw_status",
+  ]
+  sources = [ "metric_service_pwpb.cc" ]
+}
+
+pw_test("metric_service_pwpb_test") {
+  deps = [
+    ":global",
+    ":metric_service_pwpb",
+    "$dir_pw_rpc/pwpb:test_method_context",
+    "$dir_pw_rpc/raw:test_method_context",
+  ]
+  sources = [ "metric_service_pwpb_test.cc" ]
+}
+
 ################################################################################
 
 pw_test_group("tests") {
   tests = [
     ":metric_test",
     ":global_test",
+    ":metric_service_pwpb_test",
   ]
   if (dir_pw_third_party_nanopb != "") {
     tests += [ ":metric_service_nanopb_test" ]
@@ -108,12 +160,8 @@ pw_test("global_test") {
   deps = [ ":global" ]
 }
 
-pw_size_report("metric_size_report") {
+pw_size_diff("metric_size_report") {
   title = "Typical pw_metric use (no RPC service)"
-
-  # To see all the symbols, uncomment the following:
-  # Note: The size report RST table won't be generated when full_report = true.
-  #full_report = true
 
   binaries = [
     {

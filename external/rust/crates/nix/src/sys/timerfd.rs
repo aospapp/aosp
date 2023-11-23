@@ -28,10 +28,10 @@
 //! // We wait for the timer to expire.
 //! timer.wait().unwrap();
 //! ```
-use crate::sys::time::TimeSpec;
+use crate::sys::time::timer::TimerSpec;
+pub use crate::sys::time::timer::{Expiration, TimerSetTimeFlags};
 use crate::unistd::read;
 use crate::{errno::Errno, Result};
-use bitflags::bitflags;
 use libc::c_int;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 
@@ -60,10 +60,19 @@ libc_enum! {
     #[repr(i32)]
     #[non_exhaustive]
     pub enum ClockId {
+        /// A settable system-wide real-time clock.
         CLOCK_REALTIME,
+        /// A non-settable monotonically increasing clock.
+        ///
+        /// Does not change after system startup.
+        /// Does not measure time while the system is suspended.
         CLOCK_MONOTONIC,
+        /// Like `CLOCK_MONOTONIC`, except that `CLOCK_BOOTTIME` includes the time
+        /// that the system was suspended.
         CLOCK_BOOTTIME,
+        /// Like `CLOCK_REALTIME`, but will wake the system if it is suspended.
         CLOCK_REALTIME_ALARM,
+        /// Like `CLOCK_BOOTTIME`, but will wake the system if it is suspended.
         CLOCK_BOOTTIME_ALARM,
     }
 }
@@ -72,105 +81,23 @@ libc_bitflags! {
     /// Additional flags to change the behaviour of the file descriptor at the
     /// time of creation.
     pub struct TimerFlags: c_int {
+        /// Set the `O_NONBLOCK` flag on the open file description referred to by the new file descriptor.
         TFD_NONBLOCK;
+        /// Set the `FD_CLOEXEC` flag on the file descriptor.
         TFD_CLOEXEC;
     }
-}
-
-bitflags! {
-    /// Flags that are used for arming the timer.
-    pub struct TimerSetTimeFlags: libc::c_int {
-        const TFD_TIMER_ABSTIME = libc::TFD_TIMER_ABSTIME;
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct TimerSpec(libc::itimerspec);
-
-impl TimerSpec {
-    pub const fn none() -> Self {
-        Self(libc::itimerspec {
-            it_interval: libc::timespec {
-                tv_sec: 0,
-                tv_nsec: 0,
-            },
-            it_value: libc::timespec {
-                tv_sec: 0,
-                tv_nsec: 0,
-            },
-        })
-    }
-}
-
-impl AsRef<libc::itimerspec> for TimerSpec {
-    fn as_ref(&self) -> &libc::itimerspec {
-        &self.0
-    }
-}
-
-impl From<Expiration> for TimerSpec {
-    fn from(expiration: Expiration) -> TimerSpec {
-        match expiration {
-            Expiration::OneShot(t) => TimerSpec(libc::itimerspec {
-                it_interval: libc::timespec {
-                    tv_sec: 0,
-                    tv_nsec: 0,
-                },
-                it_value: *t.as_ref(),
-            }),
-            Expiration::IntervalDelayed(start, interval) => TimerSpec(libc::itimerspec {
-                it_interval: *interval.as_ref(),
-                it_value: *start.as_ref(),
-            }),
-            Expiration::Interval(t) => TimerSpec(libc::itimerspec {
-                it_interval: *t.as_ref(),
-                it_value: *t.as_ref(),
-            }),
-        }
-    }
-}
-
-impl From<TimerSpec> for Expiration {
-    fn from(timerspec: TimerSpec) -> Expiration {
-        match timerspec {
-            TimerSpec(libc::itimerspec {
-                it_interval:
-                    libc::timespec {
-                        tv_sec: 0,
-                        tv_nsec: 0,
-                    },
-                it_value: ts,
-            }) => Expiration::OneShot(ts.into()),
-            TimerSpec(libc::itimerspec {
-                it_interval: int_ts,
-                it_value: val_ts,
-            }) => {
-                if (int_ts.tv_sec == val_ts.tv_sec) && (int_ts.tv_nsec == val_ts.tv_nsec) {
-                    Expiration::Interval(int_ts.into())
-                } else {
-                    Expiration::IntervalDelayed(val_ts.into(), int_ts.into())
-                }
-            }
-        }
-    }
-}
-
-/// An enumeration allowing the definition of the expiration time of an alarm,
-/// recurring or not.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Expiration {
-    OneShot(TimeSpec),
-    IntervalDelayed(TimeSpec, TimeSpec),
-    Interval(TimeSpec),
 }
 
 impl TimerFd {
     /// Creates a new timer based on the clock defined by `clockid`. The
     /// underlying fd can be assigned specific flags with `flags` (CLOEXEC,
     /// NONBLOCK). The underlying fd will be closed on drop.
+    #[doc(alias("timerfd_create"))]
     pub fn new(clockid: ClockId, flags: TimerFlags) -> Result<Self> {
-        Errno::result(unsafe { libc::timerfd_create(clockid as i32, flags.bits()) })
-            .map(|fd| Self { fd })
+        Errno::result(unsafe {
+            libc::timerfd_create(clockid as i32, flags.bits())
+        })
+        .map(|fd| Self { fd })
     }
 
     /// Sets a new alarm on the timer.
@@ -181,7 +108,7 @@ impl TimerFd {
     ///
     ///   - one shot: the alarm will trigger once after the specified amount of
     /// time.
-    ///     Example: I want an alarm to go off in 60s and then disables itself.
+    ///     Example: I want an alarm to go off in 60s and then disable itself.
     ///
     ///   - interval: the alarm will trigger every specified interval of time.
     ///     Example: I want an alarm to go off every 60s. The alarm will first
@@ -209,7 +136,12 @@ impl TimerFd {
     ///
     /// Note: Setting a one shot alarm with a 0s TimeSpec disables the alarm
     /// altogether.
-    pub fn set(&self, expiration: Expiration, flags: TimerSetTimeFlags) -> Result<()> {
+    #[doc(alias("timerfd_settime"))]
+    pub fn set(
+        &self,
+        expiration: Expiration,
+        flags: TimerSetTimeFlags,
+    ) -> Result<()> {
         let timerspec: TimerSpec = expiration.into();
         Errno::result(unsafe {
             libc::timerfd_settime(
@@ -223,15 +155,17 @@ impl TimerFd {
     }
 
     /// Get the parameters for the alarm currently set, if any.
+    #[doc(alias("timerfd_gettime"))]
     pub fn get(&self) -> Result<Option<Expiration>> {
         let mut timerspec = TimerSpec::none();
-        let timerspec_ptr: *mut libc::itimerspec = &mut timerspec.0;
-
-        Errno::result(unsafe { libc::timerfd_gettime(self.fd, timerspec_ptr) }).map(|_| {
-            if timerspec.0.it_interval.tv_sec == 0
-                && timerspec.0.it_interval.tv_nsec == 0
-                && timerspec.0.it_value.tv_sec == 0
-                && timerspec.0.it_value.tv_nsec == 0
+        Errno::result(unsafe {
+            libc::timerfd_gettime(self.fd, timerspec.as_mut())
+        })
+        .map(|_| {
+            if timerspec.as_ref().it_interval.tv_sec == 0
+                && timerspec.as_ref().it_interval.tv_nsec == 0
+                && timerspec.as_ref().it_value.tv_sec == 0
+                && timerspec.as_ref().it_value.tv_nsec == 0
             {
                 None
             } else {
@@ -241,6 +175,7 @@ impl TimerFd {
     }
 
     /// Remove the alarm if any is set.
+    #[doc(alias("timerfd_settime"))]
     pub fn unset(&self) -> Result<()> {
         Errno::result(unsafe {
             libc::timerfd_settime(
@@ -259,7 +194,7 @@ impl TimerFd {
     pub fn wait(&self) -> Result<()> {
         while let Err(e) = read(self.fd, &mut [0u8; 8]) {
             if e != Errno::EINTR {
-                return Err(e)
+                return Err(e);
             }
         }
 
@@ -270,9 +205,7 @@ impl TimerFd {
 impl Drop for TimerFd {
     fn drop(&mut self) {
         if !std::thread::panicking() {
-            let result = Errno::result(unsafe {
-                libc::close(self.fd)
-            });
+            let result = Errno::result(unsafe { libc::close(self.fd) });
             if let Err(Errno::EBADF) = result {
                 panic!("close of TimerFd encountered EBADF");
             }

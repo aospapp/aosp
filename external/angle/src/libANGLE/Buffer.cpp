@@ -62,9 +62,14 @@ void Buffer::onDestroy(const Context *context)
         mImpl->destroy(context);
 }
 
-void Buffer::setLabel(const Context *context, const std::string &label)
+angle::Result Buffer::setLabel(const Context *context, const std::string &label)
 {
     mState.mLabel = label;
+    if (mImpl)
+    {
+        return mImpl->onLabelUpdate(context);
+    }
+    return angle::Result::Continue;
 }
 
 const std::string &Buffer::getLabel() const
@@ -394,8 +399,7 @@ void Buffer::onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMessa
     // Pass it along!
     ASSERT(index == kImplementationSubjectIndex);
     ASSERT(message == angle::SubjectMessage::SubjectChanged ||
-           message == angle::SubjectMessage::InternalMemoryAllocationChanged ||
-           message == angle::SubjectMessage::BufferVkStorageChanged);
+           message == angle::SubjectMessage::InternalMemoryAllocationChanged);
     onStateChange(message);
 }
 

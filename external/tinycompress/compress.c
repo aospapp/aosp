@@ -574,9 +574,11 @@ bool is_codec_supported(unsigned int card, unsigned int device,
 		ops = &compr_hw_ops;
 
 	fd = ops->open(card, device, flags, &data, NULL);
-	if (fd < 0)
-		return oops(&bad_compress, errno, "cannot open card %u, device %u",
+	if (fd < 0) {
+		oops(&bad_compress, errno, "cannot open card %u, device %u",
 					card, device);
+		return false;
+	}
 
 	ret = _is_codec_type_supported(ops, data, codec);
 

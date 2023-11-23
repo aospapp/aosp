@@ -239,6 +239,14 @@ bool Supplicant::isValid()
 		&Supplicant::registerCallbackInternal, in_callback);
 }
 
+::ndk::ScopedAStatus Supplicant::registerNonStandardCertCallback(
+	const std::shared_ptr<INonStandardCertCallback>& in_callback)
+{
+	return validateAndCall(
+		this, SupplicantStatusCode::FAILURE_IFACE_INVALID,
+		&Supplicant::registerNonStandardCertCallbackInternal, in_callback);
+}
+
 ::ndk::ScopedAStatus Supplicant::setDebugParams(
 	DebugLevel in_level, bool in_showTimestamp,
 	bool in_showKeys)
@@ -303,12 +311,38 @@ ndk::ScopedAStatus Supplicant::addP2pDevInterface(struct wpa_interface iface_par
 		wpa_printf(MSG_DEBUG, "%s,NULL wpa_s for wlan0", __FUNCTION__);
 		return createStatus(SupplicantStatusCode::FAILURE_IFACE_UNKNOWN);
 	}
-	if (wpas_p2p_add_p2pdev_interface(
-		wpa_s, wpa_s->global->params.conf_p2p_dev) < 0) {
+
+	const u8 *if_addr = NULL;
+	char force_name[100] = {'\0'};
+	wpa_s->pending_interface_type = WPA_IF_P2P_DEVICE;
+	if (wpa_s->conf->p2p_device_random_mac_addr == 2 &&
+		!is_zero_ether_addr(wpa_s->conf->p2p_device_persistent_mac_addr))
+		if_addr = wpa_s->conf->p2p_device_persistent_mac_addr;
+
+	int ret = wpa_drv_if_add(wpa_s, WPA_IF_P2P_DEVICE, iface_params.ifname, if_addr, NULL,
+		force_name, wpa_s->pending_interface_addr, NULL);
+	if (ret < 0) {
+		wpa_printf(MSG_DEBUG, "P2P: Failed to create P2P Device interface");
+		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
+	}
+
+	os_strlcpy(wpa_s->pending_interface_name, iface_params.ifname,
+		sizeof(wpa_s->pending_interface_name));
+	iface_params.p2p_mgmt = 1;
+	iface_params.driver_param = wpa_s->conf->driver_param;
+	iface_params.ctrl_interface = NULL;
+
+	struct wpa_supplicant *p2pdev_wpa_s = wpa_supplicant_add_iface(
+		wpa_s->global, &iface_params, wpa_s);
+
+	if (!p2pdev_wpa_s) {
 		wpa_printf(MSG_INFO,
 			"Failed to enable P2P Device");
 		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
 	}
+	p2pdev_wpa_s->p2pdev = p2pdev_wpa_s;
+	wpa_s->pending_interface_name[0] = '\0';
+
 	return ndk::ScopedAStatus::ok();
 }
 
@@ -320,6 +354,13 @@ Supplicant::addP2pInterfaceInternal(const std::string& name)
 	// Check if required |ifname| argument is empty.
 	if (name.empty()) {
 		return {nullptr, createStatus(SupplicantStatusCode::FAILURE_ARGS_INVALID)};
+	}
+	if (strncmp(name.c_str(), P2P_MGMT_DEVICE_PREFIX, strlen(P2P_MGMT_DEVICE_PREFIX)) == 0) {
+		struct wpa_supplicant* wpa_s = wpa_supplicant_get_iface(wpa_global_, name.c_str());
+		if (wpa_s) {
+			wpa_printf(MSG_DEBUG, "Remove existing p2p dev interface");
+			wpa_supplicant_remove_iface(wpa_global_, wpa_s, 0);
+		}
 	}
 	// Try to get the wpa_supplicant record for this iface, return
 	// the iface object with the appropriate status code if it exists.
@@ -509,6 +550,17 @@ ndk::ScopedAStatus Supplicant::registerCallbackInternal(
 	AidlManager* aidl_manager = AidlManager::getInstance();
 	if (!aidl_manager ||
 		aidl_manager->addSupplicantCallbackAidlObject(callback)) {
+		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
+	}
+	return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus Supplicant::registerNonStandardCertCallbackInternal(
+	const std::shared_ptr<INonStandardCertCallback>& callback)
+{
+	AidlManager* aidl_manager = AidlManager::getInstance();
+	if (!aidl_manager ||
+		aidl_manager->registerNonStandardCertCallbackAidlObject(callback)) {
 		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
 	}
 	return ndk::ScopedAStatus::ok();

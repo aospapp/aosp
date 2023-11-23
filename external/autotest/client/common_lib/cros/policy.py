@@ -2,7 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import dbus, gobject, os, sys
+import dbus, os, sys
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 
 import common
 from autotest_lib.client.common_lib import error
@@ -130,7 +135,7 @@ def push_policy_and_verify(policy_string, sm):
 
     @raises error.TestFail if policy push failed.
     """
-    listener = session_manager.OwnershipSignalListener(gobject.MainLoop())
+    listener = session_manager.OwnershipSignalListener(GObject.MainLoop())
     listener.listen_for_new_policy()
     descriptor = session_manager.make_device_policy_descriptor()
     sm.StorePolicyEx(descriptor,

@@ -3,6 +3,7 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include <assert.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -11,13 +12,15 @@
 #include <xnnpack/log.h>
 #include <xnnpack/params.h>
 #include <xnnpack/subgraph.h>
+#include <xnnpack/subgraph-validation.h>
 
 
 static enum xnn_status create_unpooling_operator(
   const struct xnn_node* node,
   const struct xnn_value* values,
   size_t num_values,
-  struct xnn_operator_data* opdata)
+  struct xnn_operator_data* opdata,
+  const struct xnn_caches* caches)
 {
   assert(node->compute_type == xnn_compute_type_fp32);
 
@@ -47,7 +50,7 @@ static enum xnn_status create_unpooling_operator(
     node->params.pooling_2d.pooling_width,
     channel_dim /* channels */, channel_dim /* input stride */, channel_dim /* output stride */,
     node->flags,
-    &opdata->operator_object);
+    &opdata->operator_objects[0]);
   if (status == xnn_status_success) {
     opdata->batch_size = values[input_value_id].shape.dim[0];
     opdata->input_height = values[input_value_id].shape.dim[1];
@@ -90,7 +93,7 @@ static enum xnn_status setup_unpooling_operator(
   assert(output_data != NULL);
 
   return xnn_setup_unpooling2d_nhwc_x32(
-    opdata->operator_object,
+    opdata->operator_objects[0],
     opdata->batch_size,
     opdata->input_height,
     opdata->input_width,
@@ -113,10 +116,9 @@ enum xnn_status xnn_define_unpooling_2d(
   uint32_t output_id,
   uint32_t flags)
 {
-  if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
-    xnn_log_error("failed to define %s operator: XNNPACK is not initialized",
-      xnn_node_type_to_string(xnn_node_type_unpooling_2d));
-    return xnn_status_uninitialized;
+  enum xnn_status status;
+  if ((status = xnn_subgraph_check_xnnpack_initialized(xnn_node_type_unpooling_2d)) != xnn_status_success) {
+    return status;
   }
 
   const uint32_t pooling_size = pooling_height * pooling_width;
@@ -135,11 +137,9 @@ enum xnn_status xnn_define_unpooling_2d(
     return xnn_status_invalid_parameter;
   }
 
-  if (input_value_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with input value ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_unpooling_2d), input_value_id);
-    return xnn_status_invalid_parameter;
+  if ((status = xnn_subgraph_check_input_node_id(xnn_node_type_unpooling_2d, input_value_id, subgraph->num_values)) !=
+      xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* input_value_value = &subgraph->values[input_value_id];
@@ -176,19 +176,15 @@ enum xnn_status xnn_define_unpooling_2d(
     return xnn_status_invalid_parameter;
   }
 
-  if (output_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_unpooling_2d), output_id);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_node_id(xnn_node_type_unpooling_2d, output_id, subgraph->num_values);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* output_value = &subgraph->values[output_id];
-  if (output_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_unpooling_2d), output_id, output_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_type_dense(xnn_node_type_unpooling_2d, output_id, output_value);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   switch (output_value->datatype) {

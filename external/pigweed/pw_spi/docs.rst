@@ -87,15 +87,12 @@ Example - Performing a Multi-part Transaction:
          std::byte{0x13}, std::byte{0x37}};
 
      // Creation of the RAII `transaction` acquires exclusive access to the bus
-     std::optional<pw::spi::Device::Transaction> transaction =
+     pw::spi::Device::Transaction transaction =
        device.StartTransaction(pw::spi::ChipSelectBehavior::kPerTransaction);
-     if (!transaction.has_value()) {
-       return pw::Status::Unknown();
-     )
 
      // This device only supports half-duplex transfers
-     PW_TRY(transaction->Write(kAccelReportCommand));
-     PW_TRY(transaction->Read(raw_sensor_data))
+     PW_TRY(transaction.Write(kAccelReportCommand));
+     PW_TRY(transaction.Read(raw_sensor_data))
 
      return UnpackSensorData(raw_sensor_data);
 
@@ -144,7 +141,7 @@ method.
 
 .. Note:
 
-   Throughtout ``pw_spi``, the terms "controller" and "peripheral" are used to
+   Throughout ``pw_spi``, the terms "controller" and "peripheral" are used to
    describe the two roles SPI devices can implement.  These terms correspond
    to the  "master" and "slave" roles described in legacy documentation
    related to the SPI protocol.
@@ -159,7 +156,7 @@ method.
 
    .. cpp:function:: Status Configure(const Config& config)
 
-      Configure the SPI bus to coummunicate using a specific set of properties,
+      Configure the SPI bus to communicate using a specific set of properties,
       including the clock polarity, clock phase, bit-order, and bits-per-word.
 
       Returns OkStatus() on success, and implementation-specific values on
@@ -204,7 +201,7 @@ use the SPI HAL to communicate with a peripheral.
 
       SetActive sets the state of the chip-select signal to the value
       represented by the `active` parameter.  Passing a value of `true` will
-      activate the chip-select signal, and `false` will deactive the
+      activate the chip-select signal, and `false` will deactivate the
       chip-select signal.
 
       Returns OkStatus() on success, and implementation-specific values on
@@ -227,13 +224,13 @@ use the SPI HAL to communicate with a peripheral.
 pw::spi::Device
 ---------------
 This is primary object used by a client to interact with a target SPI device.
-It provides a wrapper for an injected ``pw::spi::Initator`` object, using
+It provides a wrapper for an injected ``pw::spi::Initiator`` object, using
 its methods to configure the bus and perform individual SPI transfers.  The
 injected ``pw::spi::ChipSelector`` object is used internally to activate and
 de-actviate the device on-demand from within the data transfer methods.
 
 The ``Read()``/``Write()``/``WriteRead()`` methods provide support for
-performing inidividual transfers:  ``Read()`` and ``Write()`` perform
+performing individual transfers:  ``Read()`` and ``Write()`` perform
 half-duplex operations, where ``WriteRead()`` provides support for
 full-duplex transfers.
 
@@ -255,7 +252,7 @@ the ``pw::sync::Borrowable`` object, where the ``pw::spi::Initiator`` object is
 
       Synchronously read data from the SPI peripheral until the provided
       `read_buffer` is full.
-      This call will configure the bus and activate/deactive chip select
+      This call will configure the bus and activate/deactivate chip select
       for the transfer
 
       Note: This call will block in the event that other clients are currently
@@ -267,7 +264,7 @@ the ``pw::sync::Borrowable`` object, where the ``pw::spi::Initiator`` object is
    .. cpp:function:: Status Write(ConstByteSpan write_buffer)
 
       Synchronously write the contents of `write_buffer` to the SPI peripheral.
-      This call will configure the bus and activate/deactive chip select
+      This call will configure the bus and activate/deactivate chip select
       for the transfer
 
       Note: This call will block in the event that other clients are currently
@@ -285,7 +282,7 @@ the ``pw::sync::Borrowable`` object, where the ``pw::spi::Initiator`` object is
       additional input bytes are discarded. In the event the write buffer is
       smaller than the read buffer (or zero size), the output is padded with
       0-bits for the remainder of the transfer.
-      This call will configure the bus and activate/deactive chip select
+      This call will configure the bus and activate/deactivate chip select
       for the transfer
 
       Note: This call will block in the event that other clients are currently
@@ -301,7 +298,7 @@ the ``pw::sync::Borrowable`` object, where the ``pw::spi::Initiator`` object is
       underlying SPI bus (Initiator) for the object's duration. The `behavior`
       parameter provides a means for a client to select how the chip-select
       signal will be applied on Read/Write/WriteRead calls taking place with
-      the Transaction object. A value of `kPerWriteRead` will activate/deactive
+      the Transaction object. A value of `kPerWriteRead` will activate/deactivate
       chip-select on each operation, while `kPerTransaction` will hold the
       chip-select active for the duration of the Transaction object.
 
@@ -335,4 +332,42 @@ the ``pw::sync::Borrowable`` object, where the ``pw::spi::Initiator`` object is
 
       Returns OkStatus() on success, and implementation-specific values on
       failure.
+
+pw::spi::MockInitiator
+----------------------
+A generic mocked backend for for pw::spi::Initiator. This is specifically
+intended for use when developing drivers for spi devices. This is structured
+around a set of 'transactions' where each transaction contains a write, read and
+a status. A transaction list can then be passed to the MockInitiator, where
+each consecutive call to read/write will iterate to the next transaction in the
+list. An example of this is shown below:
+
+.. code-block:: cpp
+
+  using pw::spi::MakeExpectedTransactionlist;
+  using pw::spi::MockInitiator;
+  using pw::spi::MockWriteTransaction;
+
+  constexpr auto kExpectWrite1 = pw::bytes::Array<1, 2, 3, 4, 5>();
+  constexpr auto kExpectWrite2 = pw::bytes::Array<3, 4, 5>();
+  auto expected_transactions = MakeExpectedTransactionArray(
+      {MockWriteTransaction(pw::OkStatus(), kExpectWrite1),
+       MockWriteTransaction(pw::OkStatus(), kExpectWrite2)});
+  MockInitiator spi_mock(expected_transactions);
+
+  // Begin driver code
+  ConstByteSpan write1 = kExpectWrite1;
+  // write1 is ok as spi_mock expects {1, 2, 3, 4, 5} == {1, 2, 3, 4, 5}
+  Status status = spi_mock.WriteRead(write1, ConstByteSpan());
+
+  // Takes the first two bytes from the expected array to build a mismatching
+  // span to write.
+  ConstByteSpan write2 = pw::span(kExpectWrite2).first(2);
+  // write2 fails as spi_mock expects {3, 4, 5} != {3, 4}
+  status = spi_mock.WriteRead(write2, ConstByteSpan());
+  // End driver code
+
+  // Optionally check if the mocked transaction list has been exhausted.
+  // Alternatively this is also called from MockInitiator::~MockInitiator().
+  EXPECT_EQ(spi_mock.Finalize(), OkStatus());
 

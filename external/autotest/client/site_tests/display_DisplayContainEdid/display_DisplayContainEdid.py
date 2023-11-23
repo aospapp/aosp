@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -11,7 +12,7 @@ from autotest_lib.client.cros.multimedia import local_facade_factory
 
 class display_DisplayContainEdid(test.test):
     """
-    Verifies that display information returned from Chrome OS specific
+    Verifies that display information returned from ChromeOS specific
     chrome.system.display API contain EDID information.
     """
     version = 1

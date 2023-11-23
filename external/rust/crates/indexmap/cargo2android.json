@@ -1,0 +1,5 @@
+{
+  "device": true,
+  "features": "serde-1",
+  "run": true
+}

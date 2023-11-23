@@ -13,7 +13,7 @@ class firmware_FwScreenPressPower(FirmwareTest):
     """
     Servo based power button triggered shutdown test during firmware screens.
 
-    This test requires a USB disk plugged-in, which contains a Chrome OS test
+    This test requires a USB disk plugged-in, which contains a ChromeOS test
     image (built by "build_image --test"). On runtime, this test triggers
     firmware screens (developer, remove, insert, yuck, and to_norm screens),
     and then presses the power button in order to power the machine down.
@@ -29,7 +29,17 @@ class firmware_FwScreenPressPower(FirmwareTest):
         # While the firmware screen, the power button probing loop sleeps
         # 0.25 second on every scan. Use the normal delay (1.2 second) for
         # power press.
-        self.servo.power_normal_press()
+
+        if self.faft_config.is_detachable and self.faft_config.mode_switcher_type == 'menu_switcher':
+            # Since power button has been overridden as a select button in the
+            # fw screens for detachables, we can just skip this part of the test
+            # and shut down the DUT using the power state controller instead.
+            logging.info("Setting Power Off")
+            self.servo.get_power_state_controller().power_off()
+        else:
+            # Otherwise use the power button
+            logging.info("Pressing Power Button")
+            self.servo.power_normal_press()
 
     def wait_longer_fw_screen_and_press_power(self):
         """Wait for firmware screen without timeout and press power button."""
@@ -95,26 +105,24 @@ class firmware_FwScreenPressPower(FirmwareTest):
         self.switcher.wait_for_client()
 
         if self.faft_config.power_button_dev_switch:
-                logging.info(
-                        "Skipping TO_NORM screen test. The power button is "
-                        "used to confirm DEV mode to NORM mode.")
+            logging.info("Skipping TO_NORM screen test. The power button is "
+                         "used to confirm DEV mode to NORM mode.")
         else:
-                logging.info(
-                        "Reboot. When the developer screen shown, press "
-                        "enter key to trigger either TO_NORM screen (new) or "
-                        "RECOVERY INSERT screen (old). Then press power button "
-                        "to make DUT shutdown.")
-                self.check_state((self.checkers.crossystem_checker, {
-                        'devsw_boot': '1',
-                        'mainfw_type': 'developer',
-                }))
-                self.switcher.simple_reboot()
-                self.run_shutdown_process(
-                        self.wait_second_screen_and_press_power,
-                        post_power_action=self.switcher.bypass_dev_mode,
-                        shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD
-                )
-                self.switcher.wait_for_client()
+            logging.info(
+                    "Reboot. When the developer screen shown, press "
+                    "enter key to trigger either TO_NORM screen (new) or "
+                    "RECOVERY INSERT screen (old). Then press power button "
+                    "to make DUT shutdown.")
+            self.check_state((self.checkers.crossystem_checker, {
+                    'devsw_boot': '1',
+                    'mainfw_type': 'developer',
+            }))
+            self.switcher.simple_reboot()
+            self.run_shutdown_process(
+                    self.wait_second_screen_and_press_power,
+                    post_power_action=self.switcher.bypass_dev_mode,
+                    shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)
+            self.switcher.wait_for_client()
 
         logging.info("Request recovery boot. When the RECOVERY INSERT "
                      "screen shows, press power button to make DUT shutdown.")
@@ -122,8 +130,7 @@ class firmware_FwScreenPressPower(FirmwareTest):
                 'devsw_boot': '1',
                 'mainfw_type': 'developer',
         }))
-        self.faft_client.system.request_recovery_boot()
-        self.switcher.simple_reboot('cold')
+        self.servo.set_nocheck('power_state', 'rec')
         self.run_shutdown_process(
                 self.wait_longer_fw_screen_and_press_power,
                 post_power_action=self.switcher.bypass_dev_mode,
@@ -138,8 +145,7 @@ class firmware_FwScreenPressPower(FirmwareTest):
                 'devsw_boot': '1',
                 'mainfw_type': 'developer',
         }))
-        self.faft_client.system.request_recovery_boot()
-        self.switcher.simple_reboot('cold')
+        self.servo.set_nocheck('power_state', 'rec')
         self.run_shutdown_process(
                 self.wait_yuck_screen_and_press_power,
                 post_power_action=self.switcher.bypass_dev_mode,
@@ -160,8 +166,7 @@ class firmware_FwScreenPressPower(FirmwareTest):
                 'devsw_boot': '0',
                 'mainfw_type': 'normal',
         }))
-        self.faft_client.system.request_recovery_boot()
-        self.switcher.simple_reboot('cold')
+        self.servo.set_nocheck('power_state', 'rec')
         self.run_shutdown_process(
                 self.wait_longer_fw_screen_and_press_power,
                 shutdown_timeout=self.SHORT_SHUTDOWN_CONFIRMATION_PERIOD)

@@ -15,10 +15,12 @@
 #ifndef ICING_QUERY_QUERY_TERMS_H_
 #define ICING_QUERY_QUERY_TERMS_H_
 
+#include <memory>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+
+#include "icing/index/iterator/doc-hit-info-iterator.h"
 
 namespace icing {
 namespace lib {
@@ -26,7 +28,11 @@ namespace lib {
 // A map from section names to sets of terms restricted to those sections.
 // Query terms that are not restricted are found at the entry with key "".
 using SectionRestrictQueryTermsMap =
-    std::unordered_map<std::string_view, std::unordered_set<std::string>>;
+    std::unordered_map<std::string, std::unordered_set<std::string>>;
+
+// A map from query terms to a DocHitInfoIterator for that term.
+using QueryTermIteratorsMap =
+    std::unordered_map<std::string, std::unique_ptr<DocHitInfoIterator>>;
 
 }  // namespace lib
 }  // namespace icing

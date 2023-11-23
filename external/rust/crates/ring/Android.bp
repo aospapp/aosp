@@ -36,10 +36,11 @@ license {
 
 rust_library {
     name: "libring",
+    // has rustc warnings
     host_supported: true,
     crate_name: "ring",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.16.20",
+    cargo_pkg_version: "0.17.0-alpha.11",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -61,19 +62,20 @@ rust_library {
     ],
     apex_available: [
         "//apex_available:platform",
-        "com.android.compos",
         "com.android.resolv",
-        "com.android.virt",
     ],
+    vendor_available: true,
+    product_available: true,
     min_sdk_version: "29",
 }
 
 rust_test {
     name: "ring_test_src_lib",
+    // has rustc warnings
     host_supported: true,
     crate_name: "ring",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.16.20",
+    cargo_pkg_version: "0.17.0-alpha.11",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
@@ -104,7 +106,7 @@ rust_defaults {
     name: "ring_test_defaults",
     crate_name: "ring",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.16.20",
+    cargo_pkg_version: "0.17.0-alpha.11",
     test_suites: ["general-tests"],
     auto_gen_config: true,
     edition: "2018",
@@ -127,6 +129,7 @@ rust_defaults {
 rust_test {
     name: "ring_test_tests_aead_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/aead_tests.rs"],
     test_options: {
@@ -137,6 +140,7 @@ rust_test {
 rust_test {
     name: "ring_test_tests_agreement_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/agreement_tests.rs"],
     test_options: {
@@ -147,6 +151,7 @@ rust_test {
 rust_test {
     name: "ring_test_tests_constant_time_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/constant_time_tests.rs"],
     test_options: {
@@ -157,6 +162,7 @@ rust_test {
 rust_test {
     name: "ring_test_tests_digest_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/digest_tests.rs"],
     test_options: {
@@ -167,6 +173,7 @@ rust_test {
 rust_test {
     name: "ring_test_tests_ecdsa_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/ecdsa_tests.rs"],
     test_options: {
@@ -177,6 +184,7 @@ rust_test {
 rust_test {
     name: "ring_test_tests_ed25519_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/ed25519_tests.rs"],
     test_options: {
@@ -187,6 +195,7 @@ rust_test {
 rust_test {
     name: "ring_test_tests_hkdf_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/hkdf_tests.rs"],
     test_options: {
@@ -197,6 +206,7 @@ rust_test {
 rust_test {
     name: "ring_test_tests_hmac_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/hmac_tests.rs"],
     test_options: {
@@ -207,6 +217,7 @@ rust_test {
 rust_test {
     name: "ring_test_tests_pbkdf2_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/pbkdf2_tests.rs"],
     test_options: {
@@ -217,6 +228,7 @@ rust_test {
 rust_test {
     name: "ring_test_tests_quic_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/quic_tests.rs"],
     test_options: {
@@ -227,6 +239,7 @@ rust_test {
 rust_test {
     name: "ring_test_tests_rand_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/rand_tests.rs"],
     test_options: {
@@ -237,6 +250,7 @@ rust_test {
 rust_test {
     name: "ring_test_tests_rsa_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/rsa_tests.rs"],
     test_options: {
@@ -247,6 +261,7 @@ rust_test {
 rust_test {
     name: "ring_test_tests_signature_tests",
     defaults: ["ring_test_defaults"],
+    // has rustc warnings
     host_supported: true,
     srcs: ["tests/signature_tests.rs"],
     test_options: {
@@ -265,9 +280,10 @@ cc_library_static {
         "crypto/poly1305/poly1305_vec.c",
         "crypto/curve25519/curve25519.c",
         "crypto/fipsmodule/ec/ecp_nistz.c",
-        "crypto/fipsmodule/ec/ecp_nistz256.c",
         "crypto/fipsmodule/ec/gfp_p256.c",
         "crypto/fipsmodule/ec/gfp_p384.c",
+        "crypto/fipsmodule/ec/p256.c",
+        "crypto/fipsmodule/rsa/padding.c",
         "crypto/limbs/limbs.c",
         "crypto/mem.c",
         "crypto/fipsmodule/bn/montgomery.c",
@@ -283,7 +299,6 @@ cc_library_static {
                 "crypto/curve25519/asm/x25519-asm-arm.S",
                 "pregenerated/sha256-armv4-linux32.S",
                 "pregenerated/sha512-armv4-linux32.S",
-                "pregenerated/ecp_nistz256-armv4-linux32.S",
                 "pregenerated/aesv8-armx-linux32.S",
                 "pregenerated/bsaes-armv7-linux32.S",
                 "pregenerated/ghashv8-armx-linux32.S",
@@ -297,7 +312,6 @@ cc_library_static {
                 "pregenerated/aesv8-armx-linux64.S",
                 "pregenerated/armv8-mont-linux64.S",
                 "pregenerated/chacha-armv8-linux64.S",
-                "pregenerated/ecp_nistz256-armv8-linux64.S",
                 "pregenerated/ghash-neon-armv8-linux64.S",
                 "pregenerated/ghashv8-armx-linux64.S",
                 "pregenerated/sha256-armv8-linux64.S",
@@ -309,7 +323,6 @@ cc_library_static {
             srcs: [
                 "pregenerated/aesni-x86-elf.S",
                 "pregenerated/chacha-x86-elf.S",
-                "pregenerated/ecp_nistz256-x86-elf.S",
                 "pregenerated/ghash-x86-elf.S",
                 "pregenerated/vpaes-x86-elf.S",
                 "pregenerated/x86-mont-elf.S",
@@ -317,6 +330,7 @@ cc_library_static {
         },
         x86_64: {
             srcs: [
+                "crypto/fipsmodule/ec/p256-x86_64.c",
                 "pregenerated/aesni-gcm-x86_64-elf.S",
                 "pregenerated/aesni-x86_64-elf.S",
                 "pregenerated/chacha-x86_64-elf.S",
@@ -329,6 +343,9 @@ cc_library_static {
                 "pregenerated/x86_64-mont5-elf.S",
                 "pregenerated/x86_64-mont-elf.S",
             ],
+        },
+        riscv64: {
+            cflags: ["-DOPENSSL_NO_ASM"],
         },
     },
 
@@ -347,10 +364,10 @@ cc_library_static {
     local_include_dirs: ["include"],
     apex_available: [
         "//apex_available:platform",
-        "com.android.compos",
         "com.android.resolv",
-        "com.android.virt",
     ],
+    vendor_available: true,
+    product_available: true,
     min_sdk_version: "29",
 }
 
@@ -363,9 +380,9 @@ cc_library_static {
     local_include_dirs: ["include"],
     apex_available: [
         "//apex_available:platform",
-        "com.android.compos",
         "com.android.resolv",
-        "com.android.virt",
     ],
+    vendor_available: true,
+    product_available: true,
     min_sdk_version: "29",
 }

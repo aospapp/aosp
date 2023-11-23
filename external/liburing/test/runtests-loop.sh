@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-TESTS="$@"
+TESTS=("$@")
 ITER=0
 
 while true; do
-	./runtests.sh "$TESTS"
+	./runtests.sh "${TESTS[@]}"
 	RET="$?"
 	if [ "${RET}" -ne 0 ]; then
 		echo "Tests failed at loop $ITER"

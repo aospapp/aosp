@@ -4,6 +4,7 @@
 # That default is overridden if the line has as the X parameter: locale or multiple.
 #	locale: there is a count= or ordinal=, so the value is subject to the locale; may be zero or one.
 #	multiple: there may be zero or more placeholders (normally only in count or ordinal minimalPairs)
+#	optional: there may be one or more placeholders; and they have alpha ids, not numeric ids.
 
 %A = [^"]*+
 %L = (long|short|narrow)
@@ -203,6 +204,8 @@
 
 ^//ldml/numbers/currencyFormats/unitPattern ; {0}=NUMBER 3; {1}=CURRENCY_NAME Dollars
 ^//ldml/numbers/currencyFormats\[@numberSystem="%A"]/unitPattern ; {0}=NUMBER 3; {1}=CURRENCY_NAME Dollars
+^//ldml/numbers/currencyFormats/currencyPatternAppendISO ; {0}=CURRENCY_FORMAT ¤#,##0.00
+^//ldml/numbers/currencyFormats\[@numberSystem="%A"]/currencyPatternAppendISO ; {0}=CURRENCY_FORMAT ¤#,##0.00
 
 ^//ldml/numbers/miscPatterns\[@numberSystem="%A"]/pattern\[@type=\"range\"] ; {0}=START_NUMBER 3 ; {1}=END_NUMBER 5
 ^//ldml/numbers/miscPatterns\[@numberSystem="%A"]/pattern\[@type=\"%A\"] ; {0}=NUMBER 3
@@ -245,3 +248,7 @@
 ^//ldml/characters/ellipsis\[@type="word-final"] ; {0}=FIRST_PART_OF_TEXT very long
 ^//ldml/characters/ellipsis\[@type="word-initial"] ; {0}=LAST_PART_OF_TEXT long name
 ^//ldml/characters/ellipsis\[@type="word-medial"] ; {0}=FIRST_PART_OF_TEXT very l; {1}=LAST_PART_OF_TEXT long
+
+//ldml/personNames/initialPattern\[@type="initial"] ; {0}=NAME_INITIAL J
+//ldml/personNames/initialPattern\[@type="initialSequence"] ; {0}=PREVIOUS_NAME_INITIALS J.R.; {1}=ADD_NAME_INITIAL R.
+//ldml/personNames/personName\[@order="%A"]\[@length="%A"]\[@usage="%A"]\[@formality="%A"]/namePattern ; optional ; {prefix}=NAME_PREFIX Dr. ; {given}=GIVEN_NAME Cornelia ; {given-informal}=INFORMAL_NAME Neele ; {given2}=GIVEN_NAME_2 Sophia ; {surname}=SURNAME van den Wolf ; {surname-prefix}=SURNAME_PREFIX van den ; {surname-core}=SURNAME_CORE Wolf ; {surname2}=SURNAME_2 Becker ; {suffix}=NAME_SUFFIX M.D.

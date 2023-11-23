@@ -10,8 +10,9 @@
 
 #include "modules/audio_coding/neteq/test/result_sink.h"
 
-#include <vector>
+#include <string>
 
+#include "absl/strings/string_view.h"
 #include "rtc_base/ignore_wundef.h"
 #include "rtc_base/message_digest.h"
 #include "rtc_base/string_encode.h"
@@ -35,32 +36,21 @@ void Convert(const webrtc::NetEqNetworkStatistics& stats_raw,
   stats->set_current_buffer_size_ms(stats_raw.current_buffer_size_ms);
   stats->set_preferred_buffer_size_ms(stats_raw.preferred_buffer_size_ms);
   stats->set_jitter_peaks_found(stats_raw.jitter_peaks_found);
-  stats->set_packet_loss_rate(stats_raw.packet_loss_rate);
   stats->set_expand_rate(stats_raw.expand_rate);
   stats->set_speech_expand_rate(stats_raw.speech_expand_rate);
   stats->set_preemptive_rate(stats_raw.preemptive_rate);
   stats->set_accelerate_rate(stats_raw.accelerate_rate);
   stats->set_secondary_decoded_rate(stats_raw.secondary_decoded_rate);
   stats->set_secondary_discarded_rate(stats_raw.secondary_discarded_rate);
-  stats->set_added_zero_samples(stats_raw.added_zero_samples);
   stats->set_mean_waiting_time_ms(stats_raw.mean_waiting_time_ms);
   stats->set_median_waiting_time_ms(stats_raw.median_waiting_time_ms);
   stats->set_min_waiting_time_ms(stats_raw.min_waiting_time_ms);
   stats->set_max_waiting_time_ms(stats_raw.max_waiting_time_ms);
 }
 
-void Convert(const webrtc::RtcpStatistics& stats_raw,
-             webrtc::neteq_unittest::RtcpStatistics* stats) {
-  stats->set_fraction_lost(stats_raw.fraction_lost);
-  stats->set_cumulative_lost(stats_raw.packets_lost);
-  stats->set_extended_max_sequence_number(
-      stats_raw.extended_highest_sequence_number);
-  stats->set_jitter(stats_raw.jitter);
-}
-
 void AddMessage(FILE* file,
                 rtc::MessageDigest* digest,
-                const std::string& message) {
+                absl::string_view message) {
   int32_t size = message.length();
   if (file)
     ASSERT_EQ(1u, fwrite(&size, sizeof(size), 1, file));
@@ -74,11 +64,11 @@ void AddMessage(FILE* file,
 
 #endif  // WEBRTC_NETEQ_UNITTEST_BITEXACT
 
-ResultSink::ResultSink(const std::string& output_file)
+ResultSink::ResultSink(absl::string_view output_file)
     : output_fp_(nullptr),
       digest_(rtc::MessageDigestFactory::Create(rtc::DIGEST_SHA_1)) {
   if (!output_file.empty()) {
-    output_fp_ = fopen(output_file.c_str(), "wb");
+    output_fp_ = fopen(std::string(output_file).c_str(), "wb");
     EXPECT_TRUE(output_fp_ != NULL);
   }
 }
@@ -101,29 +91,16 @@ void ResultSink::AddResult(const NetEqNetworkStatistics& stats_raw) {
 #endif  // WEBRTC_NETEQ_UNITTEST_BITEXACT
 }
 
-void ResultSink::AddResult(const RtcpStatistics& stats_raw) {
-#ifdef WEBRTC_NETEQ_UNITTEST_BITEXACT
-  neteq_unittest::RtcpStatistics stats;
-  Convert(stats_raw, &stats);
-
-  std::string stats_string;
-  ASSERT_TRUE(stats.SerializeToString(&stats_string));
-  AddMessage(output_fp_, digest_.get(), stats_string);
-#else
-  FAIL() << "Writing to reference file requires Proto Buffer.";
-#endif  // WEBRTC_NETEQ_UNITTEST_BITEXACT
-}
-
-void ResultSink::VerifyChecksum(const std::string& checksum) {
-  std::vector<char> buffer;
+void ResultSink::VerifyChecksum(absl::string_view checksum) {
+  std::string buffer;
   buffer.resize(digest_->Size());
-  digest_->Finish(&buffer[0], buffer.size());
-  const std::string result = rtc::hex_encode(&buffer[0], digest_->Size());
+  digest_->Finish(buffer.data(), buffer.size());
+  const std::string result = rtc::hex_encode(buffer);
   if (checksum.size() == result.size()) {
     EXPECT_EQ(checksum, result);
   } else {
     // Check result is one the '|'-separated checksums.
-    EXPECT_NE(checksum.find(result), std::string::npos)
+    EXPECT_NE(checksum.find(result), absl::string_view::npos)
         << result << " should be one of these:\n"
         << checksum;
   }

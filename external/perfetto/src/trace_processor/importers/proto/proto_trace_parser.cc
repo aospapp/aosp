@@ -23,37 +23,30 @@
 
 #include "perfetto/base/logging.h"
 #include "perfetto/ext/base/metatrace_events.h"
+#include "perfetto/ext/base/string_utils.h"
 #include "perfetto/ext/base/string_view.h"
 #include "perfetto/ext/base/string_writer.h"
-#include "perfetto/ext/base/utils.h"
 #include "perfetto/ext/base/uuid.h"
-#include "perfetto/trace_processor/status.h"
 
 #include "src/trace_processor/importers/common/args_tracker.h"
-#include "src/trace_processor/importers/common/clock_tracker.h"
 #include "src/trace_processor/importers/common/event_tracker.h"
+#include "src/trace_processor/importers/common/metadata_tracker.h"
+#include "src/trace_processor/importers/common/parser_types.h"
 #include "src/trace_processor/importers/common/process_tracker.h"
 #include "src/trace_processor/importers/common/slice_tracker.h"
 #include "src/trace_processor/importers/common/track_tracker.h"
-#include "src/trace_processor/importers/config.descriptor.h"
 #include "src/trace_processor/importers/ftrace/ftrace_module.h"
-#include "src/trace_processor/importers/proto/metadata_tracker.h"
 #include "src/trace_processor/importers/proto/packet_sequence_state.h"
+#include "src/trace_processor/importers/proto/track_event_module.h"
 #include "src/trace_processor/storage/metadata.h"
 #include "src/trace_processor/storage/stats.h"
-#include "src/trace_processor/timestamped_trace_piece.h"
 #include "src/trace_processor/types/trace_processor_context.h"
 #include "src/trace_processor/types/variadic.h"
-#include "src/trace_processor/util/descriptors.h"
-#include "src/trace_processor/util/protozero_to_text.h"
 
-#include "protos/perfetto/common/builtin_clock.pbzero.h"
 #include "protos/perfetto/common/trace_stats.pbzero.h"
 #include "protos/perfetto/config/trace_config.pbzero.h"
 #include "protos/perfetto/trace/chrome/chrome_trace_event.pbzero.h"
-#include "protos/perfetto/trace/interned_data/interned_data.pbzero.h"
 #include "protos/perfetto/trace/perfetto/perfetto_metatrace.pbzero.h"
-#include "protos/perfetto/trace/trace.pbzero.h"
 #include "protos/perfetto/trace/trace_packet.pbzero.h"
 
 namespace perfetto {
@@ -68,56 +61,25 @@ ProtoTraceParser::ProtoTraceParser(TraceProcessorContext* context)
       raw_chrome_legacy_system_trace_event_id_(
           context->storage->InternString("chrome_event.legacy_system_trace")),
       raw_chrome_legacy_user_trace_event_id_(
-          context->storage->InternString("chrome_event.legacy_user_trace")) {
-  // TODO(140860736): Once we support null values for
-  // stack_profile_frame.symbol_set_id remove this hack
-  context_->storage->mutable_symbol_table()->Insert(
-      {0, kNullStringId, kNullStringId, 0});
-}
+          context->storage->InternString("chrome_event.legacy_user_trace")),
+      missing_metatrace_interned_string_id_(
+          context->storage->InternString("MISSING STRING")) {}
 
 ProtoTraceParser::~ProtoTraceParser() = default;
 
-void ProtoTraceParser::ParseTracePacket(int64_t ts, TimestampedTracePiece ttp) {
-  const TracePacketData* data = nullptr;
-  if (ttp.type == TimestampedTracePiece::Type::kTracePacket) {
-    data = &ttp.packet_data;
-  } else {
-    PERFETTO_DCHECK(ttp.type == TimestampedTracePiece::Type::kTrackEvent);
-    data = ttp.track_event_data.get();
-  }
-
-  const TraceBlobView& blob = data->packet;
+void ProtoTraceParser::ParseTracePacket(int64_t ts, TracePacketData data) {
+  const TraceBlobView& blob = data.packet;
   protos::pbzero::TracePacket::Decoder packet(blob.data(), blob.length());
-
-  ParseTracePacketImpl(ts, ttp, data->sequence_state.get(), packet);
-
-  // TODO(lalitm): maybe move this to the flush method in the trace processor
-  // once we have it. This may reduce performance in the ArgsTracker though so
-  // needs to be handled carefully.
-  context_->args_tracker->Flush();
-  PERFETTO_DCHECK(!packet.bytes_left());
-}
-
-void ProtoTraceParser::ParseTracePacketImpl(
-    int64_t ts,
-    const TimestampedTracePiece& ttp,
-    PacketSequenceStateGeneration* /*sequence_state*/,
-    const protos::pbzero::TracePacket::Decoder& packet) {
-  // Chrome doesn't honor the one-of in TracePacket for this field and sets it
-  // together with chrome_metadata, which is handled by a module. Thus, we have
-  // to parse this field before the modules get to parse other fields.
-  // TODO(crbug/1194914): Move this back after the modules (or into a separate
-  // module) once the Chrome-side fix has propagated into all release channels.
-  if (packet.has_chrome_events()) {
-    ParseChromeEvents(ts, packet.chrome_events());
-  }
-
   // TODO(eseckler): Propagate statuses from modules.
   auto& modules = context_->modules_by_field;
   for (uint32_t field_id = 1; field_id < modules.size(); ++field_id) {
     if (!modules[field_id].empty() && packet.Get(field_id).valid()) {
+      for (ProtoImporterModule* global_module :
+           context_->modules_for_all_fields) {
+        global_module->ParseTracePacketData(packet, ts, data, field_id);
+      }
       for (ProtoImporterModule* module : modules[field_id])
-        module->ParsePacket(packet, ttp, field_id);
+        module->ParseTracePacketData(packet, ts, data, field_id);
       return;
     }
   }
@@ -125,23 +87,59 @@ void ProtoTraceParser::ParseTracePacketImpl(
   if (packet.has_trace_stats())
     ParseTraceStats(packet.trace_stats());
 
+  if (packet.has_chrome_events()) {
+    ParseChromeEvents(ts, packet.chrome_events());
+  }
+
   if (packet.has_perfetto_metatrace()) {
     ParseMetatraceEvent(ts, packet.perfetto_metatrace());
   }
 
   if (packet.has_trace_config()) {
-    ParseTraceConfig(packet.trace_config());
+    // TODO(eseckler): Propagate statuses from modules.
+    protos::pbzero::TraceConfig::Decoder config(packet.trace_config());
+    for (auto& module : context_->modules) {
+      module->ParseTraceConfig(config);
+    }
   }
 }
 
-void ProtoTraceParser::ParseFtracePacket(uint32_t cpu,
-                                         int64_t /*ts*/,
-                                         TimestampedTracePiece ttp) {
-  PERFETTO_DCHECK(ttp.type == TimestampedTracePiece::Type::kFtraceEvent ||
-                  ttp.type == TimestampedTracePiece::Type::kInlineSchedSwitch ||
-                  ttp.type == TimestampedTracePiece::Type::kInlineSchedWaking);
+void ProtoTraceParser::ParseTrackEvent(int64_t ts, TrackEventData data) {
+  const TraceBlobView& blob = data.trace_packet_data.packet;
+  protos::pbzero::TracePacket::Decoder packet(blob.data(), blob.length());
+  context_->track_module->ParseTrackEventData(packet, ts, data);
+  context_->args_tracker->Flush();
+}
+
+void ProtoTraceParser::ParseFtraceEvent(uint32_t cpu,
+                                        int64_t ts,
+                                        TracePacketData data) {
   PERFETTO_DCHECK(context_->ftrace_module);
-  context_->ftrace_module->ParseFtracePacket(cpu, ttp);
+  context_->ftrace_module->ParseFtraceEventData(cpu, ts, data);
+
+  // TODO(lalitm): maybe move this to the flush method in the trace processor
+  // once we have it. This may reduce performance in the ArgsTracker though so
+  // needs to be handled carefully.
+  context_->args_tracker->Flush();
+}
+
+void ProtoTraceParser::ParseInlineSchedSwitch(uint32_t cpu,
+                                              int64_t ts,
+                                              InlineSchedSwitch data) {
+  PERFETTO_DCHECK(context_->ftrace_module);
+  context_->ftrace_module->ParseInlineSchedSwitch(cpu, ts, data);
+
+  // TODO(lalitm): maybe move this to the flush method in the trace processor
+  // once we have it. This may reduce performance in the ArgsTracker though so
+  // needs to be handled carefully.
+  context_->args_tracker->Flush();
+}
+
+void ProtoTraceParser::ParseInlineSchedWaking(uint32_t cpu,
+                                              int64_t ts,
+                                              InlineSchedWaking data) {
+  PERFETTO_DCHECK(context_->ftrace_module);
+  context_->ftrace_module->ParseInlineSchedWaking(cpu, ts, data);
 
   // TODO(lalitm): maybe move this to the flush method in the trace processor
   // once we have it. This may reduce performance in the ArgsTracker though so
@@ -154,6 +152,8 @@ void ProtoTraceParser::ParseTraceStats(ConstBytes blob) {
   auto* storage = context_->storage.get();
   storage->SetStats(stats::traced_producers_connected,
                     static_cast<int64_t>(evt.producers_connected()));
+  storage->SetStats(stats::traced_producers_seen,
+                    static_cast<int64_t>(evt.producers_seen()));
   storage->SetStats(stats::traced_data_sources_registered,
                     static_cast<int64_t>(evt.data_sources_registered()));
   storage->SetStats(stats::traced_data_sources_seen,
@@ -319,7 +319,14 @@ void ProtoTraceParser::ParseMetatraceEvent(int64_t ts, ConstBytes blob) {
 
   StringId cat_id = metatrace_id_;
   StringId name_id = kNullStringId;
-  char fallback[64];
+
+  for (auto it = event.interned_strings(); it; ++it) {
+    protos::pbzero::PerfettoMetatrace::InternedString::Decoder interned_string(
+        it->data(), it->size());
+    metatrace_interned_strings_.Insert(
+        interned_string.iid(),
+        context_->storage->InternString(interned_string.value()));
+  }
 
   // This function inserts the args from the proto into the args table.
   // Args inserted with the same key multiple times are treated as an array:
@@ -331,8 +338,18 @@ void ProtoTraceParser::ParseMetatraceEvent(int64_t ts, ConstBytes blob) {
     std::vector<Arg> interned;
     for (auto it = event.args(); it; ++it) {
       protos::pbzero::PerfettoMetatrace::Arg::Decoder arg_proto(*it);
-      StringId key = context_->storage->InternString(arg_proto.key());
-      StringId value = context_->storage->InternString(arg_proto.value());
+      StringId key;
+      if (arg_proto.has_key_iid()) {
+        key = GetMetatraceInternedString(arg_proto.key_iid());
+      } else {
+        key = context_->storage->InternString(arg_proto.key());
+      }
+      StringId value;
+      if (arg_proto.has_value_iid()) {
+        value = GetMetatraceInternedString(arg_proto.value_iid());
+      } else {
+        value = context_->storage->InternString(arg_proto.value());
+      }
       interned.emplace_back(key, value);
     }
 
@@ -340,7 +357,7 @@ void ProtoTraceParser::ParseMetatraceEvent(int64_t ts, ConstBytes blob) {
     // args in arrays.
     std::stable_sort(interned.begin(), interned.end(),
                      [](const Arg& a, const Arg& b) {
-                       return a.first.raw_id() < b.second.raw_id();
+                       return a.first.raw_id() < b.first.raw_id();
                      });
 
     // Compute the correct key for each arg, possibly adding an index to
@@ -356,20 +373,16 @@ void ProtoTraceParser::ParseMetatraceEvent(int64_t ts, ConstBytes blob) {
         inserter->AddArg(key, Variadic::String(it->second));
       } else {
         constexpr size_t kMaxIndexSize = 20;
-        base::StringView key_str = context_->storage->GetString(key);
+        NullTermStringView key_str = context_->storage->GetString(key);
         if (key_str.size() >= sizeof(buffer) - kMaxIndexSize) {
           PERFETTO_DLOG("Ignoring arg with unreasonbly large size");
           continue;
         }
 
-        base::StringWriter writer(buffer, sizeof(buffer));
-        writer.AppendString(key_str);
-        writer.AppendChar('[');
-        writer.AppendUnsignedInt(current_idx);
-        writer.AppendChar(']');
-
+        base::StackString<2048> array_key("%s[%u]", key_str.c_str(),
+                                          current_idx);
         StringId new_key =
-            context_->storage->InternString(writer.GetStringView());
+            context_->storage->InternString(array_key.string_view());
         inserter->AddArg(key, new_key, Variadic::String(it->second));
 
         current_idx = key == next_key ? current_idx + 1 : 0;
@@ -377,15 +390,18 @@ void ProtoTraceParser::ParseMetatraceEvent(int64_t ts, ConstBytes blob) {
     }
   };
 
-  if (event.has_event_id() || event.has_event_name()) {
+  if (event.has_event_id() || event.has_event_name() ||
+      event.has_event_name_iid()) {
     if (event.has_event_id()) {
       auto eid = event.event_id();
       if (eid < metatrace::EVENTS_MAX) {
         name_id = context_->storage->InternString(metatrace::kEventNames[eid]);
       } else {
-        sprintf(fallback, "Event %d", eid);
-        name_id = context_->storage->InternString(fallback);
+        base::StackString<64> fallback("Event %d", eid);
+        name_id = context_->storage->InternString(fallback.string_view());
       }
+    } else if (event.has_event_name_iid()) {
+      name_id = GetMetatraceInternedString(event.event_name_iid());
     } else {
       name_id = context_->storage->InternString(event.event_name());
     }
@@ -400,8 +416,8 @@ void ProtoTraceParser::ParseMetatraceEvent(int64_t ts, ConstBytes blob) {
         name_id =
             context_->storage->InternString(metatrace::kCounterNames[cid]);
       } else {
-        sprintf(fallback, "Counter %d", cid);
-        name_id = context_->storage->InternString(fallback);
+        base::StackString<64> fallback("Counter %d", cid);
+        name_id = context_->storage->InternString(fallback.string_view());
       }
     } else {
       name_id = context_->storage->InternString(event.counter_name());
@@ -420,42 +436,11 @@ void ProtoTraceParser::ParseMetatraceEvent(int64_t ts, ConstBytes blob) {
     context_->storage->IncrementStats(stats::metatrace_overruns);
 }
 
-void ProtoTraceParser::ParseTraceConfig(ConstBytes blob) {
-  protos::pbzero::TraceConfig::Decoder trace_config(blob.data, blob.size);
-
-  // TODO(eseckler): Propagate statuses from modules.
-  for (auto& module : context_->modules) {
-    module->ParseTraceConfig(trace_config);
-  }
-
-  int64_t uuid_msb = trace_config.trace_uuid_msb();
-  int64_t uuid_lsb = trace_config.trace_uuid_lsb();
-  if (uuid_msb != 0 || uuid_lsb != 0) {
-    base::Uuid uuid(uuid_lsb, uuid_msb);
-    std::string str = uuid.ToPrettyString();
-    StringId id = context_->storage->InternString(base::StringView(str));
-    context_->metadata_tracker->SetMetadata(metadata::trace_uuid,
-                                            Variadic::String(id));
-    context_->uuid_found_in_trace = true;
-  }
-
-  if (trace_config.has_unique_session_name()) {
-    StringId id = context_->storage->InternString(
-        base::StringView(trace_config.unique_session_name()));
-    context_->metadata_tracker->SetMetadata(metadata::unique_session_name,
-                                            Variadic::String(id));
-  }
-
-  DescriptorPool pool;
-  pool.AddFromFileDescriptorSet(kConfigDescriptor.data(),
-                                kConfigDescriptor.size());
-
-  std::string text = protozero_to_text::ProtozeroToText(
-      pool, ".perfetto.protos.TraceConfig", blob,
-      protozero_to_text::kIncludeNewLines);
-  StringId id = context_->storage->InternString(base::StringView(text));
-  context_->metadata_tracker->SetMetadata(metadata::trace_config_pbtxt,
-                                          Variadic::String(id));
+StringId ProtoTraceParser::GetMetatraceInternedString(uint64_t iid) {
+  StringId* maybe_id = metatrace_interned_strings_.Find(iid);
+  if (!maybe_id)
+    return missing_metatrace_interned_string_id_;
+  return *maybe_id;
 }
 
 }  // namespace trace_processor

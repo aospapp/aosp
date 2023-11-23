@@ -20,6 +20,7 @@ import android.content.Context;
 import android.content.ServiceConnection;
 import com.google.android.enterprise.connectedapps.annotations.AvailabilityRestrictions;
 import com.google.android.enterprise.connectedapps.exceptions.MissingApiException;
+import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfileException;
 
 /** {@link ConnectionBinder} instances are used to establish bindings with other profiles. */
 public interface ConnectionBinder {
@@ -37,7 +38,7 @@ public interface ConnectionBinder {
       ComponentName bindToService,
       ServiceConnection connection,
       AvailabilityRestrictions availabilityRestrictions)
-      throws MissingApiException;
+      throws MissingApiException, UnavailableProfileException;
 
   /**
    * Return true if there is a profile available to bind to, while enforcing the passed in {@link

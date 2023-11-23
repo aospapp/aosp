@@ -50,6 +50,7 @@ package android.icu.lang {
     method public static double getUnicodeNumericValue(int);
     method public static android.icu.util.VersionInfo getUnicodeVersion();
     method public static boolean hasBinaryProperty(int, int);
+    method public static boolean hasBinaryProperty(CharSequence, int);
     method public static boolean isBMP(int);
     method public static boolean isBaseForm(int);
     method public static boolean isDefined(int);
@@ -468,6 +469,8 @@ package android.icu.lang {
     field public static final int ARABIC_EXTENDED_A_ID = 210; // 0xd2
     field public static final android.icu.lang.UCharacter.UnicodeBlock ARABIC_EXTENDED_B;
     field public static final int ARABIC_EXTENDED_B_ID = 309; // 0x135
+    field public static final android.icu.lang.UCharacter.UnicodeBlock ARABIC_EXTENDED_C;
+    field public static final int ARABIC_EXTENDED_C_ID = 321; // 0x141
     field public static final int ARABIC_ID = 12; // 0xc
     field public static final android.icu.lang.UCharacter.UnicodeBlock ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS;
     field public static final int ARABIC_MATHEMATICAL_ALPHABETIC_SYMBOLS_ID = 211; // 0xd3
@@ -562,6 +565,8 @@ package android.icu.lang {
     field public static final int CJK_UNIFIED_IDEOGRAPHS_EXTENSION_F_ID = 274; // 0x112
     field public static final android.icu.lang.UCharacter.UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_G;
     field public static final int CJK_UNIFIED_IDEOGRAPHS_EXTENSION_G_ID = 302; // 0x12e
+    field public static final android.icu.lang.UCharacter.UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_H;
+    field public static final int CJK_UNIFIED_IDEOGRAPHS_EXTENSION_H_ID = 322; // 0x142
     field public static final int CJK_UNIFIED_IDEOGRAPHS_ID = 71; // 0x47
     field public static final android.icu.lang.UCharacter.UnicodeBlock COMBINING_DIACRITICAL_MARKS;
     field public static final android.icu.lang.UCharacter.UnicodeBlock COMBINING_DIACRITICAL_MARKS_EXTENDED;
@@ -600,6 +605,8 @@ package android.icu.lang {
     field public static final int CYRILLIC_EXTENDED_B_ID = 160; // 0xa0
     field public static final android.icu.lang.UCharacter.UnicodeBlock CYRILLIC_EXTENDED_C;
     field public static final int CYRILLIC_EXTENDED_C_ID = 265; // 0x109
+    field public static final android.icu.lang.UCharacter.UnicodeBlock CYRILLIC_EXTENDED_D;
+    field public static final int CYRILLIC_EXTENDED_D_ID = 323; // 0x143
     field public static final int CYRILLIC_ID = 9; // 0x9
     field public static final android.icu.lang.UCharacter.UnicodeBlock CYRILLIC_SUPPLEMENT;
     field public static final android.icu.lang.UCharacter.UnicodeBlock CYRILLIC_SUPPLEMENTARY;
@@ -609,6 +616,8 @@ package android.icu.lang {
     field public static final int DESERET_ID = 90; // 0x5a
     field public static final android.icu.lang.UCharacter.UnicodeBlock DEVANAGARI;
     field public static final android.icu.lang.UCharacter.UnicodeBlock DEVANAGARI_EXTENDED;
+    field public static final android.icu.lang.UCharacter.UnicodeBlock DEVANAGARI_EXTENDED_A;
+    field public static final int DEVANAGARI_EXTENDED_A_ID = 324; // 0x144
     field public static final int DEVANAGARI_EXTENDED_ID = 179; // 0xb3
     field public static final int DEVANAGARI_ID = 15; // 0xf
     field public static final android.icu.lang.UCharacter.UnicodeBlock DINGBATS;
@@ -727,6 +736,8 @@ package android.icu.lang {
     field public static final int JAVANESE_ID = 181; // 0xb5
     field public static final android.icu.lang.UCharacter.UnicodeBlock KAITHI;
     field public static final int KAITHI_ID = 193; // 0xc1
+    field public static final android.icu.lang.UCharacter.UnicodeBlock KAKTOVIK_NUMERALS;
+    field public static final int KAKTOVIK_NUMERALS_ID = 325; // 0x145
     field public static final android.icu.lang.UCharacter.UnicodeBlock KANA_EXTENDED_A;
     field public static final int KANA_EXTENDED_A_ID = 275; // 0x113
     field public static final android.icu.lang.UCharacter.UnicodeBlock KANA_EXTENDED_B;
@@ -743,6 +754,8 @@ package android.icu.lang {
     field public static final int KATAKANA_ID = 63; // 0x3f
     field public static final android.icu.lang.UCharacter.UnicodeBlock KATAKANA_PHONETIC_EXTENSIONS;
     field public static final int KATAKANA_PHONETIC_EXTENSIONS_ID = 107; // 0x6b
+    field public static final android.icu.lang.UCharacter.UnicodeBlock KAWI;
+    field public static final int KAWI_ID = 326; // 0x146
     field public static final android.icu.lang.UCharacter.UnicodeBlock KAYAH_LI;
     field public static final int KAYAH_LI_ID = 162; // 0xa2
     field public static final android.icu.lang.UCharacter.UnicodeBlock KHAROSHTHI;
@@ -869,6 +882,8 @@ package android.icu.lang {
     field public static final int MYANMAR_ID = 28; // 0x1c
     field public static final android.icu.lang.UCharacter.UnicodeBlock NABATAEAN;
     field public static final int NABATAEAN_ID = 239; // 0xef
+    field public static final android.icu.lang.UCharacter.UnicodeBlock NAG_MUNDARI;
+    field public static final int NAG_MUNDARI_ID = 327; // 0x147
     field public static final android.icu.lang.UCharacter.UnicodeBlock NANDINAGARI;
     field public static final int NANDINAGARI_ID = 294; // 0x126
     field public static final android.icu.lang.UCharacter.UnicodeBlock NEWA;
@@ -1224,6 +1239,7 @@ package android.icu.lang {
     field public static final int AGE = 16384; // 0x4000
     field public static final int ALPHABETIC = 0; // 0x0
     field public static final int ASCII_HEX_DIGIT = 1; // 0x1
+    field public static final int BASIC_EMOJI = 65; // 0x41
     field public static final int BIDI_CLASS = 4096; // 0x1000
     field public static final int BIDI_CONTROL = 2; // 0x2
     field public static final int BIDI_MIRRORED = 3; // 0x3
@@ -1252,6 +1268,7 @@ package android.icu.lang {
     field public static final int EAST_ASIAN_WIDTH = 4100; // 0x1004
     field public static final int EMOJI = 57; // 0x39
     field public static final int EMOJI_COMPONENT = 61; // 0x3d
+    field public static final int EMOJI_KEYCAP_SEQUENCE = 66; // 0x42
     field public static final int EMOJI_MODIFIER = 59; // 0x3b
     field public static final int EMOJI_MODIFIER_BASE = 60; // 0x3c
     field public static final int EMOJI_PRESENTATION = 58; // 0x3a
@@ -1309,6 +1326,11 @@ package android.icu.lang {
     field public static final int QUOTATION_MARK = 25; // 0x19
     field public static final int RADICAL = 26; // 0x1a
     field public static final int REGIONAL_INDICATOR = 62; // 0x3e
+    field public static final int RGI_EMOJI = 71; // 0x47
+    field public static final int RGI_EMOJI_FLAG_SEQUENCE = 68; // 0x44
+    field public static final int RGI_EMOJI_MODIFIER_SEQUENCE = 67; // 0x43
+    field public static final int RGI_EMOJI_TAG_SEQUENCE = 69; // 0x45
+    field public static final int RGI_EMOJI_ZWJ_SEQUENCE = 70; // 0x46
     field public static final int SCRIPT = 4106; // 0x100a
     field public static final int SCRIPT_EXTENSIONS = 28672; // 0x7000
     field public static final int SEGMENT_STARTER = 41; // 0x29
@@ -1431,6 +1453,7 @@ package android.icu.lang {
     field public static final int KANNADA = 21; // 0x15
     field public static final int KATAKANA = 22; // 0x16
     field public static final int KATAKANA_OR_HIRAGANA = 54; // 0x36
+    field public static final int KAWI = 198; // 0xc6
     field public static final int KAYAH_LI = 79; // 0x4f
     field public static final int KHAROSHTHI = 57; // 0x39
     field public static final int KHITAN_SMALL_SCRIPT = 191; // 0xbf
@@ -1477,6 +1500,7 @@ package android.icu.lang {
     field public static final int MULTANI = 164; // 0xa4
     field public static final int MYANMAR = 28; // 0x1c
     field public static final int NABATAEAN = 143; // 0x8f
+    field public static final int NAG_MUNDARI = 199; // 0xc7
     field public static final int NAKHI_GEBA = 132; // 0x84
     field public static final int NANDINAGARI = 187; // 0xbb
     field public static final int NEWA = 170; // 0xaa
@@ -1708,6 +1732,7 @@ package android.icu.number {
   public abstract class FractionPrecision extends android.icu.number.Precision {
     method public android.icu.number.Precision withMaxDigits(int);
     method public android.icu.number.Precision withMinDigits(int);
+    method public android.icu.number.Precision withSignificantDigits(int, int, android.icu.number.NumberFormatter.RoundingPriority);
   }
 
   public class IntegerWidth {
@@ -1756,14 +1781,26 @@ package android.icu.number {
     enum_constant public static final android.icu.number.NumberFormatter.GroupingStrategy THOUSANDS;
   }
 
+  public enum NumberFormatter.RoundingPriority {
+    enum_constant public static final android.icu.number.NumberFormatter.RoundingPriority RELAXED;
+    enum_constant public static final android.icu.number.NumberFormatter.RoundingPriority STRICT;
+  }
+
   public enum NumberFormatter.SignDisplay {
     enum_constant public static final android.icu.number.NumberFormatter.SignDisplay ACCOUNTING;
     enum_constant public static final android.icu.number.NumberFormatter.SignDisplay ACCOUNTING_ALWAYS;
     enum_constant public static final android.icu.number.NumberFormatter.SignDisplay ACCOUNTING_EXCEPT_ZERO;
+    enum_constant public static final android.icu.number.NumberFormatter.SignDisplay ACCOUNTING_NEGATIVE;
     enum_constant public static final android.icu.number.NumberFormatter.SignDisplay ALWAYS;
     enum_constant public static final android.icu.number.NumberFormatter.SignDisplay AUTO;
     enum_constant public static final android.icu.number.NumberFormatter.SignDisplay EXCEPT_ZERO;
+    enum_constant public static final android.icu.number.NumberFormatter.SignDisplay NEGATIVE;
     enum_constant public static final android.icu.number.NumberFormatter.SignDisplay NEVER;
+  }
+
+  public enum NumberFormatter.TrailingZeroDisplay {
+    enum_constant public static final android.icu.number.NumberFormatter.TrailingZeroDisplay AUTO;
+    enum_constant public static final android.icu.number.NumberFormatter.TrailingZeroDisplay HIDE_IF_WHOLE;
   }
 
   public enum NumberFormatter.UnitWidth {
@@ -1839,6 +1876,7 @@ package android.icu.number {
     method public static android.icu.number.FractionPrecision minMaxFraction(int, int);
     method public static android.icu.number.Precision minMaxSignificantDigits(int, int);
     method public static android.icu.number.Precision minSignificantDigits(int);
+    method public android.icu.number.Precision trailingZeroDisplay(android.icu.number.NumberFormatter.TrailingZeroDisplay);
     method public static android.icu.number.Precision unlimited();
   }
 
@@ -3845,6 +3883,7 @@ package android.icu.text {
     method public int getRangeCount();
     method public int getRangeEnd(int);
     method public int getRangeStart(int);
+    method public boolean hasStrings();
     method public int indexOf(int);
     method public boolean isEmpty();
     method public boolean isFrozen();
@@ -3909,6 +3948,7 @@ package android.icu.text {
     method public boolean nextRange();
     method public void reset(android.icu.text.UnicodeSet);
     method public void reset();
+    method public android.icu.text.UnicodeSetIterator skipToStrings();
     field public static int IS_STRING;
     field public int codepoint;
     field public int codepointEnd;
@@ -4483,12 +4523,14 @@ package android.icu.util {
     method public android.icu.util.MeasureUnit.Complexity getComplexity();
     method public int getDimensionality();
     method public String getIdentifier();
+    method public android.icu.util.MeasureUnit.MeasurePrefix getPrefix();
     method public String getSubtype();
     method public String getType();
     method public android.icu.util.MeasureUnit product(android.icu.util.MeasureUnit);
     method public android.icu.util.MeasureUnit reciprocal();
     method public java.util.List<android.icu.util.MeasureUnit> splitToSingleUnits();
     method public android.icu.util.MeasureUnit withDimensionality(int);
+    method public android.icu.util.MeasureUnit withPrefix(android.icu.util.MeasureUnit.MeasurePrefix);
     field public static final android.icu.util.MeasureUnit ACRE;
     field public static final android.icu.util.MeasureUnit ACRE_FOOT;
     field public static final android.icu.util.MeasureUnit AMPERE;
@@ -4547,6 +4589,7 @@ package android.icu.util {
     field public static final android.icu.util.TimeUnit HOUR;
     field public static final android.icu.util.MeasureUnit INCH;
     field public static final android.icu.util.MeasureUnit INCH_HG;
+    field public static final android.icu.util.MeasureUnit ITEM;
     field public static final android.icu.util.MeasureUnit JOULE;
     field public static final android.icu.util.MeasureUnit KARAT;
     field public static final android.icu.util.MeasureUnit KELVIN;
@@ -4560,6 +4603,7 @@ package android.icu.util {
     field public static final android.icu.util.MeasureUnit KILOMETER_PER_HOUR;
     field public static final android.icu.util.MeasureUnit KILOWATT;
     field public static final android.icu.util.MeasureUnit KILOWATT_HOUR;
+    field public static final android.icu.util.MeasureUnit KILOWATT_HOUR_PER_100_KILOMETER;
     field public static final android.icu.util.MeasureUnit KNOT;
     field public static final android.icu.util.MeasureUnit LIGHT_YEAR;
     field public static final android.icu.util.MeasureUnit LITER;
@@ -4588,6 +4632,7 @@ package android.icu.util {
     field public static final android.icu.util.MeasureUnit MILLIAMPERE;
     field public static final android.icu.util.MeasureUnit MILLIBAR;
     field public static final android.icu.util.MeasureUnit MILLIGRAM;
+    field public static final android.icu.util.MeasureUnit MILLIGRAM_OFGLUCOSE_PER_DECILITER;
     field public static final android.icu.util.MeasureUnit MILLIGRAM_PER_DECILITER;
     field public static final android.icu.util.MeasureUnit MILLILITER;
     field public static final android.icu.util.MeasureUnit MILLIMETER;
@@ -4645,6 +4690,40 @@ package android.icu.util {
     enum_constant public static final android.icu.util.MeasureUnit.Complexity COMPOUND;
     enum_constant public static final android.icu.util.MeasureUnit.Complexity MIXED;
     enum_constant public static final android.icu.util.MeasureUnit.Complexity SINGLE;
+  }
+
+  public enum MeasureUnit.MeasurePrefix {
+    method public int getBase();
+    method public int getPower();
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix ATTO;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix CENTI;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix DECI;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix DEKA;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix EXA;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix EXBI;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix FEMTO;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix GIBI;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix GIGA;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix HECTO;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix KIBI;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix KILO;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix MEBI;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix MEGA;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix MICRO;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix MILLI;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix NANO;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix ONE;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix PEBI;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix PETA;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix PICO;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix TEBI;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix TERA;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix YOBI;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix YOCTO;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix YOTTA;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix ZEBI;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix ZEPTO;
+    enum_constant public static final android.icu.util.MeasureUnit.MeasurePrefix ZETTA;
   }
 
   public class Output<T> {
@@ -4955,6 +5034,7 @@ package android.icu.util {
     field public static final android.icu.util.VersionInfo UNICODE_12_1;
     field public static final android.icu.util.VersionInfo UNICODE_13_0;
     field public static final android.icu.util.VersionInfo UNICODE_14_0;
+    field public static final android.icu.util.VersionInfo UNICODE_15_0;
     field public static final android.icu.util.VersionInfo UNICODE_1_0;
     field public static final android.icu.util.VersionInfo UNICODE_1_0_1;
     field public static final android.icu.util.VersionInfo UNICODE_1_1_0;

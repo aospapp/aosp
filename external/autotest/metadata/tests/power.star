@@ -66,7 +66,7 @@ def define_tests():
         ),
         test_common.define_test(
             'power/Display',
-            suites = ['power_daily', 'power_monitoring', 'power_sanity'],
+            suites = ['power_daily', 'power_monitoring', 'power_check'],
             main_package = 'autotest_lib.client.site_tests.power_Display.power_Display',
         ),
         test_common.define_test(
@@ -86,7 +86,7 @@ def define_tests():
         ),
         test_common.define_test(
             'power/Idle',
-            suites = ['bvt-perbuild', 'power_idle', 'power_monitoring', 'power_sanity'],
+            suites = ['bvt-perbuild', 'power_idle', 'power_monitoring', 'power_check'],
             main_package = 'autotest_lib.client.site_tests.power_Idle.power_Idle',
         ),
         test_common.define_test(
@@ -221,7 +221,7 @@ def define_tests():
         ),
         test_common.define_test(
             'power/VideoPlayback',
-            suites = ['power_daily', 'power_monitoring', 'power_sanity'],
+            suites = ['power_daily', 'power_monitoring', 'power_check'],
             main_package = 'autotest_lib.client.site_tests.power_VideoPlayback.power_VideoPlayback',
         ),
         test_common.define_test(
@@ -246,7 +246,7 @@ def define_tests():
         ),
         test_common.define_test(
             'power/WebGL',
-            suites = ['power_daily', 'power_monitoring', 'power_sanity'],
+            suites = ['power_daily', 'power_monitoring', 'power_check'],
             main_package = 'autotest_lib.client.site_tests.power_WebGL.power_WebGL',
         ),
         test_common.define_test(

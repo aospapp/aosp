@@ -15,13 +15,18 @@ limitations under the License.
 
 #include "tensorflow/compiler/xla/service/indexed_array_analysis.h"
 
+#include <algorithm>
+#include <numeric>
+#include <optional>
+#include <string>
+#include <utility>
+
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
-#include "absl/types/optional.h"
 #include "tensorflow/compiler/xla/map_util.h"
 #include "tensorflow/compiler/xla/service/hlo_evaluator.h"
 #include "tensorflow/compiler/xla/util.h"
@@ -37,7 +42,7 @@ using ScalarIndexedArray = Analysis::ScalarIndexedArray;
 using absl::StrJoin;
 }  // namespace
 
-string IndexedArrayAnalysis::ToString(Array* root, bool print_constants) {
+std::string IndexedArrayAnalysis::ToString(Array* root, bool print_constants) {
   switch (root->kind()) {
     case Array::kUnknown: {
       auto* unknown_tensor = root->as<UnknownArray>();
@@ -46,7 +51,7 @@ string IndexedArrayAnalysis::ToString(Array* root, bool print_constants) {
 
     case Array::kConstant: {
       if (print_constants) {
-        string contents = root->as<ConstantArray>()->literal()->ToString();
+        std::string contents = root->as<ConstantArray>()->literal()->ToString();
         return absl::StrCat("(constant ", ShapeUtil::HumanString(root->shape()),
                             " ", contents, ")");
       }
@@ -64,9 +69,9 @@ string IndexedArrayAnalysis::ToString(Array* root, bool print_constants) {
     case Array::kScalarIndexedConstant:
     case Array::kScalarIndexed: {
       auto* indexed_array = root->as<ScalarIndexedArray>();
-      string name = root->kind() == Array::kScalarIndexedConstant
-                        ? "scalar-indexed-const"
-                        : "scalar-indexed";
+      std::string name = root->kind() == Array::kScalarIndexedConstant
+                             ? "scalar-indexed-const"
+                             : "scalar-indexed";
       return absl::StrCat(
           "(", name, " ", ToString(indexed_array->source(), print_constants),
           " ", ToString(indexed_array->indices(), print_constants), " ",
@@ -129,7 +134,7 @@ Status IndexedArrayAnalysis::TraverseAndPopulateCache(
     }
   } while (!stack.empty());
 
-  return Status::OK();
+  return OkStatus();
 }
 
 StatusOr<Analysis::Array*> IndexedArrayAnalysis::ComputeArrayFor(
@@ -186,7 +191,7 @@ StatusOr<Analysis::Array*> IndexedArrayAnalysis::ComputeArrayForConstant(
 
 StatusOr<ScalarIndexedArray*> IndexedArrayAnalysis::FoldGatherOfGather(
     ScalarIndexedArray* source, Array* indices, int64_t source_dim,
-    absl::Span<const int64> output_dims, Shape shape) {
+    absl::Span<const int64_t> output_dims, Shape shape) {
   // We want to transform Gather(Gather(A, X), Y) => Gather(A, Gather(X, Y)).
   // `source` is the inner Gather(A, X).
 
@@ -221,7 +226,7 @@ StatusOr<ScalarIndexedArray*> IndexedArrayAnalysis::FoldGatherOfGather(
       FindIndex(source->output_dims(), source_dim);
   CHECK_NE(source_dim_for_index_array, source->output_dims().size());
 
-  std::vector<int64> output_dims_for_index_array;
+  std::vector<int64_t> output_dims_for_index_array;
   int64_t gathered_index_components_seen = 0;
   for (IndexComponent simulation_dim : simulated_index) {
     if (simulation_dim == IndexComponent::GatheredSecond) {
@@ -232,8 +237,8 @@ StatusOr<ScalarIndexedArray*> IndexedArrayAnalysis::FoldGatherOfGather(
     }
   }
 
-  std::vector<int64> dim_sizes_for_composed_index;
-  std::vector<int64> output_dims_for_new_gather;
+  std::vector<int64_t> dim_sizes_for_composed_index;
+  std::vector<int64_t> output_dims_for_new_gather;
   for (int64_t i = 0, e = simulated_index.size(); i < e; i++) {
     if (simulated_index[i] != IndexComponent::Ungathered) {
       dim_sizes_for_composed_index.push_back(shape.dimensions(i));
@@ -252,7 +257,7 @@ StatusOr<ScalarIndexedArray*> IndexedArrayAnalysis::FoldGatherOfGather(
 
 StatusOr<Analysis::Array*> IndexedArrayAnalysis::ComputeArrayForGather(
     const Shape& shape, const GatherDimensionNumbers& dim_numbers,
-    absl::Span<const int64> slice_sizes, Array* source, Array* indices) {
+    absl::Span<const int64_t> slice_sizes, Array* source, Array* indices) {
   if (dim_numbers.index_vector_dim() != indices->shape().dimensions_size()) {
     VLOG(3) << "ComputeArrayForGather: indices are not scalar";
     return nullptr;
@@ -288,7 +293,7 @@ StatusOr<Analysis::Array*> IndexedArrayAnalysis::ComputeArrayForGather(
   }
 
   int64_t source_dim = dim_numbers.start_index_map(0);
-  std::vector<int64> output_dims;
+  std::vector<int64_t> output_dims;
   for (int64_t i = 0, e = shape.dimensions_size(); i < e; i++) {
     if (!absl::c_binary_search(dim_numbers.offset_dims(), i)) {
       output_dims.push_back(i);
@@ -313,7 +318,8 @@ namespace {
 // Returns an index into `values` such that the product of the range
 // [values.begin()+index, values.end()) is equal to `product`.  If there is no
 // such index, return -1.  All integers in `values` must be positive.
-int64 FindSuffixWithProduct(absl::Span<const int64> values, int64_t product) {
+int64_t FindSuffixWithProduct(absl::Span<const int64_t> values,
+                              int64_t product) {
   DCHECK(absl::c_all_of(values, [](int64_t value) { return value > 0; }));
 
   int64_t current_product = 1;
@@ -330,8 +336,8 @@ int64 FindSuffixWithProduct(absl::Span<const int64> values, int64_t product) {
 }
 
 struct ReshapePassthroughDimPair {
-  int64 result_dim;
-  int64 operand_dim;
+  int64_t result_dim;
+  int64_t operand_dim;
 };
 
 // Returns a set of dimension pairs such for all (result_dim, operand_dim) in
@@ -342,8 +348,8 @@ struct ReshapePassthroughDimPair {
 // The returned vector of pairs is sorted in both the result_dim and the
 // operand_dim components.
 std::vector<ReshapePassthroughDimPair> ComputeReshapePassthroughDimPairs(
-    absl::Span<const int64> operand_shape,
-    absl::Span<const int64> result_shape) {
+    absl::Span<const int64_t> operand_shape,
+    absl::Span<const int64_t> result_shape) {
   // A reshape can be seen as an index mapping from output index to input index:
   //
   // (i_0, ..., i_n) = f(o_0, ..., o_m)
@@ -392,7 +398,7 @@ std::vector<ReshapePassthroughDimPair> ComputeReshapePassthroughDimPairs(
   absl::c_reverse(result);
 
   if (VLOG_IS_ON(3)) {
-    std::vector<string> result_strings;
+    std::vector<std::string> result_strings;
     absl::c_transform(result, std::back_inserter(result_strings),
                       [](ReshapePassthroughDimPair value) {
                         return absl::StrCat(value.result_dim, "->",
@@ -429,7 +435,7 @@ bool IsReshapePassthroughOperandDim(
 
 // Maps `operand_dim` which must be an passthrough operand dimension to its
 // corresponding passthrough result dimension based on `passthrough_dims`.
-int64 MapPassthroughOperandDimToResultDim(
+int64_t MapPassthroughOperandDimToResultDim(
     absl::Span<const ReshapePassthroughDimPair> passthrough_dims,
     int64_t operand_dim) {
   auto it = absl::c_find_if(
@@ -440,16 +446,16 @@ int64 MapPassthroughOperandDimToResultDim(
   return it->result_dim;
 }
 
-int64 FindSourcePositionForPassthroughResultDim(
-    absl::Span<const int64> operand_shape, absl::Span<const int64> result_shape,
-    int64_t source_passthrough_dim) {
+int64_t FindSourcePositionForPassthroughResultDim(
+    absl::Span<const int64_t> operand_shape,
+    absl::Span<const int64_t> result_shape, int64_t source_passthrough_dim) {
   VLOG(3) << "FindSourcePositionForPassthroughResultDim(["
           << StrJoin(operand_shape, ",") << "], [" << StrJoin(result_shape, ",")
           << "], " << source_passthrough_dim << ")";
 
   int64_t indexed_source_subarray_size =
       std::accumulate(operand_shape.begin() + source_passthrough_dim + 1,
-                      operand_shape.end(), 1LL, std::multiplies<int64>());
+                      operand_shape.end(), 1LL, std::multiplies<int64_t>());
 
   return FindSuffixWithProduct(result_shape, indexed_source_subarray_size);
 }
@@ -520,7 +526,7 @@ IndexedArrayAnalysis::ReshapeToRemoveDegenerateDims(
 }
 
 StatusOr<ScalarIndexedArray*> IndexedArrayAnalysis::ReshapeToAddDegenerateDims(
-    ScalarIndexedArray* operand, absl::Span<const int64> degenerate_dims) {
+    ScalarIndexedArray* operand, absl::Span<const int64_t> degenerate_dims) {
   if (degenerate_dims.empty()) {
     return operand;
   }
@@ -688,8 +694,8 @@ IndexedArrayAnalysis::FoldReshapeOfGatherNoDegenerateDims(
 
   std::vector<ReshapePassthroughDimPair> reshape_passthrough_dims =
       ComputeReshapePassthroughDimPairs(
-          /*operand_shape=*/AsInt64Slice(scalar_indexed->shape().dimensions()),
-          /*result_shape=*/AsInt64Slice(shape.dimensions()));
+          /*operand_shape=*/scalar_indexed->shape().dimensions(),
+          /*result_shape=*/shape.dimensions());
 
   auto is_reshape_passthrough_operand_dim = [&](int64_t operand_dim) {
     return IsReshapePassthroughOperandDim(reshape_passthrough_dims,
@@ -705,8 +711,8 @@ IndexedArrayAnalysis::FoldReshapeOfGatherNoDegenerateDims(
 
   // To compute the shape of the source for the new scalar-indexed node we're
   // going to create, we first "undo" the scalar-indexed operation.
-  std::vector<int64> new_scalar_indexed_source_shape(shape.dimensions().begin(),
-                                                     shape.dimensions().end());
+  std::vector<int64_t> new_scalar_indexed_source_shape(
+      shape.dimensions().begin(), shape.dimensions().end());
   for (int64_t i = scalar_indexed->output_dims().size() - 1; i >= 0; i--) {
     int64_t output_dim = scalar_indexed->output_dims()[i];
     int64_t output_dim_after_reshape = MapPassthroughOperandDimToResultDim(
@@ -725,8 +731,7 @@ IndexedArrayAnalysis::FoldReshapeOfGatherNoDegenerateDims(
 
   int64_t source_dim_for_new_scalar_indexed_node =
       FindSourcePositionForPassthroughResultDim(
-          /*operand_shape=*/AsInt64Slice(
-              scalar_indexed_source_shape.dimensions()),
+          /*operand_shape=*/scalar_indexed_source_shape.dimensions(),
           /*result_shape=*/new_scalar_indexed_source_shape,
           scalar_indexed->source_dim());
 
@@ -766,13 +771,12 @@ IndexedArrayAnalysis::FoldReshapeOfGatherNoDegenerateDims(
       scalar_indexed_source_shape.dimensions(scalar_indexed->source_dim()));
 
   CHECK_EQ(absl::c_accumulate(new_scalar_indexed_source_shape, 1LL,
-                              std::multiplies<int64>()),
+                              std::multiplies<int64_t>()),
            ShapeUtil::ElementsIn(scalar_indexed_source_shape));
 
   CHECK(IsReshapePassthroughOperandDim(
       ComputeReshapePassthroughDimPairs(
-          /*operand_shape=*/AsInt64Slice(
-              scalar_indexed_source_shape.dimensions()),
+          /*operand_shape=*/scalar_indexed_source_shape.dimensions(),
           /*result_shape=*/new_scalar_indexed_source_shape),
       scalar_indexed->source_dim()));
 
@@ -781,7 +785,7 @@ IndexedArrayAnalysis::FoldReshapeOfGatherNoDegenerateDims(
                                                result_dim);
   };
 
-  std::vector<int64> output_dims_for_new_scalar_indexed_node;
+  std::vector<int64_t> output_dims_for_new_scalar_indexed_node;
   absl::c_transform(scalar_indexed->output_dims(),
                     std::back_inserter(output_dims_for_new_scalar_indexed_node),
                     map_passthrough_operand_dim_to_result_dim);
@@ -815,9 +819,9 @@ StatusOr<Analysis::Array*> IndexedArrayAnalysis::ComputeArrayForReshape(
   }
 
   if (auto* constant_array = dynamic_cast<ConstantArray*>(operand)) {
-    TF_ASSIGN_OR_RETURN(Literal* const new_literal,
-                        TakeOwnership(constant_array->literal()->Reshape(
-                            AsInt64Slice(shape.dimensions()))));
+    TF_ASSIGN_OR_RETURN(
+        Literal* const new_literal,
+        TakeOwnership(constant_array->literal()->Reshape(shape.dimensions())));
     return Construct<ConstantArray>(new_literal);
   }
 
@@ -873,7 +877,7 @@ IndexedArrayAnalysis::ComputeArrayForElementwiseBinaryOp(HloOpcode opcode,
     return nullptr;
   }
 
-  absl::Span<const int64> broadcast_dims = broadcast_instr->dimensions();
+  absl::Span<const int64_t> broadcast_dims = broadcast_instr->dimensions();
   auto is_broadcasted_dim = [&](int64_t output_dim) {
     return absl::c_find(broadcast_dims, output_dim) == broadcast_dims.end();
   };
@@ -896,7 +900,7 @@ IndexedArrayAnalysis::ComputeArrayForElementwiseBinaryOp(HloOpcode opcode,
 
   // The scalar-indexed node "removes" the source dim and "inserts" the output
   // dims.  We do the opposite here to undo the scalar-indexed operation.
-  absl::Span<const int64> output_dims = scalar_indexed_const->output_dims();
+  absl::Span<const int64_t> output_dims = scalar_indexed_const->output_dims();
   for (int64_t i = output_dims.size() - 1; i >= 0; --i) {
     CHECK(simulated_index[output_dims[i]] == IndexComponent::Broadcasted);
     EraseAt(&simulated_index, output_dims[i]);
@@ -908,7 +912,7 @@ IndexedArrayAnalysis::ComputeArrayForElementwiseBinaryOp(HloOpcode opcode,
   // new_inner_broadcast_dims holds the broadcast dimensions for the inner
   // BinaryOp(Broadcast'(Const0), Const1).  We now translate simulated_index to
   // new_inner_broadcast_dims.
-  std::vector<int64> new_inner_broadcast_dims;
+  std::vector<int64_t> new_inner_broadcast_dims;
   for (int64_t i = 0; i < simulated_index.size(); i++) {
     if (simulated_index[i] == IndexComponent::NotBroadcasted) {
       new_inner_broadcast_dims.push_back(i);
@@ -940,8 +944,8 @@ IndexedArrayAnalysis::ComputeArrayForElementwiseBinaryOp(HloOpcode opcode,
   return Construct<ScalarIndexedConstantArray>(
       new_source, scalar_indexed_const->indices(),
       scalar_indexed_const->source_dim(),
-      std::vector<int64>(scalar_indexed_const->output_dims().begin(),
-                         scalar_indexed_const->output_dims().end()),
+      std::vector<int64_t>(scalar_indexed_const->output_dims().begin(),
+                           scalar_indexed_const->output_dims().end()),
       scalar_indexed_const->shape());
 }
 
@@ -972,15 +976,15 @@ namespace {
 
 // Returns the non-contracting non-batch dimension (as per `contracting_dims`
 // and `batch_dims`) if there is exactly one, otherwise returns nullopt.
-absl::optional<int64> GetOnlyNonContractingNonBatchDim(
-    int64_t rank, absl::Span<const int64> contracting_dims,
-    absl::Span<const int64> batch_dims) {
-  absl::optional<int64> result;
+std::optional<int64_t> GetOnlyNonContractingNonBatchDim(
+    int64_t rank, absl::Span<const int64_t> contracting_dims,
+    absl::Span<const int64_t> batch_dims) {
+  std::optional<int64_t> result;
   for (int64_t dim = 0; dim < rank; dim++) {
     if (!absl::c_linear_search(contracting_dims, dim) &&
         !absl::c_linear_search(batch_dims, dim)) {
       if (result.has_value()) {
-        return absl::nullopt;
+        return std::nullopt;
       }
       result = dim;
     }
@@ -998,9 +1002,9 @@ absl::optional<int64> GetOnlyNonContractingNonBatchDim(
 // of whatever operand `indexed_array` is to the dot (LHS or RHS).
 bool CanFoldDotIntoIndexedArray(
     absl::string_view tag, Analysis::ScalarIndexedConstantArray* indexed_array,
-    absl::Span<const int64> contracting_dims,
-    absl::Span<const int64> batch_dims) {
-  absl::optional<int64> non_contracting_non_batch_dim =
+    absl::Span<const int64_t> contracting_dims,
+    absl::Span<const int64_t> batch_dims) {
+  std::optional<int64_t> non_contracting_non_batch_dim =
       GetOnlyNonContractingNonBatchDim(indexed_array->shape().rank(),
                                        contracting_dims, batch_dims);
   if (!non_contracting_non_batch_dim.has_value()) {
@@ -1037,8 +1041,8 @@ IndexedArrayAnalysis::ComputeArrayForDotWithIndexedLhs(
           << ToString(rhs);
   if (!CanFoldDotIntoIndexedArray(
           "ComputeArrayForDotWithIndexedLhs", lhs, /*contracting_dims=*/
-          AsInt64Slice(dim_numbers.lhs_contracting_dimensions()),
-          /*batch_dims=*/AsInt64Slice(dim_numbers.lhs_batch_dimensions()))) {
+          dim_numbers.lhs_contracting_dimensions(),
+          /*batch_dims=*/dim_numbers.lhs_batch_dimensions())) {
     return nullptr;
   }
 
@@ -1072,8 +1076,8 @@ IndexedArrayAnalysis::ComputeArrayForDotWithIndexedRhs(
           << ToString(rhs);
   if (!CanFoldDotIntoIndexedArray(
           "ComputeArrayForDotWithIndexedRhs", rhs, /*contracting_dims=*/
-          AsInt64Slice(dim_numbers.rhs_contracting_dimensions()),
-          /*batch_dims=*/AsInt64Slice(dim_numbers.rhs_batch_dimensions()))) {
+          dim_numbers.rhs_contracting_dimensions(),
+          /*batch_dims=*/dim_numbers.rhs_batch_dimensions())) {
     return nullptr;
   }
 
@@ -1145,13 +1149,16 @@ absl::string_view IndexedArrayAnalysisPrinterPass::name() const {
   return "indexed-array-analysis-printer-pass";
 }
 
-StatusOr<bool> IndexedArrayAnalysisPrinterPass::Run(HloModule* module) {
+StatusOr<bool> IndexedArrayAnalysisPrinterPass::Run(
+    HloModule* module,
+    const absl::flat_hash_set<absl::string_view>& execution_threads) {
   if (!VLOG_IS_ON(2)) {
     return false;
   }
 
   IndexedArrayAnalysis analysis;
-  for (auto* computation : module->MakeNonfusionComputations()) {
+  for (auto* computation :
+       module->MakeNonfusionComputations(execution_threads)) {
     for (auto* instr : computation->instructions()) {
       TF_ASSIGN_OR_RETURN(Analysis::Array * t, analysis.GetArrayFor(instr));
       if (!dynamic_cast<UnknownArray*>(t) && !dynamic_cast<ConstantArray*>(t)) {

@@ -3,8 +3,8 @@
  * Copyright (c) 2014 Cyril Hrubis <chrubis@suse.cz>
  */
 
-#ifndef __READLINKAT_H__
-#define __READLINKAT_H__
+#ifndef LAPI_READLINKAT_H__
+#define LAPI_READLINKAT_H__
 
 #include "config.h"
 #include "lapi/syscalls.h"
@@ -14,8 +14,8 @@
 static inline int readlinkat(int dirfd, const char *pathname,
                              char *buf, size_t bufsiz)
 {
-	return ltp_syscall(__NR_readlinkat, dirfd, pathname, buf, bufsiz);
+	return tst_syscall(__NR_readlinkat, dirfd, pathname, buf, bufsiz);
 }
 #endif
 
-#endif /* __READLINKAT_H__ */
+#endif /* LAPI_READLINKAT_H__ */

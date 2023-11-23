@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -65,7 +66,7 @@ class BluetoothDBusAPITests(bluetooth_adapter_tests.BluetoothAdapterTests):
 
     def _compare_error(self, actual, expected):
         """ Helper function to compare error and log. """
-        if expected == actual:
+        if expected in actual:
             return True
         else:
             logging.debug("Expected error is %s Actual error is %s",expected,

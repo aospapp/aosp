@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auto.common.MoreElements;
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.squareup.javapoet.ClassName;
@@ -102,7 +103,15 @@ public abstract class BaseProcessor extends AbstractProcessor {
     // warning if any used option is not unsupported. This can happen when there is a module
     // which uses Hilt but lacks any @AndroidEntryPoint annotations.
     // See: https://github.com/google/dagger/issues/2040
-    return HiltCompilerOptions.getProcessorOptions();
+    return ImmutableSet.<String>builder()
+        .addAll(HiltCompilerOptions.getProcessorOptions())
+        .addAll(additionalProcessingOptions())
+        .build();
+  }
+
+  /** Returns additional processing options that should only be applied for a single processor. */
+  protected Set<String> additionalProcessingOptions() {
+    return ImmutableSet.of();
   }
 
   /** Used to perform initialization before each round of processing. */
@@ -150,6 +159,7 @@ public abstract class BaseProcessor extends AbstractProcessor {
     this.elements = processingEnv.getElementUtils();
     this.types = processingEnv.getTypeUtils();
     this.errorHandler = new ProcessorErrorHandler(processingEnvironment);
+    HiltCompilerOptions.checkWrongAndDeprecatedOptions(processingEnvironment);
   }
 
   @Override

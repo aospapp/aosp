@@ -8,6 +8,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from autotest_lib.server.site_tests.bluetooth_AdapterAdvMonitor import (
+        bluetooth_AdapterAdvMonitor)
 from autotest_lib.server.site_tests.bluetooth_AdapterAUHealth import (
         bluetooth_AdapterAUHealth)
 from autotest_lib.server.site_tests.bluetooth_AdapterCLHealth import (
@@ -25,6 +27,7 @@ from six.moves import range
 
 
 class bluetooth_AdapterQuickHealth(
+        bluetooth_AdapterAdvMonitor.bluetooth_AdapterAdvMonitor,
         bluetooth_AdapterAUHealth.bluetooth_AdapterAUHealth,
         bluetooth_AdapterCLHealth.bluetooth_AdapterCLHealth,
         bluetooth_AdapterLEHealth.bluetooth_AdapterLEHealth,
@@ -68,6 +71,7 @@ class bluetooth_AdapterQuickHealth(
             self.md_health_batch_run()
             self.sr_health_batch_run()
             self.au_health_batch_run()
+            self.advmon_health_batch_run()
             self.quick_test_print_summary()
 
         # End and cleanup test package

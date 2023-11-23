@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -12,20 +12,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import mox
 import os
 import shutil
-import six
 from six.moves import map
 from six.moves import range
 import tempfile
-import time
 import unittest
+from unittest import mock
+from unittest.mock import patch
 
 import common
 
 from autotest_lib.server import frontend
-from autotest_lib.server.cros.dynamic_suite import host_spec
 from autotest_lib.server.cros.dynamic_suite import job_status
 from autotest_lib.server.cros.dynamic_suite.fakes import FakeJob
 from autotest_lib.server.cros.dynamic_suite.fakes import FakeStatus
@@ -34,34 +32,47 @@ from autotest_lib.server.cros.dynamic_suite.fakes import FakeStatus
 DEFAULT_WAITTIMEOUT_MINS = 60 * 4
 
 
-class StatusTest(mox.MoxTestBase):
+class StatusTest(unittest.TestCase):
     """Unit tests for job_status.Status.
     """
 
 
     def setUp(self):
         super(StatusTest, self).setUp()
-        self.afe = self.mox.CreateMock(frontend.AFE)
-        self.tko = self.mox.CreateMock(frontend.TKO)
-
+        afe_patcher = patch.object(frontend, 'AFE')
+        self.afe = afe_patcher.start()
+        self.addCleanup(afe_patcher.stop)
+        tko_patcher = patch.object(frontend, 'TKO')
+        self.tko = tko_patcher.start()
+        self.addCleanup(tko_patcher.stop)
         self.tmpdir = tempfile.mkdtemp(suffix=type(self).__name__)
-
+        # These are called a few times, so we need to return via side_effect.
+        # for some reason side_effect doesn't like appending, so just keeping
+        # a list to then be added at once.
+        self.tko.get_job_test_statuses_from_db.side_effect = []
+        self.afe.run.side_effect = []
+        self.run_list = []
+        self.run_call_list = []
+        self.job_statuses = []
+        self.job_statuses_call_list = []
 
     def tearDown(self):
         super(StatusTest, self).tearDown()
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-
     def expect_yield_job_entries(self, job):
         entries = [s.entry for s in job.statuses]
-        self.afe.run('get_host_queue_entries',
-                     job=job.id).AndReturn(entries)
+        self.run_list.append(entries)
+        self.run_call_list.append(
+                mock.call('get_host_queue_entries', job=job.id))
+
         if True not in ['aborted' in e and e['aborted'] for e in entries]:
-            self.tko.get_job_test_statuses_from_db(job.id).AndReturn(
-                    job.statuses)
+            self.job_statuses.append(job.statuses)
+            self.job_statuses_call_list.append(mock.call(job.id))
 
-
-    def testJobResultWaiter(self):
+    @patch('autotest_lib.server.cros.dynamic_suite.job_status.JobResultWaiter._sleep'
+           )
+    def testJobResultWaiter(self, mock_sleep):
         """Should gather status and return records for job summaries."""
         jobs = [FakeJob(0, [FakeStatus('GOOD', 'T0', ''),
                             FakeStatus('GOOD', 'T1', '')]),
@@ -71,15 +82,15 @@ class StatusTest(mox.MoxTestBase):
                 FakeJob(3, [FakeStatus('FAIL', 'T0', 'broken')]),
                 FakeJob(4, [FakeStatus('ERROR', 'SERVER_JOB', 'server error'),
                             FakeStatus('GOOD', 'T0', '')]),]
-                # TODO: Write a better test for the case where we yield
-                # results for aborts vs cannot yield results because of
-                # a premature abort. Currently almost all client aborts
-                # have been converted to failures, and when aborts do happen
-                # they result in server job failures for which we always
-                # want results.
-                # FakeJob(5, [FakeStatus('ERROR', 'T0', 'gah', True)]),
-                # The next job shouldn't be recorded in the results.
-                # FakeJob(6, [FakeStatus('GOOD', 'SERVER_JOB', '')])]
+        # TODO: Write a better test for the case where we yield
+        # results for aborts vs cannot yield results because of
+        # a premature abort. Currently almost all client aborts
+        # have been converted to failures, and when aborts do happen
+        # they result in server job failures for which we always
+        # want results.
+        # FakeJob(5, [FakeStatus('ERROR', 'T0', 'gah', True)]),
+        # The next job shouldn't be recorded in the results.
+        # FakeJob(6, [FakeStatus('GOOD', 'SERVER_JOB', '')])]
         for status in jobs[4].statuses:
             status.entry['job'] = {'name': 'broken_infra_job'}
 
@@ -89,15 +100,22 @@ class StatusTest(mox.MoxTestBase):
                 [jobs[0], jobs[2]],
                 jobs[3:6]
             ]
-        self.mox.StubOutWithMock(time, 'sleep')
+
+        yield_list = []
+        called_list = []
+
         for yield_this in yield_values:
-            self.afe.get_jobs(id__in=list(job_id_set),
-                              finished=True).AndReturn(yield_this)
+            yield_list.append(yield_this)
+
+            # Expected list of calls...
+            called_list.append(
+                    mock.call(id__in=list(job_id_set), finished=True))
             for job in yield_this:
                 self.expect_yield_job_entries(job)
                 job_id_set.remove(job.id)
-            time.sleep(mox.IgnoreArg())
-        self.mox.ReplayAll()
+        self.afe.get_jobs.side_effect = yield_list
+        self.afe.run.side_effect = self.run_list
+        self.tko.get_job_test_statuses_from_db.side_effect = self.job_statuses
 
         waiter = job_status.JobResultWaiter(self.afe, self.tko)
         waiter.add_jobs(jobs)
@@ -106,6 +124,10 @@ class StatusTest(mox.MoxTestBase):
             for status in job.statuses:
                 self.assertTrue(True in list(map(status.equals_record, results)))
 
+        self.afe.get_jobs.assert_has_calls(called_list)
+        self.afe.run.assert_has_calls(self.run_call_list)
+        self.tko.get_job_test_statuses_from_db.assert_has_calls(
+                self.job_statuses_call_list)
 
     def testYieldSubdir(self):
         """Make sure subdir are properly set for test and non-test status."""
@@ -118,8 +140,10 @@ class StatusTest(mox.MoxTestBase):
                       parent_job_id=54321)
         for status in job.statuses:
             status.entry['job'] = {'name': job_name}
+
         self.expect_yield_job_entries(job)
-        self.mox.ReplayAll()
+        self.afe.run.side_effect = self.run_list
+        self.tko.get_job_test_statuses_from_db.side_effect = self.job_statuses
         results = list(job_status._yield_job_results(self.afe, self.tko, job))
         for i in range(len(results)):
             result = results[i]
@@ -132,29 +156,9 @@ class StatusTest(mox.MoxTestBase):
             self.assertEqual(results[i].test_name, expected_name)
             self.assertEqual(results[i].subdir, expected_subdir)
 
-
-    def _prepareForReporting(self, results):
-        def callable(x):
-            pass
-
-        record_entity = self.mox.CreateMock(callable)
-        group = self.mox.CreateMock(host_spec.HostGroup)
-
-        statuses = {}
-        all_bad = True not in six.itervalues(results)
-        for hostname, result in six.iteritems(results):
-            status = self.mox.CreateMock(job_status.Status)
-            status.record_all(record_entity).InAnyOrder('recording')
-            status.is_good().InAnyOrder('recording').AndReturn(result)
-            if not result:
-                status.test_name = 'test'
-                if not all_bad:
-                    status.override_status('WARN').InAnyOrder('recording')
-            else:
-                group.mark_host_success(hostname).InAnyOrder('recording')
-            statuses[hostname] = status
-
-        return (statuses, group, record_entity)
+        self.afe.run.assert_has_calls(self.run_call_list)
+        self.tko.get_job_test_statuses_from_db.assert_has_calls(
+                self.job_statuses_call_list)
 
 
 if __name__ == '__main__':

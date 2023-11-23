@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "platform_HighResTimers"
 PURPOSE = "Ensure the high resolution timers are working."
 CRITERIA = "Fails if no timers have nanosecond resolution."
@@ -12,6 +12,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "client"
 JOB_RETRIES = 2
+PY_VERSION = 3
 
 DOC = """
 Reads from /proc/timer_list to see if any reported timers have nanosecond

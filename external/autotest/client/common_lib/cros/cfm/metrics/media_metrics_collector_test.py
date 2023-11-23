@@ -1,8 +1,8 @@
 from autotest_lib.client.common_lib.cros.cfm.metrics import (
         media_metrics_collector)
 
-import mock
 import unittest
+from unittest import mock
 
 # pylint: disable=missing-docstring
 class MediaMetricsCollectorTest(unittest.TestCase):
@@ -30,9 +30,3 @@ class MediaMetricsCollectorTest(unittest.TestCase):
       data_point_collector.collect_snapshot()
       data_point_collector.collect_snapshot()
       self.assertEqual(3, len(data_point_collector.get_data_points()))
-
-
-
-
-
-

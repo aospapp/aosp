@@ -1,5 +1,8 @@
 package com.airbnb.lottie.animation.content;
 
+import static com.airbnb.lottie.utils.MiscUtils.clamp;
+
+import android.graphics.BlurMaskFilter;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.DashPathEffect;
@@ -8,6 +11,7 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PathMeasure;
 import android.graphics.RectF;
+
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 
@@ -16,6 +20,7 @@ import com.airbnb.lottie.LottieDrawable;
 import com.airbnb.lottie.LottieProperty;
 import com.airbnb.lottie.animation.LPaint;
 import com.airbnb.lottie.animation.keyframe.BaseKeyframeAnimation;
+import com.airbnb.lottie.animation.keyframe.DropShadowKeyframeAnimation;
 import com.airbnb.lottie.animation.keyframe.FloatKeyframeAnimation;
 import com.airbnb.lottie.animation.keyframe.IntegerKeyframeAnimation;
 import com.airbnb.lottie.animation.keyframe.ValueCallbackKeyframeAnimation;
@@ -31,8 +36,6 @@ import com.airbnb.lottie.value.LottieValueCallback;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.airbnb.lottie.utils.MiscUtils.clamp;
-
 public abstract class BaseStrokeContent
     implements BaseKeyframeAnimation.AnimationListener, KeyPathElementContent, DrawingContent {
 
@@ -46,11 +49,16 @@ public abstract class BaseStrokeContent
   private final float[] dashPatternValues;
   final Paint paint = new LPaint(Paint.ANTI_ALIAS_FLAG);
 
+
   private final BaseKeyframeAnimation<?, Float> widthAnimation;
   private final BaseKeyframeAnimation<?, Integer> opacityAnimation;
   private final List<BaseKeyframeAnimation<?, Float>> dashPatternAnimations;
   @Nullable private final BaseKeyframeAnimation<?, Float> dashPatternOffsetAnimation;
   @Nullable private BaseKeyframeAnimation<ColorFilter, ColorFilter> colorFilterAnimation;
+  @Nullable private BaseKeyframeAnimation<Float, Float> blurAnimation;
+  float blurMaskFilterRadius = 0f;
+
+  @Nullable private DropShadowKeyframeAnimation dropShadowAnimation;
 
   BaseStrokeContent(final LottieDrawable lottieDrawable, BaseLayer layer, Paint.Cap cap,
       Paint.Join join, float miterLimit, AnimatableIntegerValue opacity, AnimatableFloatValue width,
@@ -95,6 +103,15 @@ public abstract class BaseStrokeContent
     }
     if (dashPatternOffsetAnimation != null) {
       dashPatternOffsetAnimation.addUpdateListener(this);
+    }
+
+    if (layer.getBlurEffect() != null) {
+      blurAnimation = layer.getBlurEffect().getBlurriness().createAnimation();
+      blurAnimation.addUpdateListener(this);
+      layer.addAnimation(blurAnimation);
+    }
+    if (layer.getDropShadowEffect() != null) {
+      dropShadowAnimation = new DropShadowKeyframeAnimation(this, layer, layer.getDropShadowEffect());
     }
   }
 
@@ -157,6 +174,20 @@ public abstract class BaseStrokeContent
       paint.setColorFilter(colorFilterAnimation.getValue());
     }
 
+    if (blurAnimation != null) {
+      float blurRadius = blurAnimation.getValue();
+      if (blurRadius == 0f) {
+        paint.setMaskFilter(null);
+      } else if (blurRadius != blurMaskFilterRadius){
+        BlurMaskFilter blur = layer.getBlurMaskFilter(blurRadius);
+        paint.setMaskFilter(blur);
+      }
+      blurMaskFilterRadius = blurRadius;
+    }
+    if (dropShadowAnimation != null) {
+      dropShadowAnimation.applyTo(paint);
+    }
+
     for (int i = 0; i < pathGroups.size(); i++) {
       PathGroup pathGroup = pathGroups.get(i);
 
@@ -188,16 +219,25 @@ public abstract class BaseStrokeContent
     for (int j = pathGroup.paths.size() - 1; j >= 0; j--) {
       path.addPath(pathGroup.paths.get(j).getPath(), parentMatrix);
     }
+    float animStartValue = pathGroup.trimPath.getStart().getValue() / 100f;
+    float animEndValue = pathGroup.trimPath.getEnd().getValue() / 100f;
+    float animOffsetValue = pathGroup.trimPath.getOffset().getValue() / 360f;
+
+    // If the start-end is ~100, consider it to be the full path.
+    if (animStartValue < 0.01f && animEndValue > 0.99f) {
+      canvas.drawPath(path, paint);
+      L.endSection("StrokeContent#applyTrimPath");
+      return;
+    }
+
     pm.setPath(path, false);
     float totalLength = pm.getLength();
     while (pm.nextContour()) {
       totalLength += pm.getLength();
     }
-    float offsetLength = totalLength * pathGroup.trimPath.getOffset().getValue() / 360f;
-    float startLength =
-        totalLength * pathGroup.trimPath.getStart().getValue() / 100f + offsetLength;
-    float endLength =
-        totalLength * pathGroup.trimPath.getEnd().getValue() / 100f + offsetLength;
+    float offsetLength = totalLength * animOffsetValue;
+    float startLength = totalLength * animStartValue + offsetLength;
+    float endLength = Math.min(totalLength * animEndValue + offsetLength, startLength + totalLength - 1f);
 
     float currentLength = 0;
     for (int j = pathGroup.paths.size() - 1; j >= 0; j--) {
@@ -314,6 +354,10 @@ public abstract class BaseStrokeContent
     } else if (property == LottieProperty.STROKE_WIDTH) {
       widthAnimation.setValueCallback((LottieValueCallback<Float>) callback);
     } else if (property == LottieProperty.COLOR_FILTER) {
+      if (colorFilterAnimation != null) {
+        layer.removeAnimation(colorFilterAnimation);
+      }
+
       if (callback == null) {
         colorFilterAnimation = null;
       } else {
@@ -322,6 +366,25 @@ public abstract class BaseStrokeContent
         colorFilterAnimation.addUpdateListener(this);
         layer.addAnimation(colorFilterAnimation);
       }
+    } else if (property == LottieProperty.BLUR_RADIUS) {
+      if (blurAnimation != null) {
+        blurAnimation.setValueCallback((LottieValueCallback<Float>) callback);
+      } else {
+        blurAnimation =
+            new ValueCallbackKeyframeAnimation<>((LottieValueCallback<Float>) callback);
+        blurAnimation.addUpdateListener(this);
+        layer.addAnimation(blurAnimation);
+      }
+    } else if (property == LottieProperty.DROP_SHADOW_COLOR && dropShadowAnimation != null) {
+      dropShadowAnimation.setColorCallback((LottieValueCallback<Integer>) callback);
+    } else if (property == LottieProperty.DROP_SHADOW_OPACITY && dropShadowAnimation != null) {
+      dropShadowAnimation.setOpacityCallback((LottieValueCallback<Float>) callback);
+    } else if (property == LottieProperty.DROP_SHADOW_DIRECTION && dropShadowAnimation != null) {
+      dropShadowAnimation.setDirectionCallback((LottieValueCallback<Float>) callback);
+    } else if (property == LottieProperty.DROP_SHADOW_DISTANCE && dropShadowAnimation != null) {
+      dropShadowAnimation.setDistanceCallback((LottieValueCallback<Float>) callback);
+    } else if (property == LottieProperty.DROP_SHADOW_RADIUS && dropShadowAnimation != null) {
+      dropShadowAnimation.setRadiusCallback((LottieValueCallback<Float>) callback);
     }
   }
 

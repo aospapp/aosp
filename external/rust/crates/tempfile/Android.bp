@@ -42,17 +42,19 @@ rust_library {
     host_supported: true,
     crate_name: "tempfile",
     cargo_env_compat: true,
-    cargo_pkg_version: "3.2.0",
+    cargo_pkg_version: "3.3.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
         "libcfg_if",
+        "libfastrand",
         "liblibc",
-        "librand",
         "libremove_dir_all",
     ],
     apex_available: [
         "//apex_available:platform",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
 }

@@ -1,0 +1,41 @@
+From 27fc4ecc69aab7b31e23aefbeed10b252b176d5a Mon Sep 17 00:00:00 2001
+From: Chris Wailes <chriswailes@google.com>
+Date: Thu, 9 Feb 2023 23:15:26 -0800
+Subject: [PATCH] Fix an error in the documentation strings
+
+This file explicitly turns on this warning meaning that it can't be
+overridden by command line lint arguments.  The rustdoc from version
+1.66.1 will fail without this patch.
+
+Test: m rustdoc
+Bug: 263153841
+Change-Id: Idcf3779cbd46300691232302bba10c46143a2dbc
+---
+ src/decode.rs | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/decode.rs b/src/decode.rs
+index e349240..3f627c7 100644
+--- a/src/decode.rs
++++ b/src/decode.rs
+@@ -71,7 +71,7 @@ impl error::Error for DecodeError {
+ }
+ 
+ ///Decode from string reference as octets.
+-///Returns a Result containing a Vec<u8>.
++///Returns a Result containing a `Vec<u8>`.
+ ///Convenience `decode_config(input, base64::STANDARD);`.
+ ///
+ ///# Example
+@@ -90,7 +90,7 @@ pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
+ }
+ 
+ ///Decode from string reference as octets.
+-///Returns a Result containing a Vec<u8>.
++///Returns a Result containing a `Vec<u8>`.
+ ///
+ ///# Example
+ ///
+-- 
+2.39.1.581.gbfd45094c4-goog
+

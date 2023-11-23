@@ -30,7 +30,6 @@ import dagger.hilt.processor.internal.Processors;
 import dagger.internal.codegen.kotlin.KotlinMetadataUtil;
 import java.util.Collection;
 import java.util.Optional;
-import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -125,7 +124,7 @@ abstract class BindValueMetadata {
       }
 
       ProcessorErrors.checkState(
-          !Processors.hasAnnotation(element, Inject.class),
+          !Processors.hasAnnotation(element, ClassNames.INJECT),
           element,
           "@%s fields cannot be used with @Inject annotation. Found %s",
           annotationClassName.simpleName(),

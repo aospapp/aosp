@@ -1,13 +1,19 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import subprocess
 
-import pm_errors
-import state_machine
+import six
 
+from autotest_lib.client.cros.cellular.pseudomodem import pm_errors
+from autotest_lib.client.cros.cellular.pseudomodem import state_machine
 from autotest_lib.client.cros.cellular import mm1_constants
 
 class ConnectMachine(state_machine.StateMachine):
@@ -117,9 +123,9 @@ class ConnectMachine(state_machine.StateMachine):
         bearer = None
         bearer_path = None
         bearer_props = {}
-        for p, b in self._modem.bearers.iteritems():
+        for p, b in six.iteritems(self._modem.bearers):
             # assemble bearer props
-            for key, val in self.connect_props.iteritems():
+            for key, val in six.iteritems(self.connect_props):
                 if key in modem.ALLOWED_BEARER_PROPERTIES:
                     bearer_props[key] = val
             if (b.bearer_properties == bearer_props):

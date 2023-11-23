@@ -15,6 +15,7 @@
 
 #include <memory>
 
+#include "absl/strings/string_view.h"
 #include "api/audio_codecs/builtin_audio_decoder_factory.h"
 #include "api/audio_codecs/builtin_audio_encoder_factory.h"
 #include "modules/audio_coding/include/audio_coding_module.h"
@@ -51,7 +52,7 @@ Sender::Sender()
 
 void Sender::Setup(AudioCodingModule* acm,
                    RTPStream* rtpStream,
-                   std::string in_file_name,
+                   absl::string_view in_file_name,
                    int in_sample_rate,
                    int payload_type,
                    SdpAudioFormat format) {
@@ -103,15 +104,13 @@ Receiver::Receiver()
 
 void Receiver::Setup(AudioCodingModule* acm,
                      RTPStream* rtpStream,
-                     std::string out_file_name,
+                     absl::string_view out_file_name,
                      size_t channels,
                      int file_num) {
   EXPECT_EQ(0, acm->InitializeReceiver());
 
   if (channels == 1) {
-    acm->SetReceiveCodecs({{103, {"ISAC", 16000, 1}},
-                           {104, {"ISAC", 32000, 1}},
-                           {107, {"L16", 8000, 1}},
+    acm->SetReceiveCodecs({{107, {"L16", 8000, 1}},
                            {108, {"L16", 16000, 1}},
                            {109, {"L16", 32000, 1}},
                            {0, {"PCMU", 8000, 1}},
@@ -231,7 +230,6 @@ EncodeDecodeTest::EncodeDecodeTest() = default;
 
 void EncodeDecodeTest::Perform() {
   const std::map<int, SdpAudioFormat> send_codecs = {
-      {103, {"ISAC", 16000, 1}}, {104, {"ISAC", 32000, 1}},
       {107, {"L16", 8000, 1}},   {108, {"L16", 16000, 1}},
       {109, {"L16", 32000, 1}},  {0, {"PCMU", 8000, 1}},
       {8, {"PCMA", 8000, 1}},

@@ -26,7 +26,7 @@
 #include "libANGLE/renderer/gl/TextureGL.h"
 #include "libANGLE/renderer/gl/formatutilsgl.h"
 #include "libANGLE/renderer/gl/renderergl_utils.h"
-#include "platform/FeaturesGL.h"
+#include "platform/FeaturesGL_autogen.h"
 #include "platform/PlatformMethods.h"
 
 using namespace gl;
@@ -262,7 +262,7 @@ bool IsEmulatedAlphaChannelTextureAttachment(const FramebufferAttachment *attach
     return textureGL->hasEmulatedAlphaChannel(attachment->getTextureImageIndex());
 }
 
-class ANGLE_NO_DISCARD ScopedEXTTextureNorm16ReadbackWorkaround
+class [[nodiscard]] ScopedEXTTextureNorm16ReadbackWorkaround
 {
   public:
     ScopedEXTTextureNorm16ReadbackWorkaround()
@@ -415,16 +415,14 @@ bool IsValidUnsignedShortReadPixelsFormat(GLenum readFormat, const gl::Context *
 
 }  // namespace
 
-FramebufferGL::FramebufferGL(const gl::FramebufferState &data,
-                             GLuint id,
-                             bool isDefault,
-                             bool emulatedAlpha)
+FramebufferGL::FramebufferGL(const gl::FramebufferState &data, GLuint id, bool emulatedAlpha)
     : FramebufferImpl(data),
       mFramebufferID(id),
-      mIsDefault(isDefault),
       mHasEmulatedAlphaAttachment(emulatedAlpha),
       mAppliedEnabledDrawBuffers(1)
-{}
+{
+    ASSERT((isDefault() && id == 0) || !isDefault());
+}
 
 FramebufferGL::~FramebufferGL()
 {
@@ -433,9 +431,13 @@ FramebufferGL::~FramebufferGL()
 
 void FramebufferGL::destroy(const gl::Context *context)
 {
-    StateManagerGL *stateManager = GetStateManagerGL(context);
-    stateManager->deleteFramebuffer(mFramebufferID);
-    mFramebufferID = 0;
+    if (mFramebufferID)
+    {
+        ASSERT(!isDefault());
+        StateManagerGL *stateManager = GetStateManagerGL(context);
+        stateManager->deleteFramebuffer(mFramebufferID);
+        mFramebufferID = 0;
+    }
 }
 
 angle::Result FramebufferGL::discard(const gl::Context *context,
@@ -1253,7 +1255,7 @@ angle::Result FramebufferGL::syncState(const gl::Context *context,
                                        gl::Command command)
 {
     // Don't need to sync state for the default FBO.
-    if (mIsDefault)
+    if (isDefault())
     {
         return angle::Result::Continue;
     }
@@ -1325,8 +1327,17 @@ angle::Result FramebufferGL::syncState(const gl::Context *context,
                                                  mState.getDefaultLayers());
                 break;
             case Framebuffer::DIRTY_BIT_FLIP_Y:
-                functions->framebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_FLIP_Y_MESA,
-                                                 gl::ConvertToGLBoolean(mState.getFlipY()));
+                ASSERT(functions->framebufferParameteri || functions->framebufferParameteriMESA);
+                if (functions->framebufferParameteri)
+                {
+                    functions->framebufferParameteri(GL_FRAMEBUFFER, GL_FRAMEBUFFER_FLIP_Y_MESA,
+                                                     gl::ConvertToGLBoolean(mState.getFlipY()));
+                }
+                else
+                {
+                    functions->framebufferParameteriMESA(GL_FRAMEBUFFER, GL_FRAMEBUFFER_FLIP_Y_MESA,
+                                                         gl::ConvertToGLBoolean(mState.getFlipY()));
+                }
                 break;
             default:
             {
@@ -1368,22 +1379,12 @@ angle::Result FramebufferGL::syncState(const gl::Context *context,
     return angle::Result::Continue;
 }
 
-GLuint FramebufferGL::getFramebufferID() const
-{
-    return mFramebufferID;
-}
-
 void FramebufferGL::updateDefaultFramebufferID(GLuint framebufferID)
 {
     // We only update framebufferID for a default frambuffer, and the framebufferID is created
     // externally. ANGLE doesn't owne it.
     ASSERT(isDefault());
     mFramebufferID = framebufferID;
-}
-
-bool FramebufferGL::isDefault() const
-{
-    return mIsDefault;
 }
 
 bool FramebufferGL::hasEmulatedAlphaChannelTextureAttachment() const
@@ -1396,8 +1397,14 @@ void FramebufferGL::syncClearState(const gl::Context *context, GLbitfield mask)
     StateManagerGL *stateManager      = GetStateManagerGL(context);
     const angle::FeaturesGL &features = GetFeaturesGL(context);
 
+    // Clip origin must not affect scissor box but some drivers flip it for clear ops.
+    if (context->getState().isScissorTestEnabled())
+    {
+        stateManager->setClipControl(ClipOrigin::LowerLeft, ClipDepthMode::NegativeOneToOne);
+    }
+
     if (features.doesSRGBClearsOnLinearFramebufferAttachments.enabled &&
-        (mask & GL_COLOR_BUFFER_BIT) != 0 && !mIsDefault)
+        (mask & GL_COLOR_BUFFER_BIT) != 0 && !isDefault())
     {
         bool hasSRGBAttachment = false;
         for (const auto &attachment : mState.getColorAttachments())
@@ -1413,7 +1420,7 @@ void FramebufferGL::syncClearState(const gl::Context *context, GLbitfield mask)
     }
     else
     {
-        stateManager->setFramebufferSRGBEnabled(context, !mIsDefault);
+        stateManager->setFramebufferSRGBEnabled(context, !isDefault());
     }
 }
 
@@ -1424,8 +1431,14 @@ void FramebufferGL::syncClearBufferState(const gl::Context *context,
     StateManagerGL *stateManager      = GetStateManagerGL(context);
     const angle::FeaturesGL &features = GetFeaturesGL(context);
 
+    // Clip origin must not affect scissor box but some drivers flip it for clear ops.
+    if (context->getState().isScissorTestEnabled())
+    {
+        stateManager->setClipControl(ClipOrigin::LowerLeft, ClipDepthMode::NegativeOneToOne);
+    }
+
     if (features.doesSRGBClearsOnLinearFramebufferAttachments.enabled && buffer == GL_COLOR &&
-        !mIsDefault)
+        !isDefault())
     {
         // If doing a clear on a color buffer, set SRGB blend enabled only if the color buffer
         // is an SRGB format.
@@ -1449,7 +1462,7 @@ void FramebufferGL::syncClearBufferState(const gl::Context *context,
     }
     else
     {
-        stateManager->setFramebufferSRGBEnabled(context, !mIsDefault);
+        stateManager->setFramebufferSRGBEnabled(context, !isDefault());
     }
 }
 
@@ -1458,7 +1471,7 @@ bool FramebufferGL::modifyInvalidateAttachmentsForEmulatedDefaultFBO(
     const GLenum *attachments,
     std::vector<GLenum> *modifiedAttachments) const
 {
-    bool needsModification = mIsDefault && mFramebufferID != 0;
+    bool needsModification = isDefault() && mFramebufferID != 0;
     if (!needsModification)
     {
         return false;

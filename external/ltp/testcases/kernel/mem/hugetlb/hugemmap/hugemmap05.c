@@ -185,9 +185,6 @@ static void setup(void)
 {
 	unsigned long hpages;
 
-	if (tst_hugepages != NR_HPAGES)
-		tst_brk(TCONF, "Not enough hugepages for testing!");
-
 	hugepagesize = SAFE_READ_MEMINFO("Hugepagesize:") * 1024;
 	init_sys_sz_paths();
 
@@ -299,13 +296,13 @@ static struct tst_test test = {
 	.needs_root = 1,
 	.needs_tmpdir = 1,
 	.options = (struct tst_option[]) {
-		{"s",  &opt_sysfs, "-s        Setup hugepages from sysfs"},
-		{"m",  &opt_shmid, "-m        Reserve hugepages by shmget"},
-		{"a:", &opt_alloc, "-a        Number of overcommint hugepages"},
+		{"s",  &opt_sysfs, "Setup hugepages from sysfs"},
+		{"m",  &opt_shmid, "Reserve hugepages by shmget"},
+		{"a:", &opt_alloc, "Number of overcommint hugepages"},
 		{}
 },
 	.setup = setup,
 	.cleanup = cleanup,
 	.test_all = test_overcommit,
-	.request_hugepages = NR_HPAGES,
+	.hugepages = {NR_HPAGES, TST_NEEDS},
 };

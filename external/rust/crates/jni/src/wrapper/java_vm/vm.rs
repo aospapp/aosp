@@ -12,6 +12,7 @@ use crate::{errors::*, sys, JNIEnv};
 
 #[cfg(feature = "invocation")]
 use crate::InitArgs;
+use std::thread::Thread;
 
 /// The Java VM, providing [Invocation API][invocation-api] support.
 ///
@@ -58,7 +59,7 @@ use crate::InitArgs;
 /// in the Cargo.toml:
 ///
 /// ```toml
-/// jni = { version = "0.19.0", features = ["invocation"] }
+/// jni = { version = "0.20.0", features = ["invocation"] }
 /// ```
 ///
 /// The application will require linking to the dynamic `jvm` library, which is distributed
@@ -131,6 +132,7 @@ use crate::InitArgs;
 /// [actd]: struct.JavaVM.html#method.attach_current_thread_as_daemon
 /// [spec-references]: https://docs.oracle.com/en/java/javase/12/docs/specs/jni/design.html#referencing-java-objects
 #[repr(transparent)]
+#[derive(Debug)]
 pub struct JavaVM(*mut sys::JavaVM);
 
 unsafe impl Send for JavaVM {}
@@ -348,11 +350,20 @@ enum ThreadType {
 #[derive(Debug)]
 struct InternalAttachGuard {
     java_vm: *mut sys::JavaVM,
+    /// A call std::thread::current() function can panic in case the local data has been destroyed
+    /// before the thead local variables. The possibility of this happening depends on the platform
+    /// implementation of the crate::sys_common::thread_local_dtor::register_dtor_fallback.
+    /// The InternalAttachGuard is a thread-local vairable, so capture the thread meta-data
+    /// during creation
+    thread: Thread,
 }
 
 impl InternalAttachGuard {
     fn new(java_vm: *mut sys::JavaVM) -> Self {
-        Self { java_vm }
+        Self {
+            java_vm,
+            thread: current(),
+        }
     }
 
     /// Stores guard in thread local storage.
@@ -384,8 +395,8 @@ impl InternalAttachGuard {
 
         debug!(
             "Attached thread {} ({:?}). {} threads attached",
-            current().name().unwrap_or_default(),
-            current().id(),
+            self.thread.name().unwrap_or_default(),
+            self.thread.id(),
             ATTACHED_THREADS.load(Ordering::SeqCst)
         );
 
@@ -406,8 +417,8 @@ impl InternalAttachGuard {
 
         debug!(
             "Attached daemon thread {} ({:?}). {} threads attached",
-            current().name().unwrap_or_default(),
-            current().id(),
+            self.thread.name().unwrap_or_default(),
+            self.thread.id(),
             ATTACHED_THREADS.load(Ordering::SeqCst)
         );
 
@@ -421,8 +432,8 @@ impl InternalAttachGuard {
         ATTACHED_THREADS.fetch_sub(1, Ordering::SeqCst);
         debug!(
             "Detached thread {} ({:?}). {} threads remain attached",
-            current().name().unwrap_or_default(),
-            current().id(),
+            self.thread.name().unwrap_or_default(),
+            self.thread.id(),
             ATTACHED_THREADS.load(Ordering::SeqCst)
         );
 
@@ -436,8 +447,8 @@ impl Drop for InternalAttachGuard {
             error!(
                 "Error detaching current thread: {:#?}\nThread {} id={:?}",
                 e,
-                current().name().unwrap_or_default(),
-                current().id(),
+                self.thread.name().unwrap_or_default(),
+                self.thread.id(),
             );
         }
     }

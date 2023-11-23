@@ -31,6 +31,7 @@ import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.number.DecimalFormatProperties;
+import android.icu.impl.number.PatternStringParser;
 import android.icu.text.CompactDecimalFormat;
 import android.icu.text.CompactDecimalFormat.CompactStyle;
 import android.icu.text.DecimalFormat;
@@ -150,6 +151,11 @@ public class CompactDecimalFormatTest extends TestFmwk {
             {1234567890123f, "1.2兆"},
             {12345678901234f, "12兆"},
             {123456789012345f, "120兆"},
+            {1234567890123456f, "1200兆"},
+            {12345678901234567f, "1.2京"},
+            {123456789012345678f, "12京"},
+            {1234567890123456789f, "120京"},
+            {12345678901234567890f, "1200京"},
     };
 
     Object[][] ChineseTestData = {
@@ -672,10 +678,12 @@ public class CompactDecimalFormatTest extends TestFmwk {
         cdf.setProperties(new PropertySetter() {
             @Override
             public void set(DecimalFormatProperties props) {
+                PatternStringParser.parseToExistingProperties(
+                    "0 foo", props, PatternStringParser.IGNORE_ROUNDING_ALWAYS);
                 props.setCompactCustomData(customData);
             }
         });
-        assertEquals("Below custom range", "123", cdf.format(123));
+        assertEquals("Below custom range", "123 foo", cdf.format(123));
         assertEquals("Plural form one", "1 qwerty", cdf.format(1000));
         assertEquals("Plural form other", "1.2 dvorak", cdf.format(1234));
         assertEquals("Above custom range", "12 dvorak", cdf.format(12345));

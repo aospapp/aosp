@@ -64,15 +64,15 @@ def exec_file(filename, globals_, locals_):
     return six.exec_(code_obj, globals_, locals_)
 
 
-def config_parser():
+def config_parser(args=None):
     """config_parser returns a non-strict config parser.
 
     Unfortunately, in six configparser is not same between 2/3. For our .ini's
     we do not want it to be strict (ie, error upon duplicates).
     """
     if six.PY3:
-        return six.moves.configparser.ConfigParser(strict=False)
-    return six.moves.configparser.ConfigParser()
+        return six.moves.configparser.ConfigParser(args, strict=False)
+    return six.moves.configparser.ConfigParser(args)
 
 
 def ensure_text(s, encoding='utf-8', errors='strict'):

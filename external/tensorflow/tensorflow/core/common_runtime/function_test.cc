@@ -38,6 +38,7 @@ limitations under the License.
 #include "tensorflow/core/common_runtime/step_stats_collector.h"
 #include "tensorflow/core/framework/function.h"
 #include "tensorflow/core/framework/function_testlib.h"
+#include "tensorflow/core/framework/metrics.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/op_requires.h"
@@ -164,7 +165,7 @@ class FunctionLibraryRuntimeTest : public ::testing::Test {
     for (const auto& fdef : flib) *(proto.add_function()) = fdef;
     lib_def_.reset(new FunctionLibraryDefinition(OpRegistry::Global(), proto));
     OptimizerOptions opts;
-    device_mgr_ = absl::make_unique<StaticDeviceMgr>(std::move(devices));
+    device_mgr_ = std::make_unique<StaticDeviceMgr>(std::move(devices));
     pflr_.reset(new ProcessFunctionLibraryRuntime(
         device_mgr_.get(), Env::Default(), &options.config,
         TF_GRAPH_DEF_VERSION, lib_def_.get(), opts, /*thread_pool=*/nullptr,
@@ -172,7 +173,7 @@ class FunctionLibraryRuntimeTest : public ::testing::Test {
         Rendezvous::Factory{
             [](const int64_t, const DeviceMgr* device_mgr, Rendezvous** r) {
               *r = new IntraProcessRendezvous(device_mgr);
-              return Status::OK();
+              return OkStatus();
             }}));
     flr0_ = pflr_->GetFLR("/job:localhost/replica:0/task:0/cpu:0");
     flr1_ = pflr_->GetFLR("/job:localhost/replica:0/task:0/cpu:1");
@@ -203,7 +204,7 @@ class FunctionLibraryRuntimeTest : public ::testing::Test {
     for (size_t i = 0; i < rets.size(); ++i) {
       *rets[i] = out[i];
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   Status Instantiate(FunctionLibraryRuntime* flr, const string& name,
@@ -273,7 +274,7 @@ class FunctionLibraryRuntimeTest : public ::testing::Test {
       return status;
     }
 
-    return Status::OK();
+    return OkStatus();
   }
 
   Status InstantiateAndRunViaCallFrameInterface(FunctionLibraryRuntime* flr,
@@ -438,7 +439,7 @@ class ConsumeArgumentCallFrame : public CallFrameInterface {
   Status SetRetval(int index, const Tensor& val) override {
     CHECK_EQ(index, 0);
     *retval_ = val;
-    return Status::OK();
+    return OkStatus();
   }
 
  private:
@@ -448,6 +449,8 @@ class ConsumeArgumentCallFrame : public CallFrameInterface {
 
 TEST_F(FunctionLibraryRuntimeTest, XTimesTwo_ConsumeArgument_DefaultExecutor) {
   Init({test::function::XTimesTwo()});
+  auto default_executor = metrics::TestDelta("flr_executor", "default");
+  auto single_threaded = metrics::TestDelta("flr_executor", "single_threaded");
   FunctionLibraryRuntime::Handle handle;
   TF_CHECK_OK(flr0_->Instantiate(
       "XTimesTwo", test::function::Attrs({{"T", DT_FLOAT}}), &handle));
@@ -469,11 +472,15 @@ TEST_F(FunctionLibraryRuntimeTest, XTimesTwo_ConsumeArgument_DefaultExecutor) {
   EXPECT_FALSE(x.IsInitialized());
 
   TF_CHECK_OK(flr0_->ReleaseHandle(handle));
+  EXPECT_GT(default_executor.Get(), 0);
+  EXPECT_EQ(single_threaded.Get(), 0);
 }
 
 TEST_F(FunctionLibraryRuntimeTest,
        XTimesTwo_ConsumeArgument_SingleThreadedExecutor) {
   Init({test::function::XTimesTwo()});
+  auto default_executor = metrics::TestDelta("flr_executor", "default");
+  auto single_threaded = metrics::TestDelta("flr_executor", "single_threaded");
   FunctionLibraryRuntime::InstantiateOptions instantiate_opts;
   instantiate_opts.executor_type = "SINGLE_THREADED_EXECUTOR";
   FunctionLibraryRuntime::Handle handle;
@@ -498,6 +505,8 @@ TEST_F(FunctionLibraryRuntimeTest,
   EXPECT_FALSE(x.IsInitialized());
 
   TF_CHECK_OK(flr0_->ReleaseHandle(handle));
+  EXPECT_EQ(default_executor.Get(), 0);
+  EXPECT_GT(single_threaded.Get(), 0);
 }
 
 TEST_F(FunctionLibraryRuntimeTest, XTimesN) {
@@ -844,10 +853,10 @@ TEST_F(FunctionLibraryRuntimeTest, ExpandInlineFunctions) {
   {
     Scope s = Scope::NewRootScope();
     auto x = ops::_Arg(s.WithOpName("x"), DT_FLOAT, 0);
-    auto x4_x2_two = ops::Const<int64>(s.WithOpName("x4/x2/two"), int64{2});
-    auto x4_y_two = ops::Const<int64>(s.WithOpName("x4/y/two"), int64{2});
-    auto y_x2_two = ops::Const<int64>(s.WithOpName("y/x2/two"), int64{2});
-    auto y_y_two = ops::Const<int64>(s.WithOpName("y/y/two"), int64{2});
+    auto x4_x2_two = ops::Const<int64_t>(s.WithOpName("x4/x2/two"), int64_t{2});
+    auto x4_y_two = ops::Const<int64_t>(s.WithOpName("x4/y/two"), int64_t{2});
+    auto y_x2_two = ops::Const<int64_t>(s.WithOpName("y/x2/two"), int64_t{2});
+    auto y_y_two = ops::Const<int64_t>(s.WithOpName("y/y/two"), int64_t{2});
     auto x4_x2_scale =
         ops::Cast(s.WithOpName("x4/x2/scale"), x4_x2_two, DT_FLOAT);
     auto x4_y_scale = ops::Cast(s.WithOpName("x4/y/scale"), x4_y_two, DT_FLOAT);
@@ -890,10 +899,10 @@ TEST_F(FunctionLibraryRuntimeTest, ExpandInlineFunctions) {
   {
     Scope s = Scope::NewRootScope();
     auto x = ops::_Arg(s.WithOpName("x"), DT_FLOAT, 0);
-    auto x4_x2_two = ops::Const<int64>(s.WithOpName("x4/x2/two"), int64{2});
-    auto x4_y_two = ops::Const<int64>(s.WithOpName("x4/y/two"), int64{2});
-    auto y_x2_two = ops::Const<int64>(s.WithOpName("y/x2/two"), int64{2});
-    auto y_y_two = ops::Const<int64>(s.WithOpName("y/y/two"), int64{2});
+    auto x4_x2_two = ops::Const<int64_t>(s.WithOpName("x4/x2/two"), int64_t{2});
+    auto x4_y_two = ops::Const<int64_t>(s.WithOpName("x4/y/two"), int64_t{2});
+    auto y_x2_two = ops::Const<int64_t>(s.WithOpName("y/x2/two"), int64_t{2});
+    auto y_y_two = ops::Const<int64_t>(s.WithOpName("y/y/two"), int64_t{2});
     auto x4_x2_scale =
         ops::Cast(s.WithOpName("x4/x2/scale"), x4_x2_two, DT_FLOAT);
     auto x4_y_scale = ops::Cast(s.WithOpName("x4/y/scale"), x4_y_two, DT_FLOAT);
@@ -971,7 +980,7 @@ TEST_F(FunctionLibraryRuntimeTest, ExpandInlineFunctionsWithInputControlEdges) {
         s.WithOpName("Func/b/x2/input/_4").WithControlDependencies({func3}),
         func1);
     auto b_x2_two = ops::Const(
-        s.WithOpName("b/x2/two").WithControlDependencies({func3}), int64{2});
+        s.WithOpName("b/x2/two").WithControlDependencies({func3}), int64_t{2});
     auto b_x2_scale = ops::Cast(s.WithOpName("b/x2/scale"), b_x2_two, DT_FLOAT);
     auto b_x2_y = ops::Mul(s.WithOpName("b/x2/y"), func4, b_x2_scale);
     auto func5 = ops::Identity(s.WithOpName("Func/b/x2/output/_5"), b_x2_y);
@@ -982,7 +991,7 @@ TEST_F(FunctionLibraryRuntimeTest, ExpandInlineFunctionsWithInputControlEdges) {
         s.WithOpName("Func/b/y/input/_7").WithControlDependencies({func6}),
         func5);
     auto b_y_two = ops::Const(
-        s.WithOpName("b/y/two").WithControlDependencies({func6}), int64{2});
+        s.WithOpName("b/y/two").WithControlDependencies({func6}), int64_t{2});
     auto b_y_scale = ops::Cast(s.WithOpName("b/y/scale"), b_y_two, DT_FLOAT);
     auto b_y_y = ops::Mul(s.WithOpName("b/y/y"), func7, b_y_scale);
     auto func8 = ops::Identity(s.WithOpName("Func/b/y/output/_8"), b_y_y);
@@ -1021,7 +1030,7 @@ TEST_F(FunctionLibraryRuntimeTest,
   //   c = NoOp(^b)
   //   ret = RetVal(b, ^c)
   const auto init_graph = [this](std::unique_ptr<Graph>* g) -> void {
-    *g = absl::make_unique<Graph>(OpRegistry::Global());
+    *g = std::make_unique<Graph>(OpRegistry::Global());
 
     Scope s = Scope::NewRootScope();
     TF_ASSERT_OK(s.graph()->AddFunctionLibrary(fdef_lib_));
@@ -1109,7 +1118,7 @@ TEST_F(FunctionLibraryRuntimeTest, ExpandInlineFunctionsAndKeepCallerNode) {
     auto a = ops::_Arg(s.WithOpName("a"), DT_FLOAT, 0);
     auto b = test::function::Call(&s, "b", "AddAndMul", {a});
     TF_RETURN_IF_ERROR(s.ToGraph(g->get()));
-    return Status::OK();
+    return OkStatus();
   };
 
   const string input_node = "Func/b/input/_0";
@@ -1138,7 +1147,7 @@ TEST_F(FunctionLibraryRuntimeTest, ExpandInlineFunctionsAndKeepCallerNode) {
   {
     opts.native_options.keep_caller_node = KeepCallerNode::kFetchable;
 
-    std::unique_ptr<Graph> g = absl::make_unique<Graph>(OpRegistry::Global());
+    std::unique_ptr<Graph> g = std::make_unique<Graph>(OpRegistry::Global());
     TF_ASSERT_OK(construct_graph(&g));
 
     ExpandInlineFunctions(flr0_, g.get(), opts);
@@ -1157,7 +1166,7 @@ TEST_F(FunctionLibraryRuntimeTest, ExpandInlineFunctionsAndKeepCallerNode) {
   {
     opts.native_options.keep_caller_node = KeepCallerNode::kTargetable;
 
-    std::unique_ptr<Graph> g = absl::make_unique<Graph>(OpRegistry::Global());
+    std::unique_ptr<Graph> g = std::make_unique<Graph>(OpRegistry::Global());
     TF_ASSERT_OK(construct_graph(&g));
 
     ExpandInlineFunctions(flr0_, g.get(), opts);
@@ -1197,7 +1206,7 @@ TEST_F(FunctionLibraryRuntimeTest, ExpandInlineFunctionsAndPlaceInlinedNodes) {
     for (Node* node : (*g)->op_nodes()) {
       if (node->name() == "b") node->set_requested_device(call_device);
     }
-    return Status::OK();
+    return OkStatus();
   };
 
   const string input_node = "Func/b/input/_0";
@@ -1228,7 +1237,7 @@ TEST_F(FunctionLibraryRuntimeTest, ExpandInlineFunctionsAndPlaceInlinedNodes) {
     opts.native_options.inlined_function_body_placer =
         InlinedFunctionBodyPlacer::Default();
 
-    auto g = absl::make_unique<Graph>(OpRegistry::Global());
+    auto g = std::make_unique<Graph>(OpRegistry::Global());
     TF_ASSERT_OK(construct_graph(&g));
 
     ExpandInlineFunctions(flr0_, g.get(), opts);
@@ -1249,7 +1258,7 @@ TEST_F(FunctionLibraryRuntimeTest, ExpandInlineFunctionsAndPlaceInlinedNodes) {
     opts.native_options.inlined_function_body_placer =
         InlinedFunctionBodyPlacer::SingleDevice();
 
-    auto g = absl::make_unique<Graph>(OpRegistry::Global());
+    auto g = std::make_unique<Graph>(OpRegistry::Global());
     TF_ASSERT_OK(construct_graph(&g));
 
     ExpandInlineFunctions(flr0_, g.get(), opts);
@@ -1270,7 +1279,7 @@ TEST_F(FunctionLibraryRuntimeTest, ExpandInlineFunctionsAndPlaceInlinedNodes) {
     opts.native_options.inlined_function_body_placer =
         InlinedFunctionBodyPlacer::MultiDevice();
 
-    auto g = absl::make_unique<Graph>(OpRegistry::Global());
+    auto g = std::make_unique<Graph>(OpRegistry::Global());
     TF_ASSERT_OK(construct_graph(&g));
 
     const string merged_device = "/job:body/replica:0/task:1/device:CPU:*";
@@ -1393,51 +1402,18 @@ TEST_F(FunctionLibraryRuntimeTest, DoNotPruneControlOutputsFromBody) {
   EXPECT_EQ(expected_node_names, executed_node_names);
 }
 
-// Constant folding generates names using a global counter.
-// This function invokes constant folding and parses the counter
-// from the generated node name.
-int GetConstantFoldingCounter() {
-  Graph g(OpRegistry::Global());
-  Scope s = Scope::NewRootScope();
-  auto a = ops::Const<float>(s, {1.0}, {});
-  auto b = ops::Const<float>(s, {2.0}, {});
-
-  auto add = ops::Add(s.WithOpName("add"), a, b);
-  auto send =
-      ops::_Send(s.WithOpName("s1"), add, "add", "sender", 0, "receiver");
-
-  TF_CHECK_OK(s.ToGraph(&g));
-  bool was_mutated;
-  ConstantFoldingOptions opt{};
-  TF_CHECK_OK(
-      ConstantFold(opt, nullptr, Env::Default(), nullptr, &g, &was_mutated));
-  GraphDef def;
-  g.ToGraphDef(&def);
-  for (const NodeDef& node : def.node()) {
-    if (absl::StartsWith(node.name(), "add/")) {
-      std::vector<std::string> v = absl::StrSplit(node.name(), "__cf__");
-      CHECK_GT(v.size(), 1);
-      int counter;
-      CHECK(absl::SimpleAtoi(v[v.size() - 1], &counter));
-      return counter;
-    }
-  }
-  LOG(FATAL) << "Should have found a node that replaced add";
-}
-
 TEST_F(FunctionLibraryRuntimeTest, OptimizeGraph) {
   Init({test::function::XTimesTwo(), test::function::XTimesFour(),
         test::function::XTimes16()});
   std::unique_ptr<Graph> g = GetFuncBody(flr0_, "XTimes16", {{"T", DT_FLOAT}});
   ASSERT_TRUE(g != nullptr);
   ExpandInlineFunctions(flr0_, g.get());
-  int cf_counter = GetConstantFoldingCounter();
   OptimizeGraph(flr0_, &g);
   {
     Scope s = Scope::NewRootScope();
     auto x = ops::_Arg(s.WithOpName("x"), DT_FLOAT, 0);
     auto x4_x2_scale = ops::Const<float>(
-        s.WithOpName("x4/x2/scale/_12__cf__" + std::to_string(cf_counter + 1))
+        s.WithOpName("x4/x2/scale/_12__cf__0")
             .WithDevice("/job:localhost/replica:0/task:0/device:CPU:0"),
         2.0f);
     auto x4_x2_y = ops::Mul(s.WithOpName("x4/x2/y"), x, x4_x2_scale);
@@ -1604,7 +1580,7 @@ TEST_F(FunctionLibraryRuntimeTest, Gradient_XTimesTwo) {
   {
     Scope s = Scope::NewRootScope();
     auto x = ops::_Arg(s.WithOpName("x"), DT_FLOAT, 0);
-    auto two = ops::Const(s.WithOpName("two"), int64{2});
+    auto two = ops::Const(s.WithOpName("two"), int64_t{2});
     auto scale = ops::Cast(s.WithOpName("scale"), two, DT_FLOAT);
     auto y = ops::Mul(s.WithOpName("y"), x, scale);
     auto ret = ops::_Retval(s.WithOpName("y_RetVal"), y, 0);
@@ -1622,7 +1598,7 @@ TEST_F(FunctionLibraryRuntimeTest, Gradient_XTimesTwo) {
     Scope s = Scope::NewRootScope();
     auto x = ops::_Arg(s.WithOpName("x"), DT_FLOAT, 0);
     auto func0 = ops::_Arg(s.WithOpName("Func/_0"), DT_FLOAT, 1);
-    auto two = ops::Const(s.WithOpName("two"), int64{2});
+    auto two = ops::Const(s.WithOpName("two"), int64_t{2});
     auto scale = ops::Cast(s.WithOpName("scale"), two, DT_FLOAT);
     auto y = ops::Mul(s.WithOpName("y"), x, scale);
     NameAttrList fn0;
@@ -1648,20 +1624,19 @@ TEST_F(FunctionLibraryRuntimeTest, Gradient_XTimesTwo) {
     TF_EXPECT_GRAPH_EQ(expected, actual);
   }
 
-  int cf_counter = GetConstantFoldingCounter();
   OptimizeGraph(flr0_, &g);
   {
     Scope s = Scope::NewRootScope();
     auto x = ops::_Arg(s.WithOpName("x"), DT_FLOAT, 0);
     auto func0 = ops::_Arg(s.WithOpName("Func/_0"), DT_FLOAT, 1);
     auto scale = ops::Const(
-        s.WithOpName("scale/_6__cf__" + std::to_string(cf_counter + 2))
+        s.WithOpName("scale/_6__cf__1")
             .WithDevice("/job:localhost/replica:0/task:0/device:CPU:0"),
         2.0f);
     auto func1_gx = ops::Mul(s.WithOpName("Func/_1/gx"), func0, scale);
     auto func1_sx = ops::Shape(s.WithOpName("Func/_1/sx"), x);
     auto const0 = ops::Const(
-        s.WithOpName("Func/_1/sy/_5__cf__" + std::to_string(cf_counter + 1))
+        s.WithOpName("Func/_1/sy/_5__cf__0")
             .WithDevice("/job:localhost/replica:0/task:0/device:CPU:0"),
         0, {0});
     auto func1_rx = ops::internal::BroadcastGradientArgs(

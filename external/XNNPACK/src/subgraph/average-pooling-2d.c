@@ -3,24 +3,25 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include <math.h>
+#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <xnnpack.h>
 #include <xnnpack/log.h>
+#include <xnnpack/operator.h>
 #include <xnnpack/params.h>
 #include <xnnpack/subgraph.h>
+#include <xnnpack/subgraph-validation.h>
 
 
 static enum xnn_status create_average_pooling_operator(
   const struct xnn_node* node,
   const struct xnn_value* values,
   size_t num_values,
-  struct xnn_operator_data* opdata)
+  struct xnn_operator_data* opdata,
+  const struct xnn_caches* caches)
 {
-  assert(node->compute_type == xnn_compute_type_fp32);
-
   assert(node->num_inputs == 1);
   const uint32_t input_id = node->inputs[0];
   assert(input_id != XNN_INVALID_VALUE_ID);
@@ -34,20 +35,45 @@ static enum xnn_status create_average_pooling_operator(
   const size_t channel_dim = values[input_id].shape.dim[3];
   assert(channel_dim == values[output_id].shape.dim[3]);
 
-  const enum xnn_status status = xnn_create_average_pooling2d_nhwc_f32(
-    node->params.pooling_2d.padding_top,
-    node->params.pooling_2d.padding_right,
-    node->params.pooling_2d.padding_bottom,
-    node->params.pooling_2d.padding_left,
-    node->params.pooling_2d.pooling_height,
-    node->params.pooling_2d.pooling_width,
-    node->params.pooling_2d.stride_height,
-    node->params.pooling_2d.stride_width,
-    channel_dim /* channels */, channel_dim /* input stride */, channel_dim /* output stride */,
-    node->activation.output_min,
-    node->activation.output_max,
-    node->flags,
-    &opdata->operator_object);
+  enum xnn_status status;
+  switch (node->compute_type) {
+#ifndef XNN_NO_F16_OPERATORS
+    case xnn_compute_type_fp16:
+      status = xnn_create_average_pooling2d_nhwc_f16(
+        node->params.pooling_2d.padding_top,
+        node->params.pooling_2d.padding_right,
+        node->params.pooling_2d.padding_bottom,
+        node->params.pooling_2d.padding_left,
+        node->params.pooling_2d.pooling_height,
+        node->params.pooling_2d.pooling_width,
+        node->params.pooling_2d.stride_height,
+        node->params.pooling_2d.stride_width,
+        channel_dim /* channels */, channel_dim /* input stride */, channel_dim /* output stride */,
+        node->activation.output_min,
+        node->activation.output_max,
+        node->flags,
+        &opdata->operator_objects[0]);
+      break;
+#endif  // !defined(XNN_NO_F16_OPERATORS)
+    case xnn_compute_type_fp32:
+      status = xnn_create_average_pooling2d_nhwc_f32(
+        node->params.pooling_2d.padding_top,
+        node->params.pooling_2d.padding_right,
+        node->params.pooling_2d.padding_bottom,
+        node->params.pooling_2d.padding_left,
+        node->params.pooling_2d.pooling_height,
+        node->params.pooling_2d.pooling_width,
+        node->params.pooling_2d.stride_height,
+        node->params.pooling_2d.stride_width,
+        channel_dim /* channels */, channel_dim /* input stride */, channel_dim /* output stride */,
+        node->activation.output_min,
+        node->activation.output_max,
+        node->flags,
+        &opdata->operator_objects[0]);
+      break;
+    default:
+      XNN_UNREACHABLE;
+  }
   if (status == xnn_status_success) {
     opdata->batch_size = values[input_id].shape.dim[0];
     opdata->input_height = values[input_id].shape.dim[1];
@@ -80,14 +106,30 @@ static enum xnn_status setup_average_pooling_operator(
   void* output_data = output_blob->data;
   assert(output_data != NULL);
 
-  return xnn_setup_average_pooling2d_nhwc_f32(
-    opdata->operator_object,
-    opdata->batch_size,
-    opdata->input_height,
-    opdata->input_width,
-    input_data,
-    output_data,
-    threadpool);
+  switch (opdata->operator_objects[0]->type) {
+#ifndef XNN_NO_F16_OPERATORS
+    case xnn_operator_type_average_pooling_nhwc_f16:
+      return xnn_setup_average_pooling2d_nhwc_f16(
+        opdata->operator_objects[0],
+        opdata->batch_size,
+        opdata->input_height,
+        opdata->input_width,
+        input_data,
+        output_data,
+        threadpool);
+#endif  // !defined(XNN_NO_F16_OPERATORS)
+    case xnn_operator_type_average_pooling_nhwc_f32:
+      return xnn_setup_average_pooling2d_nhwc_f32(
+        opdata->operator_objects[0],
+        opdata->batch_size,
+        opdata->input_height,
+        opdata->input_width,
+        input_data,
+        output_data,
+        threadpool);
+    default:
+      XNN_UNREACHABLE;
+  }
 }
 
 enum xnn_status xnn_define_average_pooling_2d(
@@ -106,10 +148,9 @@ enum xnn_status xnn_define_average_pooling_2d(
   uint32_t output_id,
   uint32_t flags)
 {
-  if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
-    xnn_log_error("failed to define %s operator: XNNPACK is not initialized",
-      xnn_node_type_to_string(xnn_node_type_average_pooling_2d));
-    return xnn_status_uninitialized;
+  enum xnn_status status;
+  if ((status = xnn_subgraph_check_xnnpack_initialized(xnn_node_type_average_pooling_2d)) != xnn_status_success) {
+    return status;
   }
 
   const uint32_t pooling_size = pooling_height * pooling_width;
@@ -136,25 +177,23 @@ enum xnn_status xnn_define_average_pooling_2d(
     return xnn_status_invalid_parameter;
   }
 
-  if (isnan(output_min)) {
+  if (stride_height > pooling_height) {
     xnn_log_error(
-      "failed to define %s operator with NaN output lower bound: lower bound must be non-NaN",
-      xnn_node_type_to_string(xnn_node_type_average_pooling_2d));
+      "failed to define %s operator with %" PRIu32 " stride height: must be less than pooling height %" PRIu32,
+      xnn_node_type_to_string(xnn_node_type_max_pooling_2d), stride_height, pooling_height);
     return xnn_status_invalid_parameter;
   }
 
-  if (isnan(output_max)) {
+  if (stride_width > pooling_width) {
     xnn_log_error(
-      "failed to define %s operator with NaN output upper bound: upper bound must be non-NaN",
-      xnn_node_type_to_string(xnn_node_type_average_pooling_2d));
+      "failed to define %s operator with %" PRIu32 " stride width: must be less than pooling width %" PRIu32,
+      xnn_node_type_to_string(xnn_node_type_max_pooling_2d), stride_width, pooling_width);
     return xnn_status_invalid_parameter;
   }
 
-  if (output_min >= output_max) {
-    xnn_log_error(
-      "failed to define %s operator with [%.7g, %.7g] output range: lower bound must be below upper bound",
-      xnn_node_type_to_string(xnn_node_type_average_pooling_2d), output_min, output_max);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_min_max(xnn_node_type_average_pooling_2d, output_min, output_max);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   const bool any_padding = (input_padding_left | input_padding_top | input_padding_right | input_padding_bottom) != 0;
@@ -169,19 +208,15 @@ enum xnn_status xnn_define_average_pooling_2d(
     }
   }
 
-  if (input_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with input ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_average_pooling_2d), input_id);
-    return xnn_status_invalid_parameter;
+  if ((status = xnn_subgraph_check_input_node_id(xnn_node_type_average_pooling_2d, input_id, subgraph->num_values)) !=
+      xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* input_value = &subgraph->values[input_id];
-  if (input_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with input ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_average_pooling_2d), input_id, input_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_input_type_dense(xnn_node_type_average_pooling_2d, input_id, input_value);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   switch (input_value->datatype) {
@@ -195,19 +230,15 @@ enum xnn_status xnn_define_average_pooling_2d(
       return xnn_status_invalid_parameter;
   }
 
-  if (output_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_average_pooling_2d), output_id);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_node_id(xnn_node_type_average_pooling_2d, output_id, subgraph->num_values);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* output_value = &subgraph->values[output_id];
-  if (output_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_average_pooling_2d), output_id, output_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_type_dense(xnn_node_type_average_pooling_2d, output_id, output_value);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   switch (output_value->datatype) {

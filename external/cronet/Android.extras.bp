@@ -1,0 +1,376 @@
+// Copyright (C) 2023 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// This is manually maintained and automatically included into the Android.bp by the gn2bp script.
+
+license {
+    name: "external_cronet_license",
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-BSD",
+        "SPDX-license-identifier-BSD-3-Clause",
+        "SPDX-license-identifier-BSD-Source-Code",
+        "SPDX-license-identifier-BSD-2-Clause",
+        "SPDX-license-identifier-BSD-4-Clause",
+        "SPDX-license-identifier-BSL-1.0",
+        "SPDX-license-identifier-ICU",
+        "SPDX-license-identifier-ISC",
+        "SPDX-license-identifier-MIT",
+        "SPDX-license-identifier-MPL",
+        "SPDX-license-identifier-MPL-1.1",
+        "SPDX-license-identifier-MPL-2.0",
+        "SPDX-license-identifier-NCSA",
+        // "SPDX-license-identifier-GPL-2.0-with-autoconf-exception", // ICU TODO(aymanm): Reapply those once aosp/2470343 is merged
+        // "SPDX-license-identifier-GPL-3.0-with-autoconf-exception", // ICU TODO(aymanm): Reapply those once aosp/2470343 is merged
+        "SPDX-license-identifier-OpenSSL",
+        "SPDX-license-identifier-Unicode-DFS-2016",
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
+java_library {
+    // Don't change the name of the module.
+    name: "cronet_aml_api_java",
+    srcs: [
+        ":cronet_aml_api_sources",
+    ],
+    libs: [
+        "androidx.annotation_annotation",
+        "framework-annotations-lib",
+        "framework-connectivity.stubs.module_lib",
+    ],
+    sdk_version: "module_current",
+    visibility: [
+        "//packages/modules/Connectivity:__subpackages__",
+    ],
+}
+
+// ------------------------------ NATIVE TEST TARGETS --------------------------------------------
+
+// jni_proxy_natives_defaults should only be applied to the "top-level" target (with respect to JNI
+// dependencies). Intermediate targets require an intermediate GEN_JNI to compile (so they need the
+// plugin without the flags). The intermediate GEN_JNI will eventually be overwritten by the GEN_JNI
+// produced by the jni_registration_generator genrule target.
+java_defaults {
+    name: "jni_proxy_natives_defaults",
+    plugins: [
+        "cronet_aml_java_jni_annotation_preprocessor",
+    ],
+    javacflags: [
+        "-Aorg.chromium.chrome.skipGenJni",
+    ],
+}
+
+// Similar to jni_proxy_natives_default, only a single jni_registration_generator target can be used
+// per dependency tree. It must include all dependent sources that contain JNI annotations
+// (non-exclusive).
+genrule_defaults {
+    name: "jni_registration_generator_defaults",
+    cmd: "current_dir=`basename \\`pwd\\``; " +
+         "for f in $(in); " +
+         "do " +
+         "echo \"../$$current_dir/$$f\" >> $(genDir)/java.sources; " +
+         "done; " +
+         "python3 $(location base/android/jni_generator/jni_registration_generator.py) --srcjar-path " +
+         "$(genDir)/components/cronet/android/cronet_tests_jni_registration.srcjar " +
+         "--sources-files " +
+         "$(genDir)/java.sources " +
+         "--include-test-only " +
+         "--use-proxy-hash " +
+         "--enable-proxy-mocks",
+    out: [
+        "components/cronet/android/cronet_tests_jni_registration.srcjar",
+    ],
+    tool_files: [
+        "base/android/jni_generator/jni_generator.py",
+        "base/android/jni_generator/jni_registration_generator.py",
+        "build/action_helpers.py",
+        "build/android/gyp/util/__init__.py",
+        "build/android/gyp/util/build_utils.py",
+        "build/gn_helpers.py",
+        "build/zip_helpers.py",
+    ],
+}
+
+filegroup {
+    name: "cronet_native_unittests_defaults_srcs",
+    srcs: [
+        "base/test/android/javatests/src/org/chromium/base/test/util/UrlUtils.java",
+        "build/android/gtest_apk/java/src/org/chromium/build/gtest_apk/NativeTestInstrumentationTestRunner.java",
+        "build/android/gtest_apk/java/src/org/chromium/build/gtest_apk/NativeTestIntent.java",
+        "build/android/gtest_apk/java/src/org/chromium/build/gtest_apk/TestStatusIntent.java",
+        "build/android/gtest_apk/java/src/org/chromium/build/gtest_apk/TestStatusReceiver.java",
+        "testing/android/native_test/java/src/org/chromium/native_test/NativeTest.java",
+        "testing/android/native_test/java/src/org/chromium/native_test/SignalMaskInfo.java",
+        "testing/android/native_test/java/src/org/chromium/native_test/NativeTestApplication.java",
+        "testing/android/native_test/java/src/org/chromium/native_test/NativeUnitTest.java",
+        "testing/android/native_test/java/src/org/chromium/native_test/NativeUnitTestActivity.java",
+        "testing/android/native_test/java/src/org/chromium/native_test/NativeUnitTestNativeActivity.java",
+        "testing/android/reporter/java/src/org/chromium/test/reporter/TestStatusReporter.java",
+    ],
+}
+
+java_defaults {
+    name: "cronet_native_unittests_defaults",
+    defaults: [
+        "mts-target-sdk-version-current",
+    ],
+    compile_multilib: "both",
+    min_sdk_version: "31", // b/270049141
+    srcs: [
+        ":cronet_native_unittests_defaults_srcs",
+    ],
+    static_libs: [
+        "androidx.annotation_annotation",
+        "junit",
+    ],
+    test_suites: [
+        "general-tests",
+        "mts-tethering",
+    ],
+}
+
+filegroup {
+    name: "cronet_for_testing_net_java_srcs",
+    srcs: [
+        "net/test/android/javatests/src/org/chromium/net/AndroidNetworkLibraryTestUtil.java",
+        "net/test/android/javatests/src/org/chromium/net/test/util/CertTestUtil.java",
+        "net/test/android/javatests/src/org/chromium/net/test/util/NetworkChangeNotifierTestUtil.java",
+        "net/test/android/javatests/src/org/chromium/net/test/util/TestWebServer.java",
+        "net/test/android/javatests/src/org/chromium/net/test/util/WebServer.java",
+        "net/test/android/javatests/src/org/chromium/net/test/DummySpnegoAuthenticator.java",
+        "net/test/android/javatests/src/org/chromium/net/test/DummySpnegoAuthenticatorService.java",
+        "net/test/android/javatests/src/org/chromium/net/test/EmbeddedTestServerImpl.java",
+        "net/test/android/javatests/src/org/chromium/net/test/EmbeddedTestServerService.java",
+        "base/test/android/javatests/src/org/chromium/base/test/util/UrlUtils.java",
+        "net/android/javatests/src/org/chromium/net/AndroidKeyStoreTestUtil.java",
+        "net/android/javatests/src/org/chromium/net/AndroidProxyConfigServiceTestUtil.java",
+        "net/test/android/javatests/src/org/chromium/net/test/IConnectionListener.aidl",
+        "net/test/android/javatests/src/org/chromium/net/test/IEmbeddedTestServerImpl.aidl",
+    ],
+}
+
+java_library {
+    name: "cronet_for_testing_net_java",
+    srcs: [
+        ":cronet_for_testing_net_java_srcs",
+    ],
+    aidl: {
+        include_dirs: [
+            "frameworks/base/core/java/",
+        ],
+        local_include_dirs: [
+            "net/test/android/javatests/src",
+        ],
+    },
+    static_libs: [
+        "cronet_aml_java__testing",
+        "junit",
+        "androidx.annotation_annotation",
+        "androidx.annotation_annotation-experimental-nodeps",
+    ],
+    plugins: [
+        "cronet_aml_java_jni_annotation_preprocessor",
+    ],
+}
+
+filegroup {
+    name: "net_unittests_data",
+    srcs: [
+        "net/data/**/*",
+        "net/third_party/nist-pkits/**/*",
+        "net/third_party/quiche/src/quiche/common/platform/api/testdir/**/*"
+    ],
+}
+
+genrule {
+    name: "cronet_tester_app_jni",
+    defaults: [
+        "cronet_aml_components_cronet_android_cronet_jni_registration__java__testing_defaults",
+    ],
+    srcs: [
+        ":cronet_native_unittests_defaults_srcs",
+    ],
+}
+
+android_test_helper_app {
+    name: "cronet_tester_app",
+    defaults: [
+        "cronet_native_unittests_defaults",
+        "jni_proxy_natives_defaults",
+    ],
+    srcs: [":cronet_tester_app_jni"],
+    manifest: "test_runner/AndroidManifest.xml",
+    jni_libs: [
+        "cronet_aml_components_cronet_android_cronet_unittests_android__library__testing",
+    ],
+    static_libs: ["cronet_aml_java__testing"],
+}
+
+genrule {
+    name: "cronet_net_tester_app_jni",
+    defaults: [
+        "cronet_aml_components_cronet_android_cronet_jni_registration__java__testing_defaults",
+    ],
+    srcs: [
+        ":cronet_for_testing_net_java_srcs",
+        ":cronet_native_unittests_defaults_srcs",
+    ],
+}
+
+android_test_helper_app {
+    name: "cronet_net_tester_app",
+    defaults: [
+        "cronet_native_unittests_defaults",
+        "jni_proxy_natives_defaults",
+    ],
+    manifest: "test_runner/AndroidNetManifest.xml",
+    srcs: [":cronet_net_tester_app_jni"],
+    jni_libs: [
+        "cronet_aml_net_net_unittests__library__testing",
+    ],
+    static_libs: ["cronet_for_testing_net_java"],
+    resource_dirs : [
+        "net/android/unittest_support/res",
+    ]
+}
+
+// ------------------------------ JAVA TEST TARGETS --------------------------------------------
+
+filegroup {
+    name: "cronet_aml_javatests_sources",
+    srcs: [
+        ":cronet_aml_java_apihelpers",
+        ":cronet_base_net_javatest_utils",
+        "components/cronet/android/test/javatests/**/UrlResponseInfoTest.java",
+        "components/cronet/android/test/javatests/**/BidirectionalStreamQuicTest.java",
+        "components/cronet/android/test/javatests/**/BrotliTest.java",
+        "components/cronet/android/test/javatests/**/CronetLoggerTestRule.java",
+        "components/cronet/android/test/javatests/**/CronetLoggerTest.java",
+        "components/cronet/android/test/javatests/**/CronetManifestTest.java",
+        "components/cronet/android/test/javatests/**/CronetStressTest.java",
+        "components/cronet/android/test/javatests/**/CronetTestRule.java",
+        "components/cronet/android/test/javatests/**/CronetTestRuleTest.java",
+        "components/cronet/android/test/javatests/**/CronetUploadTest.java",
+        "components/cronet/android/test/javatests/**/CronetUrlRequestTest.java",
+        "components/cronet/android/test/javatests/**/CronetUrlRequestContextTest.java",
+        "components/cronet/android/test/javatests/**/DiskStorageTest.java",
+        "components/cronet/android/test/javatests/**/ExperimentalOptionsTest.java",
+        "components/cronet/android/test/javatests/**/GetStatusTest.java",
+        "components/cronet/android/test/javatests/**/Http2TestServer.java",
+        "components/cronet/android/test/javatests/**/Test*.java",
+        "components/cronet/android/test/javatests/**/MetricsTestUtil.java",
+        "components/cronet/android/test/javatests/**/NetworkChangeNotifierTest.java",
+        "components/cronet/android/test/javatests/**/NQETest.java",
+        "components/cronet/android/test/javatests/**/RequestFinishedInfoTest.java",
+        "components/cronet/android/test/javatests/**/QuicTest.java",
+        "components/cronet/android/test/javatests/**/urlconnection/*.java",
+    ],
+    visibility: [
+        "//packages/modules/Connectivity:__subpackages__",
+    ],
+}
+
+filegroup {
+    name: "cronet_base_net_javatest_utils",
+    srcs: [
+        "base/test/android/javatests/**/CriteriaNotSatisfiedException.java",
+        "base/test/android/javatests/**/Criteria.java",
+        "base/test/android/javatests/**/CriteriaHelper.java",
+        "base/test/android/javatests/**/DisabledTest.java",
+        "base/test/android/javatests/**/HistogramWatcher.java",
+        "base/test/android/javatests/**/LooperUtils.java",
+        "base/test/android/javatests/**/MetricsUtils.java",
+        "base/test/android/javatests/**/PackageManagerWrapper.java",
+        "base/test/android/javatests/**/ScalableTimeout.java",
+        "base/test/android/javatests/**/TestFileUtil.java",
+        "base/test/android/javatests/**/TimeoutTimer.java",
+        "base/test/android/javatests/**/UrlUtils.java",
+        "net/url_request/FailurePhase.java",
+    ]
+}
+
+filegroup {
+    name: "cronet_aml_java_apihelpers",
+    srcs: [
+        "components/cronet/android/**/http/apihelpers/UploadDataProviders.java"
+    ]
+}
+
+// TODO: merge cronet_testserver_utils_srcs with cronet_aml_javatests_sources.
+filegroup {
+    name: "cronet_testserver_utils_srcs",
+    srcs: [
+        ":cronet_base_net_javatest_utils",
+        "components/cronet/android/test/**/CronetTestUtil.java",
+        "components/cronet/android/test/**/NativeTestServer.java",
+        "components/cronet/android/test/**/TestFilesInstaller.java",
+        "components/cronet/android/test/**/TestUploadDataStreamHandler.java",
+        "components/cronet/android/test/**/QuicTestServer.java",
+        "components/cronet/android/test/**/MockCertVerifier.java",
+        "components/cronet/android/test/**/MockUrlRequestJobFactory.java",
+    ],
+}
+
+genrule {
+    name: "cronet_java_tests_jni",
+    defaults: ["jni_registration_generator_defaults"],
+    srcs: [
+      ":cronet_aml_javatests_sources",
+      ":cronet_testserver_utils_srcs",
+    ],
+}
+
+android_library {
+    name: "cronet_java_tests",
+    defaults: ["jni_proxy_natives_defaults"],
+    asset_dirs: [
+        "components/cronet/testing/test_server/data/",
+        "net/data/ssl/certificates/",
+    ],
+    manifest: "components/cronet/android/test/src/org/chromium/net/AndroidManifest.xml",
+    srcs: [
+        ":cronet_aml_javatests_sources",
+        ":cronet_java_tests_jni",
+        ":cronet_testserver_utils_srcs",
+    ],
+    sdk_version: "module_current",
+    min_sdk_version: "30",
+    static_libs: [
+        "androidx.test.ext.junit",
+        "androidx.test.rules",
+        "cronet_aml_java__testing",
+        "guava",
+        "hamcrest-library",
+        "junit",
+        "truth",
+    ],
+    libs: [
+        "android.test.base",
+        "cronet_aml_api_java",
+        "framework-connectivity",
+        "framework-connectivity-pre-jarjar",
+        // android.net.TrafficStats apis
+        "framework-connectivity-t",
+        "guava",
+    ],
+    lint: { test: true },
+    visibility: [
+        "//packages/modules/Connectivity:__subpackages__",
+    ],
+}
+

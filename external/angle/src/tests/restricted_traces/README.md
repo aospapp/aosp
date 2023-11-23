@@ -52,13 +52,34 @@ When that is working, add the following GN arg to your setup:
 ```
 build_angle_trace_perf_tests = true
 ```
-To build the angle_perftests:
+### (Optional) Reducing the trace count
+
+Since the traces are numerous, you can limit compilation to a subset with the following GN arg:
 ```
-autoninja -C out/<config> angle_perftests
+angle_restricted_traces = ["world_of_kings 5", "worms_zone_io 5"]
 ```
-Run them like so:
+To build the trace tests:
 ```
-out/<config>/angle_perftests --gtest_filter=TracePerfTest*
+autoninja -C out/<config> angle_trace_tests
+```
+## Running the trace tests
+The trace tests can be run with default options like so:
+```
+out/<config>/angle_trace_tests
+```
+To select a specific trace to run, provide it with a filter:
+```
+out/<config>/angle_trace_tests --gtest_filter=TraceTest.<trace_name>
+```
+The specific options available with traces can be found in the PerfTests [`README`](../perf_tests/README.md#trace-tests)
+
+Common options used are:
+```
+# Use ANGLE as the driver with the system's Vulkan driver as backend
+--use-angle=vulkan
+
+# Use the system's native GLES driver
+--use-gl=native
 ```
 
 # Capturing and adding new Android traces
@@ -189,25 +210,22 @@ Allow the app to run until the `*angledata.gz` file is non-zero and no longer gr
 should continue rendering after that:
 ```
 $ adb shell ls -s -w 1 /sdcard/Android/data/$PACKAGE_NAME/angle_capture
-30528 angry_birds_2_capture_context1.angledata.gz
-    8 angry_birds_2_capture_context1.cpp
-    4 angry_birds_2_capture_context1_files.txt
-  768 angry_birds_2_capture_context1_frame001.cpp
-  100 angry_birds_2_capture_context1_frame002.cpp
-  100 angry_birds_2_capture_context1_frame003.cpp
-  100 angry_birds_2_capture_context1_frame004.cpp
-  100 angry_birds_2_capture_context1_frame005.cpp
-  104 angry_birds_2_capture_context1_frame006.cpp
-  100 angry_birds_2_capture_context1_frame007.cpp
-  100 angry_birds_2_capture_context1_frame008.cpp
-  100 angry_birds_2_capture_context1_frame009.cpp
-  100 angry_birds_2_capture_context1_frame010.cpp
-  120 angry_birds_2_capture_context1_frame011.cpp
-    8 angry_birds_2_capture_context1.h
+30528 angry_birds_2.angledata.gz
+    8 angry_birds_2.cpp
+    4 angry_birds_2.json
+  768 angry_birds_2_001.cpp
+  100 angry_birds_2_002.cpp
+  100 angry_birds_2_003.cpp
+  100 angry_birds_2_004.cpp
+  100 angry_birds_2_005.cpp
+  104 angry_birds_2_006.cpp
+  100 angry_birds_2_007.cpp
+  100 angry_birds_2_008.cpp
+  100 angry_birds_2_009.cpp
+  100 angry_birds_2_010.cpp
+  120 angry_birds_2_011.cpp
+    8 angry_birds_2.h
 ```
-Note, you may see multiple contexts captured in the output. When this happens, look at the size of
-the files. The larger files should be the context you care about it. You should move or delete the
-other context files.
 
 ## Pull the trace files
 
@@ -258,6 +276,11 @@ to the repo.
 Once you feel good about your trace, you can upload it to our collection of traces.  This can only
 be done by Googlers with write access to the trace CIPD prefix. If you need write access contact
 someone listed in the `OWNERS` file.
+
+Please kindly go over the trace content with ANGLE code owners before running
+below commands. You can share your trace through Google Drive for content
+iterations. We cannot delete trace files once they are up on the CIPD.
+Doing additional rounds of content check can help us save CIPD resources.
 
 ```
 ./sync_restricted_traces_to_cipd.py
@@ -427,6 +450,27 @@ py ./scripts/run_code_generation.py
 Then create and upload a CL as normal. Congratulations, you've finished the
 trace upgrade!
 
+## Finding a trace's minimum requirements
+
+`retrace_restricted_traces.py` can be used to determine a trace's minimum
+extensions and GLES version. Run the command:
+
+```
+py ./src/tests/restricted_traces/retrace_restricted_traces.py get_min_reqs $TRACE_GN_PATH [--traces "*"]
+```
+
+The script will run each listed trace multiple times so it can find the minimum
+required GLES version and each required extension. Finally it records that
+information to the trace's json file.
+
+By default it will run with SwiftShader. To make the script use your machine's
+native vulkan drivers, use the `--no-swiftshader` argument before the script's
+command:
+
+```
+py ./src/tests/restricted_traces/retrace_restricted_traces.py --no-swiftshader get_min_reqs $TRACE_GN_PATH [--traces "*"]
+```
+
 # Diagnosing and fixing tracer errors
 
 ## Debugging a crash or GLES error
@@ -436,7 +480,7 @@ to find the exact command line and environment variables the script uses to
 produce the failure. For example:
 
 ```
-INFO:root:ANGLE_CAPTURE_LABEL=trex_200 ANGLE_CAPTURE_OUT_DIR=C:\src\angle\retrace-wip\trex_200 ANGLE_CAPTURE_FRAME_START=2 ANGLE_CAPTURE_FRAME_END=4 ANGLE_CAPTURE_VALIDATION=1 ANGLE_FEATURE_OVERRIDES_ENABLED=allocateNonZeroMemory:forceInitShaderVariables ANGLE_CAPTURE_TRIM_ENABLED=1 out/Debug\angle_perftests.exe --gtest_filter=TracePerfTest.Run/vulkan_swiftshader_trex_200 --max-steps-performed 3 --retrace-mode --enable-all-trace-tests
+INFO:root:ANGLE_CAPTURE_LABEL=trex_200 ANGLE_CAPTURE_OUT_DIR=C:\src\angle\retrace-wip\trex_200 ANGLE_CAPTURE_FRAME_START=2 ANGLE_CAPTURE_FRAME_END=4 ANGLE_CAPTURE_VALIDATION=1 ANGLE_FEATURE_OVERRIDES_ENABLED=allocateNonZeroMemory:forceInitShaderVariables ANGLE_CAPTURE_TRIM_ENABLED=1 out\Debug\angle_trace_tests.exe --gtest_filter=TraceTest.trex_200 --use-angle=swiftshader --max-steps-performed 3 --retrace-mode
 ```
 
 Once you can reproduce the issue you can use a debugger or other standard

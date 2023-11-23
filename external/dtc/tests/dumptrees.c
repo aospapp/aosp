@@ -24,13 +24,15 @@ static struct {
 	TREE(ovf_size_strings),
 	TREE(truncated_property), TREE(truncated_string),
 	TREE(truncated_memrsv),
+	TREE(two_roots),
+	TREE(named_root)
 };
 
 #define NUM_TREES	(sizeof(trees) / sizeof(trees[0]))
 
 int main(int argc, char *argv[])
 {
-	int i;
+	unsigned int i;
 
 	if (argc != 2) {
 	    fprintf(stderr, "Missing output directory argument\n");

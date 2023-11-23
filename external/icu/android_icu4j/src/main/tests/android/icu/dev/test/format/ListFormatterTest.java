@@ -19,6 +19,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
+import android.icu.text.ConstrainedFieldPosition;
 import android.icu.text.ListFormatter;
 import android.icu.text.ListFormatter.FormattedList;
 import android.icu.text.ListFormatter.Type;
@@ -433,6 +434,29 @@ public class ListFormatterTest extends TestFmwk {
                     assertEquals(message, expected, result);
                 }
             }
+        }
+    }
+
+    @Test
+    public void Test21871() {
+        ListFormatter fmt = ListFormatter.getInstance(ULocale.ENGLISH, Type.AND, Width.WIDE);
+        {
+            FormattedList result = fmt.formatToValue("A", "");
+            ConstrainedFieldPosition cfp = new ConstrainedFieldPosition();
+            cfp.constrainField(ListFormatter.Field.ELEMENT);
+            assertTrue("nextPosition 1", result.nextPosition(cfp));
+            assertEquals("start", cfp.getStart(), 0);
+            assertEquals("limit", cfp.getLimit(), 1);
+            assertFalse("nextPosition 2", result.nextPosition(cfp));
+        }
+        {
+            FormattedList result = fmt.formatToValue("", "B");
+            ConstrainedFieldPosition cfp = new ConstrainedFieldPosition();
+            cfp.constrainField(ListFormatter.Field.ELEMENT);
+            assertTrue("nextPosition 1", result.nextPosition(cfp));
+            assertEquals("start", cfp.getStart(), 5);
+            assertEquals("limit", cfp.getLimit(), 6);
+            assertFalse("nextPosition 2", result.nextPosition(cfp));
         }
     }
 }

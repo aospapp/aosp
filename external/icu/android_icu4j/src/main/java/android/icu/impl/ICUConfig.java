@@ -78,7 +78,7 @@ public class ICUConfig {
             val = System.getProperty(name);
         }
 
-        if (val == null) {
+        if (val == null || val.equals("")) {
             val = CONFIG_PROPS.getProperty(name, def);
         }
         return val;

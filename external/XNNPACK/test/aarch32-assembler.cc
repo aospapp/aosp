@@ -3,6 +3,7 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include <xnnpack.h>
 #include <xnnpack/aarch32-assembler.h>
 #include <xnnpack/allocator.h>
 #include <xnnpack/common.h>
@@ -15,6 +16,7 @@
 namespace xnnpack {
 namespace aarch32 {
 TEST(AArch32Assembler, InstructionEncoding) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   xnn_code_buffer b;
   xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
   Assembler a(&b);
@@ -75,6 +77,10 @@ TEST(AArch32Assembler, InstructionEncoding) {
 
   CHECK_ENCODING(0xE315000F, a.tst(r5, 15));
 
+  CHECK_ENCODING(0xF3B9676E, a.vabs_f32(q3, q15));
+
+  CHECK_ENCODING(0xF24E2DC2, a.vadd_f32(q9, q15, q1));
+
   CHECK_ENCODING(0xEEB44AC8, a.vcmpe_f32(s8, s16));
 
   CHECK_ENCODING(0xF3FBE646, a.vcvt_f32_s32(q15, q3));
@@ -117,6 +123,18 @@ TEST(AArch32Assembler, InstructionEncoding) {
   CHECK_ENCODING(0xF4A54CAD, a.vld1r_32({d4, d5}, mem[r5]++));
   EXPECT_ERROR(Error::kInvalidOperand, a.vld1r_32({d4, d5}, mem[r5, 4]));
   EXPECT_ERROR(Error::kInvalidOperand, a.vld1r_32({d4, d6}, mem[r5]));
+
+  CHECK_ENCODING(0xF4A54D8F, a.vld2r_32({d4, d5}, mem[r5]));
+  CHECK_ENCODING(0xF4A54DAF, a.vld2r_32({d4, d6}, mem[r5]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.vld2r_32({d4, d5}, mem[r5, 4]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.vld2r_32({d4, d7}, mem[r5]));
+
+  CHECK_ENCODING(0xF4A54E8F, a.vld3r_32({d4, d5, d6}, mem[r5]));
+  CHECK_ENCODING(0xF4A54EAF, a.vld3r_32({d4, d6, d8}, mem[r5]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.vld3r_32({d4, d5, d6}, mem[r5, 4]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.vld3r_32({d4, d5, d7}, mem[r5]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.vld3r_32({d4, d6, d7}, mem[r5]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.vld3r_32({d4, d6, d9}, mem[r5]));
 
   CHECK_ENCODING(0xECD90B08, a.vldm(mem[r9], {d16-d19}));
   CHECK_ENCODING(0xECF90B08, a.vldm(mem[r9]++, {d16-d19}));
@@ -163,7 +181,11 @@ TEST(AArch32Assembler, InstructionEncoding) {
   CHECK_ENCODING(0xF2D8626A, a.vmlal_s16(q11, d8, d2[3]));
   EXPECT_ERROR(Error::kInvalidLaneIndex, a.vmlal_s16(q15, d9, d6[4]));
 
+  CHECK_ENCODING(0xF2C0E050, a.vmov(q15, 0));
+  EXPECT_ERROR(Error::kInvalidOperand, a.vmov(q15, 1));
+
   CHECK_ENCODING(0xEEB0EA4F, a.vmov(s28, s30));
+  CHECK_ENCODING(0xF2245114, a.vmov(d5, d4));
   CHECK_ENCODING(0xF26101B1, a.vmov(d16, d17));
   CHECK_ENCODING(0xEC420B1F, a.vmov(d15, r0, r2));
   CHECK_ENCODING(0xF26041F0, a.vmov(q10, q8));
@@ -179,6 +201,8 @@ TEST(AArch32Assembler, InstructionEncoding) {
   CHECK_ENCODING(0xEEF1FA10, a.vmrs(APSR_nzcv, FPSCR));
 
   CHECK_ENCODING(0xF34E2DD2, a.vmul_f32(q9, q15, q1));
+
+  CHECK_ENCODING(0xF3F927EE, a.vneg_f32(q9, q15));
 
   CHECK_ENCODING(0xECBD8B10, a.vpop({d8-d15}));
   EXPECT_ERROR(Error::kInvalidRegisterListLength, a.vpop({d0-d16}));
@@ -258,6 +282,7 @@ TEST(AArch32Assembler, InstructionEncoding) {
 }
 
 TEST(AArch32Assembler, Label) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   xnn_code_buffer b;
   xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
   Assembler a(&b);
@@ -316,6 +341,7 @@ TEST(AArch32Assembler, Label) {
 }
 
 TEST(AArch32Assembler, Align) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   xnn_code_buffer b;
   xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
   Assembler a(&b);
@@ -410,11 +436,24 @@ TEST(AArch32Assembler, DRegisterLane) {
   EXPECT_EQ((DRegisterLane{2, 1}), d2[1]);
 }
 
+TEST(AArch32Assembler, QRegister) {
+  EXPECT_EQ(q0.low(), d0);
+  EXPECT_EQ(q0.high(), d1);
+  EXPECT_EQ(q1.low(), d2);
+  EXPECT_EQ(q1.high(), d3);
+  EXPECT_EQ(q15.low(), d30);
+  EXPECT_EQ(q15.high(), d31);
+}
+
 TEST(AArch32Assembler, CodeBufferOverflow) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   xnn_code_buffer b;
+  // Requested memory is rounded to page size.
   xnn_allocate_code_memory(&b, 4);
   Assembler a(&b);
-  a.add(r0, r0, 2);
+  for (int i = 0; i < b.capacity; i += 1 << kInstructionSizeInBytesLog2) {
+    a.add(r0, r0, 2);
+  }
   EXPECT_EQ(Error::kNoError, a.error());
 
   a.bx(lr);
@@ -423,8 +462,31 @@ TEST(AArch32Assembler, CodeBufferOverflow) {
   ASSERT_EQ(xnn_status_success, xnn_release_code_memory(&b));
 }
 
+TEST(AArch32Assembler, BoundOverflow) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
+  xnn_code_buffer b;
+  // Requested memory is rounded to page size.
+  xnn_allocate_code_memory(&b, 4);
+  Assembler a(&b);
+  Label l1;
+  for (int i = 0; i < b.capacity; i += 1 << kInstructionSizeInBytesLog2) {
+    a.add(r0, r0, 2);
+  }
+  EXPECT_EQ(Error::kNoError, a.error());
+
+  // This is out of bounds, not written.
+  a.bhi(l1);
+  EXPECT_EQ(Error::kOutOfMemory, a.error());
+
+  a.bind(l1);
+  EXPECT_EQ(false, l1.bound);
+
+  ASSERT_EQ(xnn_status_success, xnn_release_code_memory(&b));
+}
+
 #if XNN_ARCH_ARM && XNN_PLATFORM_JIT
 TEST(AArch32Assembler, JitAllocCodeBuffer) {
+  ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   typedef uint32_t (*Func)(uint32_t);
 
   xnn_code_buffer b;

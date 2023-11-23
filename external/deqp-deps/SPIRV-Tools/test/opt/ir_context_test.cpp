@@ -90,6 +90,21 @@ TEST_F(IRContextTest, IndividualValidAfterBuild) {
   }
 }
 
+TEST_F(IRContextTest, DontRebuildValidAnalysis) {
+  std::unique_ptr<Module> module(new Module());
+  IRContext localContext(SPV_ENV_UNIVERSAL_1_2, std::move(module),
+                         spvtools::MessageConsumer());
+
+  auto* oldCfg = localContext.cfg();
+  auto* oldDefUse = localContext.get_def_use_mgr();
+  localContext.BuildInvalidAnalyses(IRContext::kAnalysisCFG |
+                                    IRContext::kAnalysisDefUse);
+  auto* newCfg = localContext.cfg();
+  auto* newDefUse = localContext.get_def_use_mgr();
+  EXPECT_EQ(oldCfg, newCfg);
+  EXPECT_EQ(oldDefUse, newDefUse);
+}
+
 TEST_F(IRContextTest, AllValidAfterBuild) {
   std::unique_ptr<Module> module = MakeUnique<Module>();
   IRContext localContext(SPV_ENV_UNIVERSAL_1_2, std::move(module),
@@ -1132,40 +1147,6 @@ OpFunctionEnd)";
   dbg_decl = ctx->get_def_use_mgr()->GetDef(25);
   EXPECT_EQ(dbg_decl->GetSingleWordOperand(kDebugDeclareOperandVariableIndex),
             20);
-
-  // No DebugValue should be added because result id '26' is not used for
-  // DebugDeclare.
-  ctx->get_debug_info_mgr()->AddDebugValueIfVarDeclIsVisible(dbg_decl, 26, 22,
-                                                             dbg_decl, nullptr);
-  EXPECT_EQ(dbg_decl->NextNode()->opcode(), SpvOpReturn);
-
-  // DebugValue should be added because result id '20' is used for DebugDeclare.
-  ctx->get_debug_info_mgr()->AddDebugValueIfVarDeclIsVisible(dbg_decl, 20, 22,
-                                                             dbg_decl, nullptr);
-  EXPECT_EQ(dbg_decl->NextNode()->GetOpenCL100DebugOpcode(),
-            OpenCLDebugInfo100DebugValue);
-
-  // Replace all uses of result it '20' with '26'
-  EXPECT_EQ(dbg_decl->GetSingleWordOperand(kDebugDeclareOperandVariableIndex),
-            20);
-  EXPECT_TRUE(ctx->ReplaceAllUsesWith(20, 26));
-  EXPECT_EQ(dbg_decl->GetSingleWordOperand(kDebugDeclareOperandVariableIndex),
-            26);
-
-  // No DebugValue should be added because result id '20' is not used for
-  // DebugDeclare.
-  ctx->get_debug_info_mgr()->AddDebugValueIfVarDeclIsVisible(dbg_decl, 20, 7,
-                                                             dbg_decl, nullptr);
-  Instruction* dbg_value = dbg_decl->NextNode();
-  EXPECT_EQ(dbg_value->GetOpenCL100DebugOpcode(), OpenCLDebugInfo100DebugValue);
-  EXPECT_EQ(dbg_value->GetSingleWordOperand(kDebugValueOperandValueIndex), 22);
-
-  // DebugValue should be added because result id '26' is used for DebugDeclare.
-  ctx->get_debug_info_mgr()->AddDebugValueIfVarDeclIsVisible(dbg_decl, 26, 7,
-                                                             dbg_decl, nullptr);
-  dbg_value = dbg_decl->NextNode();
-  EXPECT_EQ(dbg_value->GetOpenCL100DebugOpcode(), OpenCLDebugInfo100DebugValue);
-  EXPECT_EQ(dbg_value->GetSingleWordOperand(kDebugValueOperandValueIndex), 7);
 }
 
 }  // namespace

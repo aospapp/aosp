@@ -9,6 +9,8 @@
 
 extern int __optpos, __optreset;
 
+int __posix_getopt(int argc, char * const argv[], const char *optstring);
+
 static void permute(char *const *argv, int dest, int src)
 {
 	char **av = (char **)argv;
@@ -134,7 +136,7 @@ static int __getopt_long_core(int argc, char *const *argv, const char *optstring
 			return '?';
 		}
 	}
-	return getopt(argc, argv, optstring);
+	return __posix_getopt(argc, argv, optstring);
 }
 
 int getopt_long(int argc, char *const *argv, const char *optstring, const struct option *longopts, int *idx)
@@ -145,4 +147,21 @@ int getopt_long(int argc, char *const *argv, const char *optstring, const struct
 int getopt_long_only(int argc, char *const *argv, const char *optstring, const struct option *longopts, int *idx)
 {
 	return __getopt_long(argc, argv, optstring, longopts, idx, 1);
+}
+
+/* ANDROID CHANGE: implement getopt via getopt_long to continue parsing options
+ * after the first non-option argument to match the user visible behavior of
+ * glibc.
+ */
+int getopt(int argc, char * const argv[], const char *optstring)
+{
+	static int posixly_correct = -1;
+
+	if (posixly_correct == -1 || __optreset)
+		posixly_correct = (getenv("POSIXLY_CORRECT") != NULL);
+
+	if (posixly_correct)
+		return __posix_getopt(argc, argv, optstring);
+	else
+		return __getopt_long(argc, argv, optstring, NULL, NULL, 0);
 }

@@ -14,6 +14,7 @@ ATTRIBUTES = "suite:kernel_daily_regression"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "kernel"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
     Checks that the kernel correctly implements asynchronous probing for

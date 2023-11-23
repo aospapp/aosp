@@ -11,6 +11,7 @@ TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
 ATTRIBUTES = "suite:power_daily"
+PY_VERSION = 3
 
 DOC = """
 Run Speedometer2 test and collect power data. Test should be ~3 minutes.

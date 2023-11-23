@@ -61,9 +61,7 @@
       <enumerator name='IE_2E' value='36'/>
       <enumerator name='IE_2F' value='37'/>
     </enum-decl>
-    <type-decl name='int' size-in-bits='32' alignment-in-bits='32' id='95e97e5e'/>
-    <type-decl name='unsigned int' size-in-bits='32' alignment-in-bits='32' id='f0981eeb'/>
-    <var-decl name='foo' type-id='a6c2eddf' mangled-name='foo' visibility='default'/>
-    <var-decl name='bar' type-id='1ee696ca' mangled-name='bar' visibility='default'/>
+    <var-decl name='foo' type-id='a6c2eddf' mangled-name='foo' visibility='default' elf-symbol-id='foo'/>
+    <var-decl name='bar' type-id='1ee696ca' mangled-name='bar' visibility='default' elf-symbol-id='bar'/>
   </abi-instr>
 </abi-corpus>

@@ -231,4 +231,4 @@ bool IOSurfaceSurfaceMtl::ValidateAttributes(EGLClientBuffer buffer,
 
     return true;
 }
-}
+}  // namespace rx

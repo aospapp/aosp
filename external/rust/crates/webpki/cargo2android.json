@@ -2,5 +2,7 @@
   "device": true,
   "features": "alloc,std",
   "run": true,
-  "tests": true
+  "tests": true,
+  "vendor-available": false,
+  "product-available": false
 }

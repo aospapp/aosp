@@ -15,6 +15,8 @@ limitations under the License.
 #ifndef TENSORFLOW_LITE_TOCO_TFLITE_EXPORT_H_
 #define TENSORFLOW_LITE_TOCO_TFLITE_EXPORT_H_
 
+#include <string>
+
 #include "tensorflow/lite/toco/model.h"
 #include "tensorflow/lite/toco/tflite/operator.h"
 #include "tensorflow/lite/util.h"
@@ -31,6 +33,8 @@ struct ExportParams {
   bool allow_dynamic_tensors = true;
   bool enable_select_tf_ops = false;
   QuantizedBufferType quantize_weights = QuantizedBufferType::NONE;
+  // Whether to use per-tensor (false) or per-channel (true) for hybrid quant.
+  bool disable_per_channel = false;
 };
 
 // Transform the given tf.mini model into a TF Lite flatbuffer and deposit the

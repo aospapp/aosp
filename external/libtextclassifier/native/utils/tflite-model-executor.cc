@@ -24,6 +24,7 @@
 namespace tflite {
 namespace ops {
 namespace builtin {
+TfLiteRegistration* Register_GELU();
 TfLiteRegistration* Register_ADD();
 TfLiteRegistration* Register_CONCATENATION();
 TfLiteRegistration* Register_CONV_2D();
@@ -272,6 +273,8 @@ void RegisterSelectedOps(tflite::MutableOpResolver* resolver) {
                        /*max_version=*/3);
   resolver->AddBuiltin(::tflite::BuiltinOperator_GREATER,
                        ::tflite::ops::builtin::Register_GREATER());
+  resolver->AddBuiltin(::tflite::BuiltinOperator_GELU,
+                       ::tflite::ops::builtin::Register_GELU());
 }
 #else
 void RegisterSelectedOps(tflite::MutableOpResolver* resolver) {

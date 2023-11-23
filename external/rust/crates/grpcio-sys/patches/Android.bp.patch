@@ -66,7 +66,7 @@ index 45707bc..d0369e6 100644
 -    shared_libs: ["libstdc++"],
      apex_available: [
          "//apex_available:platform",
-         "com.android.bluetooth",
+         "com.android.btservices",
      ],
      min_sdk_version: "29",
  }
@@ -80,7 +80,7 @@ index 45707bc..d0369e6 100644
 +    shared_libs: ["libgrpc++"],
 +    apex_available: [
 +        "//apex_available:platform",
-+        "com.android.bluetooth",
++        "com.android.btservices",
 +    ],
 +    min_sdk_version: "29",
 +}

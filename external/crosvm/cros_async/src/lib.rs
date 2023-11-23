@@ -1,4 +1,4 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -45,17 +45,17 @@
 //!
 //! # Implementations
 //!
-//! Currently there are two paths for using the asynchronous IO. One uses a PollContext and drivers
+//! Currently there are two paths for using the asynchronous IO. One uses a WaitContext and drives
 //! futures based on the FDs signaling they are ready for the opteration. This method will exist so
 //! long as kernels < 5.4 are supported.
 //! The other method submits operations to io_uring and is signaled when they complete. This is more
 //! efficient, but only supported on kernel 5.4+.
-//! If `IoSourceExt::new` is used to interface with async IO, then the correct backend will be chosen
+//! If `IoSource::new` is used to interface with async IO, then the correct backend will be chosen
 //! automatically.
 //!
 //! # Examples
 //!
-//! See the docs for `IoSourceExt` if support for kernels <5.4 is required. Focus on `UringSource` if
+//! See the docs for `IoSource` if support for kernels <5.4 is required. Focus on `UringSource` if
 //! all systems have support for io_uring.
 
 mod async_types;
@@ -63,144 +63,101 @@ pub mod audio_streams_async;
 mod blocking;
 mod complete;
 mod event;
-mod executor;
-mod fd_executor;
 mod io_ext;
+mod io_source;
 pub mod mem;
-mod poll_source;
 mod queue;
 mod select;
 pub mod sync;
+pub mod sys;
+pub use sys::Executor;
+pub use sys::ExecutorKind;
+pub use sys::TaskHandle;
 mod timer;
-mod uring_executor;
-mod uring_source;
 mod waker;
 
+use std::future::Future;
+use std::pin::Pin;
+use std::task::Poll;
+
 pub use async_types::*;
-pub use base;
-pub use blocking::{block_on, BlockingPool};
+pub use base::Event;
+#[cfg(unix)]
+pub use blocking::sys::unix::block_on::block_on;
+pub use blocking::unblock;
+pub use blocking::unblock_disarm;
+pub use blocking::BlockingPool;
+pub use blocking::CancellableBlockingPool;
+pub use blocking::TimeoutAction;
 pub use event::EventAsync;
-pub use executor::Executor;
-pub use fd_executor::FdExecutor;
-pub use io_ext::{
-    AsyncWrapper, Error as AsyncError, IntoAsync, IoSourceExt, ReadAsync, Result as AsyncResult,
-    WriteAsync,
-};
-pub use mem::{BackingMemory, MemRegion};
-pub use poll_source::PollSource;
-pub use select::SelectResult;
-pub use timer::TimerAsync;
-pub use uring_executor::URingExecutor;
-pub use uring_source::UringSource;
-
-use std::{
-    future::Future,
-    io,
-    marker::PhantomData,
-    pin::Pin,
-    task::{Context, Poll},
-};
-
+#[cfg(windows)]
+pub use futures::executor::block_on;
+use futures::stream::FuturesUnordered;
+pub use io_ext::AsyncWrapper;
+pub use io_ext::Error as AsyncError;
+pub use io_ext::IntoAsync;
+pub use io_ext::Result as AsyncResult;
+pub use io_source::AllocateMode;
+pub use io_source::IoSource;
+pub use mem::BackingMemory;
+pub use mem::MemRegion;
+pub use mem::VecIoWrapper;
 use remain::sorted;
+pub use select::SelectResult;
+pub use sys::run_one;
 use thiserror::Error as ThisError;
+pub use timer::TimerAsync;
 
 #[sorted]
 #[derive(ThisError, Debug)]
 pub enum Error {
-    /// Error from the FD executor.
-    #[error("Failure in the FD executor: {0}")]
-    FdExecutor(fd_executor::Error),
+    /// Error from EventAsync
+    #[error("Failure in EventAsync: {0}")]
+    EventAsync(base::Error),
+    /// Error from the handle executor.
+    #[cfg(windows)]
+    #[error("Failure in the handle executor: {0}")]
+    HandleExecutor(sys::windows::handle_executor::Error),
+    /// Error from the polled(FD) source, which includes error from the FD executor.
+    #[cfg(unix)]
+    #[error("An error with a poll source: {0}")]
+    PollSource(sys::unix::poll_source::Error),
+    /// Error from Timer.
+    #[error("Failure in Timer: {0}")]
+    Timer(base::Error),
     /// Error from TimerFd.
     #[error("Failure in TimerAsync: {0}")]
     TimerAsync(AsyncError),
-    /// Error from TimerFd.
-    #[error("Failure in TimerFd: {0}")]
-    TimerFd(base::Error),
     /// Error from the uring executor.
+    #[cfg(unix)]
     #[error("Failure in the uring executor: {0}")]
-    URingExecutor(uring_executor::Error),
+    URingExecutor(sys::unix::uring_executor::Error),
 }
 pub type Result<T> = std::result::Result<T, Error>;
 
-impl From<Error> for io::Error {
-    fn from(e: Error) -> Self {
-        use Error::*;
-        match e {
-            FdExecutor(e) => e.into(),
-            URingExecutor(e) => e.into(),
-            TimerFd(e) => e.into(),
-            TimerAsync(e) => e.into(),
-        }
+/// Heterogeneous collection of `async_task:Task` that are running in a "detached" state.
+///
+/// We keep them around to ensure they are dropped before the executor they are running on.
+pub(crate) struct DetachedTasks(FuturesUnordered<Pin<Box<dyn Future<Output = ()> + Send>>>);
+
+impl DetachedTasks {
+    pub(crate) fn new() -> Self {
+        DetachedTasks(FuturesUnordered::new())
     }
-}
 
-// A Future that never completes.
-pub struct Empty<T> {
-    phantom: PhantomData<T>,
-}
-
-impl<T> Future for Empty<T> {
-    type Output = T;
-
-    fn poll(self: Pin<&mut Self>, _: &mut Context) -> Poll<T> {
-        Poll::Pending
+    pub(crate) fn push<R: Send + 'static>(&self, task: async_task::Task<R>) {
+        // Convert to fallible, otherwise poll could panic if the `Runnable` is dropped early.
+        let task = task.fallible();
+        self.0.push(Box::pin(async {
+            let _ = task.await;
+        }));
     }
-}
 
-pub fn empty<T>() -> Empty<T> {
-    Empty {
-        phantom: PhantomData,
+    /// Polls all the tasks, dropping any that complete.
+    pub(crate) fn poll(&mut self, cx: &mut std::task::Context) {
+        use futures::Stream;
+        while let Poll::Ready(Some(_)) = Pin::new(&mut self.0).poll_next(cx) {}
     }
-}
-
-/// Creates an Executor that runs one future to completion.
-///
-///  # Example
-///
-///    ```
-///    use cros_async::run_one;
-///
-///    let fut = async { 55 };
-///    assert_eq!(55, run_one(fut).unwrap());
-///    ```
-pub fn run_one<F: Future>(fut: F) -> Result<F::Output> {
-    if uring_executor::use_uring() {
-        run_one_uring(fut)
-    } else {
-        run_one_poll(fut)
-    }
-}
-
-/// Creates a URingExecutor that runs one future to completion.
-///
-///  # Example
-///
-///    ```
-///    use cros_async::run_one_uring;
-///
-///    let fut = async { 55 };
-///    assert_eq!(55, run_one_uring(fut).unwrap());
-///    ```
-pub fn run_one_uring<F: Future>(fut: F) -> Result<F::Output> {
-    URingExecutor::new()
-        .and_then(|ex| ex.run_until(fut))
-        .map_err(Error::URingExecutor)
-}
-
-/// Creates a FdExecutor that runs one future to completion.
-///
-///  # Example
-///
-///    ```
-///    use cros_async::run_one_poll;
-///
-///    let fut = async { 55 };
-///    assert_eq!(55, run_one_poll(fut).unwrap());
-///    ```
-pub fn run_one_poll<F: Future>(fut: F) -> Result<F::Output> {
-    FdExecutor::new()
-        .and_then(|ex| ex.run_until(fut))
-        .map_err(Error::FdExecutor)
 }
 
 // Select helpers to run until any future completes.
@@ -435,6 +392,192 @@ pub async fn select7<
 ) {
     select::Select7::new(f1, f2, f3, f4, f5, f6, f7).await
 }
+
+pub async fn select8<
+    F1: Future + Unpin,
+    F2: Future + Unpin,
+    F3: Future + Unpin,
+    F4: Future + Unpin,
+    F5: Future + Unpin,
+    F6: Future + Unpin,
+    F7: Future + Unpin,
+    F8: Future + Unpin,
+>(
+    f1: F1,
+    f2: F2,
+    f3: F3,
+    f4: F4,
+    f5: F5,
+    f6: F6,
+    f7: F7,
+    f8: F8,
+) -> (
+    SelectResult<F1>,
+    SelectResult<F2>,
+    SelectResult<F3>,
+    SelectResult<F4>,
+    SelectResult<F5>,
+    SelectResult<F6>,
+    SelectResult<F7>,
+    SelectResult<F8>,
+) {
+    select::Select8::new(f1, f2, f3, f4, f5, f6, f7, f8).await
+}
+
+pub async fn select9<
+    F1: Future + Unpin,
+    F2: Future + Unpin,
+    F3: Future + Unpin,
+    F4: Future + Unpin,
+    F5: Future + Unpin,
+    F6: Future + Unpin,
+    F7: Future + Unpin,
+    F8: Future + Unpin,
+    F9: Future + Unpin,
+>(
+    f1: F1,
+    f2: F2,
+    f3: F3,
+    f4: F4,
+    f5: F5,
+    f6: F6,
+    f7: F7,
+    f8: F8,
+    f9: F9,
+) -> (
+    SelectResult<F1>,
+    SelectResult<F2>,
+    SelectResult<F3>,
+    SelectResult<F4>,
+    SelectResult<F5>,
+    SelectResult<F6>,
+    SelectResult<F7>,
+    SelectResult<F8>,
+    SelectResult<F9>,
+) {
+    select::Select9::new(f1, f2, f3, f4, f5, f6, f7, f8, f9).await
+}
+
+pub async fn select10<
+    F1: Future + Unpin,
+    F2: Future + Unpin,
+    F3: Future + Unpin,
+    F4: Future + Unpin,
+    F5: Future + Unpin,
+    F6: Future + Unpin,
+    F7: Future + Unpin,
+    F8: Future + Unpin,
+    F9: Future + Unpin,
+    F10: Future + Unpin,
+>(
+    f1: F1,
+    f2: F2,
+    f3: F3,
+    f4: F4,
+    f5: F5,
+    f6: F6,
+    f7: F7,
+    f8: F8,
+    f9: F9,
+    f10: F10,
+) -> (
+    SelectResult<F1>,
+    SelectResult<F2>,
+    SelectResult<F3>,
+    SelectResult<F4>,
+    SelectResult<F5>,
+    SelectResult<F6>,
+    SelectResult<F7>,
+    SelectResult<F8>,
+    SelectResult<F9>,
+    SelectResult<F10>,
+) {
+    select::Select10::new(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10).await
+}
+
+pub async fn select11<
+    F1: Future + Unpin,
+    F2: Future + Unpin,
+    F3: Future + Unpin,
+    F4: Future + Unpin,
+    F5: Future + Unpin,
+    F6: Future + Unpin,
+    F7: Future + Unpin,
+    F8: Future + Unpin,
+    F9: Future + Unpin,
+    F10: Future + Unpin,
+    F11: Future + Unpin,
+>(
+    f1: F1,
+    f2: F2,
+    f3: F3,
+    f4: F4,
+    f5: F5,
+    f6: F6,
+    f7: F7,
+    f8: F8,
+    f9: F9,
+    f10: F10,
+    f11: F11,
+) -> (
+    SelectResult<F1>,
+    SelectResult<F2>,
+    SelectResult<F3>,
+    SelectResult<F4>,
+    SelectResult<F5>,
+    SelectResult<F6>,
+    SelectResult<F7>,
+    SelectResult<F8>,
+    SelectResult<F9>,
+    SelectResult<F10>,
+    SelectResult<F11>,
+) {
+    select::Select11::new(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11).await
+}
+
+pub async fn select12<
+    F1: Future + Unpin,
+    F2: Future + Unpin,
+    F3: Future + Unpin,
+    F4: Future + Unpin,
+    F5: Future + Unpin,
+    F6: Future + Unpin,
+    F7: Future + Unpin,
+    F8: Future + Unpin,
+    F9: Future + Unpin,
+    F10: Future + Unpin,
+    F11: Future + Unpin,
+    F12: Future + Unpin,
+>(
+    f1: F1,
+    f2: F2,
+    f3: F3,
+    f4: F4,
+    f5: F5,
+    f6: F6,
+    f7: F7,
+    f8: F8,
+    f9: F9,
+    f10: F10,
+    f11: F11,
+    f12: F12,
+) -> (
+    SelectResult<F1>,
+    SelectResult<F2>,
+    SelectResult<F3>,
+    SelectResult<F4>,
+    SelectResult<F5>,
+    SelectResult<F6>,
+    SelectResult<F7>,
+    SelectResult<F8>,
+    SelectResult<F9>,
+    SelectResult<F10>,
+    SelectResult<F11>,
+    SelectResult<F12>,
+) {
+    select::Select12::new(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12).await
+}
+
 // Combination helpers to run until all futures are complete.
 
 /// Creates a combinator that runs the two given futures to completion, returning a tuple of the

@@ -115,6 +115,8 @@ public class SHA256
             addHMACAlias(provider, "SHA256", NISTObjectIdentifiers.id_sha256);
             */
             // END Android-removed: Unsupported algorithms
+            // Android-added: Private implementation needed to support PBKDF2 with PKCS#12
+            provider.addPrivateAlgorithm("Mac", NISTObjectIdentifiers.id_sha256, PREFIX + "$HashMac");
         }
     }
 }

@@ -3,3 +3,4 @@ logs
 .mypy_cache/
 llvm-project-copy/
 compiler_wrapper/compiler_wrapper
+/rust-analyzer-chromiumos-wrapper/target

@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS "
+AUTHOR = "ChromeOS "
 NAME = "network_nightly"
 PURPOSE = "A simple example suite."
 

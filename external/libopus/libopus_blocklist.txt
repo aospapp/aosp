@@ -24,7 +24,13 @@ fun:ec_decode_bin
 fun:silk_noise_shape_quantizer_del_dec
 # silk/NSQ.c:265:25: 1318152552 + 1068143768 cannot be represented in type 'int'
 fun:silk_noise_shape_quantizer
-
+# silk/x86/NSQ_del_dec_sse4_1.c:571:28: 1162446838 - -1165932966 cannot be represented in type 'int'
+fun:silk_noise_shape_quantizer_del_dec_sse4_1
+# silk/fixed/x86/burg_modified_FIX_sse4_1.c:277: 1940085720 + 252655088 cannot be represented
+# in type 'int'
+fun:silk_burg_modified_sse4_1
+# silk/fixed/burg_modified_FIX.c:181 1940085720 + 252655088 cannot be represented in type 'int'
+fun:silk_burg_modified_c
 src:*/celt/kiss_fft.c
 
 # assembly optimizations that know what they are doing

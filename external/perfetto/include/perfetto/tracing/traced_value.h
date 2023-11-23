@@ -66,7 +66,7 @@ class EventContext;
 //   about tracing).
 //
 //
-// After definiting a conversion method, the object can be used directly as a
+// After defining a conversion method, the object can be used directly as a
 // TRACE_EVENT argument:
 //
 // Foo foo;
@@ -120,12 +120,12 @@ namespace internal {
 // TODO(altimin): Currently EventContext can be null due the need to support
 // TracedValue-based serialisation with the Chrome's TraceLog. After this is
 // gone, the second parameter should be changed to EventContext&.
-PERFETTO_EXPORT TracedValue
+PERFETTO_EXPORT_COMPONENT TracedValue
 CreateTracedValueFromProto(protos::pbzero::DebugAnnotation*,
                            EventContext* = nullptr);
 }
 
-class PERFETTO_EXPORT TracedValue {
+class PERFETTO_EXPORT_COMPONENT TracedValue {
  public:
   TracedValue(const TracedValue&) = delete;
   TracedValue& operator=(const TracedValue&) = delete;
@@ -177,9 +177,9 @@ class PERFETTO_EXPORT TracedValue {
   static TracedValue CreateFromProto(protos::pbzero::DebugAnnotation* proto,
                                      EventContext* event_context = nullptr);
 
-  inline explicit TracedValue(protos::pbzero::DebugAnnotation* annotation,
-                              EventContext* event_context,
-                              internal::CheckedScope* parent_scope)
+  inline TracedValue(protos::pbzero::DebugAnnotation* annotation,
+                     EventContext* event_context,
+                     internal::CheckedScope* parent_scope)
       : annotation_(annotation),
         event_context_(event_context),
         checked_scope_(parent_scope) {}
@@ -204,7 +204,7 @@ TracedProto<MessageType> TracedValue::WriteProto() && {
       event_context_);
 }
 
-class PERFETTO_EXPORT TracedArray {
+class PERFETTO_EXPORT_COMPONENT TracedArray {
  public:
   // implicit
   TracedArray(TracedValue);
@@ -228,9 +228,9 @@ class PERFETTO_EXPORT TracedArray {
  private:
   friend class TracedValue;
 
-  inline explicit TracedArray(protos::pbzero::DebugAnnotation* annotation,
-                              EventContext* event_context,
-                              internal::CheckedScope* parent_scope)
+  inline TracedArray(protos::pbzero::DebugAnnotation* annotation,
+                     EventContext* event_context,
+                     internal::CheckedScope* parent_scope)
       : annotation_(annotation),
         event_context_(event_context),
         checked_scope_(parent_scope) {}
@@ -241,7 +241,7 @@ class PERFETTO_EXPORT TracedArray {
   internal::CheckedScope checked_scope_;
 };
 
-class PERFETTO_EXPORT TracedDictionary {
+class PERFETTO_EXPORT_COMPONENT TracedDictionary {
  public:
   // implicit
   TracedDictionary(TracedValue);
@@ -286,11 +286,10 @@ class PERFETTO_EXPORT TracedDictionary {
   // Create a |TracedDictionary| which will populate the given field of the
   // given |message|.
   template <typename MessageType, typename FieldMetadata>
-  inline explicit TracedDictionary(
-      MessageType* message,
-      protozero::proto_utils::internal::FieldMetadataHelper<FieldMetadata>,
-      EventContext* event_context,
-      internal::CheckedScope* parent_scope)
+  inline TracedDictionary(MessageType* message,
+                          FieldMetadata,
+                          EventContext* event_context,
+                          internal::CheckedScope* parent_scope)
       : message_(message),
         field_id_(FieldMetadata::kFieldId),
         event_context_(event_context),
@@ -599,6 +598,23 @@ template <size_t N>
 struct TraceFormatTraits<char[N]> {
   inline static void WriteIntoTrace(TracedValue context, const char value[N]) {
     std::move(context).WriteString(value);
+  }
+};
+
+// Specialization for Perfetto strings.
+template <>
+struct TraceFormatTraits<perfetto::StaticString> {
+  inline static void WriteIntoTrace(TracedValue context,
+                                    perfetto::StaticString str) {
+    std::move(context).WriteString(str.value);
+  }
+};
+
+template <>
+struct TraceFormatTraits<perfetto::DynamicString> {
+  inline static void WriteIntoTrace(TracedValue context,
+                                    perfetto::DynamicString str) {
+    std::move(context).WriteString(str.value, str.length);
   }
 };
 

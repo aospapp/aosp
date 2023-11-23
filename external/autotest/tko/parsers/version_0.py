@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # pylint: disable=missing-docstring
 import os
 import re
@@ -92,7 +93,7 @@ class job(models.job):
                                if l.startswith('board%3A')]
                 if board_labels:
                     # Multiple board/model labels aren't supposed to
-                    # happen, but let's report something sane rather
+                    # happen, but let's report something valid rather
                     # than just failing.
                     machine_groups.add(','.join(board_labels))
                 else:
@@ -111,7 +112,8 @@ class job(models.job):
     def find_hostname(path):
         hostname = os.path.join(path, "sysinfo", "hostname")
         try:
-            machine = open(hostname).readline().rstrip()
+            with open(hostname) as rf:
+                machine = rf.readline().rstrip()
             return machine
         except Exception:
             tko_utils.dprint("Could not read a hostname from "
@@ -190,7 +192,9 @@ class kernel(models.kernel):
             return None
 
         base, patches, hashes = "UNKNOWN", [], []
-        for line in file(path):
+        with open(path) as rf:
+            lines = rf.readlines()
+        for line in lines:
             head, rest = line.split(": ", 1)
             rest = rest.split()
             if head == "BASE":
@@ -285,7 +289,7 @@ class status_line(object):
         if not match:
             # A more useful error message than:
             #  AttributeError: 'NoneType' object has no attribute 'groups'
-            # to help us debug WTF happens on occasion here.
+            # to help us debug what happens on occasion here.
             raise RuntimeError("line %r could not be parsed." % line)
         indent, line = match.groups()
         indent = len(indent)

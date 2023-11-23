@@ -2,6 +2,141 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# 0.6.4
+
+#### Bugfixes
+
+- Avoid truncating `X` packets that contain `:` and `,` as part of the payload. [\#121](https://github.com/daniel5151/gdbstub/pull/121) ([709924470](https://github.com/709924470))
+
+#### Internal Improvements
+
+- Various README tweaks
+- Remove some `unsafe` code
+- CI improvements
+  - Run no-panic checks on `example_no_std`
+  - Run CI on docs
+
+# 0.6.3
+
+#### New Features
+
+- `SingleRegisterAccess`: Support reporting unavailable regs [\#107](https://github.com/daniel5151/gdbstub/pull/107) ([ptosi](https://github.com/ptosi))
+
+# 0.6.2
+
+#### New Protocol Extensions
+
+- `MultiThreadBase > ThreadExtraInfo` - Provide extra information per-thread. [\#106](https://github.com/daniel5151/gdbstub/pull/106) ([thefaxman](https://github.com/thefaxman))
+- `LldbRegisterInfo` - (LLDB specific) Report register information in the LLDB format. [\#103](https://github.com/daniel5151/gdbstub/pull/103) ([jawilk](https://github.com/jawilk))
+  - This information can be statically included as part of the `Arch` implemention, or dynamically reported via the `LldbRegisterInfoOverride` IDET.
+
+#### Bugfixes
+
+- Report thread ID in response to `?` packet. [\#105](https://github.com/daniel5151/gdbstub/pull/105) ([thefaxman](https://github.com/thefaxman))
+
+#### Internal Improvements
+
+- Tweak enabled clippy lints
+- Added a light dusting of `#[inline]` across the packet parsing code, crunching the code down even further
+- Expanded on "no-panic guarantee" docs
+
+# 0.6.1
+
+#### New Features
+
+- add LLDB-specific HostIoOpenFlags [\#100](https://github.com/daniel5151/gdbstub/pull/100) ([mrk](https://github.com/mrk-its))
+
+# 0.6.0
+
+After over a half-year of development, `gdbstub` 0.6 has finally been released!
+
+This massive release delivers a slew of new protocol extensions, internal improvements, and key API improvements. Some highlights include:
+
+- A new _non-blocking_ `GdbStubStateMachine` API, enabling `gdbstub` to integrate nicely with async event loops!
+  - Moreover, on `no_std` platforms, this new API enables `gdbstub` to be driven directly via breakpoint/serial interrupt handlers!
+  - This API is already being used in several Rust kernel projects, such as [`vmware-labs/node-replicated-kernel`](https://github.com/vmware-labs/node-replicated-kernel/tree/4326704/kernel/src/arch/x86_64/gdb) and [`betrusted-io/xous-core`](https://github.com/betrusted-io/xous-core/blob/7d3d710/kernel/src/debug/gdb_server.rs) to enable bare-metal, in-kernel debugging.
+- `gdbstub` is now entirely **panic free** in release builds!
+  - \* subject to `rustc`'s compiler optimizations
+  - This was a pretty painstaking effort, but the end result is a substantial reduction in binary size on `no_std` platforms.
+- Tons of new and exciting protocol extensions, including but not limited to:
+  - Support for remote file I/O (reading/writing files to the debug target)
+  - Fetching remote memory maps
+  - Catching + reporting syscall entry/exit conditions
+  - ...and many more!
+- A new license: `gdbstub` is licensed under MIT OR Apache-2.0
+
+See the [changelog](https://github.com/daniel5151/gdbstub/blob/dev/0.6/CHANGELOG.md) for a comprehensive rundown of all the new features.
+
+While this release does come with quite a few breaking changes, the core IDET-based `Target` API has remained much the same, which should make porting code over from 0.5.x to 0.6 pretty mechanical. See the [`transition_guide.md`](./docs/transition_guide.md) for guidance on upgrading from `0.5.x` to `0.6`.
+
+And as always, a huge shoutout to the folks who contributed PRs, Issues, and ideas to `gdbstub` - this release wouldn't have been possible without you! Special shoutouts to [gz](https://github.com/gz) and [xobs](https://github.com/xobs) for helping me test and iterate on the new bare-metal state machine API, and [bet4it](https://github.com/bet4it) for pointing out and implementing many useful API improvements and internal refactors.
+
+Cheers!
+
+#### New Features
+
+- The new `GdbStubStateMachine` API gives users the power and flexibility to integrate `gdbstub` into their project-specific event loop infrastructure.
+  - e.g: A global instance of `GdbStubStateMachine` can be driven directly from bare-metal interrupt handlers in `no_std` environments
+  - e.g: A project using `async`/`await` can wrap `GdbStubStateMachine` in a task, yielding execution while waiting for the target to resume / new data to arrive down the `Connection`
+- Removed all panicking code from `gdbstub`
+  - See the [commit message](https://github.com/daniel5151/gdbstub/commit/ecbbaf72e01293b410ef3bc5970d18aa81e45599) for more details on how this was achieved.
+- Introduced strongly-typed enum for protocol defined signal numbers (instead of using bare `u8`s)
+- Added basic feature negotiation to support clients that don't support `multiprocess+` extensions.
+- Relicensed `gdbstub` under MIT OR Apache-2.0 [\#68](https://github.com/daniel5151/gdbstub/pull/68)
+- Added several new "guard rails" to avoid common integration footguns:
+  - `Target::guard_rail_implicit_sw_breakpoints` - guards against the GDB client silently overriding target instructions with breakpoints if `SwBreakpoints` hasn't been implemented.
+  - `Target::guard_rail_single_step_gdb_behavior` - guards against a GDB client bug where support for single step may be required / ignored on certain platforms (e.g: required on x86, ignored on MIPS)
+- Added several new "toggle switches" to enable/disable parts of the protocol (all default to `true`)
+  - `Target::use_x_upcase_packet` - toggle support for the more efficient `X` memory write packet
+  - `Target::use_resume_stub` - toggle `gdbstub`'s built-in "stub" resume handler that returns `SIGRAP` if a target doesn't implement support for resumption
+  - `Target::use_rle` - toggle whether outgoing packets are Run Length Encoded (RLE)
+
+#### New Protocol Extensions
+
+- `MemoryMap` - Get memory map XML file from the target. [\#54](https://github.com/daniel5151/gdbstub/pull/54) ([Tiwalun](https://github.com/Tiwalun))
+- `CatchSyscalls` - Enable and disable catching syscalls from the inferior process. [\#57](https://github.com/daniel5151/gdbstub/pull/57) ([mchesser](https://github.com/mchesser))
+- `HostIo` - Perform I/O operations on host. [\#66](https://github.com/daniel5151/gdbstub/pull/66) ([bet4it](https://github.com/bet4it))
+  - Support for all Host I/O operations: `open`, `close`, `pread`, `pwrite`, `fstat`, `unlink`, `readlink`, `setfs`
+- `ExecFile` - Get full absolute path of the file that was executed to create a process running on the remote system. [\#69](https://github.com/daniel5151/gdbstub/pull/69) ([bet4it](https://github.com/bet4it))
+- `Auxv` - Access the target’s auxiliary vector. [\#86](https://github.com/daniel5151/gdbstub/pull/86) ([bet4it](https://github.com/bet4it))
+- Implement `X` packet - More efficient bulk-write to memory (superceding the `M` packet). [\#82](https://github.com/daniel5151/gdbstub/pull/82) ([gz](https://github.com/gz))
+
+#### Breaking API Changes
+
+- `Connection` API:
+  - Removed the `read` and `peek` methods from `Connection`
+    - These have been moved to the new `ConnectionExt` trait, which is used in the new `GdbStub::run_blocking` API
+- `Arch` API:
+  - Dynamic read_register + RegId support. [\#85](https://github.com/daniel5151/gdbstub/pull/85) ([bet4it](https://github.com/bet4it))
+- `Target` APIs:
+  - prefix all IDET methods with `support_`
+    - _makes it far easier to tell at-a-glance whether a method is an IDET, or an actual handler method.
+  - Introduce strongly-typed enum for protocol defined signal numbers (instead of using bare `u8`s)
+  - `Base` API:
+    - Make single-stepping optional [\#92](https://github.com/daniel5151/gdbstub/pull/92)
+    - Remove `GdbInterrupt` type (interrupt handling lifted to higher-level APIs)
+    - Remove `ResumeAction` type (in favor of separate methods for various resume types)
+  - `Breakpoints` API:
+    - `HwWatchpoint`: Plumb watchpoint `length` parameter to public API
+  - `TargetXml` API:
+    - Support for `<xi:include>` in target.xml, which required including the `annex` parameter in the handler method.
+    - `annex` is set to `b"target.xml"` on the fist call, though it may be set to other values in subsequent calls if `<xi:include>` is being used.
+  - Pass `PacketBuf`-backed `&mut [u8]` as a response buffer to various APIs [\#72](https://github.com/daniel5151/gdbstub/pull/72) ([bet4it](https://github.com/bet4it))
+    - Improvement over the callback-based approach.
+    - This change is possible thanks to a clause in the GDB spec that specifies that responses will never exceed the size of the `PacketBuf`.
+    - Also see [\#70](https://github.com/daniel5151/gdbstub/pull/70), which tracks some other methods that might be refactored to use this approach in the future.
+
+#### Internal Improvements
+
+- Documentation
+  - Fix crates.io badges [\#71](https://github.com/daniel5151/gdbstub/pull/71) ([atouchet](https://github.com/atouchet))
+  - Add `uhyve` to real-world examples [\#73](https://github.com/daniel5151/gdbstub/pull/73) ([mkroening](https://github.com/mkroening))
+- Use stable `clippy` in CI
+- Enable logging for responses with only alloc [\#78](https://github.com/daniel5151/gdbstub/pull/78) ([gz](https://github.com/gz))
+- Lots of internal refactoring and cleanup
+
+#### Bugfixes
+
 # 0.5.0
 
 While the overall structure of the API has remained the same, `0.5.0` does introduce a few breaking API changes that require some attention. That being said, it should not be a difficult migration, and updating to `0.5.0` from `0.4` shouldn't take more than 10 mins of refactoring.
@@ -18,7 +153,7 @@ Check out [`transition_guide.md`](./docs/transition_guide.md) for guidance on up
 - Added the `Exited(u8)`, `Terminated(u8)`, and `ReplayLog("begin"|"end")` stop reasons.
 - Added `DisconnectReason::Exited(u8)` and `DisconnectReason::Terminated(u8)`.
 - Reworked the `MultiThreadOps::resume` API to be significantly more ergonomic and efficient
-  - See the [transition guide](https://github.com/daniel5151/gdbstub/blob/dev/0.5/docs/transition_guide.md#new-multithreadopsresume-api) for more details.
+  - See the [transition guide](https://github.com/daniel5151/gdbstub/blob/master/docs/transition_guide.md#new-multithreadopsresume-api) for more details.
 
 #### New Protocol Extensions
 

@@ -1,13 +1,17 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import logging, os, shutil, tempfile
 
-import common, constants, cryptohome
+import common
+
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import autotemp, error
+from autotest_lib.client.cros import constants
 from autotest_lib.client.cros import cros_ui
+from autotest_lib.client.cros import cryptohome
 
 
 PK12UTIL = 'pk12util'

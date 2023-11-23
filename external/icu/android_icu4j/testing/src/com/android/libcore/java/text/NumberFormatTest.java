@@ -37,7 +37,9 @@ import java.util.Locale;
 @RunWith(JUnit4.class)
 public class NumberFormatTest {
 
-    // http://b/162744366
+    // Since Android U, libcore's java.text.DecimalFormat supports monetary grouping separator.
+    // Prior to Android U, DecimalFormat should use the normal grouping separator.
+    // See http://b/162744366.
     @Test
     public void testMonetarySeparator() {
         Locale locale = Locale.forLanguageTag("en-BE");
@@ -48,7 +50,8 @@ public class NumberFormatTest {
         assertEquals('.', dfs.getGroupingSeparator());
         assertEquals(',', dfs.getDecimalSeparator());
         assertEquals(',', dfs.getMonetaryDecimalSeparator());
+        assertEquals(',', dfs.getMonetaryGroupingSeparator());
         // Assert that the separators in DecimalFormatSymbols are used.
-        assertEquals("€9.876,66",df.format(9876.66));
+        assertEquals("€9,876,66",df.format(9876.66));
     }
 }

@@ -48,6 +48,9 @@ struct dpp_connection {
 	unsigned int gas_comeback_in_progress:1;
 	u8 gas_dialog_token;
 	char *name;
+	char *mud_url;
+	char *extra_conf_req_name;
+	char *extra_conf_req_value;
 	enum dpp_netrole netrole;
 };
 
@@ -89,6 +92,9 @@ static void dpp_conn_tx_ready(int sock, void *eloop_ctx, void *sock_ctx);
 static void dpp_controller_auth_success(struct dpp_connection *conn,
 					int initiator);
 static void dpp_tcp_build_csr(void *eloop_ctx, void *timeout_ctx);
+#ifdef CONFIG_DPP3
+static void dpp_tcp_build_new_key(void *eloop_ctx, void *timeout_ctx);
+#endif /* CONFIG_DPP3 */
 static void dpp_tcp_gas_query_comeback(void *eloop_ctx, void *timeout_ctx);
 static void dpp_relay_conn_timeout(void *eloop_ctx, void *timeout_ctx);
 
@@ -107,11 +113,17 @@ static void dpp_connection_free(struct dpp_connection *conn)
 	eloop_cancel_timeout(dpp_tcp_build_csr, conn, NULL);
 	eloop_cancel_timeout(dpp_tcp_gas_query_comeback, conn, NULL);
 	eloop_cancel_timeout(dpp_relay_conn_timeout, conn, NULL);
+#ifdef CONFIG_DPP3
+	eloop_cancel_timeout(dpp_tcp_build_new_key, conn, NULL);
+#endif /* CONFIG_DPP3 */
 	wpabuf_free(conn->msg);
 	wpabuf_free(conn->msg_out);
 	dpp_auth_deinit(conn->auth);
 	dpp_pkex_free(conn->pkex);
 	os_free(conn->name);
+	os_free(conn->mud_url);
+	os_free(conn->extra_conf_req_name);
+	os_free(conn->extra_conf_req_value);
 	os_free(conn);
 }
 
@@ -127,6 +139,7 @@ int dpp_relay_add_controller(struct dpp_global *dpp,
 			     struct dpp_relay_config *config)
 {
 	struct dpp_relay_controller *ctrl;
+	char txt[100];
 
 	if (!dpp)
 		return -1;
@@ -142,6 +155,8 @@ int dpp_relay_add_controller(struct dpp_global *dpp,
 	ctrl->cb_ctx = config->cb_ctx;
 	ctrl->tx = config->tx;
 	ctrl->gas_resp_tx = config->gas_resp_tx;
+	wpa_printf(MSG_DEBUG, "DPP: Add Relay connection to Controller %s",
+		   hostapd_ip_txt(&ctrl->ipaddr, txt, sizeof(txt)));
 	dl_list_add(&dpp->controllers, &ctrl->list);
 	return 0;
 }
@@ -183,6 +198,31 @@ dpp_relay_controller_get_ctx(struct dpp_global *dpp, void *cb_ctx)
 }
 
 
+static struct dpp_relay_controller *
+dpp_relay_controller_get_addr(struct dpp_global *dpp,
+			      const struct sockaddr_in *addr)
+{
+	struct dpp_relay_controller *ctrl;
+
+	if (!dpp)
+		return NULL;
+
+	dl_list_for_each(ctrl, &dpp->controllers, struct dpp_relay_controller,
+			 list) {
+		if (ctrl->ipaddr.af == AF_INET &&
+		    addr->sin_addr.s_addr == ctrl->ipaddr.u.v4.s_addr)
+			return ctrl;
+	}
+
+	if (dpp->tmp_controller &&
+	    dpp->tmp_controller->ipaddr.af == AF_INET &&
+	    addr->sin_addr.s_addr == dpp->tmp_controller->ipaddr.u.v4.s_addr)
+		return dpp->tmp_controller;
+
+	return NULL;
+}
+
+
 static void dpp_controller_gas_done(struct dpp_connection *conn)
 {
 	struct dpp_authentication *auth = conn->auth;
@@ -193,6 +233,14 @@ static void dpp_controller_gas_done(struct dpp_connection *conn)
 		return;
 	}
 
+#ifdef CONFIG_DPP3
+	if (auth->waiting_new_key) {
+		wpa_printf(MSG_DEBUG, "DPP: Waiting for a new key");
+		conn->on_tcp_tx_complete_gas_done = 0;
+		return;
+	}
+#endif /* CONFIG_DPP3 */
+
 	if (auth->peer_version >= 2 &&
 	    auth->conf_resp_status == DPP_STATUS_OK) {
 		wpa_printf(MSG_DEBUG, "DPP: Wait for Configuration Result");
@@ -200,7 +248,8 @@ static void dpp_controller_gas_done(struct dpp_connection *conn)
 		return;
 	}
 
-	wpa_msg(conn->msg_ctx, MSG_INFO, DPP_EVENT_CONF_SENT);
+	wpa_msg(conn->msg_ctx, MSG_INFO, DPP_EVENT_CONF_SENT "conf_status=%d",
+		auth->conf_resp_status);
 	dpp_connection_remove(conn);
 }
 
@@ -298,8 +347,10 @@ static void dpp_controller_start_gas_client(struct dpp_connection *conn)
 	const char *dpp_name;
 
 	dpp_name = conn->name ? conn->name : "Test";
-	buf = dpp_build_conf_req_helper(auth, dpp_name, conn->netrole, NULL,
-					NULL);
+	buf = dpp_build_conf_req_helper(auth, dpp_name, conn->netrole,
+					conn->mud_url, NULL,
+					conn->extra_conf_req_name,
+					conn->extra_conf_req_value);
 	if (!buf) {
 		wpa_printf(MSG_DEBUG,
 			   "DPP: No configuration request data available");
@@ -320,8 +371,7 @@ static void dpp_controller_auth_success(struct dpp_connection *conn,
 		return;
 
 	wpa_printf(MSG_DEBUG, "DPP: Authentication succeeded");
-	wpa_msg(conn->msg_ctx, MSG_INFO,
-		DPP_EVENT_AUTH_SUCCESS "init=%d", initiator);
+	dpp_notify_auth_success(auth, initiator);
 #ifdef CONFIG_TESTING_OPTIONS
 	if (dpp_test == DPP_TEST_STOP_AT_AUTH_CONF) {
 		wpa_printf(MSG_INFO,
@@ -506,6 +556,31 @@ static int dpp_relay_tx(struct dpp_connection *conn, const u8 *hdr,
 }
 
 
+static struct dpp_connection *
+dpp_relay_match_ctrl(struct dpp_relay_controller *ctrl, const u8 *src,
+		     unsigned int freq, u8 type)
+{
+	struct dpp_connection *conn;
+
+	dl_list_for_each(conn, &ctrl->conn, struct dpp_connection, list) {
+		if (os_memcmp(src, conn->mac_addr, ETH_ALEN) == 0)
+			return conn;
+		if ((type == DPP_PA_PKEX_EXCHANGE_RESP ||
+		     type == DPP_PA_AUTHENTICATION_RESP) &&
+		    conn->freq == 0 &&
+		    is_broadcast_ether_addr(conn->mac_addr)) {
+			wpa_printf(MSG_DEBUG,
+				   "DPP: Associate this peer to the new Controller initiated connection");
+			os_memcpy(conn->mac_addr, src, ETH_ALEN);
+			conn->freq = freq;
+			return conn;
+		}
+	}
+
+	return NULL;
+}
+
+
 int dpp_relay_rx_action(struct dpp_global *dpp, const u8 *src, const u8 *hdr,
 			const u8 *buf, size_t len, unsigned int freq,
 			const u8 *i_bootstrap, const u8 *r_bootstrap,
@@ -524,12 +599,16 @@ int dpp_relay_rx_action(struct dpp_global *dpp, const u8 *src, const u8 *hdr,
 	    type != DPP_PA_RECONFIG_ANNOUNCEMENT) {
 		dl_list_for_each(ctrl, &dpp->controllers,
 				 struct dpp_relay_controller, list) {
-			dl_list_for_each(conn, &ctrl->conn,
-					 struct dpp_connection, list) {
-				if (os_memcmp(src, conn->mac_addr,
-					      ETH_ALEN) == 0)
-					return dpp_relay_tx(conn, hdr, buf, len);
-			}
+			conn = dpp_relay_match_ctrl(ctrl, src, freq, type);
+			if (conn)
+				return dpp_relay_tx(conn, hdr, buf, len);
+		}
+
+		if (dpp->tmp_controller) {
+			conn = dpp_relay_match_ctrl(dpp->tmp_controller, src,
+						    freq, type);
+			if (conn)
+				return dpp_relay_tx(conn, hdr, buf, len);
 		}
 	}
 
@@ -548,6 +627,17 @@ int dpp_relay_rx_action(struct dpp_global *dpp, const u8 *src, const u8 *hdr,
 	if (!ctrl)
 		return -1;
 
+	if (type == DPP_PA_PRESENCE_ANNOUNCEMENT ||
+	    type == DPP_PA_RECONFIG_ANNOUNCEMENT) {
+		conn = dpp_relay_match_ctrl(ctrl, src, freq, type);
+		if (conn &&
+		    (!conn->auth || conn->auth->waiting_auth_resp)) {
+			wpa_printf(MSG_DEBUG,
+				   "DPP: Use existing TCP connection to Controller since no Auth Resp seen on it yet");
+			return dpp_relay_tx(conn, hdr, buf, len);
+		}
+	}
+
 	wpa_printf(MSG_DEBUG,
 		   "DPP: Authentication Request for a configured Controller");
 	conn = dpp_relay_new_conn(ctrl, src, freq);
@@ -565,11 +655,25 @@ int dpp_relay_rx_action(struct dpp_global *dpp, const u8 *src, const u8 *hdr,
 }
 
 
+static struct dpp_connection *
+dpp_relay_find_conn(struct dpp_relay_controller *ctrl, const u8 *src)
+{
+	struct dpp_connection *conn;
+
+	dl_list_for_each(conn, &ctrl->conn, struct dpp_connection, list) {
+		if (os_memcmp(src, conn->mac_addr, ETH_ALEN) == 0)
+			return conn;
+	}
+
+	return NULL;
+}
+
+
 int dpp_relay_rx_gas_req(struct dpp_global *dpp, const u8 *src, const u8 *data,
 			 size_t data_len)
 {
 	struct dpp_relay_controller *ctrl;
-	struct dpp_connection *conn, *found = NULL;
+	struct dpp_connection *conn = NULL;
 	struct wpabuf *msg;
 
 	/* Check if there is a successfully completed authentication for this
@@ -577,19 +681,15 @@ int dpp_relay_rx_gas_req(struct dpp_global *dpp, const u8 *src, const u8 *data,
 	 */
 	dl_list_for_each(ctrl, &dpp->controllers,
 			 struct dpp_relay_controller, list) {
-		if (found)
+		conn = dpp_relay_find_conn(ctrl, src);
+		if (conn)
 			break;
-		dl_list_for_each(conn, &ctrl->conn,
-				 struct dpp_connection, list) {
-			if (os_memcmp(src, conn->mac_addr,
-				      ETH_ALEN) == 0) {
-				found = conn;
-				break;
-			}
-		}
 	}
 
-	if (!found)
+	if (!conn && dpp->tmp_controller)
+		conn = dpp_relay_find_conn(dpp->tmp_controller, src);
+
+	if (!conn)
 		return -1;
 
 	msg = wpabuf_alloc(4 + 1 + data_len);
@@ -605,6 +705,12 @@ int dpp_relay_rx_gas_req(struct dpp_global *dpp, const u8 *src, const u8 *data,
 	conn->msg_out = msg;
 	dpp_tcp_send(conn);
 	return 0;
+}
+
+
+bool dpp_relay_controller_available(struct dpp_global *dpp)
+{
+	return dpp && dl_list_len(&dpp->controllers) > 0;
 }
 
 
@@ -785,8 +891,9 @@ static int dpp_controller_rx_conf_result(struct dpp_connection *conn,
 
 	status = dpp_conf_result_rx(auth, hdr, buf, len);
 	if (status == DPP_STATUS_OK && auth->send_conn_status) {
-		wpa_msg(msg_ctx, MSG_INFO,
-			DPP_EVENT_CONF_SENT "wait_conn_status=1");
+		wpa_msg(msg_ctx, MSG_INFO, DPP_EVENT_CONF_SENT
+			"wait_conn_status=1 conf_resp_status=%d",
+			auth->conf_resp_status);
 		wpa_printf(MSG_DEBUG, "DPP: Wait for Connection Status Result");
 		auth->waiting_conn_status_result = 1;
 		eloop_cancel_timeout(
@@ -798,7 +905,8 @@ static int dpp_controller_rx_conf_result(struct dpp_connection *conn,
 		return 0;
 	}
 	if (status == DPP_STATUS_OK)
-		wpa_msg(msg_ctx, MSG_INFO, DPP_EVENT_CONF_SENT);
+		wpa_msg(msg_ctx, MSG_INFO, DPP_EVENT_CONF_SENT
+			"conf_resp_status=%d", auth->conf_resp_status);
 	else
 		wpa_msg(msg_ctx, MSG_INFO, DPP_EVENT_CONF_FAILED);
 	return -1; /* to remove the completed connection */
@@ -847,12 +955,6 @@ static int dpp_controller_rx_presence_announcement(struct dpp_connection *conn,
 	struct dpp_authentication *auth;
 	struct dpp_global *dpp = conn->ctrl->global;
 
-	if (conn->auth) {
-		wpa_printf(MSG_DEBUG,
-			   "DPP: Ignore Presence Announcement during ongoing Authentication");
-		return -1;
-	}
-
 	wpa_printf(MSG_DEBUG, "DPP: Presence Announcement");
 
 	r_bootstrap = dpp_get_attr(buf, len, DPP_ATTR_R_BOOTSTRAP_KEY_HASH,
@@ -869,6 +971,12 @@ static int dpp_controller_rx_presence_announcement(struct dpp_connection *conn,
 		wpa_printf(MSG_DEBUG,
 			   "DPP: No matching bootstrapping information found");
 		return -1;
+	}
+
+	if (conn->auth) {
+		wpa_printf(MSG_DEBUG,
+			   "DPP: Ignore Presence Announcement during ongoing Authentication");
+		return 0;
 	}
 
 	auth = dpp_auth_init(dpp, conn->msg_ctx, peer_bi, NULL,
@@ -999,10 +1107,11 @@ static int dpp_controller_rx_pkex_exchange_req(struct dpp_connection *conn,
 		return 0;
 	}
 
-	conn->pkex = dpp_pkex_rx_exchange_req(conn->ctrl->global, ctrl->pkex_bi,
+	conn->pkex = dpp_pkex_rx_exchange_req(conn->msg_ctx, ctrl->pkex_bi,
 					      NULL, NULL,
 					      ctrl->pkex_identifier,
 					      ctrl->pkex_code,
+					      os_strlen(ctrl->pkex_code),
 					      buf, len, true);
 	if (!conn->pkex) {
 		wpa_printf(MSG_DEBUG,
@@ -1293,6 +1402,8 @@ static int dpp_controller_rx_gas_req(struct dpp_connection *conn, const u8 *msg,
 		return -1;
 	}
 
+	wpa_msg(conn->msg_ctx, MSG_INFO, DPP_EVENT_CONF_REQ_RX);
+
 	pos = msg;
 	end = msg + len;
 
@@ -1440,6 +1551,21 @@ static void dpp_tcp_build_csr(void *eloop_ctx, void *timeout_ctx)
 }
 
 
+#ifdef CONFIG_DPP3
+static void dpp_tcp_build_new_key(void *eloop_ctx, void *timeout_ctx)
+{
+	struct dpp_connection *conn = eloop_ctx;
+	struct dpp_authentication *auth = conn->auth;
+
+	if (!auth || !auth->waiting_new_key)
+		return;
+
+	wpa_printf(MSG_DEBUG, "DPP: Build config request with a new key");
+	dpp_controller_start_gas_client(conn);
+}
+#endif /* CONFIG_DPP3 */
+
+
 static int dpp_tcp_rx_gas_resp(struct dpp_connection *conn, struct wpabuf *resp)
 {
 	struct dpp_authentication *auth = conn->auth;
@@ -1460,6 +1586,14 @@ static int dpp_tcp_rx_gas_resp(struct dpp_connection *conn, struct wpabuf *resp)
 		eloop_register_timeout(0, 0, dpp_tcp_build_csr, conn, NULL);
 		return 0;
 	}
+#ifdef CONFIG_DPP3
+	if (res == -3) {
+		wpa_printf(MSG_DEBUG, "DPP: New protocol key needed");
+		eloop_register_timeout(0, 0, dpp_tcp_build_new_key, conn,
+				       NULL);
+		return 0;
+	}
+#endif /* CONFIG_DPP3 */
 	if (res < 0) {
 		wpa_printf(MSG_DEBUG, "DPP: Configuration attempt failed");
 		return -1;
@@ -1874,7 +2008,10 @@ static int dpp_tcp_auth_start(struct dpp_connection *conn,
 
 int dpp_tcp_init(struct dpp_global *dpp, struct dpp_authentication *auth,
 		 const struct hostapd_ip_addr *addr, int port, const char *name,
-		 enum dpp_netrole netrole, void *msg_ctx, void *cb_ctx,
+		 enum dpp_netrole netrole, const char *mud_url,
+		 const char *extra_conf_req_name,
+		 const char *extra_conf_req_value,
+		 void *msg_ctx, void *cb_ctx,
 		 int (*process_conf_obj)(void *ctx,
 					 struct dpp_authentication *auth),
 		 bool (*tcp_msg_sent)(void *ctx,
@@ -1904,6 +2041,12 @@ int dpp_tcp_init(struct dpp_global *dpp, struct dpp_authentication *auth,
 	conn->process_conf_obj = process_conf_obj;
 	conn->tcp_msg_sent = tcp_msg_sent;
 	conn->name = os_strdup(name ? name : "Test");
+	if (mud_url)
+		conn->mud_url = os_strdup(mud_url);
+	if (extra_conf_req_name)
+		conn->extra_conf_req_name = os_strdup(extra_conf_req_name);
+	if (extra_conf_req_value)
+		conn->extra_conf_req_value = os_strdup(extra_conf_req_value);
 	conn->netrole = netrole;
 	conn->global = dpp;
 	conn->auth = auth;
@@ -1950,7 +2093,9 @@ fail:
 
 int dpp_tcp_auth(struct dpp_global *dpp, void *_conn,
 		 struct dpp_authentication *auth, const char *name,
-		 enum dpp_netrole netrole,
+		 enum dpp_netrole netrole, const char *mud_url,
+		 const char *extra_conf_req_name,
+		 const char *extra_conf_req_value,
 		 int (*process_conf_obj)(void *ctx,
 					 struct dpp_authentication *auth),
 		 bool (*tcp_msg_sent)(void *ctx,
@@ -1964,6 +2109,13 @@ int dpp_tcp_auth(struct dpp_global *dpp, void *_conn,
 	conn->tcp_msg_sent = tcp_msg_sent;
 	os_free(conn->name);
 	conn->name = os_strdup(name ? name : "Test");
+	os_free(conn->mud_url);
+	conn->mud_url = mud_url ? os_strdup(mud_url) : NULL;
+	os_free(conn->extra_conf_req_name);
+	conn->extra_conf_req_name = extra_conf_req_name ?
+		os_strdup(extra_conf_req_name) : NULL;
+	conn->extra_conf_req_value = extra_conf_req_value ?
+		os_strdup(extra_conf_req_value) : NULL;
 	conn->netrole = netrole;
 	conn->auth = auth;
 
@@ -2044,6 +2196,29 @@ int dpp_controller_start(struct dpp_global *dpp,
 fail:
 	dpp_controller_free(ctrl);
 	return -1;
+}
+
+
+int dpp_controller_set_params(struct dpp_global *dpp,
+			      const char *configurator_params)
+{
+
+	if (!dpp || !dpp->controller)
+		return -1;
+
+	if (configurator_params) {
+		char *val = os_strdup(configurator_params);
+
+		if (!val)
+			return -1;
+		os_free(dpp->controller->configurator_params);
+		dpp->controller->configurator_params = val;
+	} else {
+		os_free(dpp->controller->configurator_params);
+		dpp->controller->configurator_params = NULL;
+	}
+
+	return 0;
 }
 
 
@@ -2143,6 +2318,35 @@ void dpp_controller_pkex_add(struct dpp_global *dpp,
 }
 
 
+bool dpp_controller_is_own_pkex_req(struct dpp_global *dpp,
+				    const u8 *buf, size_t len)
+{
+	struct dpp_connection *conn;
+	const u8 *attr_key = NULL;
+	u16 attr_key_len = 0;
+
+	dl_list_for_each(conn, &dpp->tcp_init, struct dpp_connection, list) {
+		if (!conn->pkex || !conn->pkex->enc_key)
+			continue;
+
+		if (!attr_key) {
+			attr_key = dpp_get_attr(buf, len,
+						DPP_ATTR_ENCRYPTED_KEY,
+						&attr_key_len);
+			if (!attr_key)
+				return false;
+		}
+
+		if (attr_key_len == wpabuf_len(conn->pkex->enc_key) &&
+		    os_memcmp(attr_key, wpabuf_head(conn->pkex->enc_key),
+			      attr_key_len) == 0)
+			return true;
+	}
+
+	return false;
+}
+
+
 void dpp_tcp_init_flush(struct dpp_global *dpp)
 {
 	struct dpp_connection *conn, *tmp;
@@ -2156,6 +2360,10 @@ void dpp_tcp_init_flush(struct dpp_global *dpp)
 static void dpp_relay_controller_free(struct dpp_relay_controller *ctrl)
 {
 	struct dpp_connection *conn, *tmp;
+	char txt[100];
+
+	wpa_printf(MSG_DEBUG, "DPP: Remove Relay connection to Controller %s",
+		   hostapd_ip_txt(&ctrl->ipaddr, txt, sizeof(txt)));
 
 	dl_list_for_each_safe(conn, tmp, &ctrl->conn, struct dpp_connection,
 			      list)
@@ -2176,12 +2384,213 @@ void dpp_relay_flush_controllers(struct dpp_global *dpp)
 		dl_list_del(&ctrl->list);
 		dpp_relay_controller_free(ctrl);
 	}
+
+	if (dpp->tmp_controller) {
+		dpp_relay_controller_free(dpp->tmp_controller);
+		dpp->tmp_controller = NULL;
+	}
+}
+
+
+void dpp_relay_remove_controller(struct dpp_global *dpp,
+				 const struct hostapd_ip_addr *addr)
+{
+	struct dpp_relay_controller *ctrl;
+
+	if (!dpp)
+		return;
+
+	dl_list_for_each(ctrl, &dpp->controllers, struct dpp_relay_controller,
+			 list) {
+		if (hostapd_ip_equal(&ctrl->ipaddr, addr)) {
+			dl_list_del(&ctrl->list);
+			dpp_relay_controller_free(ctrl);
+			return;
+		}
+	}
+
+	if (dpp->tmp_controller &&
+	    hostapd_ip_equal(&dpp->tmp_controller->ipaddr, addr)) {
+		dpp_relay_controller_free(dpp->tmp_controller);
+		dpp->tmp_controller = NULL;
+	}
+}
+
+
+static void dpp_relay_tcp_cb(int sd, void *eloop_ctx, void *sock_ctx)
+{
+	struct dpp_global *dpp = eloop_ctx;
+	struct sockaddr_in addr;
+	socklen_t addr_len = sizeof(addr);
+	int fd;
+	struct dpp_relay_controller *ctrl;
+	struct dpp_connection *conn = NULL;
+
+	wpa_printf(MSG_DEBUG, "DPP: New TCP connection (Relay)");
+
+	fd = accept(dpp->relay_sock, (struct sockaddr *) &addr, &addr_len);
+	if (fd < 0) {
+		wpa_printf(MSG_DEBUG,
+			   "DPP: Failed to accept new connection: %s",
+			   strerror(errno));
+		return;
+	}
+	wpa_printf(MSG_DEBUG, "DPP: Connection from %s:%d",
+		   inet_ntoa(addr.sin_addr), ntohs(addr.sin_port));
+
+	ctrl = dpp_relay_controller_get_addr(dpp, &addr);
+	if (!ctrl && dpp->tmp_controller &&
+	    dl_list_len(&dpp->tmp_controller->conn)) {
+		char txt[100];
+
+		wpa_printf(MSG_DEBUG,
+			   "DPP: Remove a temporaty Controller entry for %s",
+			   hostapd_ip_txt(&dpp->tmp_controller->ipaddr,
+					  txt, sizeof(txt)));
+		dpp_relay_controller_free(dpp->tmp_controller);
+		dpp->tmp_controller = NULL;
+	}
+	if (!ctrl && !dpp->tmp_controller) {
+		wpa_printf(MSG_DEBUG, "DPP: Add a temporary Controller entry");
+		ctrl = os_zalloc(sizeof(*ctrl));
+		if (!ctrl)
+			goto fail;
+		dl_list_init(&ctrl->conn);
+		ctrl->global = dpp;
+		ctrl->ipaddr.af = AF_INET;
+		ctrl->ipaddr.u.v4.s_addr = addr.sin_addr.s_addr;
+		ctrl->msg_ctx = dpp->relay_msg_ctx;
+		ctrl->cb_ctx = dpp->relay_cb_ctx;
+		ctrl->tx = dpp->relay_tx;
+		ctrl->gas_resp_tx = dpp->relay_gas_resp_tx;
+		dpp->tmp_controller = ctrl;
+	}
+	if (!ctrl) {
+		wpa_printf(MSG_DEBUG,
+			   "DPP: No Controller found for that address");
+		goto fail;
+	}
+
+	if (dl_list_len(&ctrl->conn) >= 15) {
+		wpa_printf(MSG_DEBUG,
+			   "DPP: Too many ongoing Relay connections to the Controller - cannot start a new one");
+		goto fail;
+	}
+
+	conn = os_zalloc(sizeof(*conn));
+	if (!conn)
+		goto fail;
+
+	conn->global = ctrl->global;
+	conn->relay = ctrl;
+	conn->msg_ctx = ctrl->msg_ctx;
+	conn->cb_ctx = ctrl->global->cb_ctx;
+	os_memset(conn->mac_addr, 0xff, ETH_ALEN);
+	conn->sock = fd;
+
+	if (fcntl(conn->sock, F_SETFL, O_NONBLOCK) != 0) {
+		wpa_printf(MSG_DEBUG, "DPP: fnctl(O_NONBLOCK) failed: %s",
+			   strerror(errno));
+		goto fail;
+	}
+
+	if (eloop_register_sock(conn->sock, EVENT_TYPE_READ,
+				dpp_controller_rx, conn, NULL) < 0)
+		goto fail;
+	conn->read_eloop = 1;
+
+	/* TODO: eloop timeout to expire connections that do not complete in
+	 * reasonable time */
+	dl_list_add(&ctrl->conn, &conn->list);
+	return;
+
+fail:
+	close(fd);
+	os_free(conn);
+}
+
+
+int dpp_relay_listen(struct dpp_global *dpp, int port,
+		     struct dpp_relay_config *config)
+{
+	int s;
+	int on = 1;
+	struct sockaddr_in sin;
+
+	if (dpp->relay_sock >= 0) {
+		wpa_printf(MSG_INFO, "DPP: %s(%d) - relay port already opened",
+			   __func__, port);
+		return -1;
+	}
+
+	s = socket(AF_INET, SOCK_STREAM, 0);
+	if (s < 0) {
+		wpa_printf(MSG_INFO,
+			   "DPP: socket(SOCK_STREAM) failed: %s",
+			   strerror(errno));
+		return -1;
+	}
+
+	if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
+		wpa_printf(MSG_DEBUG,
+			   "DPP: setsockopt(SO_REUSEADDR) failed: %s",
+			   strerror(errno));
+		/* try to continue anyway */
+	}
+
+	if (fcntl(s, F_SETFL, O_NONBLOCK) < 0) {
+		wpa_printf(MSG_INFO, "DPP: fnctl(O_NONBLOCK) failed: %s",
+			   strerror(errno));
+		close(s);
+		return -1;
+	}
+
+	/* TODO: IPv6 */
+	os_memset(&sin, 0, sizeof(sin));
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = INADDR_ANY;
+	sin.sin_port = htons(port);
+	if (bind(s, (struct sockaddr *) &sin, sizeof(sin)) < 0) {
+		wpa_printf(MSG_INFO,
+			   "DPP: Failed to bind Relay TCP port: %s",
+			   strerror(errno));
+		close(s);
+		return -1;
+	}
+	if (listen(s, 10 /* max backlog */) < 0 ||
+	    fcntl(s, F_SETFL, O_NONBLOCK) < 0 ||
+	    eloop_register_sock(s, EVENT_TYPE_READ, dpp_relay_tcp_cb, dpp,
+				NULL)) {
+		close(s);
+		return -1;
+	}
+
+	dpp->relay_sock = s;
+	dpp->relay_msg_ctx = config->msg_ctx;
+	dpp->relay_cb_ctx = config->cb_ctx;
+	dpp->relay_tx = config->tx;
+	dpp->relay_gas_resp_tx = config->gas_resp_tx;
+	wpa_printf(MSG_DEBUG, "DPP: Relay started on TCP port %d", port);
+	return 0;
+}
+
+
+void dpp_relay_stop_listen(struct dpp_global *dpp)
+{
+	if (!dpp || dpp->relay_sock < 0)
+		return;
+	eloop_unregister_sock(dpp->relay_sock, EVENT_TYPE_READ);
+	close(dpp->relay_sock);
+	dpp->relay_sock = -1;
 }
 
 
 bool dpp_tcp_conn_status_requested(struct dpp_global *dpp)
 {
 	struct dpp_connection *conn;
+
+	if (!dpp)
+		return false;
 
 	dl_list_for_each(conn, &dpp->tcp_init, struct dpp_connection, list) {
 		if (conn->auth && conn->auth->conn_status_requested)

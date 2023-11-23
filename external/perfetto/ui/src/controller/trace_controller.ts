@@ -12,78 +12,101 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { assertExists, assertTrue } from '../base/logging';
+import {BigintMath} from '../base/bigint_math';
+import {assertExists, assertTrue} from '../base/logging';
 import {
   Actions,
   DeferredAction,
 } from '../common/actions';
-import { cacheTrace } from '../common/cache_manager';
-import { TRACE_MARGIN_TIME_S } from '../common/constants';
-import { Engine } from '../common/engine';
-import { featureFlags, Flag, PERF_SAMPLE_FLAG } from '../common/feature_flags';
-import { HttpRpcEngine } from '../common/http_rpc_engine';
-import { NUM, NUM_NULL, QueryError, STR, STR_NULL } from '../common/query_result';
-import { EngineMode } from '../common/state';
-import { TimeSpan, toNs, toNsCeil, toNsFloor } from '../common/time';
-import { resetEngineWorker, WasmEngineProxy } from '../common/wasm_engine_proxy';
+import {cacheTrace} from '../common/cache_manager';
+import {Engine} from '../common/engine';
+import {featureFlags, Flag, PERF_SAMPLE_FLAG} from '../common/feature_flags';
 import {
-  globals as frontendGlobals,
+  HighPrecisionTime,
+  HighPrecisionTimeSpan,
+} from '../common/high_precision_time';
+import {HttpRpcEngine} from '../common/http_rpc_engine';
+import {
+  getEnabledMetatracingCategories,
+  isMetatracingEnabled,
+} from '../common/metatracing';
+import {
+  LONG,
+  NUM,
+  NUM_NULL,
+  QueryError,
+  STR,
+  STR_NULL,
+} from '../common/query_result';
+import {onSelectionChanged} from '../common/selection_observer';
+import {defaultTraceTime, EngineMode, ProfileType} from '../common/state';
+import {Span} from '../common/time';
+import {
+  TPTime,
+  TPTimeSpan,
+} from '../common/time';
+import {resetEngineWorker, WasmEngineProxy} from '../common/wasm_engine_proxy';
+import {BottomTabList} from '../frontend/bottom_tab';
+import {
+  FtraceStat,
+  globals,
   QuantizedLoad,
-  ThreadDesc
+  ThreadDesc,
 } from '../frontend/globals';
+import {showModal} from '../frontend/modal';
 import {
-  publishHasFtrace,
+  clearOverviewData,
+  publishFtraceCounters,
   publishMetricError,
   publishOverviewData,
-  publishThreads
+  publishThreads,
 } from '../frontend/publish';
-import { Router } from '../frontend/router';
+import {Router} from '../frontend/router';
 
 import {
-  CounterAggregationController
+  CounterAggregationController,
 } from './aggregation/counter_aggregation_controller';
 import {
-  CpuAggregationController
+  CpuAggregationController,
 } from './aggregation/cpu_aggregation_controller';
 import {
-  CpuByProcessAggregationController
+  CpuByProcessAggregationController,
 } from './aggregation/cpu_by_process_aggregation_controller';
 import {
-  FrameAggregationController
+  FrameAggregationController,
 } from './aggregation/frame_aggregation_controller';
 import {
-  SliceAggregationController
+  SliceAggregationController,
 } from './aggregation/slice_aggregation_controller';
 import {
-  ThreadAggregationController
+  ThreadAggregationController,
 } from './aggregation/thread_aggregation_controller';
-import { Child, Children, Controller } from './controller';
+import {Child, Children, Controller} from './controller';
 import {
   CpuProfileController,
-  CpuProfileControllerArgs
+  CpuProfileControllerArgs,
 } from './cpu_profile_controller';
 import {
   FlamegraphController,
-  FlamegraphControllerArgs
+  FlamegraphControllerArgs,
+  profileType,
 } from './flamegraph_controller';
 import {
   FlowEventsController,
-  FlowEventsControllerArgs
+  FlowEventsControllerArgs,
 } from './flow_events_controller';
-import { globals } from './globals';
-import { LoadingManager } from './loading_manager';
-import { LogsController } from './logs_controller';
-import { MetricsController } from './metrics_controller';
+import {FtraceController} from './ftrace_controller';
+import {LoadingManager} from './loading_manager';
+import {LogsController} from './logs_controller';
+import {MetricsController} from './metrics_controller';
 import {
+  PIVOT_TABLE_REDUX_FLAG,
   PivotTableController,
-  PivotTableControllerArgs
 } from './pivot_table_controller';
-import {PivotTableReduxController} from './pivot_table_redux_controller';
-import {QueryController, QueryControllerArgs} from './query_controller';
 import {SearchController} from './search_controller';
 import {
   SelectionController,
-  SelectionControllerArgs
+  SelectionControllerArgs,
 } from './selection_controller';
 import {
   TraceErrorController,
@@ -92,10 +115,11 @@ import {
   TraceBufferStream,
   TraceFileStream,
   TraceHttpStream,
-  TraceStream
+  TraceStream,
 } from './trace_stream';
-import { TrackControllerArgs, trackControllerRegistry } from './track_controller';
-import { decideTracks } from './track_decider';
+import {TrackControllerArgs, trackControllerRegistry} from './track_controller';
+import {decideTracks} from './track_decider';
+import {VisualisedArgController} from './visualised_args_controller';
 
 type States = 'init' | 'loading_trace' | 'ready';
 
@@ -104,22 +128,19 @@ const METRICS = [
   'android_ion',
   'android_lmk',
   'android_dma_heap',
-  'android_thread_time_in_state',
   'android_surfaceflinger',
   'android_batt',
-  'android_sysui_cuj',
-  'android_jank',
-  'android_camera',
   'android_other_traces',
   'chrome_dropped_frames',
   'chrome_long_latency',
   'trace_metadata',
   'android_trusty_workqueues',
 ];
-const FLAGGED_METRICS: Array<[Flag, string]> = METRICS.map(m => {
+const FLAGGED_METRICS: Array<[Flag, string]> = METRICS.map((m) => {
   const id = `forceMetric${m}`;
-  let name = m.split('_').join(' ') + ' metric';
+  let name = m.split('_').join(' ');
   name = name[0].toUpperCase() + name.slice(1);
+  name = 'Metric: ' + name;
   const flag = featureFlags.register({
     id,
     name,
@@ -128,6 +149,61 @@ const FLAGGED_METRICS: Array<[Flag, string]> = METRICS.map(m => {
   });
   return [flag, m];
 });
+
+const ENABLE_CHROME_RELIABLE_RANGE_ZOOM_FLAG = featureFlags.register({
+  id: 'enableChromeReliableRangeZoom',
+  name: 'Enable Chrome reliable range zoom',
+  description: 'Automatically zoom into the reliable range for Chrome traces',
+  defaultValue: false,
+});
+
+const ENABLE_CHROME_RELIABLE_RANGE_ANNOTATION_FLAG = featureFlags.register({
+  id: 'enableChromeReliableRangeAnnotation',
+  name: 'Enable Chrome reliable range annotation',
+  description: 'Automatically adds an annotation for the reliable range start',
+  defaultValue: false,
+});
+
+// The following flags control TraceProcessor Config.
+const CROP_TRACK_EVENTS_FLAG = featureFlags.register({
+  id: 'cropTrackEvents',
+  name: 'Crop track events',
+  description: 'Ignores track events outside of the range of interest',
+  defaultValue: false,
+});
+const INGEST_FTRACE_IN_RAW_TABLE_FLAG = featureFlags.register({
+  id: 'ingestFtraceInRawTable',
+  name: 'Ingest ftrace in raw table',
+  description: 'Enables ingestion of typed ftrace events into the raw table',
+  defaultValue: true,
+});
+const ANALYZE_TRACE_PROTO_CONTENT_FLAG = featureFlags.register({
+  id: 'analyzeTraceProtoContent',
+  name: 'Analyze trace proto content',
+  description: 'Enables trace proto content analysis',
+  defaultValue: false,
+});
+
+// A local storage key where the indication that JSON warning has been shown is
+// stored.
+const SHOWN_JSON_WARNING_KEY = 'shownJsonWarning';
+
+function showJsonWarning() {
+  showModal({
+    title: 'Warning',
+    content:
+      m('div',
+        m('span',
+          'Perfetto UI features are limited for JSON traces. ',
+          'We recommend recording ',
+          m('a',
+            {href: 'https://perfetto.dev/docs/quickstart/chrome-tracing'},
+            'proto-format traces'),
+          ' from Chrome.'),
+        m('br')),
+    buttons: [],
+  });
+}
 
 // TraceController handles handshakes with the frontend for everything that
 // concerns a single trace. It owns the WASM trace processor engine, handles
@@ -143,21 +219,21 @@ export class TraceController extends Controller<States> {
   }
 
   run() {
-    const engineCfg = assertExists(globals.state.engines[this.engineId]);
+    const engineCfg = assertExists(globals.state.engine);
     switch (this.state) {
       case 'init':
         this.loadTrace()
-          .then(mode => {
-            globals.dispatch(Actions.setEngineReady({
-              engineId: this.engineId,
-              ready: true,
-              mode,
-            }));
-          })
-          .catch(err => {
-            this.updateStatus(`${err}`);
-            throw err;
-          });
+            .then((mode) => {
+              globals.dispatch(Actions.setEngineReady({
+                engineId: this.engineId,
+                ready: true,
+                mode,
+              }));
+            })
+            .catch((err) => {
+              this.updateStatus(`${err}`);
+              throw err;
+            });
         this.updateStatus('Opening trace');
         this.setState('loading_trace');
         break;
@@ -180,77 +256,77 @@ export class TraceController extends Controller<States> {
           if (trackCfg.engineId !== this.engineId) continue;
           if (!trackControllerRegistry.has(trackCfg.kind)) continue;
           const trackCtlFactory = trackControllerRegistry.get(trackCfg.kind);
-          const trackArgs: TrackControllerArgs = { trackId, engine };
+          const trackArgs: TrackControllerArgs = {trackId, engine};
           childControllers.push(Child(trackId, trackCtlFactory, trackArgs));
         }
 
-        // Create a QueryController for each query.
-        for (const queryId of Object.keys(globals.state.queries)) {
-          const queryArgs: QueryControllerArgs = { queryId, engine };
-          childControllers.push(Child(queryId, QueryController, queryArgs));
+        for (const argName of globals.state.visualisedArgs) {
+          childControllers.push(
+            Child(argName, VisualisedArgController, {argName, engine}));
         }
 
-        const selectionArgs: SelectionControllerArgs = { engine };
+        const selectionArgs: SelectionControllerArgs = {engine};
         childControllers.push(
           Child('selection', SelectionController, selectionArgs));
 
-        const flowEventsArgs: FlowEventsControllerArgs = { engine };
+        const flowEventsArgs: FlowEventsControllerArgs = {engine};
         childControllers.push(
           Child('flowEvents', FlowEventsController, flowEventsArgs));
 
-        const cpuProfileArgs: CpuProfileControllerArgs = { engine };
+        const cpuProfileArgs: CpuProfileControllerArgs = {engine};
         childControllers.push(
           Child('cpuProfile', CpuProfileController, cpuProfileArgs));
 
-        const flamegraphArgs: FlamegraphControllerArgs = { engine };
+        const flamegraphArgs: FlamegraphControllerArgs = {engine};
         childControllers.push(
           Child('flamegraph', FlamegraphController, flamegraphArgs));
         childControllers.push(Child(
           'cpu_aggregation',
           CpuAggregationController,
-          { engine, kind: 'cpu_aggregation' }));
+          {engine, kind: 'cpu_aggregation'}));
         childControllers.push(Child(
           'thread_aggregation',
           ThreadAggregationController,
-          { engine, kind: 'thread_state_aggregation' }));
+          {engine, kind: 'thread_state_aggregation'}));
         childControllers.push(Child(
           'cpu_process_aggregation',
           CpuByProcessAggregationController,
-          { engine, kind: 'cpu_by_process_aggregation' }));
-        childControllers.push(Child(
-          'slice_aggregation',
-          SliceAggregationController,
-          { engine, kind: 'slice_aggregation' }));
+          {engine, kind: 'cpu_by_process_aggregation'}));
+        if (!PIVOT_TABLE_REDUX_FLAG.get()) {
+          // Pivot table is supposed to handle the use cases the slice
+          // aggregation panel is used right now. When a flag to use pivot
+          // tables is enabled, do not add slice aggregation controller.
+          childControllers.push(Child(
+            'slice_aggregation',
+            SliceAggregationController,
+            {engine, kind: 'slice_aggregation'}));
+        }
         childControllers.push(Child(
           'counter_aggregation',
           CounterAggregationController,
-          { engine, kind: 'counter_aggregation' }));
+          {engine, kind: 'counter_aggregation'}));
         childControllers.push(Child(
           'frame_aggregation',
           FrameAggregationController,
-          { engine, kind: 'frame_aggregation' }));
+          {engine, kind: 'frame_aggregation'}));
         childControllers.push(Child('search', SearchController, {
           engine,
           app: globals,
         }));
         childControllers.push(
-            Child('pivot_table_redux', PivotTableReduxController, {engine}));
+            Child('pivot_table', PivotTableController, {engine}));
 
         childControllers.push(Child('logs', LogsController, {
           engine,
           app: globals,
         }));
-        childControllers.push(
-          Child('traceError', TraceErrorController, { engine }));
-        childControllers.push(Child('metrics', MetricsController, { engine }));
 
-        // Create a PivotTableController for each pivot table.
-        for (const pivotTableId of Object.keys(globals.state.pivotTable)) {
-          const pivotTableArgs:
-            PivotTableControllerArgs = { pivotTableId, engine };
-          childControllers.push(
-            Child(pivotTableId, PivotTableController, pivotTableArgs));
-        }
+        childControllers.push(
+            Child('ftrace', FtraceController, {engine, app: globals}));
+
+        childControllers.push(
+          Child('traceError', TraceErrorController, {engine}));
+        childControllers.push(Child('metrics', MetricsController, {engine}));
 
         return childControllers;
 
@@ -261,7 +337,7 @@ export class TraceController extends Controller<States> {
   }
 
   onDestroy() {
-    frontendGlobals.engines.delete(this.engineId);
+    globals.engines.delete(this.engineId);
   }
 
   private async loadTrace(): Promise<EngineMode> {
@@ -280,7 +356,7 @@ export class TraceController extends Controller<States> {
       engine = new HttpRpcEngine(this.engineId, LoadingManager.getInstance);
       engine.errorHandler = (err) => {
         globals.dispatch(
-          Actions.setEngineFailed({ mode: 'HTTP_RPC', failure: `${err}` }));
+            Actions.setEngineFailed({mode: 'HTTP_RPC', failure: `${err}`}));
         throw err;
       };
     } else {
@@ -289,16 +365,28 @@ export class TraceController extends Controller<States> {
       const enginePort = resetEngineWorker();
       engine = new WasmEngineProxy(
         this.engineId, enginePort, LoadingManager.getInstance);
+      engine.resetTraceProcessor({
+        cropTrackEvents: CROP_TRACK_EVENTS_FLAG.get(),
+        ingestFtraceInRawTable: INGEST_FTRACE_IN_RAW_TABLE_FLAG.get(),
+        analyzeTraceProtoContent: ANALYZE_TRACE_PROTO_CONTENT_FLAG.get(),
+      });
     }
     this.engine = engine;
 
-    frontendGlobals.engines.set(this.engineId, engine);
+    if (isMetatracingEnabled()) {
+      this.engine.enableMetatrace(
+        assertExists(getEnabledMetatracingCategories()));
+    }
+    globals.bottomTabList = new BottomTabList(engine.getProxy('BottomTabList'));
+
+    globals.engines.set(this.engineId, engine);
     globals.dispatch(Actions.setEngineReady({
       engineId: this.engineId,
       ready: false,
       mode: engineMode,
     }));
-    const engineCfg = assertExists(globals.state.engines[this.engineId]);
+    const engineCfg = assertExists(globals.state.engine);
+    assertTrue(engineCfg.id === this.engineId);
     let traceStream: TraceStream | undefined;
     if (engineCfg.source.type === 'FILE') {
       traceStream = new TraceFileStream(engineCfg.source.file);
@@ -344,47 +432,53 @@ export class TraceController extends Controller<States> {
     const traceUuid = await this.cacheCurrentTrace();
 
     const traceTime = await this.engine.getTraceTimeBounds();
-    let startSec = traceTime.start;
-    let endSec = traceTime.end;
-    startSec -= TRACE_MARGIN_TIME_S;
-    endSec += TRACE_MARGIN_TIME_S;
+    const start = traceTime.start;
+    const end = traceTime.end;
     const traceTimeState = {
-      startSec,
-      endSec,
+      start,
+      end,
     };
+
+    const shownJsonWarning =
+      window.localStorage.getItem(SHOWN_JSON_WARNING_KEY) !== null;
+
+    // Show warning if the trace is in JSON format.
+    const query = `select str_value from metadata where name = 'trace_type'`;
+    const result = await assertExists(this.engine).query(query);
+    const traceType = result.firstRow({str_value: STR}).str_value;
+    const isJsonTrace = traceType == 'json';
+    if (!shownJsonWarning) {
+      // When in embedded mode, the host app will control which trace format
+      // it passes to Perfetto, so we don't need to show this warning.
+      if (isJsonTrace && !globals.embeddedMode) {
+        showJsonWarning();
+        // Save that the warning has been shown. Value is irrelevant since only
+        // the presence of key is going to be checked.
+        window.localStorage.setItem(SHOWN_JSON_WARNING_KEY, 'true');
+      }
+    }
 
     const emptyOmniboxState = {
       omnibox: '',
-      mode: frontendGlobals.state.frontendLocalState.omniboxState.mode ||
-        'SEARCH',
-      lastUpdate: Date.now() / 1000
+      mode: globals.state.omniboxState.mode || 'SEARCH',
     };
 
     const actions: DeferredAction[] = [
       Actions.setOmnibox(emptyOmniboxState),
-      Actions.setTraceUuid({ traceUuid }),
-      Actions.setTraceTime(traceTimeState)
+      Actions.setTraceUuid({traceUuid}),
+      Actions.setTraceTime(traceTimeState),
     ];
 
-    let visibleStartSec = startSec;
-    let visibleEndSec = endSec;
-    const mdTime = await this.engine.getTracingMetadataTimeBounds();
-    // make sure the bounds hold
-    if (Math.max(visibleStartSec, mdTime.start - TRACE_MARGIN_TIME_S) <
-      Math.min(visibleEndSec, mdTime.end + TRACE_MARGIN_TIME_S)) {
-      visibleStartSec =
-        Math.max(visibleStartSec, mdTime.start - TRACE_MARGIN_TIME_S);
-      visibleEndSec = Math.min(visibleEndSec, mdTime.end + TRACE_MARGIN_TIME_S);
-    }
-
+    const visibleTimeSpan = await computeVisibleTime(
+        traceTime.start, traceTime.end, isJsonTrace, this.engine);
     // We don't know the resolution at this point. However this will be
     // replaced in 50ms so a guess is fine.
-    const resolution = (visibleStartSec - visibleEndSec) / 1000;
+    const resolution = visibleTimeSpan.duration.divide(1000).toTPTime();
     actions.push(Actions.setVisibleTraceTime({
-      startSec: visibleStartSec,
-      endSec: visibleEndSec,
+      start: visibleTimeSpan.start.toTPTime(),
+      end: visibleTimeSpan.end.toTPTime(),
       lastUpdate: Date.now() / 1000,
-      resolution
+      resolution: BigintMath.max(resolution, 1n),
     }));
 
     globals.dispatchMultiple(actions);
@@ -395,7 +489,7 @@ export class TraceController extends Controller<States> {
 
     {
       // When we reload from a permalink don't create extra tracks:
-      const { pinnedTracks, tracks } = globals.state;
+      const {pinnedTracks, tracks} = globals.state;
       if (!pinnedTracks.length && !Object.keys(tracks).length) {
         await this.listTracks();
       }
@@ -405,61 +499,88 @@ export class TraceController extends Controller<States> {
     await this.loadTimelineOverview(traceTime);
 
     {
-      // A quick heuristic to check if the trace has ftrace events. This is
-      // based on the assumption that most traces that have ftrace either:
-      // - Are proto traces captured via perfetto, in which case traced_probes
-      //   emits ftrace per-cpu stats that end up in the stats table.
-      // - Have a raw event with non-zero cpu or utid.
-      // Notes:
-      // - The "+1 > 1" is to avoid pushing down the constraints to the "raw"
-      //   table, which would compute a full column filter without being aware
-      //   of the limit 1, and instead delegate the filtering to the iterator.
-      const query = `select '_' as _ from raw
-          where cpu + 1 > 1 or utid + 1 > 1 limit 1`;
+      // Pull out the counts ftrace events by name
+      const query = `select
+            name,
+            count(name) as cnt
+          from ftrace_event
+          group by name
+          order by cnt desc`;
       const result = await assertExists(this.engine).query(query);
-      const hasFtrace = result.numRows() > 0;
-      publishHasFtrace(hasFtrace);
+      const counters: FtraceStat[] = [];
+      const it = result.iter({name: STR, cnt: NUM});
+      for (let row = 0; it.valid(); it.next(), row++) {
+        counters.push({name: it.name, count: it.cnt});
+      }
+      publishFtraceCounters(counters);
     }
 
-    globals.dispatch(Actions.removeDebugTrack({}));
     globals.dispatch(Actions.sortThreadTracks({}));
+    globals.dispatch(Actions.maybeExpandOnlyTrackGroup({}));
 
     await this.selectFirstHeapProfile();
     if (PERF_SAMPLE_FLAG.get()) {
       await this.selectPerfSample();
     }
 
+    // If the trace was shared via a permalink, it might already have a
+    // selection. Emit onSelectionChanged to ensure that the components (like
+    // current selection details) react to it.
+    if (globals.state.currentSelection !== null) {
+      onSelectionChanged(globals.state.currentSelection, undefined);
+    }
+
+    // Trace Processor doesn't support the reliable range feature for JSON
+    // traces.
+    if (!isJsonTrace && ENABLE_CHROME_RELIABLE_RANGE_ANNOTATION_FLAG.get()) {
+      const reliableRangeStart = await computeTraceReliableRangeStart(engine);
+      if (reliableRangeStart > 0) {
+        globals.dispatch(Actions.addAutomaticNote({
+          timestamp: reliableRangeStart,
+          color: '#ff0000',
+          text: 'Reliable Range Start',
+        }));
+      }
+    }
+
     return engineMode;
   }
 
   private async selectPerfSample() {
-    const query = `select ts, upid
+    const query = `select upid
         from perf_sample
         join thread using (utid)
+        where callsite_id is not null
         order by ts desc limit 1`;
     const profile = await assertExists(this.engine).query(query);
     if (profile.numRows() !== 1) return;
-    const row = profile.firstRow({ ts: NUM, upid: NUM });
-    const ts = row.ts;
+    const row = profile.firstRow({upid: NUM});
     const upid = row.upid;
-    globals.dispatch(
-      Actions.selectPerfSamples({ id: 0, upid, ts, type: 'perf' }));
+    const leftTs = globals.state.traceTime.start;
+    const rightTs = globals.state.traceTime.end;
+    globals.dispatch(Actions.selectPerfSamples(
+        {id: 0, upid, leftTs, rightTs, type: ProfileType.PERF_SAMPLE}));
   }
 
   private async selectFirstHeapProfile() {
-    const query = `select * from
-    (select distinct(ts) as ts, 'native' as type,
-        upid from heap_profile_allocation
-        union
-        select distinct(graph_sample_ts) as ts, 'graph' as type, upid from
-        heap_graph_object) order by ts limit 1`;
+    const query = `select * from (
+      select
+        min(ts) AS ts,
+        'heap_profile:' || group_concat(distinct heap_name) AS type,
+        upid
+      from heap_profile_allocation
+      group by upid
+      union
+      select distinct graph_sample_ts as ts, 'graph' as type, upid
+      from heap_graph_object)
+      order by ts limit 1`;
     const profile = await assertExists(this.engine).query(query);
     if (profile.numRows() !== 1) return;
-    const row = profile.firstRow({ ts: NUM, type: STR, upid: NUM });
+    const row = profile.firstRow({ts: LONG, type: STR, upid: NUM});
     const ts = row.ts;
-    const type = row.type;
+    const type = profileType(row.type);
     const upid = row.upid;
-    globals.dispatch(Actions.selectHeapProfile({ id: 0, upid, ts, type }));
+    globals.dispatch(Actions.selectHeapProfile({id: 0, upid, ts, type}));
   }
 
   private async listTracks() {
@@ -500,36 +621,37 @@ export class TraceController extends Controller<States> {
       const threadName = it.threadName;
       const procName = it.procName === null ? undefined : it.procName;
       const cmdline = it.cmdline === null ? undefined : it.cmdline;
-      threads.push({ utid, tid, threadName, pid, procName, cmdline });
+      threads.push({utid, tid, threadName, pid, procName, cmdline});
     }
     publishThreads(threads);
   }
 
-  private async loadTimelineOverview(traceTime: TimeSpan) {
+  private async loadTimelineOverview(trace: Span<TPTime>) {
+    clearOverviewData();
+
     const engine = assertExists<Engine>(this.engine);
-    const numSteps = 100;
-    const stepSec = traceTime.duration / numSteps;
+    const stepSize = BigintMath.max(1n, trace.duration / 100n);
     let hasSchedOverview = false;
-    for (let step = 0; step < numSteps; step++) {
+    for (let start = trace.start; start < trace.end; start += stepSize) {
+      const progress = start - trace.start;
+      const ratio = Number(progress) / Number(trace.duration);
       this.updateStatus(
-        'Loading overview ' +
-        `${Math.round((step + 1) / numSteps * 1000) / 10}%`);
-      const startSec = traceTime.start + step * stepSec;
-      const startNs = toNsFloor(startSec);
-      const endSec = startSec + stepSec;
-      const endNs = toNsCeil(endSec);
+          'Loading overview ' +
+          `${Math.round(ratio * 100)}%`);
+      const end = start + stepSize;
 
       // Sched overview.
       const schedResult = await engine.query(
-        `select sum(dur)/${stepSec}/1e9 as load, cpu from sched ` +
-        `where ts >= ${startNs} and ts < ${endNs} and utid != 0 ` +
-        'group by cpu order by cpu');
-      const schedData: { [key: string]: QuantizedLoad } = {};
-      const it = schedResult.iter({ load: NUM, cpu: NUM });
+          `select cast(sum(dur) as float)/${
+              stepSize} as load, cpu from sched ` +
+          `where ts >= ${start} and ts < ${end} and utid != 0 ` +
+          'group by cpu order by cpu');
+      const schedData: {[key: string]: QuantizedLoad} = {};
+      const it = schedResult.iter({load: NUM, cpu: NUM});
       for (; it.valid(); it.next()) {
         const load = it.load;
         const cpu = it.cpu;
-        schedData[cpu] = { startSec, endSec, load };
+        schedData[cpu] = {start, end, load};
         hasSchedOverview = true;
       }
       publishOverviewData(schedData);
@@ -540,16 +662,15 @@ export class TraceController extends Controller<States> {
     }
 
     // Slices overview.
-    const traceStartNs = toNs(traceTime.start);
-    const stepSecNs = toNs(stepSec);
     const sliceResult = await engine.query(`select
            bucket,
            upid,
-           ifnull(sum(utid_sum) / cast(${stepSecNs} as float), 0) as load
+           ifnull(sum(utid_sum) / cast(${stepSize} as float), 0) as load
          from thread
          inner join (
            select
-             ifnull(cast((ts - ${traceStartNs})/${stepSecNs} as int), 0) as bucket,
+             ifnull(cast((ts - ${trace.start})/${
+        stepSize} as int), 0) as bucket,
              sum(dur) as utid_sum,
              utid
            from slice
@@ -559,22 +680,22 @@ export class TraceController extends Controller<States> {
          where upid is not null
          group by bucket, upid`);
 
-    const slicesData: { [key: string]: QuantizedLoad[] } = {};
-    const it = sliceResult.iter({ bucket: NUM, upid: NUM, load: NUM });
+    const slicesData: {[key: string]: QuantizedLoad[]} = {};
+    const it = sliceResult.iter({bucket: LONG, upid: NUM, load: NUM});
     for (; it.valid(); it.next()) {
       const bucket = it.bucket;
       const upid = it.upid;
       const load = it.load;
 
-      const startSec = traceTime.start + stepSec * bucket;
-      const endSec = startSec + stepSec;
+      const start = trace.start + stepSize * bucket;
+      const end = start + stepSize;
 
       const upidStr = upid.toString();
       let loadArray = slicesData[upidStr];
       if (loadArray === undefined) {
         loadArray = slicesData[upidStr] = [];
       }
-      loadArray.push({ startSec, endSec, load });
+      loadArray.push({start, end, load});
     }
     publishOverviewData(slicesData);
   }
@@ -587,8 +708,9 @@ export class TraceController extends Controller<States> {
       // One of the cases covered is an empty trace.
       return '';
     }
-    const traceUuid = result.firstRow({ uuid: STR }).uuid;
-    const engineConfig = assertExists(globals.state.engines[engine.id]);
+    const traceUuid = result.firstRow({uuid: STR}).uuid;
+    const engineConfig = assertExists(globals.state.engine);
+    assertTrue(engineConfig.id === this.engineId);
     if (!(await cacheTrace(engineConfig.source, traceUuid))) {
       // If the trace is not cacheable (cacheable means it has been opened from
       // URL or RPC) only append '?local_cache_key' to the URL, without the
@@ -630,9 +752,9 @@ export class TraceController extends Controller<States> {
     this.updateStatus('Creating annotation counter table');
     await engine.query(`
       CREATE TABLE annotation_counter(
-        id BIG INT,
+        id BIGINT,
         track_id INT,
-        ts BIG INT,
+        ts BIGINT,
         value DOUBLE,
         PRIMARY KEY (track_id, ts)
       ) WITHOUT ROWID;
@@ -642,8 +764,9 @@ export class TraceController extends Controller<States> {
       CREATE TABLE annotation_slice(
         id INTEGER PRIMARY KEY,
         track_id INT,
-        ts BIG INT,
-        dur BIG INT,
+        ts BIGINT,
+        dur BIGINT,
+        thread_dur BIGINT,
         depth INT,
         cat STRING,
         name STRING,
@@ -687,7 +810,7 @@ export class TraceController extends Controller<States> {
         let hasUpid = false;
         let hasValue = false;
         let hasGroupName = false;
-        const it = result.iter({ name: STR });
+        const it = result.iter({name: STR});
         for (; it.valid(); it.next()) {
           const name = it.name;
           hasSliceName = hasSliceName || name === 'slice_name';
@@ -714,11 +837,14 @@ export class TraceController extends Controller<States> {
             WHERE track_type = 'slice'
           `);
           await engine.query(`
-            INSERT INTO annotation_slice(track_id, ts, dur, depth, cat, name)
+            INSERT INTO annotation_slice(
+              track_id, ts, dur, thread_dur, depth, cat, name
+            )
             SELECT
               t.id AS track_id,
               ts,
               dur,
+              NULL as thread_dur,
               0 AS depth,
               a.track_name as cat,
               slice_name AS name
@@ -736,7 +862,7 @@ export class TraceController extends Controller<States> {
               IFNULL(MAX(value), 0) as maxValue
             FROM ${metric}_event
             WHERE ${upidColumnWhere} != 0`);
-          const row = minMax.firstRow({ minValue: NUM, maxValue: NUM });
+          const row = minMax.firstRow({minValue: NUM, maxValue: NUM});
           await engine.query(`
             INSERT INTO annotation_counter_track(
               name, __metric_name, min_value, max_value, upid)
@@ -778,4 +904,50 @@ export class TraceController extends Controller<States> {
       timestamp: Date.now() / 1000,
     }));
   }
+}
+
+async function computeTraceReliableRangeStart(engine: Engine): Promise<TPTime> {
+  const result =
+    await engine.query(`SELECT RUN_METRIC('chrome/chrome_reliable_range.sql');
+       SELECT start FROM chrome_reliable_range`);
+  const bounds = result.firstRow({start: LONG});
+  return bounds.start;
+}
+
+async function computeVisibleTime(
+    traceStart: TPTime, traceEnd: TPTime, isJsonTrace: boolean, engine: Engine):
+    Promise<Span<HighPrecisionTime>> {
+  // if we have non-default visible state, update the visible time to it
+  const previousVisibleState = globals.stateVisibleTime();
+  const defaultTraceSpan =
+      new TPTimeSpan(defaultTraceTime.start, defaultTraceTime.end);
+  if (!(previousVisibleState.start === defaultTraceSpan.start &&
+        previousVisibleState.end === defaultTraceSpan.end) &&
+      (previousVisibleState.start >= traceStart &&
+       previousVisibleState.end <= traceEnd)) {
+    return HighPrecisionTimeSpan.fromTpTime(
+        previousVisibleState.start, previousVisibleState.end);
+  }
+
+  // initialise visible time to the trace time bounds
+  let visibleStartSec = traceStart;
+  let visibleEndSec = traceEnd;
+
+  // compare start and end with metadata computed by the trace processor
+  const mdTime = await engine.getTracingMetadataTimeBounds();
+  // make sure the bounds hold
+  if (BigintMath.max(visibleStartSec, mdTime.start) <
+      BigintMath.min(visibleEndSec, mdTime.end)) {
+    visibleStartSec = BigintMath.max(visibleStartSec, mdTime.start);
+    visibleEndSec = BigintMath.min(visibleEndSec, mdTime.end);
+  }
+
+  // Trace Processor doesn't support the reliable range feature for JSON
+  // traces.
+  if (!isJsonTrace && ENABLE_CHROME_RELIABLE_RANGE_ZOOM_FLAG.get()) {
+    const reliableRangeStart = await computeTraceReliableRangeStart(engine);
+    visibleStartSec = BigintMath.max(visibleStartSec, reliableRangeStart);
+  }
+
+  return HighPrecisionTimeSpan.fromTpTime(visibleStartSec, visibleEndSec);
 }

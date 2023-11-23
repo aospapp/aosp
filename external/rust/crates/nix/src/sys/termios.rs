@@ -64,9 +64,9 @@
 //! # use nix::sys::termios::{BaudRate, cfsetispeed, cfsetospeed, cfsetspeed, Termios};
 //! # fn main() {
 //! # let mut t: Termios = unsafe { std::mem::zeroed() };
-//! cfsetispeed(&mut t, BaudRate::B9600);
-//! cfsetospeed(&mut t, BaudRate::B9600);
-//! cfsetspeed(&mut t, BaudRate::B9600);
+//! cfsetispeed(&mut t, BaudRate::B9600).unwrap();
+//! cfsetospeed(&mut t, BaudRate::B9600).unwrap();
+//! cfsetspeed(&mut t, BaudRate::B9600).unwrap();
 //! # }
 //! ```
 //!
@@ -76,21 +76,37 @@
 //! # use nix::sys::termios::{BaudRate, cfgetispeed, cfgetospeed, cfsetispeed, cfsetspeed, Termios};
 //! # fn main() {
 //! # let mut t: Termios = unsafe { std::mem::zeroed() };
-//! # cfsetspeed(&mut t, BaudRate::B9600);
+//! # cfsetspeed(&mut t, BaudRate::B9600).unwrap();
 //! let speed = cfgetispeed(&t);
 //! assert_eq!(speed, cfgetospeed(&t));
-//! cfsetispeed(&mut t, speed);
+//! cfsetispeed(&mut t, speed).unwrap();
 //! # }
 //! ```
 //!
 //! On non-BSDs, `cfgetispeed()` and `cfgetospeed()` both return a `BaudRate`:
 //!
-#![cfg_attr(any(target_os = "freebsd", target_os = "dragonfly", target_os = "ios",
-                target_os = "macos", target_os = "netbsd", target_os = "openbsd"),
-            doc = " ```rust,ignore")]
-#![cfg_attr(not(any(target_os = "freebsd", target_os = "dragonfly", target_os = "ios",
-                    target_os = "macos", target_os = "netbsd", target_os = "openbsd")),
-            doc = " ```rust")]
+#![cfg_attr(
+    any(
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "ios",
+        target_os = "macos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ),
+    doc = " ```rust,ignore"
+)]
+#![cfg_attr(
+    not(any(
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "ios",
+        target_os = "macos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    )),
+    doc = " ```rust"
+)]
 //! # use nix::sys::termios::{BaudRate, cfgetispeed, cfgetospeed, cfsetspeed, Termios};
 //! # fn main() {
 //! # let mut t: Termios = unsafe { std::mem::zeroed() };
@@ -102,12 +118,28 @@
 //!
 //! But on the BSDs, `cfgetispeed()` and `cfgetospeed()` both return `u32`s:
 //!
-#![cfg_attr(any(target_os = "freebsd", target_os = "dragonfly", target_os = "ios",
-                target_os = "macos", target_os = "netbsd", target_os = "openbsd"),
-            doc = " ```rust")]
-#![cfg_attr(not(any(target_os = "freebsd", target_os = "dragonfly", target_os = "ios",
-                    target_os = "macos", target_os = "netbsd", target_os = "openbsd")),
-            doc = " ```rust,ignore")]
+#![cfg_attr(
+    any(
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "ios",
+        target_os = "macos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ),
+    doc = " ```rust"
+)]
+#![cfg_attr(
+    not(any(
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "ios",
+        target_os = "macos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    )),
+    doc = " ```rust,ignore"
+)]
 //! # use nix::sys::termios::{BaudRate, cfgetispeed, cfgetospeed, cfsetspeed, Termios};
 //! # fn main() {
 //! # let mut t: Termios = unsafe { std::mem::zeroed() };
@@ -119,12 +151,28 @@
 //!
 //! It's trivial to convert from a `BaudRate` to a `u32` on BSDs:
 //!
-#![cfg_attr(any(target_os = "freebsd", target_os = "dragonfly", target_os = "ios",
-                target_os = "macos", target_os = "netbsd", target_os = "openbsd"),
-            doc = " ```rust")]
-#![cfg_attr(not(any(target_os = "freebsd", target_os = "dragonfly", target_os = "ios",
-                    target_os = "macos", target_os = "netbsd", target_os = "openbsd")),
-            doc = " ```rust,ignore")]
+#![cfg_attr(
+    any(
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "ios",
+        target_os = "macos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ),
+    doc = " ```rust"
+)]
+#![cfg_attr(
+    not(any(
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "ios",
+        target_os = "macos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    )),
+    doc = " ```rust,ignore"
+)]
 //! # use nix::sys::termios::{BaudRate, cfgetispeed, cfsetspeed, Termios};
 //! # fn main() {
 //! # let mut t: Termios = unsafe { std::mem::zeroed() };
@@ -137,12 +185,28 @@
 //! And on BSDs you can specify arbitrary baud rates (**note** this depends on hardware support)
 //! by specifying baud rates directly using `u32`s:
 //!
-#![cfg_attr(any(target_os = "freebsd", target_os = "dragonfly", target_os = "ios",
-                target_os = "macos", target_os = "netbsd", target_os = "openbsd"),
-            doc = " ```rust")]
-#![cfg_attr(not(any(target_os = "freebsd", target_os = "dragonfly", target_os = "ios",
-                    target_os = "macos", target_os = "netbsd", target_os = "openbsd")),
-            doc = " ```rust,ignore")]
+#![cfg_attr(
+    any(
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "ios",
+        target_os = "macos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ),
+    doc = " ```rust"
+)]
+#![cfg_attr(
+    not(any(
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "ios",
+        target_os = "macos",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    )),
+    doc = " ```rust,ignore"
+)]
 //! # use nix::sys::termios::{cfsetispeed, cfsetospeed, cfsetspeed, Termios};
 //! # fn main() {
 //! # let mut t: Termios = unsafe { std::mem::zeroed() };
@@ -151,15 +215,16 @@
 //! cfsetspeed(&mut t, 9600u32);
 //! # }
 //! ```
-use cfg_if::cfg_if;
-use crate::Result;
 use crate::errno::Errno;
+use crate::Result;
+use cfg_if::cfg_if;
 use libc::{self, c_int, tcflag_t};
 use std::cell::{Ref, RefCell};
 use std::convert::From;
 use std::mem;
 use std::os::unix::io::RawFd;
 
+#[cfg(feature = "process")]
 use crate::unistd::Pid;
 
 /// Stores settings for the termios API
@@ -180,6 +245,12 @@ pub struct Termios {
     pub local_flags: LocalFlags,
     /// Control characters (see `termios.c_cc` documentation)
     pub control_chars: [libc::cc_t; NCCS],
+    /// Line discipline (see `termios.c_line` documentation)
+    #[cfg(any(target_os = "linux", target_os = "android",))]
+    pub line_discipline: libc::cc_t,
+    /// Line discipline (see `termios.c_line` documentation)
+    #[cfg(target_os = "haiku")]
+    pub line_discipline: libc::c_char,
 }
 
 impl Termios {
@@ -195,6 +266,14 @@ impl Termios {
             termios.c_cflag = self.control_flags.bits();
             termios.c_lflag = self.local_flags.bits();
             termios.c_cc = self.control_chars;
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "haiku",
+            ))]
+            {
+                termios.c_line = self.line_discipline;
+            }
         }
         self.inner.borrow()
     }
@@ -213,6 +292,14 @@ impl Termios {
             termios.c_cflag = self.control_flags.bits();
             termios.c_lflag = self.local_flags.bits();
             termios.c_cc = self.control_chars;
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "haiku",
+            ))]
+            {
+                termios.c_line = self.line_discipline;
+            }
         }
         self.inner.as_ptr()
     }
@@ -225,6 +312,14 @@ impl Termios {
         self.control_flags = ControlFlags::from_bits_truncate(termios.c_cflag);
         self.local_flags = LocalFlags::from_bits_truncate(termios.c_lflag);
         self.control_chars = termios.c_cc;
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "haiku",
+        ))]
+        {
+            self.line_discipline = termios.c_line;
+        }
     }
 }
 
@@ -237,6 +332,12 @@ impl From<libc::termios> for Termios {
             control_flags: ControlFlags::from_bits_truncate(termios.c_cflag),
             local_flags: LocalFlags::from_bits_truncate(termios.c_lflag),
             control_chars: termios.c_cc,
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "haiku",
+            ))]
+            line_discipline: termios.c_line,
         }
     }
 }
@@ -247,15 +348,16 @@ impl From<Termios> for libc::termios {
     }
 }
 
-libc_enum!{
+libc_enum! {
     /// Baud rates supported by the system.
     ///
     /// For the BSDs, arbitrary baud rates can be specified by using `u32`s directly instead of this
     /// enum.
     ///
     /// B0 is special and will disable the port.
+    #[cfg_attr(all(any(target_os = "haiku"), target_pointer_width = "64"), repr(u8))]
     #[cfg_attr(all(any(target_os = "ios", target_os = "macos"), target_pointer_width = "64"), repr(u64))]
-    #[cfg_attr(not(all(any(target_os = "ios", target_os = "macos"), target_pointer_width = "64")), repr(u32))]
+    #[cfg_attr(not(all(any(target_os = "ios", target_os = "macos", target_os = "haiku"), target_pointer_width = "64")), repr(u32))]
     #[non_exhaustive]
     pub enum BaudRate {
         B0,
@@ -276,6 +378,7 @@ libc_enum!{
                 target_os = "macos",
                 target_os = "netbsd",
                 target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B7200,
         B9600,
         #[cfg(any(target_os = "dragonfly",
@@ -283,6 +386,7 @@ libc_enum!{
                 target_os = "macos",
                 target_os = "netbsd",
                 target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B14400,
         B19200,
         #[cfg(any(target_os = "dragonfly",
@@ -290,6 +394,7 @@ libc_enum!{
                 target_os = "macos",
                 target_os = "netbsd",
                 target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B28800,
         B38400,
         B57600,
@@ -298,12 +403,15 @@ libc_enum!{
                 target_os = "macos",
                 target_os = "netbsd",
                 target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B76800,
         B115200,
         #[cfg(any(target_os = "illumos", target_os = "solaris"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B153600,
         B230400,
         #[cfg(any(target_os = "illumos", target_os = "solaris"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B307200,
         #[cfg(any(target_os = "android",
                   target_os = "freebsd",
@@ -311,10 +419,13 @@ libc_enum!{
                   target_os = "linux",
                   target_os = "netbsd",
                   target_os = "solaris"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B460800,
         #[cfg(any(target_os = "android", target_os = "linux"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B500000,
         #[cfg(any(target_os = "android", target_os = "linux"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B576000,
         #[cfg(any(target_os = "android",
                   target_os = "freebsd",
@@ -322,36 +433,54 @@ libc_enum!{
                   target_os = "linux",
                   target_os = "netbsd",
                   target_os = "solaris"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B921600,
         #[cfg(any(target_os = "android", target_os = "linux"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B1000000,
         #[cfg(any(target_os = "android", target_os = "linux"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B1152000,
         #[cfg(any(target_os = "android", target_os = "linux"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B1500000,
         #[cfg(any(target_os = "android", target_os = "linux"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B2000000,
         #[cfg(any(target_os = "android", all(target_os = "linux", not(target_arch = "sparc64"))))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B2500000,
         #[cfg(any(target_os = "android", all(target_os = "linux", not(target_arch = "sparc64"))))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B3000000,
         #[cfg(any(target_os = "android", all(target_os = "linux", not(target_arch = "sparc64"))))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B3500000,
         #[cfg(any(target_os = "android", all(target_os = "linux", not(target_arch = "sparc64"))))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         B4000000,
     }
     impl TryFrom<libc::speed_t>
 }
 
-#[cfg(any(target_os = "freebsd",
-          target_os = "dragonfly",
-          target_os = "ios",
-          target_os = "macos",
-          target_os = "netbsd",
-          target_os = "openbsd"))]
+#[cfg(any(
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "ios",
+    target_os = "macos",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
 impl From<BaudRate> for u32 {
     fn from(b: BaudRate) -> u32 {
         b as u32
+    }
+}
+
+#[cfg(target_os = "haiku")]
+impl From<BaudRate> for u8 {
+    fn from(b: BaudRate) -> u8 {
+        b as u8
     }
 }
 
@@ -407,6 +536,7 @@ libc_enum! {
 }
 
 // TODO: Make this usable directly as a slice index.
+#[cfg(not(target_os = "haiku"))]
 libc_enum! {
     /// Indices into the `termios.c_cc` array for special characters.
     #[repr(usize)]
@@ -420,6 +550,7 @@ libc_enum! {
                 target_os = "netbsd",
                 target_os = "openbsd",
                 target_os = "solaris"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         VDSUSP,
         VEOF,
         VEOL,
@@ -429,12 +560,14 @@ libc_enum! {
                   target_os = "freebsd",
                   target_os = "illumos",
                   target_os = "solaris"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         VERASE2,
         VINTR,
         VKILL,
         VLNEXT,
         #[cfg(not(any(all(target_os = "linux", target_arch = "sparc64"),
                 target_os = "illumos", target_os = "solaris")))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         VMIN,
         VQUIT,
         VREPRINT,
@@ -446,36 +579,48 @@ libc_enum! {
                 target_os = "netbsd",
                 target_os = "openbsd",
                 target_os = "solaris"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         VSTATUS,
         VSTOP,
         VSUSP,
         #[cfg(target_os = "linux")]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         VSWTC,
         #[cfg(any(target_os = "haiku", target_os = "illumos", target_os = "solaris"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         VSWTCH,
         #[cfg(not(any(all(target_os = "linux", target_arch = "sparc64"),
                 target_os = "illumos", target_os = "solaris")))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         VTIME,
         VWERASE,
         #[cfg(target_os = "dragonfly")]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         VCHECKPT,
     }
 }
 
-#[cfg(any(all(target_os = "linux", target_arch = "sparc64"),
-        target_os = "illumos", target_os = "solaris"))]
+#[cfg(any(
+    all(target_os = "linux", target_arch = "sparc64"),
+    target_os = "illumos",
+    target_os = "solaris"
+))]
 impl SpecialCharacterIndices {
     pub const VMIN: SpecialCharacterIndices = SpecialCharacterIndices::VEOF;
     pub const VTIME: SpecialCharacterIndices = SpecialCharacterIndices::VEOL;
 }
 
 pub use libc::NCCS;
-#[cfg(any(target_os = "dragonfly",
-          target_os = "freebsd",
-          target_os = "linux",
-          target_os = "macos",
-          target_os = "netbsd",
-          target_os = "openbsd"))]
+#[cfg(any(
+    target_os = "android",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "netbsd",
+    target_os = "openbsd"
+))]
+#[cfg_attr(docsrs, doc(cfg(all())))]
 pub use libc::_POSIX_VDISABLE;
 
 libc_bitflags! {
@@ -493,10 +638,13 @@ libc_bitflags! {
         IXON;
         IXOFF;
         #[cfg(not(target_os = "redox"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         IXANY;
-        #[cfg(not(target_os = "redox"))]
+        #[cfg(not(any(target_os = "redox", target_os = "haiku")))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         IMAXBEL;
         #[cfg(any(target_os = "android", target_os = "linux", target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         IUTF8;
     }
 }
@@ -509,6 +657,7 @@ libc_bitflags! {
                   target_os = "haiku",
                   target_os = "linux",
                   target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         OLCUC;
         ONLCR;
         OCRNL as tcflag_t;
@@ -519,48 +668,56 @@ libc_bitflags! {
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         OFILL as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         OFDEL as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         NL0 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         NL1 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CR0 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CR1 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CR2 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CR3 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "freebsd",
@@ -568,18 +725,21 @@ libc_bitflags! {
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         TAB0 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         TAB1 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         TAB2 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "freebsd",
@@ -587,44 +747,52 @@ libc_bitflags! {
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         TAB3 as tcflag_t;
         #[cfg(any(target_os = "android", target_os = "linux"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         XTABS;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         BS0 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         BS1 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         VT0 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         VT1 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         FF0 as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         FF1 as tcflag_t;
         #[cfg(any(target_os = "freebsd",
                   target_os = "dragonfly",
@@ -632,12 +800,14 @@ libc_bitflags! {
                   target_os = "macos",
                   target_os = "netbsd",
                   target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         OXTABS;
         #[cfg(any(target_os = "freebsd",
                   target_os = "dragonfly",
                   target_os = "macos",
                   target_os = "netbsd",
                   target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         ONOEOT as tcflag_t;
 
         // Bitmasks for use with OutputFlags to select specific settings
@@ -649,12 +819,14 @@ libc_bitflags! {
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         NLDLY as tcflag_t; // FIXME: Datatype needs to be corrected in libc for mac
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CRDLY as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "freebsd",
@@ -662,24 +834,28 @@ libc_bitflags! {
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         TABDLY as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         BSDLY as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         VTDLY as tcflag_t;
         #[cfg(any(target_os = "android",
                   target_os = "haiku",
                   target_os = "ios",
                   target_os = "linux",
                   target_os = "macos"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         FFDLY as tcflag_t;
     }
 }
@@ -693,6 +869,7 @@ libc_bitflags! {
                   target_os = "macos",
                   target_os = "netbsd",
                   target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CIGNORE;
         CS5;
         CS6;
@@ -705,43 +882,54 @@ libc_bitflags! {
         HUPCL;
         CLOCAL;
         #[cfg(not(target_os = "redox"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CRTSCTS;
         #[cfg(any(target_os = "android", target_os = "linux"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CBAUD;
         #[cfg(any(target_os = "android", all(target_os = "linux", not(target_arch = "mips"))))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CMSPAR;
         #[cfg(any(target_os = "android",
                   all(target_os = "linux",
                       not(any(target_arch = "powerpc", target_arch = "powerpc64")))))]
         CIBAUD;
         #[cfg(any(target_os = "android", target_os = "linux"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CBAUDEX;
         #[cfg(any(target_os = "dragonfly",
                   target_os = "freebsd",
                   target_os = "macos",
                   target_os = "netbsd",
                   target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         MDMBUF;
         #[cfg(any(target_os = "netbsd", target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CHWFLOW;
         #[cfg(any(target_os = "dragonfly",
                   target_os = "freebsd",
                   target_os = "netbsd",
                   target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CCTS_OFLOW;
         #[cfg(any(target_os = "dragonfly",
                   target_os = "freebsd",
                   target_os = "netbsd",
                   target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CRTS_IFLOW;
         #[cfg(any(target_os = "dragonfly",
                   target_os = "freebsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CDTR_IFLOW;
         #[cfg(any(target_os = "dragonfly",
                   target_os = "freebsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CDSR_OFLOW;
         #[cfg(any(target_os = "dragonfly",
                   target_os = "freebsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         CCAR_OFLOW;
 
         // Bitmasks for use with ControlFlags to select specific settings
@@ -756,14 +944,17 @@ libc_bitflags! {
     /// Flags for setting any local modes
     pub struct LocalFlags: tcflag_t {
         #[cfg(not(target_os = "redox"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         ECHOKE;
         ECHOE;
         ECHOK;
         ECHO;
         ECHONL;
         #[cfg(not(target_os = "redox"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         ECHOPRT;
         #[cfg(not(target_os = "redox"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         ECHOCTL;
         ISIG;
         ICANON;
@@ -773,12 +964,15 @@ libc_bitflags! {
                   target_os = "macos",
                   target_os = "netbsd",
                   target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         ALTWERASE;
         IEXTEN;
-        #[cfg(not(target_os = "redox"))]
+        #[cfg(not(any(target_os = "redox", target_os = "haiku")))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         EXTPROC;
         TOSTOP;
         #[cfg(not(target_os = "redox"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         FLUSHO;
         #[cfg(any(target_os = "freebsd",
                   target_os = "dragonfly",
@@ -786,14 +980,16 @@ libc_bitflags! {
                   target_os = "macos",
                   target_os = "netbsd",
                   target_os = "openbsd"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         NOKERNINFO;
         #[cfg(not(target_os = "redox"))]
+        #[cfg_attr(docsrs, doc(cfg(all())))]
         PENDIN;
         NOFLSH;
     }
 }
 
-cfg_if!{
+cfg_if! {
     if #[cfg(any(target_os = "freebsd",
                  target_os = "dragonfly",
                  target_os = "ios",
@@ -804,6 +1000,8 @@ cfg_if!{
         /// [cfgetispeed(3p)](https://pubs.opengroup.org/onlinepubs/9699919799/functions/cfgetispeed.html)).
         ///
         /// `cfgetispeed()` extracts the input baud rate from the given `Termios` structure.
+        // The cast is not unnecessary on all platforms.
+        #[allow(clippy::unnecessary_cast)]
         pub fn cfgetispeed(termios: &Termios) -> u32 {
             let inner_termios = termios.get_libc_termios();
             unsafe { libc::cfgetispeed(&*inner_termios) as u32 }
@@ -813,6 +1011,8 @@ cfg_if!{
         /// [cfgetospeed(3p)](https://pubs.opengroup.org/onlinepubs/9699919799/functions/cfgetospeed.html)).
         ///
         /// `cfgetospeed()` extracts the output baud rate from the given `Termios` structure.
+        // The cast is not unnecessary on all platforms.
+        #[allow(clippy::unnecessary_cast)]
         pub fn cfgetospeed(termios: &Termios) -> u32 {
             let inner_termios = termios.get_libc_termios();
             unsafe { libc::cfgetospeed(&*inner_termios) as u32 }
@@ -899,6 +1099,7 @@ cfg_if!{
         ///
         /// `cfsetspeed()` sets the input and output baud rate in the given `Termios` structure. Note that
         /// this is part of the 4.4BSD standard and not part of POSIX.
+        #[cfg(not(target_os = "haiku"))]
         pub fn cfsetspeed(termios: &mut Termios, baud: BaudRate) -> Result<()> {
             let inner_termios = unsafe { termios.get_libc_termios_mut() };
             let res = unsafe { libc::cfsetspeed(inner_termios, baud as libc::speed_t) };
@@ -927,6 +1128,7 @@ pub fn cfmakeraw(termios: &mut Termios) {
 ///
 /// Note that this is a non-standard function, available on FreeBSD.
 #[cfg(target_os = "freebsd")]
+#[cfg_attr(docsrs, doc(cfg(all())))]
 pub fn cfmakesane(termios: &mut Termios) {
     let inner_termios = unsafe { termios.get_libc_termios_mut() };
     unsafe {
@@ -959,7 +1161,10 @@ pub fn tcgetattr(fd: RawFd) -> Result<Termios> {
 /// *any* of the parameters were successfully set, not only if all were set successfully.
 pub fn tcsetattr(fd: RawFd, actions: SetArg, termios: &Termios) -> Result<()> {
     let inner_termios = termios.get_libc_termios();
-    Errno::result(unsafe { libc::tcsetattr(fd, actions as c_int, &*inner_termios) }).map(drop)
+    Errno::result(unsafe {
+        libc::tcsetattr(fd, actions as c_int, &*inner_termios)
+    })
+    .map(drop)
 }
 
 /// Block until all output data is written (see
@@ -995,12 +1200,15 @@ pub fn tcsendbreak(fd: RawFd, duration: c_int) -> Result<()> {
     Errno::result(unsafe { libc::tcsendbreak(fd, duration) }).map(drop)
 }
 
+feature! {
+#![feature = "process"]
 /// Get the session controlled by the given terminal (see
 /// [tcgetsid(3)](https://pubs.opengroup.org/onlinepubs/9699919799/functions/tcgetsid.html)).
 pub fn tcgetsid(fd: RawFd) -> Result<Pid> {
     let res = unsafe { libc::tcgetsid(fd) };
 
     Errno::result(res).map(Pid::from_raw)
+}
 }
 
 #[cfg(test)]
@@ -1011,6 +1219,9 @@ mod test {
     #[test]
     fn try_from() {
         assert_eq!(Ok(BaudRate::B0), BaudRate::try_from(libc::B0));
-        assert!(BaudRate::try_from(999999999).is_err());
+        #[cfg(not(target_os = "haiku"))]
+        BaudRate::try_from(999999999).expect_err("assertion failed");
+        #[cfg(target_os = "haiku")]
+        BaudRate::try_from(99).expect_err("assertion failed");
     }
 }

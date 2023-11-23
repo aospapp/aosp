@@ -156,6 +156,7 @@ class TestSummaryWriter:
         yaml.safe_dump(new_content,
                        f,
                        explicit_start=True,
+                       explicit_end=True,
                        allow_unicode=True,
                        indent=4)
 
@@ -176,6 +177,7 @@ class TestResultEnums:
   RECORD_EXTRAS = 'Extras'
   RECORD_EXTRA_ERRORS = 'Extra Errors'
   RECORD_DETAILS = 'Details'
+  RECORD_TERMINATION_SIGNAL_TYPE = 'Termination Signal Type'
   RECORD_STACKTRACE = 'Stacktrace'
   RECORD_SIGNATURE = 'Signature'
   RECORD_RETRY_PARENT = 'Retry Parent'
@@ -217,6 +219,7 @@ class ExceptionRecord:
 
   Attributes:
     exception: Exception object, the original Exception.
+    type: string, type name of the exception object.
     stacktrace: string, stacktrace of the Exception.
     extras: optional serializable, this corresponds to the
       `TestSignal.extras` field.
@@ -226,6 +229,7 @@ class ExceptionRecord:
 
   def __init__(self, e, position=None):
     self.exception = e
+    self.type = type(e).__name__
     self.stacktrace = None
     self.extras = None
     self.position = position
@@ -274,7 +278,7 @@ class ExceptionRecord:
     """
     try:
       exception = copy.deepcopy(self.exception)
-    except TypeError:
+    except (TypeError, RecursionError):
       # If the exception object cannot be copied, use the original
       # exception object.
       exception = self.exception
@@ -341,6 +345,16 @@ class TestResultRecord:
     """
     if self.termination_signal:
       return self.termination_signal.details
+
+  @property
+  def termination_signal_type(self):
+    """Type name of the signal that caused the test's termination.
+
+    Note a passed test can have this as well due to the explicit pass
+    signal. If the test passed implicitly, this field would be None.
+    """
+    if self.termination_signal:
+      return self.termination_signal.type
 
   @property
   def stacktrace(self):
@@ -490,6 +504,8 @@ class TestResultRecord:
       RECORD_RETRY_PARENT] = self.retry_parent.signature if self.retry_parent else None
     d[TestResultEnums.RECORD_EXTRAS] = self.extras
     d[TestResultEnums.RECORD_DETAILS] = self.details
+    d[TestResultEnums.
+      RECORD_TERMINATION_SIGNAL_TYPE] = self.termination_signal_type
     d[TestResultEnums.RECORD_EXTRA_ERRORS] = {
         key: value.to_dict() for (key, value) in self.extra_errors.items()
     }

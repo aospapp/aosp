@@ -46,7 +46,7 @@ struct Label {
   // A label can only be bound once, binding it again leads to an error.
   bool bound = (offset != nullptr);
   // All users of this label, recorded by their offset in the Assembler buffer.
-  std::array<byte*, max_label_users> users = {0};
+  std::array<byte*, max_label_users> users{{0}};
   size_t num_users = 0;
 
   // Records a user (e.g. branch instruction) of this label.
@@ -62,7 +62,8 @@ struct Label {
 
 class AssemblerBase {
  public:
-  // Takes an xnn_code_buffer with a pointer to allocated memory.
+  // Takes an xnn_code_buffer with a pointer to allocated memory. If the buffer
+  // already contains content (size != 0), appends to after size (up to capacity).
   explicit AssemblerBase(xnn_code_buffer* buf);
 
   // Write value into the code buffer and advances cursor_.
@@ -83,9 +84,9 @@ class AssemblerBase {
   const Error error() const { return error_; }
 
  protected:
-  // Pointer to start of code buffer.
+  // Pointer into code buffer to start writing code.
   byte* buffer_;
-  // Pointer to current place in code buffer.
+  // Pointer to current position in code buffer.
   byte* cursor_;
   // Pointer to out-of-bounds of code buffer.
   byte* top_;

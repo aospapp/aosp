@@ -25,6 +25,7 @@
 #include "lang_id/common/fel/task-context.h"
 #include "lang_id/common/fel/workspace.h"
 #include "lang_id/common/lite_base/attributes.h"
+#include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
 namespace mobile {
@@ -36,7 +37,7 @@ class EmbeddingFeatureInterface {
   //
   // |arg_prefix| is a string prefix for the TaskContext parameters, passed to
   // |the underlying EmbeddingFeatureExtractor.
-  explicit EmbeddingFeatureInterface(const std::string &arg_prefix)
+  explicit EmbeddingFeatureInterface(absl::string_view arg_prefix)
       : feature_extractor_(arg_prefix) {}
 
   // Sets up feature extractors and flags for processing (inference).

@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -18,26 +18,27 @@
 .\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 .\" * KIND, either express or implied.
 .\" *
+.\" * SPDX-License-Identifier: curl
+.\" *
 .\" **************************************************************************
-.TH curl_mime_data_cb 3 "October 31, 2021" "libcurl 7.80.0" "libcurl Manual"
-
+.TH curl_mime_data_cb 3 "22 August 2017" "libcurl 7.56.0" "libcurl Manual"
 .SH NAME
 curl_mime_data_cb - set a callback-based data source for a mime part's body
 .SH SYNOPSIS
-.B #include <curl/curl.h>
-.sp
+.nf
+#include <curl/curl.h>
+
 size_t readfunc(char *buffer, size_t size, size_t nitems, void *arg);
-.br
+
 int seekfunc(void *arg, curl_off_t offset, int origin);
-.br
+
 void freefunc(void *arg);
-.sp
-.BI "CURLcode curl_mime_data_cb(curl_mimepart * " part ", curl_off_t " datasize ,
-.br
-.BI "        curl_read_callback " readfunc ", curl_seek_callback " seekfunc ,
-.br
-.BI "        curl_free_callback " freefunc ", void * " arg ");"
-.ad
+
+CURLcode curl_mime_data_cb(curl_mimepart *part, curl_off_t datasize,
+                           curl_read_callback readfunc,
+                           curl_seek_callback seekfunc,
+                           curl_free_callback freefunc, void *arg);
+.fi
 .SH DESCRIPTION
 \fIcurl_mime_data_cb(3)\fP sets the data source of a mime part's body content
 from a data read callback function.

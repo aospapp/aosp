@@ -189,8 +189,10 @@ public class MembersInjectionTest {
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class GenericClass_MembersInjector<A, B>",
             "    implements MembersInjector<GenericClass<A, B>> {",
@@ -279,8 +281,10 @@ public class MembersInjectionTest {
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class Child_MembersInjector<T>",
             "    implements MembersInjector<Child<T>> {",
@@ -364,8 +368,10 @@ public class MembersInjectionTest {
                 "import dagger.MembersInjector;",
                 "import dagger.internal.DoubleCheck;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class FieldInjection_MembersInjector",
             "    implements MembersInjector<FieldInjection> {",
@@ -444,9 +450,11 @@ public class MembersInjectionTest {
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Named;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata(\"javax.inject.Named\")",
             GeneratedLines.generatedAnnotations(),
             "public final class FieldInjectionWithQualifier_MembersInjector",
             "    implements MembersInjector<FieldInjectionWithQualifier> {",
@@ -514,8 +522,10 @@ public class MembersInjectionTest {
                 "import dagger.Lazy;",
                 "import dagger.MembersInjector;",
                 "import dagger.internal.DoubleCheck;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class MethodInjection_MembersInjector",
             "     implements MembersInjector<MethodInjection> {",
@@ -603,8 +613,10 @@ public class MembersInjectionTest {
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class MixedMemberInjection_MembersInjector",
             "    implements MembersInjector<MixedMemberInjection> {",
@@ -686,8 +698,10 @@ public class MembersInjectionTest {
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class AllInjections_MembersInjector ",
             "    implements MembersInjector<AllInjections> {",
@@ -747,14 +761,16 @@ public class MembersInjectionTest {
         "}");
     JavaFileObject expectedMembersInjector =
         JavaFileObjects.forSourceLines(
-            "test.AllInjections_MembersInjector",
+            "test.B_MembersInjector",
             "package test;",
             "",
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class B_MembersInjector implements MembersInjector<B> {",
             "  private final Provider<String> sProvider;",
@@ -815,8 +831,10 @@ public class MembersInjectionTest {
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class OuterType_B_MembersInjector",
             "    implements MembersInjector<OuterType.B> {",
@@ -881,8 +899,10 @@ public class MembersInjectionTest {
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class OuterType_B_MembersInjector",
             "    implements MembersInjector<OuterType.B> {",
@@ -1057,8 +1077,10 @@ public class MembersInjectionTest {
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class Child_MembersInjector implements MembersInjector<Child> {",
             "  private final Provider<Foo> objectProvider;",
@@ -1255,8 +1277,10 @@ public class MembersInjectionTest {
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class InjectedType_MembersInjector ",
             "    implements MembersInjector<InjectedType> {",
@@ -1296,8 +1320,12 @@ public class MembersInjectionTest {
             "",
             GeneratedLines.generatedImports(
                 "import dagger.internal.Factory;",
+                "import dagger.internal.QualifierMetadata;",
+                "import dagger.internal.ScopeMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@ScopeMetadata",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class InjectedType_Factory implements Factory<InjectedType> {",
             "  private final Provider<Integer> primitiveIntProvider;",
@@ -1400,8 +1428,10 @@ public class MembersInjectionTest {
                 GeneratedLines.generatedImports(
                     "import dagger.MembersInjector;",
                     "import dagger.internal.InjectedFieldSignature;",
+                    "import dagger.internal.QualifierMetadata;",
                     "import javax.inject.Provider;"),
                 "",
+                "@QualifierMetadata",
                 GeneratedLines.generatedAnnotations(),
                 "public final class Inaccessible_MembersInjector",
                 "    implements MembersInjector<Inaccessible> {",
@@ -1537,64 +1567,51 @@ public class MembersInjectionTest {
             .addLines(
                 "package test;",
                 "",
-                GeneratedLines.generatedImports(
-                    "import com.google.errorprone.annotations.CanIgnoreReturnValue;",
-                    "import other.InaccessiblesModule;",
-                    "import other.InaccessiblesModule_InaccessiblesFactory;",
-                    "import other.UsesInaccessibles;",
-                    "import other.UsesInaccessibles_Factory;",
-                    "import other.UsesInaccessibles_MembersInjector;"),
-                "",
                 GeneratedLines.generatedAnnotations(),
-                "final class DaggerTestComponent implements TestComponent {")
-            .addLinesIn(
-                FAST_INIT_MODE,
-                "  private volatile Object listOfInaccessible = new MemoizedSentinel();",
+                "final class DaggerTestComponent implements TestComponent {",
+                "  private final DaggerTestComponent testComponent = this;",
                 "",
-                "  private List listOfInaccessible() {",
-                "    Object local = listOfInaccessible;",
-                "    if (local instanceof MemoizedSentinel) {",
-                "      synchronized (local) {",
-                "        local = listOfInaccessible;",
-                "        if (local instanceof MemoizedSentinel) {",
-                "          local = InaccessiblesModule_InaccessiblesFactory.inaccessibles();",
-                "          listOfInaccessible =",
-                "              DoubleCheck.reentrantCheck(listOfInaccessible, local);",
-                "        }",
-                "      }",
-                "    }",
-                "    return (List) local;",
-                "  }")
+                "  @SuppressWarnings(\"rawtypes\")",
+                "  private Provider inaccessiblesProvider;")
             .addLinesIn(
                 DEFAULT_MODE,
-                "  @SuppressWarnings(\"rawtypes\")",
-                "  private Provider inaccessiblesProvider;",
-                "",
                 "  @SuppressWarnings(\"unchecked\")",
                 "  private void initialize() {",
                 "    this.inaccessiblesProvider =",
                 "        DoubleCheck.provider(InaccessiblesModule_InaccessiblesFactory.create());",
                 "  }")
-            .addLines(
-                "",
-                "  @Override",
-                "  public UsesInaccessibles usesInaccessibles() {",
-                "    return injectUsesInaccessibles(",
-                "        UsesInaccessibles_Factory.newInstance());",
-                "  }",
-                "",
-                "  @CanIgnoreReturnValue",
-                "  private UsesInaccessibles injectUsesInaccessibles(",
-                "        UsesInaccessibles instance) {",
-                "    UsesInaccessibles_MembersInjector.injectInaccessibles(")
             .addLinesIn(
                 FAST_INIT_MODE,
-                "        instance, (List) listOfInaccessible());")
-            .addLinesIn(
-                DEFAULT_MODE,
-                "        instance, (List) inaccessiblesProvider.get());")
+                "  @SuppressWarnings(\"unchecked\")",
+                "  private void initialize() {",
+                "    this.inaccessiblesProvider =",
+                "        DoubleCheck.provider(",
+                "            new SwitchingProvider<List>(testComponent, 0));",
+                "  }")
             .addLines(
+                "  @Override",
+                "  public UsesInaccessibles usesInaccessibles() {",
+                "    return injectUsesInaccessibles(UsesInaccessibles_Factory.newInstance());",
+                "  }")
+            .addLinesIn(
+                FAST_INIT_MODE,
+                "  @CanIgnoreReturnValue",
+                "  private UsesInaccessibles injectUsesInaccessibles(UsesInaccessibles instance) {",
+                "    UsesInaccessibles_MembersInjector",
+                "        .injectInaccessibles(instance, (List) inaccessiblesProvider.get());",
                 "    return instance;",
+                "  }",
+                "",
+                "  private static final class SwitchingProvider<T> implements Provider<T> {",
+                "    @SuppressWarnings(\"unchecked\")",
+                "    @Override",
+                "    public T get() {",
+                "      switch (id) {",
+                "        case 0:",
+                "          return (T) InaccessiblesModule_InaccessiblesFactory.inaccessibles();",
+                "        default: throw new AssertionError(id);",
+                "      }",
+                "    }",
                 "  }",
                 "}")
             .build();
@@ -1738,8 +1755,10 @@ public class MembersInjectionTest {
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class A_MembersInjector implements MembersInjector<A> {",
             "  private final Provider<String> valueCProvider;",
@@ -1776,8 +1795,10 @@ public class MembersInjectionTest {
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class C_MembersInjector implements MembersInjector<C> {",
             "  private final Provider<String> valueCProvider;",
@@ -1855,8 +1876,10 @@ public class MembersInjectionTest {
             "",
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class A_MembersInjector implements MembersInjector<A> {",
             "  private final Provider<String> valueBProvider;",
@@ -1883,8 +1906,10 @@ public class MembersInjectionTest {
             GeneratedLines.generatedImports(
                 "import dagger.MembersInjector;",
                 "import dagger.internal.InjectedFieldSignature;",
+                "import dagger.internal.QualifierMetadata;",
                 "import javax.inject.Provider;"),
             "",
+            "@QualifierMetadata",
             GeneratedLines.generatedAnnotations(),
             "public final class B_MembersInjector implements MembersInjector<B> {",
             "  private final Provider<String> valueBProvider;",
@@ -1920,5 +1945,224 @@ public class MembersInjectionTest {
     assertThat(compilation)
         .generatedSourceFile("test.B_MembersInjector")
         .hasSourceEquivalentTo(expectedBMembersInjector);
+  }
+
+  // Regression test for https://github.com/google/dagger/issues/3143
+  @Test
+  public void testMembersInjectionBindingExistsInParentComponent() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.MyComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component(modules = MyComponentModule.class)",
+            "public interface MyComponent {",
+            "  void inject(Bar bar);",
+            "",
+            "  MySubcomponent subcomponent();",
+            "}");
+
+    JavaFileObject subcomponent =
+        JavaFileObjects.forSourceLines(
+            "test.MySubcomponent",
+            "package test;",
+            "",
+            "import dagger.Subcomponent;",
+            "",
+            "@Subcomponent(modules = MySubcomponentModule.class)",
+            "interface MySubcomponent {",
+            "  Foo foo();",
+            "}");
+
+    JavaFileObject foo =
+        JavaFileObjects.forSourceLines(
+            "test.Foo",
+            "package test;",
+            "",
+            "import javax.inject.Inject;",
+            "",
+            "class Foo {",
+            "  @Inject Foo(Bar bar) {}",
+            "}");
+
+    JavaFileObject bar =
+        JavaFileObjects.forSourceLines(
+            "test.Bar",
+            "package test;",
+            "",
+            "import java.util.Set;",
+            "import javax.inject.Inject;",
+            "",
+            "class Bar {",
+            "  @Inject Set<String> multibindingStrings;",
+            "  @Inject Bar() {}",
+            "}");
+
+    JavaFileObject componentModule =
+        JavaFileObjects.forSourceLines(
+            "test.MyComponentModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.multibindings.IntoSet;",
+            "",
+            "@Module",
+            "interface MyComponentModule {",
+            "  @Provides",
+            "  @IntoSet",
+            "  static String provideString() {",
+            "    return \"\";",
+            "  }",
+            "}");
+
+    JavaFileObject subcomponentModule =
+        JavaFileObjects.forSourceLines(
+            "test.MySubcomponentModule",
+            "package test;",
+            "",
+            "import dagger.Module;",
+            "import dagger.Provides;",
+            "import dagger.multibindings.IntoSet;",
+            "",
+            "@Module",
+            "interface MySubcomponentModule {",
+            "  @Provides",
+            "  @IntoSet",
+            "  static String provideString() {",
+            "    return \"\";",
+            "  }",
+            "}");
+
+    Compilation compilation =
+        compilerWithOptions(compilerMode.javacopts())
+            .compile(component, subcomponent, foo, bar, componentModule, subcomponentModule);
+    assertThat(compilation).succeeded();
+
+    // Check that the injectBar() method is not shared across components.
+    // We avoid sharing them in general because they may be different (e.g. in this case we inject
+    // multibindings that are different across components).
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerMyComponent")
+        .containsElementsIn(
+            JavaFileObjects.forSourceLines(
+                "test.DaggerMyComponent",
+                "package test;",
+                "",
+                GeneratedLines.generatedAnnotations(),
+                "public final class DaggerMyComponent implements MyComponent {",
+                "  private Set<String> setOfString() {",
+                "    return ImmutableSet.<String>of(",
+                "        MyComponentModule_ProvideStringFactory.provideString());",
+                "  }",
+                "",
+                "  @Override",
+                "  public void inject(Bar bar) {",
+                "    injectBar(bar);",
+                "  }",
+                "",
+                "  @CanIgnoreReturnValue",
+                "  private Bar injectBar(Bar instance) {",
+                "    Bar_MembersInjector.injectMultibindingStrings(instance, setOfString());",
+                "    return instance;",
+                "  }",
+                "",
+                "  private static final class MySubcomponentImpl implements MySubcomponent {",
+                "    private Set<String> setOfString() {",
+                "      return ImmutableSet.<String>of(",
+                "          MyComponentModule_ProvideStringFactory.provideString(),",
+                "          MySubcomponentModule_ProvideStringFactory.provideString());",
+                "    }",
+                "",
+                "    private Bar bar() {",
+                "      return injectBar(Bar_Factory.newInstance());",
+                "    }",
+                "",
+                "    @Override",
+                "    public Foo foo() {",
+                "      return new Foo(bar());",
+                "    }",
+                "",
+                "    @CanIgnoreReturnValue",
+                "    private Bar injectBar(Bar instance) {",
+                "      Bar_MembersInjector.injectMultibindingStrings(instance, setOfString());",
+                "      return instance;",
+                "    }",
+                "  }",
+                "}"));
+  }
+
+  // Test that if both a MembersInjectionBinding and ProvisionBinding both exist in the same
+  // component they share the same inject methods rather than generating their own.
+  @Test
+  public void testMembersInjectionBindingSharesInjectMethodsWithProvisionBinding() {
+    JavaFileObject component =
+        JavaFileObjects.forSourceLines(
+            "test.MyComponent",
+            "package test;",
+            "",
+            "import dagger.Component;",
+            "",
+            "@Component",
+            "public interface MyComponent {",
+            "  Foo foo();",
+            "",
+            "  void inject(Foo foo);",
+            "}");
+
+    JavaFileObject foo =
+        JavaFileObjects.forSourceLines(
+            "test.Foo",
+            "package test;",
+            "",
+            "import javax.inject.Inject;",
+            "",
+            "class Foo {",
+            "  @Inject Bar bar;",
+            "  @Inject Foo() {}",
+            "}");
+
+    JavaFileObject bar =
+        JavaFileObjects.forSourceLines(
+            "test.Bar",
+            "package test;",
+            "",
+            "import javax.inject.Inject;",
+            "",
+            "class Bar {",
+            "  @Inject Bar() {}",
+            "}");
+
+    Compilation compilation =
+        compilerWithOptions(compilerMode.javacopts()).compile(component, foo, bar);
+    assertThat(compilation).succeeded();
+
+    assertThat(compilation)
+        .generatedSourceFile("test.DaggerMyComponent")
+        .containsElementsIn(
+            JavaFileObjects.forSourceLines(
+                "test.DaggerMyComponent",
+                "package test;",
+                "",
+                GeneratedLines.generatedAnnotations(),
+                "public final class DaggerMyComponent implements MyComponent {",
+                "  @Override",
+                "  public Foo foo() {",
+                "    return injectFoo(Foo_Factory.newInstance());",
+                "  }",
+                "",
+                "  @Override",
+                "  public void inject(Foo foo) {",
+                "    injectFoo(foo);",
+                "  }",
+                "",
+                "  @CanIgnoreReturnValue",
+                "  private Foo injectFoo(Foo instance) {",
+                "    Foo_MembersInjector.injectBar(instance, new Bar());",
+                "    return instance;",
+                "  }",
+                "}"));
   }
 }

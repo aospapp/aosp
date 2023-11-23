@@ -29,6 +29,7 @@ import com.google.android.enterprise.connectedapps.annotations.CrossUserConfigur
 import com.google.android.enterprise.connectedapps.annotations.CrossUserConfigurations;
 import com.google.android.enterprise.connectedapps.annotations.CrossUserProvider;
 import com.google.android.enterprise.connectedapps.processor.ValidationMessageFormatter;
+import com.google.android.enterprise.connectedapps.processor.containers.Context;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileAnnotationInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileCallbackAnnotationInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileConfigurationAnnotationInfo;
@@ -46,8 +47,6 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 
 /** Helper methods to discover all cross-profile annotations of a specific type on elements. */
 public final class AnnotationFinder {
@@ -164,41 +163,39 @@ public final class AnnotationFinder {
   }
 
   public static CrossProfileAnnotationInfo extractCrossProfileAnnotationInfo(
-      Element annotatedElement, Types types, Elements elements) {
+      Context context, Element annotatedElement) {
     return new CrossProfileAnnotationInfoExtractor()
-        .extractAnnotationInfo(SUPPORTED_ANNOTATIONS, annotatedElement, types, elements);
+        .extractAnnotationInfo(SUPPORTED_ANNOTATIONS, context, annotatedElement);
   }
 
   public static CrossProfileCallbackAnnotationInfo extractCrossProfileCallbackAnnotationInfo(
-      Element annotatedElement, Types types, Elements elements) {
+      Context context, Element annotatedElement) {
     return new CrossProfileCallbackAnnotationInfoExtractor()
-        .extractAnnotationInfo(SUPPORTED_ANNOTATIONS, annotatedElement, types, elements);
+        .extractAnnotationInfo(SUPPORTED_ANNOTATIONS, context, annotatedElement);
   }
 
   public static CrossProfileConfigurationAnnotationInfo
-      extractCrossProfileConfigurationAnnotationInfo(
-          Element annotatedElement, Types types, Elements elements) {
+      extractCrossProfileConfigurationAnnotationInfo(Context context, Element annotatedElement) {
     return new CrossProfileConfigurationAnnotationInfoExtractor()
-        .extractAnnotationInfo(SUPPORTED_ANNOTATIONS, annotatedElement, types, elements);
+        .extractAnnotationInfo(SUPPORTED_ANNOTATIONS, context, annotatedElement);
   }
 
   public static CrossProfileConfigurationsAnnotationInfo
-      extractCrossProfileConfigurationsAnnotationInfo(
-          Element annotatedElement, Types types, Elements elements) {
+      extractCrossProfileConfigurationsAnnotationInfo(Context context, Element annotatedElement) {
     return new CrossProfileConfigurationsAnnotationInfoExtractor()
-        .extractAnnotationInfo(SUPPORTED_ANNOTATIONS, annotatedElement, types, elements);
+        .extractAnnotationInfo(SUPPORTED_ANNOTATIONS, context, annotatedElement);
   }
 
   public static CrossProfileProviderAnnotationInfo extractCrossProfileProviderAnnotationInfo(
-      Element annotatedElement, Types types, Elements elements) {
+      Context context, Element annotatedElement) {
     return new CrossProfileProviderAnnotationInfoExtractor()
-        .extractAnnotationInfo(SUPPORTED_ANNOTATIONS, annotatedElement, types, elements);
+        .extractAnnotationInfo(SUPPORTED_ANNOTATIONS, context, annotatedElement);
   }
 
   public static CrossProfileTestAnnotationInfo extractCrossProfileTestAnnotationInfo(
-      Element annotatedElement, Types types, Elements elements) {
+      Context context, Element annotatedElement) {
     return new CrossProfileTestAnnotationInfoExtractor()
-        .extractAnnotationInfo(SUPPORTED_ANNOTATIONS, annotatedElement, types, elements);
+        .extractAnnotationInfo(SUPPORTED_ANNOTATIONS, context, annotatedElement);
   }
 
   public static boolean hasCrossProfileAnnotation(Element element) {

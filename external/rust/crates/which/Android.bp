@@ -20,14 +20,21 @@ license {
 
 rust_library {
     name: "libwhich",
+    // has rustc warnings
     host_supported: true,
     crate_name: "which",
     cargo_env_compat: true,
-    cargo_pkg_version: "4.2.4",
+    cargo_pkg_version: "4.4.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
         "libeither",
         "liblibc",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

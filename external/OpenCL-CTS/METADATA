@@ -1,7 +1,19 @@
-# *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
-#     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
-#     DEPENDING ON IT IN YOUR PROJECT. ***
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update OpenCL-CTS
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
+name: "OpenCL-CTS"
+description: "OpenCL Conformance Tests"
 third_party {
-  license_note: "Khronos proprietary"
-  license_type: BY_EXCEPTION_ONLY
+  url {
+    type: GIT
+    value: "https://github.com/KhronosGroup/OpenCL-CTS.git"
+  }
+  version: "90a5183ec499d5b4701f58f6134dd424d82c4dca"
+  license_type: NOTICE
+  last_upgrade_date {
+    year: 2022
+    month: 10
+    day: 26
+  }
 }

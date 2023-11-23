@@ -40,8 +40,8 @@ public final class Category {
     return new Category(label, displayName, score);
   }
 
-  @UsedByReflection("TFLiteSupport/Task")
   /** Constructs a {@link Category} object with an empty displayName. */
+  @UsedByReflection("TFLiteSupport/Task")
   public Category(String label, float score) {
     this(label, /*displayName=*/ "", score);
   }

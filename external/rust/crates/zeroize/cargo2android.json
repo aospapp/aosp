@@ -1,0 +1,14 @@
+{
+  "add-toplevel-block": "cargo2android_nostd.bp",
+  "apex-available": [
+    "//apex_available:platform",
+    "com.android.uwb",
+    "com.android.virt"
+  ],
+  "device": true,
+  "run": true,
+  "min_sdk_version": "Tiramisu",
+  "vendor-available": true,
+  "tests": true,
+  "features": "alloc,zeroize_derive"
+}

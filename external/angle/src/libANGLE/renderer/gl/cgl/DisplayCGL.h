@@ -9,7 +9,6 @@
 #ifndef LIBANGLE_RENDERER_GL_CGL_DISPLAYCGL_H_
 #define LIBANGLE_RENDERER_GL_CGL_DISPLAYCGL_H_
 
-#include <thread>
 #include <unordered_set>
 
 #include "libANGLE/renderer/gl/DisplayGL.h"
@@ -85,6 +84,7 @@ class DisplayCGL : public DisplayGL
     DeviceImpl *createDevice() override;
 
     egl::Error waitClient(const gl::Context *context) override;
+    egl::Error waitUntilWorkScheduled() override;
     egl::Error waitNative(const gl::Context *context, EGLint engine) override;
 
     gl::Version getMaxSupportedESVersion() const override;
@@ -120,7 +120,7 @@ class DisplayCGL : public DisplayGL
 
     egl::Display *mEGLDisplay;
     CGLContextObj mContext;
-    std::unordered_set<std::thread::id> mThreadsWithCurrentContext;
+    std::unordered_set<uint64_t> mThreadsWithCurrentContext;
     CGLPixelFormatObj mPixelFormat;
     bool mSupportsGPUSwitching;
     uint64_t mCurrentGPUID;

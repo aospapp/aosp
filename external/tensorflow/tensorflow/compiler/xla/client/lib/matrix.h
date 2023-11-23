@@ -17,10 +17,10 @@ limitations under the License.
 #define TENSORFLOW_COMPILER_XLA_CLIENT_LIB_MATRIX_H_
 
 #include <array>
+#include <optional>
 #include <vector>
 
 #include "absl/strings/string_view.h"
-#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "tensorflow/compiler/xla/client/xla_builder.h"
 #include "tensorflow/compiler/xla/statusor.h"
@@ -92,11 +92,11 @@ XlaOp Symmetrize(XlaOp x, bool lower);
 xla::XlaOp BatchDot(
     xla::XlaOp x, xla::XlaOp y,
     xla::PrecisionConfig::Precision precision = xla::PrecisionConfig::DEFAULT,
-    absl::optional<PrimitiveType> preferred_element_type = absl::nullopt);
+    std::optional<PrimitiveType> preferred_element_type = std::nullopt);
 xla::XlaOp BatchDot(
     xla::XlaOp x, bool transpose_x, xla::XlaOp y, bool transpose_y,
     xla::PrecisionConfig::Precision precision = xla::PrecisionConfig::DEFAULT,
-    absl::optional<PrimitiveType> preferred_element_type = absl::nullopt);
+    std::optional<PrimitiveType> preferred_element_type = std::nullopt);
 
 // Parse an einsum string into dimension numbers:
 //   "ab,cb->ac"
@@ -115,7 +115,7 @@ xla::XlaOp BatchDot(
 // NOTE: This function is meant for testing, there is no need to call it
 // directly.
 
-StatusOr<std::array<std::vector<int64>, 3>> ParseEinsumString(
+StatusOr<std::array<std::vector<int64_t>, 3>> ParseEinsumString(
     absl::string_view einsum_config, int64_t x_rank, int64_t y_rank);
 
 // If an einsum config does not contain an -> one will be added and the output
@@ -127,7 +127,7 @@ std::string NormalizeEinsumString(absl::string_view einsum_config);
 xla::XlaOp Einsum(
     xla::XlaOp x, xla::XlaOp y, absl::string_view einsum_config,
     xla::PrecisionConfig::Precision precision = xla::PrecisionConfig::DEFAULT,
-    absl::optional<PrimitiveType> preferred_element_type = absl::nullopt);
+    std::optional<PrimitiveType> preferred_element_type = std::nullopt);
 xla::XlaOp Einsum(
     xla::XlaOp x, absl::string_view einsum_config,
     xla::PrecisionConfig::Precision precision = xla::PrecisionConfig::DEFAULT);
@@ -139,10 +139,10 @@ xla::XlaOp Einsum(
 //   y_config = {2, 1}
 //   output_config = {0, 2}
 xla::XlaOp Einsum(
-    xla::XlaOp x, absl::Span<const int64> x_config, xla::XlaOp y,
-    absl::Span<const int64> y_config, absl::Span<const int64> output_config,
+    xla::XlaOp x, absl::Span<const int64_t> x_config, xla::XlaOp y,
+    absl::Span<const int64_t> y_config, absl::Span<const int64_t> output_config,
     xla::PrecisionConfig::Precision precision = xla::PrecisionConfig::DEFAULT,
-    absl::optional<PrimitiveType> preferred_element_type = absl::nullopt);
+    std::optional<PrimitiveType> preferred_element_type = std::nullopt);
 
 // Transposes a stack of matrices `x` by swapping the last two dimensions.
 xla::XlaOp TransposeInMinorDims(xla::XlaOp x);

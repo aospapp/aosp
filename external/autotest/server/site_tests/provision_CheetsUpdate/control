@@ -8,6 +8,7 @@ ATTRIBUTES = ''
 DEPENDENCIES = 'arc'
 TEST_TYPE = 'server'
 TIME = 'LENGTHY'
+PY_VERSION = 3
 
 DOC = """This test downloads and installs an Android test image on the DUT to
 prepare the DUT for Android PFQ tests.

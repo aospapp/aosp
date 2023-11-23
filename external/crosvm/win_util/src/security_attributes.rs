@@ -1,33 +1,59 @@
-// Copyright 2022 The Chromium OS Authors. All rights reserved.
+// Copyright 2022 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::alloc::{alloc_zeroed, dealloc, handle_alloc_error, Layout};
-use std::convert::{TryFrom, TryInto};
+use std::alloc::alloc_zeroed;
+use std::alloc::dealloc;
+use std::alloc::handle_alloc_error;
+use std::alloc::Layout;
+use std::convert::TryFrom;
+use std::convert::TryInto;
+use std::io;
 use std::mem::size_of;
 use std::os::windows::io::RawHandle;
-use std::{io, ptr};
-use winapi::shared::minwindef::{FALSE, HLOCAL, LPDWORD, LPVOID, TRUE};
-use winapi::shared::winerror::{ERROR_INSUFFICIENT_BUFFER, ERROR_SUCCESS};
-use winapi::um::accctrl::{
-    EXPLICIT_ACCESS_A, NO_INHERITANCE, NO_MULTIPLE_TRUSTEE, PEXPLICIT_ACCESSA, SET_ACCESS,
-    TRUSTEE_A, TRUSTEE_IS_SID, TRUSTEE_IS_USER,
-};
+use std::ptr;
+
+use once_cell::sync::OnceCell;
+use winapi::shared::minwindef::FALSE;
+use winapi::shared::minwindef::HLOCAL;
+use winapi::shared::minwindef::LPDWORD;
+use winapi::shared::minwindef::LPVOID;
+use winapi::shared::minwindef::TRUE;
+use winapi::shared::winerror::ERROR_INSUFFICIENT_BUFFER;
+use winapi::shared::winerror::ERROR_SUCCESS;
+use winapi::um::accctrl::EXPLICIT_ACCESS_A;
+use winapi::um::accctrl::NO_INHERITANCE;
+use winapi::um::accctrl::NO_MULTIPLE_TRUSTEE;
+use winapi::um::accctrl::PEXPLICIT_ACCESSA;
+use winapi::um::accctrl::SET_ACCESS;
+use winapi::um::accctrl::TRUSTEE_A;
+use winapi::um::accctrl::TRUSTEE_IS_SID;
+use winapi::um::accctrl::TRUSTEE_IS_USER;
 use winapi::um::aclapi::SetEntriesInAclA;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::minwinbase::SECURITY_ATTRIBUTES;
-use winapi::um::processthreadsapi::{GetCurrentProcess, OpenProcessToken};
-use winapi::um::securitybaseapi::{
-    GetTokenInformation, InitializeSecurityDescriptor, MakeSelfRelativeSD,
-    SetSecurityDescriptorDacl,
-};
+use winapi::um::processthreadsapi::GetCurrentProcess;
+use winapi::um::processthreadsapi::OpenProcessToken;
+use winapi::um::processthreadsapi::OpenThreadToken;
+use winapi::um::securitybaseapi::GetTokenInformation;
+use winapi::um::securitybaseapi::InitializeSecurityDescriptor;
+use winapi::um::securitybaseapi::MakeSelfRelativeSD;
+use winapi::um::securitybaseapi::SetSecurityDescriptorDacl;
 use winapi::um::winbase::LocalFree;
-use winapi::um::winnt::{
-    TokenUser, ACL, GENERIC_ALL, PACL, PSECURITY_DESCRIPTOR, SECURITY_DESCRIPTOR,
-    SECURITY_DESCRIPTOR_REVISION, TOKEN_ALL_ACCESS, TOKEN_INFORMATION_CLASS, TOKEN_USER,
-};
-
-use lazy_static::lazy_static;
+use winapi::um::winnt::TokenIntegrityLevel;
+use winapi::um::winnt::TokenStatistics;
+use winapi::um::winnt::TokenUser;
+use winapi::um::winnt::ACL;
+use winapi::um::winnt::GENERIC_ALL;
+use winapi::um::winnt::PACL;
+use winapi::um::winnt::PSECURITY_DESCRIPTOR;
+use winapi::um::winnt::SECURITY_DESCRIPTOR;
+use winapi::um::winnt::SECURITY_DESCRIPTOR_REVISION;
+use winapi::um::winnt::TOKEN_ALL_ACCESS;
+use winapi::um::winnt::TOKEN_INFORMATION_CLASS;
+use winapi::um::winnt::TOKEN_MANDATORY_LABEL;
+use winapi::um::winnt::TOKEN_STATISTICS;
+use winapi::um::winnt::TOKEN_USER;
 
 /// Struct for wrapping `SECURITY_ATTRIBUTES` and `SECURITY_DESCRIPTOR`.
 pub struct SecurityAttributes<T: SecurityDescriptor> {
@@ -80,8 +106,20 @@ impl<T: SecurityDescriptor> AsMut<SECURITY_ATTRIBUTES> for SecurityAttributes<T>
     }
 }
 
-trait TokenClass {
+pub trait TokenClass {
     fn class() -> TOKEN_INFORMATION_CLASS;
+}
+
+impl TokenClass for TOKEN_MANDATORY_LABEL {
+    fn class() -> TOKEN_INFORMATION_CLASS {
+        TokenIntegrityLevel
+    }
+}
+
+impl TokenClass for TOKEN_STATISTICS {
+    fn class() -> TOKEN_INFORMATION_CLASS {
+        TokenStatistics
+    }
 }
 
 impl TokenClass for TOKEN_USER {
@@ -90,13 +128,13 @@ impl TokenClass for TOKEN_USER {
     }
 }
 
-struct TokenInformation<T> {
+pub struct TokenInformation<T> {
     token_info: *mut T,
     layout: Layout,
 }
 
 impl<T: TokenClass> TokenInformation<T> {
-    fn new(mut token: ProcessToken) -> io::Result<Self> {
+    pub fn new(mut token: Token) -> io::Result<Self> {
         let token_handle = token.get();
         // Retrieve the size of the struct.
         let mut size: u32 = 0;
@@ -189,25 +227,51 @@ impl<T> Drop for TokenInformation<T> {
     }
 }
 
-struct ProcessToken {
+pub struct Token {
     token: RawHandle,
 }
 
-impl ProcessToken {
-    fn new() -> io::Result<Self> {
+impl Token {
+    /// Open the current process's token.
+    pub fn new_for_process() -> io::Result<Self> {
+        // Safe because GetCurrentProcess is an alias for -1.
+        Self::from_process(unsafe { GetCurrentProcess() })
+    }
+
+    /// Open the token of a process.
+    pub fn from_process(proc_handle: RawHandle) -> io::Result<Self> {
         let mut token: RawHandle = ptr::null_mut();
 
         // Safe because token is valid.
         if unsafe {
             OpenProcessToken(
-                /* ProcessHandle= */ GetCurrentProcess(),
+                /* ProcessHandle= */ proc_handle,
                 /* DesiredAccess= */ TOKEN_ALL_ACCESS,
                 /* TokenHandle= */ &mut token,
             ) == 0
         } {
             return Err(io::Error::last_os_error());
         }
-        Ok(ProcessToken { token })
+        Ok(Token { token })
+    }
+
+    /// Open the token of a thread.
+    pub fn from_thread(thread_handle: RawHandle) -> io::Result<Self> {
+        let mut token: RawHandle = ptr::null_mut();
+
+        // Safe because token is valid. We use OpenAsSelf to ensure the token access is measured
+        // using the caller's non-impersonated identity.
+        if unsafe {
+            OpenThreadToken(
+                thread_handle,
+                TOKEN_ALL_ACCESS,
+                /*OpenAsSelf=*/ TRUE,
+                &mut token,
+            ) == 0
+        } {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(Token { token })
     }
 
     fn get(&mut self) -> RawHandle {
@@ -215,7 +279,7 @@ impl ProcessToken {
     }
 }
 
-impl Drop for ProcessToken {
+impl Drop for Token {
     fn drop(&mut self) {
         // Safe as token is valid, but the call should be safe regardless.
         unsafe {
@@ -237,7 +301,7 @@ impl AbsoluteSecurityDescriptor {
     /// Creates a `SECURITY_DESCRIPTOR` struct which gives full access rights
     /// (`GENERIC_ALL`) to only the current user.
     fn new() -> io::Result<AbsoluteSecurityDescriptor> {
-        let token = ProcessToken::new()?;
+        let token = Token::new_for_process()?;
         let token_user = TokenInformation::<TOKEN_USER>::new(token)?;
         let sid = token_user.as_ref().User.Sid;
 
@@ -425,11 +489,6 @@ impl TryFrom<AbsoluteSecurityDescriptor> for SelfRelativeSecurityDescriptor {
     }
 }
 
-lazy_static! {
-    static ref DEFAULT_SECURITY_DESCRIPTOR: SelfRelativeSecurityDescriptor =
-        SelfRelativeSecurityDescriptor::new().expect("Failed to create security descriptor");
-}
-
 impl SelfRelativeSecurityDescriptor {
     /// Creates a `SECURITY_DESCRIPTOR` struct which gives full access rights
     /// (`GENERIC_ALL`) to only the current user.
@@ -439,7 +498,13 @@ impl SelfRelativeSecurityDescriptor {
 
     /// Gets a copy of a singleton `SelfRelativeSecurityDescriptor`.
     pub fn get_singleton() -> SelfRelativeSecurityDescriptor {
-        DEFAULT_SECURITY_DESCRIPTOR.clone()
+        static DEFAULT_SECURITY_DESCRIPTOR: OnceCell<SelfRelativeSecurityDescriptor> =
+            OnceCell::new();
+        DEFAULT_SECURITY_DESCRIPTOR
+            .get_or_init(|| {
+                SelfRelativeSecurityDescriptor::new().expect("Failed to create security descriptor")
+            })
+            .clone()
     }
 }
 

@@ -1,18 +1,30 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::arch::x86_64::{CpuidResult, __cpuid, __cpuid_count};
+use std::arch::x86_64::CpuidResult;
+use std::arch::x86_64::__cpuid;
+use std::arch::x86_64::__cpuid_count;
 use std::collections::BTreeMap;
-
-use acpi_tables::{facs::FACS, rsdp::RSDP, sdt::SDT};
-use arch::VcpuAffinity;
-use base::{error, warn};
-use data_model::DataInit;
-use devices::{ACPIPMResource, PciAddress, PciInterruptPin};
 use std::sync::Arc;
+
+use acpi_tables::aml;
+use acpi_tables::facs::FACS;
+use acpi_tables::rsdp::RSDP;
+use acpi_tables::sdt::SDT;
+use arch::CpuSet;
+use arch::VcpuAffinity;
+use base::error;
+use base::warn;
+use devices::ACPIPMResource;
+use devices::PciAddress;
+use devices::PciInterruptPin;
+use devices::PciRoot;
 use sync::Mutex;
-use vm_memory::{GuestAddress, GuestMemory};
+use vm_memory::GuestAddress;
+use vm_memory::GuestMemory;
+use zerocopy::AsBytes;
+use zerocopy::FromBytes;
 
 pub struct AcpiDevResource {
     pub amls: Vec<u8>,
@@ -23,7 +35,7 @@ pub struct AcpiDevResource {
 }
 
 #[repr(C, packed)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, FromBytes, AsBytes)]
 struct GenericAddress {
     _space_id: u8,
     _bit_width: u8,
@@ -32,11 +44,8 @@ struct GenericAddress {
     _address: u64,
 }
 
-// Safe as GenericAddress structure only contains raw data
-unsafe impl DataInit for GenericAddress {}
-
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, AsBytes)]
 struct LocalApic {
     _type: u8,
     _length: u8,
@@ -45,11 +54,8 @@ struct LocalApic {
     _flags: u32,
 }
 
-// Safe as LocalAPIC structure only contains raw data
-unsafe impl DataInit for LocalApic {}
-
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, FromBytes, AsBytes)]
 struct Ioapic {
     _type: u8,
     _length: u8,
@@ -59,11 +65,8 @@ struct Ioapic {
     _gsi_base: u32,
 }
 
-// Safe as IOAPIC structure only contains raw data
-unsafe impl DataInit for Ioapic {}
-
-#[repr(C)]
-#[derive(Clone, Copy, Default)]
+#[repr(C, packed)]
+#[derive(Clone, Copy, Default, FromBytes, AsBytes)]
 struct IoapicInterruptSourceOverride {
     _type: u8,
     _length: u8,
@@ -73,11 +76,8 @@ struct IoapicInterruptSourceOverride {
     _flags: u16,
 }
 
-// Safe as IoapicInterruptSourceOverride structure only contains raw data
-unsafe impl DataInit for IoapicInterruptSourceOverride {}
-
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, FromBytes, AsBytes)]
 struct Localx2Apic {
     _type: u8,
     _length: u8,
@@ -86,9 +86,6 @@ struct Localx2Apic {
     _flags: u32,
     _processor_id: u32,
 }
-
-// Safe as LocalAPIC structure only contains raw data
-unsafe impl DataInit for Localx2Apic {}
 
 // Space ID for GenericAddress
 const ADR_SPACE_SYSTEM_IO: u8 = 1;
@@ -102,7 +99,7 @@ const FADT_REVISION: u8 = 6;
 const FADT_MINOR_REVISION: u8 = 3;
 // FADT flags
 const FADT_POWER_BUTTON: u32 = 1 << 4;
-const FADT_SLEEP_BUTTON: u32 = 1 << 5;
+const _FADT_SLEEP_BUTTON: u32 = 1 << 5;
 const FADT_RESET_REGISTER: u32 = 1 << 10;
 const FADT_LOW_POWER_S2IDLE: u32 = 1 << 21;
 // FADT fields offset
@@ -125,6 +122,9 @@ const FADT_FIELD_PM_TMR_LEN: usize = 91;
 const FADT_FIELD_GPE0_BLK_LEN: usize = 92;
 const FADT_FIELD_GPE1_BLK_LEN: usize = 93;
 const FADT_FIELD_GPE1_BASE: usize = 94;
+const FADT_FIELD_RTC_DAY_ALARM: usize = 106;
+const FADT_FIELD_RTC_MONTH_ALARM: usize = 107;
+const FADT_FIELD_RTC_CENTURY: usize = 108;
 const FADT_FIELD_FLAGS: usize = 112;
 const FADT_FIELD_RESET_REGISTER: usize = 116;
 const FADT_FIELD_RESET_VALUE: usize = 128;
@@ -174,6 +174,33 @@ const MCFG_FIELD_BASE_ADDRESS: usize = 44;
 const MCFG_FIELD_START_BUS_NUMBER: usize = 54;
 const MCFG_FIELD_END_BUS_NUMBER: usize = 55;
 
+const SSDT_REVISION: u8 = 2;
+pub fn create_customize_ssdt(
+    pci_root: Arc<Mutex<PciRoot>>,
+    amls: BTreeMap<PciAddress, Vec<u8>>,
+) -> Option<SDT> {
+    if amls.is_empty() {
+        return None;
+    }
+
+    let mut ssdt = SDT::new(
+        *b"SSDT",
+        acpi_tables::HEADER_LEN,
+        SSDT_REVISION,
+        *b"CROSVM",
+        *b"CROSVMDT",
+        OEM_REVISION,
+    );
+
+    for (address, children) in amls {
+        if let Some(path) = pci_root.lock().acpi_path(&address) {
+            ssdt.append_slice(&aml::Scope::raw((*path).into(), children));
+        }
+    }
+
+    Some(ssdt)
+}
+
 fn create_dsdt_table(amls: &[u8]) -> SDT {
     let mut dsdt = SDT::new(
         *b"DSDT",
@@ -201,7 +228,7 @@ fn create_facp_table(sci_irq: u16, force_s2idle: bool) -> SDT {
         OEM_REVISION,
     );
 
-    let mut fadt_flags: u32 = FADT_SLEEP_BUTTON; // mask SLEEP BUTTON
+    let mut fadt_flags: u32 = 0;
 
     if force_s2idle {
         fadt_flags |= FADT_LOW_POWER_S2IDLE;
@@ -214,6 +241,13 @@ fn create_facp_table(sci_irq: u16, force_s2idle: bool) -> SDT {
 
     facp.write(FADT_FIELD_MINOR_REVISION, FADT_MINOR_REVISION); // FADT minor version
     facp.write(FADT_FIELD_HYPERVISOR_ID, *b"CROSVM"); // Hypervisor Vendor Identity
+
+    facp.write(FADT_FIELD_RTC_CENTURY, devices::cmos::RTC_REG_CENTURY);
+    facp.write(FADT_FIELD_RTC_DAY_ALARM, devices::cmos::RTC_REG_ALARM_DAY);
+    facp.write(
+        FADT_FIELD_RTC_MONTH_ALARM,
+        devices::cmos::RTC_REG_ALARM_MONTH,
+    );
 
     facp
 }
@@ -385,7 +419,7 @@ fn next_offset(offset: GuestAddress, len: u64) -> Option<GuestAddress> {
 
 fn sync_acpi_id_from_cpuid(
     madt: &mut SDT,
-    cpus: BTreeMap<usize, Vec<usize>>,
+    cpus: BTreeMap<usize, CpuSet>,
     apic_ids: &mut Vec<usize>,
 ) -> base::Result<()> {
     let cpu_set = match base::get_cpu_affinity() {
@@ -539,7 +573,7 @@ pub fn create_acpi_tables(
 
     // FACS
     let facs = FACS::new();
-    guest_mem.write_at_addr(facs.as_slice(), facs_offset).ok()?;
+    guest_mem.write_at_addr(facs.as_bytes(), facs_offset).ok()?;
 
     // DSDT
     let dsdt_offset = match dsdt_offset {
@@ -695,7 +729,7 @@ pub fn create_acpi_tables(
 
     // RSDP
     let rsdp = RSDP::new(*b"CROSVM", offset.0);
-    guest_mem.write_at_addr(rsdp.as_slice(), rsdp_offset).ok()?;
+    guest_mem.write_at_addr(rsdp.as_bytes(), rsdp_offset).ok()?;
 
     Some(rsdp_offset)
 }

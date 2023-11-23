@@ -69,22 +69,18 @@ bool IcingStorageFile::Sync() {
 
   IcingTimer timer;
   if (!PreSync()) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf("Pre-sync %s failed",
-                                                      filename_.c_str());
+    ICING_LOG(ERROR) << "Pre-sync " << filename_ << " failed";
     return false;
   }
   if (!filesystem_->DataSync(fd_.get())) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf("Sync %s failed",
-                                                      filename_.c_str());
+    ICING_LOG(ERROR) << "Sync " << filename_ << " failed";
     return false;
   }
   if (!PostSync()) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf("Post-sync %s failed",
-                                                      filename_.c_str());
+    ICING_LOG(ERROR) << "Post-sync " << filename_ << " failed";
     return false;
   }
-  ICING_VLOG(1) << IcingStringUtil::StringPrintf(
-      "Syncing %s took %.3fms", filename_.c_str(), timer.Elapsed() * 1000.);
+  ICING_VLOG(1) << "Syncing " << filename_ << " took " << timer.Elapsed() * 1000 << "ms";
   return true;
 }
 

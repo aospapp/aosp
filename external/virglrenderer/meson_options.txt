@@ -53,6 +53,45 @@ option(
 )
 
 option(
+  'check-gl-errors',
+  type : 'boolean',
+  value : 'true',
+  description : 'treat host-side gl errors as fatal'
+)
+
+# NOTE: expecting some slight fencing changes between host and guest
+# once ring_idx is plumbed through crosvm (ie. synchronizing between
+# host CPU and guest CPU will be a separate fence timeline)
+option(
+  'drm-msm-experimental',
+  type : 'boolean',
+  value : 'false',
+  description : 'enable support for msm drm native context'
+)
+
+option(
+  'render-server',
+  type : 'boolean',
+  value : 'false',
+  description : 'enable support for render server'
+)
+
+option(
+  'render-server-worker',
+  type : 'combo',
+  value : 'process',
+  choices : ['process', 'thread', 'minijail'],
+  description : 'how a context in render server is serviced'
+)
+
+option(
+  'video',
+  type : 'boolean',
+  value : 'false',
+  description : 'enable support for hardware video acceleration'
+)
+
+option(
   'tests',
   type : 'boolean',
   value : 'false',

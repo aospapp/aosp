@@ -1,9 +1,10 @@
-// Copyright 2022 The Chromium OS Authors. All rights reserved.
+// Copyright 2022 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::parse_macro_input;
+use syn::DeriveInput;
 
 /// Implement `argh`'s `FromArgValue` trait for a struct or enum using `from_key_values`.
 #[proc_macro_derive(FromKeyValues)]

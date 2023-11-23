@@ -79,9 +79,8 @@ int rsa_check_public_key(const RSA *rsa) {
     return 0;
   }
 
-  unsigned rsa_bits = BN_num_bits(rsa->n);
-
-  if (rsa_bits > 16 * 1024) {
+  unsigned n_bits = BN_num_bits(rsa->n);
+  if (n_bits > 16 * 1024) {
     OPENSSL_PUT_ERROR(RSA, RSA_R_MODULUS_TOO_LARGE);
     return 0;
   }
@@ -96,17 +95,21 @@ int rsa_check_public_key(const RSA *rsa) {
   // [2] https://www.imperialviolet.org/2012/03/17/rsados.html
   // [3] https://msdn.microsoft.com/en-us/library/aa387685(VS.85).aspx
   static const unsigned kMaxExponentBits = 33;
-
-  if (BN_num_bits(rsa->e) > kMaxExponentBits) {
+  unsigned e_bits = BN_num_bits(rsa->e);
+  if (e_bits > kMaxExponentBits ||
+      // Additionally reject e = 1 or even e. e must be odd to be relatively
+      // prime with phi(n).
+      e_bits < 2 ||
+      !BN_is_odd(rsa->e)) {
     OPENSSL_PUT_ERROR(RSA, RSA_R_BAD_E_VALUE);
     return 0;
   }
 
-  // Verify |n > e|. Comparing |rsa_bits| to |kMaxExponentBits| is a small
+  // Verify |n > e|. Comparing |n_bits| to |kMaxExponentBits| is a small
   // shortcut to comparing |n| and |e| directly. In reality, |kMaxExponentBits|
   // is much smaller than the minimum RSA key size that any application should
   // accept.
-  if (rsa_bits <= kMaxExponentBits) {
+  if (n_bits <= kMaxExponentBits) {
     OPENSSL_PUT_ERROR(RSA, RSA_R_KEY_SIZE_TOO_SMALL);
     return 0;
   }
@@ -1259,12 +1262,14 @@ static int rsa_generate_key_impl(RSA *rsa, int bits, const BIGNUM *e_value,
     // values for d.
   } while (BN_cmp(rsa->d, pow2_prime_bits) <= 0);
 
+  assert(BN_num_bits(pm1) == (unsigned)prime_bits);
+  assert(BN_num_bits(qm1) == (unsigned)prime_bits);
   if (// Calculate n.
       !bn_mul_consttime(rsa->n, rsa->p, rsa->q, ctx) ||
       // Calculate d mod (p-1).
-      !bn_div_consttime(NULL, rsa->dmp1, rsa->d, pm1, ctx) ||
+      !bn_div_consttime(NULL, rsa->dmp1, rsa->d, pm1, prime_bits, ctx) ||
       // Calculate d mod (q-1)
-      !bn_div_consttime(NULL, rsa->dmq1, rsa->d, qm1, ctx)) {
+      !bn_div_consttime(NULL, rsa->dmq1, rsa->d, qm1, prime_bits, ctx)) {
     goto bn_err;
   }
   bn_set_minimal_width(rsa->n);

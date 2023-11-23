@@ -20,8 +20,10 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.os.UserHandle;
 import com.google.common.util.concurrent.FluentFuture;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -90,6 +92,24 @@ public final class SharedTestUtilities {
     }
 
     assertThat(didThrow.get()).isFalse();
+  }
+
+  /**
+   * Repeatedly call {@code a} and {@code b} on different threads to attempt to force a race
+   * condition.
+   */
+  public static void tryForceRaceCondition(int iterations, Runnable a, Runnable b)
+      throws Exception {
+    ExecutorService executorA = Executors.newSingleThreadExecutor();
+    ExecutorService executorB = Executors.newSingleThreadExecutor();
+
+    for (int i = 0; i < iterations; i++) {
+      ListenableFuture<?> aFuture = Futures.submit(a, executorA);
+      ListenableFuture<?> bFuture = Futures.submit(b, executorB);
+
+      aFuture.get();
+      bFuture.get();
+    }
   }
 
   private SharedTestUtilities() {}

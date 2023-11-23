@@ -9,6 +9,7 @@ TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:power_dashboard"
+PY_VERSION = 3
 
 DOC = """
 Control file for running power_Idle in power lab.

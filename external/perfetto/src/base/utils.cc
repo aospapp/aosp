@@ -21,6 +21,8 @@
 #include "perfetto/base/build_config.h"
 #include "perfetto/base/logging.h"
 #include "perfetto/ext/base/file_utils.h"
+#include "perfetto/ext/base/pipe.h"
+#include "perfetto/ext/base/string_utils.h"
 
 #if PERFETTO_BUILDFLAG(PERFETTO_OS_LINUX) ||   \
     PERFETTO_BUILDFLAG(PERFETTO_OS_ANDROID) || \
@@ -82,7 +84,8 @@ uint32_t GetXCR0EAX() {
 
 // If we are building with -msse4 check that the CPU actually supports it.
 // This file must be kept in sync with gn/standalone/BUILD.gn.
-void PERFETTO_EXPORT __attribute__((constructor)) CheckCpuOptimizations() {
+void PERFETTO_EXPORT_COMPONENT __attribute__((constructor))
+CheckCpuOptimizations() {
   uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
   PERFETTO_GETCPUID(eax, ebx, ecx, edx, 1, 0);
 
@@ -98,12 +101,24 @@ void PERFETTO_EXPORT __attribute__((constructor)) CheckCpuOptimizations() {
       (ecx & (1u << 28)) &&  // AVX supported in hardware
       ((GetXCR0EAX() & xcr0_avx_mask) == xcr0_avx_mask);
 
-  if (!have_sse4_2 || !have_popcnt || !have_avx) {
+  // Get level 7 features (eax = 7 and ecx= 0), to check for AVX2 support.
+  // (See Intel 64 and IA-32 Architectures Software Developer's Manual
+  //  Volume 2A: Instruction Set Reference, A-M CPUID).
+  PERFETTO_GETCPUID(eax, ebx, ecx, edx, 7, 0);
+  const bool have_avx2 = have_avx && ((ebx >> 5) & 0x1);
+  const bool have_bmi = (ebx >> 3) & 0x1;
+  const bool have_bmi2 = (ebx >> 8) & 0x1;
+
+  if (!have_sse4_2 || !have_popcnt || !have_avx2 || !have_bmi || !have_bmi2) {
     fprintf(
         stderr,
-        "This executable requires a cpu that supports SSE4.2 and AVX2.\n"
-        "Rebuild with enable_perfetto_x64_cpu_opt=false (ebx=%x, ecx=%x).\n",
-        ebx, ecx);
+        "This executable requires a x86_64 cpu that supports SSE4.2, BMI2 and "
+        "AVX2.\n"
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_APPLE)
+        "On MacOS, this might be caused by running x86_64 binaries on arm64.\n"
+        "See https://github.com/google/perfetto/issues/294 for more.\n"
+#endif
+        "Rebuild with enable_perfetto_x64_cpu_opt=false.\n");
     _exit(126);
   }
 }
@@ -172,10 +187,19 @@ void SetEnv(const std::string& key, const std::string& value) {
 #endif
 }
 
+void UnsetEnv(const std::string& key) {
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+  PERFETTO_CHECK(::_putenv_s(key.c_str(), "") == 0);
+#else
+  PERFETTO_CHECK(::unsetenv(key.c_str()) == 0);
+#endif
+}
+
 void Daemonize(std::function<int()> parent_cb) {
 #if PERFETTO_BUILDFLAG(PERFETTO_OS_LINUX) ||   \
     PERFETTO_BUILDFLAG(PERFETTO_OS_ANDROID) || \
     PERFETTO_BUILDFLAG(PERFETTO_OS_APPLE)
+  Pipe pipe = Pipe::Create(Pipe::kBothBlock);
   pid_t pid;
   switch (pid = fork()) {
     case -1:
@@ -191,12 +215,24 @@ void Daemonize(std::function<int()> parent_cb) {
       // Do not accidentally close stdin/stdout/stderr.
       if (*null <= 2)
         null.release();
+      WriteAll(*pipe.wr, "1", 1);
       break;
     }
-    default:
+    default: {
+      // Wait for the child process to have reached the setsid() call. This is
+      // to avoid that 'adb shell perfetto -D' destroys the terminal (hence
+      // sending a SIGHUP to the child) before the child has detached from the
+      // terminal (see b/238644870).
+
+      // This is to unblock the read() below (with EOF, which will fail the
+      // CHECK) in the unlikely case of the child crashing before WriteAll("1").
+      pipe.wr.reset();
+      char one = '\0';
+      PERFETTO_CHECK(Read(*pipe.rd, &one, sizeof(one)) == 1 && one == '1');
       printf("%d\n", pid);
       int err = parent_cb();
       exit(err);
+    }
   }
 #else
   // Avoid -Wunreachable warnings.
@@ -273,9 +309,11 @@ std::string HexDump(const void* data_void, size_t len, size_t bytes_per_line) {
   std::unique_ptr<char[]> line(new char[bytes_per_line * 4 + 128]);
   for (size_t i = 0; i < len; i += bytes_per_line) {
     char* wptr = line.get();
-    wptr += sprintf(wptr, "%08zX: ", i);
-    for (size_t j = i; j < i + bytes_per_line && j < len; j++)
-      wptr += sprintf(wptr, "%02X ", static_cast<unsigned>(data[j]) & 0xFF);
+    wptr += base::SprintfTrunc(wptr, 19, "%08zX: ", i);
+    for (size_t j = i; j < i + bytes_per_line && j < len; j++) {
+      wptr += base::SprintfTrunc(wptr, 4, "%02X ",
+                                 static_cast<unsigned>(data[j]) & 0xFF);
+    }
     for (size_t j = static_cast<size_t>(wptr - line.get()); j < kPadding; ++j)
       *(wptr++) = ' ';
     for (size_t j = i; j < i + bytes_per_line && j < len; j++) {

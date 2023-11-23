@@ -95,12 +95,6 @@ cc_library_headers {
         // in the platform side.
         "//apex_available:platform",
         "com.android.runtime",
-        // GWP-ASan headers are currently referenced by the following additional APEXes
-        "com.android.art",
-        "com.android.art.debug",
-        "com.android.media",
-        "com.android.media.swcodec",
-        "com.android.virt",
     ],
 }
 
@@ -139,9 +133,9 @@ cc_library_static {
 
 // GWP-ASan crash handler API. Provides all the tools you need to symbolize a
 // GWP-ASan crash.
-cc_library {
+cc_library_static {
     name: "gwp_asan_crash_handler",
-    defaults: ["gwp_asan_defaults"],
+    defaults: ["gwp_asan_no_libs_defaults"],
     header_libs: [
         "gwp_asan_headers",
     ],
@@ -212,6 +206,8 @@ cc_test {
         "gwp_asan/tests/iterate.cpp",
         "gwp_asan/tests/late_init.cpp",
         "gwp_asan/tests/mutex_test.cpp",
+        "gwp_asan/tests/never_allocated.cpp",
+        "gwp_asan/tests/recoverable.cpp",
         "gwp_asan/tests/options.cpp",
         "gwp_asan/tests/slot_reuse.cpp",
         "gwp_asan/tests/thread_contention.cpp",

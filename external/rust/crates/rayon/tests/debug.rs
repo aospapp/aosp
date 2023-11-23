@@ -123,6 +123,10 @@ fn debug_vec() {
     check(v.par_chunks_exact(42));
     check(v.par_chunks_mut(42));
     check(v.par_chunks_exact_mut(42));
+    check(v.par_rchunks(42));
+    check(v.par_rchunks_exact(42));
+    check(v.par_rchunks_mut(42));
+    check(v.par_rchunks_exact_mut(42));
     check(v.par_windows(42));
     check(v.par_split(|x| x % 3 == 0));
     check(v.par_split_mut(|x| x % 3 == 0));
@@ -151,6 +155,8 @@ fn debug_adaptors() {
     check(v.par_iter().map(Some).flatten_iter());
     check(v.par_iter().fold(|| 0, |x, _| x));
     check(v.par_iter().fold_with(0, |x, _| x));
+    check(v.par_iter().fold_chunks(3, || 0, |x, _| x));
+    check(v.par_iter().fold_chunks_with(3, 0, |x, _| x));
     check(v.par_iter().try_fold(|| 0, |x, _| Some(x)));
     check(v.par_iter().try_fold_with(0, |x, _| Some(x)));
     check(v.par_iter().inspect(|_| ()));
@@ -166,7 +172,11 @@ fn debug_adaptors() {
     check(v.par_iter().positions(|_| true));
     check(v.par_iter().rev());
     check(v.par_iter().skip(1));
+    check(v.par_iter().skip_any(1));
+    check(v.par_iter().skip_any_while(|_| false));
     check(v.par_iter().take(1));
+    check(v.par_iter().take_any(1));
+    check(v.par_iter().take_any_while(|_| true));
     check(v.par_iter().map(Some).while_some());
     check(v.par_iter().with_max_len(1));
     check(v.par_iter().with_min_len(1));

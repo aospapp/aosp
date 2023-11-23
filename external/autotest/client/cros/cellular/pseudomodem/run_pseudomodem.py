@@ -1,15 +1,19 @@
-#!/usr/bin/env python2
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import logging
 import sys
 import time
 
-import client
-import pseudomodem
-import pseudomodem_context
+from autotest_lib.client.cros.cellular.pseudomodem import client
+from autotest_lib.client.cros.cellular.pseudomodem import pseudomodem
+from autotest_lib.client.cros.cellular.pseudomodem import pseudomodem_context
 
 def main():
     """ Entry function to run pseudomodem standalone. """
@@ -40,7 +44,7 @@ def main():
             while True:
                 time.sleep(30)
     except KeyboardInterrupt:
-        print 'Terminating on user request.'
+        print('Terminating on user request.')
     finally:
         # This is always hit, even when SIGINT is received.
         if pmc:

@@ -1,7 +1,7 @@
-ANTLR v3.5
-January 4, 2013
+ANTLR v3.5.3
+April 9, 2022
 
-Terence Parr, parrt at cs usfca edu
+Terence Parr
 ANTLR project lead and supreme dictator for life
 University of San Francisco
 
@@ -18,11 +18,11 @@ version of ANTLR for 9 years.
 
 You should use v3 in conjunction with ANTLRWorks:
 
-    http://www.antlr.org/works/index.html
+    http://www.antlr3.org/works/
 
 and gUnit (grammar unit testing tool included in distribution):
 
-    http://www.antlr.org/wiki/display/ANTLR3/gUnit+-+Grammar+Unit+Testing
+    http://theantlrguy.atlassian.net/wiki/display/ANTLR3/gUnit+-+Grammar+Unit+Testing
 
 The book will also help you a great deal (printed May 15, 2007); you
 can also buy the PDF:
@@ -35,17 +35,17 @@ can also buy the PDF:
 
 See the getting started document:
 
-    http://www.antlr.org/wiki/display/ANTLR3/FAQ+-+Getting+Started
+    http://theantlrguy.atlassian.net/wiki/display/ANTLR3/FAQ+-+Getting+Started
 
 You also have the examples plus the source to guide you.
 
 See the wiki FAQ:
 
-    http://www.antlr.org/wiki/display/ANTLR3/ANTLR+v3+FAQ
+    http://theantlrguy.atlassian.net/wiki/display/ANTLR3/ANTLR+v3+FAQ
 
 and general doc root:
 
-    http://www.antlr.org/wiki/display/ANTLR3/ANTLR+3+Wiki+Home
+    http://theantlrguy.atlassian.net/wiki/display/ANTLR3/ANTLR+3+Wiki+Home
 
 Please help add/update FAQ entries.
 
@@ -90,7 +90,7 @@ that provides a framework for constructing recognizers, compilers, and
 translators from grammatical descriptions containing actions.
 Target language list:
 
-http://www.antlr.org/wiki/display/ANTLR3/Code+Generation+Targets
+http://theantlrguy.atlassian.net/wiki/display/ANTLR3/Code+Generation+Targets
 
 ----------------------------------------------------------------------
 
@@ -98,11 +98,11 @@ How is ANTLR v3 different than ANTLR v2?
 
 See "What is the difference between ANTLR v2 and v3?"
 
-    http://www.antlr.org/wiki/pages/viewpage.action?pageId=719
+    http://theantlrguy.atlassian.net/wiki/pages/viewpage.action?pageId=2687279
 
 See migration guide:
 
-    http://www.antlr.org/wiki/display/ANTLR3/Migrating+from+ANTLR+2+to+ANTLR+3
+    http://theantlrguy.atlassian.net/wiki/display/ANTLR3/Migrating+from+ANTLR+2+to+ANTLR+3
 
 ----------------------------------------------------------------------
 
@@ -110,33 +110,33 @@ How do I install this damn thing?
 
 You will have grabbed either of these:
 
-	http://antlr.org/download/antlr-3.5-complete-no-st3.jar
-	http://antlr.org/download/antlr-3.5-complete.jar
+    http://www.antlr3.org/download/antlr-3.5.3-complete-no-st3.jar
+    http://www.antlr3.org/download/antlr-3.5.3-complete.jar
 
 It has all of the jars you need combined into one. Then you need to
-add antlr-3.5-complete.jar to your CLASSPATH or add to arg list; e.g., on unix:
+add antlr-3.5.3-complete.jar to your CLASSPATH or add to arg list; e.g., on unix:
 
-$ java -cp "/usr/local/lib/antlr-3.5-complete.jar:$CLASSPATH" org.antlr.Tool Test.g
+$ java -cp "/usr/local/lib/antlr-3.5.3-complete.jar:$CLASSPATH" org.antlr.Tool Test.g
 
-Source + java binaries: Just untar antlr-3.5.tar.gz and you'll get:
+Source + java binaries: Just untar antlr-3.5.3.tar.gz and you'll get:
 
-antlr-3.5/BUILD.txt
-antlr-3.5/antlr3-maven-plugin
-antlr-3.5/antlrjar.xml
-antlr-3.5/antlrsources.xml
-antlr-3.5/gunit
-antlr-3.5/gunit-maven-plugin
-antlr-3.5/pom.xml
+antlr-3.5.3/BUILD.txt
+antlr-3.5.3/antlr3-maven-plugin
+antlr-3.5.3/antlrjar.xml
+antlr-3.5.3/antlrsources.xml
+antlr-3.5.3/gunit
+antlr-3.5.3/gunit-maven-plugin
+antlr-3.5.3/pom.xml
 antlr-3.5/runtime
-antlr-3.5/tool
-antlr-3.5/lib
+antlr-3.5.3/tool
+antlr-3.5.3/lib
 
 Please see the FAQ
 
-    http://www.antlr.org/wiki/display/ANTLR3/ANTLR+v3+FAQ
+    http://theantlrguy.atlassian.net/wiki/display/ANTLR3/ANTLR+v3+FAQ
 
 -------------------------
 
 How can I contribute to ANTLR v3?
 
-http://www.antlr.org/wiki/pages/viewpage.action?pageId=33947666
+http://theantlrguy.atlassian.net/wiki/pages/viewpage.action?pageId=2687297

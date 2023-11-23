@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -43,8 +44,8 @@ class autoupdate_PeriodicCheck(update_engine_test.UpdateEngineTest):
                 log_dir=self.resultsdir, payload_url=payload_url) as nebraska:
 
             logging.info('Setting first update response to return no update.')
-            self._create_custom_lsb_release(
-                    nebraska.get_update_url(no_update=True))
+            nebraska.update_config(no_update=True)
+            self._create_custom_lsb_release(nebraska.get_update_url())
             self._restart_update_engine()
 
             # Wait for the first update check.
@@ -60,14 +61,17 @@ class autoupdate_PeriodicCheck(update_engine_test.UpdateEngineTest):
             logging.info('First periodic update was initiated.')
 
             logging.info('Setting the next update response to be an update.')
-            self._create_custom_lsb_release(nebraska.get_update_url())
+            nebraska.update_config(no_update=False)
 
-            # Wait for the second update check.
+            # Wait for the subsequent update checks.
             try:
-                utils.poll_for_condition(
-                    lambda: len(self._get_update_requests()) == 2,
-                    desc='2nd periodic update check.',
-                    timeout=2 * periodic_interval)
+                utils.poll_for_condition(lambda: len(self._get_update_requests(
+                )) > 1,
+                                         desc='2nd periodic update check.',
+                                         timeout=2 * periodic_interval)
+                logging.info(
+                        'Setting further update responses back to no update.')
+                nebraska.update_config(no_update=True)
             except utils.TimeoutError:
                 raise error.TestFail('2nd periodic check not found.')
             logging.info('Second periodic update was initiated.')

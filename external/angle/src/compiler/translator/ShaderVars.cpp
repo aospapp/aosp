@@ -44,6 +44,7 @@ ShaderVariable::ShaderVariable(GLenum typeIn)
       binding(-1),
       imageUnitFormat(GL_NONE),
       offset(-1),
+      rasterOrdered(false),
       readonly(false),
       writeonly(false),
       isFragmentInOut(false),
@@ -82,6 +83,7 @@ ShaderVariable::ShaderVariable(const ShaderVariable &other)
       binding(other.binding),
       imageUnitFormat(other.imageUnitFormat),
       offset(other.offset),
+      rasterOrdered(other.rasterOrdered),
       readonly(other.readonly),
       writeonly(other.writeonly),
       isFragmentInOut(other.isFragmentInOut),
@@ -114,6 +116,7 @@ ShaderVariable &ShaderVariable::operator=(const ShaderVariable &other)
     binding                       = other.binding;
     imageUnitFormat               = other.imageUnitFormat;
     offset                        = other.offset;
+    rasterOrdered                 = other.rasterOrdered;
     readonly                      = other.readonly;
     writeonly                     = other.writeonly;
     isFragmentInOut               = other.isFragmentInOut;
@@ -137,10 +140,11 @@ bool ShaderVariable::operator==(const ShaderVariable &other) const
         isRowMajorLayout != other.isRowMajorLayout || location != other.location ||
         hasImplicitLocation != other.hasImplicitLocation || binding != other.binding ||
         imageUnitFormat != other.imageUnitFormat || offset != other.offset ||
-        readonly != other.readonly || writeonly != other.writeonly || index != other.index ||
-        yuv != other.yuv || interpolation != other.interpolation ||
-        isInvariant != other.isInvariant || isShaderIOBlock != other.isShaderIOBlock ||
-        isPatch != other.isPatch || texelFetchStaticUse != other.texelFetchStaticUse ||
+        rasterOrdered != other.rasterOrdered || readonly != other.readonly ||
+        writeonly != other.writeonly || index != other.index || yuv != other.yuv ||
+        interpolation != other.interpolation || isInvariant != other.isInvariant ||
+        isShaderIOBlock != other.isShaderIOBlock || isPatch != other.isPatch ||
+        texelFetchStaticUse != other.texelFetchStaticUse ||
         isFragmentInOut != other.isFragmentInOut)
     {
         return false;
@@ -426,6 +430,10 @@ bool ShaderVariable::isSameUniformAtLinkTime(const ShaderVariable &other) const
     {
         return false;
     }
+    if (rasterOrdered != other.rasterOrdered)
+    {
+        return false;
+    }
     if (readonly != other.readonly || writeonly != other.writeonly)
     {
         return false;
@@ -476,6 +484,7 @@ InterfaceBlock::InterfaceBlock()
       binding(-1),
       staticUse(false),
       active(false),
+      isReadOnly(false),
       blockType(BlockType::BLOCK_UNIFORM)
 {}
 
@@ -491,6 +500,7 @@ InterfaceBlock::InterfaceBlock(const InterfaceBlock &other)
       binding(other.binding),
       staticUse(other.staticUse),
       active(other.active),
+      isReadOnly(other.isReadOnly),
       blockType(other.blockType),
       fields(other.fields)
 {}
@@ -506,6 +516,7 @@ InterfaceBlock &InterfaceBlock::operator=(const InterfaceBlock &other)
     binding          = other.binding;
     staticUse        = other.staticUse;
     active           = other.active;
+    isReadOnly       = other.isReadOnly;
     blockType        = other.blockType;
     fields           = other.fields;
     return *this;

@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Jean Zheng <jean@google.com>/Chrome OS PSO"
+AUTHOR = "Jean Zheng <jean@google.com>/ChromeOS PSO"
 NAME = "hwqual"
 TIME = "LONG"
 TEST_CATEGORY = "General"

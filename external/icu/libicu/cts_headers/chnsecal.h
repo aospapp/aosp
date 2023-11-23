@@ -75,10 +75,6 @@ U_NAMESPACE_BEGIN
  * <li>Dershowitz and Reingold, <i>Calendrical Calculations</i>,
  * Cambridge University Press, 1997</li>
  * 
- * <li>Helmer Aslaksen's
- * <a href="http://www.math.nus.edu.sg/aslaksen/calendar/chinese.shtml">
- * Chinese Calendar page</a></li>
- *
  * <li>The <a href="http://www.tondering.dk/claus/calendar.html">
  * Calendar FAQ</a></li>
  *
@@ -274,7 +270,7 @@ class U_I18N_API ChineseCalendar : public Calendar {
    */
   int32_t          internalGetDefaultCenturyStartYear(void) const;
 
-  ChineseCalendar(); // default constructor not implemented
+  ChineseCalendar() = delete; // default constructor not implemented
 };
 
 U_NAMESPACE_END

@@ -12,6 +12,8 @@ from autotest_lib.server.cros.watchdog_tester import WatchdogTester
 POWER_DIR = '/var/lib/power_manager'
 TMP_POWER_DIR = '/tmp/power_manager'
 
+
+# CAUTION: This test is being migrated to TAST: b/174800291
 class firmware_EventLog(FirmwareTest):
     """
     Test to ensure eventlog is written on boot and suspend/resume.
@@ -28,11 +30,12 @@ class firmware_EventLog(FirmwareTest):
         self.setup_usbkey(usbkey=True, host=False)
 
     def _has_event(self, pattern):
-        return bool(filter(re.compile(pattern).search, self._events))
+        # list since bool() casts empty filter objs to True in py3
+        return bool(list(filter(re.compile(pattern).search, self._events)))
 
     def _gather_events(self):
         entries = self.faft_client.system.run_shell_command_get_output(
-                'mosys eventlog list')
+                'elogtool list')
         now = self._now()
         self._events = []
         for line in reversed(entries):
@@ -47,8 +50,8 @@ class firmware_EventLog(FirmwareTest):
             logging.info('Found event: "%s"', line)
             self._events.append(event)
 
-    # This assumes that Linux and the firmware use the same RTC. mosys converts
-    # timestamps to localtime, and so do we (by calling date without --utc).
+    # This assumes that Linux and the firmware use the same RTC. elogtool uses
+    # timestamps in localtime, and so do we (by calling date without --utc).
     def _now(self):
         time_string = self.faft_client.system.run_shell_command_get_output(
                 'date +"%s"' % self._TIME_FORMAT)[0]
@@ -72,6 +75,12 @@ class firmware_EventLog(FirmwareTest):
 
     def run_once(self):
         """Runs a single iteration of the test."""
+        model_name = self.faft_client.system.get_model_name()
+
+        def _leona_bug(event):
+            """Return whether this event should be allowed per b/184778308."""
+            return model_name == "leona" and event == "ACPI Wake | Deep S5"
+
         if not self.faft_config.has_eventlog:
             raise error.TestNAError('This board has no eventlog support.')
 
@@ -86,11 +95,15 @@ class firmware_EventLog(FirmwareTest):
         if not self._has_event(r'System boot'):
             raise error.TestFail('No "System boot" event on normal boot.')
         # ' Wake' to match 'FW Wake' and 'ACPI Wake' but not 'Wake Source'
-        if self._has_event(r'Developer Mode|Recovery Mode|Sleep| Wake'):
-            raise error.TestFail('Incorrect event logged on normal boot.')
+        disallowedEvents = re.compile(
+                r'Developer Mode|Recovery Mode|Sleep| Wake')
+        for event in self._events:
+            if disallowedEvents.search(event) and not _leona_bug(event):
+                raise error.TestFail(
+                        'Incorrect event logged on normal boot: ' + event)
 
         logging.debug('Transitioning to dev mode for next test')
-        self.switcher.reboot_to_mode(to_mode='dev')
+        self.switcher.reboot_to_mode(to_mode='dev', allow_gbb_force=True)
 
         logging.info('Verifying eventlog behavior on developer mode boot')
         self._cutoff_time = self._now()
@@ -103,8 +116,11 @@ class firmware_EventLog(FirmwareTest):
         if (not self._has_event(r'System boot') or
             not self._has_event(r'Chrome OS Developer Mode')):
             raise error.TestFail('Missing required event on dev mode boot.')
-        if self._has_event(r'Recovery Mode|Sleep| Wake'):
-            raise error.TestFail('Incorrect event logged on dev mode boot.')
+        disallowedEvents = re.compile(r'Recovery Mode|Sleep| Wake')
+        for event in self._events:
+            if disallowedEvents.search(event) and not _leona_bug(event):
+                raise error.TestFail(
+                        'Incorrect event logged on dev mode boot: ' + event)
 
         logging.debug('Transitioning back to normal mode for final tests')
         self.switcher.reboot_to_mode(to_mode='normal')
@@ -132,7 +148,7 @@ class firmware_EventLog(FirmwareTest):
         logging.info('Verifying eventlog behavior on suspend/resume')
         self._cutoff_time = self._now()
         self.faft_client.system.run_shell_command(
-                'powerd_dbus_suspend -wakeup_timeout=10')
+                'powerd_dbus_suspend --wakeup_timeout=10')
         time.sleep(5)   # a little slack time for powerd to write the 'Wake'
         self._gather_events()
 
@@ -151,7 +167,7 @@ class firmware_EventLog(FirmwareTest):
             self.disable_suspend_to_idle()
             self._cutoff_time = self._now()
             self.faft_client.system.run_shell_command(
-                'powerd_dbus_suspend -wakeup_timeout=10')
+                    'powerd_dbus_suspend --wakeup_timeout=10')
             time.sleep(5)   # a little slack time for powerd to write the 'Wake'
             self.teardown_powerd_prefs()
             self._gather_events()

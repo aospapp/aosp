@@ -1,0 +1,5 @@
+{
+  "dependencies": true,
+  "device": true,
+  "run": true
+}

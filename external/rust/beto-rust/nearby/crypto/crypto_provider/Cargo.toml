@@ -1,0 +1,54 @@
+[package]
+name = "crypto_provider"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+hex-literal = { workspace = true, optional = true }
+rand = { workspace = true, optional = true }
+rstest = { version = "0.16.0", optional = true }
+rstest_reuse = { version = "0.5.0", optional = true }
+wycheproof = { version = "0.4.0", optional = true }
+hex = { workspace = true, optional = true }
+test_helper = { workspace = true, optional = true }
+
+[dev-dependencies]
+crypto_provider_openssl.workspace = true
+crypto_provider_rustcrypto.workspace = true
+wycheproof = "0.4.0"
+hex-literal.workspace = true
+sha2.workspace = true
+criterion.workspace = true
+rand_ext.workspace = true
+hex.workspace = true
+
+[features]
+default = ["alloc", "gcm_siv"]
+std = []
+alloc = []
+gcm_siv = []
+testing = [
+    "dep:hex-literal",
+    "dep:rstest",
+    "dep:rstest_reuse",
+    "dep:wycheproof",
+    "dep:test_helper",
+    "std",
+    "rand",
+    "rand/std",
+    "rand/std_rng",
+    "dep:hex",
+]
+
+[[bench]]
+name = "hmac_bench"
+harness = false
+
+[[bench]]
+name = "hkdf_bench"
+harness = false
+
+[[bench]]
+name = "constant_time_eq_bench"
+harness = false

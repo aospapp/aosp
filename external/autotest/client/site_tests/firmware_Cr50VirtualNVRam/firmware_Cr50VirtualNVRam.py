@@ -173,7 +173,7 @@ class firmware_Cr50VirtualNVRam(test.test):
                 '00 ' + pw_sz +               # password length
                 tpm_pw_hex)                   # password
 
-    def __definespace_sanity_check(self):
+    def __definespace_check(self):
         # A space outside the virtual range can be defined
         check_tpmc(self.__get_define_cmd('01 4f aa df', 12),
                    '(0x[0-9]{2} ){6}'
@@ -299,7 +299,7 @@ class firmware_Cr50VirtualNVRam(test.test):
             raise error.TestNAError("TPM does not support vNVRAM")
 
         self.__readpublic_test()
-        self.__definespace_sanity_check()
+        self.__definespace_check()
         self.__definespace_tests()
         self.__undefinespace_tests()
         self.__readlock_test()

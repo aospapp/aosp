@@ -90,6 +90,13 @@
     } \
   } while (0)
 
+#define TEST_REQUIRES_ARM_SIMD32 \
+  do { \
+    if (!cpuinfo_initialize() || !cpuinfo_has_arm_v6()) { \
+      GTEST_SKIP(); \
+    } \
+  } while (0)
+
 #define TEST_REQUIRES_ARM_NEON \
   do { \
     if (!cpuinfo_initialize() || !cpuinfo_has_arm_neon()) { \
@@ -121,6 +128,13 @@
 #define TEST_REQUIRES_ARM_NEON_FP16_ARITH \
   do { \
     if (!cpuinfo_initialize() || !cpuinfo_has_arm_neon_fp16_arith()) { \
+      GTEST_SKIP(); \
+    } \
+  } while (0)
+
+#define TEST_REQUIRES_ARM_NEON_BF16 \
+  do { \
+    if (!cpuinfo_initialize() || !cpuinfo_has_arm_neon_bf16()) { \
       GTEST_SKIP(); \
     } \
   } while (0)

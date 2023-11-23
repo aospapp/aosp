@@ -20,7 +20,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
 import com.squareup.javapoet.ClassName;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
 
 /** Wrapper of basic information for a cross-profile provider class. */
@@ -40,10 +39,9 @@ public abstract class ValidatorProviderClassInfo {
   }
 
   public static ValidatorProviderClassInfo create(
-      ProcessingEnvironment processingEnv, TypeElement providerClassElement) {
+      Context context, TypeElement providerClassElement) {
     CrossProfileProviderAnnotationInfo annotationInfo =
-        AnnotationFinder.extractCrossProfileProviderAnnotationInfo(
-            providerClassElement, processingEnv.getTypeUtils(), processingEnv.getElementUtils());
+        AnnotationFinder.extractCrossProfileProviderAnnotationInfo(context, providerClassElement);
 
     return new AutoValue_ValidatorProviderClassInfo(
         providerClassElement, ImmutableSet.copyOf(annotationInfo.staticTypes()));

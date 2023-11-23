@@ -21,6 +21,7 @@ import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.dev.test.TestUtil;
+import android.icu.impl.ICUConfig;
 import android.icu.impl.Utility;
 import android.icu.lang.UCharacter;
 import android.icu.text.BreakIterator;
@@ -127,6 +128,7 @@ public void TestExtended() {
     int             rulesFirstLine = 0;              // Line number of the start of current <rules> block
 
     int    len = testString.length();
+    boolean skipTest = false;
 
     for (charIdx = 0; charIdx < len; ) {
         int c = testString.codePointAt(charIdx);
@@ -160,6 +162,7 @@ public void TestExtended() {
                 break;
             }
            if (testString.startsWith("<word>", charIdx-1)) {
+                skipTest = false;
                 tp.bi = BreakIterator.getWordInstance(tp.currentLocale);
                 charIdx += 5;
                 break;
@@ -170,22 +173,46 @@ public void TestExtended() {
                 break;
             }
             if (testString.startsWith("<line>", charIdx-1)) {
+                skipTest = false;
                 tp.bi = BreakIterator.getLineInstance(tp.currentLocale);
+                if (Boolean.parseBoolean(
+                        ICUConfig.get("android.icu.impl.breakiter.useMLPhraseBreaking", "false"))) {
+                    if (tp.currentLocale.getName().equals("ja@lw=phrase")) {
+                        // skip <line> test cases of JP's phrase breaking when ML is enabled.
+                        skipTest = true;
+                    }
+                }
                 charIdx += 5;
                 break;
             }
+            if (testString.startsWith("<lineML>", charIdx-1)) {
+                skipTest = false;
+                tp.bi = BreakIterator.getLineInstance(tp.currentLocale);
+                if (!Boolean.parseBoolean(
+                        ICUConfig.get("android.icu.impl.breakiter.useMLPhraseBreaking", "false"))) {
+                    if (tp.currentLocale.getName().equals("ja@lw=phrase")) {
+                        // skip <lineML> test cases of JP's phrase breaking when ML is disabled.
+                        skipTest = true;
+                    }
+                }
+                charIdx += 7;
+                break;
+            }
             if (testString.startsWith("<sent>", charIdx-1)) {
+                skipTest = false;
                 tp.bi = BreakIterator.getSentenceInstance(tp.currentLocale);
                 charIdx += 5;
                 break;
             }
             if (testString.startsWith("<title>", charIdx-1)) {
+                skipTest = false;
                 tp.bi = BreakIterator.getTitleInstance(tp.currentLocale);
                 charIdx += 6;
                 break;
             }
             if (testString.startsWith("<rules>", charIdx-1) ||
                     testString.startsWith("<badrules>", charIdx-1)) {
+                skipTest = false;
                 charIdx = testString.indexOf('>', charIdx) + 1;
                 parseState = PARSE_RULES;
                 rules.setLength(0);
@@ -275,7 +302,9 @@ public void TestExtended() {
                 charIdx += 6;
 
                 // RUN THE TEST!
-                executeTest(tp);
+                if (!skipTest) {
+                    executeTest(tp);
+                }
                 break;
             }
 

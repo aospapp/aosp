@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -17,31 +18,31 @@ class power_CPUIdle(test.test):
         all_cpus = cpus()
 
         idle_time_at_start, active_time_at_start = all_cpus.idle_time()
-        logging.info('idle_time_at_start: %d' % idle_time_at_start)
-        logging.info('active_time_at_start: %d' % active_time_at_start)
+        logging.info('idle_time_at_start: %d', idle_time_at_start)
+        logging.info('active_time_at_start: %d', active_time_at_start)
 
         # sleep for some time to allow the CPUs to drop into idle states
         time.sleep(sleep_time)
 
         idle_time_at_end, active_time_at_end = all_cpus.idle_time()
-        logging.info('idle_time_at_end: %d' % idle_time_at_end)
-        logging.info('active_time_at_end: %d' % idle_time_at_end)
+        logging.info('idle_time_at_end: %d', idle_time_at_end)
+        logging.info('active_time_at_end: %d', idle_time_at_end)
 
         idle_time_delta_ms = (idle_time_at_end - idle_time_at_start) / 1000
-        logging.info('idle_time_delta_ms: %d' % idle_time_delta_ms)
+        logging.info('idle_time_delta_ms: %d', idle_time_delta_ms)
 
         active_time_delta_ms = (active_time_at_end - active_time_at_start) \
                                / 1000
-        logging.info('active_time_delta_ms: %d' % active_time_delta_ms)
+        logging.info('active_time_delta_ms: %d', active_time_delta_ms)
 
         total_time_delta_ms = active_time_delta_ms + idle_time_delta_ms
-        logging.info('total_time_delta_ms: %d' % total_time_delta_ms)
+        logging.info('total_time_delta_ms: %d', total_time_delta_ms)
 
         percent_active_time = active_time_delta_ms * 100.0 / total_time_delta_ms
-        logging.info('percent active time : %.2f' % percent_active_time)
+        logging.info('percent active time : %.2f', percent_active_time)
 
         percent_idle_time = idle_time_delta_ms * 100.0 / total_time_delta_ms
-        logging.info('percent idle time : %.2f' % percent_idle_time)
+        logging.info('percent idle time : %.2f', percent_idle_time)
 
         keyvals = {}
         keyvals['ms_active_time_delta'] = active_time_delta_ms
@@ -131,7 +132,7 @@ class cpuidle_state(object):
         time = 0
         if self.__is_idle_state():
             time = int(self.__read_file('time'))
-        logging.info('idle_time(%s): %d' % (self.__name, time))
+        logging.info('idle_time(%s): %d', self.__name, time)
         return time
 
 
@@ -139,5 +140,5 @@ class cpuidle_state(object):
         time = 0
         if not self.__is_idle_state():
             time = int(self.__read_file('time'))
-        logging.info('active_time(%s): %d' % (self.__name, time))
+        logging.info('active_time(%s): %d', self.__name, time)
         return time

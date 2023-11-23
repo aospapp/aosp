@@ -23,11 +23,9 @@ TurnPortFactory::~TurnPortFactory() {}
 std::unique_ptr<Port> TurnPortFactory::Create(
     const CreateRelayPortArgs& args,
     rtc::AsyncPacketSocket* udp_socket) {
-  auto port = TurnPort::CreateUnique(
-      args.network_thread, args.socket_factory, args.network, udp_socket,
-      args.username, args.password, *args.server_address,
-      args.config->credentials, args.config->priority, args.origin,
-      args.turn_customizer);
+  auto port = TurnPort::Create(args, udp_socket);
+  if (!port)
+    return nullptr;
   port->SetTlsCertPolicy(args.config->tls_cert_policy);
   port->SetTurnLoggingId(args.config->turn_logging_id);
   return std::move(port);
@@ -36,12 +34,9 @@ std::unique_ptr<Port> TurnPortFactory::Create(
 std::unique_ptr<Port> TurnPortFactory::Create(const CreateRelayPortArgs& args,
                                               int min_port,
                                               int max_port) {
-  auto port = TurnPort::CreateUnique(
-      args.network_thread, args.socket_factory, args.network, min_port,
-      max_port, args.username, args.password, *args.server_address,
-      args.config->credentials, args.config->priority, args.origin,
-      args.config->tls_alpn_protocols, args.config->tls_elliptic_curves,
-      args.turn_customizer, args.config->tls_cert_verifier);
+  auto port = TurnPort::Create(args, min_port, max_port);
+  if (!port)
+    return nullptr;
   port->SetTlsCertPolicy(args.config->tls_cert_policy);
   port->SetTurnLoggingId(args.config->turn_logging_id);
   return std::move(port);

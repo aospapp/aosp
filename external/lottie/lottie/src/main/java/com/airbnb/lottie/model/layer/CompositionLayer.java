@@ -5,6 +5,10 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 
+import androidx.annotation.FloatRange;
+import androidx.annotation.Nullable;
+import androidx.collection.LongSparseArray;
+
 import com.airbnb.lottie.L;
 import com.airbnb.lottie.LottieComposition;
 import com.airbnb.lottie.LottieDrawable;
@@ -19,19 +23,17 @@ import com.airbnb.lottie.value.LottieValueCallback;
 import java.util.ArrayList;
 import java.util.List;
 
-import androidx.annotation.FloatRange;
-import androidx.annotation.Nullable;
-import androidx.collection.LongSparseArray;
-
 public class CompositionLayer extends BaseLayer {
   @Nullable private BaseKeyframeAnimation<Float, Float> timeRemapping;
   private final List<BaseLayer> layers = new ArrayList<>();
   private final RectF rect = new RectF();
   private final RectF newClipRect = new RectF();
-  private Paint layerPaint = new Paint();
+  private final Paint layerPaint = new Paint();
 
   @Nullable private Boolean hasMatte;
   @Nullable private Boolean hasMasks;
+
+  private boolean clipToCompositionBounds = true;
 
   public CompositionLayer(LottieDrawable lottieDrawable, Layer layerModel, List<Layer> layerModels,
       LottieComposition composition) {
@@ -53,7 +55,7 @@ public class CompositionLayer extends BaseLayer {
     BaseLayer mattedLayer = null;
     for (int i = layerModels.size() - 1; i >= 0; i--) {
       Layer lm = layerModels.get(i);
-      BaseLayer layer = BaseLayer.forModel(lm, lottieDrawable, composition);
+      BaseLayer layer = BaseLayer.forModel(this, lm, lottieDrawable, composition);
       if (layer == null) {
         continue;
       }
@@ -88,6 +90,17 @@ public class CompositionLayer extends BaseLayer {
     }
   }
 
+  public void setClipToCompositionBounds(boolean clipToCompositionBounds) {
+    this.clipToCompositionBounds = clipToCompositionBounds;
+  }
+
+  @Override public void setOutlineMasksAndMattes(boolean outline) {
+    super.setOutlineMasksAndMattes(outline);
+    for (BaseLayer layer : layers) {
+      layer.setOutlineMasksAndMattes(outline);
+    }
+  }
+
   @Override void drawLayer(Canvas canvas, Matrix parentMatrix, int parentAlpha) {
     L.beginSection("CompositionLayer#draw");
     newClipRect.set(0, 0, layerModel.getPreCompWidth(), layerModel.getPreCompHeight());
@@ -105,7 +118,9 @@ public class CompositionLayer extends BaseLayer {
     int childAlpha = isDrawingWithOffScreen ? 255 : parentAlpha;
     for (int i = layers.size() - 1; i >= 0; i--) {
       boolean nonEmptyClip = true;
-      if (!newClipRect.isEmpty()) {
+      // Only clip precomps. This mimics the way After Effects renders animations.
+      boolean ignoreClipOnThisLayer = !clipToCompositionBounds && "__container".equals(layerModel.getName());
+      if (!ignoreClipOnThisLayer && !newClipRect.isEmpty()) {
         nonEmptyClip = canvas.clipRect(newClipRect);
       }
       if (nonEmptyClip) {
@@ -137,12 +152,12 @@ public class CompositionLayer extends BaseLayer {
       float remappedFrames = timeRemapping.getValue() * layerModel.getComposition().getFrameRate() - compositionDelayFrames;
       progress = remappedFrames / durationFrames;
     }
-    if (layerModel.getTimeStretch() != 0) {
-      progress /= layerModel.getTimeStretch();
-    }
-
     if (timeRemapping == null) {
       progress -= layerModel.getStartProgress();
+    }
+    //Time stretch needs to be divided if is not "__container"
+    if (layerModel.getTimeStretch() != 0 && !"__container".equals(layerModel.getName())) {
+      progress /= layerModel.getTimeStretch();
     }
     for (int i = layers.size() - 1; i >= 0; i--) {
       layers.get(i).setProgress(progress);
@@ -201,9 +216,12 @@ public class CompositionLayer extends BaseLayer {
 
     if (property == LottieProperty.TIME_REMAP) {
       if (callback == null) {
-        timeRemapping = null;
+        if (timeRemapping != null) {
+          timeRemapping.setValueCallback(null);
+        }
       } else {
         timeRemapping = new ValueCallbackKeyframeAnimation<>((LottieValueCallback<Float>) callback);
+        timeRemapping.addUpdateListener(this);
         addAnimation(timeRemapping);
       }
     }

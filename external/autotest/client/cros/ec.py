@@ -101,7 +101,7 @@ class EC(EC_Common):
     HELLO_RE = "EC says hello"
     GET_FANSPEED_RE = "Current fan RPM: ([0-9]*)"
     SET_FANSPEED_RE = "Fan target RPM set."
-    TEMP_SENSOR_TEMP_RE = "Reading temperature...([0-9]*)"
+    TEMP_SENSOR_TEMP_RE = "([0-9]+) K"
     # <sensor idx>: <sensor type> <sensor name>
     TEMP_SENSOR_INFO_RE = "(\d+):\s+(\d+)\s+([a-zA-Z_0-9]+)"
     TOGGLE_AUTO_FAN_RE = "Automatic fan control is now on"

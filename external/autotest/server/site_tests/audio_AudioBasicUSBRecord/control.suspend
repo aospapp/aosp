@@ -15,6 +15,7 @@ TEST_CLASS = "audio"
 TEST_TYPE = "server"
 DEPENDENCIES = 'chameleon, audio_board, test_usbaudio'
 JOB_RETRIES = 1
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests USB audio function after suspend/resume.
@@ -26,6 +27,9 @@ chameleon_args = hosts.CrosHost.get_chameleon_arguments(args_dict)
 def run(machine):
     host = hosts.create_host(machine, chameleon_args=chameleon_args)
     job.run_test("audio_AudioBasicUSBRecord", host=host, suspend=True,
-                 tag="suspend")
+                 tag="suspend",
+                 blocked_boards=['asurada',    # Pending fix for b/233962403
+                                 'cherry', 'elm', 'elm-kernelnext', 'grunt',
+                                 'jacuzzi', 'kukui'])
 
 parallel_simple(run, machines)

@@ -2,19 +2,22 @@
 {
   "imports": [
     {
+      "path": "external/rust/crates/async-stream"
+    },
+    {
       "path": "external/rust/crates/futures-util"
     },
     {
       "path": "external/rust/crates/tokio-test"
+    },
+    {
+      "path": "external/uwb/src"
+    },
+    {
+      "path": "packages/modules/DnsResolver"
     }
   ],
   "presubmit": [
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "rustBinderTest"
-    },
     {
       "name": "tokio_test_tests__require_full"
     },
@@ -131,9 +134,6 @@
     },
     {
       "name": "tokio_test_tests_sync_errors"
-    },
-    {
-      "name": "tokio_test_tests_sync_mpsc"
     },
     {
       "name": "tokio_test_tests_sync_mutex"
@@ -213,12 +213,6 @@
   ],
   "presubmit-rust": [
     {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "rustBinderTest"
-    },
-    {
       "name": "tokio_test_tests__require_full"
     },
     {
@@ -334,9 +328,6 @@
     },
     {
       "name": "tokio_test_tests_sync_errors"
-    },
-    {
-      "name": "tokio_test_tests_sync_mpsc"
     },
     {
       "name": "tokio_test_tests_sync_mutex"

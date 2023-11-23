@@ -17,12 +17,11 @@ import {Engine} from '../../common/engine';
 import {NUM, NUM_NULL, STR_NULL} from '../../common/query_result';
 import {Area, Sorting} from '../../common/state';
 import {translateState} from '../../common/thread_state';
-import {toNs} from '../../common/time';
+import {globals} from '../../frontend/globals';
 import {
   Config,
-  THREAD_STATE_TRACK_KIND
-} from '../../tracks/thread_state/common';
-import {globals} from '../globals';
+  THREAD_STATE_TRACK_KIND,
+} from '../../tracks/thread_state';
 
 import {AggregationController} from './aggregation_controller';
 
@@ -60,8 +59,8 @@ export class ThreadAggregationController extends AggregationController {
       JOIN thread USING(upid)
       JOIN thread_state USING(utid)
       WHERE utid IN (${this.utids}) AND
-      thread_state.ts + thread_state.dur > ${toNs(area.startSec)} AND
-      thread_state.ts < ${toNs(area.endSec)}
+      thread_state.ts + thread_state.dur > ${area.start} AND
+      thread_state.ts < ${area.end}
       GROUP BY utid, concat_state
     `;
 
@@ -78,8 +77,8 @@ export class ThreadAggregationController extends AggregationController {
       JOIN thread USING(upid)
       JOIN thread_state USING(utid)
       WHERE utid IN (${this.utids}) AND thread_state.ts + thread_state.dur > ${
-            toNs(area.startSec)} AND
-      thread_state.ts < ${toNs(area.endSec)}
+            area.start} AND
+      thread_state.ts < ${area.end}
       GROUP BY state, io_wait`;
     const result = await engine.query(query);
 
@@ -93,7 +92,7 @@ export class ThreadAggregationController extends AggregationController {
       kind: 'THREAD_STATE',
       states: [],
       values: new Float64Array(result.numRows()),
-      totalMs: 0
+      totalMs: 0,
     };
     summary.totalMs = 0;
     for (let i = 0; it.valid(); ++i, it.next()) {
@@ -119,46 +118,46 @@ export class ThreadAggregationController extends AggregationController {
         title: 'PID',
         kind: 'NUMBER',
         columnConstructor: Uint16Array,
-        columnId: 'pid'
+        columnId: 'pid',
       },
       {
         title: 'Thread',
         kind: 'STRING',
         columnConstructor: Uint16Array,
-        columnId: 'thread_name'
+        columnId: 'thread_name',
       },
       {
         title: 'TID',
         kind: 'NUMBER',
         columnConstructor: Uint16Array,
-        columnId: 'tid'
+        columnId: 'tid',
       },
       {
         title: 'State',
         kind: 'STATE',
         columnConstructor: Uint16Array,
-        columnId: 'concat_state'
+        columnId: 'concat_state',
       },
       {
         title: 'Wall duration (ms)',
         kind: 'TIMESTAMP_NS',
         columnConstructor: Float64Array,
         columnId: 'total_dur',
-        sum: true
+        sum: true,
       },
       {
         title: 'Avg Wall duration (ms)',
         kind: 'TIMESTAMP_NS',
         columnConstructor: Float64Array,
-        columnId: 'avg_dur'
+        columnId: 'avg_dur',
       },
       {
         title: 'Occurrences',
         kind: 'NUMBER',
         columnConstructor: Uint16Array,
         columnId: 'occurrences',
-        sum: true
-      }
+        sum: true,
+      },
     ];
   }
 

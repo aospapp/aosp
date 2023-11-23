@@ -9,15 +9,16 @@
 #endif
 
 #if !defined(OPENSSL_NO_ASM)
-#include <GFp/arm_arch.h>
+#include "ring_core_generated/prefix_symbols_asm.h"
+#include <ring-core/arm_arch.h>
 
 .text
 
-.globl	_GFp_bn_mul_mont
-.private_extern	_GFp_bn_mul_mont
+.globl	_bn_mul_mont
+.private_extern	_bn_mul_mont
 
 .align	5
-_GFp_bn_mul_mont:
+_bn_mul_mont:
 	AARCH64_SIGN_LINK_REGISTER
 	tst	x5,#7
 	b.eq	__bn_sqr8x_mont

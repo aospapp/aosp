@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <test_progs.h>
+#include <network_helpers.h>
 
 static void test_global_data_number(struct bpf_object *obj, __u32 duration)
 {
 	int i, err, map_fd;
-	uint64_t num;
+	__u64 num;
 
 	map_fd = bpf_find_map(__func__, obj, "result_number");
 	if (CHECK_FAIL(map_fd < 0))
@@ -13,7 +14,7 @@ static void test_global_data_number(struct bpf_object *obj, __u32 duration)
 	struct {
 		char *name;
 		uint32_t key;
-		uint64_t num;
+		__u64 num;
 	} tests[] = {
 		{ "relocate .bss reference",     0, 0 },
 		{ "relocate .data reference",    1, 42 },
@@ -31,7 +32,7 @@ static void test_global_data_number(struct bpf_object *obj, __u32 duration)
 	for (i = 0; i < sizeof(tests) / sizeof(tests[0]); i++) {
 		err = bpf_map_lookup_elem(map_fd, &tests[i].key, &num);
 		CHECK(err || num != tests[i].num, tests[i].name,
-		      "err %d result %lx expected %lx\n",
+		      "err %d result %llx expected %llx\n",
 		      err, num, tests[i].num);
 	}
 }
@@ -102,11 +103,18 @@ static void test_global_data_struct(struct bpf_object *obj, __u32 duration)
 static void test_global_data_rdonly(struct bpf_object *obj, __u32 duration)
 {
 	int err = -ENOMEM, map_fd, zero = 0;
-	struct bpf_map *map;
+	struct bpf_map *map, *map2;
 	__u8 *buff;
 
 	map = bpf_object__find_map_by_name(obj, "test_glo.rodata");
-	if (CHECK_FAIL(!map || !bpf_map__is_internal(map)))
+	if (!ASSERT_OK_PTR(map, "map"))
+		return;
+	if (!ASSERT_TRUE(bpf_map__is_internal(map), "is_internal"))
+		return;
+
+	/* ensure we can lookup internal maps by their ELF names */
+	map2 = bpf_object__find_map_by_name(obj, ".rodata");
+	if (!ASSERT_EQ(map, map2, "same_maps"))
 		return;
 
 	map_fd = bpf_map__fd(map);
@@ -128,7 +136,7 @@ void test_global_data(void)
 	struct bpf_object *obj;
 	int err, prog_fd;
 
-	err = bpf_prog_load(file, BPF_PROG_TYPE_SCHED_CLS, &obj, &prog_fd);
+	err = bpf_prog_test_load(file, BPF_PROG_TYPE_SCHED_CLS, &obj, &prog_fd);
 	if (CHECK(err, "load program", "error %d loading %s\n", err, file))
 		return;
 

@@ -14,8 +14,7 @@ limitations under the License.
 ==============================================================================*/
 #ifndef TENSORFLOW_LITE_KERNELS_PARSE_EXAMPLE_EXAMPLE_PROTO_FAST_PARSING_H_
 #define TENSORFLOW_LITE_KERNELS_PARSE_EXAMPLE_EXAMPLE_PROTO_FAST_PARSING_H_
-#include "tensorflow/core/util/example_proto_fast_parsing.h"
-
+#include <algorithm>
 #include <vector>
 
 #include "absl/base/casts.h"
@@ -35,6 +34,7 @@ limitations under the License.
 #include "tensorflow/core/platform/byte_order.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/protobuf.h"
+#include "tensorflow/core/util/example_proto_fast_parsing.h"
 #include "tensorflow/core/util/presized_cuckoo_map.h"
 #include "tensorflow/core/util/sparse/sparse_tensor.h"
 
@@ -53,7 +53,7 @@ class LimitedArraySlice {
       : current_(begin), begin_(begin), end_(begin + num_elements) {}
 
   // May return negative if there were push_back calls after slice was filled.
-  int64 EndDistance() const { return end_ - current_; }
+  int64_t EndDistance() const { return end_ - current_; }
 
   // Attempts to push value to the back of this. If the slice has
   // already been filled, this method has no effect on the underlying data, but
@@ -119,7 +119,7 @@ class Feature {
     DCHECK(dtype != nullptr);
     if (serialized_.empty()) {
       *dtype = DT_INVALID;
-      return Status::OK();
+      return OkStatus();
     }
     uint8 oneof_tag = static_cast<uint8>(*serialized_.data());
     serialized_.remove_prefix(1);
@@ -138,7 +138,7 @@ class Feature {
         *dtype = DT_INVALID;
         return errors::InvalidArgument("Unsupported datatype.");
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   bool GetNumElementsInBytesList(int* num_elements) {
@@ -298,7 +298,7 @@ class Feature {
         while (!stream.ExpectAtEnd()) {
           protobuf_uint64 n;  // There is no API for int64
           if (!stream.ReadVarint64(&n)) return false;
-          int64_list->push_back(static_cast<int64>(n));
+          int64_list->push_back(static_cast<int64_t>(n));
         }
 
         stream.PopLimit(packed_limit);
@@ -307,7 +307,7 @@ class Feature {
           if (!stream.ExpectTag(kVarintTag(1))) return false;
           protobuf_uint64 n;  // There is no API for int64
           if (!stream.ReadVarint64(&n)) return false;
-          int64_list->push_back(static_cast<int64>(n));
+          int64_list->push_back(static_cast<int64_t>(n));
         }
       }
     }
@@ -377,7 +377,7 @@ struct SparseBuffer {
   // Other 2 vectors remain empty.
   SmallVector<tstring> bytes_list;
   SmallVector<float> float_list;
-  SmallVector<int64> int64_list;
+  SmallVector<int64_t> int64_list;
 
   // Features of example i are elements with indices
   // from example_end_indices[i-1] to example_end_indices[i]-1 on the
@@ -404,7 +404,8 @@ template <typename T>
 const SmallVector<T>& GetListFromBuffer(const SparseBuffer& buffer);
 
 template <>
-const SmallVector<int64>& GetListFromBuffer<int64>(const SparseBuffer& buffer);
+const SmallVector<int64_t>& GetListFromBuffer<int64_t>(
+    const SparseBuffer& buffer);
 
 template <>
 const SmallVector<float>& GetListFromBuffer<float>(const SparseBuffer& buffer);
@@ -490,7 +491,7 @@ inline void PadFloatFeature(int num_to_pad, float* out) {
   }
 }
 
-inline void PadInt64Feature(int num_to_pad, int64* out) {
+inline void PadInt64Feature(int num_to_pad, int64_t* out) {
   for (int i = 0; i < num_to_pad; i++) {
     *out++ = 0;
   }
@@ -550,7 +551,7 @@ inline int ParseFloatFeature(protobuf::io::CodedInputStream* stream,
 // Return the number of int64 elements parsed, or -1 on error. If out is null,
 // this method simply counts the number of elements without any copying.
 inline int ParseInt64Feature(protobuf::io::CodedInputStream* stream,
-                             int64* out) {
+                             int64_t* out) {
   int num_elements = 0;
   uint32 length;
   if (!stream->ExpectTag(kDelimitedTag(3)) || !stream->ReadVarint32(&length)) {
@@ -614,7 +615,7 @@ inline int ParseFeature(DataType dtype, protobuf::io::CodedInputStream* stream,
       break;
     case DT_INT64:
       delta =
-          ParseInt64Feature(stream, out->flat<int64>().data() + *out_offset);
+          ParseInt64Feature(stream, out->flat<int64_t>().data() + *out_offset);
       break;
     default:
       ReportUnexpectedDataType(dtype);

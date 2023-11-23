@@ -47,7 +47,7 @@ $(intermediates)/dummy.c:
 LOCAL_GENERATED_SOURCES += $(addprefix $(intermediates)/, git_sha1.h)
 
 .KATI_RESTAT: $(intermediates)/git_sha1.h
-$(intermediates)/git_sha1.h: PRIVATE_SCRIPT := $(MESA_PYTHON2) $(MESA_TOP)/bin/git_sha1_gen.py
+$(intermediates)/git_sha1.h: PRIVATE_SCRIPT := $(MESA_PYTHON3) $(MESA_TOP)/bin/git_sha1_gen.py
 $(intermediates)/git_sha1.h: $(wildcard $(MESA_TOP)/.git/logs/HEAD) $(MESA_TOP)/bin/git_sha1_gen.py
 	@mkdir -p $(dir $@)
 	@echo "GIT-SHA1: $(PRIVATE_MODULE) <= git"

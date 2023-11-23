@@ -85,6 +85,9 @@ being foundational infrastructure.
     cpu = PW_SYSTEM_CPU.CORTEX_M4F
     scheduler = PW_SYSTEM_SCHEDULER.FREERTOS
 
+    # Optionally, override pw_system's defaults to build with clang.
+    system_toolchain = pw_toolchain_arm_clang
+
     # The pre_init source set provides things like the interrupt vector table,
     # pre-main init, and provision of FreeRTOS hooks.
     link_deps = [ "$dir_pigweed/targets/stm32f429i_disc1_stm32cube:pre_init" ]
@@ -122,7 +125,7 @@ being foundational infrastructure.
     link_deps = [ "$dir_pigweed/targets/emcraft_sf2_som:pre_init" ]
     build_args = {
       pw_log_BACKEND = dir_pw_log_basic #dir_pw_log_tokenized
-      pw_tokenizer_GLOBAL_HANDLER_WITH_PAYLOAD_BACKEND = "//pw_system:log"
+      pw_log_tokenized_HANDLER_BACKEND = "//pw_system:log"
       pw_third_party_freertos_CONFIG = "$dir_pigweed/targets/emcraft_sf2_som:sf2_freertos_config"
       pw_third_party_freertos_PORT = "$dir_pw_third_party/freertos:arm_cm3"
       pw_sys_io_BACKEND = dir_pw_sys_io_emcraft_sf2
@@ -134,7 +137,7 @@ being foundational infrastructure.
         "PW_BOOT_FLASH_BEGIN=0x00000200",
         "PW_BOOT_FLASH_SIZE=200K",
 
-        # TODO(pwbug/219): Currently "pw_tokenizer/detokenize_test" requires at
+        # TODO(b/235348465): Currently "pw_tokenizer/detokenize_test" requires at
         # least 6K bytes in heap when using pw_malloc_freelist. The heap size
         # required for tests should be investigated.
         "PW_BOOT_HEAP_SIZE=7K",
@@ -146,3 +149,9 @@ being foundational infrastructure.
       ]
     }
   }
+
+
+Metrics
+=======
+The log backend is tracking metrics to illustrate how to use pw_metric and
+retrieve them using `Device.get_and_log_metrics()`.

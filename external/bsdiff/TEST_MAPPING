@@ -4,7 +4,7 @@
       "name": "bsdiff_unittest"
     }
   ],
-  "hwasan-postsubmit": [
+  "hwasan-presubmit": [
     {
       "name": "bsdiff_unittest"
     }

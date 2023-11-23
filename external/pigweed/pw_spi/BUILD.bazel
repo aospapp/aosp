@@ -47,6 +47,38 @@ pw_cc_library(
 )
 
 pw_cc_library(
+    name = "initiator_mock",
+    testonly = True,
+    srcs = ["initiator_mock.cc"],
+    hdrs = [
+        "public/pw_spi/chip_selector_mock.h",
+        "public/pw_spi/initiator_mock.h",
+    ],
+    includes = ["public"],
+    deps = [
+        ":chip_selector",
+        ":initiator",
+        "//pw_assert",
+        "//pw_containers",
+        "//pw_containers:to_array",
+        "//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "initiator_mock_test",
+    srcs = [
+        "initiator_mock_test.cc",
+    ],
+    deps = [
+        ":initiator_mock",
+        "//pw_bytes",
+        "//pw_containers",
+        "//pw_unit_test",
+    ],
+)
+
+pw_cc_library(
     name = "device",
     hdrs = [
         "public/pw_spi/device.h",
@@ -88,14 +120,5 @@ pw_cc_library(
         "//pw_status",
         "//pw_sync:borrow",
         "//pw_sync:mutex",
-    ],
-)
-
-pw_cc_test(
-    name = "linux_spi_test",
-    srcs = ["linux_spi_test.cc"],
-    deps = [
-        ":device",
-        ":linux_spi",
     ],
 )

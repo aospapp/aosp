@@ -10,11 +10,11 @@
 
 #import "ARDVideoCallViewController.h"
 
-#import <WebRTC/RTCAudioSession.h>
-#import <WebRTC/RTCCameraVideoCapturer.h>
-#import <WebRTC/RTCDispatcher.h>
-#import <WebRTC/RTCLogging.h>
-#import <WebRTC/RTCMediaConstraints.h>
+#import "sdk/objc/api/peerconnection/RTCMediaConstraints.h"
+#import "sdk/objc/base/RTCLogging.h"
+#import "sdk/objc/components/audio/RTCAudioSession.h"
+#import "sdk/objc/components/capturer/RTCCameraVideoCapturer.h"
+#import "sdk/objc/helpers/RTCDispatcher.h"
 
 #import "ARDAppClient.h"
 #import "ARDCaptureController.h"
@@ -132,8 +132,7 @@
   });
 }
 
-- (void)appClient:(ARDAppClient *)client
-      didGetStats:(NSArray *)stats {
+- (void)appClient:(ARDAppClient *)client didGetStats:(RTC_OBJC_TYPE(RTCStatisticsReport) *)stats {
   _videoCallView.statsView.stats = stats;
   [_videoCallView setNeedsLayout];
 }
@@ -152,13 +151,14 @@
   [self hangup];
 }
 
-- (void)videoCallViewDidSwitchCamera:(ARDVideoCallView *)view {
-  // TODO(tkchin): Rate limit this so you can't tap continously on it.
-  // Probably through an animation.
-  [_captureController switchCamera];
+- (void)videoCallView:(ARDVideoCallView *)view
+    shouldSwitchCameraWithCompletion:(void (^)(NSError *))completion {
+  [_captureController switchCamera:completion];
 }
 
-- (void)videoCallViewDidChangeRoute:(ARDVideoCallView *)view {
+- (void)videoCallView:(ARDVideoCallView *)view
+    shouldChangeRouteWithCompletion:(void (^)(void))completion {
+  NSParameterAssert(completion);
   AVAudioSessionPortOverride override = AVAudioSessionPortOverrideNone;
   if (_portOverride == AVAudioSessionPortOverrideNone) {
     override = AVAudioSessionPortOverrideSpeaker;
@@ -177,6 +177,7 @@
                                                               error.localizedDescription);
                                                 }
                                                 [session unlockForConfiguration];
+                                                completion();
                                               }];
 }
 

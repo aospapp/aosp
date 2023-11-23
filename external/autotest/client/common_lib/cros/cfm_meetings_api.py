@@ -1,10 +1,11 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import logging
 
-from urlparse import urlparse
+from six.moves.urllib.parse import urlparse
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error

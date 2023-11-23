@@ -30,7 +30,7 @@ import common
 from autotest_lib.client.common_lib import error
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     from autotest_lib.client.bin.utils import metrics_mock as metrics
 
@@ -320,7 +320,12 @@ class _DependencyNode(object):
                 type(self).__name__)
 
     def _get_node_by_tag(self, tag):
-        """Find verifier by tag, recursive."""
+        """Find verifier by tag, recursive.
+
+        @param tag  Node identifier.
+
+        @returns:   _DependencyNode instance associated with tag
+        """
         if self._tag == tag:
             return self
         for child in self._dependency_list:
@@ -407,10 +412,12 @@ class Verifier(_DependencyNode):
         @param host     The host to be tested for a problem.
         @param silent   If true, don't log host status records.
         """
+        self._verify_dependencies(host, silent)
         try:
             if not self._is_applicable(host):
-                logging.info('Verify %s is not applicable to %s, skipping...',
-                             self.description, host.hostname)
+                logging.info(
+                        'Verify "%s:%s" is not applicable to %s, skipping...',
+                        self.tag, self.description, host.hostname)
                 return
         except Exception as e:
             logging.error('Skipping %s verifier due to unexpect error during'
@@ -423,8 +430,7 @@ class Verifier(_DependencyNode):
             elif self._result:
                 return              # cached success
 
-        self._verify_dependencies(host, silent)
-        logging.info('Verifying this condition: %s', self.description)
+        logging.info('Verifying %s:%s', self.tag, self.description)
         try:
             logging.debug('Start verify task: %s.', type(self).__name__)
             self.verify(host)
@@ -643,6 +649,13 @@ class RepairAction(_DependencyNode):
         #
         # If we're blocked by a failed dependency, we exit with an
         # exception.  So set status to 'blocked' first.
+        self.status = 'blocked'
+        try:
+            self._verify_dependencies(host, silent)
+        except Exception as e:
+            self._send_failure_metrics(host, e, 'dep')
+            raise
+
         self.status = 'skipped'
         try:
             if not self._is_applicable(host):
@@ -653,13 +666,6 @@ class RepairAction(_DependencyNode):
             logging.error('Skipping %s repair action due to unexpect error'
                           ' during check applicability; %s', self.tag, e)
             return
-
-        self.status = 'blocked'
-        try:
-            self._verify_dependencies(host, silent)
-        except Exception as e:
-            self._send_failure_metrics(host, e, 'dep')
-            raise
         # This is a defensive action.  Every path below should overwrite
         # this setting, but if it doesn't, we want our status to reflect
         # a coding error.
@@ -1006,7 +1012,7 @@ class RepairStrategy(object):
             None - verifier did not run because it is not applicable
                    or blocked due to dependency failure
         """
-        verifier = self._verify_root._get_node_by_tag(tag)
+        verifier = self.node_by_tag(tag)
         if verifier is not None:
             result = verifier._is_good()
             logging.debug('Verifier with associated tag: %s found', tag)
@@ -1020,6 +1026,21 @@ class RepairStrategy(object):
             return result
         logging.debug('Verifier with associated tag: %s not found', tag)
         return None
+
+    def node_by_tag(self, tag):
+        """Find and return node by searched tag.
+
+        @param tag: key to be associated with node
+
+        @returns: _DependencyNode instance associated with tag
+        """
+        node = self._verify_root._get_node_by_tag(tag)
+        if node is None:
+            for n in self._repair_actions:
+                node = n._get_node_by_tag(tag)
+                if node is not None:
+                    break
+        return node
 
 
 def _filter_metrics_hostname(host):

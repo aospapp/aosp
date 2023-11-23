@@ -30,14 +30,6 @@ python_library {
         "gen/*.py",
         "scripts/*.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     libs: [
         "py-httplib2",
         "py-oauth2client",

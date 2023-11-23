@@ -27,7 +27,7 @@
 //    //icing/tokenization:language-segmenter_benchmark
 //
 //    $ blaze-bin/icing/tokenization/language-segmenter_benchmark
-//    --benchmarks=all
+//    --benchmark_filter=all
 //
 // Run on an Android device:
 //    Make target //icing/tokenization:language-segmenter depend on
@@ -41,7 +41,7 @@
 //    blaze-bin/icing/tokenization/language-segmenter_benchmark
 //    /data/local/tmp/
 //
-//    $ adb shell /data/local/tmp/language-segmenter_benchmark --benchmarks=all
+//    $ adb shell /data/local/tmp/language-segmenter_benchmark --benchmark_filter=all
 //    --adb
 
 // Flag to tell the benchmark that it'll be run on an Android device via adb,

@@ -1,4 +1,4 @@
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+# Copyright 2013 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 """Manage bundles of flags used for the optimizing of ChromeOS.
@@ -21,10 +21,11 @@ Examples:
   "foo[0-9]bar" will expand to e.g. "foo5bar".
 """
 
-__author__ = 'yuhenglong@google.com (Yuheng Long)'
+__author__ = "yuhenglong@google.com (Yuheng Long)"
 
 import random
 import re
+
 
 #
 # This matches a [...] group in the internal representation for a flag
@@ -32,166 +33,170 @@ import re
 # the flag_spec.  The internal flag_spec format is like "foo[0]", with
 # values filled out like 5; this would be transformed by
 # FormattedForUse() into "foo5".
-_FLAG_FILLOUT_VALUE_RE = re.compile(r'\[([^\]]*)\]')
+_FLAG_FILLOUT_VALUE_RE = re.compile(r"\[([^\]]*)\]")
 
 # This matches a numeric flag flag=[start-end].
-rx = re.compile(r'\[(?P<start>\d+)-(?P<end>\d+)\]')
+rx = re.compile(r"\[(?P<start>\d+)-(?P<end>\d+)\]")
 
 
 # Search the numeric flag pattern.
 def Search(spec):
-  return rx.search(spec)
+    return rx.search(spec)
 
 
 class NoSuchFileError(Exception):
-  """Define an Exception class for user providing invalid input file."""
-  pass
+    """Define an Exception class for user providing invalid input file."""
+
+    pass
 
 
 def ReadConf(file_name):
-  """Parse the configuration file.
+    """Parse the configuration file.
 
-  The configuration contains one flag specification in each line.
+    The configuration contains one flag specification in each line.
 
-  Args:
-    file_name: The name of the configuration file.
+    Args:
+      file_name: The name of the configuration file.
 
-  Returns:
-    A list of specs in the configuration file.
+    Returns:
+      A list of specs in the configuration file.
 
-  Raises:
-    NoSuchFileError: The caller should provide a valid configuration file.
-  """
+    Raises:
+      NoSuchFileError: The caller should provide a valid configuration file.
+    """
 
-  with open(file_name, 'r') as input_file:
-    lines = input_file.readlines()
+    with open(file_name, "r") as input_file:
+        lines = input_file.readlines()
 
-    return sorted([line.strip() for line in lines if line.strip()])
+        return sorted([line.strip() for line in lines if line.strip()])
 
-  raise NoSuchFileError()
+    raise NoSuchFileError()
 
 
 class Flag(object):
-  """A class representing a particular command line flag argument.
+    """A class representing a particular command line flag argument.
 
-  The Flag consists of two parts: The spec and the value.
-  The spec is a definition of the following form: a string with escaped
-  sequences of the form [<start>-<end>] where start and end is an positive
-  integer for a fillable value.
+    The Flag consists of two parts: The spec and the value.
+    The spec is a definition of the following form: a string with escaped
+    sequences of the form [<start>-<end>] where start and end is an positive
+    integer for a fillable value.
 
-  An example of a spec is "foo[0-9]".
-  There are two kinds of flags, boolean flag and numeric flags. Boolean flags
-  can either be turned on or off, which numeric flags can have different
-  positive integer values. For example, -finline-limit=[1-1000] is a numeric
-  flag and -ftree-vectorize is a boolean flag.
+    An example of a spec is "foo[0-9]".
+    There are two kinds of flags, boolean flag and numeric flags. Boolean flags
+    can either be turned on or off, which numeric flags can have different
+    positive integer values. For example, -finline-limit=[1-1000] is a numeric
+    flag and -ftree-vectorize is a boolean flag.
 
-  A (boolean/numeric) flag is not turned on if it is not selected in the
-  FlagSet.
-  """
-
-  def __init__(self, spec, value=-1):
-    self._spec = spec
-
-    # If the value is not specified, generate a random value to use.
-    if value == -1:
-      # If creating a boolean flag, the value will be 0.
-      value = 0
-
-      # Parse the spec's expression for the flag value's numeric range.
-      numeric_flag_match = Search(spec)
-
-      # If this is a numeric flag, a value is chosen within start and end, start
-      # inclusive and end exclusive.
-      if numeric_flag_match:
-        start = int(numeric_flag_match.group('start'))
-        end = int(numeric_flag_match.group('end'))
-
-        assert start < end
-        value = random.randint(start, end)
-
-    self._value = value
-
-  def __eq__(self, other):
-    if isinstance(other, Flag):
-      return self._spec == other.GetSpec() and self._value == other.GetValue()
-    return False
-
-  def __hash__(self):
-    return hash(self._spec) + self._value
-
-  def GetValue(self):
-    """Get the value for this flag.
-
-    Returns:
-     The value.
+    A (boolean/numeric) flag is not turned on if it is not selected in the
+    FlagSet.
     """
 
-    return self._value
+    def __init__(self, spec, value=-1):
+        self._spec = spec
 
-  def GetSpec(self):
-    """Get the spec for this flag.
+        # If the value is not specified, generate a random value to use.
+        if value == -1:
+            # If creating a boolean flag, the value will be 0.
+            value = 0
 
-    Returns:
-     The spec.
-    """
+            # Parse the spec's expression for the flag value's numeric range.
+            numeric_flag_match = Search(spec)
 
-    return self._spec
+            # If this is a numeric flag, a value is chosen within start and end, start
+            # inclusive and end exclusive.
+            if numeric_flag_match:
+                start = int(numeric_flag_match.group("start"))
+                end = int(numeric_flag_match.group("end"))
 
-  def FormattedForUse(self):
-    """Calculate the combination of flag_spec and values.
+                assert start < end
+                value = random.randint(start, end)
 
-    For e.g. the flag_spec 'foo[0-9]' and the value equals to 5, this will
-    return 'foo5'. The filled out version of the flag is the text string you use
-    when you actually want to pass the flag to some binary.
+        self._value = value
 
-    Returns:
-      A string that represent the filled out flag, e.g. the flag with the
-      FlagSpec '-X[0-9]Y' and value equals to 5 would return '-X5Y'.
-    """
+    def __eq__(self, other):
+        if isinstance(other, Flag):
+            return (
+                self._spec == other.GetSpec()
+                and self._value == other.GetValue()
+            )
+        return False
 
-    return _FLAG_FILLOUT_VALUE_RE.sub(str(self._value), self._spec)
+    def __hash__(self):
+        return hash(self._spec) + self._value
+
+    def GetValue(self):
+        """Get the value for this flag.
+
+        Returns:
+         The value.
+        """
+
+        return self._value
+
+    def GetSpec(self):
+        """Get the spec for this flag.
+
+        Returns:
+         The spec.
+        """
+
+        return self._spec
+
+    def FormattedForUse(self):
+        """Calculate the combination of flag_spec and values.
+
+        For e.g. the flag_spec 'foo[0-9]' and the value equals to 5, this will
+        return 'foo5'. The filled out version of the flag is the text string you use
+        when you actually want to pass the flag to some binary.
+
+        Returns:
+          A string that represent the filled out flag, e.g. the flag with the
+          FlagSpec '-X[0-9]Y' and value equals to 5 would return '-X5Y'.
+        """
+
+        return _FLAG_FILLOUT_VALUE_RE.sub(str(self._value), self._spec)
 
 
 class FlagSet(object):
-  """A dictionary of Flag objects.
+    """A dictionary of Flag objects.
 
-  The flags dictionary stores the spec and flag pair.
-  """
-
-  def __init__(self, flag_array):
-    # Store the flags as a dictionary mapping of spec -> flag object
-    self._flags = dict([(flag.GetSpec(), flag) for flag in flag_array])
-
-  def __eq__(self, other):
-    return isinstance(other, FlagSet) and self._flags == other.GetFlags()
-
-  def __hash__(self):
-    return sum([hash(flag) for flag in self._flags.values()])
-
-  def __getitem__(self, flag_spec):
-    """Get flag with a particular flag_spec.
-
-    Args:
-      flag_spec: The flag_spec to find.
-
-    Returns:
-      A flag.
+    The flags dictionary stores the spec and flag pair.
     """
 
-    return self._flags[flag_spec]
+    def __init__(self, flag_array):
+        # Store the flags as a dictionary mapping of spec -> flag object
+        self._flags = dict([(flag.GetSpec(), flag) for flag in flag_array])
 
-  def __contains__(self, flag_spec):
-    return self._flags.has_key(flag_spec)
+    def __eq__(self, other):
+        return isinstance(other, FlagSet) and self._flags == other.GetFlags()
 
-  def GetFlags(self):
-    return self._flags
+    def __hash__(self):
+        return sum([hash(flag) for flag in self._flags.values()])
 
-  def FormattedForUse(self):
-    """Format this for use in an application.
+    def __getitem__(self, flag_spec):
+        """Get flag with a particular flag_spec.
 
-    Returns:
-      A list of flags, sorted alphabetically and filled in with the values
-      for each flag.
-    """
+        Args:
+          flag_spec: The flag_spec to find.
 
-    return sorted([f.FormattedForUse() for f in self._flags.values()])
+        Returns:
+          A flag.
+        """
+
+        return self._flags[flag_spec]
+
+    def __contains__(self, flag_spec):
+        return self._flags.has_key(flag_spec)
+
+    def GetFlags(self):
+        return self._flags
+
+    def FormattedForUse(self):
+        """Format this for use in an application.
+
+        Returns:
+          A list of flags, sorted alphabetically and filled in with the values
+          for each flag.
+        """
+
+        return sorted([f.FormattedForUse() for f in self._flags.values()])

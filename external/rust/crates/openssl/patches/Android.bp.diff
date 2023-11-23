@@ -1,0 +1,18 @@
+diff --git a/Android.bp b/Android.bp
+index 2282c66..4e9011c 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -54,11 +54,11 @@ rust_library {
+     srcs: ["src/lib.rs"],
+     edition: "2018",
+     features: ["unstable_boringssl"],
+-    cfgs: ["boringssl"],
++    cfgs: ["boringssl", "soong"],
+     rustlibs: [
+         "libbitflags",
+         "libcfg_if",
+-        "libopenssl_sys",
++        "libbssl_ffi",
+         "libforeign_types",
+         "liblibc",
+         "libonce_cell",

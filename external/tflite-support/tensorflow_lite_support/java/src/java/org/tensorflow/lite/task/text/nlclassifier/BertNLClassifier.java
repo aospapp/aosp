@@ -42,7 +42,7 @@ import org.tensorflow.lite.task.core.TaskJniUtils.EmptyHandleProvider;
  * </ul>
  */
 public class BertNLClassifier extends BaseTaskApi {
-  private static final String BERT_NL_CLASSIFIER_NATIVE_LIBNAME = "task_text_jni";
+  private static final String BERT_NL_CLASSIFIER_NATIVE_LIBNAME = "tflite_support_classifiers_native";
 
   /**
    * Constructor to initialize the JNI with a pointer from C++.
@@ -122,11 +122,35 @@ public class BertNLClassifier extends BaseTaskApi {
     return classifyNative(getNativeHandle(), text);
   }
 
+  /**
+   * Gets the model version from the model metadata,
+   * or "NO_VERSION_INFO" in case there is no version.
+   *
+   * @return The model version.
+   */
+  public String getModelVersion() {
+    return getModelVersionNative(getNativeHandle());
+  }
+
+  /**
+   * Gets the labels version from the model metadata,
+   * or "NO_VERSION_INFO" in case there is no version.
+   *
+   * @return The labels version.
+   */
+  public String getLabelsVersion() {
+    return getLabelsVersionNative(getNativeHandle());
+  }
+
   private static native long initJniWithByteBuffer(ByteBuffer modelBuffer);
 
   private static native long initJniWithFileDescriptor(int fd);
 
   private static native List<Category> classifyNative(long nativeHandle, String text);
+
+  private static native String getModelVersionNative(long nativeHandle);
+
+  private static native String getLabelsVersionNative(long nativeHandle);
 
   @Override
   protected void deinit(long nativeHandle) {

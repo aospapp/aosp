@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -9,6 +10,8 @@ import numbers
 import re
 import time
 import os.path
+
+import six
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import path_utils
@@ -92,6 +95,19 @@ class NetperfResult(object):
 
             result = NetperfResult(test_type, duration_seconds,
                                    transaction_rate=float(lines[0].split()[5]))
+        elif test_type in NetperfConfig.BIDIRECTIONAL_TESTS:
+            """Parses the following which works for both bidirectional (TCP and UDP)
+            tests and returns the sum of the two throughputs.
+            46.92
+            58.35
+            """
+            if len(lines) < 2:
+                return None
+
+            result = NetperfResult(test_type,
+                                   duration_seconds,
+                                   throughput=float(lines[0]) +
+                                   float(lines[1]))
         else:
             raise error.TestFail('Invalid netperf test type: %r.' % test_type)
 
@@ -101,15 +117,15 @@ class NetperfResult(object):
 
     @staticmethod
     def _get_stats(samples, field_name):
-        if any(map(lambda x: getattr(x, field_name) is None, samples)):
+        if any([getattr(x, field_name) is None for x in samples]):
             return (None, None)
 
-        values = map(lambda x: getattr(x, field_name), samples)
+        values = [getattr(x, field_name) for x in samples]
         N = len(samples)
         mean = math.fsum(values) / N
         deviation = None
         if N > 1:
-            differences = map(lambda x: math.pow(mean - x, 2), values)
+            differences = [math.pow(mean - x, 2) for x in values]
             deviation = math.sqrt(math.fsum(differences) / (N - 1))
         return mean, deviation
 
@@ -184,10 +200,10 @@ class NetperfResult(object):
 
     def __repr__(self):
         fields = ['test_type=%s' % self.test_type]
-        fields += ['%s=%0.2f' % item
-                   for item in vars(self).iteritems()
-                   if item[1] is not None
-                   and isinstance(item[1], numbers.Number)]
+        fields += [
+                '%s=%0.2f' % item for item in six.iteritems(vars(self))
+                if item[1] is not None and isinstance(item[1], numbers.Number)
+        ]
         return '%s(%s)' % (self.__class__.__name__, ', '.join(fields))
 
 
@@ -318,10 +334,10 @@ class NetperfAssertion(object):
                   'error_max': self.errors_bounds.upper,
                   'transaction_rate_min': self.transaction_rate_bounds.lower,
                   'transaction_rate_max': self.transaction_rate_bounds.upper}
-        return '%s(%s)' % (self.__class__.__name__,
-                           ', '.join(['%s=%r' % item
-                                      for item in fields.iteritems()
-                                      if item[1] is not None]))
+        return '%s(%s)' % (self.__class__.__name__, ', '.join([
+                '%s=%r' % item
+                for item in six.iteritems(fields) if item[1] is not None
+        ]))
 
 
 class NetperfConfig(object):
@@ -357,6 +373,8 @@ class NetperfConfig(object):
     # server to the DUT by running the netperf server on the DUT and the
     # client on the server and then doing a UDP_STREAM test.
     TEST_TYPE_UDP_MAERTS = 'UDP_MAERTS'
+    TEST_TYPE_TCP_BIDIRECTIONAL = 'TCP'
+    TEST_TYPE_UDP_BIDIRECTIONAL = 'UDP'
     # Different kinds of tests have different output formats.
     REQUEST_RESPONSE_TESTS = [ TEST_TYPE_TCP_CRR,
                                TEST_TYPE_TCP_RR,
@@ -366,24 +384,35 @@ class NetperfConfig(object):
                          TEST_TYPE_TCP_STREAM ]
     UDP_STREAM_TESTS = [ TEST_TYPE_UDP_STREAM,
                          TEST_TYPE_UDP_MAERTS ]
+    BIDIRECTIONAL_TESTS = [
+            TEST_TYPE_TCP_BIDIRECTIONAL, TEST_TYPE_UDP_BIDIRECTIONAL
+    ]
 
-    SHORT_TAGS = { TEST_TYPE_TCP_CRR: 'tcp_crr',
-                   TEST_TYPE_TCP_MAERTS: 'tcp_rx',
-                   TEST_TYPE_TCP_RR: 'tcp_rr',
-                   TEST_TYPE_TCP_SENDFILE: 'tcp_stx',
-                   TEST_TYPE_TCP_STREAM: 'tcp_tx',
-                   TEST_TYPE_UDP_RR: 'udp_rr',
-                   TEST_TYPE_UDP_STREAM: 'udp_tx',
-                   TEST_TYPE_UDP_MAERTS: 'udp_rx' }
+    SHORT_TAGS = {
+            TEST_TYPE_TCP_CRR: 'tcp_crr',
+            TEST_TYPE_TCP_MAERTS: 'tcp_rx',
+            TEST_TYPE_TCP_RR: 'tcp_rr',
+            TEST_TYPE_TCP_SENDFILE: 'tcp_stx',
+            TEST_TYPE_TCP_STREAM: 'tcp_tx',
+            TEST_TYPE_UDP_RR: 'udp_rr',
+            TEST_TYPE_UDP_STREAM: 'udp_tx',
+            TEST_TYPE_UDP_MAERTS: 'udp_rx',
+            TEST_TYPE_TCP_BIDIRECTIONAL: 'tcp_tx_rx',
+            TEST_TYPE_UDP_BIDIRECTIONAL: 'udp_tx_rx'
+    }
 
-    READABLE_TAGS = { TEST_TYPE_TCP_CRR: 'tcp_connect_roundtrip_rate',
-                      TEST_TYPE_TCP_MAERTS: 'tcp_downstream',
-                      TEST_TYPE_TCP_RR: 'tcp_roundtrip_rate',
-                      TEST_TYPE_TCP_SENDFILE: 'tcp_upstream_sendfile',
-                      TEST_TYPE_TCP_STREAM: 'tcp_upstream',
-                      TEST_TYPE_UDP_RR: 'udp_roundtrip',
-                      TEST_TYPE_UDP_STREAM: 'udp_upstream',
-                      TEST_TYPE_UDP_MAERTS: 'udp_downstream' }
+    READABLE_TAGS = {
+            TEST_TYPE_TCP_CRR: 'tcp_connect_roundtrip_rate',
+            TEST_TYPE_TCP_MAERTS: 'tcp_downstream',
+            TEST_TYPE_TCP_RR: 'tcp_roundtrip_rate',
+            TEST_TYPE_TCP_SENDFILE: 'tcp_upstream_sendfile',
+            TEST_TYPE_TCP_STREAM: 'tcp_upstream',
+            TEST_TYPE_UDP_RR: 'udp_roundtrip',
+            TEST_TYPE_UDP_STREAM: 'udp_upstream',
+            TEST_TYPE_UDP_MAERTS: 'udp_downstream',
+            TEST_TYPE_TCP_BIDIRECTIONAL: 'tcp_upstream_downstream',
+            TEST_TYPE_UDP_BIDIRECTIONAL: 'udp_upstream_downstream'
+    }
 
 
     @staticmethod
@@ -393,9 +422,10 @@ class NetperfConfig(object):
         @param test_type string test type.
 
         """
-        if (test_type not in NetperfConfig.REQUEST_RESPONSE_TESTS and
-            test_type not in NetperfConfig.TCP_STREAM_TESTS and
-            test_type not in NetperfConfig.UDP_STREAM_TESTS):
+        if (test_type not in NetperfConfig.REQUEST_RESPONSE_TESTS
+                    and test_type not in NetperfConfig.TCP_STREAM_TESTS
+                    and test_type not in NetperfConfig.UDP_STREAM_TESTS
+                    and test_type not in NetperfConfig.BIDIRECTIONAL_TESTS):
             raise error.TestFail('Invalid netperf test type: %r.' % test_type)
 
 
@@ -434,6 +464,10 @@ class NetperfConfig(object):
 
         return self.test_type
 
+    @property
+    def test_type_name(self):
+        """@return string test type name."""
+        return self.test_type
 
     @property
     def server_serves(self):
@@ -481,23 +515,53 @@ class NetperfRunner(object):
     NETPERF_COMMAND_TIMEOUT_MARGIN = 60
 
 
-    def __init__(self, client_proxy, server_proxy, config):
-        """Construct a NetperfRunner.
+    def __init__(self,
+                 client_proxy,
+                 server_proxy,
+                 config,
+                 client_interface=None,
+                 server_interface=None):
+        """Construct a NetperfRunner. Use the IP addresses of the passed interfaces
+        if they are provided. Otherwise, attempt to use the WiFi interface on the devices.
 
         @param client WiFiClient object.
         @param server LinuxSystem object.
+        @param client_interface Interface object.
+        @param server_interface Interface object.
 
         """
         self._client_proxy = client_proxy
         self._server_proxy = server_proxy
+        if server_interface:
+            self._server_ip = server_interface.ipv4_address
+        # If a server interface was not explicitly provided, attempt to use
+        # the WiFi IP of the device.
+        else:
+            try:
+                self._server_ip = server_proxy.wifi_ip
+            except:
+                raise error.TestFail(
+                        'Server device has no WiFi IP address, '
+                        'and no alternate interface was specified.')
+
+        if client_interface:
+            self._client_ip = client_interface.ipv4_address
+        # If a client interface was not explicitly provided, use the WiFi IP
+        # address of the WiFiClient device.
+        else:
+            self._client_ip = client_proxy.wifi_ip
+
         if config.server_serves:
             self._server_host = server_proxy.host
             self._client_host = client_proxy.host
-            self._target_ip = server_proxy.wifi_ip
+            self._target_ip = self._server_ip
+            self._source_ip = self._client_ip
+
         else:
             self._server_host = client_proxy.host
             self._client_host = server_proxy.host
-            self._target_ip = client_proxy.wifi_ip
+            self._target_ip = self._client_ip
+            self._source_ip = self._server_ip
 
         # Assume minijail0 is on ${PATH}, but raise exception if it's not
         # available on both server and client.
@@ -541,8 +605,8 @@ class NetperfRunner(object):
                               (self._minijail, self._command_netserv,
                                self.NETPERF_PORT))
         startup_time = time.time()
-        self._client_proxy.firewall_open('tcp', self._server_proxy.wifi_ip)
-        self._client_proxy.firewall_open('udp', self._server_proxy.wifi_ip)
+        self._client_proxy.firewall_open('tcp', self._server_ip)
+        self._client_proxy.firewall_open('udp', self._server_ip)
         # Wait for the netserv to come up.
         while time.time() - startup_time < self.NETSERV_STARTUP_WAIT_TIME:
             time.sleep(0.1)
@@ -559,19 +623,25 @@ class NetperfRunner(object):
         @return NetperfResult summarizing a netperf run.
 
         """
-        netperf = '%s -H %s -p %s -t %s -l %d -- -P 0,%d' % (
-                self._command_netperf,
-                self._target_ip,
-                self.NETPERF_PORT,
-                self._config.netperf_test_type,
-                self._config.test_time,
-                self.NETPERF_DATA_PORT)
+        if self._config.netperf_test_type in NetperfConfig.BIDIRECTIONAL_TESTS:
+            netperf = 'for i in 1; do %s -H %s -t omni -T %s -l %d -L %s -P 0 -- -R 1 -d stream -s 256K -S 256K -o throughput & %s -H %s -t omni -T %s -l %d -P 0 -L %s -- -R 1 -d maerts -s 256K -S 256K -o throughput; done' % (
+                    self._command_netperf, self._target_ip,
+                    self._config.netperf_test_type, self._config.test_time,
+                    self._source_ip, self._command_netperf, self._target_ip,
+                    self._config.netperf_test_type, self._config.test_time,
+                    self._source_ip)
+        else:
+            netperf = '%s -H %s -p %s -t %s -l %d -L %s -- -P 0,%d -R 1' % (
+                    self._command_netperf, self._target_ip, self.NETPERF_PORT,
+                    self._config.netperf_test_type, self._config.test_time,
+                    self._source_ip, self.NETPERF_DATA_PORT)
         logging.debug('Running netperf client.')
         logging.info('Running netperf for %d seconds.', self._config.test_time)
         timeout = self._config.test_time + self.NETPERF_COMMAND_TIMEOUT_MARGIN
         for _ in range(retry_count):
             start_time = time.time()
-            result = self._client_host.run(netperf, ignore_status=True,
+            result = self._client_host.run(netperf,
+                                           ignore_status=True,
                                            ignore_timeout=ignore_failures,
                                            timeout=timeout)
             if not result:

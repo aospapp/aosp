@@ -25,6 +25,7 @@ data class JavadocParseResult(
     val deprecatedContent: Content?,
     val attributeRefs: List<String>,
     val apiLevel: DocumentationNode? = null,
+    val sdkExtSince: DocumentationNode? = null,
     val deprecatedLevel: DocumentationNode? = null,
     val artifactId: DocumentationNode? = null,
     val attribute: DocumentationNode? = null
@@ -33,6 +34,7 @@ data class JavadocParseResult(
         val Empty = JavadocParseResult(Content.Empty,
             null,
             emptyList(),
+            null,
             null,
             null,
             null
@@ -109,6 +111,7 @@ class JavadocParser(
 
         val attrRefSignatures = mutableListOf<String>()
         var since: DocumentationNode? = null
+        var sdkextsince: DocumentationNode? = null
         var deprecated: DocumentationNode? = null
         var artifactId: DocumentationNode? = null
         var attrName: String? = null
@@ -135,6 +138,9 @@ class JavadocParser(
                 "since", "apisince" -> {
                     since = DocumentationNode(tag.getApiLevel() ?: "", Content.Empty, NodeKind.ApiLevel)
                 }
+                "sdkextsince" -> {
+                    sdkextsince = DocumentationNode(tag.getSdkExtSince() ?: "", Content.Empty, NodeKind.SdkExtSince)
+                }
                 "deprecatedsince" -> {
                     deprecated = DocumentationNode(tag.getApiLevel() ?: "", Content.Empty, NodeKind.DeprecatedLevel)
                 }
@@ -153,7 +159,7 @@ class JavadocParser(
         attrName?.let { name ->
             attr = DocumentationNode(name, attrDesc ?: Content.Empty, NodeKind.AttributeRef)
         }
-        return JavadocParseResult(result, deprecatedContent, attrRefSignatures, since, deprecated, artifactId, attr)
+        return JavadocParseResult(result, deprecatedContent, attrRefSignatures, since, sdkextsince, deprecated, artifactId, attr)
     }
 
     private val tagsToInherit = setOf("param", "return", "throws")
@@ -178,6 +184,13 @@ class JavadocParser(
                     return apiLevel.text
                 }
             }
+        }
+        return null
+    }
+
+    fun PsiDocTag.getSdkExtSince(): String? {
+        if (dataElements.isNotEmpty()) {
+            return join(dataElements.map { it.text }, " ")
         }
         return null
     }

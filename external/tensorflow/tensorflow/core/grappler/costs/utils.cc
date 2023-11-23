@@ -45,6 +45,7 @@ limitations under the License.
 #include "tensorflow/core/platform/protobuf.h"
 #include "tensorflow/core/protobuf/config.pb.h"
 #include "tensorflow/core/util/device_name_utils.h"
+#include "tensorflow/core/util/overflow.h"
 
 namespace tensorflow {
 namespace grappler {
@@ -197,7 +198,7 @@ std::vector<OpInfo::TensorProperties> FindInputFeatures(
   return inputs;
 }
 
-int64 CalculateTensorSize(const OpInfo::TensorProperties& prop) {
+int64_t CalculateTensorSize(const OpInfo::TensorProperties& prop) {
   int64_t size = DataTypeSize(BaseType(prop.dtype()));
   TensorShapeProto shape = prop.shape();
 
@@ -217,10 +218,16 @@ int64 CalculateTensorSize(const OpInfo::TensorProperties& prop) {
   }
 
   int64_t num_elems = TensorShape(shape).num_elements();
-  return num_elems * size;
+  int64_t tensor_size = MultiplyWithoutOverflow(num_elems, size);
+  if (tensor_size < 0) {
+    VLOG(1) << "Overflow encountered when computing tensor size, multiplying "
+            << num_elems << " with " << size;
+    return -1;
+  }
+  return tensor_size;
 }
 
-int64 CalculateOutputSize(
+int64_t CalculateOutputSize(
     const std::vector<OpInfo::TensorProperties>& output_properties,
     const int port_num) {
   if (port_num < 0) return 4;  // 4B for control dependency.

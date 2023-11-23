@@ -7,6 +7,7 @@ NAME = 'network_DhcpNak'
 ATTRIBUTES = "suite:network_nightly"
 TIME = 'SHORT'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
   Tests handling of DHCP NAK messages. In particular, tests that

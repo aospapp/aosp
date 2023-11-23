@@ -19,18 +19,25 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
-#include "icing/jni/jni-cache.h"
 #include "icing/text_classifier/lib3/utils/base/status.h"
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "icing/absl_ports/mutex.h"
 #include "icing/absl_ports/thread_annotations.h"
 #include "icing/file/filesystem.h"
+#include "icing/index/data-indexing-handler.h"
 #include "icing/index/index.h"
+#include "icing/index/numeric/numeric-index.h"
+#include "icing/jni/jni-cache.h"
+#include "icing/join/join-children-fetcher.h"
+#include "icing/join/qualified-id-type-joinable-index.h"
 #include "icing/legacy/index/icing-filesystem.h"
 #include "icing/performance-configuration.h"
+#include "icing/proto/debug.pb.h"
 #include "icing/proto/document.pb.h"
 #include "icing/proto/initialize.pb.h"
+#include "icing/proto/logging.pb.h"
 #include "icing/proto/optimize.pb.h"
 #include "icing/proto/persist.pb.h"
 #include "icing/proto/reset.pb.h"
@@ -39,8 +46,10 @@
 #include "icing/proto/search.pb.h"
 #include "icing/proto/storage.pb.h"
 #include "icing/proto/usage.pb.h"
+#include "icing/query/query-terms.h"
 #include "icing/result/result-state-manager.h"
 #include "icing/schema/schema-store.h"
+#include "icing/scoring/scored-document-hit.h"
 #include "icing/store/document-store.h"
 #include "icing/tokenization/language-segmenter.h"
 #include "icing/transform/normalizer.h"
@@ -403,6 +412,10 @@ class IcingSearchEngine {
   // that field will be set to -1.
   StorageInfoResultProto GetStorageInfo() ICING_LOCKS_EXCLUDED(mutex_);
 
+  // Get debug information for Icing.
+  DebugInfoResultProto GetDebugInfo(DebugInfoVerbosity::Code verbosity)
+      ICING_LOCKS_EXCLUDED(mutex_);
+
   // Clears all data from Icing and re-initializes. Clients DO NOT need to call
   // Initialize again.
   //
@@ -458,8 +471,16 @@ class IcingSearchEngine {
 
   std::unique_ptr<const Normalizer> normalizer_ ICING_GUARDED_BY(mutex_);
 
-  // Storage for all hits of content from the document store.
+  // Storage for all hits of string contents from the document store.
   std::unique_ptr<Index> index_ ICING_GUARDED_BY(mutex_);
+
+  // Storage for all hits of numeric contents from the document store.
+  std::unique_ptr<NumericIndex<int64_t>> integer_index_
+      ICING_GUARDED_BY(mutex_);
+
+  // Storage for all join qualified ids from the document store.
+  std::unique_ptr<QualifiedIdTypeJoinableIndex> qualified_id_join_index_
+      ICING_GUARDED_BY(mutex_);
 
   // Pointer to JNI class references
   const std::unique_ptr<const JniCache> jni_cache_;
@@ -533,8 +554,8 @@ class IcingSearchEngine {
       InitializeStatsProto* initialize_stats)
       ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  // Do any initialization/recovery necessary to create a DocumentStore
-  // instance.
+  // Do any initialization/recovery necessary to create term index, integer
+  // index, and qualified id join index instances.
   //
   // Returns:
   //   OK on success
@@ -545,6 +566,62 @@ class IcingSearchEngine {
   libtextclassifier3::Status InitializeIndex(
       InitializeStatsProto* initialize_stats)
       ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // Implementation of IcingSearchEngine::Search that only grabs the overall
+  // read-lock, allowing for parallel non-exclusive operations.
+  // This implementation is used if search_spec.use_read_only_search is true.
+  SearchResultProto SearchLockedShared(const SearchSpecProto& search_spec,
+                                   const ScoringSpecProto& scoring_spec,
+                                   const ResultSpecProto& result_spec)
+      ICING_LOCKS_EXCLUDED(mutex_);
+
+  // Implementation of IcingSearchEngine::Search that requires the overall
+  // write lock. No other operations of any kind can be executed in parallel if
+  // this version is used.
+  // This implementation is used if search_spec.use_read_only_search is false.
+  SearchResultProto SearchLockedExclusive(const SearchSpecProto& search_spec,
+                                 const ScoringSpecProto& scoring_spec,
+                                 const ResultSpecProto& result_spec)
+      ICING_LOCKS_EXCLUDED(mutex_);
+
+  // Helper method for the actual work to Search. We need this separate
+  // method to manage locking for Search.
+  SearchResultProto InternalSearch(const SearchSpecProto& search_spec,
+                                   const ScoringSpecProto& scoring_spec,
+                                   const ResultSpecProto& result_spec)
+      ICING_SHARED_LOCKS_REQUIRED(mutex_);
+
+  // Processes query and scores according to the specs. It is a helper function
+  // (called by Search) to process and score normal query and the nested child
+  // query for join search.
+  //
+  // Returns a QueryScoringResults
+  //   OK on success with a vector of ScoredDocumentHits,
+  //      SectionRestrictQueryTermsMap, and other stats fields for logging.
+  //   Any other errors when processing the query or scoring
+  struct QueryScoringResults {
+    libtextclassifier3::Status status;
+    SectionRestrictQueryTermsMap query_terms;
+    std::vector<ScoredDocumentHit> scored_document_hits;
+    int64_t parse_query_latency_ms;
+    int64_t scoring_latency_ms;
+
+    explicit QueryScoringResults(
+        libtextclassifier3::Status status_in,
+        SectionRestrictQueryTermsMap&& query_terms_in,
+        std::vector<ScoredDocumentHit>&& scored_document_hits_in,
+        int64_t parse_query_latency_ms_in, int64_t scoring_latency_ms_in)
+        : status(std::move(status_in)),
+          query_terms(std::move(query_terms_in)),
+          scored_document_hits(std::move(scored_document_hits_in)),
+          parse_query_latency_ms(parse_query_latency_ms_in),
+          scoring_latency_ms(scoring_latency_ms_in) {}
+  };
+  QueryScoringResults ProcessQueryAndScore(
+      const SearchSpecProto& search_spec, const ScoringSpecProto& scoring_spec,
+      const ResultSpecProto& result_spec,
+      const JoinChildrenFetcher* join_children_fetcher, int64_t current_time_ms)
+      ICING_SHARED_LOCKS_REQUIRED(mutex_);
 
   // Many of the internal components rely on other components' derived data.
   // Check that everything is consistent with each other so that we're not
@@ -559,6 +636,15 @@ class IcingSearchEngine {
   //   NOT_FOUND if missing header file
   //   INTERNAL_ERROR on any IO errors or if header is inconsistent
   libtextclassifier3::Status CheckConsistency()
+      ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // Discards all derived data.
+  //
+  // Returns:
+  //   OK on success
+  //   FAILED_PRECONDITION_ERROR if those instances are valid (non nullptr)
+  //   INTERNAL_ERROR on any I/O errors
+  libtextclassifier3::Status DiscardDerivedFiles()
       ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Repopulates derived data off our ground truths.
@@ -578,20 +664,23 @@ class IcingSearchEngine {
   // would need call Initialize() to reinitialize everything into a valid state.
   //
   // Returns:
-  //   OK on success
+  //   On success, a vector that maps from old document id to new document id. A
+  //   value of kInvalidDocumentId indicates that the old document id has been
+  //   deleted.
   //   ABORTED_ERROR if any error happens before the actual optimization, the
   //                 original document store should be still available
   //   DATA_LOSS_ERROR on errors that could potentially cause data loss,
   //                   document store is still available
   //   INTERNAL_ERROR on any IO errors or other errors that we can't recover
   //                  from
-  libtextclassifier3::Status OptimizeDocumentStore(
+  libtextclassifier3::StatusOr<std::vector<DocumentId>> OptimizeDocumentStore(
       OptimizeStatsProto* optimize_stats)
       ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  // Helper method to restore missing document data in index_. All documents
-  // will be reindexed. This does not clear the index, so it is recommended to
-  // call Index::Reset first.
+  // Helper method to restore missing document data in index_, integer_index_,
+  // and qualified_id_join_index_. All documents will be reindexed. This does
+  // not clear the index, so it is recommended to call ClearAllIndices,
+  // ClearSearchIndices, or ClearJoinIndices first if needed.
   //
   // Returns:
   //   On success, OK and a bool indicating whether or not restoration was
@@ -604,7 +693,9 @@ class IcingSearchEngine {
   //   INTERNAL_ERROR on any IO errors
   struct IndexRestorationResult {
     libtextclassifier3::Status status;
-    bool needed_restoration;
+    bool index_needed_restoration;
+    bool integer_index_needed_restoration;
+    bool qualified_id_join_index_needed_restoration;
   };
   IndexRestorationResult RestoreIndexIfNeeded()
       ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -619,6 +710,70 @@ class IcingSearchEngine {
   //   bool indicating if we had a schema and unintentionally lost it
   //   INTERNAL_ERROR on I/O error
   libtextclassifier3::StatusOr<bool> LostPreviousSchema()
+      ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // Helper method to create all types of data indexing handlers to index term,
+  // integer, and join qualified ids.
+  libtextclassifier3::StatusOr<
+      std::vector<std::unique_ptr<DataIndexingHandler>>>
+  CreateDataIndexingHandlers() ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // Helper method to discard parts of (term, integer, qualified id join)
+  // indices if they contain data for document ids greater than
+  // last_stored_document_id.
+  //
+  // REQUIRES: last_stored_document_id is valid (!= kInvalidDocumentId). Note:
+  //   if we want to truncate everything in the index, then please call
+  //   ClearSearchIndices/ClearJoinIndices/ClearAllIndices instead.
+  //
+  // Returns:
+  //   On success, a DocumentId indicating the first document to start for
+  //     reindexing and 2 bool flags indicating whether term or integer index
+  //     needs restoration.
+  //   INTERNAL on any I/O errors
+  struct TruncateIndexResult {
+    DocumentId first_document_to_reindex;
+    bool index_needed_restoration;
+    bool integer_index_needed_restoration;
+    bool qualified_id_join_index_needed_restoration;
+
+    explicit TruncateIndexResult(
+        DocumentId first_document_to_reindex_in,
+        bool index_needed_restoration_in,
+        bool integer_index_needed_restoration_in,
+        bool qualified_id_join_index_needed_restoration_in)
+        : first_document_to_reindex(first_document_to_reindex_in),
+          index_needed_restoration(index_needed_restoration_in),
+          integer_index_needed_restoration(integer_index_needed_restoration_in),
+          qualified_id_join_index_needed_restoration(
+              qualified_id_join_index_needed_restoration_in) {}
+  };
+  libtextclassifier3::StatusOr<TruncateIndexResult> TruncateIndicesTo(
+      DocumentId last_stored_document_id)
+      ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // Helper method to discard search (term, integer) indices.
+  //
+  // Returns:
+  //   OK on success
+  //   INTERNAL_ERROR on any I/O errors
+  libtextclassifier3::Status ClearSearchIndices()
+      ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // Helper method to discard join (qualified id) indices.
+  //
+  // Returns:
+  //   OK on success
+  //   INTERNAL_ERROR on any I/O errors
+  libtextclassifier3::Status ClearJoinIndices()
+      ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // Helper method to discard all search and join indices.
+  //
+  // Returns:
+  //   OK on success
+  //   INTERNAL_ERROR on any I/O errors
+  libtextclassifier3::Status ClearAllIndices()
       ICING_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 };
 

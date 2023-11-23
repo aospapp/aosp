@@ -1,3 +1,133 @@
+# 0.8.6
+
+## Added
+
+* `Interest::PRIORITY` on Linux and Android, to trigger `Event::is_priority`
+  (https://github.com/tokio-rs/mio/pull/1647).
+
+## Changed
+
+* Updated windows-sys to 0.45
+  (https://github.com/tokio-rs/mio/pull/1644).
+* We started testing with sanitizers on the CI
+  (https://github.com/tokio-rs/mio/pull/1648).
+
+## Fixed
+
+* A number of potential fd leaks when setup resulted in an error right after
+  creation (https://github.com/tokio-rs/mio/pull/1636).
+* Less truncating for timeout values in `Poll::poll`
+  (https://github.com/tokio-rs/mio/pull/1642).
+
+# 0.8.5
+
+## Changed
+
+* Updated `windows-sys` to 0.42.0
+  (https://github.com/tokio-rs/mio/pull/1624).
+* Officially document Wine as not supported, some people claimed it worked,
+  other claims it doesn't, but nobody stepped up to fix the problem
+  (https://github.com/tokio-rs/mio/pull/1596).
+* Switch to GitHub Actions
+  (https://github.com/tokio-rs/mio/pull/1598, https://github.com/tokio-rs/mio/pull/1601).
+* Documented the current Poll::poll time behaviour
+  (https://github.com/tokio-rs/mio/pull/1603).
+
+## Fixed
+
+* Timeout less than one millisecond becoming zero millsiconds
+  (https://github.com/tokio-rs/mio/pull/1615, https://github.com/tokio-rs/mio/pull/1616)
+* Undefined reference to `epoll\_create1` on Android API level < 21.
+  (https://github.com/tokio-rs/mio/pull/1590).
+
+# 0.8.4
+
+## Added
+
+* Support `Registery::try_clone` on `wasm32-wasi`
+  (https://github.com/tokio-rs/mio/pull/1576).
+* Add docs about polling without registering event sources
+  (https://github.com/tokio-rs/mio/pull/1585).
+
+# 0.8.3
+
+## Changed
+
+* Replace `winapi` dependency with `windows-sys`.
+  (https://github.com/tokio-rs/mio/pull/1556).
+* Future proofed the kevent ABI for FreeBSD
+  (https://github.com/tokio-rs/mio/pull/1572).
+
+## Fixed
+
+* Improved support for Redox, making it possible to run on stable Rust
+  (https://github.com/tokio-rs/mio/pull/1555).
+* Don't ignore EAGAIN in UDS connect call
+  (https://github.com/tokio-rs/mio/pull/1564).
+* Documentation of `TcpStream::connect`
+  (https://github.com/tokio-rs/mio/pull/1565).
+
+# 0.8.2
+
+## Added
+
+* Experimental support for Redox.
+
+# 0.8.1
+
+## Added
+
+* Add `try_io` method to all I/O types (#1551). This execute a user defined I/O
+  closure while updating Mio's internal state ensuring that the I/O type
+  receives more events if it hits a WouldBlock error. This is added to the
+  following types:
+   * `TcpStream`
+   * `UdpSocket`
+   * `UnixDatagram`
+   * `UnixStream`
+   * `unix::pipe::Sender`
+   * `unix::pipe::Receiver`
+* Basic, experimental support for `wasm32-wasi` target (#1549). Note that a lot
+  of time type are still missing, e.g. the `Waker`, and may never be possible to
+  implement.
+
+# 0.8.0
+
+## Removed
+
+* Deprecated features (https://github.com/tokio-rs/mio/commit/105f8f2afb57b01ddea716a0aa9720f226c520e3):
+  * extra-docs (always enabled)
+  * tcp (replaced with "net" feature).
+  * udp (replaced with "net" feature).
+  * uds (replaced with "net" feature).
+  * pipe (replaced with "os-ext" feature).
+  * os-util (replaced with "os-ext" feature).
+* `TcpSocket` type
+  (https://github.com/tokio-rs/mio/commit/02e9be41f27daf822575444fdd2b3067433a5996).
+  The socket2 crate provides all the functionality and more.
+* Support for Solaris, it never really worked anyway
+  (https://github.com/tokio-rs/mio/pull/1528).
+
+## Changes
+
+* Update minimum Rustc version (MSVR) to 1.46.0
+  (https://github.com/tokio-rs/mio/commit/5c577efecd23750a9a3e0f6ad080ab98f14a255d).
+
+## Added
+
+* `UdpSocket::peer_addr`
+  (https://github.com/tokio-rs/mio/commit/5fc104d08e0e74c8a19247f7cba0f058699fc438).
+
+# 0.7.14
+
+## Fixes
+
+* Remove use unsound internal macro (#1519).
+
+## Added
+
+* `sys::unix::SocketAddr::as_abstract_namespace()` (#1520).
+
 # 0.7.13
 
 ## Fixes
@@ -26,6 +156,8 @@
 
 * Fix an instance of not doc(cfg(.*))
   (https://github.com/tokio-rs/mio/commit/25e8f911357c740034f10a170dfa4ea1b28234ce).
+
+# 0.7.9
 
 ## Fixes
 
@@ -60,7 +192,6 @@
   that is on the reference to them, an implementation existed on the types
   themselves already
   (https://github.com/tokio-rs/mio/commit/1be481dcbbcb6906364008b5d61e7f53cddc3eb3).
-
 
 ## Fixes
 

@@ -17,17 +17,15 @@
 #ifndef SRC_PROFILING_PERF_PERF_PRODUCER_H_
 #define SRC_PROFILING_PERF_PERF_PRODUCER_H_
 
-#include <deque>
-#include <map>
-#include <queue>
-
 #include <unistd.h>
+#include <map>
+#include <memory>
+#include <optional>
 
 #include <unwindstack/Error.h>
 #include <unwindstack/Regs.h>
 
 #include "perfetto/base/task_runner.h"
-#include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/scoped_file.h"
 #include "perfetto/ext/base/unix_socket.h"
 #include "perfetto/ext/base/weak_ptr.h"
@@ -97,6 +95,19 @@ class PerfProducer : public Producer,
                                      ParsedSample sample) override;
   void PostFinishDataSourceStop(DataSourceInstanceID ds_id) override;
 
+  // Calls `cb` when all data sources have been registered.
+  void SetAllDataSourcesRegisteredCb(std::function<void()> cb) {
+    all_data_sources_registered_cb_ = cb;
+  }
+
+  // public for testing:
+  static bool ShouldRejectDueToFilter(
+      pid_t pid,
+      const TargetFilter& filter,
+      bool skip_cmdline,
+      base::FlatSet<std::string>* additional_cmdlines,
+      std::function<bool(std::string*)> read_proc_pid_cmdline);
+
  private:
   // State of the producer's connection to tracing service (traced).
   enum State {
@@ -106,31 +117,43 @@ class PerfProducer : public Producer,
     kConnected,
   };
 
-  // Represents the data source scoped view of a process. Specifically:
+  // Represents the data source scoped view of a process:
   // * whether the process is in scope of the tracing session (if the latter
-  //   specifies a target filter).
-  // * the state of the (possibly asynchronous) lookup of /proc/<pid>/{maps,mem}
-  //   file descriptors, which are necessary for callstack unwinding of samples.
+  //   specifies a callstack sampling target filter).
+  // * for userspace processes, the state of the (possibly asynchronous) lookup
+  //   of /proc/<pid>/{maps,mem} file descriptors, which are necessary for
+  //   callstack unwinding of samples.
+  // For kernel threads (or when sampling only kernelspace callstacks) the
+  // proc-fds are not necessary, so those processes transition directly to
+  // either kAccepted or kRejected.
+  // TODO(rsavitski): double-check and clarify pid reuse semantics. For
+  // userspace sampling, at most one incarnation of the pid is handled since we
+  // do not obtain new proc descriptors. But counter-only and kernel-only cases
+  // aren't as stateful and will keep emitting samples.
   enum class ProcessTrackingStatus {
-    kInitial,
-    kResolving,  // waiting on proc-fd lookup
-    kResolved,   // proc-fds obtained, and process considered relevant
-    kExpired,    // proc-fd lookup timed out
-    kRejected    // process not considered relevant for the data source
+    kInitial = 0,
+    kFdsResolving,  // waiting on proc-fd lookup
+    kAccepted,      // process relevant and ready for unwinding (for userspace -
+                    // procfds received)
+    kFdsTimedOut,   // proc-fd lookup timed out
+    kRejected       // process not considered relevant for the data source
   };
 
   struct DataSourceState {
     enum class Status { kActive, kShuttingDown };
 
     DataSourceState(EventConfig _event_config,
+                    uint64_t _tracing_session_id,
                     std::unique_ptr<TraceWriter> _trace_writer,
                     std::vector<EventReader> _per_cpu_readers)
         : event_config(std::move(_event_config)),
+          tracing_session_id(_tracing_session_id),
           trace_writer(std::move(_trace_writer)),
           per_cpu_readers(std::move(_per_cpu_readers)) {}
 
     Status status = Status::kActive;
     const EventConfig event_config;
+    uint64_t tracing_session_id;
     std::unique_ptr<TraceWriter> trace_writer;
     // Indexed by cpu, vector never resized.
     std::vector<EventReader> per_cpu_readers;
@@ -141,9 +164,8 @@ class PerfProducer : public Producer,
     // in the |Unwinder|, which needs to track whether the necessary unwinding
     // inputs for a given process' samples are ready.
     std::map<pid_t, ProcessTrackingStatus> process_states;
-
-    // Command lines we have decided to unwind, up to a total of
-    // additional_cmdline_count values.
+    // Additional state for EventConfig.TargetFilter: command lines we have
+    // decided to unwind, up to a total of additional_cmdline_count values.
     base::FlatSet<std::string> additional_cmdlines;
   };
 
@@ -215,6 +237,12 @@ class PerfProducer : public Producer,
   void CheckMemoryFootprintPeriodic(DataSourceInstanceID ds_id,
                                     uint32_t max_daemon_memory_kb);
 
+  // Chooses a random parameter for a callstack sampling option. Done at this
+  // level as the choice is shared by all data sources within a tracing session.
+  std::optional<ProcessSharding> GetOrChooseCallstackProcessShard(
+      uint64_t tracing_session_id,
+      uint32_t shard_count);
+
   void StartMetatraceSource(DataSourceInstanceID ds_id, BufferID target_buffer);
 
   // Task runner owned by the main thread.
@@ -252,6 +280,8 @@ class PerfProducer : public Producer,
   // Used for tracepoint name -> id lookups. Initialized lazily, and in general
   // best effort - can be null if tracefs isn't accessible.
   std::unique_ptr<FtraceProcfs> tracefs_;
+
+  std::function<void()> all_data_sources_registered_cb_;
 
   base::WeakPtrFactory<PerfProducer> weak_factory_;  // keep last
 };

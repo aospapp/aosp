@@ -28,7 +28,8 @@ class dummy_Fail(test.test):
         if retry_count == retry_success_count:
             return
         if to_throw:
-            if to_throw == 'TestFail': logging.error('It is an error!')
+            if to_throw == 'TestFail':
+                logging.error('It is an error!')
             raise getattr(error, to_throw)('always fail')
         else:  # Generate a crash to test that behavior.
             self.write_perf_keyval({'perf_key': 102.7})

@@ -74,6 +74,10 @@ sub tag_url {
 		return eval("main::$key") . $value;
 	}
 
+	if ('known-fail') {
+		return '';
+	}
+
 	die("unknown constant '$key' for tag $tag, define it!");
 }
 
@@ -96,8 +100,8 @@ sub html_a
 {
 	my ($url, $text) = @_;
 
-	# escape ]
-	$text =~ s/([]])/\\$1/g;
+	# escape: ] |
+	$text =~ s/([]|])/\\$1/g;
 
 	return "$url\[$text\]";
 }
@@ -164,9 +168,9 @@ sub content_about
 	my $json = shift;
 	my $content;
 
-	$content .= print_defined("URL", $json->{'url'});
-	$content .= print_defined("Version", $json->{'version'});
-	$content .= print_defined("Default timeout", $json->{'timeout'}, "seconds");
+	$content .= print_defined("URL", $json->{'testsuite'}->{'url'});
+	$content .= print_defined("Version", $json->{'testsuite'}->{'version'});
+	$content .= print_defined("Default timeout", $json->{'defaults'}->{'timeout'}, "seconds");
 
 	return $content;
 }
@@ -360,10 +364,10 @@ sub content_all_tests
 		$content .= h3($name);
 		$content .= $letters;
 
-		if (defined($json->{'scm_url_base'}) &&
+		if (defined($json->{'testsuite'}->{'scm_url_base'}) &&
 			defined($json->{'tests'}{$name}{fname})) {
 			$content .= paragraph(html_a(tag_url("fname", $json->{'tests'}{$name}{fname},
-					$json->{'scm_url_base'}), "source"));
+					$json->{'testsuite'}->{'scm_url_base'}), "source"));
 		}
 
 		if (defined $json->{'tests'}{$name}{doc}) {
@@ -386,7 +390,7 @@ sub content_all_tests
 				$content .= paragraph("Test timeout is $json->{'tests'}{$name}{timeout} seconds");
 			}
 		} else {
-			$content .= paragraph("Test timeout defaults to $json->{'timeout'} seconds");
+			$content .= paragraph("Test timeout defaults to $json->{'defaults'}->{'timeout'} seconds");
 		}
 
 		my $tmp2 = undef;
@@ -428,10 +432,11 @@ sub content_all_tests
 
 		for my $tag (@sorted_tags) {
 			if (!defined($tmp2)) {
-				$content .= table . "|Tags|Info\n"
+				$content .= table . "|Tag|Info\n"
 			}
 			my $k = @$tag[0];
 			my $v = @$tag[1];
+			my $url;
 
 			if (defined($$git_url{$k})) {
 				$commits{$k} = () unless (defined($commits{$k}));
@@ -443,7 +448,17 @@ sub content_all_tests
 				$v .= ' ("' . $commits{$k}{$v} . '")';
 			}
 
-			$v = html_a(tag_url($k, @$tag[1]), $v);
+			$url = tag_url($k, @$tag[1]);
+			if ($url) {
+				$v = html_a($url, $v);
+			}
+
+			# tag value value can be split into more lines if too long
+			# i.e. URL in known-fail
+			for (@$tag[2 .. $#$tag]) {
+				$v .= " $_";
+			}
+
 			$content .= "\n|" . reference($k) . "\n|$v\n";
 			$tmp2 = 1;
 		}
@@ -463,7 +478,7 @@ my $json = decode_json(load_json($ARGV[0]));
 my $config = [
     {
 		file => "about.txt",
-		title => h2("About $json->{'testsuite'}"),
+		title => h2("About $json->{'testsuite'}->{'name'}"),
 		content => \&content_about,
     },
     {
@@ -495,7 +510,7 @@ EOL
 	for my $c (@{$config}) {
 		$content .= "include::$c->{'file'}\[\]\n";
 	}
-	print_asciidoc_page($fh, $json, h1($json->{'testsuite_short'} . " test catalog"), $content);
+	print_asciidoc_page($fh, $json, h1($json->{'testsuite'}->{'short_name'} . " test catalog"), $content);
 }
 
 for my $c (@{$config}) {

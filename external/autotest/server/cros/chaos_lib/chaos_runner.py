@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -22,8 +23,10 @@ from autotest_lib.server.cros.ap_configurators \
 from autotest_lib.server.cros.network import chaos_clique_utils as utils
 from autotest_lib.server.cros.network import wifi_client
 
-# Webdriver master hostname
-MASTERNAME = 'chromeos3-chaosvmmaster.cros.corp.google.com'
+# Webdriver main hostname
+# TODO b:169251326 terms below are set outside of this codebase and should
+# be updated when possible ("master" -> "main"). # nocheck
+MAINNAME = 'chromeos3-chaosvmmaster.cros.corp.google.com'  # nocheck
 WEBDRIVER_PORT = 9515
 
 
@@ -69,7 +72,10 @@ class ChaosRunner(object):
         """
 
         lock_manager = host_lock_manager.HostLockManager()
-        webdriver_master = hosts.SSHHost(MASTERNAME, user='chaosvmmaster')
+        # TODO b:169251326 terms below are set outside of this codebase and
+        # should be updated when possible ("master" -> "main"). # nocheck
+        webdriver_main = hosts.SSHHost(MAINNAME,
+                                       user='chaosvmmaster')  # nocheck
         host_prefix = self._host.hostname.split('-')[0]
         with host_lock_manager.HostsLockedBy(lock_manager):
             capture_host = utils.allocate_packet_capturer(
@@ -114,15 +120,15 @@ class ChaosRunner(object):
             # Lock VM. If on, power off; always power on. Then create a tunnel.
             webdriver_instance = utils.allocate_webdriver_instance(lock_manager)
 
-            if utils.is_VM_running(webdriver_master, webdriver_instance):
+            if utils.is_VM_running(webdriver_main, webdriver_instance):
                 logging.info('VM %s was on; powering off for a clean instance',
                              webdriver_instance)
-                utils.power_off_VM(webdriver_master, webdriver_instance)
+                utils.power_off_VM(webdriver_main, webdriver_instance)
                 logging.info('Allow VM time to gracefully shut down')
                 time.sleep(5)
 
             logging.info('Starting up VM %s', webdriver_instance)
-            utils.power_on_VM(webdriver_master, webdriver_instance)
+            utils.power_on_VM(webdriver_main, webdriver_instance)
             logging.info('Allow VM time to power on before creating a tunnel.')
             time.sleep(30)
 
@@ -211,10 +217,10 @@ class ChaosRunner(object):
                                            capture_host, {},'packet_capturer')
                             continue
                         if networks == list():
-                           # Packet capturer did not find the SSID in scan or
-                           # there was a security mismatch.
-                           utils.release_ap(ap, batch_locker, self._broken_pdus)
-                           continue
+                            # Packet capturer did not find the SSID in scan or
+                            # there was a security mismatch.
+                            utils.release_ap(ap, batch_locker, self._broken_pdus)
+                            continue
 
                         assoc_params = ap.get_association_parameters()
 
@@ -272,7 +278,7 @@ class ChaosRunner(object):
                 webdriver_instance.close()
             capturer.close()
             logging.info('Powering off VM %s', webdriver_instance)
-            utils.power_off_VM(webdriver_master, webdriver_instance)
+            utils.power_off_VM(webdriver_main, webdriver_instance)
             lock_manager.unlock(webdriver_instance.hostname)
 
             if self._broken_pdus:

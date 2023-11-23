@@ -133,14 +133,14 @@ void LiteralPool::Emit(EmitOption option) {
     masm_->SetAllowMacroInstructions(false);
 #endif
     if (option == kBranchRequired) {
-      ExactAssemblyScopeWithoutPoolsCheck guard(masm_, kInstructionSize);
+      ExactAssemblyScopeWithoutPoolsCheck eas_guard(masm_, kInstructionSize);
       masm_->b(&end_of_pool);
     }
 
     {
       // Marker indicating the size of the literal pool in 32-bit words.
       VIXL_ASSERT((pool_size % kWRegSizeInBytes) == 0);
-      ExactAssemblyScopeWithoutPoolsCheck guard(masm_, kInstructionSize);
+      ExactAssemblyScopeWithoutPoolsCheck eas_guard(masm_, kInstructionSize);
       masm_->ldr(xzr, static_cast<int>(pool_size / kWRegSizeInBytes));
     }
 
@@ -507,44 +507,6 @@ int MacroAssembler::MoveImmediateHelper(MacroAssembler* masm,
     }
     return instruction_count;
   }
-}
-
-
-bool MacroAssembler::OneInstrMoveImmediateHelper(MacroAssembler* masm,
-                                                 const Register& dst,
-                                                 uint64_t imm) {
-  bool emit_code = masm != NULL;
-  unsigned n, imm_s, imm_r;
-  int reg_size = dst.GetSizeInBits();
-
-  if (IsImmMovz(imm, reg_size) && !dst.IsSP()) {
-    // Immediate can be represented in a move zero instruction. Movz can't write
-    // to the stack pointer.
-    if (emit_code) {
-      masm->movz(dst, imm);
-    }
-    return true;
-  } else if (IsImmMovn(imm, reg_size) && !dst.IsSP()) {
-    // Immediate can be represented in a move negative instruction. Movn can't
-    // write to the stack pointer.
-    if (emit_code) {
-      masm->movn(dst, dst.Is64Bits() ? ~imm : (~imm & kWRegMask));
-    }
-    return true;
-  } else if (IsImmLogical(imm, reg_size, &n, &imm_s, &imm_r)) {
-    // Immediate can be represented in a logical orr instruction.
-    VIXL_ASSERT(!dst.IsZero());
-    if (emit_code) {
-      masm->LogicalImmediate(dst,
-                             AppropriateZeroRegFor(dst),
-                             n,
-                             imm_s,
-                             imm_r,
-                             ORR);
-    }
-    return true;
-  }
-  return false;
 }
 
 
@@ -1135,11 +1097,15 @@ void MacroAssembler::Movi(const VRegister& vd,
 void MacroAssembler::Movi(const VRegister& vd, uint64_t hi, uint64_t lo) {
   // TODO: Move 128-bit values in a more efficient way.
   VIXL_ASSERT(vd.Is128Bits());
-  UseScratchRegisterScope temps(this);
   Movi(vd.V2D(), lo);
-  Register temp = temps.AcquireX();
-  Mov(temp, hi);
-  Ins(vd.V2D(), 1, temp);
+  if (hi != lo) {
+    UseScratchRegisterScope temps(this);
+    // TODO: Figure out if using a temporary V register to materialise the
+    // immediate is better.
+    Register temp = temps.AcquireX();
+    Mov(temp, hi);
+    Ins(vd.V2D(), 1, temp);
+  }
 }
 
 
@@ -1946,6 +1912,9 @@ LS_MACRO_LIST(DEFINE_FUNCTION)
 void MacroAssembler::LoadStoreMacro(const CPURegister& rt,
                                     const MemOperand& addr,
                                     LoadStoreOp op) {
+  VIXL_ASSERT(addr.IsImmediateOffset() || addr.IsImmediatePostIndex() ||
+              addr.IsImmediatePreIndex() || addr.IsRegisterOffset());
+
   // Worst case is ldr/str pre/post index:
   //  * 1 instruction for ldr/str
   //  * up to 4 instructions to materialise the constant
@@ -1966,11 +1935,11 @@ void MacroAssembler::LoadStoreMacro(const CPURegister& rt,
     Register temp = temps.AcquireSameSizeAs(addr.GetBaseRegister());
     Mov(temp, addr.GetOffset());
     LoadStore(rt, MemOperand(addr.GetBaseRegister(), temp), op);
-  } else if (addr.IsPostIndex() && !IsImmLSUnscaled(offset)) {
+  } else if (addr.IsImmediatePostIndex() && !IsImmLSUnscaled(offset)) {
     // Post-index beyond unscaled addressing range.
     LoadStore(rt, MemOperand(addr.GetBaseRegister()), op);
     Add(addr.GetBaseRegister(), addr.GetBaseRegister(), Operand(offset));
-  } else if (addr.IsPreIndex() && !IsImmLSUnscaled(offset)) {
+  } else if (addr.IsImmediatePreIndex() && !IsImmLSUnscaled(offset)) {
     // Pre-index beyond unscaled addressing range.
     Add(addr.GetBaseRegister(), addr.GetBaseRegister(), Operand(offset));
     LoadStore(rt, MemOperand(addr.GetBaseRegister()), op);
@@ -2018,11 +1987,11 @@ void MacroAssembler::LoadStorePairMacro(const CPURegister& rt,
       Register temp = temps.AcquireSameSizeAs(base);
       Add(temp, base, offset);
       LoadStorePair(rt, rt2, MemOperand(temp), op);
-    } else if (addr.IsPostIndex()) {
+    } else if (addr.IsImmediatePostIndex()) {
       LoadStorePair(rt, rt2, MemOperand(base), op);
       Add(base, base, offset);
     } else {
-      VIXL_ASSERT(addr.IsPreIndex());
+      VIXL_ASSERT(addr.IsImmediatePreIndex());
       Add(base, base, offset);
       LoadStorePair(rt, rt2, MemOperand(base), op);
     }

@@ -47,7 +47,7 @@ public final class InstallApkTask extends Task {
         // We can't just give dex multiple jars with conflicting class names
 
         // With that in mind, the APK packaging strategy is as follows:
-        // 1. dx to create a dex
+        // 1. d8 to create a dex
         // 2. aapt the dex to create apk
         // 3. sign the apk
         // 4. install the apk

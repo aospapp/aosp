@@ -18,7 +18,12 @@
       "name": "TextClassifierNotificationTests"
     },
     {
-      "name": "TCSModelDownloaderIntegrationTest"
+      "name": "TCSModelDownloaderIntegrationTest",
+      "options": [
+        {
+          "exclude-annotation": "androidx.test.filters.FlakyTest"
+        }
+      ]
     }
   ],
   "hwasan-postsubmit": [

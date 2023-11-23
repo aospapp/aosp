@@ -79,7 +79,7 @@ std::string BaseAvbToolTest::CalcVBMetaDigest(const std::string& vbmeta_image,
   base::FilePath vbmeta_digest_path = testdir_.Append("vbmeta_digest");
   EXPECT_COMMAND(
       0,
-      "./avbtool calculate_vbmeta_digest --image %s --hash_algorithm %s"
+      "./avbtool.py calculate_vbmeta_digest --image %s --hash_algorithm %s"
       " --output %s",
       vbmeta_path.value().c_str(),
       digest_alg.c_str(),
@@ -104,7 +104,7 @@ void BaseAvbToolTest::GenerateVBMetaImage(
   }
   vbmeta_image_path_ = testdir_.Append(image_name);
   EXPECT_COMMAND(0,
-                 "./avbtool make_vbmeta_image"
+                 "./avbtool.py make_vbmeta_image"
                  " --rollback_index %" PRIu64
                  " %s %s "
                  " --output %s",
@@ -128,7 +128,7 @@ base::FilePath BaseAvbToolTest::GenerateImage(const std::string file_name,
                                               uint8_t start_byte) {
   base::FilePath image_path = testdir_.Append(file_name);
   EXPECT_COMMAND(0,
-                 "./avbtool generate_test_image "
+                 "./avbtool.py generate_test_image "
                  "--image_size %d "
                  "--start_byte %d "
                  "--output %s",
@@ -144,7 +144,7 @@ base::FilePath BaseAvbToolTest::GenerateImage(const std::string file_name,
 std::string BaseAvbToolTest::InfoImage(const base::FilePath& image_path) {
   base::FilePath tmp_path = testdir_.Append("info_output.txt");
   EXPECT_COMMAND(0,
-                 "./avbtool info_image --image %s --output %s",
+                 "./avbtool.py info_image --image %s --output %s",
                  image_path.value().c_str(),
                  tmp_path.value().c_str());
   std::string info_data;
@@ -155,7 +155,7 @@ std::string BaseAvbToolTest::InfoImage(const base::FilePath& image_path) {
 std::string BaseAvbToolTest::PublicKeyAVB(const base::FilePath& key_path) {
   base::FilePath tmp_path = testdir_.Append("public_key.bin");
   EXPECT_COMMAND(0,
-                 "./avbtool extract_public_key --key %s"
+                 "./avbtool.py extract_public_key --key %s"
                  " --output %s",
                  key_path.value().c_str(),
                  tmp_path.value().c_str());

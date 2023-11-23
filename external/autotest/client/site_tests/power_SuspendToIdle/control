@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_SuspendToIdle"
 PURPOSE = "Verify the suspend to idle is working."
 TIME = "SHORT"
@@ -10,13 +10,14 @@ TEST_CATEGORY = "Logging"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
 ATTRIBUTES = "suite:power_daily"
+PY_VERSION = 3
 
 DOC = """
 Test functionality of Suspend to Idle.
 
 Raise TestNAError if default config is not suspend to idle.
 
-This test uses the following sanity check to verify that S0ix is working.
+This test uses the following confidence check to verify that S0ix is working.
 1. DMC Firmware is loaded successfully.
 2. PCH IP blocks are powergating correctly.
 3. DMC firmware entry DC6 state in S0ix.

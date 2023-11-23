@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -74,7 +75,7 @@ class graphics_WebGLManyPlanetsDeep(graphics_utils.GraphicsTest):
     def calculate_perf_values(self):
         """Calculates all the perf values from the collected data."""
         arr = numpy.array([[v['frame_elapsed_time'], v['js_elapsed_time']]
-                           for v in self.frame_data.itervalues()])
+                           for v in list(self.frame_data.values())])
         std = arr.std(axis=0)
         mean = arr.mean(axis=0)
         avg_fps = 1000.0 / mean[0]
@@ -88,9 +89,9 @@ class graphics_WebGLManyPlanetsDeep(graphics_utils.GraphicsTest):
 
         # Remove entries that we don't care about.
         rapl_rate = {key: self.rapl_rate[key]
-                     for key in self.rapl_rate.keys() if key.endswith('pwr')}
+                     for key in list(self.rapl_rate.keys()) if key.endswith('pwr')}
         # Report to chromeperf/ dashboard.
-        for key, values in rapl_rate.iteritems():
+        for key, values in list(rapl_rate.items()):
             self.output_perf_value(
                 description=key,
                 value=values,

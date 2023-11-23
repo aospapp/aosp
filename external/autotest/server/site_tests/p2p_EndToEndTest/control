@@ -7,7 +7,6 @@ import uuid
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import hosts
-from autotest_lib.server.cros import queue_barrier
 
 AUTHOR = "chromeos-installer@google.com"
 NAME = "p2p_EndToEndTest"
@@ -15,44 +14,32 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-BUG_TEMPLATE = {
-    'cc': ['chromeos-installer-alerts@google.com'],
-    'components': ['Internals>Installer'],
-}
+ATTRIBUTES = "suite:au-p2p"
+JOB_RETRIES = 2
+PY_VERSION = 3
 
 DOC = """
 End-to-end test of the peer-to-peer (p2p) file sharing system.
 
-The test runs over a set of N machines generating a random file in one of
-them (called the "main") and sharing it with the rest of the machines. The
-success condition of this test occurs when all the N machines have the same
-generated file before a certain timeout.
+The test runs with a main DUT and a companion DUT. The main DUT generates a
+random file and shares it via p2p. The companion DUT searches for and
+downloads the file.
 
-To simulate a progressive download of the shared file in the main, the
+To simulate a progressive download of the shared file, the
 file becomes available in two parts. The first part of the file is available
 at the beginning of the test, while the second part appears later.
 """
 
 def run(machine):
-    dut = hosts.create_host(machine)
+    host = hosts.create_host(machine)
+    companions = hosts.create_companion_hosts(companion_hosts)
+
+    # The file ID shared among all test machines.
+    file_id = "%s-%s" % (time.strftime("%Y%m%d-%H%M"), uuid.uuid4())
 
     job.run_test('p2p_EndToEndTest',
-                 dut=dut,
+                 dut=host,
                  file_id=file_id,
-                 is_main=(machine == main),
-                 peers=machines,
-                 barrier=barrier)
-
-if len(machines) < 2:
-    raise error.TestError('At least two machines are needed for this test')
-
-# The file ID shared among all test machines.
-file_id = "%s-%s" % (time.strftime("%Y%m%d-%H%M"), uuid.uuid4())
-
-# Create the shared QueueBarrier to synchronize the processes.
-barrier = queue_barrier.QueueBarrier(len(machines)-1)
-
-# Pick any DUT as the main.
-main = machines[0]
+                 companions=companions)
 
 job.parallel_simple(run, machines)

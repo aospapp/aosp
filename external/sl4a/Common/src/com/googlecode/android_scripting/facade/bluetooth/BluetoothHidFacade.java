@@ -38,6 +38,7 @@ import com.googlecode.android_scripting.rpc.Rpc;
 import com.googlecode.android_scripting.rpc.RpcDefault;
 import com.googlecode.android_scripting.rpc.RpcParameter;
 
+import java.util.Arrays;
 import java.util.List;
 
 /*
@@ -122,9 +123,9 @@ public class BluetoothHidFacade extends RpcReceiver {
                 }
                 break;
                 case BluetoothHidHost.ACTION_REPORT: {
-                    char[] report = intent.getCharArrayExtra(
+                    byte[] report = intent.getByteArrayExtra(
                             BluetoothHidHost.EXTRA_REPORT);
-                    Log.d("Received report: " + String.valueOf(report));
+                    Log.d("Received report: " + Arrays.toString(report));
                 }
                 break;
                 case BluetoothHidHost.ACTION_VIRTUAL_UNPLUG_STATUS: {

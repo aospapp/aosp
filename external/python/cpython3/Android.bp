@@ -19,19 +19,6 @@ package {
     default_applicable_licenses: ["external_python_cpython3_license"],
 }
 
-// Added automatically by a large-scale-change that took the approach of
-// 'apply every license found to every target'. While this makes sure we respect
-// every license restriction, it may not be entirely correct.
-//
-// e.g. GPL in an MIT project might only apply to the contrib/ directory.
-//
-// Please consider splitting the single license below into multiple licenses,
-// taking care not to lose any license_kind information, and overriding the
-// default license using the 'licenses: [...]' property on targets as needed.
-//
-// For unused files, consider creating a 'fileGroup' with "//visibility:private"
-// to attach the license to, and including a comment whether the files may be
-// used in the current project.
 // See: http://go/android-license-faq
 license {
     name: "external_python_cpython3_license",
@@ -41,7 +28,6 @@ license {
         "SPDX-license-identifier-Apache-2.0",
         "SPDX-license-identifier-BSD",
         "SPDX-license-identifier-CC0-1.0",
-        "SPDX-license-identifier-GPL",
         "SPDX-license-identifier-MIT",
         "SPDX-license-identifier-MS-RL", // by exception only
         "SPDX-license-identifier-PSF-2.0",
@@ -51,6 +37,7 @@ license {
         "legacy_by_exception_only", // by exception only
         "legacy_notice",
         "legacy_unencumbered",
+        // GPL removed. All GPL code either Autoconf exception or dual-licensed PSF
     ],
     license_text: [
         "LICENSE",
@@ -59,8 +46,9 @@ license {
 
 build = [
     "Android-bionic.bp",
+    "Android-linux_arm64.bp",
     "Android-linux_x86_64.bp",
-    "Android-darwin_x86_64.bp",
+    "Android-darwin.bp",
 ]
 
 soong_config_module_type {
@@ -113,7 +101,6 @@ cpython3_cc_defaults {
         "-fwrapv",
         "-O3",
         "-Wall",
-        "-Wstrict-prototypes",
         "-DPy_BUILD_CORE",
         "-Werror",
         "-Wno-invalid-source-encoding",
@@ -156,8 +143,8 @@ cpython3_cc_defaults {
             stl: "libc++_static",
         },
         // Regenerate include dirs with android_regen.sh
-        darwin_x86_64: {
-            local_include_dirs: ["android/darwin_x86_64/pyconfig"],
+        darwin: {
+            local_include_dirs: ["android/darwin/pyconfig"],
             cflags: [
                 "-Wno-deprecated-declarations",
                 "-Wno-pointer-arith",
@@ -176,6 +163,9 @@ cpython3_cc_defaults {
         linux_musl_x86: {
             enabled: false,
         },
+        linux_musl_arm: {
+            enabled: false,
+        },
         linux_glibc_x86_64: {
             local_include_dirs: ["android/linux_x86_64/pyconfig"],
             cflags: ["-DSOABI=\"cpython-310android-x86_64-linux-gnu\""],
@@ -183,6 +173,10 @@ cpython3_cc_defaults {
         linux_musl_x86_64: {
             local_include_dirs: ["android/linux_x86_64/pyconfig"],
             cflags: ["-DSOABI=\"cpython-310android-x86_64-linux-gnu\""],
+        },
+        linux_musl_arm64: {
+            local_include_dirs: ["android/linux_arm64/pyconfig"],
+            cflags: ["-DSOABI=\"cpython-310android-arm64-linux-gnu\""],
         },
         windows: {
             enabled: false,
@@ -333,7 +327,7 @@ cc_library_static {
                 "-DABIFLAGS=\"\"",
             ],
         },
-        darwin_x86_64: {
+        darwin: {
             cflags: [
                 "-DPLATFORM=\"darwin\"",
                 "-DABIFLAGS=\"\"",
@@ -436,8 +430,11 @@ cc_library_static {
         musl_x86_64: {
             srcs: ["android/linux_x86_64/config.c"],
         },
+        musl_arm64: {
+            srcs: ["android/linux_arm64/config.c"],
+        },
         darwin: {
-            srcs: ["android/darwin_x86_64/config.c"],
+            srcs: ["android/darwin/config.c"],
         },
     },
 }
@@ -502,7 +499,9 @@ cc_library_static {
     cflags: [
         "-DPy_BUILD_CORE_BUILTIN",
         "-DUSE_PYEXPAT_CAPI",
+        "-DSQLITE_OMIT_LOAD_EXTENSION",
     ],
+    shared_libs: ["libsqlite"],
     static_libs: [
         "libexpat",
         "libz",
@@ -528,9 +527,16 @@ cc_library_static {
                 "libopenssl_crypto",
             ],
         },
+        musl_arm64: {
+            srcs: [":py3-c-modules-linux_arm64"],
+            static_libs: [
+                "libopenssl_ssl",
+                "libopenssl_crypto",
+            ],
+        },
         darwin: {
             cflags: ["-D__APPLE_USE_RFC_3542"],
-            srcs: [":py3-c-modules-darwin_x86_64"],
+            srcs: [":py3-c-modules-darwin"],
             static_libs: [
                 "libopenssl_ssl",
                 "libopenssl_crypto",

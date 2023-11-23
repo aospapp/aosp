@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
 .\" *
 .\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 .\" * KIND, either express or implied.
+.\" *
+.\" * SPDX-License-Identifier: curl
 .\" *
 .\" **************************************************************************
 .\"
@@ -31,13 +33,13 @@ curl \- transfer a URL
 **curl** is a tool for transferring data from or to a server. It supports these
 protocols: DICT, FILE, FTP, FTPS, GOPHER, GOPHERS, HTTP, HTTPS, IMAP, IMAPS,
 LDAP, LDAPS, MQTT, POP3, POP3S, RTMP, RTMPS, RTSP, SCP, SFTP, SMB, SMBS, SMTP,
-SMTPS, TELNET or TFTP. The command is designed to work without user
+SMTPS, TELNET, TFTP, WS and WSS. The command is designed to work without user
 interaction.
 
 curl offers a busload of useful tricks like proxy support, user
 authentication, FTP upload, HTTP post, SSL connections, cookies, file transfer
 resume and more. As you will see below, the number of features will make your
-head spin!
+head spin.
 
 curl is powered by libcurl for all transfer-related features. See
 *libcurl(3)* for details.
@@ -90,8 +92,8 @@ based on often-used host name prefixes. For example, for host names starting
 with "ftp." curl will assume you want to speak FTP.
 
 curl will do its best to use what you pass to it as a URL. It is not trying to
-validate it as a syntactically correct URL by any means but is instead
-**very** liberal with what it accepts.
+validate it as a syntactically correct URL by any means but is fairly liberal
+with what it accepts.
 
 curl will attempt to re-use connections for multiple file transfers, so that
 getting many files from the same server will not do multiple connects /
@@ -159,9 +161,9 @@ curl can do TFTP downloads and uploads.
 .SH "PROGRESS METER"
 curl normally displays a progress meter during operations, indicating the
 amount of transferred data, transfer speeds and estimated time left, etc. The
-progress meter displays number of bytes and the speeds are in bytes per
-second. The suffixes (k, M, G, T, P) are 1024 based. For example 1k is 1024
-bytes. 1M is 1048576 bytes.
+progress meter displays the transfer rate in bytes per second. The suffixes
+(k, M, G, T, P) are 1024 based. For example 1k is 1024 bytes. 1M is 1048576
+bytes.
 
 curl displays this data to the terminal by default, so if you invoke curl to
 do an operation and it is about to write data to the terminal, it
@@ -192,6 +194,14 @@ immediately next to each other, like for example you can specify all the
 options -O, -L and -v at once as -OLv.
 
 In general, all boolean options are enabled with --**option** and yet again
-disabled with --**no-**option. That is, you use the exact same option name
-but prefix it with "no-". However, in this list we mostly only list and show
-the --option version of them.
+disabled with --**no-**option. That is, you use the same option name but
+prefix it with "no-". However, in this list we mostly only list and show the
+--option version of them.
+
+When --next is used, it resets the parser state and you start again with a
+clean option state, except for the options that are "global". Global options
+will retain their values and meaning even after --next.
+
+The following options are global:
+%GLOBALS.
+

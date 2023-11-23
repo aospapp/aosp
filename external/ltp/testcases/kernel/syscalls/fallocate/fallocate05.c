@@ -26,8 +26,8 @@
 #include "lapi/fallocate.h"
 
 #define MNTPOINT "mntpoint"
-#define FALLOCATE_BLOCKS 16
-#define DEALLOCATE_BLOCKS 4
+#define FALLOCATE_BLOCKS 256
+#define DEALLOCATE_BLOCKS 64
 #define TESTED_FLAGS "fallocate(FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE)"
 
 static char *buf;
@@ -68,7 +68,7 @@ static void run(void)
 		tst_brk(TBROK | TTERRNO, "fallocate(fd, 0, 0, %ld)", bufsize);
 	}
 
-	tst_fill_fs(MNTPOINT, 1);
+	tst_fill_fs(MNTPOINT, 1, TST_FILL_RANDOM);
 
 	TEST(write(fd, buf, bufsize));
 
@@ -147,7 +147,6 @@ static void cleanup(void)
 static struct tst_test test = {
 	.needs_root = 1,
 	.mount_device = 1,
-	.dev_min_size = 512,
 	.mntpoint = MNTPOINT,
 	.all_filesystems = 1,
 	.setup = setup,

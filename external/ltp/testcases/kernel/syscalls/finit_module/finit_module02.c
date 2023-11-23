@@ -25,6 +25,7 @@
 static char *mod_path;
 
 static int fd, fd_zero, fd_invalid = -1, fd_dir;
+static int kernel_lockdown;
 
 static struct tst_cap cap_req = TST_CAP(TST_CAP_REQ, CAP_SYS_MODULE);
 static struct tst_cap cap_drop = TST_CAP(TST_CAP_DROP, CAP_SYS_MODULE);
@@ -37,6 +38,7 @@ struct tcase {
 	int flags;
 	int cap;
 	int exp_errno;
+	int skip_in_lockdown;
 	void (*fix_errno)(struct tcase *tc);
 };
 
@@ -48,14 +50,6 @@ static void bad_fd_setup(struct tcase *tc)
 		tc->exp_errno = EBADF;
 }
 
-static void wo_file_setup(struct tcase *tc)
-{
-	if (tst_kvercmp(4, 6, 0) < 0)
-		tc->exp_errno = EBADF;
-	else
-		tc->exp_errno = ETXTBSY;
-}
-
 static void dir_setup(struct tcase *tc)
 {
 	if (tst_kvercmp(4, 6, 0) < 0)
@@ -65,25 +59,31 @@ static void dir_setup(struct tcase *tc)
 }
 
 static struct tcase tcases[] = {
-	{"invalid-fd", &fd_invalid, "", O_RDONLY | O_CLOEXEC, 0, 0, 0, bad_fd_setup},
-	{"zero-fd", &fd_zero, "", O_RDONLY | O_CLOEXEC, 0, 0, EINVAL, NULL},
-	{"null-param", &fd, NULL, O_RDONLY | O_CLOEXEC, 0, 0, EFAULT, NULL},
-	{"invalid-param", &fd, "status=invalid", O_RDONLY | O_CLOEXEC, 0, 0, EINVAL, NULL},
-	{"invalid-flags", &fd, "", O_RDONLY | O_CLOEXEC, -1, 0, EINVAL, NULL},
-	{"no-perm", &fd, "", O_RDONLY | O_CLOEXEC, 0, 1, EPERM, NULL},
-	{"module-exists", &fd, "", O_RDONLY | O_CLOEXEC, 0, 0, EEXIST, NULL},
-	{"file-not-readable", &fd, "", O_WRONLY | O_CLOEXEC, 0, 0, 0, wo_file_setup},
-	{"directory", &fd_dir, "", O_RDONLY | O_CLOEXEC, 0, 0, 0, dir_setup},
+	{"invalid-fd", &fd_invalid, "", O_RDONLY | O_CLOEXEC, 0, 0, 0, 0,
+		bad_fd_setup},
+	{"zero-fd", &fd_zero, "", O_RDONLY | O_CLOEXEC, 0, 0, EINVAL, 0, NULL},
+	{"null-param", &fd, NULL, O_RDONLY | O_CLOEXEC, 0, 0, EFAULT, 1, NULL},
+	{"invalid-param", &fd, "status=invalid", O_RDONLY | O_CLOEXEC, 0, 0,
+		EINVAL, 1, NULL},
+	{"invalid-flags", &fd, "", O_RDONLY | O_CLOEXEC, -1, 0, EINVAL, 0,
+		NULL},
+	{"no-perm", &fd, "", O_RDONLY | O_CLOEXEC, 0, 1, EPERM, 0, NULL},
+	{"module-exists", &fd, "", O_RDONLY | O_CLOEXEC, 0, 0, EEXIST, 1,
+		NULL},
+	{"file-not-readable", &fd, "", O_WRONLY | O_CLOEXEC, 0, 0, EBADF, 0,
+		NULL},
+	{"file-readwrite", &fd, "", O_RDWR | O_CLOEXEC, 0, 0, ETXTBSY, 0,
+		NULL},
+	{"directory", &fd_dir, "", O_RDONLY | O_CLOEXEC, 0, 0, 0, 0, dir_setup},
 };
 
 static void setup(void)
 {
 	unsigned long int i;
 
-	finit_module_supported_by_kernel();
-
 	tst_module_exists(MODULE_NAME, &mod_path);
 
+	kernel_lockdown = tst_lockdown_enabled();
 	SAFE_MKDIR(TEST_DIR, 0700);
 	fd_dir = SAFE_OPEN(TEST_DIR, O_DIRECTORY);
 
@@ -101,6 +101,11 @@ static void cleanup(void)
 static void run(unsigned int n)
 {
 	struct tcase *tc = &tcases[n];
+
+	if (tc->skip_in_lockdown && kernel_lockdown) {
+		tst_res(TCONF, "Kernel is locked down, skipping %s", tc->name);
+		return;
+	}
 
 	fd = SAFE_OPEN(mod_path, tc->open_flags);
 
@@ -127,6 +132,11 @@ static void run(unsigned int n)
 }
 
 static struct tst_test test = {
+	.tags = (const struct tst_tag[]) {
+		{"linux-git", "032146cda855"},
+		{"linux-git", "39d637af5aa7"},
+		{}
+	},
 	.test = run,
 	.tcnt = ARRAY_SIZE(tcases),
 	.setup = setup,

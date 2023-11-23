@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,7 +7,7 @@
 
 import logging
 
-import common
+from . import common
 from autotest_lib.client.common_lib.cros.network import ap_constants
 from autotest_lib.server import site_utils
 from autotest_lib.server.cros import ap_config
@@ -53,8 +54,7 @@ class APConfiguratorFactory(object):
         if visible:
             return set(self.ap_list)
 
-        return set(filter(lambda ap: ap.is_visibility_supported(),
-                          self.ap_list))
+        return set([ap for ap in self.ap_list if ap.is_visibility_supported()])
 
 
     def _get_aps_by_mode(self, band, mode):

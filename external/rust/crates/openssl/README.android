@@ -1,0 +1,41 @@
+## Steps for updating this crate
+
+1.  In order to run cargo2android, for this crate, the BoringSSL rust bindings first needs to be
+    built. Copy `googletest` to `boringssl`, which is needed to build the rust bindings
+
+    ```
+    $ cp -r external/googletest/googletest external/boringssl/src/third_party/
+    ```
+2.  Build the rust bindings (More information at
+    https://boringssl.googlesource.com/boringssl/+/HEAD/BUILDING.md)
+
+    ```
+    $ cd external/boringssl
+    $ mkdir build && cd build
+    $ cmake .. -DRUST_BINDINGS=x86_64-unknown-linux-gnu
+    $ make
+    ```
+3.  Run `tools/external_updater/updater.sh update rust/crates/openssl`. Cargo errors causing the
+    command to fail are expected (since the boringSSL crate is outside of the `openssl` directory,
+    redshell is not able to access it).
+4.  The repository should now be in a `tmp_auto_upgrade` branch, and the Android.bp will contain
+    some error message.
+5.  Run cargo2android
+
+    ```
+    $ cargo2android.py --config ./cargo2android.json
+    ```
+6.  Clean up the changes in external/boringssl repository, and double check that the resulting
+    Android.bp builds correctly by running `m libopenssl`.
+7.  Commit the changes and upload the CL.
+8.  `external/rust/crates/openssl-macros` should also be updated at the same time.
+
+## Generating patch files
+
+If you make changes to this repo that is not in upstream `rust-openssl` yet, please generate a
+patch file to keep track of those changes.
+
+1. Commit your changes
+2. Create the patch file: `git diff -u HEAD~ > <XXXX-topic>.diff` where XXXX is the number to track
+   the order of the patches to apply.
+3. Amend the patch file into your CL `git add -A && git commit --amend`

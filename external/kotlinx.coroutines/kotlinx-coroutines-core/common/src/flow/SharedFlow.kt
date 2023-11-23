@@ -115,7 +115,7 @@ import kotlin.native.concurrent.*
  * ### Implementation notes
  *
  * Shared flow implementation uses a lock to ensure thread-safety, but suspending collector and emitter coroutines are
- * resumed outside of this lock to avoid dead-locks when using unconfined coroutines. Adding new subscribers
+ * resumed outside of this lock to avoid deadlocks when using unconfined coroutines. Adding new subscribers
  * has `O(1)` amortized cost, but emitting has `O(N)` cost, where `N` is the number of subscribers.
  *
  * ### Not stable for inheritance
@@ -129,6 +129,18 @@ public interface SharedFlow<out T> : Flow<T> {
      * A snapshot of the replay cache.
      */
     public val replayCache: List<T>
+
+    /**
+     * Accepts the given [collector] and [emits][FlowCollector.emit] values into it.
+     * To emit values from a shared flow into a specific collector, either `collector.emitAll(flow)` or `collect { ... }`
+     * SAM-conversion can be used.
+     *
+     * **A shared flow never completes**. A call to [Flow.collect] or any other terminal operator
+     * on a shared flow never completes normally.
+     *
+     * @see [Flow.collect] for implementation and inheritance details.
+     */
+    override suspend fun collect(collector: FlowCollector<T>): Nothing
 }
 
 /**
@@ -155,8 +167,15 @@ public interface SharedFlow<out T> : Flow<T> {
  */
 public interface MutableSharedFlow<T> : SharedFlow<T>, FlowCollector<T> {
     /**
-     * Emits a [value] to this shared flow, suspending on buffer overflow if the shared flow was created
-     * with the default [BufferOverflow.SUSPEND] strategy.
+     * Emits a [value] to this shared flow, suspending on buffer overflow.
+     *
+     * This call can suspend only when the [BufferOverflow] strategy is
+     * [SUSPEND][BufferOverflow.SUSPEND] **and** there are subscribers collecting this shared flow.
+     *
+     * If there are no subscribers, the buffer is not used.
+     * Instead, the most recently emitted value is simply stored into
+     * the replay cache if one was configured, displacing the older elements there,
+     * or dropped if no replay cache was configured.
      *
      * See [tryEmit] for a non-suspending variant of this function.
      *
@@ -167,12 +186,16 @@ public interface MutableSharedFlow<T> : SharedFlow<T>, FlowCollector<T> {
 
     /**
      * Tries to emit a [value] to this shared flow without suspending. It returns `true` if the value was
-     * emitted successfully. When this function returns `false`, it means that the call to a plain [emit]
-     * function will suspend until there is a buffer space available.
+     * emitted successfully (see below). When this function returns `false`, it means that a call to a plain [emit]
+     * function would suspend until there is buffer space available.
      *
-     * A shared flow configured with a [BufferOverflow] strategy other than [SUSPEND][BufferOverflow.SUSPEND]
-     * (either [DROP_OLDEST][BufferOverflow.DROP_OLDEST] or [DROP_LATEST][BufferOverflow.DROP_LATEST]) never
-     * suspends on [emit], and thus `tryEmit` to such a shared flow always returns `true`.
+     * This call can return `false` only when the [BufferOverflow] strategy is
+     * [SUSPEND][BufferOverflow.SUSPEND] **and** there are subscribers collecting this shared flow.
+     *
+     * If there are no subscribers, the buffer is not used.
+     * Instead, the most recently emitted value is simply stored into
+     * the replay cache if one was configured, displacing the older elements there,
+     * or dropped if no replay cache was configured. In any case, `tryEmit` returns `true`.
      *
      * This method is **thread-safe** and can be safely invoked from concurrent coroutines without
      * external synchronization.
@@ -198,6 +221,8 @@ public interface MutableSharedFlow<T> : SharedFlow<T>, FlowCollector<T> {
      *     }
      *     .launchIn(scope) // launch it
      * ```
+     *
+     * Implementation note: the resulting flow **does not** conflate subscription count.
      */
     public val subscriptionCount: StateFlow<Int>
 
@@ -253,7 +278,7 @@ public fun <T> MutableSharedFlow(
 
 // ------------------------------------ Implementation ------------------------------------
 
-private class SharedFlowSlot : AbstractSharedFlowSlot<SharedFlowImpl<*>>() {
+internal class SharedFlowSlot : AbstractSharedFlowSlot<SharedFlowImpl<*>>() {
     @JvmField
     var index = -1L // current "to-be-emitted" index, -1 means the slot is free now
 
@@ -275,7 +300,7 @@ private class SharedFlowSlot : AbstractSharedFlowSlot<SharedFlowImpl<*>>() {
     }
 }
 
-private class SharedFlowImpl<T>(
+internal open class SharedFlowImpl<T>(
     private val replay: Int,
     private val bufferCapacity: Int,
     private val onBufferOverflow: BufferOverflow
@@ -334,8 +359,15 @@ private class SharedFlowImpl<T>(
             result
         }
 
+    /*
+     * A tweak for SubscriptionCountStateFlow to get the latest value.
+     */
     @Suppress("UNCHECKED_CAST")
-    override suspend fun collect(collector: FlowCollector<T>) {
+    protected val lastReplayedLocked: T
+        get() = buffer!!.getBufferAt(replayIndex + replaySize - 1) as T
+
+    @Suppress("UNCHECKED_CAST")
+    override suspend fun collect(collector: FlowCollector<T>): Nothing {
         val slot = allocateSlot()
         try {
             if (collector is SubscribedFlowCollector) collector.onSubscription()

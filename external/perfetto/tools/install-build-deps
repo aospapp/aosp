@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import argparse
+import dataclasses as dc
 import hashlib
 import logging
 import os
@@ -22,10 +23,12 @@ import subprocess
 import stat
 import sys
 import tempfile
+import time
 import zipfile
 
 from collections import namedtuple
 from platform import system, machine
+
 
 # The format for the deps below is the following:
 # (target_folder, source_url, sha1, target_os, target_arch)
@@ -41,9 +44,15 @@ from platform import system, machine
 # in both cases the dep only applies on matching platforms
 # |target_arch| can be 'all' when 'target_os' is not 'all' for example in the
 # case of MacOS universal binaries.
-Dependency = namedtuple(
-    'Dependency',
-    ['target_folder', 'source_url', 'checksum', 'target_os', 'target_arch'])
+@dc.dataclass
+class Dependency:
+  target_folder: str
+  source_url: str
+  checksum: str
+  target_os: str
+  target_arch: str
+  submodules: bool = False
+
 
 # This is to remove old directories when build tools get {re,}moved. This is to
 # avoid accidentally referring to stale dir in custom user scripts.
@@ -52,6 +61,17 @@ CLEANUP_OLD_DIRS = [
     'buildtools/emsdk',  # Moved to buildtools/{mac,linux64}/emsdk
     'buildtools/test_data',  # Moved to test/data by r.android.com/1539381 .
     'buildtools/d8',  # Removed by r.android.com/1424334 .
+
+    # Build toools moved to third_party/ by r.android.com/2327602 .
+    'buildtools/mac/clang-format',
+    'buildtools/mac/gn',
+    'buildtools/mac/ninja',
+    'buildtools/linux64/clang-format',
+    'buildtools/linux64/gn',
+    'buildtools/linux64/ninja',
+    'buildtools/win/clang-format.exe',
+    'buildtools/win/gn.exe',
+    'buildtools/win/ninja.exe',
 ]
 
 # Dependencies required to build code on the host or when targeting desktop OS.
@@ -59,22 +79,22 @@ BUILD_DEPS_TOOLCHAIN_HOST = [
     # GN. From https://chrome-infra-packages.appspot.com/dl/gn/gn/.
     # git_revision:0725d7827575b239594fbc8fd5192873a1d62f44 .
     Dependency(
-        'buildtools/mac/gn',
+        'third_party/gn/gn',
         'https://storage.googleapis.com/perfetto/gn-mac-1968-0725d782',
         '9ced623a664560bba38bbadb9b91158ca4186358c847e17ab7d982b351373c2e',
         'darwin', 'x64'),
     Dependency(
-        'buildtools/mac/gn',
+        'third_party/gn/gn',
         'https://storage.googleapis.com/perfetto/gn-mac-arm64-1968-0725d782',
         'd22336b5210b4dad5e36e8c28ce81187f491822cf4d8fd0a257b30d6bee3fd3f',
         'darwin', 'arm64'),
     Dependency(
-        'buildtools/linux64/gn',
+        'third_party/gn/gn',
         'https://storage.googleapis.com/perfetto/gn-linux64-1968-0725d782',
         'f706aaa0676e3e22f5fc9ca482295d7caee8535d1869f99efa2358177b64f5cd',
         'linux', 'x64'),
     Dependency(
-        'buildtools/win/gn.exe',
+        'third_party/gn/gn.exe',
         'https://storage.googleapis.com/perfetto/gn-win-1968-0725d782',
         '001f777f023c7a6959c778fb3a6b6cfc63f6baef953410ecdeaec350fb12285b',
         'windows', 'x64'),
@@ -82,19 +102,19 @@ BUILD_DEPS_TOOLCHAIN_HOST = [
     # clang-format
     # From https://chromium.googlesource.com/chromium/src/buildtools/+/refs/heads/master/mac/clang-format.sha1
     Dependency(
-        'buildtools/mac/clang-format',
+        'third_party/clang-format/clang-format',
         'https://storage.googleapis.com/chromium-clang-format/62bde1baa7196ad9df969fc1f06b66360b1a927b',
         '6df686a937443cbe6efc013467a7ba5f98d3f187eb7765bb7abc6ce47626cf66',
         'darwin', 'all'),
     # From https://chromium.googlesource.com/chromium/src/buildtools/+/refs/heads/master/linux64/clang-format.sha1
     Dependency(
-        'buildtools/linux64/clang-format',
+        'third_party/clang-format/clang-format',
         'https://storage.googleapis.com/chromium-clang-format/1baf0089e895c989a311b6a38ed94d0e8be4c0a7',
         'd02a97a87e8c28898033aaf5986967b24dc47ebd5b376e1cd93e5009f22cd75e',
         'linux', 'x64'),
     # From https://chromium.googlesource.com/chromium/src/buildtools/+/refs/heads/master/win/clang-format.exe.sha1
     Dependency(
-        'buildtools/win/clang-format.exe',
+        'third_party/clang-format/clang-format.exe',
         'https://storage.googleapis.com/chromium-clang-format/d4afd4eba27022f5f6d518133aebde57281677c9',
         '2ba1b4d3ade90ea80316890b598ab5fc16777572be26afec6ce23117da121b80',
         'windows', 'x64'),
@@ -107,17 +127,17 @@ BUILD_DEPS_TOOLCHAIN_HOST = [
 
     # Ninja
     Dependency(
-        'buildtools/mac/ninja',
+        'third_party/ninja/ninja',
         'https://storage.googleapis.com/perfetto/ninja-mac-x64_and_arm64-182',
         '36e8b7aaa06911e1334feb664dd731a1cd69a15eb916a231a3d10ff65fca2c73',
         'darwin', 'all'),
     Dependency(
-        'buildtools/linux64/ninja',
+        'third_party/ninja/ninja',
         'https://storage.googleapis.com/perfetto/ninja-linux64-182',
         '54ac6a01362190aaabf4cf276f9c8982cdf11b225438940fdde3339be0f2ecdc',
         'linux', 'x64'),
     Dependency(
-        'buildtools/win/ninja.exe',
+        'third_party/ninja/ninja.exe',
         'https://storage.googleapis.com/perfetto/ninja-win-182',
         '09ced0fcd1a4dec7d1b798a2cf9ce5d20e5d2fbc2337343827f192ce47d0f491',
         'windows', 'x64'),
@@ -126,28 +146,28 @@ BUILD_DEPS_TOOLCHAIN_HOST = [
     # tools/clang/scripts/update.py.
     Dependency(
         'buildtools/linux64/clang.tgz',
-        'https://commondatastorage.googleapis.com/chromium-browser-clang/Linux_x64/clang-llvmorg-14-init-3191-g0e03450a-1.tgz',
-        'dd7479d43ce61401e057a5dee8b7e32bc2bd0d0e15d4f46c6858daf9170c9978',
+        'https://commondatastorage.googleapis.com/chromium-browser-clang/Linux_x64/clang-llvmorg-16-init-8697-g60809cd2-1.tgz',
+        '5ae35f85e0d32136795c6b223bf64263d46678dd4a24fea4e9039e58a32670de',
         'linux', 'x64'),
     Dependency(
         'buildtools/win/clang.tgz',
-        'https://commondatastorage.googleapis.com/chromium-browser-clang/Win/clang-llvmorg-14-init-3191-g0e03450a-1.tgz',
-        '4292d191742e7120200c63224f02e1f2f2a7be8b57c0f18edf6ca0955bdd43df',
+        'https://commondatastorage.googleapis.com/chromium-browser-clang/Win/clang-llvmorg-16-init-8697-g60809cd2-1.tgz',
+        '086faec822acba5b9c0308c6a8be34424031027d757efa2b81805aed18ffc521',
         'windows', 'x64'),
 ]
 
 BUILD_DEPS_HOST = [
-    # Keep in sync with Android's //external/googletest/README.version.
+    # Keep in sync with Android's //external/googletest/METADATA.
     Dependency(
         'buildtools/googletest',
         'https://android.googlesource.com/platform/external/googletest.git',
-        '3f05f651ae3621db58468153e32016bc1397800b', 'all', 'all'),
+        '609281088cfefc76f9d0ce82e1ff6c30cc3591e5', 'all', 'all'),
 
     # Keep in sync with Chromium's //third_party/protobuf.
     Dependency(
         'buildtools/protobuf',
-        'https://chromium.googlesource.com/external/github.com/google/protobuf.git',
-        '6a59a2ad1f61d9696092f79b6d74368b4d7970a3',  # refs/tags/v3.9.0
+        'https://chromium.googlesource.com/external/github.com/protocolbuffers/protobuf.git',
+        'fe271ab76f2ad2b2b28c10443865d2af21e27e0e',  # refs/tags/v3.20.3
         'all',
         'all'),
 
@@ -156,15 +176,15 @@ BUILD_DEPS_HOST = [
     Dependency(
         'buildtools/libcxx',
         'https://chromium.googlesource.com/external/github.com/llvm/llvm-project/libcxx.git',
-        'd9040c75cfea5928c804ab7c235fed06a63f743a', 'all', 'all'),
+        'f8571eaba606bde2eb8cd34b30104ca33e7c207e', 'all', 'all'),
     Dependency(
         'buildtools/libcxxabi',
         'https://chromium.googlesource.com/external/github.com/llvm/llvm-project/libcxxabi.git',
-        '196ba1aaa8ac285d94f4ea8d9836390a45360533', 'all', 'all'),
+        '8dd405113a4f3694e910b79785dd7fb7535a888a', 'all', 'all'),
     Dependency(
         'buildtools/libunwind',
         'https://chromium.googlesource.com/external/github.com/llvm/llvm-project/libunwind.git',
-        'd999d54f4bca789543a2eb6c995af2d9b5a1f3ed', 'all', 'all'),
+        'aabcd8753678f1536e15eb6385a948470debdae4', 'all', 'all'),
 
     # Keep in sync with chromium DEPS.
     Dependency(
@@ -176,7 +196,7 @@ BUILD_DEPS_HOST = [
     Dependency(
         'buildtools/benchmark',
         'https://chromium.googlesource.com/external/github.com/google/benchmark.git',
-        '090faecb454fbd6e6e17a75ef8146acb037118d4', 'all', 'all'),
+        'e991355c02b93fe17713efe04cbc2e278e00fdbd', 'all', 'all'),
 
     # Libbacktrace, for stacktraces in Linux/Android debug builds.
     # From https://github.com/ianlancetaylor/libbacktrace/archive/177940370e4a6b2509e92a0aaa9749184e64af43.zip
@@ -193,13 +213,13 @@ BUILD_DEPS_HOST = [
     # If updating the version, also update bazel/deps.bzl.
     Dependency(
         'buildtools/sqlite.zip',
-        'https://storage.googleapis.com/perfetto/sqlite-amalgamation-3350400.zip',
-        'f3bf0df69f5de0675196f4644e05d07dbc698d674dc563a12eff17d5b215cdf5',
+        'https://storage.googleapis.com/perfetto/sqlite-amalgamation-3390200.zip',
+        '87775784f8b22d0d0f1d7811870d39feaa7896319c7c20b849a4181c5a50609b',
         'all', 'all'),
     Dependency(
         'buildtools/sqlite_src',
         'https://chromium.googlesource.com/external/github.com/sqlite/sqlite.git',
-        'ee3686eb50c0e3dbb087c9a0976f7e37e1b014ae',  # refs/tags/version-3.32.3.
+        '202b2a7b54ea2dd13a8a5adfd75523abe4dcf17f',  # refs/tags/version-3.39.2.
         'all',
         'all'),
 
@@ -231,7 +251,7 @@ BUILD_DEPS_HOST = [
     Dependency(
         'buildtools/android-unwinding',
         'https://android.googlesource.com/platform/system/unwinding.git',
-        '215644709bd7bbda4c05a9db4d55e96be61bcf64', 'all', 'all'),
+        '11cf5564fbff659b5cdba9c3e977d4fc51bab4b3', 'all', 'all'),
     Dependency('buildtools/android-logging',
                'https://android.googlesource.com/platform/system/logging.git',
                '7b36b566c9113fc703d68f76e8f40c0c2432481c', 'all', 'all'),
@@ -247,14 +267,14 @@ BUILD_DEPS_HOST = [
                '7851dce6f4ca17f5caa1c93a4e0a45686b1d56c3', 'all', 'all'),
     Dependency('buildtools/bionic',
                'https://android.googlesource.com/platform/bionic.git',
-               '332065d57e734b65f56474d136d22d767e36cbcd', 'all', 'all'),
+               '4b0e16bc72a82a63c699977376a7d6eadca1b206', 'all', 'all'),
 
     # Zlib used both in the tracing binaries, as well as the trace processor and
     # assorted tools.
     # If updating the version, also update bazel/deps.bzl.
     Dependency('buildtools/zlib',
                'https://android.googlesource.com/platform/external/zlib.git',
-               '5c85a2da4c13eda07f69d81a1579a5afddd35f59', 'all', 'all'),
+               '6d3f6aa0f87c9791ca7724c279ef61384f331dfd', 'all', 'all'),
 
     # Linenoise, used only by trace_processor in standalone builds.
     # If updating the version, also update bazel/deps.bzl.
@@ -319,18 +339,23 @@ TEST_DEPS_ANDROID = [
 # This variable is updated by tools/roll-catapult-trace-viewer.
 CATAPULT_SHA256 = 'b30108e05268ce6c65bb4126b65f6bfac165d17f5c1fd285046e7e6fd76c209f'
 
-TYPEFACES_SHA256 = 'f5f78f8f4395db65cdf5fdc1bf51da65f2161e6d61a305091d6ea54d3094a1f0'
+TYPEFACES_SHA256 = '1065172aaf0e9c22bc4f206ed9fdf5f1b4355d233fb21f9f26a89cd66c941940'
 
 UI_DEPS = [
     Dependency(
         'buildtools/mac/nodejs.tgz',
-        'https://storage.googleapis.com/chromium-nodejs/14.15.4/17ba7216e09de1bffb9dc80b7ec617a1cee40330',
-        'b81a466347d2ae34b1370b6681ba173e9fb082338170a41624b37be7a2052b7e',
-        'darwin', 'all'),
+        'https://storage.googleapis.com/chromium-nodejs/16.13.0/31859fc1fa0994a95f44f09c367d6ff63607cfde',
+        'd9cf1f36b16e08ce52cfbdef427c6596eed2bd2f3608a79112d25b4ec8f75753',
+        'darwin', 'arm64'),
+    Dependency(
+        'buildtools/mac/nodejs.tgz',
+        'https://storage.googleapis.com/chromium-nodejs/16.13.0/16dfd094763b71988933a31735f9dea966f9abd6',
+        '065ced7e93f0e26276cb74d9688706674323865c4a8fc89e4adfa6868d4ebb4d',
+        'darwin', 'x64'),
     Dependency(
         'buildtools/linux64/nodejs.tgz',
-        'https://storage.googleapis.com/chromium-nodejs/14.15.4/b2e40ddbac04d05baafbb007f203c6663c9d4ca9',
-        '5aa88f1e2bf036950790277f3431634f64044ec78362f3e4f0dc8da28d61e9a4',
+        'https://storage.googleapis.com/chromium-nodejs/16.13.0/ab9544e24e752d3d17f335fb7b2055062e582d11',
+        '3b5ca150a55f3aadfa18f3a10a4495aaf9653614ba3e460647170fef5287ec4f',
         'linux', 'x64'),
     Dependency(
         'buildtools/mac/emsdk.tgz',
@@ -350,6 +375,14 @@ UI_DEPS = [
         'buildtools/typefaces.tgz',
         'https://storage.googleapis.com/perfetto/typefaces-%s.tar.gz' %
         TYPEFACES_SHA256, TYPEFACES_SHA256, 'all', 'all')
+]
+
+# Dependencies to build gRPC.
+GRPC_DEPS = [
+    Dependency(
+        'buildtools/grpc/src',
+        'https://chromium.googlesource.com/external/github.com/grpc/grpc.git',
+        '6943c1841f57cac4666b165aea4f618fe73b3ff1', 'all', 'all', True),
 ]
 
 # Sysroots required to cross-compile Linux targets (linux-arm{,64}).
@@ -378,8 +411,22 @@ NODE_MODULES_STATUS_FILE = os.path.join(UI_DIR, 'node_modules', '.last_install')
 TEST_DATA_SCRIPT = os.path.join(TOOLS_DIR, 'test_data')
 
 
+def CheckCallRetry(*args, **kwargs):
+  """ Like subprocess.check_call, with retries up to 5 times. """
+  MAX_ATTEMPTS = 5
+  for attempt in range(1, MAX_ATTEMPTS + 1):
+    try:
+      return subprocess.check_call(*args, **kwargs)
+    except subprocess.CalledProcessError as error:
+      if attempt == MAX_ATTEMPTS:
+        raise error
+      else:
+        logging.error(error)
+        time.sleep(attempt * 3)
+
+
 def DownloadURL(url, out_file):
-  subprocess.check_call(['curl', '-L', '-#', '-o', out_file, url])
+  CheckCallRetry(['curl', '-L', '-#', '-o', out_file, url])
 
 
 def GetArch():
@@ -437,16 +484,23 @@ def RmtreeIfExists(path):
 
   if not os.path.exists(path):
     return
+  third_party_path = os.path.abspath(os.path.join(ROOT_DIR, 'third_party'))
   buildtools_path = os.path.abspath(os.path.join(ROOT_DIR, 'buildtools'))
   test_path = os.path.abspath(os.path.join(ROOT_DIR, 'test', 'data'))
   if (not os.path.abspath(path).startswith(buildtools_path) and
-      not os.path.abspath(path).startswith(test_path)):
+      not os.path.abspath(path).startswith(test_path) and
+      not os.path.abspath(path).startswith(third_party_path)):
     # Safety check to prevent that some merge confilct ends up doing some
     # rm -rf / or similar.
-    logging.fatal('Cannot remove %s: outside of buildtools and test/data', path)
+    logging.fatal(
+        'Cannot remove %s: outside of {buildtools, test/data, third_party}',
+        path)
     sys.exit(1)
   logging.info('Removing %s' % path)
-  shutil.rmtree(path, onerror=del_read_only_for_windows)
+  if os.path.isdir(path):
+    shutil.rmtree(path, onerror=del_read_only_for_windows)
+  else:
+    os.remove(path)
 
 
 def CheckoutGitRepo(path, git_url, revision, check_only):
@@ -459,9 +513,12 @@ def CheckoutGitRepo(path, git_url, revision, check_only):
   MkdirRecursive(path)
   logging.info('Fetching %s @ %s into %s', git_url, revision, path)
   subprocess.check_call(['git', 'init', path], cwd=path)
-  subprocess.check_call(
-      ['git', 'fetch', '--quiet', '--depth', '1', git_url, revision], cwd=path)
+  CheckCallRetry(['git', 'fetch', '--quiet', '--depth', '1', git_url, revision],
+                 cwd=path)
   subprocess.check_call(['git', 'checkout', revision, '--quiet'], cwd=path)
+  CheckCallRetry(
+      ['git', 'submodule', 'update', '--init', '--recursive', '--quiet'],
+      cwd=path)
   assert (IsGitRepoCheckoutOutAtRevision(path, revision))
   return True
 
@@ -514,6 +571,21 @@ def CheckHashes():
             dep.source_url, dep.checksum, actual_checksum))
 
 
+def CheckDepotToolsIsRecent():
+  gn_py_path = shutil.which('gn.py')
+  if gn_py_path is None:
+    return True  # depot_tools doesn't seem to be installed in the PATH.
+  dt_dir = os.path.abspath(os.path.dirname(gn_py_path))
+  cmd = ['git', '-C', dt_dir, 'merge-base', '--is-ancestor', 'a0cf4321', 'HEAD']
+  git_ret = subprocess.call(cmd, stderr=subprocess.DEVNULL)
+  if git_ret == 0:
+    return True
+  print('\033[91mYour depot_tools revision is too old. Please run:\033[0m')
+  print('git -C %s fetch origin && git -C %s checkout -B main -t origin/main' %
+        (dt_dir, dt_dir))
+  return False
+
+
 def Main():
   parser = argparse.ArgumentParser()
   parser.add_argument(
@@ -528,8 +600,10 @@ def Main():
       '--ui',
       action='store_true',
       help='Node and NPM packages to Build the Web-based UI via ./ui/build')
+  parser.add_argument(
+      '--grpc', action='store_true', help='Packages to build gRPC')
   parser.add_argument('--check-only')
-  parser.add_argument('--filter', default='')
+  parser.add_argument('--filter', action='append')
   parser.add_argument('--verify', help='Check all URLs', action='store_true')
   parser.add_argument(
       '--no-toolchain', help='Do not download toolchain', action='store_true')
@@ -543,6 +617,9 @@ def Main():
     print('Building the UI on Windows is unsupported')
     return 1
 
+  if not CheckDepotToolsIsRecent():
+    return 1
+
   deps = BUILD_DEPS_HOST
   if not args.no_toolchain:
     deps += BUILD_DEPS_TOOLCHAIN_HOST
@@ -552,6 +629,8 @@ def Main():
     deps += BUILD_DEPS_LINUX_CROSS_SYSROOTS
   if args.ui:
     deps += UI_DEPS
+  if args.grpc:
+    deps += GRPC_DEPS
   deps_updated = False
   nodejs_updated = False
 
@@ -564,7 +643,7 @@ def Main():
     matches_arch = dep.target_arch == 'all' or target_arch == dep.target_arch
     if not matches_os or not matches_arch:
       continue
-    if args.filter and args.filter not in dep.target_folder:
+    if args.filter and not any(f in dep.target_folder for f in args.filter):
       continue
     local_path = os.path.join(ROOT_DIR, dep.target_folder)
     if dep.source_url.endswith('.git'):
@@ -607,7 +686,7 @@ def Main():
       # Decompress the archive.
       if local_path.endswith('.tgz'):
         MkdirRecursive(zip_target_dir)
-        subprocess.check_call(['tar', '-xf', local_path], cwd=zip_target_dir)
+        subprocess.check_call(['tar', '-oxf', local_path], cwd=zip_target_dir)
       elif local_path.endswith('.zip'):
         with zipfile.ZipFile(local_path, 'r') as zf:
           for info in zf.infolist():

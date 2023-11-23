@@ -23,6 +23,7 @@
 
 #include <bitset>
 #include <map>
+#include <memory>
 #include <unordered_map>
 
 namespace gl
@@ -32,7 +33,12 @@ class Texture;
 
 enum class Command
 {
+    // The Blit command carries the bitmask of which buffers are being blit.  The command passed to
+    // the backends is:
+    //
+    //     Blit + (Color?0x1) + (Depth?0x2) + (Stencil?0x4)
     Blit,
+    BlitAll = Blit + 0x7,
     Clear,
     CopyImage,
     Dispatch,
@@ -41,7 +47,14 @@ enum class Command
     Invalidate,
     ReadPixels,
     TexImage,
-    Other
+    Other,
+};
+
+enum CommandBlitBuffer
+{
+    CommandBlitBufferColor   = 0x1,
+    CommandBlitBufferDepth   = 0x2,
+    CommandBlitBufferStencil = 0x4,
 };
 
 enum class InitState
@@ -117,16 +130,10 @@ bool operator!=(const RectangleImpl<T> &a, const RectangleImpl<T> &b);
 
 using Rectangle = RectangleImpl<int>;
 
-enum class ClipSpaceOrigin
-{
-    LowerLeft = 0,
-    UpperLeft = 1
-};
-
 // Calculate the intersection of two rectangles.  Returns false if the intersection is empty.
-ANGLE_NO_DISCARD bool ClipRectangle(const Rectangle &source,
-                                    const Rectangle &clip,
-                                    Rectangle *intersection);
+[[nodiscard]] bool ClipRectangle(const Rectangle &source,
+                                 const Rectangle &clip,
+                                 Rectangle *intersection);
 // Calculate the smallest rectangle that covers both rectangles.  This rectangle may cover areas
 // not covered by the two rectangles, for example in this situation:
 //
@@ -167,7 +174,7 @@ struct Extents
     Extents() : width(0), height(0), depth(0) {}
     Extents(int width_, int height_, int depth_) : width(width_), height(height_), depth(depth_) {}
 
-    Extents(const Extents &other) = default;
+    Extents(const Extents &other)            = default;
     Extents &operator=(const Extents &other) = default;
 
     bool empty() const { return (width * height * depth) == 0; }
@@ -195,12 +202,17 @@ struct Box
           height(size.height),
           depth(size.depth)
     {}
+    bool valid() const;
     bool operator==(const Box &other) const;
     bool operator!=(const Box &other) const;
     Rectangle toRect() const;
 
     // Whether the Box has offset 0 and the same extents as argument.
     bool coversSameExtent(const Extents &size) const;
+
+    bool contains(const Box &other) const;
+    size_t volume() const;
+    void extend(const Box &other);
 
     int x;
     int y;
@@ -215,6 +227,7 @@ struct RasterizerState final
     // This will zero-initialize the struct, including padding.
     RasterizerState();
     RasterizerState(const RasterizerState &other);
+    RasterizerState &operator=(const RasterizerState &other);
 
     bool cullFace;
     CullFaceMode cullMode;
@@ -223,6 +236,9 @@ struct RasterizerState final
     bool polygonOffsetFill;
     GLfloat polygonOffsetFactor;
     GLfloat polygonOffsetUnits;
+    GLfloat polygonOffsetClamp;
+
+    bool depthClamp;
 
     // pointDrawMode/multiSample are only used in the D3D back-end right now.
     bool pointDrawMode;
@@ -264,6 +280,7 @@ struct DepthStencilState final
     // This will zero-initialize the struct, including padding.
     DepthStencilState();
     DepthStencilState(const DepthStencilState &other);
+    DepthStencilState &operator=(const DepthStencilState &other);
 
     bool isDepthMaskedOut() const;
     bool isStencilMaskedOut() const;
@@ -346,6 +363,12 @@ class SamplerState final
     GLenum getWrapR() const { return mWrapR; }
 
     bool setWrapR(GLenum wrapR);
+
+    bool usesBorderColor() const
+    {
+        return mWrapS == GL_CLAMP_TO_BORDER || mWrapT == GL_CLAMP_TO_BORDER ||
+               mWrapR == GL_CLAMP_TO_BORDER;
+    }
 
     float getMaxAnisotropy() const { return mMaxAnisotropy; }
 
@@ -610,6 +633,9 @@ class BlendStateExt final
     using FactorStorage    = StorageType<BlendFactorType, angle::EnumSize<BlendFactorType>()>;
     using EquationStorage  = StorageType<BlendEquationType, angle::EnumSize<BlendEquationType>()>;
     using ColorMaskStorage = StorageType<uint8_t, 16>;
+    static_assert(std::is_same<FactorStorage::Type, uint64_t>::value &&
+                      std::is_same<EquationStorage::Type, uint64_t>::value,
+                  "Factor and Equation storage must be 64-bit.");
 
     BlendStateExt(const size_t drawBuffers = 1);
 
@@ -665,6 +691,7 @@ class BlendStateExt final
 
     ///////// Blend Equation /////////
 
+    EquationStorage::Type expandEquationValue(const GLenum mode) const;
     EquationStorage::Type expandEquationValue(const gl::BlendEquationType equation) const;
     EquationStorage::Type expandEquationColorIndexed(const size_t index) const;
     EquationStorage::Type expandEquationAlphaIndexed(const size_t index) const;
@@ -677,6 +704,10 @@ class BlendStateExt final
     GLenum getEquationAlphaIndexed(size_t index) const;
     DrawBufferMask compareEquations(const EquationStorage::Type color,
                                     const EquationStorage::Type alpha) const;
+    DrawBufferMask compareEquations(const BlendStateExt &other) const
+    {
+        return compareEquations(other.mEquationColor, other.mEquationAlpha);
+    }
 
     ///////// Blend Factors /////////
 
@@ -703,32 +734,92 @@ class BlendStateExt final
                                   const FactorStorage::Type dstColor,
                                   const FactorStorage::Type srcAlpha,
                                   const FactorStorage::Type dstAlpha) const;
+    DrawBufferMask compareFactors(const BlendStateExt &other) const
+    {
+        return compareFactors(other.mSrcColor, other.mDstColor, other.mSrcAlpha, other.mDstAlpha);
+    }
+
+    constexpr FactorStorage::Type getSrcColorBits() const { return mSrcColor; }
+    constexpr FactorStorage::Type getSrcAlphaBits() const { return mSrcAlpha; }
+    constexpr FactorStorage::Type getDstColorBits() const { return mDstColor; }
+    constexpr FactorStorage::Type getDstAlphaBits() const { return mDstAlpha; }
+
+    constexpr EquationStorage::Type getEquationColorBits() const { return mEquationColor; }
+    constexpr EquationStorage::Type getEquationAlphaBits() const { return mEquationAlpha; }
+
+    constexpr ColorMaskStorage::Type getAllColorMaskBits() const { return mAllColorMask; }
+    constexpr ColorMaskStorage::Type getColorMaskBits() const { return mColorMask; }
+
+    constexpr DrawBufferMask getAllEnabledMask() const { return mAllEnabledMask; }
+    constexpr DrawBufferMask getEnabledMask() const { return mEnabledMask; }
+
+    constexpr DrawBufferMask getUsesAdvancedBlendEquationMask() const
+    {
+        return mUsesAdvancedBlendEquationMask;
+    }
+
+    constexpr uint8_t getDrawBufferCount() const { return mDrawBufferCount; }
+
+    constexpr void setSrcColorBits(const FactorStorage::Type srcColor) { mSrcColor = srcColor; }
+    constexpr void setSrcAlphaBits(const FactorStorage::Type srcAlpha) { mSrcAlpha = srcAlpha; }
+    constexpr void setDstColorBits(const FactorStorage::Type dstColor) { mDstColor = dstColor; }
+    constexpr void setDstAlphaBits(const FactorStorage::Type dstAlpha) { mDstAlpha = dstAlpha; }
+
+    constexpr void setEquationColorBits(const EquationStorage::Type equationColor)
+    {
+        mEquationColor = equationColor;
+    }
+    constexpr void setEquationAlphaBits(const EquationStorage::Type equationAlpha)
+    {
+        mEquationAlpha = equationAlpha;
+    }
+
+    constexpr void setColorMaskBits(const ColorMaskStorage::Type colorMask)
+    {
+        mColorMask = colorMask;
+    }
+
+    constexpr void setEnabledMask(const DrawBufferMask enabledMask) { mEnabledMask = enabledMask; }
 
     ///////// Data Members /////////
+  private:
+    uint64_t mParameterMask;
 
-    FactorStorage::Type mMaxFactorMask;
     FactorStorage::Type mSrcColor;
     FactorStorage::Type mDstColor;
     FactorStorage::Type mSrcAlpha;
     FactorStorage::Type mDstAlpha;
 
-    EquationStorage::Type mMaxEquationMask;
     EquationStorage::Type mEquationColor;
     EquationStorage::Type mEquationAlpha;
 
-    ColorMaskStorage::Type mMaxColorMask;
+    ColorMaskStorage::Type mAllColorMask;
     ColorMaskStorage::Type mColorMask;
 
-    DrawBufferMask mMaxEnabledMask;
+    DrawBufferMask mAllEnabledMask;
     DrawBufferMask mEnabledMask;
+
     // Cache of whether the blend equation for each index is from KHR_blend_equation_advanced.
     DrawBufferMask mUsesAdvancedBlendEquationMask;
 
-    size_t mMaxDrawBuffers;
+    uint8_t mDrawBufferCount;
+
+    ANGLE_MAYBE_UNUSED_PRIVATE_FIELD uint32_t kUnused = 0;
 };
+
+static_assert(sizeof(BlendStateExt) == sizeof(uint64_t) +
+                                           (sizeof(BlendStateExt::FactorStorage::Type) * 4 +
+                                            sizeof(BlendStateExt::EquationStorage::Type) * 2 +
+                                            sizeof(BlendStateExt::ColorMaskStorage::Type) * 2 +
+                                            sizeof(DrawBufferMask) * 3 + sizeof(uint8_t)) +
+                                           sizeof(uint32_t),
+              "The BlendStateExt class must not contain gaps.");
 
 // Used in StateCache
 using StorageBuffersMask = angle::BitSet<IMPLEMENTATION_MAX_SHADER_STORAGE_BUFFER_BINDINGS>;
+
+template <typename T>
+using SampleMaskArray = std::array<T, IMPLEMENTATION_MAX_SAMPLE_MASK_WORDS>;
 
 template <typename T>
 using TexLevelArray = std::array<T, IMPLEMENTATION_MAX_TEXTURE_LEVELS>;
@@ -778,10 +869,10 @@ ANGLE_INLINE void SetComponentTypeMask(ComponentType type, size_t index, Compone
     *mask |= kComponentMasks[type] << index;
 }
 
-ANGLE_INLINE ComponentType GetComponentTypeMask(const ComponentTypeMask &mask, size_t index)
+ANGLE_INLINE ComponentType GetComponentTypeMask(ComponentTypeMask mask, size_t index)
 {
     ASSERT(index <= kMaxComponentTypeMaskIndex);
-    uint32_t mask_bits = static_cast<uint32_t>((mask.to_ulong() >> index) & 0x10001);
+    uint32_t mask_bits = mask.bits() >> index & 0x10001;
     switch (mask_bits)
     {
         case 0x10001:
@@ -793,6 +884,15 @@ ANGLE_INLINE ComponentType GetComponentTypeMask(const ComponentTypeMask &mask, s
         default:
             return ComponentType::InvalidEnum;
     }
+}
+
+ANGLE_INLINE ComponentTypeMask GetActiveComponentTypeMask(gl::AttributesMask activeAttribLocations)
+{
+    const uint32_t activeAttribs = static_cast<uint32_t>(activeAttribLocations.bits());
+
+    // Ever attrib index takes one bit from the lower 16-bits and another bit from the upper
+    // 16-bits at the same index.
+    return ComponentTypeMask(activeAttribs << kMaxComponentTypeMaskIndex | activeAttribs);
 }
 
 bool ValidateComponentTypeMasks(unsigned long outputTypes,
@@ -819,26 +919,6 @@ enum class RenderToTextureImageIndex
 
 template <typename T>
 using RenderToTextureImageMap = angle::PackedEnumMap<RenderToTextureImageIndex, T>;
-
-struct ContextID
-{
-    uint32_t value;
-};
-
-inline bool operator==(ContextID lhs, ContextID rhs)
-{
-    return lhs.value == rhs.value;
-}
-
-inline bool operator!=(ContextID lhs, ContextID rhs)
-{
-    return lhs.value != rhs.value;
-}
-
-inline bool operator<(ContextID lhs, ContextID rhs)
-{
-    return lhs.value < rhs.value;
-}
 
 constexpr size_t kCubeFaceCount = 6;
 
@@ -903,6 +983,9 @@ using BarrierVector = angle::FastVector<T, kBarrierVectorDefaultSize>;
 
 using BufferBarrierVector = BarrierVector<Buffer *>;
 
+using SamplerBindingVector = std::vector<BindingPointer<Sampler>>;
+using BufferVector         = std::vector<OffsetBindingPointer<Buffer>>;
+
 struct TextureAndLayout
 {
     Texture *texture;
@@ -922,7 +1005,7 @@ class LevelIndexWrapper
   public:
     LevelIndexWrapper() = default;
     explicit constexpr LevelIndexWrapper(T levelIndex) : mLevelIndex(levelIndex) {}
-    constexpr LevelIndexWrapper(const LevelIndexWrapper &other) = default;
+    constexpr LevelIndexWrapper(const LevelIndexWrapper &other)            = default;
     constexpr LevelIndexWrapper &operator=(const LevelIndexWrapper &other) = default;
 
     constexpr T get() const { return mLevelIndex; }
@@ -1086,6 +1169,7 @@ template <typename ObjT, typename ContextT>
 class DestroyThenDelete
 {
   public:
+    DestroyThenDelete() = default;
     DestroyThenDelete(const ContextT *context) : mContext(context) {}
 
     void operator()(ObjT *obj)
@@ -1095,57 +1179,11 @@ class DestroyThenDelete
     }
 
   private:
-    const ContextT *mContext;
-};
-
-// Helper class for wrapping an onDestroy function.
-template <typename ObjT, typename DeleterT>
-class UniqueObjectPointerBase : angle::NonCopyable
-{
-  public:
-    template <typename ContextT>
-    UniqueObjectPointerBase(const ContextT *context) : mObject(nullptr), mDeleter(context)
-    {}
-
-    template <typename ContextT>
-    UniqueObjectPointerBase(ObjT *obj, const ContextT *context) : mObject(obj), mDeleter(context)
-    {}
-
-    ~UniqueObjectPointerBase()
-    {
-        if (mObject)
-        {
-            mDeleter(mObject);
-        }
-    }
-
-    ObjT *operator->() const { return mObject; }
-
-    ObjT *release()
-    {
-        auto obj = mObject;
-        mObject  = nullptr;
-        return obj;
-    }
-
-    ObjT *get() const { return mObject; }
-
-    void reset(ObjT *obj)
-    {
-        if (mObject)
-        {
-            mDeleter(mObject);
-        }
-        mObject = obj;
-    }
-
-  private:
-    ObjT *mObject;
-    DeleterT mDeleter;
+    const ContextT *mContext = nullptr;
 };
 
 template <typename ObjT, typename ContextT>
-using UniqueObjectPointer = UniqueObjectPointerBase<ObjT, DestroyThenDelete<ObjT, ContextT>>;
+using UniqueObjectPointer = std::unique_ptr<ObjT, DestroyThenDelete<ObjT, ContextT>>;
 
 }  // namespace angle
 

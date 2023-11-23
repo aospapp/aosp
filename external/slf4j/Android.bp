@@ -65,9 +65,15 @@ java_library {
     ],
 
     sdk_version: "core_current",
-    // SLF4J is used by mockftpserver, both of them are used in tests only.
+    apex_available: [
+        "com.android.ondevicepersonalization",
+    ],
     visibility: [
+        // SLF4J is used by mockftpserver, both of them are used in tests only.
         "//external/mockftpserver",
         "//libcore",
+        // SLF4J is used by apache-velocity-engine, a dependency of the OnDevicePersonalization module.
+        "//external/apache-velocity-engine",
+        "//packages/modules/OnDevicePersonalization:__subpackages__",
     ],
 }

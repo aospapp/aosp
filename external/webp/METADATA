@@ -1,3 +1,15 @@
+name: "webp"
+description: "Android fork of the libwebp library."
 third_party {
+  url {
+    type: GIT
+    value: "https://chromium.googlesource.com/webm/libwebp"
+  }
+  version: "v1.3.0"
   license_type: NOTICE
+  last_upgrade_date {
+    year: 2023
+    month: 01
+    day: 13
+  }
 }

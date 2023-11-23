@@ -34,7 +34,7 @@ class TestActionable(BaseActionable):
     def __init__(self, test, extra_kwargs={}):
         """Init method.
 
-        @param test: String, the test to run, e.g. dummy_PassServer
+        @param test: String, the test to run, e.g. stub_ServerToClientPass
         @param extra_kargs: A dictionary, extra keyval-based args
                             that will be passed when execute the test.
         """

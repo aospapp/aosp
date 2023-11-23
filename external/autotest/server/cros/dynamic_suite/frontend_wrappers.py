@@ -6,7 +6,7 @@ import logging
 import math
 import threading
 
-import common
+from . import common
 from autotest_lib.client.common_lib import env
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
@@ -14,17 +14,18 @@ from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.frontend.afe.json_rpc import proxy
 from autotest_lib.server import frontend
 try:
-    from chromite.lib import retry_util
-    from chromite.lib import timeout_util
-except ImportError:
-    logging.warn('Unable to import chromite.')
+    from autotest_lib.utils.frozen_chromite.lib import retry_util
+    from autotest_lib.utils.frozen_chromite.lib import timeout_util
+except ImportError as e:
+    logging.warning('Unable to import chromite: %s', e)
     retry_util = None
     timeout_util = None
 
 try:
-    from chromite.lib import metrics
-except ImportError:
-    logging.warn('Unable to import metrics from chromite.')
+    from autotest_lib.utils.frozen_chromite.lib import metrics
+except ImportError as e:
+    logging.warning('Unable to import metrics from '
+                 'autotest_lib.utils.frozen_chromite: %s', e)
     metrics = utils.metrics_mock
 
 

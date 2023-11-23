@@ -16,6 +16,7 @@
 package com.google.android.enterprise.connectedapps.processor;
 
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BINDER_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BUNDLE_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CROSSPROFILESERVICE_STUB_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CROSS_PROFILE_CALLBACK_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.INTENT_CLASSNAME;
@@ -82,7 +83,7 @@ final class ServiceGenerator {
                     + "<p>This service must be exposed in a <service> tag in your"
                     + " AndroidManifest.xml\n",
                 configuration.configurationElement(),
-                configuration.profileConnector().connectorClassName(),
+                configuration.connectorInfo().connectorClassName(),
                 getDispatcherClassName(generatorContext, configuration));
 
     addBinder(classBuilder);
@@ -112,8 +113,10 @@ final class ServiceGenerator {
                     .build());
 
     addPrepareCallMethod(binderBuilder);
+    addPrepareBundleMethod(binderBuilder);
     addCallMethod(binderBuilder);
     addFetchResponseMethod(binderBuilder);
+    addFetchResponseBundleMethod(binderBuilder);
 
     classBuilder.addField(
         FieldSpec.builder(CROSSPROFILESERVICE_STUB_CLASSNAME, "binder", Modifier.PRIVATE)
@@ -133,6 +136,20 @@ final class ServiceGenerator {
             .addStatement(
                 "dispatcher.prepareCall(getApplicationContext(), callId, blockId, numBytes,"
                     + " paramBytes)")
+            .build();
+    classBuilder.addMethod(prepareCallMethod);
+  }
+
+  private static void addPrepareBundleMethod(TypeSpec.Builder classBuilder) {
+    MethodSpec prepareCallMethod =
+        MethodSpec.methodBuilder("prepareBundle")
+            .addModifiers(Modifier.PUBLIC)
+            .addAnnotation(Override.class)
+            .addParameter(long.class, "callId")
+            .addParameter(int.class, "bundleId")
+            .addParameter(BUNDLE_CLASSNAME, "bundle")
+            .addStatement(
+                "dispatcher.prepareBundle(getApplicationContext(), callId, bundleId, bundle)")
             .build();
     classBuilder.addMethod(prepareCallMethod);
   }
@@ -171,8 +188,22 @@ final class ServiceGenerator {
     classBuilder.addMethod(prepareCallMethod);
   }
 
+  private static void addFetchResponseBundleMethod(TypeSpec.Builder classBuilder) {
+    MethodSpec prepareCallMethod =
+        MethodSpec.methodBuilder("fetchResponseBundle")
+            .addModifiers(Modifier.PUBLIC)
+            .addAnnotation(Override.class)
+            .addParameter(long.class, "callId")
+            .addParameter(int.class, "bundleId")
+            .returns(BUNDLE_CLASSNAME)
+            .addStatement(
+                "return dispatcher.fetchResponseBundle(getApplicationContext(), callId, bundleId)")
+            .build();
+    classBuilder.addMethod(prepareCallMethod);
+  }
+
   static ClassName getConnectedAppsServiceClassName(
       GeneratorContext generatorContext, CrossProfileConfigurationInfo configuration) {
-    return configuration.profileConnector().serviceName();
+    return configuration.connectorInfo().serviceName();
   }
 }

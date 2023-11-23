@@ -21,19 +21,24 @@
 
 #define BLOCKSIZE 8192
 #define MAXBLKS 65536
-#define TIME_LIMIT 120
 #define BUF_SIZE 2048
 
 char tempfile[40] = "";
 char pbuf[BUF_SIZE];
 int fd;
 off_t max_blks = MAXBLKS;
+int time_limit = 120;
 
 struct statvfs stat_buf;
 
 static void setup(void) {
 	/* free blocks avail to non-superuser */
 	unsigned long f_bavail;
+
+	if (tst_is_virt(VIRT_ANY)) {
+		tst_res(TINFO, "Running in a VM, multiply the time_limit by 2");
+		time_limit *= 2;
+	}
 
 	fd = SAFE_OPEN("tempfile", O_RDWR | O_CREAT | O_TRUNC, 0777);
 
@@ -48,7 +53,7 @@ static void setup(void) {
 
 #ifdef LARGEFILE
 	SAFE_FCNTL(fd, F_SETFL, O_LARGEFILE);
-	SAFE_WRITE(1, fd, pbuf, BUF_SIZE);
+	SAFE_WRITE(SAFE_WRITE_ALL, fd, pbuf, BUF_SIZE);
 #endif
 }
 
@@ -69,7 +74,7 @@ static void run(void) {
 		offset = i * ((BLOCKSIZE * max_block) / data_blocks);
 		offset -= BUF_SIZE;
 		SAFE_LSEEK(fd, offset, SEEK_SET);
-		SAFE_WRITE(1, fd, pbuf, BUF_SIZE);
+		SAFE_WRITE(SAFE_WRITE_ALL, fd, pbuf, BUF_SIZE);
 	}
 	time_start = time(0);
 
@@ -89,7 +94,7 @@ static void run(void) {
 		"timer broken end %ld < start %ld",
 		time_end, time_start);
 	} else if ((time_delta =
-		difftime(time_end, time_start)) > TIME_LIMIT) {
+		difftime(time_end, time_start)) > time_limit) {
 		tst_res(TFAIL,
 		"fsync took too long: %lf seconds; "
 		"max_block: %d; data_blocks: %d",
@@ -109,5 +114,6 @@ static struct tst_test test = {
 	.test_all = run,
 	.setup = setup,
 	.cleanup = cleanup,
-	.needs_tmpdir = 1
+	.needs_tmpdir = 1,
+	.max_runtime = 300,
 };

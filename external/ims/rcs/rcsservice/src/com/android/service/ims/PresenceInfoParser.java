@@ -36,6 +36,7 @@ import android.telephony.ims.RcsContactUceCapability.PresenceBuilder;
 
 import java.lang.String;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import com.android.ims.internal.Logger;
 import com.android.ims.internal.uce.presence.PresTupleInfo;
@@ -59,7 +60,7 @@ public class PresenceInfoParser{
     static public RcsPresenceInfo getPresenceInfoFromTuple(String pPresentityURI,
             PresTupleInfo[] pTupleInfo){
         logger.debug("getPresenceInfoFromTuple: pPresentityURI=" + pPresentityURI +
-                " pTupleInfo=" + pTupleInfo);
+                " pTupleInfo=" + Arrays.toString(pTupleInfo));
 
         if(pPresentityURI == null){
             logger.error("pPresentityURI=" + pPresentityURI);

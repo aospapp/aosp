@@ -17,12 +17,12 @@
  * message.
  */
 
-#include "lapi/syscalls.h"
 #include "tst_test.h"
 #include "tst_fuzzy_sync.h"
 #include "tst_safe_pthread.h"
 #include "tst_safe_sysv_ipc.h"
 #include "tst_timer.h"
+#include "lapi/syscalls.h"
 
 static struct tst_fzsync_pair fzsync_pair;
 
@@ -91,12 +91,22 @@ static void do_test(void)
 
 static void cleanup(void)
 {
+	int id;
+
 	tst_fzsync_pair_cleanup(&fzsync_pair);
-	shmctl(0xF00F, IPC_RMID, NULL);
+
+	id = shmget(0xF00F, 4096, 0);
+	if (id == -1) {
+		if (errno != ENOENT)
+			tst_res(TWARN | TERRNO, "shmget()");
+		return;
+	}
+
+	SAFE_SHMCTL(id, IPC_RMID, NULL);
 }
 
 static struct tst_test test = {
-	.timeout = 20,
+	.max_runtime = 10,
 	.setup = setup,
 	.test_all = do_test,
 	.cleanup = cleanup,

@@ -5,21 +5,14 @@ use managed::ManagedSlice;
 pub struct CapacityError<Element>(pub Element);
 
 /// Wraps a ManagedSlice in a vec-like interface.
-pub struct ManagedVec<'a, 'b, T: 'a> {
+pub struct ManagedVec<'a, 'b, T> {
     buf: &'b mut ManagedSlice<'a, T>,
     len: usize,
 }
 
 impl<'a, 'b, T> ManagedVec<'a, 'b, T> {
-    pub fn new(buf: &'b mut ManagedSlice<'a, T>) -> Self {
-        ManagedVec { buf, len: 0 }
-    }
-
-    pub fn clear(&mut self) {
-        // While it's very tempting to just call `Vec::clear` in the `Owned` case, doing
-        // so would modify the length of the underlying `ManagedSlice`, which isn't
-        // desirable.
-        self.len = 0;
+    pub fn new_with_idx(buf: &'b mut ManagedSlice<'a, T>, len: usize) -> Self {
+        ManagedVec { buf, len }
     }
 
     pub fn push(&mut self, value: T) -> Result<(), CapacityError<T>> {
@@ -39,6 +32,7 @@ impl<'a, 'b, T> ManagedVec<'a, 'b, T> {
         }
     }
 
+    #[cfg(feature = "trace-pkt")]
     pub fn as_slice<'c: 'b>(&'c self) -> &'b [T] {
         &self.buf[..self.len]
     }

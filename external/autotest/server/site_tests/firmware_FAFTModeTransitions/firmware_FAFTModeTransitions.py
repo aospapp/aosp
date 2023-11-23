@@ -4,9 +4,8 @@
 
 import logging
 
-from autotest_lib.client.common_lib import common
+from autotest_lib.client.common_lib import error
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
-
 
 class firmware_FAFTModeTransitions(FirmwareTest):
     """This test checks FAFT mode transitions work."""
@@ -14,7 +13,7 @@ class firmware_FAFTModeTransitions(FirmwareTest):
     NEEDS_SERVO_USB = True
 
     def _checked_reboot(self, to_mode):
-        """Reboots DUT to mode and sanity checks that it has done so.
+        """Reboots DUT to mode and checks that it has done so.
 
         @param to_mode: mode_switcher mode to reboot into
         @type to_mode: string
@@ -22,7 +21,10 @@ class firmware_FAFTModeTransitions(FirmwareTest):
         @see: autotest_lib.server.cros.faft.utils.mode_switcher
         """
         self.switcher.reboot_to_mode(to_mode)
-        self.check_state((self.checkers.mode_checker, to_mode))
+        boot_mode = self.faft_client.system.get_boot_mode()
+        if boot_mode != to_mode:
+            raise error.TestFail("Expected boot mode %s, got %s" %
+                                 (to_mode, boot_mode))
 
     def run_once(self, mode_seq=[]):
         """Main test logic.

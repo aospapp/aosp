@@ -48,7 +48,7 @@ class ChameleonVideoCapturer(object):
         Captures frames upto max_frame_count, saves the image with filename
         same as the index of the frame in the frame buffer.
 
-        @param player: object, VimeoPlayer or NativeHTML5Player
+        @param player: object, VimeoPlayer or BuiltinHtml5Player
         @param max_frame_count: int, maximum total number of frames to capture.
         @param box: int tuple, left, upper, right, lower pixel coordinates.
                     Defines the rectangular boundary within which to compare.
@@ -68,7 +68,7 @@ class ChameleonVideoCapturer(object):
         number of frames captured is equal or more than max_frame_count. Does
         save the images, gets only the checksums.
 
-        @param player: VimeoPlayer or NativeHTML5Player.
+        @param player: VimeoPlayer or BuiltinHtml5Player.
         @param max_frame_count: int, the maximum number of frames we want.
         @param box: int tuple, left, upper, right, lower pixel coordinates.
                     Defines the rectangular boundary within which to compare.

@@ -9,8 +9,6 @@
 
 #include <assert.h>
 
-#include <fp16.h>
-
 #include <xnnpack/math.h>
 #include <xnnpack/gemm.h>
 
@@ -25,7 +23,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_3x4__scalar_imagic(
     int8_t* restrict c,
     size_t cm_stride,
     size_t cn_stride,
-    const union xnn_qs8_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(mr != 0);
   assert(mr <= 3);
@@ -121,7 +119,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_3x4__scalar_imagic(
     vfpacc2x3 *= vscale3;
     w = (const void*) ((const float*) w + 4);
 
-    const float vmagic_bias = params->scalar_imagic.magic_bias;
+    const float vmagic_bias = params->fp32_scalar_imagic.magic_bias;
     vfpacc0x0 += vmagic_bias;
     vfpacc0x1 += vmagic_bias;
     vfpacc0x2 += vmagic_bias;
@@ -135,20 +133,20 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_3x4__scalar_imagic(
     vfpacc2x2 += vmagic_bias;
     vfpacc2x3 += vmagic_bias;
 
-    int32_t vout0x0 = (int32_t) fp32_to_bits(vfpacc0x0);
-    int32_t vout0x1 = (int32_t) fp32_to_bits(vfpacc0x1);
-    int32_t vout0x2 = (int32_t) fp32_to_bits(vfpacc0x2);
-    int32_t vout0x3 = (int32_t) fp32_to_bits(vfpacc0x3);
-    int32_t vout1x0 = (int32_t) fp32_to_bits(vfpacc1x0);
-    int32_t vout1x1 = (int32_t) fp32_to_bits(vfpacc1x1);
-    int32_t vout1x2 = (int32_t) fp32_to_bits(vfpacc1x2);
-    int32_t vout1x3 = (int32_t) fp32_to_bits(vfpacc1x3);
-    int32_t vout2x0 = (int32_t) fp32_to_bits(vfpacc2x0);
-    int32_t vout2x1 = (int32_t) fp32_to_bits(vfpacc2x1);
-    int32_t vout2x2 = (int32_t) fp32_to_bits(vfpacc2x2);
-    int32_t vout2x3 = (int32_t) fp32_to_bits(vfpacc2x3);
+    int32_t vout0x0 = (int32_t) float_as_uint32(vfpacc0x0);
+    int32_t vout0x1 = (int32_t) float_as_uint32(vfpacc0x1);
+    int32_t vout0x2 = (int32_t) float_as_uint32(vfpacc0x2);
+    int32_t vout0x3 = (int32_t) float_as_uint32(vfpacc0x3);
+    int32_t vout1x0 = (int32_t) float_as_uint32(vfpacc1x0);
+    int32_t vout1x1 = (int32_t) float_as_uint32(vfpacc1x1);
+    int32_t vout1x2 = (int32_t) float_as_uint32(vfpacc1x2);
+    int32_t vout1x3 = (int32_t) float_as_uint32(vfpacc1x3);
+    int32_t vout2x0 = (int32_t) float_as_uint32(vfpacc2x0);
+    int32_t vout2x1 = (int32_t) float_as_uint32(vfpacc2x1);
+    int32_t vout2x2 = (int32_t) float_as_uint32(vfpacc2x2);
+    int32_t vout2x3 = (int32_t) float_as_uint32(vfpacc2x3);
 
-    const int32_t vmagic_min = params->scalar_imagic.magic_min;
+    const int32_t vmagic_min = params->fp32_scalar_imagic.magic_min;
     vout0x0 = math_max_s32(vout0x0, vmagic_min);
     vout0x1 = math_max_s32(vout0x1, vmagic_min);
     vout0x2 = math_max_s32(vout0x2, vmagic_min);
@@ -162,7 +160,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_3x4__scalar_imagic(
     vout2x2 = math_max_s32(vout2x2, vmagic_min);
     vout2x3 = math_max_s32(vout2x3, vmagic_min);
 
-    const int32_t vmagic_max = params->scalar_imagic.magic_max;
+    const int32_t vmagic_max = params->fp32_scalar_imagic.magic_max;
     vout0x0 = math_min_s32(vout0x0, vmagic_max);
     vout0x1 = math_min_s32(vout0x1, vmagic_max);
     vout0x2 = math_min_s32(vout0x2, vmagic_max);
@@ -176,7 +174,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_3x4__scalar_imagic(
     vout2x2 = math_min_s32(vout2x2, vmagic_max);
     vout2x3 = math_min_s32(vout2x3, vmagic_max);
 
-    const int32_t vmagic_bias_less_zero_point = params->scalar_imagic.magic_bias_less_zero_point;
+    const int32_t vmagic_bias_less_zero_point = params->fp32_scalar_imagic.magic_bias_less_zero_point;
     vout0x0 -= vmagic_bias_less_zero_point;
     vout0x1 -= vmagic_bias_less_zero_point;
     vout0x2 -= vmagic_bias_less_zero_point;

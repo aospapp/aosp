@@ -21,12 +21,12 @@
 #include <signal.h>
 
 #include <algorithm>
+#include <optional>
 #include <utility>
 
 #include "perfetto/base/build_config.h"
 #include "perfetto/base/logging.h"
 #include "perfetto/ext/base/metatrace.h"
-#include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/string_splitter.h"
 #include "perfetto/ext/base/string_utils.h"
 #include "perfetto/ext/base/utils.h"
@@ -37,6 +37,7 @@
 #include "src/traced/probes/ftrace/ftrace_config_muxer.h"
 #include "src/traced/probes/ftrace/ftrace_controller.h"
 #include "src/traced/probes/ftrace/ftrace_data_source.h"
+#include "src/traced/probes/ftrace/ftrace_print_filter.h"
 #include "src/traced/probes/ftrace/proto_translation_table.h"
 
 #include "protos/perfetto/trace/ftrace/ftrace_event.pbzero.h"
@@ -137,6 +138,14 @@ bool SetBlocking(int fd, bool is_blocking) {
   return fcntl(fd, F_SETFL, flags) == 0;
 }
 
+bool ZeroPaddedPageTail(const uint8_t* start, const uint8_t* end) {
+  for (auto p = start; p < end; p++) {
+    if (*p != 0)
+      return false;
+  }
+  return true;
+}
+
 void LogInvalidPage(const void* start, size_t size) {
   PERFETTO_ELOG("Invalid ftrace page");
   std::string hexdump = base::HexDump(start, size);
@@ -177,9 +186,10 @@ size_t CpuReader::ReadCycle(
                              metatrace::FTRACE_CPU_READ_CYCLE);
 
   // Work in batches to keep cache locality, and limit memory usage.
-  size_t batch_pages = std::min(parsing_buf_size_pages, max_pages);
   size_t total_pages_read = 0;
   for (bool is_first_batch = true;; is_first_batch = false) {
+    size_t batch_pages =
+        std::min(parsing_buf_size_pages, max_pages - total_pages_read);
     size_t pages_read = ReadAndProcessBatch(
         parsing_buf, batch_pages, is_first_batch, started_data_sources);
 
@@ -257,7 +267,7 @@ size_t CpuReader::ReadAndProcessBatch(
       // prematurely.
       static constexpr size_t kRoughlyAPage = base::kPageSize - 512;
       const uint8_t* scratch_ptr = curr_page;
-      base::Optional<PageHeader> hdr =
+      std::optional<PageHeader> hdr =
           ParsePageHeader(&scratch_ptr, table_->page_header_size_len());
       PERFETTO_DCHECK(hdr && hdr->size > 0 && hdr->size <= base::kPageSize);
       if (!hdr.has_value()) {
@@ -301,6 +311,94 @@ size_t CpuReader::ReadAndProcessBatch(
   return pages_read;
 }
 
+void CpuReader::Bundler::StartNewPacket(bool lost_events) {
+  FinalizeAndRunSymbolizer();
+  packet_ = trace_writer_->NewTracePacket();
+  bundle_ = packet_->set_ftrace_events();
+  if (ftrace_clock_) {
+    bundle_->set_ftrace_clock(ftrace_clock_);
+
+    if (ftrace_clock_snapshot_ && ftrace_clock_snapshot_->ftrace_clock_ts) {
+      bundle_->set_ftrace_timestamp(ftrace_clock_snapshot_->ftrace_clock_ts);
+      bundle_->set_boot_timestamp(ftrace_clock_snapshot_->boot_clock_ts);
+    }
+  }
+
+  bundle_->set_cpu(static_cast<uint32_t>(cpu_));
+  if (lost_events) {
+    bundle_->set_lost_events(true);
+  }
+}
+
+void CpuReader::Bundler::FinalizeAndRunSymbolizer() {
+  if (!packet_) {
+    return;
+  }
+
+  if (compact_sched_enabled_) {
+    compact_sched_buffer_.WriteAndReset(bundle_);
+  }
+
+  bundle_->Finalize();
+  bundle_ = nullptr;
+  // Write the kernel symbol index (mangled address) -> name table.
+  // |metadata| is shared across all cpus, is distinct per |data_source| (i.e.
+  // tracing session) and is cleared after each FtraceController::ReadTick().
+  if (symbolizer_) {
+    // Symbol indexes are assigned mononically as |kernel_addrs.size()|,
+    // starting from index 1 (no symbol has index 0). Here we remember the
+    // size() (which is also == the highest value in |kernel_addrs|) at the
+    // beginning and only write newer indexes bigger than that.
+    uint32_t max_index_at_start = metadata_->last_kernel_addr_index_written;
+    PERFETTO_DCHECK(max_index_at_start <= metadata_->kernel_addrs.size());
+    protos::pbzero::InternedData* interned_data = nullptr;
+    auto* ksyms_map = symbolizer_->GetOrCreateKernelSymbolMap();
+    bool wrote_at_least_one_symbol = false;
+    for (const FtraceMetadata::KernelAddr& kaddr : metadata_->kernel_addrs) {
+      if (kaddr.index <= max_index_at_start)
+        continue;
+      std::string sym_name = ksyms_map->Lookup(kaddr.addr);
+      if (sym_name.empty()) {
+        // Lookup failed. This can genuinely happen in many occasions. E.g.,
+        // workqueue_execute_start has two pointers: one is a pointer to a
+        // function (which we expect to be symbolized), the other (|work|) is
+        // a pointer to a heap struct, which is unsymbolizable, even when
+        // using the textual ftrace endpoint.
+        continue;
+      }
+
+      if (!interned_data) {
+        // If this is the very first write, clear the start of the sequence
+        // so the trace processor knows that all previous indexes can be
+        // discarded and that the mapping is restarting.
+        // In most cases this occurs with cpu==0. But if cpu0 is idle, this
+        // will happen with the first CPU that has any ftrace data.
+        if (max_index_at_start == 0) {
+          packet_->set_sequence_flags(
+              protos::pbzero::TracePacket::SEQ_INCREMENTAL_STATE_CLEARED);
+        }
+        interned_data = packet_->set_interned_data();
+      }
+      auto* interned_sym = interned_data->add_kernel_symbols();
+      interned_sym->set_iid(kaddr.index);
+      interned_sym->set_str(sym_name);
+      wrote_at_least_one_symbol = true;
+    }
+
+    auto max_it_at_end = static_cast<uint32_t>(metadata_->kernel_addrs.size());
+
+    // Rationale for the if (wrote_at_least_one_symbol) check: in rare cases,
+    // all symbols seen in a ProcessPagesForDataSource() call can fail the
+    // ksyms_map->Lookup(). If that happens we don't want to bump the
+    // last_kernel_addr_index_written watermark, as that would cause the next
+    // call to NOT emit the SEQ_INCREMENTAL_STATE_CLEARED.
+    if (wrote_at_least_one_symbol) {
+      metadata_->last_kernel_addr_index_written = max_it_at_end;
+    }
+  }
+  packet_ = TraceWriter::TracePacketHandle(nullptr);
+}
+
 // static
 size_t CpuReader::ProcessPagesForDataSource(
     TraceWriter* trace_writer,
@@ -313,110 +411,18 @@ size_t CpuReader::ProcessPagesForDataSource(
     LazyKernelSymbolizer* symbolizer,
     const FtraceClockSnapshot* ftrace_clock_snapshot,
     protos::pbzero::FtraceClock ftrace_clock) {
-  // Allocate the buffer for compact scheduler events (which will be unused if
-  // the compact option isn't enabled).
-  CompactSchedBuffer compact_sched;
-  bool compact_sched_enabled = ds_config->compact_sched.enabled;
+  Bundler bundler(trace_writer, metadata,
+                  ds_config->symbolize_ksyms ? symbolizer : nullptr, cpu,
+                  ftrace_clock_snapshot, ftrace_clock,
+                  ds_config->compact_sched.enabled);
 
-  TraceWriter::TracePacketHandle packet;
-  protos::pbzero::FtraceEventBundle* bundle = nullptr;
-
-  // This function is called after the contents of a FtraceBundle are written.
-  auto finalize_cur_packet = [&] {
-    PERFETTO_DCHECK(packet);
-    if (compact_sched_enabled)
-      compact_sched.WriteAndReset(bundle);
-
-    bundle->Finalize();
-    bundle = nullptr;
-
-    // Write the kernel symbol index (mangled address) -> name table.
-    // |metadata| is shared across all cpus, is distinct per |data_source| (i.e.
-    // tracing session) and is cleared after each FtraceController::ReadTick().
-    if (ds_config->symbolize_ksyms) {
-      // Symbol indexes are assigned mononically as |kernel_addrs.size()|,
-      // starting from index 1 (no symbol has index 0). Here we remember the
-      // size() (which is also == the highest value in |kernel_addrs|) at the
-      // beginning and only write newer indexes bigger than that.
-      uint32_t max_index_at_start = metadata->last_kernel_addr_index_written;
-      PERFETTO_DCHECK(max_index_at_start <= metadata->kernel_addrs.size());
-      protos::pbzero::InternedData* interned_data = nullptr;
-      auto* ksyms_map = symbolizer->GetOrCreateKernelSymbolMap();
-      bool wrote_at_least_one_symbol = false;
-      for (const FtraceMetadata::KernelAddr& kaddr : metadata->kernel_addrs) {
-        if (kaddr.index <= max_index_at_start)
-          continue;
-        std::string sym_name = ksyms_map->Lookup(kaddr.addr);
-        if (sym_name.empty()) {
-          // Lookup failed. This can genuinely happen in many occasions. E.g.,
-          // workqueue_execute_start has two pointers: one is a pointer to a
-          // function (which we expect to be symbolized), the other (|work|) is
-          // a pointer to a heap struct, which is unsymbolizable, even when
-          // using the textual ftrace endpoint.
-          continue;
-        }
-
-        if (!interned_data) {
-          // If this is the very first write, clear the start of the sequence
-          // so the trace processor knows that all previous indexes can be
-          // discarded and that the mapping is restarting.
-          // In most cases this occurs with cpu==0. But if cpu0 is idle, this
-          // will happen with the first CPU that has any ftrace data.
-          if (max_index_at_start == 0) {
-            packet->set_sequence_flags(
-                protos::pbzero::TracePacket::SEQ_INCREMENTAL_STATE_CLEARED);
-          }
-          interned_data = packet->set_interned_data();
-        }
-        auto* interned_sym = interned_data->add_kernel_symbols();
-        interned_sym->set_iid(kaddr.index);
-        interned_sym->set_str(sym_name);
-        wrote_at_least_one_symbol = true;
-      }
-
-      auto max_it_at_end = static_cast<uint32_t>(metadata->kernel_addrs.size());
-
-      // Rationale for the if (wrote_at_least_one_symbol) check: in rare cases,
-      // all symbols seen in a ProcessPagesForDataSource() call can fail the
-      // ksyms_map->Lookup(). If that happens we don't want to bump the
-      // last_kernel_addr_index_written watermark, as that would cause the next
-      // call to NOT emit the SEQ_INCREMENTAL_STATE_CLEARED.
-      if (wrote_at_least_one_symbol)
-        metadata->last_kernel_addr_index_written = max_it_at_end;
-    }
-
-    packet->Finalize();
-  };  // finalize_cur_packet().
-
-  auto start_new_packet = [&](bool lost_events) {
-    if (packet)
-      finalize_cur_packet();
-    packet = trace_writer->NewTracePacket();
-    bundle = packet->set_ftrace_events();
-    if (ftrace_clock) {
-      bundle->set_ftrace_clock(ftrace_clock);
-
-      if (ftrace_clock_snapshot && ftrace_clock_snapshot->ftrace_clock_ts) {
-        bundle->set_ftrace_timestamp(ftrace_clock_snapshot->ftrace_clock_ts);
-        bundle->set_boot_timestamp(ftrace_clock_snapshot->boot_clock_ts);
-      }
-    }
-
-    // Note: The fastpath in proto_trace_parser.cc speculates on the fact
-    // that the cpu field is the first field of the proto message. If this
-    // changes, change proto_trace_parser.cc accordingly.
-    bundle->set_cpu(static_cast<uint32_t>(cpu));
-    if (lost_events)
-      bundle->set_lost_events(true);
-  };
-
-  start_new_packet(/*lost_events=*/false);
   size_t pages_parsed = 0;
+  bool compact_sched_enabled = ds_config->compact_sched.enabled;
   for (; pages_parsed < pages_read; pages_parsed++) {
     const uint8_t* curr_page = parsing_buf + (pages_parsed * base::kPageSize);
     const uint8_t* curr_page_end = curr_page + base::kPageSize;
     const uint8_t* parse_pos = curr_page;
-    base::Optional<PageHeader> page_header =
+    std::optional<PageHeader> page_header =
         ParsePageHeader(&parse_pos, table->page_header_size_len());
 
     if (!page_header.has_value() || page_header->size == 0 ||
@@ -434,21 +440,21 @@ size_t CpuReader::ProcessPagesForDataSource(
     //   interning lookups cheap again.
     bool interner_past_threshold =
         compact_sched_enabled &&
-        compact_sched.interner().interned_comms_size() >
+        bundler.compact_sched_buffer()->interner().interned_comms_size() >
             kCompactSchedInternerThreshold;
 
-    if (page_header->lost_events || interner_past_threshold)
-      start_new_packet(page_header->lost_events);
+    if (page_header->lost_events || interner_past_threshold) {
+      bundler.StartNewPacket(page_header->lost_events);
+    }
 
-    size_t evt_size =
-        ParsePagePayload(parse_pos, &page_header.value(), table, ds_config,
-                         &compact_sched, bundle, metadata);
+    size_t evt_size = ParsePagePayload(parse_pos, &page_header.value(), table,
+                                       ds_config, &bundler, metadata);
 
     if (evt_size != page_header->size) {
       break;
     }
   }
-  finalize_cur_packet();
+  // bundler->FinalizeAndRunSymbolizer() will run as part of the destructor.
 
   return pages_parsed;
 }
@@ -467,7 +473,7 @@ size_t CpuReader::ProcessPagesForDataSource(
 // flag (RB_MISSED_STORED).
 //
 // static
-base::Optional<CpuReader::PageHeader> CpuReader::ParsePageHeader(
+std::optional<CpuReader::PageHeader> CpuReader::ParsePageHeader(
     const uint8_t** ptr,
     uint16_t page_header_size_len) {
   // Mask for the data length portion of the |commit| field. Note that the
@@ -483,7 +489,7 @@ base::Optional<CpuReader::PageHeader> CpuReader::ParsePageHeader(
   PageHeader page_header;
   if (!CpuReader::ReadAndAdvance<uint64_t>(ptr, end_of_page,
                                            &page_header.timestamp))
-    return base::nullopt;
+    return std::nullopt;
 
   uint32_t size_and_flags;
 
@@ -491,7 +497,7 @@ base::Optional<CpuReader::PageHeader> CpuReader::ParsePageHeader(
   // number later.
   if (!CpuReader::ReadAndAdvance<uint32_t>(
           ptr, end_of_page, base::AssumeLittleEndian(&size_and_flags)))
-    return base::nullopt;
+    return std::nullopt;
 
   page_header.size = size_and_flags & kDataSizeMask;
   page_header.lost_events = bool(size_and_flags & kMissedEventsFlag);
@@ -503,7 +509,7 @@ base::Optional<CpuReader::PageHeader> CpuReader::ParsePageHeader(
   PERFETTO_DCHECK(page_header_size_len >= 4);
   *ptr += page_header_size_len - 4;
 
-  return base::make_optional(page_header);
+  return std::make_optional(page_header);
 }
 
 // A raw ftrace buffer page consists of a header followed by a sequence of
@@ -514,8 +520,7 @@ size_t CpuReader::ParsePagePayload(const uint8_t* start_of_payload,
                                    const PageHeader* page_header,
                                    const ProtoTranslationTable* table,
                                    const FtraceDataSourceConfig* ds_config,
-                                   CompactSchedBuffer* compact_sched_buffer,
-                                   FtraceEventBundle* bundle,
+                                   Bundler* bundler,
                                    FtraceMetadata* metadata) {
   const uint8_t* ptr = start_of_payload;
   const uint8_t* const end = ptr + page_header->size;
@@ -576,11 +581,21 @@ size_t CpuReader::ParsePagePayload(const uint8_t* start_of_payload,
         // Kernel's include/linux/ring_buffer.h
         uint32_t event_size = 0;
         if (event_header.type_or_length == 0) {
-          if (!ReadAndAdvance<uint32_t>(&ptr, end, &event_size))
+          if (!ReadAndAdvance<uint32_t>(&ptr, end, &event_size)) {
             return 0;
-          // Size includes the size field itself.
-          if (event_size < 4)
+          }
+          // Size includes the size field itself. Special case for invalid
+          // tracing pages seen on select Android 4.19 kernels: the page header
+          // says there's still valid data, but the rest of the page is full of
+          // zeroes (which would not decode to a valid event). We pretend that
+          // such pages have been fully parsed. b/204564312.
+          if (PERFETTO_UNLIKELY(event_size == 0 &&
+                                event_header.time_delta == 0 &&
+                                ZeroPaddedPageTail(ptr, end))) {
+            return static_cast<size_t>(page_header->size);
+          } else if (PERFETTO_UNLIKELY(event_size < 4)) {
             return 0;
+          }
           event_size -= 4;
         } else {
           event_size = 4 * event_header.type_or_length;
@@ -604,6 +619,9 @@ size_t CpuReader::ParsePagePayload(const uint8_t* start_of_payload,
           const CompactSchedWakingFormat& sched_waking_format =
               table->compact_sched_format().sched_waking;
 
+          bool ftrace_print_filter_enabled =
+              ds_config->print_filter.has_value();
+
           // compact sched_switch
           if (compact_sched_enabled &&
               ftrace_event_id == sched_switch_format.event_id) {
@@ -611,7 +629,7 @@ size_t CpuReader::ParsePagePayload(const uint8_t* start_of_payload,
               return 0;
 
             ParseSchedSwitchCompact(start, timestamp, &sched_switch_format,
-                                    compact_sched_buffer, metadata);
+                                    bundler->compact_sched_buffer(), metadata);
 
             // compact sched_waking
           } else if (compact_sched_enabled &&
@@ -620,14 +638,25 @@ size_t CpuReader::ParsePagePayload(const uint8_t* start_of_payload,
               return 0;
 
             ParseSchedWakingCompact(start, timestamp, &sched_waking_format,
-                                    compact_sched_buffer, metadata);
+                                    bundler->compact_sched_buffer(), metadata);
 
+          } else if (ftrace_print_filter_enabled &&
+                     ftrace_event_id == ds_config->print_filter->event_id()) {
+            if (ds_config->print_filter->IsEventInteresting(start, next)) {
+              protos::pbzero::FtraceEvent* event =
+                  bundler->GetOrCreateBundle()->add_event();
+              event->set_timestamp(timestamp);
+              if (!ParseEvent(ftrace_event_id, start, next, table, ds_config,
+                              event, metadata))
+                return 0;
+            }
           } else {
             // Common case: parse all other types of enabled events.
-            protos::pbzero::FtraceEvent* event = bundle->add_event();
+            protos::pbzero::FtraceEvent* event =
+                bundler->GetOrCreateBundle()->add_event();
             event->set_timestamp(timestamp);
-            if (!ParseEvent(ftrace_event_id, start, next, table, event,
-                            metadata))
+            if (!ParseEvent(ftrace_event_id, start, next, table, ds_config,
+                            event, metadata))
               return 0;
           }
         }
@@ -646,6 +675,7 @@ bool CpuReader::ParseEvent(uint16_t ftrace_event_id,
                            const uint8_t* start,
                            const uint8_t* end,
                            const ProtoTranslationTable* table,
+                           const FtraceDataSourceConfig* ds_config,
                            protozero::Message* message,
                            FtraceMetadata* metadata) {
   PERFETTO_DCHECK(start < end);
@@ -662,8 +692,10 @@ bool CpuReader::ParseEvent(uint16_t ftrace_event_id,
   }
 
   bool success = true;
-  for (const Field& field : table->common_fields())
-    success &= ParseField(field, start, end, table, message, metadata);
+  const Field* common_pid_field = table->common_pid();
+  if (PERFETTO_LIKELY(common_pid_field))
+    success &=
+        ParseField(*common_pid_field, start, end, table, message, metadata);
 
   protozero::Message* nested =
       message->BeginNestedMessage<protozero::Message>(info.proto_field_id);
@@ -679,6 +711,14 @@ bool CpuReader::ParseEvent(uint16_t ftrace_event_id,
                                   field.ftrace_name);
       success &= ParseField(field, start, end, table, generic_field, metadata);
     }
+  } else if (PERFETTO_UNLIKELY(
+                 info.proto_field_id ==
+                 protos::pbzero::FtraceEvent::kSysEnterFieldNumber)) {
+    success &= ParseSysEnter(info, start, end, nested, metadata);
+  } else if (PERFETTO_UNLIKELY(
+                 info.proto_field_id ==
+                 protos::pbzero::FtraceEvent::kSysExitFieldNumber)) {
+    success &= ParseSysExit(info, start, end, ds_config, nested, metadata);
   } else {  // Parse all other events.
     for (const Field& field : info.fields) {
       success &= ParseField(field, start, end, table, nested, metadata);
@@ -805,6 +845,97 @@ bool CpuReader::ParseField(const Field& field,
   PERFETTO_FATAL("Unexpected translation strategy");
 }
 
+bool CpuReader::ParseSysEnter(const Event& info,
+                              const uint8_t* start,
+                              const uint8_t* end,
+                              protozero::Message* message,
+                              FtraceMetadata* /* metadata */) {
+  if (info.fields.size() != 2) {
+    PERFETTO_DLOG("Unexpected number of fields for sys_enter");
+    return false;
+  }
+  const auto& id_field = info.fields[0];
+  const auto& args_field = info.fields[1];
+  if (start + id_field.ftrace_size + args_field.ftrace_size > end) {
+    return false;
+  }
+  // field:long id;
+  if (id_field.ftrace_type != kFtraceInt32 &&
+      id_field.ftrace_type != kFtraceInt64) {
+    return false;
+  }
+  const int64_t syscall_id = ReadSignedFtraceValue(
+      start + id_field.ftrace_offset, id_field.ftrace_type);
+  message->AppendVarInt(id_field.proto_field_id, syscall_id);
+  // field:unsigned long args[6];
+  // proto_translation_table will only allow exactly 6-element array, so we can
+  // make the same hard assumption here.
+  constexpr uint16_t arg_count = 6;
+  size_t element_size = 0;
+  if (args_field.ftrace_type == kFtraceUint32) {
+    element_size = 4u;
+  } else if (args_field.ftrace_type == kFtraceUint64) {
+    element_size = 8u;
+  } else {
+    return false;
+  }
+  for (uint16_t i = 0; i < arg_count; ++i) {
+    const uint8_t* element_ptr =
+        start + args_field.ftrace_offset + i * element_size;
+    uint64_t arg_value = 0;
+    if (element_size == 8) {
+      arg_value = ReadValue<uint64_t>(element_ptr);
+    } else {
+      arg_value = ReadValue<uint32_t>(element_ptr);
+    }
+    message->AppendVarInt(args_field.proto_field_id, arg_value);
+  }
+  return true;
+}
+
+bool CpuReader::ParseSysExit(const Event& info,
+                             const uint8_t* start,
+                             const uint8_t* end,
+                             const FtraceDataSourceConfig* ds_config,
+                             protozero::Message* message,
+                             FtraceMetadata* metadata) {
+  if (info.fields.size() != 2) {
+    PERFETTO_DLOG("Unexpected number of fields for sys_exit");
+    return false;
+  }
+  const auto& id_field = info.fields[0];
+  const auto& ret_field = info.fields[1];
+  if (start + id_field.ftrace_size + ret_field.ftrace_size > end) {
+    return false;
+  }
+  //    field:long id;
+  if (id_field.ftrace_type != kFtraceInt32 &&
+      id_field.ftrace_type != kFtraceInt64) {
+    return false;
+  }
+  const int64_t syscall_id = ReadSignedFtraceValue(
+      start + id_field.ftrace_offset, id_field.ftrace_type);
+  message->AppendVarInt(id_field.proto_field_id, syscall_id);
+  //    field:long ret;
+  if (ret_field.ftrace_type != kFtraceInt32 &&
+      ret_field.ftrace_type != kFtraceInt64) {
+    return false;
+  }
+  const int64_t syscall_ret = ReadSignedFtraceValue(
+      start + ret_field.ftrace_offset, ret_field.ftrace_type);
+  message->AppendVarInt(ret_field.proto_field_id, syscall_ret);
+  // for any syscalls which return a new filedescriptor
+  // we mark the fd as potential candidate for scraping
+  // if the call succeeded and is within fd bounds
+  if (ds_config->syscalls_returning_fd.count(syscall_id) && syscall_ret >= 0 &&
+      syscall_ret <= std::numeric_limits<int>::max()) {
+    const auto pid = metadata->last_seen_common_pid;
+    const auto syscall_ret_u = static_cast<uint64_t>(syscall_ret);
+    metadata->fds.insert(std::make_pair(pid, syscall_ret_u));
+  }
+  return true;
+}
+
 // Parse a sched_switch event according to pre-validated format, and buffer the
 // individual fields in the current compact batch. See the code populating
 // |CompactSchedSwitchFormat| for the assumptions made around the format, which
@@ -860,6 +991,10 @@ void CpuReader::ParseSchedWakingCompact(const uint8_t* start,
       reinterpret_cast<const char*>(start + format->comm_offset);
   size_t iid = compact_buf->interner().InternComm(comm_ptr);
   compact_buf->sched_waking().comm_index().Append(iid);
+
+  uint32_t common_flags =
+      ReadValue<uint8_t>(start + format->common_flags_offset);
+  compact_buf->sched_waking().common_flags().Append(common_flags);
 }
 
 }  // namespace perfetto

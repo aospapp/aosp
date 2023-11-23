@@ -4,7 +4,7 @@
   </elf-function-symbols>
   <abi-instr address-size='64' language='LANG_C'>
     <pointer-type-def type-id='type-id-1' size-in-bits='64' alignment-in-bits='64' id='type-id-2'/>
-    <function-decl name='bar' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8'>
+    <function-decl name='bar' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8' elf-symbol-id='bar'>
       <parameter type-id='type-id-2'/>
       <return type-id='type-id-1'/>
     </function-decl>

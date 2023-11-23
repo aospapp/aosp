@@ -78,7 +78,7 @@ static void child_alloc(int testcase, int lite, int threads)
 	pthread_t *th;
 
 	if (lite) {
-		int ret = alloc_mem(TESTMEM + MB, testcase);
+		int ret = alloc_mem(TESTMEM * 2 + MB, testcase);
 		exit(ret);
 	}
 
@@ -129,8 +129,11 @@ void oom(int testcase, int lite, int retcode, int allow_sigkill)
 	pid_t pid;
 	int status, threads;
 
+	tst_enable_oom_protection(0);
+
 	switch (pid = SAFE_FORK()) {
 	case 0:
+		tst_disable_oom_protection(0);
 		threads = MAX(1, tst_ncpus() - 1);
 		child_alloc(testcase, lite, threads);
 	default:
@@ -258,19 +261,36 @@ static void final_group_check(int run, int pages_shared, int pages_sharing,
 			  int pages_volatile, int pages_unshared,
 			  int sleep_millisecs, int pages_to_scan)
 {
+	int ksm_run_orig;
+
 	tst_res(TINFO, "check!");
 	check("run", run);
+
+	/*
+	 * Temporarily stop the KSM scan during the checks: during the
+	 * KSM scan the rmap_items in the stale unstable tree of the
+	 * old pass are removed from it and are later reinserted in
+	 * the new unstable tree of the current pass. So if the checks
+	 * run in the race window between removal and re-insertion, it
+	 * can lead to unexpected false positives where page_volatile
+	 * is elevated and page_unshared is recessed.
+	 */
+	SAFE_FILE_SCANF(PATH_KSM "run", "%d", &ksm_run_orig);
+	SAFE_FILE_PRINTF(PATH_KSM "run", "0");
+
 	check("pages_shared", pages_shared);
 	check("pages_sharing", pages_sharing);
 	check("pages_volatile", pages_volatile);
 	check("pages_unshared", pages_unshared);
 	check("sleep_millisecs", sleep_millisecs);
 	check("pages_to_scan", pages_to_scan);
+
+	SAFE_FILE_PRINTF(PATH_KSM "run", "%d", ksm_run_orig);
 }
 
-static void group_check(int run, int pages_shared, int pages_sharing,
-			int pages_volatile, int pages_unshared,
-			int sleep_millisecs, int pages_to_scan)
+void ksm_group_check(int run, int pages_shared, int pages_sharing,
+		     int pages_volatile, int pages_unshared,
+		     int sleep_millisecs, int pages_to_scan)
 {
 	if (run != 1) {
 		tst_res(TFAIL, "group_check run is not 1, %d.", run);
@@ -486,19 +506,19 @@ void create_same_memory(int size, int num, int unit)
 
 	resume_ksm_children(child, num);
 	stop_ksm_children(child, num);
-	group_check(1, 2, size * num * pages - 2, 0, 0, 0, size * pages * num);
+	ksm_group_check(1, 2, size * num * pages - 2, 0, 0, 0, size * pages * num);
 
 	resume_ksm_children(child, num);
 	stop_ksm_children(child, num);
-	group_check(1, 3, size * num * pages - 3, 0, 0, 0, size * pages * num);
+	ksm_group_check(1, 3, size * num * pages - 3, 0, 0, 0, size * pages * num);
 
 	resume_ksm_children(child, num);
 	stop_ksm_children(child, num);
-	group_check(1, 1, size * num * pages - 1, 0, 0, 0, size * pages * num);
+	ksm_group_check(1, 1, size * num * pages - 1, 0, 0, 0, size * pages * num);
 
 	resume_ksm_children(child, num);
 	stop_ksm_children(child, num);
-	group_check(1, 1, size * num * pages - 2, 0, 1, 0, size * pages * num);
+	ksm_group_check(1, 1, size * num * pages - 2, 0, 1, 0, size * pages * num);
 
 	tst_res(TINFO, "KSM unmerging...");
 	SAFE_FILE_PRINTF(PATH_KSM "run", "2");
@@ -514,83 +534,6 @@ void create_same_memory(int size, int num, int unit)
 		if (WEXITSTATUS(status) != 0)
 			tst_res(TFAIL, "child exit status is %d",
 				 WEXITSTATUS(status));
-}
-
-void test_ksm_merge_across_nodes(unsigned long nr_pages)
-{
-	char **memory;
-	int i, ret;
-	int num_nodes, *nodes;
-	unsigned long length;
-	unsigned long pagesize;
-
-#ifdef HAVE_NUMA_V2
-	unsigned long nmask[MAXNODES / BITS_PER_LONG] = { 0 };
-#endif
-
-	ret = get_allowed_nodes_arr(NH_MEMS, &num_nodes, &nodes);
-	if (ret != 0)
-		tst_brk(TBROK|TERRNO, "get_allowed_nodes_arr");
-	if (num_nodes < 2) {
-		tst_res(TINFO, "need NUMA system support");
-		free(nodes);
-		return;
-	}
-
-	pagesize = sysconf(_SC_PAGE_SIZE);
-	length = nr_pages * pagesize;
-
-	memory = SAFE_MALLOC(num_nodes * sizeof(char *));
-	for (i = 0; i < num_nodes; i++) {
-		memory[i] = SAFE_MMAP(NULL, length, PROT_READ|PROT_WRITE,
-			    MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-#ifdef HAVE_DECL_MADV_MERGEABLE
-		if (madvise(memory[i], length, MADV_MERGEABLE) == -1)
-			tst_brk(TBROK|TERRNO, "madvise");
-#endif
-
-#ifdef HAVE_NUMA_V2
-		clean_node(nmask);
-		set_node(nmask, nodes[i]);
-		/*
-		 * Use mbind() to make sure each node contains
-		 * length size memory.
-		 */
-		ret = mbind(memory[i], length, MPOL_BIND, nmask, MAXNODES, 0);
-		if (ret == -1)
-			tst_brk(TBROK|TERRNO, "mbind");
-#endif
-
-		memset(memory[i], 10, length);
-	}
-
-	SAFE_FILE_PRINTF(PATH_KSM "sleep_millisecs", "0");
-	SAFE_FILE_PRINTF(PATH_KSM "pages_to_scan", "%ld",
-			 nr_pages * num_nodes);
-	/*
-	 * merge_across_nodes and max_page_sharing setting can be changed
-	 * only when there are no ksm shared pages in system, so set run 2
-	 * to unmerge pages first, then to 1 after changing merge_across_nodes,
-	 * to remerge according to the new setting.
-	 */
-	SAFE_FILE_PRINTF(PATH_KSM "run", "2");
-	if (access(PATH_KSM "max_page_sharing", F_OK) == 0)
-		SAFE_FILE_PRINTF(PATH_KSM "max_page_sharing",
-			"%ld", nr_pages * num_nodes);
-	tst_res(TINFO, "Start to test KSM with merge_across_nodes=1");
-	SAFE_FILE_PRINTF(PATH_KSM "merge_across_nodes", "1");
-	SAFE_FILE_PRINTF(PATH_KSM "run", "1");
-	group_check(1, 1, nr_pages * num_nodes - 1, 0, 0, 0,
-		    nr_pages * num_nodes);
-
-	SAFE_FILE_PRINTF(PATH_KSM "run", "2");
-	tst_res(TINFO, "Start to test KSM with merge_across_nodes=0");
-	SAFE_FILE_PRINTF(PATH_KSM "merge_across_nodes", "0");
-	SAFE_FILE_PRINTF(PATH_KSM "run", "1");
-	group_check(1, num_nodes, nr_pages * num_nodes - num_nodes,
-		    0, 0, 0, nr_pages * num_nodes);
-
-	SAFE_FILE_PRINTF(PATH_KSM "run", "2");
 }
 
 /* THP */
@@ -629,11 +572,11 @@ static void gather_node_cpus(char *cpus, long nd)
 	cpus[strlen(cpus) - 1] = '\0';
 }
 
-void write_cpusets(const struct tst_cgroup_group *cg, long nd)
+void write_cpusets(const struct tst_cg_group *cg, long nd)
 {
 	char cpus[BUFSIZ] = "";
 
-	SAFE_CGROUP_PRINTF(cg, "cpuset.mems", "%ld", nd);
+	SAFE_CG_PRINTF(cg, "cpuset.mems", "%ld", nd);
 
 	gather_node_cpus(cpus, nd);
 	/*
@@ -642,11 +585,11 @@ void write_cpusets(const struct tst_cgroup_group *cg, long nd)
 	 * the value of cpuset.cpus.
 	 */
 	if (strlen(cpus) != 0) {
-		SAFE_CGROUP_PRINT(cg, "cpuset.cpus", cpus);
+		SAFE_CG_PRINT(cg, "cpuset.cpus", cpus);
 	} else {
 		tst_res(TINFO, "No CPUs in the node%ld; "
 				"using only CPU0", nd);
-		SAFE_CGROUP_PRINT(cg, "cpuset.cpus", "0");
+		SAFE_CG_PRINT(cg, "cpuset.cpus", "0");
 	}
 }
 

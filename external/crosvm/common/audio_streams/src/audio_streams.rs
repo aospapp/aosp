@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -41,22 +41,31 @@
 //! ```
 pub mod async_api;
 
-use async_trait::async_trait;
 use std::cmp::min;
 use std::error;
-use std::fmt::{self, Display};
-use std::io::{self, Read, Write};
+use std::fmt;
+use std::fmt::Display;
+use std::io;
+use std::io::Read;
+use std::io::Write;
 #[cfg(unix)]
-use std::os::unix::io::RawFd;
+use std::os::unix::io::RawFd as RawDescriptor;
+#[cfg(windows)]
+use std::os::windows::io::RawHandle as RawDescriptor;
 use std::result::Result;
 use std::str::FromStr;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use std::time::Instant;
 
-pub use async_api::{AsyncStream, AudioStreamsExecutor};
+pub use async_api::AsyncStream;
+pub use async_api::AudioStreamsExecutor;
+use async_trait::async_trait;
 use remain::sorted;
+use serde::Deserialize;
+use serde::Serialize;
 use thiserror::Error;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize)]
 pub enum SampleFormat {
     U8,
     S16LE,
@@ -88,28 +97,45 @@ impl Display for SampleFormat {
     }
 }
 
+impl FromStr for SampleFormat {
+    type Err = SampleFormatError;
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "U8" => Ok(SampleFormat::U8),
+            "S16_LE" => Ok(SampleFormat::S16LE),
+            "S24_LE" => Ok(SampleFormat::S24LE),
+            "S32_LE" => Ok(SampleFormat::S32LE),
+            _ => Err(SampleFormatError::InvalidSampleFormat),
+        }
+    }
+}
+
+/// Errors that are possible from a `SampleFormat`.
+#[sorted]
+#[derive(Error, Debug)]
+pub enum SampleFormatError {
+    #[error("Must be in [U8, S16_LE, S24_LE, S32_LE]")]
+    InvalidSampleFormat,
+}
+
 /// Valid directions of an audio stream.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum StreamDirection {
     Playback,
     Capture,
 }
 
 /// Valid effects for an audio stream.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub enum StreamEffect {
+    #[default]
     NoEffect,
+    #[serde(alias = "aec")]
     EchoCancellation,
 }
 
 pub mod capture;
 pub mod shm_streams;
-
-impl Default for StreamEffect {
-    fn default() -> Self {
-        StreamEffect::NoEffect
-    }
-}
 
 /// Errors that can pass across threads.
 pub type BoxError = Box<dyn error::Error + Send + Sync>;
@@ -139,7 +165,14 @@ pub enum Error {
     Unimplemented,
 }
 
+/// `StreamSourceGenerator` is a trait used to abstract types that create [`StreamSource`].
+/// It can be used when multiple types of `StreamSource` are needed.
+pub trait StreamSourceGenerator: Sync + Send {
+    fn generate(&self) -> Result<Box<dyn StreamSource>, BoxError>;
+}
+
 /// `StreamSource` creates streams for playback or capture of audio.
+#[async_trait(?Send)]
 pub trait StreamSource: Send {
     /// Returns a stream control and buffer generator object. These are separate as the buffer
     /// generator might want to be passed to the audio stream.
@@ -164,6 +197,20 @@ pub trait StreamSource: Send {
         _ex: &dyn AudioStreamsExecutor,
     ) -> Result<(Box<dyn StreamControl>, Box<dyn AsyncPlaybackBufferStream>), BoxError> {
         Err(Box::new(Error::Unimplemented))
+    }
+
+    /// Returns a stream control and async buffer generator object asynchronously.
+    /// Default implementation calls and blocks on `new_async_playback_stream()`.
+    #[allow(clippy::type_complexity)]
+    async fn async_new_async_playback_stream(
+        &mut self,
+        num_channels: usize,
+        format: SampleFormat,
+        frame_rate: u32,
+        buffer_size: usize,
+        ex: &dyn AudioStreamsExecutor,
+    ) -> Result<(Box<dyn StreamControl>, Box<dyn AsyncPlaybackBufferStream>), BoxError> {
+        self.new_async_playback_stream(num_channels, format, frame_rate, buffer_size, ex)
     }
 
     /// Returns a stream control and buffer generator object. These are separate as the buffer
@@ -225,10 +272,30 @@ pub trait StreamSource: Send {
         ))
     }
 
+    /// Returns a stream control and async buffer generator object asynchronously.
+    /// Default implementation calls and blocks on `new_async_capture_stream()`.
+    #[allow(clippy::type_complexity)]
+    async fn async_new_async_capture_stream(
+        &mut self,
+        num_channels: usize,
+        format: SampleFormat,
+        frame_rate: u32,
+        buffer_size: usize,
+        effects: &[StreamEffect],
+        ex: &dyn AudioStreamsExecutor,
+    ) -> Result<
+        (
+            Box<dyn StreamControl>,
+            Box<dyn capture::AsyncCaptureBufferStream>,
+        ),
+        BoxError,
+    > {
+        self.new_async_capture_stream(num_channels, format, frame_rate, buffer_size, effects, ex)
+    }
+
     /// Returns any open file descriptors needed by the implementor. The FD list helps users of the
     /// StreamSource enter Linux jails making sure not to close needed FDs.
-    #[cfg(unix)]
-    fn keep_fds(&self) -> Option<Vec<RawFd>> {
+    fn keep_rds(&self) -> Option<Vec<RawDescriptor>> {
         None
     }
 }
@@ -307,6 +374,13 @@ pub trait BufferCommit {
     /// `write_playback_buffer` or `read_capture_buffer` would trigger this automatically. `nframes`
     /// indicates the number of audio frames that were read or written to the device.
     fn commit(&mut self, nframes: usize);
+    /// `latency_bytes` the current device latency.
+    /// For playback it means how many bytes need to be consumed
+    /// before the current playback buffer will be played.
+    /// For capture it means the latency in terms of bytes that the capture buffer was recorded.
+    fn latency_bytes(&self) -> u32 {
+        0
+    }
 }
 
 /// `AsyncBufferCommit` is a cleanup funcion that must be called before dropping the buffer,
@@ -317,6 +391,13 @@ pub trait AsyncBufferCommit {
     /// automatically. `nframes` indicates the number of audio frames that were read or written to
     /// the device.
     async fn commit(&mut self, nframes: usize);
+    /// `latency_bytes` the current device latency.
+    /// For playback it means how many bytes need to be consumed
+    /// before the current playback buffer will be played.
+    /// For capture it means the latency in terms of bytes that the capture buffer was recorded.
+    fn latency_bytes(&self) -> u32 {
+        0
+    }
 }
 
 /// Errors that are possible from a `PlaybackBuffer`.
@@ -325,6 +406,8 @@ pub trait AsyncBufferCommit {
 pub enum PlaybackBufferError {
     #[error("Invalid buffer length")]
     InvalidLength,
+    #[error("Slicing of playback buffer out of bounds")]
+    SliceOutOfBounds,
 }
 
 /// `AudioBuffer` is one buffer that holds buffer_size audio frames.
@@ -445,6 +528,32 @@ impl<'a> PlaybackBuffer<'a> {
             .commit(self.buffer.offset / self.buffer.frame_size);
     }
 
+    /// It returns how many bytes need to be consumed
+    /// before the current playback buffer will be played.
+    pub fn latency_bytes(&self) -> u32 {
+        self.drop.latency_bytes()
+    }
+
+    /// Writes up to `size` bytes directly to this buffer inside of the given callback function
+    /// with a buffer size error check.
+    ///
+    /// TODO(b/238933737): Investigate removing this method for Windows when
+    /// switching from Ac97 to Virtio-Snd
+    pub fn copy_cb_with_checks<F: FnOnce(&mut [u8])>(
+        &mut self,
+        size: usize,
+        cb: F,
+    ) -> Result<(), PlaybackBufferError> {
+        // only write complete frames.
+        let len = size / self.buffer.frame_size * self.buffer.frame_size;
+        if self.buffer.offset + len > self.buffer.buffer.len() {
+            return Err(PlaybackBufferError::SliceOutOfBounds);
+        }
+        cb(&mut self.buffer.buffer[self.buffer.offset..(self.buffer.offset + len)]);
+        self.buffer.offset += len;
+        Ok(())
+    }
+
     /// Writes up to `size` bytes directly to this buffer inside of the given callback function.
     pub fn copy_cb<F: FnOnce(&mut [u8])>(&mut self, size: usize, cb: F) -> io::Result<usize> {
         self.buffer.write_copy_cb(size, cb)
@@ -503,6 +612,11 @@ impl<'a> AsyncPlaybackBuffer<'a> {
         self.trigger
             .commit(self.buffer.offset / self.buffer.frame_size)
             .await;
+    }
+
+    /// It returns the latency in terms of bytes that the capture buffer was recorded.
+    pub fn latency_bytes(&self) -> u32 {
+        self.trigger.latency_bytes()
     }
 
     /// Writes up to `size` bytes directly to this buffer inside of the given callback function.
@@ -684,12 +798,29 @@ impl StreamSource for NoopStreamSource {
     }
 }
 
+/// `NoopStreamSourceGenerator` is a struct that implements [`StreamSourceGenerator`]
+/// to generate [`NoopStreamSource`].
+pub struct NoopStreamSourceGenerator;
+
+impl NoopStreamSourceGenerator {
+    pub fn new() -> Self {
+        NoopStreamSourceGenerator {}
+    }
+}
+
+impl StreamSourceGenerator for NoopStreamSourceGenerator {
+    fn generate(&self) -> Result<Box<dyn StreamSource>, BoxError> {
+        Ok(Box::new(NoopStreamSource))
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use futures::FutureExt;
+    use io::Write;
+
     use super::async_api::test::TestExecutor;
     use super::*;
-    use futures::FutureExt;
-    use io::{self, Write};
 
     #[test]
     fn invalid_buffer_length() {
@@ -915,5 +1046,13 @@ mod tests {
 
         let ex = TestExecutor {};
         this_test(&ex).now_or_never();
+    }
+
+    #[test]
+    fn generate_noop_stream_source() {
+        let generator: Box<dyn StreamSourceGenerator> = Box::new(NoopStreamSourceGenerator::new());
+        generator
+            .generate()
+            .expect("failed to generate stream source");
     }
 }

@@ -17,6 +17,7 @@ TEST_TYPE = "server"
 ATTRIBUTES = "suite:audio_basic"
 DEPENDENCIES = "audio_box"
 JOB_RETRIES = 1
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests speaker audio volume function against DUT.

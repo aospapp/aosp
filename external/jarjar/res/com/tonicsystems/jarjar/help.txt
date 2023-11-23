@@ -49,6 +49,7 @@ Rules file format:
     rule <pattern> <result>
     zap <pattern>
     keep <pattern>
+    strip-annotations <annotation>
 
   The standard rule ("rule") is used to rename classes. All references
   to the renamed classes will also be updated. If a class name is
@@ -73,3 +74,6 @@ Rules file format:
   via dependency analysis are discarded when writing the output
   jar. This is the last step in the process, after renaming and zapping.
 
+  The "strip-annotations" rule will remove all the references to a certain
+  annotation from a jar file. As no pattern matching is performed, the
+  annotations have to be provided as one per line.

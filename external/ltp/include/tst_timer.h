@@ -122,10 +122,12 @@ struct __kernel_timespec {
 };
 #endif
 
+#ifndef HAVE_STRUCT___KERNEL_OLD_ITIMERSPEC
 struct __kernel_old_itimerspec {
 	struct __kernel_old_timespec it_interval;    /* timer period */
 	struct __kernel_old_timespec it_value;       /* timer expiration */
 };
+#endif
 
 #ifndef HAVE_STRUCT___KERNEL_ITIMERSPEC
 struct __kernel_itimerspec {

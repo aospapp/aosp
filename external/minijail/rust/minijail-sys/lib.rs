@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,15 +18,15 @@
 //
 // Generated in CrOS SDK chroot with:
 // bindgen --default-enum-style rust \
-//         --blacklist-type '__rlim64_t' \
+//         --blocklist-type '__rlim64_t' \
 //         --raw-line 'pub type __rlim64_t = u64;' \
-//         --blacklist-type '__u\d{1,2}' \
+//         --blocklist-type '__u\d{1,2}' \
 //         --raw-line 'pub type __u8 = u8;' \
 //         --raw-line 'pub type __u16 = u16;' \
 //         --raw-line 'pub type __u32 = u32;' \
-//         --blacklist-type '__uint64_t' \
-//         --whitelist-function '^minijail_.*' \
-//         --whitelist-var '^MINIJAIL_.*' \
+//         --blocklist-type '__uint64_t' \
+//         --allowlist-function '^minijail_.*' \
+//         --allowlist-var '^MINIJAIL_.*' \
 //         --no-layout-tests \
 //         --output libminijail.rs \
 //         libminijail.h -- \

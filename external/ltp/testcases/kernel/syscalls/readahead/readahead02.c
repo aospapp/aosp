@@ -38,7 +38,9 @@ static char testfile[PATH_MAX] = "testfile";
 #define DROP_CACHES_FNAME "/proc/sys/vm/drop_caches"
 #define MEMINFO_FNAME "/proc/meminfo"
 #define PROC_IO_FNAME "/proc/self/io"
-static size_t testfile_size = 64 * 1024 * 1024;
+#define DEFAULT_FILESIZE (64 * 1024 * 1024)
+
+static size_t testfile_size = DEFAULT_FILESIZE;
 static char *opt_fsizestr;
 static int pagesize;
 static unsigned long cached_max;
@@ -67,7 +69,7 @@ static struct tcase {
 	int use_overlay;
 	int use_fadvise;
 	/* Use either readahead() syscall or POSIX_FADV_WILLNEED */
-	int (*readahead)(int, off_t, size_t);
+	int (*readahead)(int fd, off_t offset, size_t len);
 } tcases[] = {
 	{ "readahead on file", 0, 0, libc_readahead },
 	{ "readahead on overlayfs file", 1, 0, libc_readahead },
@@ -131,7 +133,7 @@ static void create_testfile(int use_overlay)
 
 	fd = SAFE_CREAT(testfile, 0644);
 	for (i = 0; i < testfile_size; i += pagesize)
-		SAFE_WRITE(1, fd, tmp, pagesize);
+		SAFE_WRITE(SAFE_WRITE_ALL, fd, tmp, pagesize);
 	SAFE_FSYNC(fd);
 	SAFE_CLOSE(fd);
 	free(tmp);
@@ -221,8 +223,7 @@ static void test_readahead(unsigned int n)
 	tst_res(TINFO, "Test #%d: %s", n, tc->tname);
 
 	if (tc->use_overlay && !ovl_mounted) {
-		tst_res(TCONF,
-		        "overlayfs is not configured in this kernel.");
+		tst_res(TCONF, "overlayfs is not configured in this kernel");
 		return;
 	}
 
@@ -250,7 +251,7 @@ static void test_readahead(unsigned int n)
 	cached_low = get_cached_size();
 	tst_res(TINFO, "read_testfile(1)");
 	ret = read_testfile(tc, 1, testfile, testfile_size, &read_bytes_ra,
-		            &usec_ra, &cached_ra);
+			    &usec_ra, &cached_ra);
 
 	if (ret == EINVAL) {
 		if (tc->use_fadvise &&
@@ -365,8 +366,10 @@ static void setup_readahead_length(void)
 
 static void setup(void)
 {
-	if (opt_fsizestr)
+	if (opt_fsizestr) {
 		testfile_size = SAFE_STRTOL(opt_fsizestr, 1, INT_MAX);
+		tst_set_max_runtime(1 + testfile_size / (DEFAULT_FILESIZE/32));
+	}
 
 	if (access(PROC_IO_FNAME, F_OK))
 		tst_brk(TCONF, "Requires " PROC_IO_FNAME);
@@ -401,11 +404,12 @@ static struct tst_test test = {
 	.setup = setup,
 	.cleanup = cleanup,
 	.options = (struct tst_option[]) {
-		{"s:", &opt_fsizestr, "-s    testfile size (default 64MB)"},
+		{"s:", &opt_fsizestr, "Testfile size (default 64MB)"},
 		{}
 	},
 	.test = test_readahead,
 	.tcnt = ARRAY_SIZE(tcases),
+	.max_runtime = 30,
 	.tags = (const struct tst_tag[]) {
 		{"linux-git", "b833a3660394"},
 		{"linux-git", "5b910bd615ba"},

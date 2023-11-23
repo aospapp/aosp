@@ -17,7 +17,8 @@ class firmware_CorruptFwSigA(FirmwareTest):
     def initialize(self, host, cmdline_args, dev_mode=False):
         super(firmware_CorruptFwSigA, self).initialize(host, cmdline_args)
         self.backup_firmware()
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
         self.setup_usbkey(usbkey=False)
 
     def cleanup(self):
@@ -32,7 +33,8 @@ class firmware_CorruptFwSigA(FirmwareTest):
         """Runs a single iteration of the test."""
         logging.info("Corrupt firmware signature A.")
         self.check_state((self.checkers.fw_tries_checker, 'A'))
-        self.faft_client.bios.corrupt_sig('a')
+        offset_a, byte_a = self.faft_client.bios.get_sig_one_byte('a')
+        self.faft_client.bios.modify_sig('a', offset_a, byte_a + 1)
         self.switcher.mode_aware_reboot()
 
         logging.info("Expected firmware B boot and set fwb_tries flag.")
@@ -43,7 +45,7 @@ class firmware_CorruptFwSigA(FirmwareTest):
 
         logging.info("Still expected firmware B boot and restore firmware A.")
         self.check_state((self.checkers.fw_tries_checker, 'B'))
-        self.faft_client.bios.restore_sig('a')
+        self.faft_client.bios.modify_sig('a', offset_a, byte_a)
         self.switcher.mode_aware_reboot()
 
         expected_slot = 'B' if self.fw_vboot2 else 'A'

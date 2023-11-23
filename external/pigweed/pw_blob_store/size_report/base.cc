@@ -51,7 +51,7 @@ int main() {
   PW_LOG_INFO("We care about optimizing: %d", *unoptimizable);
 
   void* result =
-      std::memset((void*)working_buffer, sizeof(working_buffer), 0x55);
+      std::memset((void*)working_buffer, 0x55, sizeof(working_buffer));
   is_set = (result != nullptr);
 
   {
@@ -74,7 +74,7 @@ int main() {
   PW_LOG_INFO("Use the variable. %u", unsigned(*val));
 
   std::array<std::byte, 32> blob_source_buffer;
-  pw::ConstByteSpan write_data = std::span(blob_source_buffer);
+  pw::ConstByteSpan write_data = pw::span(blob_source_buffer);
   char name[16] = "BLOB";
   std::array<std::byte, 32> read_buffer;
   pw::ByteSpan read_span = read_buffer;

@@ -287,18 +287,13 @@ static_assert(sizeof(WideString) <= sizeof(wchar_t*),
 WideString WideString::FormatV(const wchar_t* format, va_list argList) {
   va_list argListCopy;
   va_copy(argListCopy, argList);
-  int maxLen = vswprintf(nullptr, 0, format, argListCopy);
+  auto guess = GuessSizeForVSWPrintf(format, argListCopy);
   va_end(argListCopy);
 
-  if (maxLen <= 0) {
-    va_copy(argListCopy, argList);
-    auto guess = GuessSizeForVSWPrintf(format, argListCopy);
-    va_end(argListCopy);
-
-    if (!guess.has_value())
-      return WideString();
-    maxLen = pdfium::base::checked_cast<int>(guess.value());
+  if (!guess.has_value()) {
+    return WideString();
   }
+  int maxLen = pdfium::base::checked_cast<int>(guess.value());
 
   while (maxLen < 32 * 1024) {
     va_copy(argListCopy, argList);

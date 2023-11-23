@@ -1,19 +1,19 @@
+#[cfg(span_locations)]
+use crate::location::LineColumn;
 use crate::parse::{self, Cursor};
+use crate::rcvec::{RcVec, RcVecBuilder, RcVecIntoIter, RcVecMut};
 use crate::{Delimiter, Spacing, TokenTree};
+#[cfg(all(span_locations, not(fuzzing)))]
+use core::cell::RefCell;
 #[cfg(span_locations)]
-use std::cell::RefCell;
-#[cfg(span_locations)]
-use std::cmp;
-use std::fmt::{self, Debug, Display};
-use std::iter::FromIterator;
-use std::mem;
-use std::ops::RangeBounds;
-#[cfg(procmacro2_semver_exempt)]
-use std::path::Path;
+use core::cmp;
+use core::fmt::{self, Debug, Display, Write};
+use core::iter::FromIterator;
+use core::mem::ManuallyDrop;
+use core::ops::RangeBounds;
+use core::ptr;
+use core::str::FromStr;
 use std::path::PathBuf;
-use std::str::FromStr;
-use std::vec;
-use unicode_xid::UnicodeXID;
 
 /// Force use of proc-macro2's fallback implementation of the API for now, even
 /// if the compiler's implementation is available.
@@ -31,7 +31,7 @@ pub fn unforce() {
 
 #[derive(Clone)]
 pub(crate) struct TokenStream {
-    inner: Vec<TokenTree>,
+    inner: RcVec<TokenTree>,
 }
 
 #[derive(Debug)]
@@ -53,71 +53,69 @@ impl LexError {
 
 impl TokenStream {
     pub fn new() -> Self {
-        TokenStream { inner: Vec::new() }
+        TokenStream {
+            inner: RcVecBuilder::new().build(),
+        }
     }
 
     pub fn is_empty(&self) -> bool {
         self.inner.len() == 0
     }
 
-    fn take_inner(&mut self) -> Vec<TokenTree> {
-        mem::replace(&mut self.inner, Vec::new())
-    }
-
-    fn push_token(&mut self, token: TokenTree) {
-        // https://github.com/dtolnay/proc-macro2/issues/235
-        match token {
-            #[cfg(not(no_bind_by_move_pattern_guard))]
-            TokenTree::Literal(crate::Literal {
-                #[cfg(wrap_proc_macro)]
-                    inner: crate::imp::Literal::Fallback(literal),
-                #[cfg(not(wrap_proc_macro))]
-                    inner: literal,
-                ..
-            }) if literal.repr.starts_with('-') => {
-                push_negative_literal(self, literal);
-            }
-            #[cfg(no_bind_by_move_pattern_guard)]
-            TokenTree::Literal(crate::Literal {
-                #[cfg(wrap_proc_macro)]
-                    inner: crate::imp::Literal::Fallback(literal),
-                #[cfg(not(wrap_proc_macro))]
-                    inner: literal,
-                ..
-            }) => {
-                if literal.repr.starts_with('-') {
-                    push_negative_literal(self, literal);
-                } else {
-                    self.inner
-                        .push(TokenTree::Literal(crate::Literal::_new_stable(literal)));
-                }
-            }
-            _ => self.inner.push(token),
-        }
-
-        #[cold]
-        fn push_negative_literal(stream: &mut TokenStream, mut literal: Literal) {
-            literal.repr.remove(0);
-            let mut punct = crate::Punct::new('-', Spacing::Alone);
-            punct.set_span(crate::Span::_new_stable(literal.span));
-            stream.inner.push(TokenTree::Punct(punct));
-            stream
-                .inner
-                .push(TokenTree::Literal(crate::Literal::_new_stable(literal)));
-        }
+    fn take_inner(self) -> RcVecBuilder<TokenTree> {
+        let nodrop = ManuallyDrop::new(self);
+        unsafe { ptr::read(&nodrop.inner) }.make_owned()
     }
 }
 
-impl From<Vec<TokenTree>> for TokenStream {
-    fn from(inner: Vec<TokenTree>) -> Self {
-        TokenStream { inner }
+fn push_token_from_proc_macro(mut vec: RcVecMut<TokenTree>, token: TokenTree) {
+    // https://github.com/dtolnay/proc-macro2/issues/235
+    match token {
+        #[cfg(not(no_bind_by_move_pattern_guard))]
+        TokenTree::Literal(crate::Literal {
+            #[cfg(wrap_proc_macro)]
+                inner: crate::imp::Literal::Fallback(literal),
+            #[cfg(not(wrap_proc_macro))]
+                inner: literal,
+            ..
+        }) if literal.repr.starts_with('-') => {
+            push_negative_literal(vec, literal);
+        }
+        #[cfg(no_bind_by_move_pattern_guard)]
+        TokenTree::Literal(crate::Literal {
+            #[cfg(wrap_proc_macro)]
+                inner: crate::imp::Literal::Fallback(literal),
+            #[cfg(not(wrap_proc_macro))]
+                inner: literal,
+            ..
+        }) => {
+            if literal.repr.starts_with('-') {
+                push_negative_literal(vec, literal);
+            } else {
+                vec.push(TokenTree::Literal(crate::Literal::_new_fallback(literal)));
+            }
+        }
+        _ => vec.push(token),
+    }
+
+    #[cold]
+    fn push_negative_literal(mut vec: RcVecMut<TokenTree>, mut literal: Literal) {
+        literal.repr.remove(0);
+        let mut punct = crate::Punct::new('-', Spacing::Alone);
+        punct.set_span(crate::Span::_new_fallback(literal.span));
+        vec.push(TokenTree::Punct(punct));
+        vec.push(TokenTree::Literal(crate::Literal::_new_fallback(literal)));
     }
 }
 
 // Nonrecursive to prevent stack overflow.
 impl Drop for TokenStream {
     fn drop(&mut self) {
-        while let Some(token) = self.inner.pop() {
+        let mut inner = match self.inner.get_mut() {
+            Some(inner) => inner,
+            None => return,
+        };
+        while let Some(token) = inner.pop() {
             let group = match token {
                 TokenTree::Group(group) => group.inner,
                 _ => continue,
@@ -127,19 +125,49 @@ impl Drop for TokenStream {
                 crate::imp::Group::Fallback(group) => group,
                 crate::imp::Group::Compiler(_) => continue,
             };
-            let mut group = group;
-            self.inner.extend(group.stream.take_inner());
+            inner.extend(group.stream.take_inner());
+        }
+    }
+}
+
+pub(crate) struct TokenStreamBuilder {
+    inner: RcVecBuilder<TokenTree>,
+}
+
+impl TokenStreamBuilder {
+    pub fn new() -> Self {
+        TokenStreamBuilder {
+            inner: RcVecBuilder::new(),
+        }
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        TokenStreamBuilder {
+            inner: RcVecBuilder::with_capacity(cap),
+        }
+    }
+
+    pub fn push_token_from_parser(&mut self, tt: TokenTree) {
+        self.inner.push(tt);
+    }
+
+    pub fn build(self) -> TokenStream {
+        TokenStream {
+            inner: self.inner.build(),
         }
     }
 }
 
 #[cfg(span_locations)]
 fn get_cursor(src: &str) -> Cursor {
+    #[cfg(fuzzing)]
+    return Cursor { rest: src, off: 1 };
+
     // Create a dummy file & add it to the source map
+    #[cfg(not(fuzzing))]
     SOURCE_MAP.with(|cm| {
         let mut cm = cm.borrow_mut();
-        let name = format!("<parsed string {}>", cm.files.len());
-        let span = cm.add_file(&name, src);
+        let span = cm.add_file(src);
         Cursor {
             rest: src,
             off: span.lo,
@@ -157,7 +185,13 @@ impl FromStr for TokenStream {
 
     fn from_str(src: &str) -> Result<TokenStream, LexError> {
         // Create a dummy file & add it to the source map
-        let cursor = get_cursor(src);
+        let mut cursor = get_cursor(src);
+
+        // Strip a byte order mark if present
+        const BYTE_ORDER_MARK: &str = "\u{feff}";
+        if cursor.starts_with(BYTE_ORDER_MARK) {
+            cursor = cursor.advance(BYTE_ORDER_MARK.len());
+        }
 
         parse::token_stream(cursor)
     }
@@ -201,7 +235,7 @@ impl Debug for TokenStream {
 
 #[cfg(use_proc_macro)]
 impl From<proc_macro::TokenStream> for TokenStream {
-    fn from(inner: proc_macro::TokenStream) -> TokenStream {
+    fn from(inner: proc_macro::TokenStream) -> Self {
         inner
             .to_string()
             .parse()
@@ -211,7 +245,7 @@ impl From<proc_macro::TokenStream> for TokenStream {
 
 #[cfg(use_proc_macro)]
 impl From<TokenStream> for proc_macro::TokenStream {
-    fn from(inner: TokenStream) -> proc_macro::TokenStream {
+    fn from(inner: TokenStream) -> Self {
         inner
             .to_string()
             .parse()
@@ -220,10 +254,12 @@ impl From<TokenStream> for proc_macro::TokenStream {
 }
 
 impl From<TokenTree> for TokenStream {
-    fn from(tree: TokenTree) -> TokenStream {
-        let mut stream = TokenStream::new();
-        stream.push_token(tree);
-        stream
+    fn from(tree: TokenTree) -> Self {
+        let mut stream = RcVecBuilder::new();
+        push_token_from_proc_macro(stream.as_mut(), tree);
+        TokenStream {
+            inner: stream.build(),
+        }
     }
 }
 
@@ -237,35 +273,38 @@ impl FromIterator<TokenTree> for TokenStream {
 
 impl FromIterator<TokenStream> for TokenStream {
     fn from_iter<I: IntoIterator<Item = TokenStream>>(streams: I) -> Self {
-        let mut v = Vec::new();
+        let mut v = RcVecBuilder::new();
 
-        for mut stream in streams {
+        for stream in streams {
             v.extend(stream.take_inner());
         }
 
-        TokenStream { inner: v }
+        TokenStream { inner: v.build() }
     }
 }
 
 impl Extend<TokenTree> for TokenStream {
     fn extend<I: IntoIterator<Item = TokenTree>>(&mut self, tokens: I) {
-        tokens.into_iter().for_each(|token| self.push_token(token));
+        let mut vec = self.inner.make_mut();
+        tokens
+            .into_iter()
+            .for_each(|token| push_token_from_proc_macro(vec.as_mut(), token));
     }
 }
 
 impl Extend<TokenStream> for TokenStream {
     fn extend<I: IntoIterator<Item = TokenStream>>(&mut self, streams: I) {
-        self.inner.extend(streams.into_iter().flatten());
+        self.inner.make_mut().extend(streams.into_iter().flatten());
     }
 }
 
-pub(crate) type TokenTreeIter = vec::IntoIter<TokenTree>;
+pub(crate) type TokenTreeIter = RcVecIntoIter<TokenTree>;
 
 impl IntoIterator for TokenStream {
     type Item = TokenTree;
     type IntoIter = TokenTreeIter;
 
-    fn into_iter(mut self) -> TokenTreeIter {
+    fn into_iter(self) -> TokenTreeIter {
         self.take_inner().into_iter()
     }
 }
@@ -296,35 +335,27 @@ impl Debug for SourceFile {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct LineColumn {
-    pub line: usize,
-    pub column: usize,
-}
-
-#[cfg(span_locations)]
+#[cfg(all(span_locations, not(fuzzing)))]
 thread_local! {
     static SOURCE_MAP: RefCell<SourceMap> = RefCell::new(SourceMap {
         // NOTE: We start with a single dummy file which all call_site() and
         // def_site() spans reference.
         files: vec![FileInfo {
-            #[cfg(procmacro2_semver_exempt)]
-            name: "<unspecified>".to_owned(),
+            source_text: String::new(),
             span: Span { lo: 0, hi: 0 },
             lines: vec![0],
         }],
     });
 }
 
-#[cfg(span_locations)]
+#[cfg(all(span_locations, not(fuzzing)))]
 struct FileInfo {
-    #[cfg(procmacro2_semver_exempt)]
-    name: String,
+    source_text: String,
     span: Span,
     lines: Vec<usize>,
 }
 
-#[cfg(span_locations)]
+#[cfg(all(span_locations, not(fuzzing)))]
 impl FileInfo {
     fn offset_line_column(&self, offset: usize) -> LineColumn {
         assert!(self.span_within(Span {
@@ -347,11 +378,17 @@ impl FileInfo {
     fn span_within(&self, span: Span) -> bool {
         span.lo >= self.span.lo && span.hi <= self.span.hi
     }
+
+    fn source_text(&self, span: Span) -> String {
+        let lo = (span.lo - self.span.lo) as usize;
+        let hi = (span.hi - self.span.lo) as usize;
+        self.source_text[lo..hi].to_owned()
+    }
 }
 
 /// Computes the offsets of each line in the given source string
 /// and the total number of characters
-#[cfg(span_locations)]
+#[cfg(all(span_locations, not(fuzzing)))]
 fn lines_offsets(s: &str) -> (usize, Vec<usize>) {
     let mut lines = vec![0];
     let mut total = 0;
@@ -366,12 +403,12 @@ fn lines_offsets(s: &str) -> (usize, Vec<usize>) {
     (total, lines)
 }
 
-#[cfg(span_locations)]
+#[cfg(all(span_locations, not(fuzzing)))]
 struct SourceMap {
     files: Vec<FileInfo>,
 }
 
-#[cfg(span_locations)]
+#[cfg(all(span_locations, not(fuzzing)))]
 impl SourceMap {
     fn next_start_pos(&self) -> u32 {
         // Add 1 so there's always space between files.
@@ -381,26 +418,36 @@ impl SourceMap {
         self.files.last().unwrap().span.hi + 1
     }
 
-    fn add_file(&mut self, name: &str, src: &str) -> Span {
+    fn add_file(&mut self, src: &str) -> Span {
         let (len, lines) = lines_offsets(src);
         let lo = self.next_start_pos();
-        // XXX(nika): Shouild we bother doing a checked cast or checked add here?
+        // XXX(nika): Should we bother doing a checked cast or checked add here?
         let span = Span {
             lo,
             hi: lo + (len as u32),
         };
 
         self.files.push(FileInfo {
-            #[cfg(procmacro2_semver_exempt)]
-            name: name.to_owned(),
+            source_text: src.to_owned(),
             span,
             lines,
         });
 
-        #[cfg(not(procmacro2_semver_exempt))]
-        let _ = name;
-
         span
+    }
+
+    #[cfg(procmacro2_semver_exempt)]
+    fn filepath(&self, span: Span) -> PathBuf {
+        for (i, file) in self.files.iter().enumerate() {
+            if file.span_within(span) {
+                return PathBuf::from(if i == 0 {
+                    "<unspecified>".to_owned()
+                } else {
+                    format!("<parsed string {}>", i)
+                });
+            }
+        }
+        unreachable!("Invalid span with no related FileInfo!");
     }
 
     fn fileinfo(&self, span: Span) -> &FileInfo {
@@ -409,7 +456,7 @@ impl SourceMap {
                 return file;
             }
         }
-        panic!("Invalid span with no related FileInfo!");
+        unreachable!("Invalid span with no related FileInfo!");
     }
 }
 
@@ -455,17 +502,25 @@ impl Span {
 
     #[cfg(procmacro2_semver_exempt)]
     pub fn source_file(&self) -> SourceFile {
+        #[cfg(fuzzing)]
+        return SourceFile {
+            path: PathBuf::from("<unspecified>"),
+        };
+
+        #[cfg(not(fuzzing))]
         SOURCE_MAP.with(|cm| {
             let cm = cm.borrow();
-            let fi = cm.fileinfo(*self);
-            SourceFile {
-                path: Path::new(&fi.name).to_owned(),
-            }
+            let path = cm.filepath(*self);
+            SourceFile { path }
         })
     }
 
     #[cfg(span_locations)]
     pub fn start(&self) -> LineColumn {
+        #[cfg(fuzzing)]
+        return LineColumn { line: 0, column: 0 };
+
+        #[cfg(not(fuzzing))]
         SOURCE_MAP.with(|cm| {
             let cm = cm.borrow();
             let fi = cm.fileinfo(*self);
@@ -475,11 +530,35 @@ impl Span {
 
     #[cfg(span_locations)]
     pub fn end(&self) -> LineColumn {
+        #[cfg(fuzzing)]
+        return LineColumn { line: 0, column: 0 };
+
+        #[cfg(not(fuzzing))]
         SOURCE_MAP.with(|cm| {
             let cm = cm.borrow();
             let fi = cm.fileinfo(*self);
             fi.offset_line_column(self.hi as usize)
         })
+    }
+
+    #[cfg(procmacro2_semver_exempt)]
+    pub fn before(&self) -> Span {
+        Span {
+            #[cfg(span_locations)]
+            lo: self.lo,
+            #[cfg(span_locations)]
+            hi: self.lo,
+        }
+    }
+
+    #[cfg(procmacro2_semver_exempt)]
+    pub fn after(&self) -> Span {
+        Span {
+            #[cfg(span_locations)]
+            lo: self.hi,
+            #[cfg(span_locations)]
+            hi: self.hi,
+        }
     }
 
     #[cfg(not(span_locations))]
@@ -489,6 +568,13 @@ impl Span {
 
     #[cfg(span_locations)]
     pub fn join(&self, other: Span) -> Option<Span> {
+        #[cfg(fuzzing)]
+        return {
+            let _ = other;
+            None
+        };
+
+        #[cfg(not(fuzzing))]
         SOURCE_MAP.with(|cm| {
             let cm = cm.borrow();
             // If `other` is not within the same FileInfo as us, return None.
@@ -503,12 +589,32 @@ impl Span {
     }
 
     #[cfg(not(span_locations))]
-    fn first_byte(self) -> Self {
+    pub fn source_text(&self) -> Option<String> {
+        None
+    }
+
+    #[cfg(span_locations)]
+    pub fn source_text(&self) -> Option<String> {
+        #[cfg(fuzzing)]
+        return None;
+
+        #[cfg(not(fuzzing))]
+        {
+            if self.is_call_site() {
+                None
+            } else {
+                Some(SOURCE_MAP.with(|cm| cm.borrow().fileinfo(*self).source_text(*self)))
+            }
+        }
+    }
+
+    #[cfg(not(span_locations))]
+    pub(crate) fn first_byte(self) -> Self {
         self
     }
 
     #[cfg(span_locations)]
-    fn first_byte(self) -> Self {
+    pub(crate) fn first_byte(self) -> Self {
         Span {
             lo: self.lo,
             hi: cmp::min(self.lo.saturating_add(1), self.hi),
@@ -516,16 +622,21 @@ impl Span {
     }
 
     #[cfg(not(span_locations))]
-    fn last_byte(self) -> Self {
+    pub(crate) fn last_byte(self) -> Self {
         self
     }
 
     #[cfg(span_locations)]
-    fn last_byte(self) -> Self {
+    pub(crate) fn last_byte(self) -> Self {
         Span {
             lo: cmp::max(self.hi.saturating_sub(1), self.lo),
             hi: self.hi,
         }
+    }
+
+    #[cfg(span_locations)]
+    fn is_call_site(&self) -> bool {
+        self.lo == 0 && self.hi == 0
     }
 }
 
@@ -542,7 +653,7 @@ impl Debug for Span {
 pub(crate) fn debug_span_field_if_nontrivial(debug: &mut fmt::DebugStruct, span: Span) {
     #[cfg(span_locations)]
     {
-        if span.lo == 0 && span.hi == 0 {
+        if span.is_call_site() {
             return;
         }
     }
@@ -639,7 +750,7 @@ pub(crate) struct Ident {
 
 impl Ident {
     fn _new(string: &str, raw: bool, span: Span) -> Self {
-        validate_ident(string);
+        validate_ident(string, raw);
 
         Ident {
             sym: string.to_owned(),
@@ -666,27 +777,19 @@ impl Ident {
 }
 
 pub(crate) fn is_ident_start(c: char) -> bool {
-    ('a' <= c && c <= 'z')
-        || ('A' <= c && c <= 'Z')
-        || c == '_'
-        || (c > '\x7f' && UnicodeXID::is_xid_start(c))
+    c == '_' || unicode_ident::is_xid_start(c)
 }
 
 pub(crate) fn is_ident_continue(c: char) -> bool {
-    ('a' <= c && c <= 'z')
-        || ('A' <= c && c <= 'Z')
-        || c == '_'
-        || ('0' <= c && c <= '9')
-        || (c > '\x7f' && UnicodeXID::is_xid_continue(c))
+    unicode_ident::is_xid_continue(c)
 }
 
-fn validate_ident(string: &str) {
-    let validate = string;
-    if validate.is_empty() {
+fn validate_ident(string: &str, raw: bool) {
+    if string.is_empty() {
         panic!("Ident is not allowed to be empty; use Option<Ident>");
     }
 
-    if validate.bytes().all(|digit| digit >= b'0' && digit <= b'9') {
+    if string.bytes().all(|digit| digit >= b'0' && digit <= b'9') {
         panic!("Ident cannot be a number; use Literal instead");
     }
 
@@ -704,8 +807,17 @@ fn validate_ident(string: &str) {
         true
     }
 
-    if !ident_ok(validate) {
+    if !ident_ok(string) {
         panic!("{:?} is not a valid Ident", string);
+    }
+
+    if raw {
+        match string {
+            "_" | "super" | "self" | "Self" | "crate" => {
+                panic!("`r#{}` cannot be a raw identifier", string);
+            }
+            _ => {}
+        }
     }
 }
 
@@ -883,7 +995,9 @@ impl Literal {
                 b'"' => escaped.push_str("\\\""),
                 b'\\' => escaped.push_str("\\\\"),
                 b'\x20'..=b'\x7E' => escaped.push(*b as char),
-                _ => escaped.push_str(&format!("\\x{:02X}", b)),
+                _ => {
+                    let _ = write!(escaped, "\\x{:02X}", b);
+                }
             }
         }
         escaped.push('"');

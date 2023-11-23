@@ -25,6 +25,8 @@
 #include "lang_id/common/fel/task-context.h"
 #include "lang_id/common/fel/workspace.h"
 #include "lang_id/common/lite_base/attributes.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
 namespace mobile {
@@ -46,7 +48,7 @@ class GenericEmbeddingFeatureExtractor {
   //
   // |arg_prefix| is a string prefix for the relevant TaskContext parameters, to
   // avoid name clashes.  See GetParamName().
-  explicit GenericEmbeddingFeatureExtractor(const std::string &arg_prefix)
+  explicit GenericEmbeddingFeatureExtractor(absl::string_view arg_prefix)
       : arg_prefix_(arg_prefix) {}
 
   virtual ~GenericEmbeddingFeatureExtractor() {}
@@ -70,11 +72,8 @@ class GenericEmbeddingFeatureExtractor {
   }
 
   // Get parameter name by concatenating the prefix and the original name.
-  std::string GetParamName(const std::string &param_name) const {
-    std::string full_name = arg_prefix_;
-    full_name.push_back('_');
-    full_name.append(param_name);
-    return full_name;
+  std::string GetParamName(absl::string_view param_name) const {
+    return absl::StrCat(arg_prefix_, "_", param_name);
   }
 
  private:
@@ -108,7 +107,7 @@ class EmbeddingFeatureExtractor : public GenericEmbeddingFeatureExtractor {
   //
   // |arg_prefix| is a string prefix for the relevant TaskContext parameters, to
   // avoid name clashes.  See GetParamName().
-  explicit EmbeddingFeatureExtractor(const std::string &arg_prefix)
+  explicit EmbeddingFeatureExtractor(absl::string_view arg_prefix)
       : GenericEmbeddingFeatureExtractor(arg_prefix) {}
 
   // Sets up all predicate maps, feature extractors, and flags.
@@ -117,7 +116,7 @@ class EmbeddingFeatureExtractor : public GenericEmbeddingFeatureExtractor {
       return false;
     }
     feature_extractors_.resize(embedding_fml().size());
-    for (int i = 0; i < embedding_fml().size(); ++i) {
+    for (size_t i = 0; i < embedding_fml().size(); ++i) {
       feature_extractors_[i].reset(new EXTRACTOR());
       if (!feature_extractors_[i]->Parse(embedding_fml()[i])) return false;
       if (!feature_extractors_[i]->Setup(context)) return false;
@@ -158,7 +157,7 @@ class EmbeddingFeatureExtractor : public GenericEmbeddingFeatureExtractor {
                        std::vector<FeatureVector> *features) const {
     // DCHECK(features != nullptr);
     // DCHECK_EQ(features->size(), feature_extractors_.size());
-    for (int i = 0; i < feature_extractors_.size(); ++i) {
+    for (size_t i = 0; i < feature_extractors_.size(); ++i) {
       (*features)[i].clear();
       feature_extractors_[i]->ExtractFeatures(workspaces, obj, args...,
                                               &(*features)[i]);

@@ -17,6 +17,7 @@
 
 #include <jni.h>
 
+#include <memory>
 #include <string>
 
 #include "icing/text_classifier/lib3/utils/base/statusor.h"

@@ -1,0 +1,11 @@
+{
+  "add-module-block": "cargo2android_module.bp",
+  "apex-available": [
+    "//apex_available:platform",
+    "com.android.virt"
+  ],
+  "dependencies": true,
+  "device": true,
+  "run": true,
+  "tests": true
+}

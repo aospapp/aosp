@@ -48,14 +48,13 @@ class IntentGenerator {
   // Generates intents for a classification result.
   // Returns true, if the intent generator snippets could be successfully run,
   // returns false otherwise.
-  bool GenerateIntents(const jstring device_locales,
-                       const ClassificationResult& classification,
-                       const int64 reference_time_ms_utc,
-                       const std::string& text,
-                       const CodepointSpan selection_indices,
-                       const jobject context,
-                       const reflection::Schema* annotations_entity_data_schema,
-                       std::vector<RemoteActionTemplate>* remote_actions) const;
+  bool GenerateIntents(
+      const jstring device_locales, const ClassificationResult& classification,
+      const int64 reference_time_ms_utc, const std::string& text,
+      const CodepointSpan selection_indices, const jobject context,
+      const reflection::Schema* annotations_entity_data_schema,
+      const bool enable_add_contact_intent, const bool enable_search_intent,
+      std::vector<RemoteActionTemplate>* remote_actions) const;
 
   // Generates intents for an action suggestion.
   // Returns true, if the intent generator snippets could be successfully run,

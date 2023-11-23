@@ -47,22 +47,34 @@ def _gen_java_from_idl(
         transitive_idl_preprocessed = [],
         aidl = None,
         aidl_lib = None,
-        aidl_framework = None):
+        aidl_framework = None,
+        uses_aosp_compiler = False,
+        idlopts = []):
     args = ctx.actions.args()
-    args.add("-b")
+
+    # Note: at the moment (2022/11/07), the flags that the AOSP compiler accepts is a superset of
+    # the Google3 compiler, but that might not be true in the future.
+    if uses_aosp_compiler:
+        args.add("--use-aosp-compiler")
+
+    for opt in idlopts:
+        args.add(opt)
+
+    args.add("-b")  # fail on parcelable
     args.add_all(transitive_idl_import_roots, format_each = "-I%s")
     args.add(aidl_framework, format = "-p%s")
     args.add_all(transitive_idl_preprocessed, format_each = "-p%s")
     args.add(idl_src)
     args.add(out_idl_java_src)
 
+    aidl_lib_files = [aidl_lib.files] if aidl_lib else []
+
     ctx.actions.run(
         executable = aidl,
         arguments = [args],
         inputs = depset(
             [aidl_framework],
-            transitive = [
-                aidl_lib.files,
+            transitive = aidl_lib_files + [
                 transitive_idl_imports,
                 transitive_idl_preprocessed,
             ],
@@ -129,7 +141,9 @@ def _process(
         exports = [],
         aidl = None,
         aidl_lib = None,
-        aidl_framework = None):
+        aidl_framework = None,
+        uses_aosp_compiler = False,
+        idlopts = []):
     """Processes Android IDL.
 
     Args:
@@ -176,14 +190,22 @@ def _process(
         are supplied.
       aidl_lib: Target. A target pointing to the aidl_lib library required
         during Java compilation when Java code is generated from idl sources.
-        Optional, unless idl_srcs are supplied.
+        Optional.
       aidl_framework: Target. A target pointing to the aidl framework. Optional,
         unless idl_srcs are supplied.
+      uses_aosp_compiler: boolean. If True, the upstream AOSP AIDL compiler is
+        used instead of the Google3-only AIDL compiler. This allows wider range
+        of AIDL language features including the structured parcelable, enum,
+        union, and many more. On the other hand, using this may cause noticeable
+        regression in terms of code size and performance as the compiler doesn't
+        implement several optimization techniques that the Google3 compiler has.
+      idlopts: list of string. Additional flags to add to the AOSP AIDL compiler
+        invocation.
 
     Returns:
       A IDLContextInfo provider.
     """
-    if idl_srcs and not (aidl and aidl_lib and aidl_framework):
+    if idl_srcs and not (aidl and aidl_framework):
         _log.error(_AIDL_TOOLCHAIN_MISSING_ERROR)
 
     transitive_idl_import_roots = []
@@ -224,13 +246,15 @@ def _process(
             aidl = aidl,
             aidl_lib = aidl_lib,
             aidl_framework = aidl_framework,
+            uses_aosp_compiler = uses_aosp_compiler,
+            idlopts = idlopts,
         )
 
     return IDLContextInfo(
         idl_srcs = idl_srcs,
         idl_import_root = idl_import_root,
         idl_java_srcs = idl_java_srcs,
-        idl_deps = [aidl_lib] if idl_java_srcs else [],
+        idl_deps = [aidl_lib] if (idl_java_srcs and aidl_lib) else [],
         providers = [
             # TODO(b/146216105): Make this a Starlark provider.
             AndroidIdlInfo(

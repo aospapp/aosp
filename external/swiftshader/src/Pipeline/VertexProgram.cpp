@@ -26,8 +26,8 @@ namespace sw {
 
 VertexProgram::VertexProgram(
     const VertexProcessor::State &state,
-    vk::PipelineLayout const *pipelineLayout,
-    SpirvShader const *spirvShader,
+    const vk::PipelineLayout *pipelineLayout,
+    const SpirvShader *spirvShader,
     const vk::DescriptorSet::Bindings &descriptorSets)
     : VertexRoutine(state, pipelineLayout, spirvShader)
     , descriptorSets(descriptorSets)
@@ -39,18 +39,18 @@ VertexProgram::VertexProgram(
 	routine.layer = *Pointer<Int>(data + OFFSET(DrawData, layer));
 	routine.instanceID = *Pointer<Int>(data + OFFSET(DrawData, instanceID));
 
-	routine.setInputBuiltin(spirvShader, spv::BuiltInViewIndex, [&](const SpirvShader::BuiltinMapping &builtin, Array<SIMD::Float> &value) {
+	routine.setInputBuiltin(spirvShader, spv::BuiltInViewIndex, [&](const Spirv::BuiltinMapping &builtin, Array<SIMD::Float> &value) {
 		assert(builtin.SizeInComponents == 1);
 		value[builtin.FirstComponent] = As<SIMD::Float>(SIMD::Int(routine.layer));
 	});
 
-	routine.setInputBuiltin(spirvShader, spv::BuiltInInstanceIndex, [&](const SpirvShader::BuiltinMapping &builtin, Array<SIMD::Float> &value) {
+	routine.setInputBuiltin(spirvShader, spv::BuiltInInstanceIndex, [&](const Spirv::BuiltinMapping &builtin, Array<SIMD::Float> &value) {
 		// TODO: we could do better here; we know InstanceIndex is uniform across all lanes
 		assert(builtin.SizeInComponents == 1);
 		value[builtin.FirstComponent] = As<SIMD::Float>(SIMD::Int(routine.instanceID));
 	});
 
-	routine.setInputBuiltin(spirvShader, spv::BuiltInSubgroupSize, [&](const SpirvShader::BuiltinMapping &builtin, Array<SIMD::Float> &value) {
+	routine.setInputBuiltin(spirvShader, spv::BuiltInSubgroupSize, [&](const Spirv::BuiltinMapping &builtin, Array<SIMD::Float> &value) {
 		ASSERT(builtin.SizeInComponents == 1);
 		value[builtin.FirstComponent] = As<SIMD::Float>(SIMD::Int(SIMD::Width));
 	});
@@ -80,11 +80,11 @@ void VertexProgram::program(Pointer<UInt> &batch, UInt &vertexCount)
 	}
 
 	auto activeLaneMask = SIMD::Int(0xFFFFFFFF);
-	Int4 storesAndAtomicsMask = CmpGE(UInt4(vertexCount), UInt4(1, 2, 3, 4));
+	ASSERT(SIMD::Width == 4);
+	SIMD::Int storesAndAtomicsMask = CmpGE(SIMD::UInt(vertexCount), SIMD::UInt(1, 2, 3, 4));
 	spirvShader->emit(&routine, activeLaneMask, storesAndAtomicsMask, descriptorSets);
 
 	spirvShader->emitEpilog(&routine);
-	spirvShader->clearPhis(&routine);
 }
 
 }  // namespace sw

@@ -15,6 +15,7 @@ import os
 import pty
 import re
 import subprocess
+import sys
 import threading
 import time
 
@@ -24,12 +25,21 @@ class OutputRecorderError(Exception):
     pass
 
 
+def _may_append_encoding_kwargs(kwargs):
+    """Appends encoding kwarg if it is run in Python 3+.
+
+    @param kwargs: dict of kwargs.
+    """
+    if sys.version_info.major > 2:
+        kwargs['encoding'] = 'utf-8'
+
+
 class OutputRecorder(object):
     """A class used to record the output of command line program.
 
     A thread is dedicated to performing non-blocking reading of the
     command outpt in this class. Other possible approaches include
-    1. using gobject.io_add_watch() to register a callback and
+    1. using GObject.io_add_watch() to register a callback and
        reading the output when available, or
     2. using select.select() with a short timeout, and reading
        the output if available.
@@ -58,13 +68,14 @@ class OutputRecorder(object):
         """Construction of output recorder.
 
         @param cmd: the command of which the output is to record.
+                This may be a list or a string.
         @param open_mode: the open mode for writing output to save_file.
                 Could be either 'w' or 'a'.
         @param stop_delay_secs: the delay time before stopping the cmd.
         @param save_file: the file to save the output.
 
         """
-        self.cmd = cmd
+        self.cmd = [cmd] if isinstance(cmd, str) else cmd
         self.open_mode = open_mode
         self.start_delay_secs = start_delay_secs
         self.stop_delay_secs = stop_delay_secs
@@ -77,7 +88,9 @@ class OutputRecorder(object):
 
         # Use pseudo terminal to prevent buffering of the program output.
         self._main, self._node = pty.openpty()
-        self._output = os.fdopen(self._main)
+        fdopen_kwargs = {}
+        _may_append_encoding_kwargs(fdopen_kwargs)
+        self._output = os.fdopen(self._main, **fdopen_kwargs)
 
         # Set non-blocking flag.
         fcntl.fcntl(self._output, fcntl.F_SETFL, os.O_NONBLOCK)
@@ -85,14 +98,20 @@ class OutputRecorder(object):
 
     def record(self):
         """Record the output of the cmd."""
-        logging.info('Recording output of "%s".', self.cmd)
+        logging.info('Recording output of "%s".', ' '.join(self.cmd))
         try:
-            self._recorder = subprocess.Popen(
-                    self.cmd, stdout=self._node, stderr=self._node)
+            popen_kwargs = {'stdout': self._node, 'stderr': self._node}
+            _may_append_encoding_kwargs(popen_kwargs)
+            self._recorder = subprocess.Popen(self.cmd, **popen_kwargs)
         except:
-            raise OutputRecorderError('Failed to run "%s"' % self.cmd)
+            raise OutputRecorderError('Failed to run "%s"' %
+                                      ' '.join(self.cmd))
 
-        with open(self.save_file, self.open_mode) as output_f:
+        ansi_escape_re = re.compile(r'\x1b\[[^m]*m')
+
+        open_kwargs = {}
+        _may_append_encoding_kwargs(open_kwargs)
+        with open(self.save_file, self.open_mode, **open_kwargs) as output_f:
             output_f.write(os.linesep + '*' * 80 + os.linesep)
             while True:
                 try:
@@ -103,13 +122,11 @@ class OutputRecorder(object):
                     line = ''
 
                 if line:
+                    # Remove ANSI escape sequence so that XML converter can work.
+                    line = ansi_escape_re.sub('', line)
                     output_f.write(line)
                     output_f.flush()
-                    # The output, e.g. the output of btmon, may contain some
-                    # special unicode such that we would like to escape.
-                    # In this way, regular expression search could be conducted
-                    # properly.
-                    self.contents.append(line.encode('unicode-escape'))
+                    self.contents.append(line)
                 elif self._stop_recording_thread_event.is_set():
                     self._stop_recording_thread_event.clear()
                     break
@@ -198,7 +215,7 @@ class OutputRecorder(object):
 
 if __name__ == '__main__':
     # A demo using btmon tool to monitor bluetoohd activity.
-    cmd = 'btmon'
+    cmd = ['btmon', '-c', 'never']
     recorder = OutputRecorder(cmd)
 
     if True:

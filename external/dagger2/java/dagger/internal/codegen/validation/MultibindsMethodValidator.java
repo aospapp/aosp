@@ -21,39 +21,31 @@ import static dagger.internal.codegen.validation.BindingElementValidator.AllowsM
 import static dagger.internal.codegen.validation.BindingElementValidator.AllowsScoping.NO_SCOPING;
 import static dagger.internal.codegen.validation.BindingMethodValidator.Abstractness.MUST_BE_ABSTRACT;
 import static dagger.internal.codegen.validation.BindingMethodValidator.ExceptionSuperclass.NO_EXCEPTIONS;
+import static dagger.internal.codegen.xprocessing.XTypes.isWildcard;
 
-import com.google.auto.common.MoreTypes;
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XType;
 import com.google.common.collect.ImmutableSet;
-import dagger.Module;
 import dagger.internal.codegen.base.MapType;
 import dagger.internal.codegen.base.SetType;
 import dagger.internal.codegen.binding.InjectionAnnotations;
-import dagger.internal.codegen.kotlin.KotlinMetadataUtil;
-import dagger.internal.codegen.langmodel.DaggerElements;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.multibindings.Multibinds;
-import dagger.producers.ProducerModule;
 import javax.inject.Inject;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.type.TypeMirror;
 
-/** A validator for {@link Multibinds} methods. */
+/** A validator for {@link dagger.multibindings.Multibinds} methods. */
 class MultibindsMethodValidator extends BindingMethodValidator {
 
-  /** Creates a validator for {@link Multibinds @Multibinds} methods. */
+  /** Creates a validator for {@link dagger.multibindings.Multibinds @Multibinds} methods. */
   @Inject
   MultibindsMethodValidator(
-      DaggerElements elements,
       DaggerTypes types,
-      KotlinMetadataUtil kotlinMetadataUtil,
       DependencyRequestValidator dependencyRequestValidator,
       InjectionAnnotations injectionAnnotations) {
     super(
-        elements,
         types,
-        kotlinMetadataUtil,
-        Multibinds.class,
-        ImmutableSet.of(Module.class, ProducerModule.class),
+        TypeNames.MULTIBINDS,
+        ImmutableSet.of(TypeNames.MODULE, TypeNames.PRODUCER_MODULE),
         dependencyRequestValidator,
         MUST_BE_ABSTRACT,
         NO_EXCEPTIONS,
@@ -63,18 +55,21 @@ class MultibindsMethodValidator extends BindingMethodValidator {
   }
 
   @Override
-  protected ElementValidator elementValidator(ExecutableElement element) {
-    return new Validator(element);
+  protected ElementValidator elementValidator(XMethodElement method) {
+    return new Validator(method);
   }
 
   private class Validator extends MethodValidator {
-    Validator(ExecutableElement element) {
-      super(element);
+    private final XMethodElement method;
+
+    Validator(XMethodElement method) {
+      super(method);
+      this.method = method;
     }
 
     @Override
     protected void checkParameters() {
-      if (!element.getParameters().isEmpty()) {
+      if (!method.getParameters().isEmpty()) {
         report.addError(bindingMethods("cannot have parameters"));
       }
     }
@@ -82,29 +77,28 @@ class MultibindsMethodValidator extends BindingMethodValidator {
     /** Adds an error unless the method returns a {@code Map<K, V>} or {@code Set<T>}. */
     @Override
     protected void checkType() {
-      if (!isPlainMap(element.getReturnType())
-          && !isPlainSet(element.getReturnType())) {
+      if (!isPlainMap(method.getReturnType()) && !isPlainSet(method.getReturnType())) {
         report.addError(bindingMethods("must return Map<K, V> or Set<T>"));
       }
     }
 
-    private boolean isPlainMap(TypeMirror returnType) {
+    private boolean isPlainMap(XType returnType) {
       if (!MapType.isMap(returnType)) {
         return false;
       }
       MapType mapType = MapType.from(returnType);
       return !mapType.isRawType()
-          && MoreTypes.isType(mapType.valueType()) // No wildcards.
+          && !isWildcard(mapType.valueType())
           && !isFrameworkType(mapType.valueType());
     }
 
-    private boolean isPlainSet(TypeMirror returnType) {
+    private boolean isPlainSet(XType returnType) {
       if (!SetType.isSet(returnType)) {
         return false;
       }
       SetType setType = SetType.from(returnType);
       return !setType.isRawType()
-          && MoreTypes.isType(setType.elementType()) // No wildcards.
+          && !isWildcard(setType.elementType())
           && !isFrameworkType(setType.elementType());
     }
   }

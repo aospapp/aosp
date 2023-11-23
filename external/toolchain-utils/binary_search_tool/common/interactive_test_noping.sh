@@ -1,6 +1,6 @@
 #!/bin/bash -u
 #
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2016 Google LLC
 #
 # This script asks the user if the image is good or not, allowing the user to
 # conduct whatever tests the user wishes, and waiting for a response.

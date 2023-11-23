@@ -1,5 +1,5 @@
-import mock
 import unittest
+from unittest import mock
 
 from autotest_lib.client.common_lib.cros.cfm.usb import usb_device
 from autotest_lib.client.common_lib.cros.cfm.usb import usb_device_spec
@@ -106,15 +106,17 @@ class TestActions(unittest.TestCase):
         action.execute(self.context_with_mocks)
 
     def test_select_scenario_at_random(self):
-        dummy_action1 = DummyAction()
-        dummy_action2 = DummyAction()
-        scenarios = [scenario.Scenario(dummy_action1),
-                     scenario.Scenario(dummy_action2)]
+        placeholder_action1 = StubAction()
+        placeholder_action2 = StubAction()
+        scenarios = [
+                scenario.Scenario(placeholder_action1),
+                scenario.Scenario(placeholder_action2)
+        ]
         action = actions.SelectScenarioAtRandom(scenarios, 10)
         action.execute(self.context_with_mocks)
         # Assert that our actions were executed the expected number of times.
-        total_executes = (dummy_action1.executed_times
-                          + dummy_action2.executed_times)
+        total_executes = (placeholder_action1.executed_times +
+                          placeholder_action2.executed_times)
         self.assertEqual(10, total_executes)
 
     def test_select_scenario_at_random_str_contains_seed(self):
@@ -122,12 +124,12 @@ class TestActions(unittest.TestCase):
         self.assertTrue('seed=123' in str(action))
 
     def test_select_scenario_at_random_same_seed_same_actions(self):
-        scenario1_action1 = DummyAction()
-        scenario1_action2 = DummyAction()
+        scenario1_action1 = StubAction()
+        scenario1_action2 = StubAction()
         scenarios1 = [scenario.Scenario(scenario1_action1),
                      scenario.Scenario(scenario1_action2)]
-        scenario2_action1 = DummyAction()
-        scenario2_action2 = DummyAction()
+        scenario2_action1 = StubAction()
+        scenario2_action2 = StubAction()
         scenarios2 = [scenario.Scenario(scenario2_action1),
                      scenario.Scenario(scenario2_action2)]
         action1 = actions.SelectScenarioAtRandom(scenarios1, 100, 0)
@@ -214,7 +216,8 @@ class FakeCollector(object):
     def collect_file_contents(self, path):
         return self.contents
 
-class DummyAction(actions.Action):
+
+class StubAction(actions.Action):
     def __init__(self):
         self.executed_times = 0
 
@@ -229,4 +232,3 @@ class RaisesFirstTimeAction(actions.Action):
         if not self.executed:
             self.executed = True
             raise AssertionError()
-

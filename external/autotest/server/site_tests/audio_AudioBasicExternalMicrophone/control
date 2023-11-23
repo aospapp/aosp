@@ -15,6 +15,7 @@ TEST_TYPE = "server"
 ATTRIBUTES = "suite:audio_essential"
 DEPENDENCIES = "audio_cable"
 JOB_RETRIES = 1
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests external microphone audio function.
@@ -25,6 +26,9 @@ chameleon_args = hosts.CrosHost.get_chameleon_arguments(args_dict)
 
 def run(machine):
     host = hosts.create_host(machine, chameleon_args=chameleon_args)
-    job.run_test("audio_AudioBasicExternalMicrophone", host=host)
+    job.run_test("audio_AudioBasicExternalMicrophone", host=host,
+                 blocked_boards=['lars',    # Pending fix for b/147647051
+                                 'lars-kernelnext']
+                )
 
 parallel_simple(run, machines)

@@ -2,14 +2,13 @@
   "add-toplevel-block": "cargo2android_cc.bp",
   "apex-available": [
     "//apex_available:platform",
-    "com.android.compos",
-    "com.android.resolv",
-    "com.android.virt"
+    "com.android.resolv"
   ],
   "dependencies": true,
   "device": true,
   "features": "alloc,default,dev_urandom_fallback,once_cell,std",
   "min-sdk-version": "29",
+  "patch": "patches/Android.bp.patch",
   "run": true,
   "tests": true,
   "whole-static-libs": [

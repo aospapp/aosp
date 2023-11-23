@@ -17,13 +17,14 @@ limitations under the License.
 #include <algorithm>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow/core/profiler/protobuf/xplane.pb.h"
-#include "tensorflow/core/profiler/utils/time_utils.h"
+#include "tensorflow/core/profiler/utils/math_utils.h"
 
 namespace tensorflow {
 namespace profiler {
@@ -33,7 +34,7 @@ XPlaneBuilder::XPlaneBuilder(XPlane* plane)
   for (auto& id_and_metadata : *plane->mutable_event_metadata()) {
     auto& metadata = id_and_metadata.second;
     last_event_metadata_id_ =
-        std::max<int64>(last_event_metadata_id_, metadata.id());
+        std::max<int64_t>(last_event_metadata_id_, metadata.id());
     if (!metadata.name().empty()) {
       event_metadata_by_name_.try_emplace(metadata.name(), &metadata);
     }
@@ -41,7 +42,7 @@ XPlaneBuilder::XPlaneBuilder(XPlane* plane)
   for (auto& id_and_metadata : *plane->mutable_stat_metadata()) {
     auto& metadata = id_and_metadata.second;
     last_stat_metadata_id_ =
-        std::max<int64>(last_stat_metadata_id_, metadata.id());
+        std::max<int64_t>(last_stat_metadata_id_, metadata.id());
     if (!metadata.name().empty()) {
       stat_metadata_by_name_.try_emplace(metadata.name(), &metadata);
     }
@@ -80,6 +81,16 @@ XEventMetadata* XPlaneBuilder::GetOrCreateEventMetadata(std::string&& name) {
   return metadata;
 }
 
+std::vector<XEventMetadata*> XPlaneBuilder::GetOrCreateEventsMetadata(
+    const std::vector<absl::string_view>& names) {
+  std::vector<XEventMetadata*> metadata;
+  metadata.reserve(names.size());
+  for (absl::string_view name : names) {
+    metadata.push_back(GetOrCreateEventMetadata(name));
+  }
+  return metadata;
+}
+
 XEventMetadata* XPlaneBuilder::GetEventMetadata(absl::string_view name) const {
   auto result = event_metadata_by_name_.find(name);
   if (result == event_metadata_by_name_.end()) return nullptr;
@@ -96,6 +107,12 @@ XStatMetadata* XPlaneBuilder::GetOrCreateStatMetadata(int64_t metadata_id) {
   XStatMetadata& metadata = (*plane_->mutable_stat_metadata())[metadata_id];
   metadata.set_id(metadata_id);
   return &metadata;
+}
+
+const XStatMetadata* XPlaneBuilder::GetStatMetadata(int64_t metadata_id) const {
+  auto result = plane_->stat_metadata().find(metadata_id);
+  if (result == plane_->stat_metadata().end()) return nullptr;
+  return &(result->second);
 }
 
 XStatMetadata* XPlaneBuilder::CreateStatMetadata() {
@@ -142,7 +159,7 @@ XEventBuilder XLineBuilder::AddEvent(const XEvent& event) {
 }
 
 void XLineBuilder::SetTimestampNsAndAdjustEventOffsets(int64_t timestamp_ns) {
-  int64_t offset_ps = NanosToPicos(line_->timestamp_ns() - timestamp_ns);
+  int64_t offset_ps = NanoToPico(line_->timestamp_ns() - timestamp_ns);
   line_->set_timestamp_ns(timestamp_ns);
   if (offset_ps) {
     for (auto& event : *line_->mutable_events()) {

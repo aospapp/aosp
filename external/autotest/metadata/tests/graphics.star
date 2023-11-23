@@ -30,11 +30,6 @@ def define_tests():
             main_package = 'autotest_lib.client.site_tests.graphics_Gbm.graphics_Gbm',
         ),
         test_common.define_test(
-            'graphics/Gralloc',
-            suites = ['graphics', 'graphics_per-day'],
-            main_package = 'autotest_lib.client.site_tests.graphics_Gralloc.graphics_Gralloc',
-        ),
-        test_common.define_test(
             'graphics/Idle',
             suites = ['bvt-perbuild', 'graphics', 'graphics_per-day', 'graphics_system'],
             main_package = 'autotest_lib.client.site_tests.graphics_Idle.graphics_Idle',
@@ -72,7 +67,7 @@ def define_tests():
         test_common.define_test(
             'graphics/Sanity',
             suites = ['graphics', 'graphics_per-day', 'graphics_system'],
-            main_package = 'autotest_lib.client.site_tests.graphics_Sanity.graphics_Sanity',
+            main_package = 'autotest_lib.client.site_tests.graphics_Check.graphics_Check',
         ),
         test_common.define_test(
             'graphics/VTSwitch',

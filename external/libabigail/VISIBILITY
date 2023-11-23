@@ -5,8 +5,7 @@ How symbols that are exported are controlled in libabigail
 ==========================================================
 
 We try to limit the number of ELF symbols that are exported by the
-libabigail.so shared library.  We call this symbols visibility
-control.
+libabigail.so shared library.  We call this, "symbol visibility control".
 
 As GNU/Linux is our development platform, we control symbol visibility
 by using the visibility support of the G++ compiler.

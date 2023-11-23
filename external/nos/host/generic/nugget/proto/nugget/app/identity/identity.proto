@@ -61,6 +61,11 @@ service Identity {
   rpc SessionInitialize (SessionInitializeRequest) returns (SessionInitializeResponse);
   rpc SessionSetReaderEphemeralPublicKey (SessionSetReaderEphemeralPublicKeyRequest) returns (SessionSetReaderEphemeralPublicKeyResponse);
   rpc SessionSetSessionTranscript (SessionSetSessionTranscriptRequest) returns (SessionSetSessionTranscriptResponse);
+
+  // For Android 14 new APIs
+  rpc ICprepareDeviceAuthentication (ICprepareDeviceAuthenticationRequest) returns (ICprepareDeviceAuthenticationResponse);
+  rpc ICfinishRetrievalWithSignature (ICfinishRetrievalWithSignatureRequest) returns (ICfinishRetrievalWithSignatureResponse);
+  rpc SessionGetEphemeralKeyPair (SessionGetEphemeralKeyPairRequest) returns (SessionGetEphemeralKeyPairResponse);
 }
 
 enum RequestType {
@@ -251,7 +256,7 @@ message ICvalidateAccessControlProfileRequest{
   uint64 secureUserId = 5;
   bytes mac = 6;
   uint32 publicKeyOffset = 7;
-  uint32 publicKeysize = 8;
+  uint32 publicKeySize = 8;
 }
 
 message ICvalidateAccessControlProfileResponse{
@@ -285,6 +290,20 @@ message ICcalcMacKeyResponse{
   Result result = 1;
 }
 
+// ICprepareDeviceAuthentication
+message ICprepareDeviceAuthenticationRequest{
+  bytes sessionTranscript = 1;
+  bytes readerEphemeralPublicKey = 2;
+  bytes signingKeyBlob = 3;
+  bytes docType = 4;
+  uint32 numNamespacesWithValues = 5;
+  uint32 expectedDeviceNamespacesSize = 6;
+}
+
+message ICprepareDeviceAuthenticationResponse{
+  Result result = 1;
+}
+
 // ICstartRetrieveEntryValue
 message ICstartRetrieveEntryValueRequest{
   string nameSpace = 1;
@@ -297,6 +316,7 @@ message ICstartRetrieveEntryValueRequest{
 message ICstartRetrieveEntryValueResponse{
   AccessResult accessCheckResult = 1;
   uint32 sessionCookie = 2;
+  Result result = 3;
 }
 
 // ICretrieveEntryValue
@@ -320,6 +340,16 @@ message ICfinishRetrievalRequest{
 message ICfinishRetrievalResponse{
   Result result = 1;
   bytes mac = 2;
+}
+
+// ICfinishRetrievalWithSignature
+message ICfinishRetrievalWithSignatureRequest{
+}
+
+message ICfinishRetrievalWithSignatureResponse{
+  Result result = 1;
+  bytes mac = 2;
+  bytes ecdsaSignature = 3;
 }
 
 // ICdeleteCredential
@@ -369,6 +399,7 @@ message SessionShutdownResponse{
 
 // SessionInitialize
 message SessionInitializeRequest{
+  uint32 oemHalVersion = 1;
 }
 
 message SessionInitializeResponse{
@@ -393,4 +424,13 @@ message SessionSetSessionTranscriptRequest{
 
 message SessionSetSessionTranscriptResponse{
   Result result = 1;
+}
+
+// SessionGetEphemeralKeyPair
+message SessionGetEphemeralKeyPairRequest{
+}
+
+message SessionGetEphemeralKeyPairResponse{
+  Result result = 1;
+  bytes ephemeralPrivateKey = 2;
 }

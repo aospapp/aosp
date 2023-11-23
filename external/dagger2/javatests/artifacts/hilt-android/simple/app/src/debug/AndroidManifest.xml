@@ -18,11 +18,19 @@
 
   <application>
     <activity
+        android:name=".AliasOfMultipleScopesTest$TestActivity"
+        android:theme="@style/Theme.AppCompat.Light"
+        android:exported="false" />
+    <activity
         android:name=".Injection1Test$TestActivity"
         android:theme="@style/Theme.AppCompat.Light"
         android:exported="false" />
     <activity
         android:name=".Injection2Test$TestActivity"
+        android:theme="@style/Theme.AppCompat.Light"
+        android:exported="false"/>
+    <activity
+        android:name=".InvokeSpecialTransformTest$TestActivity"
         android:theme="@style/Theme.AppCompat.Light"
         android:exported="false"/>
     <activity

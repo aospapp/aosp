@@ -20,11 +20,11 @@ limitations under the License.
 
 #include "tensorflow/core/common_runtime/function.h"
 #include "tensorflow/core/common_runtime/input_colocation_exemption_registry.h"
-#include "tensorflow/core/common_runtime/metrics.h"
 #include "tensorflow/core/data/dataset_utils.h"
 #include "tensorflow/core/data/name_utils.h"
 #include "tensorflow/core/data/stats_utils.h"
 #include "tensorflow/core/framework/dataset.h"
+#include "tensorflow/core/framework/metrics.h"
 #include "tensorflow/core/framework/model.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/partial_tensor_shape.h"
@@ -78,7 +78,7 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
         // is passed with drop_remainder set to false. Avoid OOM in such case
         // by limiting `reserve()` size by 2**16.
         reserve_size_(drop_remainder ? batch_size
-                                     : std::min<int64>(batch_size, 1 << 16)),
+                                     : std::min<int64_t>(batch_size, 1 << 16)),
         num_parallel_calls_(num_parallel_calls),
         drop_remainder_(drop_remainder),
         parallel_copy_(parallel_copy),
@@ -110,7 +110,7 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
 
   std::unique_ptr<IteratorBase> MakeIteratorInternal(
       const string& prefix) const override {
-    return absl::make_unique<Iterator>(Iterator::Params{
+    return std::make_unique<Iterator>(Iterator::Params{
         this, name_utils::IteratorPrefix(kDatasetType, prefix)});
   }
 
@@ -128,7 +128,7 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
     return name_utils::DatasetDebugString(kDatasetType, params);
   }
 
-  int64 Cardinality() const override {
+  int64_t CardinalityInternal() const override {
     int64_t n = input_->Cardinality();
     if (n == kInfiniteCardinality || n == kUnknownCardinality) {
       return n;
@@ -138,7 +138,7 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
 
   Status InputDatasets(std::vector<const DatasetBase*>* inputs) const override {
     inputs->push_back(input_);
-    return Status::OK();
+    return OkStatus();
   }
 
   Status CheckExternalState() const override {
@@ -180,7 +180,7 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
         this,
         {input_graph_node, batch_size, num_parallel_calls, drop_remainder},
         attrs, output));
-    return Status::OK();
+    return OkStatus();
   }
 
  private:
@@ -202,16 +202,18 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
 
     Status Initialize(IteratorContext* ctx) override {
       mutex_lock l(*mu_);
+      interleave_depth_ = ctx->interleave_depth();
+
       if (num_parallel_calls_->value == model::kAutotune) {
         // If we copy elements in the same batch in parallel, to be safe, we
         // initialize the parallelism to be 1.
         if (dataset()->parallel_copy_) {
           num_parallel_calls_->value = 1;
         } else {
-          num_parallel_calls_->value = ctx->runner_threadpool_size();
+          num_parallel_calls_->value = GetAutotuneDefaultParallelism(ctx);
         }
       }
-      cancellation_manager_ = absl::make_unique<CancellationManager>();
+      cancellation_manager_ = std::make_unique<CancellationManager>();
       TF_RETURN_IF_ERROR(RegisterCancellationCallback(
           ctx->cancellation_manager(),
           [this]() { CancelThreads(/*wait=*/false); }, &deregister_fn_));
@@ -254,7 +256,7 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
           ProcessBatch(dataset()->batch_size_, result->num_elements,
                        dataset()->drop_remainder_, result->status, ctx,
                        out_tensors, end_of_sequence, &result->output));
-      return Status::OK();
+      return OkStatus();
     }
 
    protected:
@@ -281,7 +283,7 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
       for (size_t i = 0; i < batch_results_.size(); ++i) {
         TF_RETURN_IF_ERROR(WriteBatchResult(writer, i));
       }
-      return Status::OK();
+      return OkStatus();
     }
 
     Status RestoreInternal(IteratorContext* ctx,
@@ -295,7 +297,7 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
       for (int i = 0; i < batch_results_size; ++i) {
         TF_RETURN_IF_ERROR(ReadBatchResult(ctx, reader, i));
       }
-      return Status::OK();
+      return OkStatus();
     }
 
     TraceMeMetadata GetTraceMeMetadata() const override {
@@ -314,6 +316,9 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
           parallelism == -1
               ? kTraceInfoUnavailable
               : strings::Printf("%lld", static_cast<long long>(parallelism))));
+      result.push_back(std::make_pair(
+          "interleave_depth",
+          strings::Printf("%lld", static_cast<long long>(interleave_depth_))));
       return result;
     }
 
@@ -322,19 +327,19 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
       explicit BatchResult()
           : end_of_input(false),
             num_elements(0),
-            status(Status::OK()),
+            status(OkStatus()),
             call_finished(false),
             output_allocated(false),
             uid(tensorflow::EnvTime::NowNanos()) {}
 
       mutex mu;
       bool end_of_input TF_GUARDED_BY(mu);
-      int64 num_elements TF_GUARDED_BY(mu);
+      int64_t num_elements TF_GUARDED_BY(mu);
       std::vector<Tensor> output TF_GUARDED_BY(mu);
       Status status TF_GUARDED_BY(mu);
       bool call_finished TF_GUARDED_BY(&Iterator::mu_);
       bool output_allocated TF_GUARDED_BY(mu);
-      const int64 uid = -1;
+      const int64_t uid = -1;
     };
 
     void CallCompleted(const std::shared_ptr<IteratorContext>& ctx,
@@ -402,11 +407,11 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
                   TF_EXCLUSIVE_LOCKS_REQUIRED(&BatchResult::mu) {
                     result->output_allocated = true;
                     RecordBufferEnqueue(ctx.get(), result->output);
-                    return Status::OK();
+                    return OkStatus();
                   };
-          status =
-              CopyBatch(ctx.get(), *batch_elements, dataset()->parallel_copy_,
-                        std::move(allocation_callback), &result->output);
+          status = CopyBatch(CopyBatchParams(ctx.get()), *batch_elements,
+                             dataset()->parallel_copy_,
+                             std::move(allocation_callback), &result->output);
           result->status.Update(status);
         }
         CallCompleted(ctx, result);
@@ -541,7 +546,7 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
       if (result->output_allocated) {
         RecordBufferEnqueue(ctx, result->output);
       }
-      return Status::OK();
+      return OkStatus();
     }
 
     Status WriteBatchResult(IteratorStateWriter* writer, size_t index)
@@ -572,7 +577,7 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
       TF_RETURN_IF_ERROR(
           WriteStatus(prefix(), strings::StrCat(batch_prefix, "_", kStatus),
                       result->status, writer));
-      return Status::OK();
+      return OkStatus();
     }
 
     // Used for coordination between the main thread and the runner thread.
@@ -591,7 +596,7 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
     // `input_impl_` so that `input_impl_` is destroyed first.
     std::unique_ptr<CancellationManager> cancellation_manager_;
     // Counts the number of outstanding calls for this batch.
-    int64 num_calls_ TF_GUARDED_BY(*mu_) = 0;
+    int64_t num_calls_ TF_GUARDED_BY(*mu_) = 0;
     std::unique_ptr<IteratorBase> input_impl_;
     // Buffer for storing the (intermediate) batch results. Whenever a non-empty
     // batch result is added to or removed from `batch_results_`, call
@@ -600,18 +605,24 @@ class ParallelBatchDatasetOp::Dataset : public DatasetBase {
     // TODO(xiaojies): improve the accuracy of the condition used for
     // determining when to record allocated bytes.
     std::deque<std::shared_ptr<BatchResult>> batch_results_ TF_GUARDED_BY(*mu_);
-    // Background thread used for coordinating input processing.
-    std::unique_ptr<Thread> runner_thread_ TF_GUARDED_BY(*mu_);
     // Determines whether the transformation has been cancelled.
     bool cancelled_ TF_GUARDED_BY(*mu_) = false;
 
     // Method for deregistering the cancellation callback.
     std::function<void()> deregister_fn_;
+
+    // Records the number of ParallelInterleave operations in the path from the
+    // root node to this node (not including this node) in the input pipeline
+    // tree. We record the interleave depth so that it can be included in the
+    // trace metadata.
+    int64 interleave_depth_ = -1;
+    // Background thread used for coordinating input processing.
+    std::unique_ptr<Thread> runner_thread_ TF_GUARDED_BY(*mu_);
   };
 
-  const int64 batch_size_;
-  const int64 reserve_size_;
-  const int64 num_parallel_calls_;
+  const int64_t batch_size_;
+  const int64_t reserve_size_;
+  const int64_t num_parallel_calls_;
   const bool drop_remainder_;
   const bool parallel_copy_;
   const DatasetBase* const input_;
@@ -637,13 +648,14 @@ void ParallelBatchDatasetOp::MakeDataset(OpKernelContext* ctx,
                                          DatasetBase* input,
                                          DatasetBase** output) {
   int64_t batch_size = 0;
-  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, kBatchSize, &batch_size));
+  OP_REQUIRES_OK(ctx,
+                 ParseScalarArgument<int64_t>(ctx, kBatchSize, &batch_size));
   OP_REQUIRES(ctx, batch_size > 0,
               errors::InvalidArgument("Batch size must be greater than zero."));
 
   int64_t num_parallel_calls = 0;
-  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, kNumParallelCalls,
-                                                 &num_parallel_calls));
+  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64_t>(ctx, kNumParallelCalls,
+                                                   &num_parallel_calls));
 
   bool drop_remainder = false;
   OP_REQUIRES_OK(

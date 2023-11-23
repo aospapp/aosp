@@ -62,9 +62,6 @@
 //!   the `Array` trait. The actual usage of the crate is not expected to break
 //!   significantly in this transition.
 
-// ANDROID: Unconditionally use std to allow building as a dylib.
-extern crate std;
-
 #[allow(unused_imports)]
 use core::{
   borrow::{Borrow, BorrowMut},

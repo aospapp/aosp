@@ -1,6 +1,8 @@
 <!-- Generated with Stardoc: http://skydoc.bazel.build -->
 
-<a name="#my_rule"></a>
+A golden test to verify attribute default values.
+
+<a id="my_rule"></a>
 
 ## my_rule
 
@@ -14,34 +16,34 @@ This is my rule. It does stuff.
 
 
 | Name  | Description | Type | Mandatory | Default |
-| :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
-| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |  |
-| a |  Some bool   | Boolean | optional | False |
-| b |  Some int   | Integer | optional | 2 |
-| c |  Some int_list   | List of integers | optional | [0, 1] |
-| d |  Some label   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | optional | //foo:bar |
-| e |  Some label_keyed_string_dict   | <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: Label -> String</a> | optional | {"//foo:bar": "hello", "//bar:baz": "goodbye"} |
-| f |  Some label_list   | <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a> | optional | ["//foo:bar", "//bar:baz"] |
-| g |  Some string   | String | optional | "" |
-| h |  Some string_dict   | <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a> | optional | {"animal": "bunny", "color": "orange"} |
-| i |  Some string_list   | List of strings | optional | ["cat", "dog"] |
-| j |  Some string_list_dict   | <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> List of strings</a> | optional | {"animal": ["cat", "bunny"], "color": ["blue", "orange"]} |
-| k |  Some bool   | Boolean | required |  |
-| l |  Some int   | Integer | required |  |
-| m |  Some int_list   | List of integers | required |  |
-| n |  Some label   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | required |  |
-| o |  Some label_keyed_string_dict   | <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: Label -> String</a> | required |  |
-| p |  Some label_list   | <a href="https://bazel.build/docs/build-ref.html#labels">List of labels</a> | required |  |
-| q |  Some string   | String | required |  |
-| r |  Some string_dict   | <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a> | required |  |
-| s |  Some string_list   | List of strings | required |  |
-| t |  Some string_list_dict   | <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> List of strings</a> | required |  |
-| u |  -   | String | optional | "" |
-| v |  -   | <a href="https://bazel.build/docs/build-ref.html#labels">Label</a> | optional | None |
-| w |  -   | Integer | optional | 0 |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="my_rule-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="my_rule-a"></a>a |  Some bool   | Boolean | optional | <code>False</code> |
+| <a id="my_rule-b"></a>b |  Some int   | Integer | optional | <code>2</code> |
+| <a id="my_rule-c"></a>c |  Some int_list   | List of integers | optional | <code>[0, 1]</code> |
+| <a id="my_rule-d"></a>d |  Some label   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | <code>//foo:bar</code> |
+| <a id="my_rule-e"></a>e |  Some label_keyed_string_dict   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional | <code>{"//foo:bar": "hello", "//bar:baz": "goodbye"}</code> |
+| <a id="my_rule-f"></a>f |  Some label_list   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional | <code>["//foo:bar", "//bar:baz"]</code> |
+| <a id="my_rule-g"></a>g |  Some string   | String | optional | <code>""</code> |
+| <a id="my_rule-h"></a>h |  Some string_dict   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional | <code>{"animal": "bunny", "color": "orange"}</code> |
+| <a id="my_rule-i"></a>i |  Some string_list   | List of strings | optional | <code>["cat", "dog"]</code> |
+| <a id="my_rule-j"></a>j |  Some string_list_dict   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> List of strings</a> | optional | <code>{"animal": ["cat", "bunny"], "color": ["blue", "orange"]}</code> |
+| <a id="my_rule-k"></a>k |  Some bool   | Boolean | required |  |
+| <a id="my_rule-l"></a>l |  Some int   | Integer | required |  |
+| <a id="my_rule-m"></a>m |  Some int_list   | List of integers | required |  |
+| <a id="my_rule-n"></a>n |  Some label   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="my_rule-o"></a>o |  Some label_keyed_string_dict   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | required |  |
+| <a id="my_rule-p"></a>p |  Some label_list   | <a href="https://bazel.build/concepts/labels">List of labels</a> | required |  |
+| <a id="my_rule-q"></a>q |  Some string   | String | required |  |
+| <a id="my_rule-r"></a>r |  Some string_dict   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | required |  |
+| <a id="my_rule-s"></a>s |  Some string_list   | List of strings | required |  |
+| <a id="my_rule-t"></a>t |  Some string_list_dict   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> List of strings</a> | required |  |
+| <a id="my_rule-u"></a>u |  -   | String | optional | <code>""</code> |
+| <a id="my_rule-v"></a>v |  -   | <a href="https://bazel.build/concepts/labels">Label</a> | optional | <code>None</code> |
+| <a id="my_rule-w"></a>w |  -   | Integer | optional | <code>0</code> |
 
 
-<a name="#my_aspect"></a>
+<a id="my_aspect"></a>
 
 ## my_aspect
 
@@ -55,7 +57,7 @@ This is my aspect. It does stuff.
 
 
 | Name | Type |
-| :-------------: | :-------------: |
+| :------------- | :------------- |
 | deps| String |
 | attr_aspect| String |
 
@@ -64,9 +66,9 @@ This is my aspect. It does stuff.
 
 
 | Name  | Description | Type | Mandatory | Default |
-| :-------------: | :-------------: | :-------------: | :-------------: | :-------------: |
-| name |  A unique name for this target.   | <a href="https://bazel.build/docs/build-ref.html#name">Name</a> | required |   |
-| y |  some string   | String | optional |  "why" |
-| z |  -   | String | required |   |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="my_aspect-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |   |
+| <a id="my_aspect-y"></a>y |  some string   | String | optional |  <code>"why"</code>   |
+| <a id="my_aspect-z"></a>z |  -   | String | required |   |
 
 

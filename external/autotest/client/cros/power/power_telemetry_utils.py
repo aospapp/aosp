@@ -1,13 +1,19 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Helper class for power autotests requiring telemetry devices."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import time
 
 import numpy
+from six.moves import range
 
 CUSTOM_START = 'PowerTelemetryLogger custom start.'
 CUSTOM_END = 'PowerTelemetryLogger custom end.'
@@ -56,7 +62,7 @@ def interpolate_missing_data(data, max_nan_ratio=None, max_sample_gap=None,
     if max_sample_gap is not None or max_sample_time_gap is not None:
         # Flag to keep track whether the loop is in a measurement gap (NaN).
         consecutive_nan_start = None
-        # Add a dummy at the end to make sure the iteration covers all real
+        # Add a stub at the end to make sure the iteration covers all real
         # examples.
         for i, isnan in enumerate(numpy.append(nan_data, False)):
             if isnan and consecutive_nan_start is None:
@@ -93,7 +99,7 @@ def interpolate_missing_data(data, max_nan_ratio=None, max_sample_gap=None,
     if not len(sample_idx):
         raise TelemetryUtilsError('Data has no valid readings. Cannot '
                                   'interpolate.')
-    output = numpy.interp(range(len(data)), sample_idx, sample_vals)
+    output = numpy.interp(list(range(len(data))), sample_idx, sample_vals)
     return [round(x, INTERPOLATION_RESOLUTION) for x in output]
 
 def log_event_ts(message=None, timestamp=None, offset=0):

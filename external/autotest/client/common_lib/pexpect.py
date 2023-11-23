@@ -429,7 +429,7 @@ class spawn (object):
             self.use_native_pty_fork = True
 
 
-        # allow dummy instances for subclasses that may not use command or args.
+        # allow stub instances for subclasses that may not use command or args.
         if command is None:
             self.command = None
             self.args = None

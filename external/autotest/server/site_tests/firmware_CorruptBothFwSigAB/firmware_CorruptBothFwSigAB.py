@@ -12,7 +12,7 @@ class firmware_CorruptBothFwSigAB(FirmwareTest):
     """
     Servo based both firmware signature A and B corruption test.
 
-    This test requires a USB disk plugged-in, which contains a Chrome OS test
+    This test requires a USB disk plugged-in, which contains a ChromeOS test
     image (built by "build_image --test"). On runtime, this test corrupts
     both firmware signature A and B. On next reboot, the firmware verification
     fails and enters recovery mode. This test then checks the success of the
@@ -43,8 +43,10 @@ class firmware_CorruptBothFwSigAB(FirmwareTest):
         self.check_state((self.checkers.crossystem_checker, {
                           'mainfw_type': 'developer' if dev_mode else 'normal',
                           }))
-        self.faft_client.bios.corrupt_sig('a')
-        self.faft_client.bios.corrupt_sig('b')
+        offset_a, byte_a = self.faft_client.bios.get_sig_one_byte('a')
+        offset_b, byte_b = self.faft_client.bios.get_sig_one_byte('b')
+        self.faft_client.bios.modify_sig('a', offset_a, byte_a + 1)
+        self.faft_client.bios.modify_sig('b', offset_b, byte_b + 1)
 
         # Older devices (without BROKEN screen) didn't wait for removal in
         # dev mode. Make sure the USB key is not plugged in so they won't
@@ -75,8 +77,8 @@ class firmware_CorruptBothFwSigAB(FirmwareTest):
                               vboot.RECOVERY_REASON['RO_INVALID_RW'],
                               vboot.RECOVERY_REASON['RW_VERIFY_KEYBLOCK']),
                           }))
-        self.faft_client.bios.restore_sig('a')
-        self.faft_client.bios.restore_sig('b')
+        self.faft_client.bios.modify_sig('a', offset_a, byte_a)
+        self.faft_client.bios.modify_sig('b', offset_b, byte_b)
         self.switcher.mode_aware_reboot()
 
         logging.info("Expected normal boot, done.")

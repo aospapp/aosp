@@ -14,9 +14,9 @@ purposes of Android the userspace functionality testing is of less importance
 and in fact much of it must be disabled, given the functionality is not
 available in Android.
 
-As of mid-2018 there are on the order of 900 tests executed in VTS. Most tests
-are run in both 32-bit and 64-bit mode. Many more are available but currently
-disabled due to either being broken or not applicable on Android.
+As of Jan 2023 there are on the order of 1300 tests executed in VTS on arm64.
+Most tests are run in both 32-bit and 64-bit mode. Many more are available but
+currently disabled due to either being broken or not applicable on Android.
 
 How is LTP Run in VTS?
 ----------------------

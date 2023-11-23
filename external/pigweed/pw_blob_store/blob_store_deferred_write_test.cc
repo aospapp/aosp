@@ -15,7 +15,6 @@
 #include <array>
 #include <cstddef>
 #include <cstring>
-#include <span>
 
 #include "gtest/gtest.h"
 #include "pw_blob_store/blob_store.h"
@@ -25,6 +24,7 @@
 #include "pw_kvs/test_key_value_store.h"
 #include "pw_log/log.h"
 #include "pw_random/xor_shift.h"
+#include "pw_span/span.h"
 
 namespace pw::blob_store {
 namespace {
@@ -37,16 +37,12 @@ class DeferredWriteTest : public ::testing::Test {
 
   void InitFlashToRandom(uint64_t seed) {
     random::XorShiftStarRng64 rng(seed);
-    StatusWithSize sws = rng.Get(flash_.buffer());
-    ASSERT_EQ(OkStatus(), sws.status());
-    ASSERT_EQ(sws.size(), flash_.buffer().size());
+    rng.Get(flash_.buffer());
   }
 
   void InitBufferToRandom(uint64_t seed) {
     random::XorShiftStarRng64 rng(seed);
-    StatusWithSize sws = rng.Get(buffer_);
-    ASSERT_EQ(OkStatus(), sws.status());
-    ASSERT_EQ(sws.size(), buffer_.size());
+    rng.Get(buffer_);
   }
 
   void InitBufferToFill(char fill) {
@@ -92,7 +88,7 @@ class DeferredWriteTest : public ::testing::Test {
                    static_cast<unsigned>(source.size_bytes()));
 
       ASSERT_EQ(OkStatus(), writer.Write(source.first(write_size)));
-      // TODO: Add check that the write did not go to flash yet.
+      // TODO(davidrogers): Add check that the write did not go to flash yet.
 
       source = source.subspan(write_size);
       bytes_since_flush += write_size;

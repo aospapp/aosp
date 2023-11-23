@@ -73,6 +73,24 @@ static constexpr bool IsValidTraceLambdaTakingReference() {
   return IsValidTraceLambdaTakingReferenceImpl<T>(nullptr);
 }
 
+template <typename T>
+static constexpr bool IsFieldMetadataTypeImpl(
+    typename std::enable_if<
+        std::is_base_of<protozero::proto_utils::FieldMetadataBase,
+                        T>::value>::type* = nullptr) {
+  return true;
+}
+
+template <typename T>
+static constexpr bool IsFieldMetadataTypeImpl(...) {
+  return false;
+}
+
+template <typename T>
+static constexpr bool IsFieldMetadataType() {
+  return IsFieldMetadataTypeImpl<T>(nullptr);
+}
+
 }  // namespace
 
 // Write an old-style lambda taking an EventContext (without a reference)
@@ -81,8 +99,9 @@ static constexpr bool IsValidTraceLambdaTakingReference() {
 template <typename ArgumentFunction,
           typename ArgFunctionCheck = typename std::enable_if<
               IsValidTraceLambda<ArgumentFunction>()>::type>
-PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(EventContext event_ctx,
-                                                ArgumentFunction arg_function) {
+PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(
+    EventContext event_ctx,
+    const ArgumentFunction& arg_function) {
   arg_function(std::move(event_ctx));
 }
 
@@ -94,21 +113,24 @@ PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(EventContext event_ctx,
                                                 ArgValue&& arg_value,
                                                 Args&&... args);
 
-template <typename FieldMetadataType, typename ArgValue, typename... Args>
-PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(
-    EventContext event_ctx,
-    protozero::proto_utils::internal::FieldMetadataHelper<FieldMetadataType>
-        field_name,
-    ArgValue&& arg_value,
-    Args&&... args);
+template <typename FieldMetadataType,
+          typename ArgValue,
+          typename... Args,
+          typename FieldMetadataTypeCheck = typename std::enable_if<
+              IsFieldMetadataType<FieldMetadataType>()>::type>
+PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(EventContext event_ctx,
+                                                FieldMetadataType field_name,
+                                                ArgValue&& arg_value,
+                                                Args&&... args);
 
 template <typename ArgumentFunction,
           typename... Args,
           typename ArgFunctionCheck = typename std::enable_if<
               IsValidTraceLambdaTakingReference<ArgumentFunction>()>::type>
-PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(EventContext event_ctx,
-                                                ArgumentFunction arg_function,
-                                                Args&&... args) {
+PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(
+    EventContext event_ctx,
+    const ArgumentFunction& arg_function,
+    Args&&... args) {
   // |arg_function| will capture EventContext by reference, so std::move isn't
   // needed.
   arg_function(event_ctx);
@@ -117,13 +139,14 @@ PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(EventContext event_ctx,
 }
 
 // Write one typed message and recursively write the rest of the arguments.
-template <typename FieldMetadataType, typename ArgValue, typename... Args>
-PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(
-    EventContext event_ctx,
-    protozero::proto_utils::internal::FieldMetadataHelper<FieldMetadataType>
-        field_name,
-    ArgValue&& arg_value,
-    Args&&... args) {
+template <typename FieldMetadataType,
+          typename ArgValue,
+          typename... Args,
+          typename FieldMetadataTypeCheck>
+PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(EventContext event_ctx,
+                                                FieldMetadataType field_name,
+                                                ArgValue&& arg_value,
+                                                Args&&... args) {
   static_assert(std::is_base_of<protozero::proto_utils::FieldMetadataBase,
                                 FieldMetadataType>::value,
                 "");
@@ -143,6 +166,16 @@ PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(
 template <typename ArgValue, typename... Args>
 PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(EventContext event_ctx,
                                                 const char* arg_name,
+                                                ArgValue&& arg_value,
+                                                Args&&... args) {
+  event_ctx.AddDebugAnnotation(arg_name, std::forward<ArgValue>(arg_value));
+  WriteTrackEventArgs(std::move(event_ctx), std::forward<Args>(args)...);
+}
+
+// Write one debug annotation and recursively write the rest of the arguments.
+template <typename ArgValue, typename... Args>
+PERFETTO_ALWAYS_INLINE void WriteTrackEventArgs(EventContext event_ctx,
+                                                DynamicString arg_name,
                                                 ArgValue&& arg_value,
                                                 Args&&... args) {
   event_ctx.AddDebugAnnotation(arg_name, std::forward<ArgValue>(arg_value));

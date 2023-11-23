@@ -43,7 +43,7 @@ rust_library {
     host_supported: true,
     crate_name: "regex_syntax",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.6.25",
+    cargo_pkg_version: "0.6.29",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -62,6 +62,8 @@ rust_library {
         "com.android.compos",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
 }
 
 rust_test {
@@ -69,7 +71,7 @@ rust_test {
     host_supported: true,
     crate_name: "regex_syntax",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.6.25",
+    cargo_pkg_version: "0.6.29",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,

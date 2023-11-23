@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #
 # Copyright (c) 20123 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -12,7 +12,7 @@ their suite.Data will be written to stdout (or, optionally a file), eg:
 {'suite1': ['path/to/test1/control', 'path/to/test2/control'],
  'suite2': ['path/to/test4/control', 'path/to/test5/control']}
 
-This is intended for use only with Chrome OS test suites that leverage the
+This is intended for use only with ChromeOS test suites that leverage the
 dynamic suite infrastructure in server/cros/dynamic_suite.py. It is invoked
 at build time to generate said suite to control files map, which dynamic_suite
 consults at run time to determine which tests belong to a suite.

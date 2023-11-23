@@ -8,6 +8,7 @@
 
 #include "libANGLE/renderer/gl/ProgramGL.h"
 
+#include "common/WorkerThread.h"
 #include "common/angleutils.h"
 #include "common/bitset_utils.h"
 #include "common/debug.h"
@@ -16,7 +17,6 @@
 #include "libANGLE/Context.h"
 #include "libANGLE/ProgramLinkedResources.h"
 #include "libANGLE/Uniform.h"
-#include "libANGLE/WorkerThread.h"
 #include "libANGLE/queryconversions.h"
 #include "libANGLE/renderer/gl/ContextGL.h"
 #include "libANGLE/renderer/gl/FunctionsGL.h"
@@ -24,7 +24,7 @@
 #include "libANGLE/renderer/gl/ShaderGL.h"
 #include "libANGLE/renderer/gl/StateManagerGL.h"
 #include "libANGLE/trace.h"
-#include "platform/FeaturesGL.h"
+#include "platform/FeaturesGL_autogen.h"
 #include "platform/PlatformMethods.h"
 
 namespace rx
@@ -39,6 +39,8 @@ ProgramGL::ProgramGL(const gl::ProgramState &data,
       mFunctions(functions),
       mFeatures(features),
       mStateManager(stateManager),
+      mHasAppliedTransformFeedbackVaryings(false),
+      mClipDistanceEnabledUniformLocation(-1),
       mMultiviewBaseViewLayerIndexUniformLocation(-1),
       mProgramID(0),
       mRenderer(renderer),
@@ -198,8 +200,8 @@ class ProgramGL::LinkEventGL final : public LinkEvent
                 std::shared_ptr<ProgramGL::LinkTask> linkTask,
                 PostLinkImplFunctor &&functor)
         : mLinkTask(linkTask),
-          mWaitableEvent(std::shared_ptr<angle::WaitableEvent>(
-              angle::WorkerThreadPool::PostWorkerTask(workerPool, mLinkTask))),
+          mWaitableEvent(
+              std::shared_ptr<angle::WaitableEvent>(workerPool->postWorkerTask(mLinkTask))),
           mPostLinkImplFunctor(functor)
     {}
 
@@ -247,16 +249,20 @@ std::unique_ptr<LinkEvent> ProgramGL::link(const gl::Context *context,
                     : gl::ShaderType::Vertex;
             std::string tfVaryingMappedName =
                 mState.getAttachedShader(tfShaderType)
-                    ->getTransformFeedbackVaryingMappedName(tfVarying);
+                    ->getTransformFeedbackVaryingMappedName(context, tfVarying);
             transformFeedbackVaryingMappedNames.push_back(tfVaryingMappedName);
         }
 
         if (transformFeedbackVaryingMappedNames.empty())
         {
-            if (mFunctions->transformFeedbackVaryings)
+            // Only clear the transform feedback state if transform feedback varyings have already
+            // been set.
+            if (mHasAppliedTransformFeedbackVaryings)
             {
+                ASSERT(mFunctions->transformFeedbackVaryings);
                 mFunctions->transformFeedbackVaryings(mProgramID, 0, nullptr,
                                                       mState.getTransformFeedbackBufferMode());
+                mHasAppliedTransformFeedbackVaryings = false;
             }
         }
         else
@@ -270,6 +276,7 @@ std::unique_ptr<LinkEvent> ProgramGL::link(const gl::Context *context,
             mFunctions->transformFeedbackVaryings(
                 mProgramID, static_cast<GLsizei>(transformFeedbackVaryingMappedNames.size()),
                 &transformFeedbackVaryings[0], mState.getTransformFeedbackBufferMode());
+            mHasAppliedTransformFeedbackVaryings = true;
         }
 
         for (const gl::ShaderType shaderType : gl::kAllGraphicsShaderTypes)
@@ -300,19 +307,11 @@ std::unique_ptr<LinkEvent> ProgramGL::link(const gl::Context *context,
         if (context->getExtensions().blendFuncExtendedEXT)
         {
             gl::Shader *fragmentShader = mState.getAttachedShader(gl::ShaderType::Fragment);
-            if (fragmentShader && fragmentShader->getShaderVersion() == 100)
+            if (fragmentShader && fragmentShader->getShaderVersion(context) == 100 &&
+                mFunctions->standard == STANDARD_GL_DESKTOP)
             {
-                // TODO(http://anglebug.com/2833): The bind done below is only valid in case the
-                // compiler transforms the shader outputs to the angle/webgl prefixed ones. If we
-                // added support for running EXT_blend_func_extended on top of GLES, some changes
-                // would be required:
-                //  - If we're backed by GLES 2.0, we shouldn't do the bind because it's not needed.
-                //  - If we're backed by GLES 3.0+, it's a bit unclear what should happen. Currently
-                //    the compiler doesn't support transforming GLSL ES 1.00 shaders to GLSL ES 3.00
-                //    shaders in general, but support for that might be required. Or we might be
-                //    able to skip the bind in case the compiler outputs GLSL ES 1.00.
-                const auto &shaderOutputs =
-                    mState.getAttachedShader(gl::ShaderType::Fragment)->getActiveOutputVariables();
+                const auto &shaderOutputs = mState.getAttachedShader(gl::ShaderType::Fragment)
+                                                ->getActiveOutputVariables(context);
                 for (const auto &output : shaderOutputs)
                 {
                     // TODO(http://anglebug.com/1085) This could be cleaner if the transformed names
@@ -353,7 +352,7 @@ std::unique_ptr<LinkEvent> ProgramGL::link(const gl::Context *context,
                     }
                 }
             }
-            else
+            else if (fragmentShader && fragmentShader->getShaderVersion(context) >= 300)
             {
                 // ESSL 3.00 and up.
                 const auto &outputLocations          = mState.getOutputLocations();
@@ -960,6 +959,7 @@ void ProgramGL::preLink()
     mUniformRealLocationMap.clear();
     mUniformBlockRealLocationMap.clear();
 
+    mClipDistanceEnabledUniformLocation         = -1;
     mMultiviewBaseViewLayerIndexUniformLocation = -1;
 }
 
@@ -1033,12 +1033,30 @@ void ProgramGL::postLink()
         mUniformRealLocationMap[uniformLocation] = realLocation;
     }
 
+    if (mFeatures.emulateClipDistanceState.enabled && mState.getExecutable().hasClipDistance())
+    {
+        ASSERT(mFunctions->standard == STANDARD_GL_ES);
+        mClipDistanceEnabledUniformLocation =
+            mFunctions->getUniformLocation(mProgramID, "angle_ClipDistanceEnabled");
+        ASSERT(mClipDistanceEnabledUniformLocation != -1);
+    }
+
     if (mState.usesMultiview())
     {
         mMultiviewBaseViewLayerIndexUniformLocation =
             mFunctions->getUniformLocation(mProgramID, "multiviewBaseViewLayerIndex");
         ASSERT(mMultiviewBaseViewLayerIndexUniformLocation != -1);
     }
+}
+
+void ProgramGL::updateEnabledClipDistances(uint8_t enabledClipDistancesPacked) const
+{
+    ASSERT(mState.getExecutable().hasClipDistance());
+    ASSERT(mClipDistanceEnabledUniformLocation != -1);
+
+    ASSERT(mFunctions->programUniform1ui != nullptr);
+    mFunctions->programUniform1ui(mProgramID, mClipDistanceEnabledUniformLocation,
+                                  enabledClipDistancesPacked);
 }
 
 void ProgramGL::enableSideBySideRenderingPath() const

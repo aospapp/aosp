@@ -50,8 +50,8 @@ class VertexRoutine : public VertexRoutinePrototype
 public:
 	VertexRoutine(
 	    const VertexProcessor::State &state,
-	    vk::PipelineLayout const *pipelineLayout,
-	    SpirvShader const *spirvShader);
+	    const vk::PipelineLayout *pipelineLayout,
+	    const SpirvShader *spirvShader);
 	virtual ~VertexRoutine();
 
 	void generate();
@@ -59,13 +59,13 @@ public:
 protected:
 	Pointer<Byte> constants;
 
-	Int clipFlags;
+	SIMD::Int clipFlags;
 	Int cullMask;
 
 	SpirvRoutine routine;
 
 	const VertexProcessor::State &state;
-	SpirvShader const *const spirvShader;
+	const SpirvShader *const spirvShader;
 
 private:
 	virtual void program(Pointer<UInt> &batch, UInt &vertexCount) = 0;

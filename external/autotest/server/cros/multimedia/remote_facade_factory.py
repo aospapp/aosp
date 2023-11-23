@@ -87,7 +87,8 @@ class RemoteFacadeProxy(object):
                  host,
                  no_chrome,
                  extra_browser_args=None,
-                 disable_arc=False):
+                 disable_arc=False,
+                 force_python3=False):
         """Construct a RemoteFacadeProxy.
 
         @param host: Host object representing a remote host.
@@ -95,6 +96,7 @@ class RemoteFacadeProxy(object):
         @param extra_browser_args: A list containing extra browser args passed
                                    to Chrome in addition to default ones.
         @param disable_arc: True to disable ARC++.
+        @param force_python3: Force the xmlrpc server to run as python3.
 
         """
         self._client = host
@@ -103,6 +105,8 @@ class RemoteFacadeProxy(object):
         self._no_chrome = no_chrome
         self._extra_browser_args = extra_browser_args
         self._disable_arc = disable_arc
+        self._force_python3 = force_python3
+
         self.connect()
         if not no_chrome:
             self._start_chrome(reconnect=False, retry=True,
@@ -258,18 +262,26 @@ class RemoteFacadeProxy(object):
                       delay_sec=self.XMLRPC_RETRY_DELAY)
         def connect_with_retries():
             """Connects the XML-RPC proxy with retries."""
+            # Until all facades support python3 and are tested with it, we only
+            # force python3 if specifically asked to.
+            if self._force_python3:
+                cmd = '{} {}'.format(
+                        constants.MULTIMEDIA_XMLRPC_SERVER_COMMAND,
+                        '--py_version=3')
+            else:
+                cmd = constants.MULTIMEDIA_XMLRPC_SERVER_COMMAND
+
             self._xmlrpc_proxy = self._client.rpc_server_tracker.xmlrpc_connect(
-                    constants.MULTIMEDIA_XMLRPC_SERVER_COMMAND,
+                    cmd,
                     constants.MULTIMEDIA_XMLRPC_SERVER_PORT,
-                    command_name=(
-                        constants.MULTIMEDIA_XMLRPC_SERVER_CLEANUP_PATTERN
-                    ),
+                    command_name=(constants.
+                                  MULTIMEDIA_XMLRPC_SERVER_CLEANUP_PATTERN),
                     ready_test_name=(
-                        constants.MULTIMEDIA_XMLRPC_SERVER_READY_METHOD),
+                            constants.MULTIMEDIA_XMLRPC_SERVER_READY_METHOD),
                     timeout_seconds=self.XMLRPC_CONNECT_TIMEOUT,
                     logfile=constants.MULTIMEDIA_XMLRPC_SERVER_LOG_FILE,
-                    request_timeout_seconds=
-                            constants.MULTIMEDIA_XMLRPC_SERVER_REQUEST_TIMEOUT)
+                    request_timeout_seconds=constants.
+                    MULTIMEDIA_XMLRPC_SERVER_REQUEST_TIMEOUT)
 
         logging.info('Setup the connection to RPC server, with retries...')
         connect_with_retries()
@@ -337,7 +349,8 @@ class RemoteFacadeFactory(object):
                  install_autotest=True,
                  results_dir=None,
                  extra_browser_args=None,
-                 disable_arc=False):
+                 disable_arc=False,
+                 force_python3=False):
         """Construct a RemoteFacadeFactory.
 
         @param host: Host object representing a remote host.
@@ -347,6 +360,7 @@ class RemoteFacadeFactory(object):
         @param extra_browser_args: A list containing extra browser args passed
                                    to Chrome in addition to default ones.
         @param disable_arc: True to disable ARC++.
+        @param force_python3: Force remote facade to run in python3.
         If it is not None, we will get multimedia init log to the results_dir.
 
         """
@@ -361,7 +375,8 @@ class RemoteFacadeFactory(object):
                     host=self._client,
                     no_chrome=no_chrome,
                     extra_browser_args=extra_browser_args,
-                    disable_arc=disable_arc)
+                    disable_arc=disable_arc,
+                    force_python3=force_python3)
         finally:
             if results_dir:
                 host.get_file(constants.MULTIMEDIA_XMLRPC_SERVER_LOG_FILE,
@@ -412,10 +427,10 @@ class RemoteFacadeFactory(object):
         return browser_facade_adapter.BrowserFacadeRemoteAdapter(self._proxy)
 
 
-    def create_bluetooth_facade(self):
+    def create_bluetooth_facade(self, floss):
         """"Creates a bluetooth facade object."""
         return bluetooth_facade_adapter.BluetoothFacadeRemoteAdapter(
-                self._client, self._proxy)
+                self._client, self._proxy, floss)
 
 
     def create_input_facade(self):

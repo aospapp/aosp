@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_Fingerprint.SystemIsLocked"
 PURPOSE = """
 Verify that system_is_locked() is true in the firmware (i.e.,
@@ -20,6 +20,7 @@ TEST_CLASS = "firmware"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING, fingerprint"
 JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """
 This test enables hardware and software write protection when setting up the

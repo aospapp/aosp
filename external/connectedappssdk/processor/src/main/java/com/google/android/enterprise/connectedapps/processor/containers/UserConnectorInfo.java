@@ -26,10 +26,8 @@ import com.squareup.javapoet.ClassName;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
 
 /** Wrapper of an interface used as a user connector. */
 @AutoValue
@@ -67,19 +65,16 @@ public abstract class UserConnectorInfo {
   public abstract AvailabilityRestrictions availabilityRestrictions();
 
   public static UserConnectorInfo create(
-      ProcessingEnvironment processingEnv,
-      TypeElement connectorElement,
-      SupportedTypes globalSupportedTypes) {
-    Elements elements = processingEnv.getElementUtils();
+      Context context, TypeElement connectorElement, SupportedTypes globalSupportedTypes) {
     CustomUserConnectorAnnotationInfo annotationInfo =
-        extractFromCustomUserConnectorAnnotation(processingEnv, elements, connectorElement);
+        extractFromCustomUserConnectorAnnotation(context, connectorElement);
 
     Set<TypeElement> parcelableWrappers = new HashSet<>(annotationInfo.parcelableWrapperClasses());
     Set<TypeElement> futureWrappers = new HashSet<>(annotationInfo.futureWrapperClasses());
 
     for (TypeElement importConnectorClass : annotationInfo.importsClasses()) {
       UserConnectorInfo importConnector =
-          UserConnectorInfo.create(processingEnv, importConnectorClass, globalSupportedTypes);
+          UserConnectorInfo.create(context, importConnectorClass, globalSupportedTypes);
       parcelableWrappers.addAll(importConnector.parcelableWrapperClasses());
       futureWrappers.addAll(importConnector.futureWrapperClasses());
     }
@@ -90,13 +85,8 @@ public abstract class UserConnectorInfo {
         globalSupportedTypes
             .asBuilder()
             .addParcelableWrappers(
-                ParcelableWrapper.createCustomParcelableWrappers(
-                    processingEnv.getTypeUtils(),
-                    processingEnv.getElementUtils(),
-                    parcelableWrappers))
-            .addFutureWrappers(
-                FutureWrapper.createCustomFutureWrappers(
-                    processingEnv.getTypeUtils(), processingEnv.getElementUtils(), futureWrappers))
+                ParcelableWrapper.createCustomParcelableWrappers(context, parcelableWrappers))
+            .addFutureWrappers(FutureWrapper.createCustomFutureWrappers(context, futureWrappers))
             .build(),
         ImmutableSet.copyOf(parcelableWrappers),
         ImmutableSet.copyOf(futureWrappers),
@@ -105,13 +95,13 @@ public abstract class UserConnectorInfo {
   }
 
   private static CustomUserConnectorAnnotationInfo extractFromCustomUserConnectorAnnotation(
-      ProcessingEnvironment processingEnv, Elements elements, TypeElement connectorElement) {
+      Context context, TypeElement connectorElement) {
     CustomUserConnector customUserConnector =
         connectorElement.getAnnotation(CustomUserConnector.class);
 
     if (customUserConnector == null) {
       return new AutoValue_UserConnectorInfo_CustomUserConnectorAnnotationInfo(
-          getDefaultServiceName(elements, connectorElement),
+          getDefaultServiceName(context, connectorElement),
           ImmutableSet.of(),
           ImmutableSet.of(),
           ImmutableSet.of(),
@@ -120,19 +110,19 @@ public abstract class UserConnectorInfo {
 
     Collection<TypeElement> parcelableWrappers =
         GeneratorUtilities.extractClassesFromAnnotation(
-            processingEnv.getTypeUtils(), customUserConnector::parcelableWrappers);
+            context.types(), customUserConnector::parcelableWrappers);
     Collection<TypeElement> futureWrappers =
         GeneratorUtilities.extractClassesFromAnnotation(
-            processingEnv.getTypeUtils(), customUserConnector::futureWrappers);
+            context.types(), customUserConnector::futureWrappers);
     Collection<TypeElement> imports =
         GeneratorUtilities.extractClassesFromAnnotation(
-            processingEnv.getTypeUtils(), customUserConnector::imports);
+            context.types(), customUserConnector::imports);
 
     String serviceClassName = customUserConnector.serviceClassName();
 
     return new AutoValue_UserConnectorInfo_CustomUserConnectorAnnotationInfo(
         serviceClassName.isEmpty()
-            ? getDefaultServiceName(elements, connectorElement)
+            ? getDefaultServiceName(context, connectorElement)
             : ClassName.bestGuess(serviceClassName),
         ImmutableSet.copyOf(parcelableWrappers),
         ImmutableSet.copyOf(futureWrappers),
@@ -140,8 +130,8 @@ public abstract class UserConnectorInfo {
         customUserConnector.availabilityRestrictions());
   }
 
-  public static ClassName getDefaultServiceName(Elements elements, TypeElement connectorElement) {
-    PackageElement originalPackage = elements.getPackageOf(connectorElement);
+  public static ClassName getDefaultServiceName(Context context, TypeElement connectorElement) {
+    PackageElement originalPackage = context.elements().getPackageOf(connectorElement);
 
     return ClassName.get(
         originalPackage.getQualifiedName().toString(),

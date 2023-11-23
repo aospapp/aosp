@@ -30,6 +30,8 @@
 #define GAS_QUERY_WAIT_TIME_INITIAL 1000
 #define GAS_QUERY_WAIT_TIME_COMEBACK 150
 
+#define GAS_QUERY_MAX_COMEBACK_DELAY 60000
+
 /**
  * struct gas_query_pending - Pending GAS query
  */
@@ -402,14 +404,14 @@ static void gas_query_tx_comeback_req_delay(struct gas_query *gas,
 
 static void gas_query_rx_initial(struct gas_query *gas,
 				 struct gas_query_pending *query,
-				 const u8 *adv_proto, const u8 *resp,
-				 size_t len, u16 comeback_delay)
+				 const u8 *adv_proto, size_t adv_proto_len,
+				 const u8 *resp, size_t len, u16 comeback_delay)
 {
 	wpa_printf(MSG_DEBUG, "GAS: Received initial response from "
 		   MACSTR " (dialog_token=%u comeback_delay=%u)",
 		   MAC2STR(query->addr), query->dialog_token, comeback_delay);
 
-	query->adv_proto = wpabuf_alloc_copy(adv_proto, 2 + adv_proto[1]);
+	query->adv_proto = wpabuf_alloc_copy(adv_proto, adv_proto_len);
 	if (query->adv_proto == NULL) {
 		gas_query_done(gas, query, GAS_QUERY_INTERNAL_ERROR);
 		return;
@@ -434,9 +436,9 @@ static void gas_query_rx_initial(struct gas_query *gas,
 
 static void gas_query_rx_comeback(struct gas_query *gas,
 				  struct gas_query_pending *query,
-				  const u8 *adv_proto, const u8 *resp,
-				  size_t len, u8 frag_id, u8 more_frags,
-				  u16 comeback_delay)
+				  const u8 *adv_proto, size_t adv_proto_len,
+				  const u8 *resp, size_t len, u8 frag_id,
+				  u8 more_frags, u16 comeback_delay)
 {
 	wpa_printf(MSG_DEBUG, "GAS: Received comeback response from "
 		   MACSTR " (dialog_token=%u frag_id=%u more_frags=%u "
@@ -445,7 +447,7 @@ static void gas_query_rx_comeback(struct gas_query *gas,
 		   more_frags, comeback_delay);
 	eloop_cancel_timeout(gas_query_rx_comeback_timeout, gas, query);
 
-	if ((size_t) 2 + adv_proto[1] != wpabuf_len(query->adv_proto) ||
+	if (adv_proto_len != wpabuf_len(query->adv_proto) ||
 	    os_memcmp(adv_proto, wpabuf_head(query->adv_proto),
 		      wpabuf_len(query->adv_proto)) != 0) {
 		wpa_printf(MSG_DEBUG, "GAS: Advertisement Protocol changed "
@@ -514,6 +516,7 @@ int gas_query_rx(struct gas_query *gas, const u8 *da, const u8 *sa,
 	u8 action, dialog_token, frag_id = 0, more_frags = 0;
 	u16 comeback_delay, resp_len;
 	const u8 *pos, *adv_proto;
+	size_t adv_proto_len;
 	int prot, pmf;
 	unsigned int left;
 
@@ -589,25 +592,31 @@ int gas_query_rx(struct gas_query *gas, const u8 *da, const u8 *sa,
 	if (pos + 2 > data + len)
 		return 0;
 	comeback_delay = WPA_GET_LE16(pos);
+	if (comeback_delay > GAS_QUERY_MAX_COMEBACK_DELAY)
+		comeback_delay = GAS_QUERY_MAX_COMEBACK_DELAY;
 	pos += 2;
 
 	/* Advertisement Protocol element */
-	if (pos + 2 > data + len || pos + 2 + pos[1] > data + len) {
+	adv_proto = pos;
+	left = data + len - adv_proto;
+	if (left < 2 || adv_proto[1] > left - 2) {
 		wpa_printf(MSG_DEBUG, "GAS: No room for Advertisement "
 			   "Protocol element in the response from " MACSTR,
 			   MAC2STR(sa));
 		return 0;
 	}
 
-	if (*pos != WLAN_EID_ADV_PROTO) {
+	if (*adv_proto != WLAN_EID_ADV_PROTO) {
 		wpa_printf(MSG_DEBUG, "GAS: Unexpected Advertisement "
 			   "Protocol element ID %u in response from " MACSTR,
-			   *pos, MAC2STR(sa));
+			   *adv_proto, MAC2STR(sa));
 		return 0;
 	}
+	adv_proto_len = 2 + adv_proto[1];
+	if (adv_proto_len > (size_t) (data + len - pos))
+		return 0; /* unreachable due to an earlier check */
 
-	adv_proto = pos;
-	pos += 2 + pos[1];
+	pos += adv_proto_len;
 
 	/* Query Response Length */
 	if (pos + 2 > data + len) {
@@ -631,11 +640,12 @@ int gas_query_rx(struct gas_query *gas, const u8 *da, const u8 *sa,
 	}
 
 	if (action == WLAN_PA_GAS_COMEBACK_RESP)
-		gas_query_rx_comeback(gas, query, adv_proto, pos, resp_len,
-				      frag_id, more_frags, comeback_delay);
+		gas_query_rx_comeback(gas, query, adv_proto, adv_proto_len,
+				      pos, resp_len, frag_id, more_frags,
+				      comeback_delay);
 	else
-		gas_query_rx_initial(gas, query, adv_proto, pos, resp_len,
-				     comeback_delay);
+		gas_query_rx_initial(gas, query, adv_proto, adv_proto_len,
+				     pos, resp_len, comeback_delay);
 
 	return 0;
 }

@@ -283,7 +283,16 @@ static void vblank_query(data_t *data, int fd, int nchildren)
 		vbl.request.sequence = 0;
 		igt_assert_eq(wait_vblank(fd, &vbl), 0);
 		count++;
-	} while ((vbl.reply.sequence - sq) <= 120);
+
+		/*
+		 * break the loop and fail after 10 seconds to prevent hang.
+		 * Ideally, it should take only 2 seconds for 120 vblank in 60 fps.
+		 */
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		igt_assert_f(end.tv_sec - start.tv_sec < 10,
+			"VBlank Sequence number increased by only %lu in %lu seconds.\n",
+			vbl.reply.sequence - sq, end.tv_sec - start.tv_sec);
+	} while (vbl.reply.sequence <= (sq + 120));
 	clock_gettime(CLOCK_MONOTONIC, &end);
 
 	igt_info("Time to query current counter (%s):		%7.3fµs\n",

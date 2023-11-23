@@ -4,12 +4,13 @@
  * Email: code@zilogic.com
  */
 
-/*
- * Test statx
+/*\
+ * [Description]
  *
- * This code tests the following flags:
- * 1) AT_EMPTY_PATH
- * 2) AT_SYMLINK_NOFOLLOW
+ * This code tests the following flags with statx syscall:
+ *
+ * - AT_EMPTY_PATH
+ * - AT_SYMLINK_NOFOLLOW
  *
  * A test file and a link for it is created.
  *
@@ -19,7 +20,6 @@
  * To check symlink no follow flag, the linkname is statxed.
  * To ensure that link is not dereferenced, obtained inode is compared
  * with test file inode.
- * Minimum kernel version required is 4.11.
  */
 
 #define _GNU_SOURCE
@@ -50,11 +50,11 @@ static void test_empty_path(void)
 
 	if (buf.stx_size == SIZE)
 		tst_res(TPASS,
-			"stx_size(%"PRIu64") is correct", buf.stx_size);
+			"stx_size(%"PRIu64") is correct", (uint64_t)buf.stx_size);
 	else
 		tst_res(TFAIL,
 			"stx_size(%"PRIu64") is not same as expected(%u)",
-			buf.stx_size, SIZE);
+			(uint64_t)buf.stx_size, SIZE);
 
 }
 
@@ -90,7 +90,7 @@ static void test_sym_link(void)
 			"Statx symlink flag failed to work as expected");
 }
 
-struct tcase {
+static struct tcase {
 	void (*tfunc)(void);
 } tcases[] = {
 	{&test_empty_path},
@@ -107,7 +107,7 @@ static void setup(void)
 	char data_buf[SIZE] = "LinusTorvalds";
 
 	file_fd = SAFE_OPEN(TESTFILE, O_RDWR | O_CREAT, MODE);
-	SAFE_WRITE(0, file_fd, data_buf, sizeof(data_buf));
+	SAFE_WRITE(SAFE_WRITE_ANY, file_fd, data_buf, sizeof(data_buf));
 
 	SAFE_SYMLINK(TESTFILE, LINK_FILE);
 }

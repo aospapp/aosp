@@ -34,9 +34,14 @@ static void add_user(char n)
 {
 	char username[] = "ltp_add_key05_n";
 	const char *const cmd_useradd[] = {"useradd", username, NULL};
+	const char *const cmd_userdel[] = {"userdel", "-r", username, NULL};
+	const char *const cmd_groupdel[] = {"groupdel", username, NULL};
 	struct passwd *pw;
 
 	username[sizeof(username) - 2] = '0' + n;
+
+	tst_cmd(cmd_userdel, NULL, "/dev/null", TST_CMD_PASS_RETVAL);
+	tst_cmd(cmd_groupdel, NULL, "/dev/null", TST_CMD_PASS_RETVAL);
 
 	SAFE_CMD(cmd_useradd, NULL, NULL);
 	pw = SAFE_GETPWNAM(username);
@@ -202,13 +207,6 @@ static void do_test(unsigned int n)
 	return;
 }
 
-static void setup(void)
-{
-	SAFE_FILE_PRINTF("/proc/sys/kernel/keys/gc_delay", "1");
-	SAFE_FILE_PRINTF("/proc/sys/kernel/keys/maxkeys", "200");
-	SAFE_FILE_PRINTF("/proc/sys/kernel/keys/maxbytes", "20000");
-}
-
 static void cleanup(void)
 {
 	while (usern--)
@@ -220,13 +218,15 @@ static struct tst_test test = {
 	.tcnt = 2,
 	.needs_root = 1,
 	.forks_child = 1,
-	.setup = setup,
 	.cleanup = cleanup,
-	.save_restore = (const char * const[]) {
-		"?/proc/sys/kernel/keys/gc_delay",
-		"?/proc/sys/kernel/keys/maxkeys",
-		"?/proc/sys/kernel/keys/maxbytes",
-		NULL,
+	.save_restore = (const struct tst_path_val[]) {
+		{"/proc/sys/kernel/keys/gc_delay", "1",
+			TST_SR_SKIP_MISSING | TST_SR_TCONF_RO},
+		{"/proc/sys/kernel/keys/maxkeys", "200",
+			TST_SR_SKIP_MISSING | TST_SR_TCONF_RO},
+		{"/proc/sys/kernel/keys/maxbytes", "20000",
+			TST_SR_SKIP_MISSING | TST_SR_TCONF_RO},
+		{}
 	},
 	.bufs = (struct tst_buffers []) {
 		{&user_buf, .size = 64},
@@ -235,6 +235,7 @@ static struct tst_test test = {
 	.needs_cmds = (const char *const []) {
 		"useradd",
 		"userdel",
+		"groupdel",
 		NULL
 	},
 	.tags = (const struct tst_tag[]) {

@@ -16,6 +16,8 @@
 
 package com.tonicsystems.jarjar;
 
+import com.android.jarjar.StripAnnotation;
+
 import java.io.*;
 import java.util.*;
 
@@ -62,6 +64,10 @@ class RulesFileParser
                 element = new Zap();
             } else if (type.equals("keep")) {
                 element = new Keep();
+            // ANDROID-BEGIN: b/222743634 Strip annotations from system module stubs
+            } else if (type.equals("strip-annotation")) {
+                element = new StripAnnotation();
+            // ANDROID-END: b/222743634 Strip annotations from system module stubs
             } else {
                 error(c, parts);
             }

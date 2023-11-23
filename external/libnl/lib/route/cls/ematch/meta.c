@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/cls/ematch/meta.c		Metadata Match
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2010-2013 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -246,9 +240,9 @@ static void dump_value(struct rtnl_meta_value *v, struct nl_dump_params *p)
 					nl_dump(p, " >> %u", v->mv_shift);
 
 				if (v->mv_len == 4)
-					nl_dump(p, " & %#x", *(uint32_t *) (v + 1));
+					nl_dump(p, " & %#lx", (long unsigned) *(uint32_t *) (v + 1));
 				else if (v->mv_len == 8)
-					nl_dump(p, " & %#x", *(uint64_t *) (v + 1));
+					nl_dump(p, " & %#llx", (long long unsigned) (*(uint64_t *) (v + 1)));
 			}
 		break;
 

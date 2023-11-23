@@ -14,7 +14,8 @@ class firmware_TryFwB(FirmwareTest):
 
     def initialize(self, host, cmdline_args, dev_mode=False, ec_wp=None):
         super(firmware_TryFwB, self).initialize(host, cmdline_args, ec_wp=ec_wp)
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
         self.setup_usbkey(usbkey=False)
         if not self.fw_vboot2:
             self.setup_tried_fwb(tried_fwb=False)
@@ -38,5 +39,5 @@ class firmware_TryFwB(FirmwareTest):
         self.switcher.mode_aware_reboot()
 
         expected_slot = 'B' if self.fw_vboot2 else 'A'
-        logging.info("Expected firmware " + expected_slot + " boot, done.")
+        logging.info("Expected firmware %s boot, done", expected_slot)
         self.check_state((self.checkers.fw_tries_checker, expected_slot))

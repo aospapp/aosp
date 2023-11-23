@@ -8,12 +8,13 @@ AUTHOR = 'chromeos-bluetooth'
 NAME = 'bluetooth_AdapterAdvHealth.adv_suspend_peer_test'
 PURPOSE = ('Tests advertising during suspend/resume')
 CRITERIA = 'Advertising should not be detected during suspend'
-ATTRIBUTES = 'suite:bluetooth_flaky'
+ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_e2e'
 TIME = 'SHORT'  # ~3 minutes on Sarien
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1'
+PY_VERSION = 3
 
 DOC = """
     Advertising suspend peer test.

@@ -4,7 +4,7 @@
       "name": "puffin_unittest"
     }
   ],
-  "hwasan-postsubmit": [
+  "hwasan-presubmit": [
     {
       "name": "puffin_unittest"
     }

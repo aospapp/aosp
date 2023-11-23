@@ -132,6 +132,7 @@
         android:icon="@drawable/sl4a_logo_48"
         android:label="@string/application_title"
         android:name=".Sl4aApplication"
+	android:testOnly="true"
         android:theme="@android:style/Theme.DeviceDefault"
         android:usesCleartextTraffic="true">
         <activity android:name=".activity.ScriptManager" android:configChanges="keyboardHidden|orientation" android:windowSoftInputMode="adjustResize" android:launchMode="singleTop" android:exported="true">

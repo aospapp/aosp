@@ -27,7 +27,8 @@ class firmware_Mosys(FirmwareTest):
         # Parse arguments from command line
         dict_args = utils.args_to_dict(cmdline_args)
         super(firmware_Mosys, self).initialize(host, cmdline_args)
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
         # a list contain failed execution.
         self.failed_command = []
         # Get a list of available mosys commands.
@@ -96,7 +97,7 @@ class firmware_Mosys(FirmwareTest):
             logging.info('Expected ec version %s actual_version %s',
                          exp_ec_version, actual_version)
             if exp_ec_version != actual_version:
-               self._tag_failure(command)
+                self._tag_failure(command)
         else:
             self._tag_failure(command)
             logging.error('Failed to locate version from ectool')
@@ -126,7 +127,7 @@ class firmware_Mosys(FirmwareTest):
             logging.info('Expected pd version %s actual_version %s',
                          exp_pd_version, actual_version)
             if exp_pd_version != actual_version:
-               self._tag_failure(command)
+                self._tag_failure(command)
         else:
             self._tag_failure(command)
             logging.error('Failed to locate version from ectool')
@@ -140,18 +141,18 @@ class firmware_Mosys(FirmwareTest):
         # mosys -k ec info
         command = 'mosys -k ec info'
         if self.faft_config.chrome_ec:
-          output = self.run_cmd(command)
-          self.check_for_errors(output, command)
-          p = re.compile(
-            'vendor="[A-Z]?[a-z]+" name="[ -~]+" fw_version="(.*)"')
-          v = p.match(output[0])
-          if v:
-             version = v.group(1)
-             self.check_ec_version(command, version)
-          else:
-            self._tag_failure(command)
+            output = self.run_cmd(command)
+            self.check_for_errors(output, command)
+            p = re.compile(
+                    'vendor="[A-Z]?[a-z]+" name="[ -~]+" fw_version="(.*)"')
+            v = p.match(output[0])
+            if v:
+                version = v.group(1)
+                self.check_ec_version(command, version)
+            else:
+                self._tag_failure(command)
         else:
-          logging.info('Skip "%s", command not available.', command)
+            logging.info('Skip "%s", command not available.', command)
 
         # mosys platform name
         command = 'mosys platform name'
@@ -161,17 +162,17 @@ class firmware_Mosys(FirmwareTest):
         # mosys -k pd info
         command = 'mosys -k pd info'
         if self.faft_config.chrome_usbpd and 'pd' in self.command_list:
-          output = self.run_cmd(command)
-          self.check_for_errors(output, command)
-          p = re.compile('vendor="[a-z]+" name="[ -~]+" fw_version="(.*)"')
-          v = p.match(output[0])
-          if v:
-             version = v.group(1)
-             self.check_pd_version(command, version)
-          else:
-             self._tag_failure(command)
+            output = self.run_cmd(command)
+            self.check_for_errors(output, command)
+            p = re.compile('vendor="[a-z]+" name="[ -~]+" fw_version="(.*)"')
+            v = p.match(output[0])
+            if v:
+                version = v.group(1)
+                self.check_pd_version(command, version)
+            else:
+                self._tag_failure(command)
         else:
-          logging.info('Skip "%s", command not available.', command)
+            logging.info('Skip "%s", command not available.', command)
 
         # mosys -k memory spd print all (check no error output)
         command = 'mosys -k memory spd print all'
@@ -188,7 +189,7 @@ class firmware_Mosys(FirmwareTest):
         # Add any other mosys commands or tests before this section.
         # empty failed_command indicate all passed.
         if self.failed_command:
-          raise error.TestFail('%d commands failed, detail above.  '
-                               'Failed commands are "%s"' %
-                               (len(self.failed_command),
-                               ','.join(self.failed_command)))
+            raise error.TestFail(
+                    '%d commands failed, detail above.  '
+                    'Failed commands are "%s"' %
+                    (len(self.failed_command), ','.join(self.failed_command)))

@@ -7,6 +7,7 @@ AUTHOR = 'puthik'
 PURPOSE = 'Test the root device for trim command support'
 TIME = 'MEDIUM'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
 This test uses FIO to test for trim command support for the root device.

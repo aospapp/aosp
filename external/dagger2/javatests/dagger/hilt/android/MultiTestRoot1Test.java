@@ -150,7 +150,8 @@ public final class MultiTestRoot1Test {
     }
   }
 
-  static class Bar {
+  // Must be public due to b/183636779
+  public static class Bar {
     final String value;
 
     Bar(String value) {
@@ -166,7 +167,8 @@ public final class MultiTestRoot1Test {
     }
   }
 
-  static class Qux {}
+  // Must be public due to b/183636779
+  public static class Qux {}
 
   @Module
   @InstallIn(SingletonComponent.class)
@@ -277,10 +279,11 @@ public final class MultiTestRoot1Test {
             ClassCastException.class,
             () -> EntryPoints.get(getApplicationContext(), MultiTestRoot2Test.BarEntryPoint.class));
     assertThat(exception)
-          .hasMessageThat()
-          .isEqualTo(
-              "Cannot cast dagger.hilt.android.DaggerMultiTestRoot1Test_HiltComponents_SingletonC"
-              + " to dagger.hilt.android.MultiTestRoot2Test$BarEntryPoint");
+        .hasMessageThat()
+        .isEqualTo(
+            "Cannot cast dagger.hilt.android.internal.testing.root."
+                + "DaggerMultiTestRoot1Test_HiltComponents_SingletonC"
+                + " to dagger.hilt.android.MultiTestRoot2Test$BarEntryPoint");
   }
 
   @Test

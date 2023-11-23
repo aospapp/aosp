@@ -12,8 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as m from 'mithril';
+import m from 'mithril';
 
+import {assertExists} from '../base/logging';
+import {RECORDING_V2_FLAG} from '../common/feature_flags';
+import {EXTENSION_URL} from '../common/recordingV2/recording_utils';
 import {TraceUrlSource} from '../common/state';
 import {saveTrace} from '../common/upload_utils';
 
@@ -41,10 +44,20 @@ export function maybeShowErrorDialog(errLog: string) {
     return;
   }
 
-  if (errLog.includes('Unable to claim interface.') ||
-      errLog.includes('A transfer error has occurred')) {
-    showWebUSBError();
-    timeLastReport = now;
+  if (!RECORDING_V2_FLAG.get()) {
+    if (errLog.includes('Unable to claim interface')) {
+      showWebUSBError();
+      timeLastReport = now;
+      return;
+    }
+
+    if (errLog.includes('A transfer error has occurred') ||
+        errLog.includes('The device was disconnected') ||
+        errLog.includes('The transfer was cancelled')) {
+      showConnectionLostError();
+      timeLastReport = now;
+      return;
+    }
   }
 
   if (errLog.includes('(ERR:fmt)')) {
@@ -74,7 +87,7 @@ export function maybeShowErrorDialog(errLog: string) {
   const errTitle = errLog.split('\n', 1)[0].substr(0, 80);
   const userDescription = '';
   let checked = false;
-  const engine = Object.values(globals.state.engines)[0];
+  const engine = globals.getCurrentEngine();
 
   const shareTraceSection: m.Vnode[] = [];
   if (isShareable() && !urlExists()) {
@@ -83,8 +96,8 @@ export function maybeShowErrorDialog(errLog: string) {
           checked,
           oninput: (ev: InputEvent) => {
             checked = (ev.target as HTMLInputElement).checked;
-            if (checked && engine.source.type === 'FILE') {
-              saveTrace(engine.source.file).then(url => {
+            if (checked && engine && engine.source.type === 'FILE') {
+              saveTrace(engine.source.file).then((url) => {
                 const errMessage = createErrorMessage(errLog, checked, url);
                 renderModal(
                     errTitle, errMessage, userDescription, shareTraceSection);
@@ -144,15 +157,15 @@ function renderModal(
         action: () => {
           window.open(
               createLink(errTitle, errMessage, userDescription), '_blank');
-        }
+        },
       },
-    ]
+    ],
   });
 }
 
 // If there is a trace URL to share, we don't have to show the upload checkbox.
 function urlExists() {
-  const engine = Object.values(globals.state.engines)[0];
+  const engine = globals.getCurrentEngine();
   return engine !== undefined &&
       (engine.source.type === 'ARRAY_BUFFER' || engine.source.type === 'URL') &&
       engine.source.url !== undefined;
@@ -160,11 +173,12 @@ function urlExists() {
 
 function createErrorMessage(errLog: string, checked: boolean, url?: string) {
   let errMessage = '';
-  const engine = Object.values(globals.state.engines)[0];
+  const engine = globals.getCurrentEngine();
   if (checked && url !== undefined) {
     errMessage += `Trace: ${url}`;
   } else if (urlExists()) {
-    errMessage += `Trace: ${(engine.source as TraceUrlSource).url}`;
+    errMessage +=
+        `Trace: ${(assertExists(engine).source as TraceUrlSource).url}`;
   } else {
     errMessage += 'To assist with debugging please attach or link to the ' +
         'trace you were viewing.';
@@ -213,7 +227,7 @@ function showOutOfMemoryDialog() {
         m('span', 'For details see '),
         m('a', {href: url, target: '_blank'}, url),
         ),
-    buttons: []
+    buttons: [],
   });
 }
 
@@ -235,7 +249,7 @@ function showUnknownFileError() {
             m('li', 'Ninja build log'),
             ),
         ),
-    buttons: []
+    buttons: [],
   });
 }
 
@@ -252,7 +266,120 @@ function showWebUSBError() {
         m('span', 'For details see '),
         m('a', {href: 'http://b/159048331', target: '_blank'}, 'b/159048331'),
         ),
-    buttons: []
+    buttons: [],
+  });
+}
+
+export function showWebUSBErrorV2() {
+  showModal({
+    title: 'A WebUSB error occurred',
+    content: m(
+        'div',
+        m('span', `Is adb already running on the host? Run this command and
+      try again.`),
+        m('br'),
+        m('.modal-bash', '> adb kill-server'),
+        m('br'),
+        // The statement below covers the following edge case:
+        // 1. 'adb server' is running on the device.
+        // 2. The user selects the new Android target, so we try to fetch the
+        // OS version and do QSS.
+        // 3. The error modal is shown.
+        // 4. The user runs 'adb kill-server'.
+        // At this point we don't have a trigger to try fetching the OS version
+        // + QSS again. Therefore, the user will need to refresh the page.
+        m('span',
+          'If after running \'adb kill-server\', you don\'t see ' +
+              'a \'Start Recording\' button on the page and you don\'t see ' +
+              '\'Allow USB debugging\' on the device, ' +
+              'you will need to reload this page.'),
+        m('br'),
+        m('br'),
+        m('span', 'For details see '),
+        m('a', {href: 'http://b/159048331', target: '_blank'}, 'b/159048331'),
+        ),
+    buttons: [],
+  });
+}
+
+export function showConnectionLostError(): void {
+  showModal({
+    title: 'Connection with the ADB device lost',
+    content: m(
+        'div',
+        m('span', `Please connect the device again to restart the recording.`),
+        m('br')),
+    buttons: [],
+  });
+}
+
+export function showAllowUSBDebugging(): void {
+  showModal({
+    title: 'Could not connect to the device',
+    content: m(
+        'div', m('span', 'Please allow USB debugging on the device.'), m('br')),
+    buttons: [],
+  });
+}
+
+export function showNoDeviceSelected(): void {
+  showModal({
+    title: 'No device was selected for recording',
+    content:
+        m('div',
+          m('span', `If you want to connect to an ADB device,
+           please select it from the list.`),
+          m('br')),
+    buttons: [],
+  });
+}
+
+export function showExtensionNotInstalled(): void {
+  showModal({
+    title: 'Perfetto Chrome extension not installed',
+    content:
+        m('div',
+          m('.note',
+            `To trace Chrome from the Perfetto UI, you need to install our `,
+            m('a', {href: EXTENSION_URL, target: '_blank'}, 'Chrome extension'),
+            ' and then reload this page.'),
+          m('br')),
+    buttons: [],
+  });
+}
+
+export function showWebsocketConnectionIssue(message: string): void {
+  showModal({
+    title: 'Unable to connect to the device via websocket',
+    content: m('div', m('span', message), m('br')),
+    buttons: [],
+  });
+}
+
+export function showIssueParsingTheTracedResponse(message: string): void {
+  showModal({
+    title: 'A problem was encountered while connecting to' +
+        ' the Perfetto tracing service',
+    content: m('div', m('span', message), m('br')),
+    buttons: [],
+  });
+}
+
+export function showFailedToPushBinary(message: string): void {
+  showModal({
+    title: 'Failed to push a binary to the device',
+    content:
+        m('div',
+          m('span',
+            'This can happen if your Android device has an OS version lower ' +
+                'than Q. Perfetto tried to push the latest version of its ' +
+                'embedded binary but failed.'),
+          m('br'),
+          m('br'),
+          m('span', 'Error message:'),
+          m('br'),
+          m('span', message)),
+    buttons: [],
   });
 }
 
@@ -268,6 +395,6 @@ restarting the trace processor while still in use by UI.`),
         m('p', `Please refresh this tab and ensure that trace processor is used
 at most one tab at a time.`),
         ),
-    buttons: []
+    buttons: [],
   });
 }

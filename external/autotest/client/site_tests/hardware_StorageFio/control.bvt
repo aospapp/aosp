@@ -7,8 +7,10 @@ AUTHOR = 'puthik'
 PURPOSE = 'Make sure that hardware StorageFio work'
 TIME = 'FAST'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 ATTRIBUTES = "suite:experimental"
 JOB_RETRIES = 2
+PY_VERSION = 3
 
 DOC = """
 This test uses FIO test to make sure that test work correctly.

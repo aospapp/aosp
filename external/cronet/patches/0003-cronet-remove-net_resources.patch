@@ -1,0 +1,31 @@
+From 8eb5bb7a71c02398732c29c396e8bdc1280a82ab Mon Sep 17 00:00:00 2001
+From: Patrick Rohr <prohr@google.com>
+Date: Thu, 5 Jan 2023 07:23:50 -0800
+Subject: [PATCH] cronet: remove net_resources
+
+These are not needed for AOSP builds and make the build easier (by
+removing dependencies such as grit).
+This dependency has already been missing from the desc.json files, so
+this change just brings the repo in-sync with the build.
+
+Test: build
+Change-Id: I71308299c1c0852b3c1c53d37ac7982204715610
+---
+ net/BUILD.gn | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/BUILD.gn b/net/BUILD.gn
+index e12e5b6936b8d..e3e66c97056b5 100644
+--- a/net/BUILD.gn
++++ b/net/BUILD.gn
+@@ -1632,7 +1632,6 @@ source_set("net_deps") {
+     ":constants",
+     ":isolation_info_proto",
+     ":net_export_header",
+-    ":net_resources",
+     ":preload_decoder",
+     "//base",
+     "//base/third_party/dynamic_annotations",
+-- 
+2.39.0.314.g84b9a713c41-goog
+

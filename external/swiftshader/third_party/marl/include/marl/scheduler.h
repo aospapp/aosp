@@ -21,8 +21,10 @@
 #include "export.h"
 #include "memory.h"
 #include "mutex.h"
+#include "sanitizers.h"
 #include "task.h"
 #include "thread.h"
+#include "thread_local.h"
 
 #include <array>
 #include <atomic>
@@ -463,7 +465,7 @@ class Scheduler {
     };
 
     // The current worker bound to the current thread.
-    static thread_local Worker* current;
+    MARL_DECLARE_THREAD_LOCAL(Worker*, current);
 
     Mode const mode;
     Scheduler* const scheduler;
@@ -487,8 +489,11 @@ class Scheduler {
   // it going to sleep.
   void onBeginSpinning(int workerId);
 
+  // setBound() sets the scheduler bound to the current thread.
+  static void setBound(Scheduler* scheduler);
+
   // The scheduler currently bound to the current thread.
-  static thread_local Scheduler* bound;
+  MARL_DECLARE_THREAD_LOCAL(Scheduler*, bound);
 
   // The immutable configuration used to build the scheduler.
   const Config cfg;

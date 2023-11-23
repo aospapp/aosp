@@ -215,6 +215,18 @@ destType bitCast(const sourceType &source)
     return output;
 }
 
+template <typename DestT, typename SrcT>
+DestT unsafe_int_to_pointer_cast(SrcT src)
+{
+    return reinterpret_cast<DestT>(static_cast<uintptr_t>(src));
+}
+
+template <typename DestT, typename SrcT>
+DestT unsafe_pointer_to_int_cast(SrcT src)
+{
+    return static_cast<DestT>(reinterpret_cast<uintptr_t>(src));
+}
+
 // https://stackoverflow.com/a/37581284
 template <typename T>
 static constexpr double normalize(T value)
@@ -567,7 +579,7 @@ inline float normalizedToFloat(T input)
 template <typename T>
 inline T floatToNormalized(float input)
 {
-    if (sizeof(T) > 2)
+    if constexpr (sizeof(T) > 2)
     {
         // float has only a 23 bit mantissa, so we need to do the calculation in double precision
         return static_cast<T>(std::numeric_limits<T>::max() * static_cast<double>(input) + 0.5);
@@ -677,7 +689,7 @@ inline unsigned int average(unsigned int a, unsigned int b)
 
 inline int average(int a, int b)
 {
-    long long average = (static_cast<long long>(a) + static_cast<long long>(b)) / 2ll;
+    long long average = (static_cast<long long>(a) + static_cast<long long>(b)) / 2LL;
     return static_cast<int>(average);
 }
 
@@ -977,7 +989,7 @@ inline void unpackHalf2x16(uint32_t u, float *f1, float *f2)
     *f2 = float16ToFloat32(mostSignificantBits);
 }
 
-inline uint8_t sRGBToLinear(uint8_t srgbValue)
+inline float sRGBToLinear(uint8_t srgbValue)
 {
     float value = srgbValue / 255.0f;
     if (value <= 0.04045f)
@@ -988,29 +1000,22 @@ inline uint8_t sRGBToLinear(uint8_t srgbValue)
     {
         value = std::pow((value + 0.055f) / 1.055f, 2.4f);
     }
-    return static_cast<uint8_t>(clamp(value * 255.0f + 0.5f, 0.0f, 255.0f));
+    ASSERT(value >= 0.0f && value <= 1.0f);
+    return value;
 }
 
-inline uint8_t linearToSRGB(uint8_t linearValue)
+inline uint8_t linearToSRGB(float value)
 {
-    float value = linearValue / 255.0f;
-    if (value <= 0.0f)
-    {
-        value = 0.0f;
-    }
-    else if (value < 0.0031308f)
+    ASSERT(value >= 0.0f && value <= 1.0f);
+    if (value < 0.0031308f)
     {
         value = value * 12.92f;
     }
-    else if (value < 1.0f)
+    else
     {
         value = std::pow(value, 0.41666f) * 1.055f - 0.055f;
     }
-    else
-    {
-        value = 1.0f;
-    }
-    return static_cast<uint8_t>(clamp(value * 255.0f + 0.5f, 0.0f, 255.0f));
+    return static_cast<uint8_t>(value * 255.0f + 0.5f);
 }
 
 // Reverse the order of the bits.
@@ -1374,7 +1379,7 @@ inline int32_t WrappingMul(int32_t lhs, int32_t rhs)
     // The multiplication is guaranteed not to overflow.
     int64_t resultWide = lhsWide * rhsWide;
     // Implement the desired wrapping behavior by masking out the high-order 32 bits.
-    resultWide = resultWide & 0xffffffffll;
+    resultWide = resultWide & 0xffffffffLL;
     // Casting to a narrower signed type is fine since the casted value is representable in the
     // narrower type.
     return static_cast<int32_t>(resultWide);

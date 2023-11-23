@@ -231,7 +231,7 @@ class RfSwitchTestCases(unittest.TestCase):
         """Verify we can set same attenuation to all."""
 
         # 0 should close all relays
-        for x in xrange(rf_switch.RfSwitch._MAX_ENCLOSURE):
+        for x in range(rf_switch.RfSwitch._MAX_ENCLOSURE):
             relays = ','.join(rf_switch.RfSwitch._AP_ATTENUATOR_RELAYS[x + 1])
             reverse_relays = ','.join(
                 rf_switch.RfSwitch._AP_ATTENUATOR_RELAYS[x + 1][::-1])
@@ -242,7 +242,7 @@ class RfSwitchTestCases(unittest.TestCase):
         self.mock_rf_switch.set_attenuation(0, 0)
 
         # 127 should open all (close none)
-        for x in xrange(rf_switch.RfSwitch._MAX_ENCLOSURE):
+        for x in range(rf_switch.RfSwitch._MAX_ENCLOSURE):
             relays = ','.join(rf_switch.RfSwitch._AP_ATTENUATOR_RELAYS[x + 1])
             self._populate_stack_for_cmd(
                 '%s (@%s)\n' % (rf_switch.RfSwitch._CMD_OPEN_RELAYS, relays))

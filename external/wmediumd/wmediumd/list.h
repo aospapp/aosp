@@ -7,9 +7,8 @@
 
 /* Stripped down from Linux ~5.5 */
 
-#define POISON_POINTER_DELTA 0
-#define LIST_POISON1  ((void *) 0x00100100 + POISON_POINTER_DELTA)
-#define LIST_POISON2  ((void *) 0x00200200 + POISON_POINTER_DELTA)
+#define LIST_POISON1  ((void *) 0x00100100)
+#define LIST_POISON2  ((void *) 0x00200200)
 #define WRITE_ONCE(p, v) do { p = v; } while (0)
 #define READ_ONCE(p) (p)
 #ifndef container_of
@@ -48,7 +47,7 @@ static inline void INIT_LIST_HEAD(struct list_head *list)
 	list->prev = list;
 }
 
-static inline bool __list_add_valid(struct list_head *new,
+static inline bool __list_add_valid(struct list_head *new_elem,
 				struct list_head *prev,
 				struct list_head *next)
 {
@@ -65,44 +64,44 @@ static inline bool __list_del_entry_valid(struct list_head *entry)
  * This is only for internal list manipulation where we know
  * the prev/next entries already!
  */
-static inline void __list_add(struct list_head *new,
+static inline void __list_add(struct list_head *new_elem,
 			      struct list_head *prev,
 			      struct list_head *next)
 {
-	if (!__list_add_valid(new, prev, next))
+	if (!__list_add_valid(new_elem, prev, next))
 		return;
 
-	next->prev = new;
-	new->next = next;
-	new->prev = prev;
-	WRITE_ONCE(prev->next, new);
+	next->prev = new_elem;
+	new_elem->next = next;
+	new_elem->prev = prev;
+	WRITE_ONCE(prev->next, new_elem);
 }
 
 /**
  * list_add - add a new entry
- * @new: new entry to be added
+ * @new_elem: new entry to be added
  * @head: list head to add it after
  *
  * Insert a new entry after the specified head.
  * This is good for implementing stacks.
  */
-static inline void list_add(struct list_head *new, struct list_head *head)
+static inline void list_add(struct list_head *new_elem, struct list_head *head)
 {
-	__list_add(new, head, head->next);
+	__list_add(new_elem, head, head->next);
 }
 
 
 /**
  * list_add_tail - add a new entry
- * @new: new entry to be added
+ * @new_elem: new entry to be added
  * @head: list head to add it before
  *
  * Insert a new entry before the specified head.
  * This is useful for implementing queues.
  */
-static inline void list_add_tail(struct list_head *new, struct list_head *head)
+static inline void list_add_tail(struct list_head *new_elem, struct list_head *head)
 {
-	__list_add(new, head->prev, head);
+	__list_add(new_elem, head->prev, head);
 }
 
 /*
@@ -149,37 +148,37 @@ static inline void __list_del_entry(struct list_head *entry)
 static inline void list_del(struct list_head *entry)
 {
 	__list_del_entry(entry);
-	entry->next = LIST_POISON1;
-	entry->prev = LIST_POISON2;
+	entry->next = (struct list_head *)LIST_POISON1;
+	entry->prev = (struct list_head *)LIST_POISON2;
 }
 
 /**
  * list_replace - replace old entry by new one
  * @old : the element to be replaced
- * @new : the new element to insert
+ * @new_elem : the new element to insert
  *
  * If @old was empty, it will be overwritten.
  */
 static inline void list_replace(struct list_head *old,
-				struct list_head *new)
+				struct list_head *new_elem)
 {
-	new->next = old->next;
-	new->next->prev = new;
-	new->prev = old->prev;
-	new->prev->next = new;
+	new_elem->next = old->next;
+	new_elem->next->prev = new_elem;
+	new_elem->prev = old->prev;
+	new_elem->prev->next = new_elem;
 }
 
 /**
  * list_replace_init - replace old entry by new one and initialize the old one
  * @old : the element to be replaced
- * @new : the new element to insert
+ * @new_elem : the new element to insert
  *
  * If @old was empty, it will be overwritten.
  */
 static inline void list_replace_init(struct list_head *old,
-				     struct list_head *new)
+				     struct list_head *new_elem)
 {
-	list_replace(old, new);
+	list_replace(old, new_elem);
 	INIT_LIST_HEAD(old);
 }
 

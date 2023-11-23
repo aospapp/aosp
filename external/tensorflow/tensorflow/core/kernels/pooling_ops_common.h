@@ -49,8 +49,8 @@ struct PoolParameters {
   // elements otherwise.
   PoolParameters(OpKernelContext* context, const std::vector<int32>& ksize,
                  const std::vector<int32>& stride, Padding padding,
-                 std::vector<int64> explicit_paddings, TensorFormat data_format,
-                 const TensorShape& tensor_in_shape);
+                 std::vector<int64_t> explicit_paddings,
+                 TensorFormat data_format, const TensorShape& tensor_in_shape);
 
   // Returns the shape of the output for "forward" pooling operations.
   TensorShape forward_output_shape();
@@ -69,24 +69,19 @@ struct PoolParameters {
   int col_stride;
   int depth_stride;
 
-  int64 out_height;
-  int64 out_width;
+  int64_t out_height;
+  int64_t out_width;
   int out_depth;
 
-  int64 pad_top;
-  int64 pad_bottom;
-  int64 pad_left;
-  int64 pad_right;
+  int64_t pad_top;
+  int64_t pad_bottom;
+  int64_t pad_left;
+  int64_t pad_right;
 
   int pad_depth;
 
   TensorFormat data_format;
 };
-
-// Checks if the sizes of the paddings are less than the size of window.
-// This is required for MaxPool because it pads with -inf, so the pooling
-// window cannot fully cover the padded area.
-Status CheckPaddingSize(PoolParameters& params);
 
 // An implementation of MaxPooling (forward).
 // TODO (yongtang): Remove MaxPoolingOp and use MaxPoolingV2Op,
@@ -194,6 +189,9 @@ class MaxPoolingOp : public OpKernel {
   void SpatialMaxPool(OpKernelContext* context, Tensor* output,
                       const Tensor& tensor_in, const PoolParameters& params,
                       const Padding& padding) {
+    if (output->NumElements() == 0) {
+      return;
+    }
     // On GPU, use Eigen's Spatial Max Pooling.  On CPU, use an
     // EigenMatrix version that is currently faster than Eigen's
     // Spatial MaxPooling implementation.
@@ -297,7 +295,7 @@ class MaxPoolingOp : public OpKernel {
   std::vector<int32> ksize_;
   std::vector<int32> stride_;
   Padding padding_;
-  std::vector<int64> explicit_paddings_;
+  std::vector<int64_t> explicit_paddings_;
   TensorFormat data_format_;
 };
 
@@ -448,6 +446,9 @@ class MaxPoolingV2Op : public OpKernel {
   void SpatialMaxPool(OpKernelContext* context, Tensor* output,
                       const Tensor& tensor_in, const PoolParameters& params,
                       const Padding& padding) {
+    if (output->NumElements() == 0) {
+      return;
+    }
     // On GPU, use Eigen's Spatial Max Pooling.  On CPU, use an
     // EigenMatrix version that is currently faster than Eigen's
     // Spatial MaxPooling implementation.
@@ -566,6 +567,9 @@ template <typename Device, typename T>
 void SpatialAvgPool(OpKernelContext* context, Tensor* output,
                     const Tensor& input, const PoolParameters& params,
                     const Padding& padding) {
+  if (output->NumElements() == 0) {
+    return;
+  }
   typedef Eigen::Map<const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>>
       ConstEigenMatrixMap;
   typedef Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>>
@@ -650,7 +654,7 @@ void SpatialAvgPool(OpKernelContext* context, Tensor* output,
   // so the factor 0.01 (i.e. 1/100) with a max of 10000, was chosen to limit
   // the work unit cost to an operating range in which it empirically performed
   // best.
-  const int64_t work_unit_cost = std::max(int64{10000}, work_unit_size / 100);
+  const int64_t work_unit_cost = std::max(int64_t{10000}, work_unit_size / 100);
   const DeviceBase::CpuWorkerThreads& worker_threads =
       *(context->device()->tensorflow_cpu_worker_threads());
   Shard(worker_threads.num_threads, worker_threads.workers,

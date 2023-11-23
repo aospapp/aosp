@@ -33,6 +33,7 @@ import org.unicode.cldr.util.LanguageTagParser;
 import org.unicode.cldr.util.Level;
 import org.unicode.cldr.util.LogicalGrouping;
 import org.unicode.cldr.util.LogicalGrouping.PathType;
+import org.unicode.cldr.util.Organization;
 import org.unicode.cldr.util.PathHeader;
 import org.unicode.cldr.util.PathHeader.Factory;
 import org.unicode.cldr.util.PathStarrer;
@@ -41,9 +42,11 @@ import org.unicode.cldr.util.RegexLookup;
 import org.unicode.cldr.util.RegexLookup.Finder;
 import org.unicode.cldr.util.StandardCodes;
 import org.unicode.cldr.util.SupplementalDataInfo;
+import org.unicode.cldr.util.SupplementalDataInfo.CoverageVariableInfo;
 import org.unicode.cldr.util.SupplementalDataInfo.CurrencyDateInfo;
 import org.unicode.cldr.util.SupplementalDataInfo.OfficialStatus;
 import org.unicode.cldr.util.SupplementalDataInfo.PopulationData;
+import org.unicode.cldr.util.VoteResolver;
 import org.unicode.cldr.util.XPathParts;
 
 import com.google.common.base.Joiner;
@@ -66,6 +69,7 @@ public class TestCoverageLevel extends TestFmwkPlus {
     private static final StandardCodes STANDARD_CODES = StandardCodes.make();
     private static final CLDRFile ENGLISH = testInfo.getEnglish();
     private static final SupplementalDataInfo SDI = testInfo.getSupplementalDataInfo();
+    private static final String TC_VOTES = Integer.toString(VoteResolver.Level.tc.getVotes(Organization.apple));
 
     public static void main(String[] args) {
         new TestCoverageLevel().run(args);
@@ -73,31 +77,46 @@ public class TestCoverageLevel extends TestFmwkPlus {
 
     public void testSpecificPaths() {
         String[][] rows = {
-            { "//ldml/characters/parseLenients[@scope=\"number\"][@level=\"lenient\"]/parseLenient[@sample=\",\"]", "moderate", "20" }
+            { "//ldml/characters/parseLenients[@scope=\"number\"][@level=\"lenient\"]/parseLenient[@sample=\",\"]", "moderate", TC_VOTES }
         };
-        Factory phf = PathHeader.getFactory(ENGLISH);
-        CoverageLevel2 coverageLevel = CoverageLevel2.getInstance(SDI, "fr");
-        CLDRLocale loc = CLDRLocale.getInstance("fr");
-        for (String[] row : rows) {
-            String path = row[0];
-            Level expectedLevel = Level.fromString(row[1]);
-            Level level = coverageLevel.getLevel(path);
-            assertEquals("Level for " + path, expectedLevel, level);
-
-            int expectedRequiredVotes = Integer.parseInt(row[2]);
-            int votes = SDI.getRequiredVotes(loc, phf.fromPath(path));
-            assertEquals("Votes for " + path, expectedRequiredVotes, votes);
-        }
+        doSpecificPathTest("fr", rows);
     }
 
     public void testSpecificPathsPersCal() {
         String[][] rows = {
-            { "//ldml/dates/calendars/calendar[@type=\"persian\"]/eras/eraAbbr/era[@type=\"0\"]", "basic", "4" },
-            { "//ldml/dates/calendars/calendar[@type=\"persian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"1\"]", "basic", "4" }
+            { "//ldml/dates/calendars/calendar[@type=\"persian\"]/eras/eraAbbr/era[@type=\"0\"]", "moderate", "4" },
+            { "//ldml/dates/calendars/calendar[@type=\"persian\"]/months/monthContext[@type=\"format\"]/monthWidth[@type=\"wide\"]/month[@type=\"1\"]", "moderate", "4" }
         };
+        doSpecificPathTest("ckb_IR", rows);
+    }
+
+    public void testSpecificPathsDeFormatLength() {
+        String[][] rows = {
+            /* For German (de) these should be high-bar (20) per https://unicode-org.atlassian.net/browse/CLDR-14988 */
+            { "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"short\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"1000\"][@count=\"one\"]", "modern", TC_VOTES },
+            { "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"short\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"1000\"][@count=\"other\"]", "modern", TC_VOTES },
+            { "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"short\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"10000\"][@count=\"one\"]", "modern", TC_VOTES},
+            { "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"short\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"10000\"][@count=\"other\"]", "modern", TC_VOTES },
+            { "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"short\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"100000\"][@count=\"one\"]", "modern", TC_VOTES},
+            { "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"short\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"100000\"][@count=\"other\"]", "modern", TC_VOTES },
+            { "//ldml/numbers/currencyFormats[@numberSystem=\"latn\"]/currencyFormatLength[@type=\"short\"]/currencyFormat[@type=\"standard\"]/pattern[@type=\"1000\"][@count=\"one\"]", "modern", TC_VOTES},
+            { "//ldml/numbers/currencyFormats[@numberSystem=\"latn\"]/currencyFormatLength[@type=\"short\"]/currencyFormat[@type=\"standard\"]/pattern[@type=\"1000\"][@count=\"other\"]", "modern", TC_VOTES },
+            { "//ldml/numbers/currencyFormats[@numberSystem=\"latn\"]/currencyFormatLength[@type=\"short\"]/currencyFormat[@type=\"standard\"]/pattern[@type=\"10000\"][@count=\"one\"]", "modern", TC_VOTES },
+            { "//ldml/numbers/currencyFormats[@numberSystem=\"latn\"]/currencyFormatLength[@type=\"short\"]/currencyFormat[@type=\"standard\"]/pattern[@type=\"10000\"][@count=\"other\"]", "modern", TC_VOTES },
+            { "//ldml/numbers/currencyFormats[@numberSystem=\"latn\"]/currencyFormatLength[@type=\"short\"]/currencyFormat[@type=\"standard\"]/pattern[@type=\"100000\"][@count=\"one\"]", "modern", TC_VOTES },
+            { "//ldml/numbers/currencyFormats[@numberSystem=\"latn\"]/currencyFormatLength[@type=\"short\"]/currencyFormat[@type=\"standard\"]/pattern[@type=\"100000\"][@count=\"other\"]", "modern", TC_VOTES },
+            /* not high-bar (20): wrong number of zeroes, or count many*/
+            { "//ldml/numbers/decimalFormats[@numberSystem=\"latn\"]/decimalFormatLength[@type=\"short\"]/decimalFormat[@type=\"standard\"]/pattern[@type=\"100\"][@count=\"other\"]", "comprehensive", "8" },
+            { "//ldml/numbers/currencyFormats[@numberSystem=\"latn\"]/currencyFormatLength[@type=\"short\"]/currencyFormat[@type=\"standard\"]/pattern[@type=\"1000000\"][@count=\"other\"]", "modern", "8" },
+            { "//ldml/numbers/currencyFormats[@numberSystem=\"latn\"]/currencyFormatLength[@type=\"short\"]/currencyFormat[@type=\"standard\"]/pattern[@type=\"1000\"][@count=\"many\"]", "modern", "8" },
+        };
+        doSpecificPathTest("de", rows);
+    }
+
+    private void doSpecificPathTest(String localeStr, String[][] rows) {
         Factory phf = PathHeader.getFactory(ENGLISH);
-        CoverageLevel2 coverageLevel = CoverageLevel2.getInstance(SDI, "ckb_IR");
-        CLDRLocale loc = CLDRLocale.getInstance("ckb_IR");
+        CoverageLevel2 coverageLevel = CoverageLevel2.getInstance(SDI, localeStr);
+        CLDRLocale loc = CLDRLocale.getInstance(localeStr);
         for (String[] row : rows) {
             String path = row[0];
             Level expectedLevel = Level.fromString(row[1]);
@@ -340,7 +359,7 @@ public class TestCoverageLevel extends TestFmwkPlus {
         SupplementalDataInfo sdi = SupplementalDataInfo
             .getInstance(CLDRPaths.DEFAULT_SUPPLEMENTAL_DIRECTORY);
         Level level = sdi.getCoverageLevel(path, "en");
-        assertEquals("Narrow $", Level.BASIC, level);
+        assertEquals("Narrow $", Level.MODERATE, level);
     }
 
     public void TestA() {
@@ -367,7 +386,7 @@ public class TestCoverageLevel extends TestFmwkPlus {
 
         final Pattern language100 = PatternCache.get("("
             + "ach|aeb?|afh|ak[kz]|aln|ang|ar[coqswyz]|ase|avk|"
-            + "ba[lrx]|bb[cj]|be[jw]|bf[dq]|bgn|bik|bjn|bkm|bpy|bqi|br[ah]|bss|bu[am]|byv|"
+            + "ba[lrx]|bb[cj]|be[jw]|bf[dq]|bgc|bgn|bik|bjn|bkm|bpy|bqi|br[ah]|bss|bu[am]|byv|"
             + "ca[dry]|cch|ch[bgnp]|cic|cop|cps|crh?|csb|"
             + "de[ln]|din|doi|dtp|dum|dyu|"
             + "eg[ly]|elx|enm|esu|ext|"
@@ -399,7 +418,9 @@ public class TestCoverageLevel extends TestFmwkPlus {
             + "kj|anp|an|niu|mni|dv|swb|pau|gor|nqo|krc|crs|gwi|zza|mad|nog|lez|byn|sad|ssy|mag|iba|"
             + "tpi|kum|wal|mos|dzg|gez|io|tn|snk|mai|ady|chy|mwl|sco|av|efi|war|mic|loz|scn|smj|tem|"
             + "dgr|mak|inh|lun|ts|fj|na|kpe|sr_ME|trv|rap|bug|ban|xal|oc|alt|nia|myv|ain|rar|krl|ay|"
-            + "syr|kv|umb|cu|prg|vo)");
+            + "syr|kv|umb|cu|prg|vo|"
+            + "atj|blt|clc|crg|crj|crk|crl|crm|crr|csw|cwd|hax|hdn|hnj|hur|ike|ikt|"
+            + "kwk|lil|moe|ojb|ojc|ojg|ojs|ojw|oka|pqm|slh|str|tce|tgx|tht|trw|ttm)");
 
         /**
          * Recommended scripts that are allowed for comprehensive coverage.
@@ -408,13 +429,14 @@ public class TestCoverageLevel extends TestFmwkPlus {
         final Pattern script100 = PatternCache.get("(Zinh)");
 
         final Pattern keys100 = PatternCache.get("(col(Alternate|Backwards|CaseFirst|CaseLevel|HiraganaQuaternary|"
-            + "Normalization|Numeric|Reorder|Strength)|kv|sd|timezone|va|variableTop|x|d0|h0|i0|k0|m0|s0)");
+            + "Normalization|Numeric|Reorder|Strength)|kv|sd|mu|timezone|va|variableTop|x|d0|h0|i0|k0|m0|s0)");
 
         final Pattern numberingSystem100 = PatternCache.get("("
             + "finance|native|traditional|adlm|ahom|bali|bhks|brah|cakm|cham|cyrl|diak|"
-            + "gong|gonm|hanidays|hmng|hmnp|java|jpanyear|kali|lana(tham)?|lepc|limb|"
+            + "gong|gonm|hanidays|hmng|hmnp|java|jpanyear|kali|kawi|lana(tham)?|lepc|limb|"
             + "math(bold|dbl|mono|san[bs])|modi|mong|mroo|mtei|mymr(shan|tlng)|"
-            + "newa|nkoo|olck|osma|rohg|saur|segment|shrd|sin[dh]|sora|sund|takr|talu|tirh|tnsa|vaii|wara|wcho)");
+            + "nagm|newa|nkoo|olck|osma|rohg|saur|segment|shrd|sin[dh]|sora|sund|"
+            + "takr|talu|tirh|tnsa|vaii|wara|wcho)");
 
         final Pattern collation100 = PatternCache.get("("
             + "big5han|compat|dictionary|emoji|eor|gb2312han|phonebook|phonetic|pinyin|reformed|searchjl|stroke|traditional|unihan|zhuyin)");
@@ -647,9 +669,77 @@ public class TestCoverageLevel extends TestFmwkPlus {
                     ) {
                     continue;
                 }
+            } else if (xpp.contains("posix")) {
+                continue;
             }
 
             errln("Comprehensive & no exception for path =>\t" + path);
+        }
+    }
+
+    public static class TargetsAndSublocales  {
+        public final CoverageVariableInfo cvi;
+        public Set<String> scripts;
+        public Set<String> regions;
+
+        public TargetsAndSublocales(String localeLanguage) {
+            cvi = SDI.getCoverageVariableInfo(localeLanguage);
+            scripts = new TreeSet<>();
+            regions = new TreeSet<>();
+        }
+
+        public boolean addScript(String localeScript) {
+            return scripts.add(localeScript);
+        }
+        public boolean addRegion(String localeRegion) {
+            return regions.add(localeRegion);
+        }
+    }
+
+    public void TestCoverageVariableInfo() {
+        /**
+         * Compare the targetScripts and targetTerritories for a language to
+         * what we actually have in locales
+         */
+        Map<String, TargetsAndSublocales> langToTargetsAndSublocales = new TreeMap<>();
+        org.unicode.cldr.util.Factory factory = testInfo.getCldrFactory();
+        for (CLDRLocale locale : factory.getAvailableCLDRLocales()) {
+            String language = locale.getLanguage();
+            if (language.length() == 0 || language.equals("root")) {
+                continue;
+            }
+            TargetsAndSublocales targetsAndSublocales = langToTargetsAndSublocales.get(language);
+            if (targetsAndSublocales == null) {
+                targetsAndSublocales = new TargetsAndSublocales(language);
+                langToTargetsAndSublocales.put(language, targetsAndSublocales);
+            }
+            String script = locale.getScript();
+            if (script.length() > 0) {
+                targetsAndSublocales.addScript(script);
+            }
+            String region = locale.getCountry();
+            if (region.length() > 0 && region.length() < 3) { // do not want numeric codes like 001, 419
+                targetsAndSublocales.addRegion(region);
+            }
+        }
+
+        for (String language : langToTargetsAndSublocales.keySet()) {
+            TargetsAndSublocales targetsAndSublocales = langToTargetsAndSublocales.get(language);
+            if (targetsAndSublocales == null) {
+                continue;
+            }
+            Set<String> targetScripts = new TreeSet<>(targetsAndSublocales.cvi.targetScripts);
+            Set<String> localeScripts = targetsAndSublocales.scripts;
+            localeScripts.removeAll(targetScripts);
+            if (localeScripts.size() > 0) {
+                errln("Missing scripts for language: " + language + ", target scripts: " + targetScripts + ", but locales also have: " + localeScripts);
+            }
+            Set<String> targetRegions = new TreeSet<>(targetsAndSublocales.cvi.targetTerritories);
+            Set<String> localeRegions = targetsAndSublocales.regions;
+            localeRegions.removeAll(targetRegions);
+            if (localeRegions.size() > 0) {
+                errln("Missing regions for language: " + language + ", target regions: " + targetRegions + ", but locales also have: " + localeRegions);
+            }
         }
     }
 

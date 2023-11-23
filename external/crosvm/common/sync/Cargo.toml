@@ -1,8 +1,8 @@
 [package]
 name = "sync"
-version = "0.1.0"
-authors = ["The Chromium OS Authors"]
+version = "0.1.99"
+authors = ["The ChromiumOS Authors"]
 edition = "2021"
 include = ["src/**/*", "Cargo.toml"]
 
-[workspace]
+

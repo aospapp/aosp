@@ -1,6 +1,6 @@
 /* example_cpp_encode_file - Simple FLAC file encoder using libFLAC
  * Copyright (C) 2007-2009  Josh Coalson
- * Copyright (C) 2011-2016  Xiph.Org Foundation
+ * Copyright (C) 2011-2022  Xiph.Org Foundation
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -117,11 +117,13 @@ int main(int argc, char *argv[])
 		) {
 			fprintf(stderr, "ERROR: out of memory or tag error\n");
 			ok = false;
-		}
+		} else {
 
-		metadata[1]->length = 1234; /* set the padding length */
+			metadata[1]->length = 1234; /* set the padding length */
 
-		ok = encoder.set_metadata(metadata, 2);
+			ok = encoder.set_metadata(metadata, 2);
+
+                }
 	}
 
 	/* initialize encoder */

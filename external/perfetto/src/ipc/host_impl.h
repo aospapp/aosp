@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "perfetto/base/task_runner.h"
+#include "perfetto/ext/base/scoped_file.h"
 #include "perfetto/ext/base/thread_checker.h"
 #include "perfetto/ext/base/unix_socket.h"
 #include "perfetto/ext/ipc/deferred.h"
@@ -32,14 +33,21 @@
 namespace perfetto {
 namespace ipc {
 
+constexpr uint32_t kDefaultIpcTxTimeoutMs = 10000;
+
 class HostImpl : public Host, public base::UnixSocket::EventListener {
  public:
   HostImpl(const char* socket_name, base::TaskRunner*);
   HostImpl(base::ScopedSocketHandle, base::TaskRunner*);
+  HostImpl(base::TaskRunner* task_runner);
   ~HostImpl() override;
 
   // Host implementation.
   bool ExposeService(std::unique_ptr<Service>) override;
+  void AdoptConnectedSocket_Fuchsia(
+      base::ScopedSocketHandle,
+      std::function<bool(int)> send_fd_cb) override;
+  void SetSocketSendTimeoutMs(uint32_t timeout_ms) override;
 
   // base::UnixSocket::EventListener implementation.
   void OnNewIncomingConnection(base::UnixSocket*,
@@ -57,6 +65,7 @@ class HostImpl : public Host, public base::UnixSocket::EventListener {
     std::unique_ptr<base::UnixSocket> sock;
     BufferedFrameDeserializer frame_deserializer;
     base::ScopedFile received_fd;
+    std::function<bool(int)> send_fd_cb_fuchsia;
   };
   struct ExposedService {
     ExposedService(ServiceID, const std::string&, std::unique_ptr<Service>);
@@ -88,6 +97,7 @@ class HostImpl : public Host, public base::UnixSocket::EventListener {
   std::map<base::UnixSocket*, ClientConnection*> clients_by_socket_;
   ServiceID last_service_id_ = 0;
   ClientID last_client_id_ = 0;
+  uint32_t socket_tx_timeout_ms_ = kDefaultIpcTxTimeoutMs;
   PERFETTO_THREAD_CHECKER(thread_checker_)
   base::WeakPtrFactory<HostImpl> weak_ptr_factory_;  // Keep last.
 };

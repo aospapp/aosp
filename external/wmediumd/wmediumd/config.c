@@ -32,6 +32,14 @@
 #include "wmediumd.h"
 #include "config.h"
 
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
+
+#ifndef MAX
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
 static void string_to_mac_address(const char *str, u8 *addr)
 {
 	int a[ETH_ALEN];
@@ -110,7 +118,7 @@ static int calc_path_loss_free_space(void *model_param,
 	 * https://en.wikipedia.org/wiki/Free-space_path_loss
 	 */
 	PL = 20.0 * log10(4.0 * M_PI * d * FREQ_1CH / SPEED_LIGHT);
-	return PL;
+	return MAX(PL, 0);
 }
 /*
  * Calculate path loss based on a log distance model
@@ -146,7 +154,7 @@ static int calc_path_loss_log_distance(void *model_param,
 	 */
 	PL = PL0 + 10.0 * param->path_loss_exponent * log10(d) + param->Xg;
 
-	return PL;
+	return MAX(PL, 0);
 }
 /*
  * Calculate path loss based on a itu model
@@ -176,23 +184,23 @@ static int calc_path_loss_itu(void *model_param,
 	 * nFLOORS: number of floors
 	 */
 	PL = 20.0 * log10(FREQ_1CH) + N * log10(d) + param->LF * param->nFLOORS - 28;
-	return PL;
+	return MAX(PL, 0);
 }
 
 static void recalc_path_loss(struct wmediumd *ctx)
 {
-	int start, end, path_loss;
-
+	int start, end, tx_power, path_loss, signal;
 	for (start = 0; start < ctx->num_stas; start++) {
 		for (end = 0; end < ctx->num_stas; end++) {
-			if (start == end)
+			if (start == end) {
 				continue;
+			}
 
-			path_loss = ctx->calc_path_loss(ctx->path_loss_param,
-				ctx->sta_array[end], ctx->sta_array[start]);
-			ctx->snr_matrix[ctx->num_stas * start + end] =
-				ctx->sta_array[start]->tx_power - path_loss -
-				NOISE_LEVEL;
+			tx_power = ctx->sta_array[start]->tx_power;
+			path_loss = ctx->calc_path_loss(ctx->path_loss_param, ctx->sta_array[end], ctx->sta_array[start]);
+			// Test breakage exists in WifiStatsTests when signal is not negative value.
+			signal = MIN(tx_power - path_loss, -1);
+			ctx->snr_matrix[ctx->num_stas * start + end] = signal - NOISE_LEVEL;
 		}
 	}
 }
@@ -695,8 +703,15 @@ int clear_config(struct wmediumd *ctx) {
 					    struct station, list);
 
 		list_del(&station->list);
+
+		free(station->lci);
+		free(station->civicloc);
 		free(station);
 	}
 
 	return 0;
+}
+
+void calc_path_loss(struct wmediumd *ctx) {
+	recalc_path_loss(ctx);
 }

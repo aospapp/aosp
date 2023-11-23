@@ -75,7 +75,7 @@ Software Delegated Exception Interface (SDEI)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 :|M|: Mark Dykes <mark.dykes@arm.com>
 :|G|: `mardyk01`_
-:|M|: John Powell <John.Powell@arm.com>
+:|M|: John Powell <john.powell@arm.com>
 :|G|: `john-powell-arm`_
 :|F|: services/std_svc/sdei/
 
@@ -105,10 +105,20 @@ Exception Handling Framework (EHF)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 :|M|: Manish Badarkhe <manish.badarkhe@arm.com>
 :|G|: `ManishVB-Arm`_
-:|M|: John Powell <John.Powell@arm.com>
+:|M|: John Powell <john.powell@arm.com>
 :|G|: `john-powell-arm`_
 :|F|: bl31/ehf.c
 
+Realm Management Extension (RME)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+:|M|: Bipin Ravi <bipin.ravi@arm.com>
+:|G|: `bipinravi-arm`_
+:|M|: Mark Dykes <mark.dykes@arm.com>
+:|G|: `mardyk01`_
+:|M|: John Powell <john.powell@arm.com>
+:|G|: `john-powell-arm`_
+:|M|: Zelalem Aweke <Zelalem.Aweke@arm.com>
+:|G|: `zelalem-aweke`_
 
 Drivers, Libraries and Framework Code
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -191,7 +201,7 @@ Arm CPU libraries
 ^^^^^^^^^^^^^^^^^
 :|M|: Lauren Wehrmeister <Lauren.Wehrmeister@arm.com>
 :|G|: `laurenw-arm`_
-:|M|: John Powell <John.Powell@arm.com>
+:|M|: John Powell <john.powell@arm.com>
 :|G|: `john-powell-arm`_
 :|F|: lib/cpus/
 
@@ -207,6 +217,8 @@ Activity Monitors Unit (AMU) extensions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 :|M|: Alexei Fedorov <Alexei.Fedorov@arm.com>
 :|G|: `AlexeiFedorov`_
+:|M|: Chris Kay <chris.kay@arm.com>
+:|G|: `CJKay`_
 :|F|: lib/extensions/amu/
 
 Memory Partitioning And Monitoring (MPAM) extensions
@@ -243,7 +255,7 @@ Standard C library
 ^^^^^^^^^^^^^^^^^^
 :|M|: Alexei Fedorov <Alexei.Fedorov@arm.com>
 :|G|: `AlexeiFedorov`_
-:|M|: John Powell <John.Powell@arm.com>
+:|M|: John Powell <john.powell@arm.com>
 :|G|: `john-powell-arm`_
 :|F|: lib/libc/
 
@@ -315,6 +327,22 @@ System Control and Management Interface (SCMI) Server
 :|G|: `MrVan`_
 :|F|: drivers/scmi-msg
 :|F|: include/drivers/scmi\*
+
+Max Power Mitigation Mechanism (MPMM)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+:|M|: Chris Kay <chris.kay@arm.com>
+:|G|: `CJKay`_
+:|F|: include/lib/mpmm/
+:|F|: lib/mpmm/
+
+Granule Protection Tables Library (GPT-RME)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+:|M|: Mark Dykes <mark.dykes@arm.com>
+:|G|: `mardyk01`_
+:|M|: John Powell <john.powell@arm.com>
+:|G|: `john-powell-arm`_
+:|F|: lib/gpt_rme
+:|F|: include/lib/gpt_rme
 
 Platform Ports
 ~~~~~~~~~~~~~~
@@ -535,7 +563,10 @@ QTI platform port
 ^^^^^^^^^^^^^^^^^
 :|M|: Saurabh Gorecha <sgorecha@codeaurora.org>
 :|G|: `sgorecha`_
-:|M|: Debasish Mandal <dmandal@codeaurora.org>
+:|M|: Lachit Patel <lpatel@codeaurora.org>
+:|G|: `lachitp`_
+:|M|: Sreevyshanavi Kare <skare@codeaurora.org>
+:|G|: `sreekare`_
 :|M|: QTI TF Maintainers <qti.trustedfirmware.maintainers@codeaurora.org>
 :|F|: docs/plat/qti.rst
 :|F|: plat/qti/
@@ -716,6 +747,12 @@ Threat Model
 :|G|: `vwadekar`_
 :|F|: docs/threat_model/
 
+Conventional Changelog Extensions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:|M|: Chris Kay <chris.kay@arm.com>
+:|G|: `CJKay`_
+:|F|: tools/conventional-changelog-tf-a
+
 .. _AlexeiFedorov: https://github.com/AlexeiFedorov
 .. _Andre-ARM: https://github.com/Andre-ARM
 .. _Anson-Huang: https://github.com/Anson-Huang
@@ -732,6 +769,7 @@ Threat Model
 .. _jenswi-linaro: https://github.com/jenswi-linaro
 .. _jwerner-chromium: https://github.com/jwerner-chromium
 .. _kostapr: https://github.com/kostapr
+.. _lachitp: https://github.com/lachitp
 .. _ldts: https://github.com/ldts
 .. _marex: https://github.com/marex
 .. _masahir0y: https://github.com/masahir0y
@@ -750,6 +788,7 @@ Threat Model
 .. _shawnguo2: https://github.com/shawnguo2
 .. _smaeul: https://github.com/smaeul
 .. _soby-mathew: https://github.com/soby-mathew
+.. _sreekare: https://github.com/sreekare
 .. _thloh85-intel: https://github.com/thloh85-intel
 .. _thomas-arm: https://github.com/thomas-arm
 .. _TonyXie06: https://github.com/TonyXie06

@@ -36,7 +36,25 @@ java_defaults {
 
     // Use the same Java language version in the Android build configuration as used
     // in main/shared/build/common.properties for the ICU4J build configuration.
-    java_version: "1.7",
+    java_version: "1.8",
+    lint: {
+        warning_checks: ["SuspiciousIndentation"],
+    },
+    errorprone: {
+        javacflags: [
+            "-Xep:EmptyTopLevelDeclaration:WARN",
+            "-Xep:BoxedPrimitiveEquality:WARN",
+            "-Xep:EqualsHashCode:WARN",
+            "-Xep:ComparableType:WARN",
+            "-Xep:SelfAssignment:WARN",
+            "-Xep:ReturnValueIgnored:WARN",
+            "-Xep:SelfComparison:WARN",
+            "-Xep:SelfEquals:WARN",
+            "-Xep:MisusedDayOfYear:WARN",
+            "-Xep:MisusedWeekYear:WARN",
+            "-Xep:IdentityBinaryExpression:WARN",
+        ],
+    },
 }
 
 java_library {
@@ -47,6 +65,8 @@ java_library {
         "//external/jimfs/jimfs",
         "//external/robolectric-shadows/robolectric",
         "//external/robolectric-shadows/shadows/framework",
+        "//external/robolectric/robolectric",
+        "//external/robolectric/shadows/framework",
         "//system/timezone/input_tools/android/telephonylookup_generator",
         "//system/timezone/input_tools/android/tzlookup_generator",
     ],
@@ -68,15 +88,18 @@ java_library {
     ],
 }
 
-// Small static library used by TwilightService in the system server. To avoid @CorePlaformApi,
-// the system server doesn't use CalendarAstronomer in android.icu.
+// Small static library used by TwilightService in the system server and WallpaperPicker2 app. To
+// avoid @CorePlaformApi, the system server doesn't use CalendarAstronomer in android.icu.
 // Don't link this in boot classpath or Zygote to avoid class collision with the
 // com.ibm.icu.impl.CalendarAstronomer in the app classloader.
 java_library_static {
     name: "icu4j_calendar_astronomer",
     host_supported: false,
     srcs: ["main/classes/core/src/com/ibm/icu/impl/CalendarAstronomer.java"],
-    visibility: ["//frameworks/base/services/core"],
+    visibility: [
+        "//frameworks/base/services/core",
+        "//packages/apps/WallpaperPicker2",
+    ],
 }
 
 java_test {
@@ -99,7 +122,14 @@ java_test {
     ],
 
     errorprone: {
-        javacflags: ["-Xep:EqualsNull:WARN"],
+        javacflags: [
+            "-Xep:EqualsNull:WARN",
+            "-Xep:ArrayToString:WARN",
+        ],
+    },
+
+    test_options: {
+        unit_test: false,
     },
 }
 
@@ -127,6 +157,7 @@ java_library {
     name: "icu4j-icudata-jarjar",
     visibility: [
         "//external/robolectric-shadows",
+        "//external/robolectric",
         "//frameworks/layoutlib",
     ],
     defaults: ["icu4j-defaults"],
@@ -138,6 +169,7 @@ java_library {
     name: "icu4j-icutzdata-jarjar",
     visibility: [
         "//external/robolectric-shadows",
+        "//external/robolectric",
         "//frameworks/layoutlib",
     ],
     defaults: ["icu4j-defaults"],

@@ -138,7 +138,7 @@ but all links may be updated.
 *Returns:*
 
 - +EINVAL+ malformed message or invalid configuration parameters
-- +EAFNOSUPPORT+ if a address family specific configuration (+IFLA_AF_SPEC+)
+- +EAFNOSUPPORT+ if an address family specific configuration (+IFLA_AF_SPEC+)
   is not supported.
 - +EOPNOTSUPP+ if the link does not support modification of parameters
 - +EEXIST+ if +NLM_F_EXCL+ was set and the link exists alraedy
@@ -195,7 +195,7 @@ int rtnl_link_alloc_cache(struct nl_sock *sk, int family, struct nl_cache **resu
 
 The cache will contain link objects (+struct rtnl_link+, see <<link_object>>)
 and can be accessed using the standard cache functions. By setting the
-+family+ parameter to an address familly other than +AF_UNSPEC+, the resulting
++family+ parameter to an address family other than +AF_UNSPEC+, the resulting
 cache will only contain links supporting the specified address family.
 
 The following direct search functions are provided to search by interface
@@ -268,7 +268,7 @@ NOTE: While using this function can save a substantial amount of bandwidth
 ==== Translating interface index to link name
 
 Applications which require to translate interface index to a link name or
-vice verase may use the following functions to do so. Both functions require
+vice versa may use the following functions to do so. Both functions require
 a filled link cache to work with.
 
 [source,c]
@@ -447,7 +447,7 @@ IFF_DEBUG::        Tell driver to do debugging (currently unused)
 IFF_LOOPBACK::     Link loopback network
 IFF_POINTOPOINT::  Point-to-point link
 IFF_NOARP::        ARP is not supported
-IFF_PROMISC::      Status of promiscious mode
+IFF_PROMISC::      Status of promiscuous mode
 IFF_MASTER::       Master of a load balancer (bonding)
 IFF_SLAVE::        Slave to a master link
 IFF_PORTSEL::      Driver supports setting media type (only used by ARM ethernet)
@@ -941,9 +941,12 @@ extern uint8_t rtnl_link_ipip_get_tos(struct rtnl_link *link);
 extern int rtnl_link_ipip_set_pmtudisc(struct rtnl_link *link, uint8_t pmtudisc);
 extern uint8_t rtnl_link_ipip_get_pmtudisc(struct rtnl_link *link);
 
+extern int rtnl_link_ipip_set_fwmark(struct rtnl_link *link, uint32_t fwmark);
+extern int rtnl_link_ipip_get_fwmark(struct rtnl_link *link, uint32_t *fwmark);
+
 -----
 
-.Example: Add a ipip tunnel device
+.Example: Add an ipip tunnel device
 [source,c]
 -----
 struct rtnl_link *link
@@ -1019,9 +1022,12 @@ extern uint8_t rtnl_link_ipgre_get_tos(struct rtnl_link *link);
 extern int rtnl_link_ipgre_set_pmtudisc(struct rtnl_link *link, uint8_t pmtudisc);
 extern uint8_t rtnl_link_ipgre_get_pmtudisc(struct rtnl_link *link);
 
+extern int rtnl_link_ipgre_set_fwmark(struct rtnl_link *link, uint32_t fwmark);
+extern int rtnl_link_ipgre_get_fwmark(struct rtnl_link *link, uint32_t *fwmark);
+
 -----
 
-.Example: Add a ipgre tunnel device
+.Example: Add an ipgre tunnel device
 [source,c]
 -----
 struct rtnl_link *link
@@ -1097,6 +1103,9 @@ extern uint8_t rtnl_link_sit_get_tos(struct rtnl_link *link);
 extern int rtnl_link_sit_set_pmtudisc(struct rtnl_link *link, uint8_t pmtudisc);
 extern uint8_t rtnl_link_sit_get_pmtudisc(struct rtnl_link *link);
 
+extern int rtnl_link_sit_set_fwmark(struct rtnl_link *link, uint32_t fwmark);
+extern int rtnl_link_sit_get_fwmark(struct rtnl_link *link, uint32_t *fwmark);
+
 -----
 
 .Example: Add a sit tunnel device
@@ -1161,9 +1170,12 @@ extern uint32_t rtnl_link_ipvti_get_local(struct rtnl_link *link);
 extern int rtnl_link_ipvti_set_remote(struct rtnl_link *link, uint32_t addr);
 extern uint32_t rtnl_link_ipvti_get_remote(struct rtnl_link *link);
 
+extern int rtnl_link_ipvti_set_fwmark(struct rtnl_link *link, uint32_t fwmark);
+extern int rtnl_link_ipvti_get_fwmark(struct rtnl_link *link, uint32_t *fwmark);
+
 -----
 
-.Example: Add a ipvti tunnel device
+.Example: Add an ipvti tunnel device
 [source,c]
 -----
 struct rtnl_link *link
@@ -1232,9 +1244,12 @@ extern int rtnl_link_ip6_tnl_set_flowinfo(struct rtnl_link *link, uint32_t flowi
 extern int rtnl_link_ip6_tnl_set_proto(struct rtnl_link *link, uint8_t proto);
 extern uint8_t rtnl_link_ip6_tnl_get_proto(struct rtnl_link *link);
 
+extern int rtnl_link_ip6_tnl_set_fwmark(struct rtnl_link *link, uint32_t fwmark);
+extern int rtnl_link_ip6_tnl_get_fwmark(struct rtnl_link *link, uint32_t *fwmark);
+
 -----
 
-.Example: Add a ip6tnl tunnel device
+.Example: Add an ip6tnl tunnel device
 [source,c]
 -----
 struct rtnl_link *link
@@ -1256,6 +1271,127 @@ rtnl_link_put(link);
 
 -----
 
+[[link_ip6gre]]
+==== IP6GRE
+
+[source,c]
+----
+extern int rtnl_link_is_ip6gre(struct rtnl_link *link);
+
+extern struct rtnl_link *rtnl_link_ip6gre_alloc(void);
+extern int rtnl_link_ip6gre_add(struct nl_sock *sk, const char *name);
+
+extern int rtnl_link_ip6gre_set_link(struct rtnl_link *link, uint32_t index);
+extern int rtnl_link_ip6gre_get_link(struct rtnl_link *link, uint32_t *index);
+
+extern int rtnl_link_ip6gre_set_iflags(struct rtnl_link *link, uint16_t iflags);
+extern int rtnl_link_ip6gre_get_iflags(struct rtnl_link *link, uint16_t *iflags);
+
+extern int rtnl_link_ip6gre_set_oflags(struct rtnl_link *link, uint16_t oflags);
+extern int rtnl_link_ip6gre_get_oflags(struct rtnl_link *link, uint16_t *oflags);
+
+extern int rtnl_link_ip6gre_set_ikey(struct rtnl_link *link, uint32_t ikey);
+extern int rtnl_link_ip6gre_get_ikey(struct rtnl_link *link, uint32_t *ikey);
+
+extern int rtnl_link_ip6gre_set_okey(struct rtnl_link *link, uint32_t okey);
+extern int rtnl_link_ip6gre_get_okey(struct rtnl_link *link, uint32_t *okey);
+
+extern int rtnl_link_ip6gre_set_local(struct rtnl_link *link, struct in6_addr *local);
+extern int rtnl_link_ip6gre_get_local(struct rtnl_link *link, struct in6_addr *local);
+
+extern int rtnl_link_ip6gre_set_remote(struct rtnl_link *link, struct in6_addr *remote);
+extern int rtnl_link_ip6gre_get_remote(struct rtnl_link *link, struct in6_addr *remote);
+
+extern int rtnl_link_ip6gre_set_ttl(struct rtnl_link *link, uint8_t ttl);
+extern int rtnl_link_ip6gre_get_ttl(struct rtnl_link *link, uint8_t *ttl);
+
+extern int rtnl_link_ip6gre_set_encaplimit(struct rtnl_link *link, uint8_t encaplimit);
+extern int rtnl_link_ip6gre_get_encaplimit(struct rtnl_link *link, uint8_t *encaplimit);
+
+extern int rtnl_link_ip6gre_set_flowinfo(struct rtnl_link *link, uint32_t flowinfo);
+extern int rtnl_link_ip6gre_get_flowinfo(struct rtnl_link *link, uint32_t *flowinfo);
+
+extern int rtnl_link_ip6gre_set_flags(struct rtnl_link *link, uint32_t flags);
+extern int rtnl_link_ip6gre_get_flags(struct rtnl_link *link, uint32_t *flags);
+
+extern int rtnl_link_ip6gre_set_fwmark(struct rtnl_link *link, uint32_t fwmark);
+extern int rtnl_link_ip6gre_get_fwmark(struct rtnl_link *link, uint32_t *fwmark);
+
+----
+
+.Example: Add an ip6gre tunnel device
+[source,c]
+----
+struct rtnl_link *link
+struct in6_addr addr
+
+link = rtnl_link_ip6gre_alloc();
+
+rtnl_link_set_name(link, "ip6gre-tun");
+rtnl_link_ip6gre_set_link(link, if_index);
+
+inet_pton(AF_INET6, "2607:f0d0:1002:51::4", &addr);
+rtnl_link_ip6gre_set_local(link, &addr);
+
+inet_pton(AF_INET6, "2607:f0d0:1002:52::5", &addr);
+rtnl_link_ip6gre_set_remote(link, &addr);
+
+rtnl_link_add(sk, link, NLM_F_CREATE);
+rtnl_link_put(link);
+
+-----
+
+[[link_ip6vti]]
+==== IP6VTI
+
+[source,c]
+----
+int rtnl_link_is_ip6vti(struct rtnl_link *link);
+
+extern struct rtnl_link *rtnl_link_ip6vti_alloc(void);
+extern int rtnl_link_ip6vti_add(struct nl_sock *sk, const char *name);
+
+extern int rtnl_link_ip6vti_set_link(struct rtnl_link *link, uint32_t index);
+extern int rtnl_link_ip6vti_get_link(struct rtnl_link *link, uint32_t *index);
+
+extern int rtnl_link_ip6vti_set_ikey(struct rtnl_link *link, uint32_t ikey);
+extern int rtnl_link_ip6vti_get_ikey(struct rtnl_link *link, uint32_t *ikey);
+
+extern int rtnl_link_ip6vti_set_okey(struct rtnl_link *link, uint32_t okey);
+extern int rtnl_link_ip6vti_get_okey(struct rtnl_link *link, uint32_t *okey);
+
+extern int rtnl_link_ip6vti_set_local(struct rtnl_link *link, struct in6_addr *local);
+extern int rtnl_link_ip6vti_get_local(struct rtnl_link *link, struct in6_addr *remote);
+
+extern int rtnl_link_ip6vti_set_remote(struct rtnl_link *link, struct in6_addr *remote);
+extern int rtnl_link_ip6vti_get_remote(struct rtnl_link *link, struct in6_addr *remote);
+
+extern int rtnl_link_ip6vti_set_fwmark(struct rtnl_link *link, uint32_t fwmark);
+extern int rtnl_link_ip6vti_get_fwmark(struct rtnl_link *link, uint32_t *fwmark);
+
+----
+
+.Example: Add an ip6vti tunnel device
+[source,c]
+----
+struct rtnl_link *link
+struct in6_addr addr
+
+link = rtnl_link_ip6vti_alloc();
+
+rtnl_link_set_name(link, "ip6vti-tun");
+rtnl_link_ip6vti_set_link(link, if_index);
+
+inet_pton(AF_INET6, "2607:f0d0:1002:51::4", &addr);
+rtnl_link_ip6vti_set_local(link, &addr);
+
+inet_pton(AF_INET6, "2607:f0d0:1002:52::5", &addr);
+rtnl_link_ip6vti_set_remote(link, &addr);
+
+rtnl_link_add(sk, link, NLM_F_CREATE);
+rtnl_link_put(link);
+
+-----
 
 [[link_xfrmi]]
 ==== XFRMI
@@ -1490,7 +1626,7 @@ uint32_t rtnl_tc_get_overhead(struct rtnl_tc *tc);
 -----
 
 Parent::
-Specifies the parent traffic control object. The parent is identifier
+Specifies the parent traffic control object. The parent is identified
 by its handle. Special values are:
 - `TC_H_ROOT`: attach tc object directly to network device (root
   qdisc, root classifier)
@@ -1527,7 +1663,7 @@ modules may provide additional statistics via their own APIs.
 | RTNL_TC_RATE_BPS   | Rate    | Current bytes/s rate
 | RTNL_TC_RATE_PPS   | Rate    | Current packets/s rate
 | RTNL_TC_QLEN       | Rate    | Current length of the queue
-| RTNL_TC_BACKLOG    | Rate    | # of packets currently backloged
+| RTNL_TC_BACKLOG    | Rate    | # of packets currently backlogged
 | RTNL_TC_DROPS      | Counter | # of packets dropped
 | RTNL_TC_REQUEUES   | Counter | # of packets requeued
 | RTNL_TC_OVERLIMITS | Counter | # of packets that exceeded the limit
@@ -1548,6 +1684,7 @@ qlen  = rtnl_tc_get_stat(TC_CAST(qdisc), RTNL_TC_QLEN);
 -------
 
 ==== Rate Table Calculations
+TODO
 
 [[tc_qdisc]]
 === Queueing Discipline (qdisc)
@@ -1555,7 +1692,7 @@ qlen  = rtnl_tc_get_stat(TC_CAST(qdisc), RTNL_TC_QLEN);
 .Classless Qdisc
 
 The queueing discipline (qdisc) is used to implement fair queueing,
-priorization or rate control. It provides a _enqueue()_ and
+prioritization or rate control. It provides a _enqueue()_ and
 _dequeue()_ operation. Whenever a network packet leaves the networking
 stack over a network device, be it a physical or virtual device, it
 will be enqueued to a qdisc unless the device is queueless. The
@@ -1607,7 +1744,7 @@ creating traffic classes and enforce bandwidth limitations for each
 class.
 | DRR       | Yes      |
 The DRR (Deficit Round Robin) scheduler is a classful qdisc
-impelemting fair queueing. Each class is assigned a quantum specyfing
+implementing fair queueing. Each class is assigned a quantum specifying
 the maximum number of bytes that can be served per round.  Unused
 quantum at the end of the round is carried over to the next round.
 | DSMARK   | Yes       | FIXME
@@ -1771,7 +1908,7 @@ rtnl_tc_set_handle(TC_CAST(qdisc), TC_HANDLE(1, 0));
 rtnl_tc_set_kind(TC_CAST(qdisc), "htb");
 -----
 
-After specyfing the qdisc kind (rtnl_tc_set_kind()) the qdisc type
+After specifying the qdisc kind (rtnl_tc_set_kind()) the qdisc type
 specific interface can be used to set attributes which are specific
 to the respective qdisc implementations:
 
@@ -1880,7 +2017,7 @@ int rtnl_htb_set_prio(struct rtnl_class *class, uint32_t prio);
 -----
 
 Rate::
-The rate (bytes/s) specifies the maximum bandwidth an invidivual class
+The rate (bytes/s) specifies the maximum bandwidth an individual class
 can use without borrowing. The rate of a class should always be greater
 or erqual than the rate of its children.
 +
@@ -1891,7 +2028,7 @@ int rtnl_htb_set_rate(struct rtnl_class *class, uint32_t ceil);
 -----
 
 Ceil Rate::
-The ceil rate specifies the maximum bandwidth an invidivual class
+The ceil rate specifies the maximum bandwidth an individual class
 can use. This includes bandwidth that is being borrowed from other
 classes. Ceil defaults to the class rate implying that by default
 the class will not borrow. The ceil rate of a class should always
@@ -1917,8 +2054,8 @@ TODO
 +
 [source,c]
 -----
-uint32_t rtnl_htb_get_bbuffer(struct rtnl_class *class);
-int rtnl_htb_set_bbuffer(struct rtnl_class *class, uint32_t burst);
+uint32_t rtnl_htb_get_cbuffer(struct rtnl_class *);
+int rtnl_htb_set_cbuffer(struct rtnl_class *, uint32_t);
 -----
 
 Quantum::
@@ -1926,12 +2063,9 @@ TODO
 +
 [source,c]
 -----
+uint32_t rtnl_htb_get_quantum(struct rtnl_class *class);
 int rtnl_htb_set_quantum(struct rtnl_class *class, uint32_t quantum);
 -----
-
-extern int	rtnl_htb_set_cbuffer(struct rtnl_class *, uint32_t);
-
-
 
 
 [[tc_class]]

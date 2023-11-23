@@ -20,6 +20,7 @@ limitations under the License.
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
@@ -39,35 +40,29 @@ namespace profiler {
 // the event types, both events should have stats of the stat types specified
 // in stat_types and their values should be the same.
 struct InterThreadConnectInfo {
-  int64 parent_event_type;
-  int64 child_event_type;
-  std::vector<int64> parent_stat_types;
-  std::vector<int64> child_stat_types;
-};
-
-struct ContextInfo {
-  ContextInfo(int type, uint64 id) : type(type), id(id) {}
-  int type;
-  uint64 id;
+  int64_t parent_event_type;
+  int64_t child_event_type;
+  std::vector<int64_t> parent_stat_types;
+  std::vector<int64_t> child_stat_types;
 };
 
 struct GroupMetadata {
   std::string name;
-  std::string model_id;  // inference only.
-  absl::flat_hash_set<int64> parents;
-  absl::flat_hash_set<int64> children;
+  absl::flat_hash_set<int64_t> parents;
+  absl::flat_hash_set<int64_t> children;
 };
 
-using GroupMetadataMap = absl::flat_hash_map<int64 /*group_id*/, GroupMetadata>;
+using GroupMetadataMap =
+    absl::flat_hash_map<int64_t /*group_id*/, GroupMetadata>;
 
 // A wrapper for XEvent with parent and children pointers. Through these
 // pointers, a tree of EventNode is formed.
 class EventNode {
  public:
-  // REQUIRED: all inputs should not be nullptr.
-  EventNode(const XPlaneVisitor* plane, XLine* raw_line, XEvent* raw_event);
+  explicit EventNode(XEventVisitor visitor) : visitor_(std::move(visitor)) {}
 
-  EventNode(const EventNode& event_node);
+  EventNode(const EventNode& event_node) = delete;
+  EventNode& operator=(const EventNode&) = delete;
 
   const std::vector<EventNode*>& GetParents() const { return parents_; }
 
@@ -78,7 +73,7 @@ class EventNode {
     child->parents_.push_back(this);
   }
 
-  absl::optional<int64> GetGroupId() const { return group_id_; }
+  absl::optional<int64_t> GetGroupId() const { return group_id_; }
 
   std::string GetGroupName() const;
 
@@ -87,41 +82,27 @@ class EventNode {
   // Sets group_id for this node and its descendants.
   void PropagateGroupId(int64_t group_id, GroupMetadataMap* group_metadata_map);
 
-  const XPlaneVisitor& GetPlaneVisitor() const { return *plane_; }
-
   const XEventVisitor& GetEventVisitor() const { return visitor_; }
 
   absl::optional<XStatVisitor> GetContextStat(int64_t stat_type) const;
 
   void AddStepName(absl::string_view step_name);
 
-  // Add a helper stat, "selected_group_ids", with group_ids of the groups
-  // connected to this event's group.
-  void AddSelectedGroupIds(const GroupMetadataMap& group_metadata_map);
-
   void SetIsEager(bool is_eager);
 
   // Returns true if this event is part of eagerly executed op.
-  bool IsEager();
+  bool IsEager() const;
 
   bool IsNestedIn(EventNode* parent);
 
   // Returns the closest parent (including itself) of the given event type.
   const EventNode* FindParent(int64_t event_type) const;
 
-  absl::optional<ContextInfo> GetProducerContext() const {
-    return producer_context_;
-  }
-
-  absl::optional<ContextInfo> GetConsumerContext() const {
-    return consumer_context_;
-  }
-
   void SetRootLevel(int root_level) { root_level_ = root_level; }
 
   int RootLevel() const { return root_level_; }
 
-  bool IsAsync() const { return is_async_; }
+  bool IsCompiledFunc() const;
 
   // Compare two EventNodes based on start timestamp.
   bool operator<(const EventNode& other) const {
@@ -132,25 +113,18 @@ class EventNode {
  private:
   XStat* FindOrAddStatByType(int64_t stat_type);
 
-  const XPlaneVisitor* plane_;
   XEventVisitor visitor_;
-  XLine* raw_line_;
-  XEvent* raw_event_;
   std::vector<EventNode*> parents_;
   std::vector<EventNode*> children_;
-  absl::optional<int64> group_id_;
-  absl::optional<ContextInfo> producer_context_;
-  absl::optional<ContextInfo> consumer_context_;
+  absl::optional<int64_t> group_id_;
   // Root event level.
   // By default root_level_ is set to 0, which means it is not a root event.
   // Events with root_level_ greater than 0 are considered as root events.
   int root_level_ = 0;
-  bool is_async_ = false;
 };
 
 using EventNodeMap =
-    absl::flat_hash_map<int64 /*event_type*/,
-                        std::vector<std::unique_ptr<EventNode>>>;
+    absl::flat_hash_map<int64_t /*event_type*/, std::deque<EventNode>>;
 
 using EventList = std::vector<EventNode*>;
 
@@ -230,16 +204,13 @@ class EventForest {
   // eager ops (e.g., for Keras callback).
   void ProcessWorker();
 
-  // Adds model ids to group_metadata_map for inference profiles.
-  void ProcessModelIds();
-
   EventNodeMap event_node_map_;
   std::vector<XPlaneVisitor> visitors_;
   // std::deque for pointer stability.
   std::deque<std::pair<XPlane*, XPlaneVisitor>> planes_;
   // The "step" id (actually it is "function" id that are associated with
   // the tf.data pipeline.
-  absl::flat_hash_set<int64> tf_data_step_ids_;
+  absl::flat_hash_set<int64_t> tf_data_step_ids_;
   EventList tf_loop_root_events_;
   GroupMetadataMap group_metadata_map_;
 };

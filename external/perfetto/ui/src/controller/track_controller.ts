@@ -12,17 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {BigintMath} from '../base/bigint_math';
 import {assertExists, assertTrue} from '../base/logging';
 import {Engine} from '../common/engine';
 import {Registry} from '../common/registry';
 import {TraceTime, TrackState} from '../common/state';
-import {fromNs, toNs} from '../common/time';
+import {
+  TPDuration,
+  TPTime,
+  tpTimeFromSeconds,
+  TPTimeSpan,
+} from '../common/time';
 import {LIMIT, TrackData} from '../common/track_data';
+import {globals} from '../frontend/globals';
 import {publishTrackData} from '../frontend/publish';
 
 import {Controller} from './controller';
 import {ControllerFactory} from './controller';
-import {globals} from './globals';
 
 interface TrackConfig {}
 
@@ -35,7 +41,8 @@ type TrackConfigWithNamespace = TrackConfig&{namespace: string};
 // TrackController is a base class overridden by track implementations (e.g.,
 // sched slices, nestable slices, counters).
 export abstract class TrackController<
-    Config, Data extends TrackData = TrackData> extends Controller<'main'> {
+    Config extends TrackConfig, Data extends TrackData = TrackData> extends
+    Controller<'main'> {
   readonly trackId: string;
   readonly engine: Engine;
   private data?: TrackData;
@@ -69,7 +76,7 @@ export abstract class TrackController<
   // Must be overridden by the track implementation. Is invoked when the track
   // frontend runs out of cached data. The derived track controller is expected
   // to publish new track data in response to this call.
-  abstract onBoundsChange(start: number, end: number, resolution: number):
+  abstract onBoundsChange(start: TPTime, end: TPTime, resolution: TPDuration):
       Promise<Data>;
 
   get trackState(): TrackState {
@@ -97,10 +104,8 @@ export abstract class TrackController<
     publishTrackData({id: this.trackId, data});
   }
 
-  /**
-   * Returns a valid SQL table name with the given prefix that should be unique
-   * for each track.
-   */
+  // Returns a valid SQL table name with the given prefix that should be unique
+  // for each track.
   tableName(prefix: string) {
     // Derive table name from, since that is unique for each track.
     // Track ID can be UUID but '-' is not valid for sql table name.
@@ -130,6 +135,7 @@ export abstract class TrackController<
   }
 
   shouldRequestData(traceTime: TraceTime): boolean {
+    const tspan = new TPTimeSpan(traceTime.start, traceTime.end);
     if (this.data === undefined) return true;
     if (this.shouldReload()) return true;
 
@@ -138,15 +144,14 @@ export abstract class TrackController<
     if (atLimit) {
       // We request more data than the window, so add window duration to find
       // the previous window.
-      const prevWindowStart =
-          this.data.start + (traceTime.startSec - traceTime.endSec);
-      return traceTime.startSec !== prevWindowStart;
+      const prevWindowStart = this.data.start + tspan.duration;
+      return tspan.start !== prevWindowStart;
     }
 
     // Otherwise request more data only when out of range of current data or
     // resolution has changed.
-    const inRange = traceTime.startSec >= this.data.start &&
-        traceTime.endSec <= this.data.end;
+    const inRange =
+        tspan.start >= this.data.start && tspan.end <= this.data.end;
     return !inRange ||
         this.data.resolution !==
         globals.state.frontendLocalState.visibleState.resolution;
@@ -163,8 +168,7 @@ export abstract class TrackController<
       return undefined;
     }
 
-    const bounds = globals.state.traceTime;
-    const traceDurNs = toNs(bounds.endSec - bounds.startSec);
+    const traceDuration = globals.stateTraceTime().duration;
 
     // For large traces, going through the raw table in the most zoomed-out
     // states can be very expensive as this can involve going through O(millions
@@ -199,7 +203,7 @@ export abstract class TrackController<
     // Compute the outermost bucket size. This acts as a starting point for
     // computing the cached size.
     const outermostResolutionLevel =
-        Math.ceil(Math.log2(traceDurNs / approxWidthPx));
+        Math.ceil(Math.log2(traceDuration.nanos / approxWidthPx));
     const outermostBucketNs = Math.pow(2, outermostResolutionLevel);
 
     // This constant decides how many resolution levels down from our outermost
@@ -233,11 +237,11 @@ export abstract class TrackController<
 
   run() {
     const visibleState = globals.state.frontendLocalState.visibleState;
-    if (visibleState === undefined || visibleState.resolution === undefined ||
-        visibleState.resolution === Infinity) {
+    if (visibleState === undefined) {
       return;
     }
-    const dur = visibleState.endSec - visibleState.startSec;
+    const visibleTimeSpan = globals.stateVisibleTime();
+    const dur = visibleTimeSpan.duration;
     if (globals.state.visibleTracks.includes(this.trackId) &&
         this.shouldRequestData(visibleState)) {
       if (this.requestingData) {
@@ -254,19 +258,17 @@ export abstract class TrackController<
             .then(() => {
               this.isSetup = true;
               let resolution = visibleState.resolution;
-              // TODO(hjd): We shouldn't have to be so defensive here.
-              if (Math.log2(toNs(resolution)) % 1 !== 0) {
-                // resolution is in pixels per second so 1000 means
-                // 1px = 1ms.
-                resolution =
-                    fromNs(Math.pow(2, Math.floor(Math.log2(toNs(1000)))));
+
+              if (BigintMath.popcount(resolution) !== 1) {
+                resolution = BigintMath.bitFloor(tpTimeFromSeconds(1000));
               }
+
               return this.onBoundsChange(
-                  visibleState.startSec - dur,
-                  visibleState.endSec + dur,
+                  visibleTimeSpan.start - dur,
+                  visibleTimeSpan.end + dur,
                   resolution);
             })
-            .then(data => {
+            .then((data) => {
               this.publish(data);
             })
             .finally(() => {
@@ -291,4 +293,5 @@ export interface TrackControllerFactory extends
   kind: string;
 }
 
-export const trackControllerRegistry = new Registry<TrackControllerFactory>();
+export const trackControllerRegistry =
+    Registry.kindRegistry<TrackControllerFactory>();

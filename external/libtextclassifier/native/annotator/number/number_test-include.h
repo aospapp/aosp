@@ -17,6 +17,7 @@
 #ifndef LIBTEXTCLASSIFIER_ANNOTATOR_NUMBER_NUMBER_TEST_INCLUDE_H_
 #define LIBTEXTCLASSIFIER_ANNOTATOR_NUMBER_NUMBER_TEST_INCLUDE_H_
 
+#include "annotator/model_generated.h"
 #include "annotator/number/number.h"
 #include "utils/jvm-test-utils.h"
 #include "gtest/gtest.h"
@@ -25,15 +26,30 @@ namespace libtextclassifier3 {
 namespace test_internal {
 
 class NumberAnnotatorTest : public ::testing::Test {
+ private:
  protected:
-  NumberAnnotatorTest()
+  explicit NumberAnnotatorTest(ModeFlag enabled_modes = ModeFlag_ALL)
       : unilib_(CreateUniLibForTesting()),
-        number_annotator_(TestingNumberAnnotatorOptions(), unilib_.get()) {}
+        number_annotator_(TestingNumberAnnotatorOptions(enabled_modes),
+                          unilib_.get()) {}
 
-  const NumberAnnotatorOptions* TestingNumberAnnotatorOptions();
+  const NumberAnnotatorOptions* TestingNumberAnnotatorOptions(
+      ModeFlag enabled_modes);
 
   std::unique_ptr<UniLib> unilib_;
   NumberAnnotator number_annotator_;
+};
+
+class NumberAnnotatorForAnnotationAndClassificationTest
+    : public NumberAnnotatorTest {
+ protected:
+  NumberAnnotatorForAnnotationAndClassificationTest()
+      : NumberAnnotatorTest(ModeFlag_ANNOTATION_AND_CLASSIFICATION) {}
+};
+
+class NumberAnnotatorForSelectionTest : public NumberAnnotatorTest {
+ protected:
+  NumberAnnotatorForSelectionTest() : NumberAnnotatorTest(ModeFlag_SELECTION) {}
 };
 
 }  // namespace test_internal

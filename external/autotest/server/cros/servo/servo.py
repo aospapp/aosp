@@ -116,8 +116,14 @@ class ServodConnectionError(seven.SOCKET_ERRORS[0]):
 
     def __str__(self):
         """String representation of the exception"""
-        return '%s -- [Errno %d] %s: %r' % (self.when, self.errno,
-                                            self.strerror, self.filename)
+        msgv = [self.when]
+        if self.errno is not None or self.strerror is not None:
+            msgv.append('--')
+        if self.errno is not None:
+            msgv.append('[Errno %d]' % self.errno)
+        if self.strerror is not None:
+            msgv.append(self.strerror)
+        return '%s: %r' % (' '.join(msgv), self.filename)
 
 
 # TODO: once in python 3, inherit from AbstractContextManager
@@ -185,8 +191,17 @@ class _WrapServoErrors(object):
 
             if isinstance(exc_val, seven.SOCKET_ERRORS):
                 self._log_exception(exc_type, exc_val, exc_tb)
-                err = ServodConnectionError(self.description, exc_val.args[0],
-                                            exc_val.args[1], self.servo_name)
+                if len(exc_val.args) == 0:
+                    errno = None
+                    strerror = None
+                elif len(exc_val.args) == 1:
+                    errno = None
+                    strerror = exc_val.args[0]
+                else:
+                    errno = exc_val.args[0]
+                    strerror = exc_val.args[1]
+                err = ServodConnectionError(self.description, errno, strerror,
+                                            self.servo_name)
                 six.reraise(err.__class__, err, exc_tb)
 
             if isinstance(exc_val, six.moves.xmlrpc_client.Fault):
@@ -239,11 +254,13 @@ def _extract_image_from_tarball(tarball, dest_dir, image_candidates, timeout):
     # Generate a list of all tarball files
     stdout = server_utils.system_output('tar tf %s' % tarball,
                                         timeout=timeout,
-                                        ignore_status=True)
+                                        ignore_status=True,
+                                        args=image_candidates)
     tarball_files = stdout.splitlines()
 
     # Check if image candidates are in the list of tarball files
     for image in image_candidates:
+        logging.debug("Trying to extract %s (autotest)", image)
         if image in tarball_files:
             # Extract and return the first image candidate found
             tar_cmd = 'tar xf %s -C %s %s' % (tarball, dest_dir, image)
@@ -393,17 +410,9 @@ class _PowerStateController(object):
 
 class _Uart(object):
     """Class to capture UART streams of CPU, EC, Cr50, etc."""
-    _UartToCapture = (
-        'cpu',
-        'cr50',
-        'ec',
-        'servo_micro',
-        'servo_v4',
-        'usbpd',
-        'ccd_cr50.ec',
-        'ccd_cr50.cpu',
-        'ccd_cr50.cr50'
-    )
+    _UartToCapture = ('cpu', 'cr50', 'ec', 'servo_micro', 'servo_v4', 'usbpd',
+                      'ccd_cr50.ec', 'ccd_cr50.cpu', 'ccd_cr50.cr50'
+                      'ccd_gsc.ec', 'ccd_gsc.cpu', 'ccd_gsc.cr50')
 
 
     def __init__(self, servo):
@@ -448,7 +457,10 @@ class _Uart(object):
     def start_capture(self):
         """Start capturing UART streams."""
         for uart in self._UartToCapture:
-            if self._start_stop_capture(uart, True):
+            # Always try to start the uart. Only add it to _streams if it's not
+            # in the list.
+            if (self._start_stop_capture(uart, True)
+                        and uart not in self._streams):
                 self._streams.append(uart)
 
     def get_logfile(self, uart):
@@ -468,11 +480,11 @@ class _Uart(object):
             try:
                 content = self._servo.get(stream)
             except Exception as err:
-                logging.warn('Failed to get UART log for %s: %s', stream, err)
+                logging.warning('Failed to get UART log for %s: %s', stream, err)
                 continue
 
             if content == 'not_applicable':
-                logging.warn('%s is not applicable', stream)
+                logging.warning('%s is not applicable', stream)
                 continue
 
             # The UART stream may contain non-printable characters, and servo
@@ -491,7 +503,7 @@ class _Uart(object):
             try:
                 self._start_stop_capture(uart, False)
             except Exception as err:
-                logging.warn('Failed to stop UART logging for %s: %s', uart,
+                logging.warning('Failed to stop UART logging for %s: %s', uart,
                              err)
 
 
@@ -550,31 +562,44 @@ class Servo(object):
     # This was increased from 60 seconds to support boards with very
     # large (>500MB) firmware archives taking longer than expected to
     # extract firmware on the lab host machines (b/149419503).
-    EXTRACT_TIMEOUT_SECS = 180
+    EXTRACT_TIMEOUT_SECS = 900
 
     # The VBUS voltage threshold used to detect if VBUS is supplied
     VBUS_THRESHOLD = 3000.0
 
-    def __init__(self, servo_host, servo_serial=None):
+    # List of servos that connect to a debug header on the board.
+    FLEX_SERVOS = ['c2d2', 'servo_micro', 'servo_v3']
+
+    # List of servos that rely on gsc commands for some part of dut control.
+    GSC_DRV_SERVOS = ['c2d2', 'ccd_gsc', 'ccd_cr50']
+
+    CCD_PREFIX = 'ccd_'
+
+    def __init__(self, servo_host, servo_serial=None, delay_init=False):
         """Sets up the servo communication infrastructure.
 
         @param servo_host: A ServoHost object representing
                            the host running servod.
         @type servo_host: autotest_lib.server.hosts.servo_host.ServoHost
         @param servo_serial: Serial number of the servo board.
+        @param delay_init:  Delay cache servo_type and power_state to prevent
+                            attempt to connect to the servod.
         """
         # TODO(fdeng): crbug.com/298379
         # We should move servo_host object out of servo object
         # to minimize the dependencies on the rest of Autotest.
         self._servo_host = servo_host
         self._servo_serial = servo_serial
-        self._servo_type = self.get_servo_version()
-        self._power_state = _PowerStateController(self)
-        self._uart = _Uart(self)
+        self._servo_type = None
+        self._power_state = None
         self._programmer = None
         self._prev_log_inode = None
         self._prev_log_size = 0
         self._ccd_watchdog_disabled = False
+        if not delay_init:
+            self._servo_type = self.get_servo_version()
+            self._power_state = _PowerStateController(self)
+        self._uart = _Uart(self)
 
     def __str__(self):
         """Description of this object and address, for use in errors"""
@@ -601,6 +626,8 @@ class Servo(object):
         interfaces for reset, power-on, power-off operations.
 
         """
+        if self._power_state is None:
+            self._power_state = _PowerStateController(self)
         return self._power_state
 
 
@@ -643,26 +670,29 @@ class Servo(object):
         # v4p1).
         # TODO(coconutruben): eventually, replace this with a metric to track
         # SBU voltages wrt servo-hw/dut-hw
-        if self.has_control('servo_v4_sbu1_mv'):
+        if self.has_control('servo_dut_sbu1_mv'):
             # Attempt to take a reading of sbu1 and sbu2 multiple times to
             # account for situations where the two lines exchange hi/lo roles
             # frequently.
             for i in range(10):
                 try:
-                    sbu1 = int(self.get('servo_v4_sbu1_mv'))
-                    sbu2 = int(self.get('servo_v4_sbu2_mv'))
+                    sbu1 = int(self.get('servo_dut_sbu1_mv'))
+                    sbu2 = int(self.get('servo_dut_sbu2_mv'))
                     logging.info('attempt %d sbu1 %d sbu2 %d', i, sbu1, sbu2)
                 except error.TestFail as e:
                     # This is a nice to have but if reading this fails, it
                     # shouldn't interfere with the test.
                     logging.exception(e)
         self._uart.start_capture()
+        # Run testlab open if servo relies on ccd to control the dut.
+        if self.main_device_uses_gsc_drv():
+            self.set_nocheck('cr50_testlab', 'open')
         if cold_reset:
-            if not self._power_state.supported:
+            if not self.get_power_state_controller().supported:
                 logging.info('Cold-reset for DUT requested, but servo '
                              'setup does not support power_state. Skipping.')
             else:
-                self._power_state.reset()
+                self.get_power_state_controller().reset()
         with _WrapServoErrors(
                 servo=self, description='initialize_dut()->get_version()'):
             version = self._server.get_version()
@@ -705,7 +735,10 @@ class Servo(object):
         # chromeos-ci-legacy-us-central1-b-x32-55-u8zc // builder information
         # For debugging purposes, we mainly care about the version, and the
         # timestamp.
+        if type(sversion) == type(b' '):
+            sversion = sversion.decode("utf-8")
         return ' '.join(sversion.split()[1:4])
+
 
     def power_long_press(self):
         """Simulate a long power button press."""
@@ -714,19 +747,19 @@ class Servo(object):
         # won't happen, we need to allow the EC one second to
         # collect itself.
         # long_press is defined as 8.5s in servod
-        self.set_nocheck('power_key', 'long_press')
+        self.power_key('long_press')
 
 
     def power_normal_press(self):
         """Simulate a normal power button press."""
         # press is defined as 1.2s in servod
-        self.set_nocheck('power_key', 'press')
+        self.power_key('press')
 
 
     def power_short_press(self):
         """Simulate a short power button press."""
         # tab is defined as 0.2s in servod
-        self.set_nocheck('power_key', 'tab')
+        self.power_key('tab')
 
 
     def power_key(self, press_secs='tab'):
@@ -735,7 +768,24 @@ class Servo(object):
         @param press_secs: int, float, str; time to press key in seconds or
                            known shorthand: 'tab' 'press' 'long_press'
         """
-        self.set_nocheck('power_key', press_secs)
+        # TODO(b/224804060): use the power_key control for all servo types when
+        # c2d2 has a defined power_key driver.
+        if 'c2d2' not in self.get_servo_type():
+            self.set_nocheck('power_key', press_secs)
+            return
+        if isinstance(press_secs, str):
+            if press_secs == 'tab':
+                press_secs = 0.2
+            elif press_secs == 'press':
+                press_secs = 1.2
+            elif press_secs == 'long_press':
+                press_secs = 8.5
+            else:
+                raise error.TestError('Invalid press %r' % press_secs)
+        logging.info('Manual power button press for %ds', press_secs)
+        self.set_nocheck('pwr_button', 'press')
+        time.sleep(press_secs)
+        self.set_nocheck('pwr_button', 'release')
 
 
     def pwr_button(self, action='press'):
@@ -835,6 +885,14 @@ class Servo(object):
         """
         self.set_nocheck('ctrl_d', press_secs)
 
+
+    def ctrl_r(self, press_secs='tab'):
+        """Simulate Ctrl-r simultaneous button presses.
+
+        @param press_secs: int, float, str; time to press key in seconds or
+                           known shorthand: 'tab' 'press' 'long_press'
+        """
+        self.set_nocheck('ctrl_r', press_secs)
 
     def ctrl_s(self, press_secs='tab'):
         """Simulate Ctrl-s simultaneous button presses.
@@ -989,17 +1047,30 @@ class Servo(object):
                 return ''
             raise
 
-    def get_ec_board(self):
-        """Get the board name from EC."""
-        if self.has_control('active_v4_device'):
+    def can_set_active_device(self):
+        """Returns True if the servo setup supports setting the active device
+
+        Servo can only change the active device if there are multiple devices
+        and servo has the active_dut_controller control.
+        """
+        return ('_and_' in self.get_servo_type()
+                and self.has_control('active_dut_controller'))
+
+    def get_active_device_prefix(self):
+        """Return ccd_(gsc|cr50) or '' if the main device is active."""
+        active_device = ''
+        if self.can_set_active_device():
             # If servo v4 is allowing dual_v4 devices, then choose the
             # active device.
-            active_device = self.get('active_v4_device')
+            active_device = self.get('active_dut_controller')
             if active_device == self.get_main_servo_device():
                 active_device = ''
-        else:
-            active_device = ''
-        return self.get('ec_board', prefix=active_device)
+        return active_device
+
+    def get_ec_board(self):
+        """Get the board name from EC."""
+
+        return self.get('ec_board', prefix=self.get_active_device_prefix())
 
     def get_ec_active_copy(self):
         """Get the active copy of the EC image."""
@@ -1141,7 +1212,7 @@ class Servo(object):
         # to do to the device after hotplug.  To avoid surprises,
         # force the DUT to be off.
         if power_off_dut:
-            self._power_state.power_off()
+            self.get_power_state_controller().power_off()
 
         if image_path:
             logging.info('Searching for usb device and copying image to it. '
@@ -1191,7 +1262,8 @@ class Servo(object):
             self.set_servo_v4_role('snk')
 
         try:
-            self._power_state.power_on(rec_mode=self._power_state.REC_ON)
+            power_state = self.get_power_state_controller()
+            power_state.power_on(rec_mode=power_state.REC_ON)
         except error.TestFail as e:
             self.set_servo_v4_role('src')
             logging.error('Failed to boot DUT in recovery mode. %s.', str(e))
@@ -1300,62 +1372,91 @@ class Servo(object):
 
         # If servo v4 is using ccd and servo micro, modify the servo type to
         # reflect the active device.
-        active_device = self.get('active_v4_device')
+        active_device = self.get('active_dut_controller')
         if active_device in servo_type:
             logging.info('%s is active', active_device)
             return 'servo_v4_with_' + active_device
 
-        logging.warn("%s is active even though it's not in servo type",
+        logging.warning("%s is active even though it's not in servo type",
                      active_device)
         return servo_type
 
 
     def get_servo_type(self):
+        if self._servo_type is None:
+            self._servo_type = self.get_servo_version()
         return self._servo_type
 
+    def get_servo_v4_type(self):
+        """Return the servo_v4_type (such as 'type-c'), or None if not v4."""
+        if not hasattr(self, '_servo_v4_type'):
+            if 'servo_v4' in self.get_servo_type():
+                self._servo_v4_type = self.get('root.dut_connection_type')
+            else:
+                self._servo_v4_type = None
+        return self._servo_v4_type
+
+    def is_servo_v4_type_a(self):
+        """True if the servo is v4 and type-a, else False."""
+        return self.get_servo_v4_type() == 'type-a'
+
+    def is_servo_v4_type_c(self):
+        """True if the servo is v4 and type-c, else False."""
+        return self.get_servo_v4_type() == 'type-c'
 
     def get_main_servo_device(self):
         """Return the main servo device"""
-        return self._servo_type.split('_with_')[-1].split('_and_')[0]
+        return self.get_servo_type().split('_with_')[-1].split('_and_')[0]
 
 
     def enable_main_servo_device(self):
         """Make sure the main device has control of the dut."""
-        if not self.has_control('active_v4_device'):
+        if not self.can_set_active_device():
             return
-        self.set('active_v4_device', self.get_main_servo_device())
+        self.set('active_dut_controller', self.get_main_servo_device())
 
+    def get_ccd_servo_device(self):
+        """Return the ccd servo device or '' if no ccd devices are connected."""
+        servo_type = self.get_servo_type()
+        if 'ccd' not in servo_type:
+            return ''
+        return servo_type.split('_with_')[-1].split('_and_')[-1]
+
+    def active_device_is_ccd(self):
+        """Returns True if a ccd device is active."""
+        return 'ccd' in self.get_servo_version(active=True)
+
+    def enable_ccd_servo_device(self):
+        """Make sure the ccd device has control of the dut.
+
+        Returns True if the ccd device is in control of the dut.
+        """
+        if self.active_device_is_ccd():
+            return True
+        ccd_device = self.get_ccd_servo_device()
+        if not self.can_set_active_device() or not ccd_device:
+            return False
+        self.set('active_dut_controller', ccd_device)
+        return True
 
     def main_device_is_ccd(self):
         """Whether the main servo device (no prefixes) is a ccd device."""
-        with _WrapServoErrors(
-                servo=self, description='main_device_is_ccd()->get_version()'):
-            servo = self._server.get_version()
-        return 'ccd_cr50' in servo and 'servo_micro' not in servo
-
+        servo = self.get_servo_type()
+        return 'ccd' in servo and not self.main_device_is_flex()
 
     def main_device_is_flex(self):
         """Whether the main servo device (no prefixes) is a legacy device."""
-        return not self.main_device_is_ccd()
+        servo = self.get_servo_type()
+        return any([flex in servo for flex in self.FLEX_SERVOS])
 
+    def main_device_uses_gsc_drv(self):
+        """Whether the main servo device uses gsc drivers.
 
-    def main_device_is_active(self):
-        """Return whether the main device is the active device.
-
-        This is only relevant for a dual setup with ccd and legacy on the same
-        DUT. The main device is the servo that has no prefix on its controls.
-        This helper answers the question whether that device is also the
-        active device or not.
+        Servo may use gsc wp or console commands to control the dut. These
+        get restricted with ccd capabilities. This returns true if some of
+        the servo functionality will be disabled if ccd is restricted.
         """
-        # TODO(coconutruben): The current implementation of the dual setup only
-        # ever has legacy as the main device. Therefore, it suffices to ask
-        # whether the active device is ccd.
-        if not self.dts_mode_is_valid():
-            # Use dts support as a proxy to whether the servo setup could
-            # support a dual role. Only those setups now support legacy and ccd.
-            return True
-        active_device = self.get('active_v4_device')
-        return 'ccd_cr50' not in active_device
+        return self.get_main_servo_device() in self.GSC_DRV_SERVOS
 
     def _initialize_programmer(self, rw_only=False):
         """Initialize the firmware programmer.
@@ -1366,19 +1467,20 @@ class Servo(object):
         if self._programmer:
             return
         # Initialize firmware programmer
-        if self._servo_type.startswith('servo_v2'):
+        servo_type = self.get_servo_type()
+        if servo_type.startswith('servo_v2'):
             self._programmer = firmware_programmer.ProgrammerV2(self)
             self._programmer_rw = firmware_programmer.ProgrammerV2RwOnly(self)
         # Both servo v3 and v4 use the same programming methods so just leverage
         # ProgrammerV3 for servo v4 as well.
-        elif (self._servo_type.startswith('servo_v3') or
-              self._servo_type.startswith('servo_v4')):
+        elif (servo_type.startswith('servo_v3')
+              or servo_type.startswith('servo_v4')):
             self._programmer = firmware_programmer.ProgrammerV3(self)
             self._programmer_rw = firmware_programmer.ProgrammerV3RwOnly(self)
         else:
             raise error.TestError(
                     'No firmware programmer for servo version: %s' %
-                    self._servo_type)
+                    self.get_servo_type())
 
 
     def program_bios(self, image, rw_only=False, copy_image=True):
@@ -1390,7 +1492,7 @@ class Servo(object):
         @param copy_image: True indicates we need scp the image to servohost
                            while False means the image file is already on
                            servohost.
-
+        @return: a string, full path name of the copied file on the remote.
         """
         self._initialize_programmer()
         # We don't need scp if test runs locally.
@@ -1400,6 +1502,7 @@ class Servo(object):
             self._programmer_rw.program_bios(image)
         else:
             self._programmer.program_bios(image)
+        return image
 
 
     def program_ec(self, image, rw_only=False, copy_image=True):
@@ -1411,6 +1514,7 @@ class Servo(object):
         @param copy_image: True indicates we need scp the image to servohost
                            while False means the image file is already on
                            servohost.
+        @return: a string, full path name of the copied file on the remote.
         """
         self._initialize_programmer()
         # We don't need scp if test runs locally.
@@ -1420,14 +1524,16 @@ class Servo(object):
             self._programmer_rw.program_ec(image)
         else:
             self._programmer.program_ec(image)
+        return image
 
 
-    def extract_ec_image(self, board, model, tarball_path):
+    def extract_ec_image(self, board, model, tarball_path, fake_image=False):
         """Helper function to extract EC image from downloaded tarball.
 
         @param board: The DUT board name.
         @param model: The DUT model name.
         @param tarball_path: The path of the downloaded build tarball.
+        @param fake_image: True to return a fake zero-filled image instead.
 
         @return: Path to extracted EC image.
         """
@@ -1435,25 +1541,25 @@ class Servo(object):
         # Ignore extracting EC image and re-programming if not a Chrome EC
         chrome_ec = FAFTConfig(board).chrome_ec
         if not chrome_ec:
-            logging.warn('Not a Chrome EC, ignore re-programming it')
+            logging.warning('Not a Chrome EC, ignore re-programming it')
             return None
 
-        # Try to retrieve firmware build target from the version reported
-        # by the EC. If this doesn't work, we assume the firmware build
-        # target is the same as the model name.
-        try:
-            fw_target = self.get_ec_board()
-        except Exception as err:
-            logging.warn('Failed to get ec_board value; ignoring')
-            fw_target = model
-            pass
+        # Most boards use the model name as the ec directory.
+        ec_image_candidates = ['%s/ec.bin' % model]
 
-        # Array of candidates for EC image
-        ec_image_candidates = [
-                'ec.bin',
-                '%s/ec.bin' % fw_target,
-                '%s/ec.bin' % board
-        ]
+        if model == "dragonair":
+            ec_image_candidates.append('dratini/ec.bin')
+
+        # If that isn't found try the name from the EC RO version.
+        try:
+            fw_target = self.get_ec_board().lower()
+            ec_image_candidates.append('%s/ec.bin' % fw_target)
+        except Exception as err:
+            logging.warning('Failed to get ec_board value; ignoring')
+
+        # Fallback to the name of the board, and then a bare ec.bin.
+        ec_image_candidates.append('%s/ec.bin' % board)
+        ec_image_candidates.append('ec.bin')
 
         # Extract EC image from tarball
         dest_dir = os.path.join(os.path.dirname(tarball_path), 'EC')
@@ -1471,6 +1577,17 @@ class Servo(object):
             _extract_image_from_tarball(tarball_path, dest_dir, mon_candidates,
                                         self.EXTRACT_TIMEOUT_SECS)
 
+            if fake_image:
+                # Create a small (25% of original size) zero-filled binary to
+                # replace the real ec_image
+                file_size = os.path.getsize(ec_image) / 4
+                ec_image = os.path.join(os.path.dirname(ec_image),
+                                        "zero_ec.bin")
+                dump_cmd = 'dd if=/dev/zero of=%s bs=4096 count=%d' % (
+                        os.path.join(dest_dir, ec_image), file_size / 4096)
+                if server_utils.system(dump_cmd, ignore_status=True) != 0:
+                    return None
+
             return os.path.join(dest_dir, ec_image)
         else:
             raise error.TestError('Failed to extract EC image from %s' %
@@ -1487,22 +1604,24 @@ class Servo(object):
         @return: Path to extracted BIOS image.
         """
 
-        # Try to retrieve firmware build target from the version reported
-        # by the EC. If this doesn't work, we assume the firmware build
-        # target is the same as the model name.
-        try:
-            fw_target = self.get_ec_board()
-        except Exception as err:
-            logging.warn('Failed to get ec_board value; ignoring')
-            fw_target = model
-            pass
-
-        # Array of candidates for BIOS image
+        # Most boards use the model name as the image filename.
         bios_image_candidates = [
-                'image.bin',
-                'image-%s.bin' % fw_target,
-                'image-%s.bin' % board
+                'image-%s.bin' % model,
         ]
+
+        if model == "dragonair":
+            bios_image_candidates.append('image-dratini.bin')
+
+        # If that isn't found try the name from the EC RO version.
+        try:
+            fw_target = self.get_ec_board().lower()
+            bios_image_candidates.append('image-%s.bin' % fw_target)
+        except Exception as err:
+            logging.warning('Failed to get ec_board value; ignoring')
+
+        # Fallback to the name of the board, and then a bare image.bin.
+        bios_image_candidates.append('image-%s.bin' % board)
+        bios_image_candidates.append('image.bin')
 
         # Extract BIOS image from tarball
         dest_dir = os.path.join(os.path.dirname(tarball_path), 'BIOS')
@@ -1580,19 +1699,19 @@ class Servo(object):
 
         @param role: Power role for DUT port on servo v4, either 'src' or 'snk'.
         """
-        if not self._servo_type.startswith('servo_v4'):
+        if not self.get_servo_type().startswith('servo_v4'):
             logging.debug('Not a servo v4, unable to set role to %s.', role)
             return
 
-        if not self.has_control('servo_v4_role'):
+        if not self.has_control('servo_pd_role'):
             logging.debug(
                     'Servo does not has servo_v4_role control, unable'
                     ' to set role to %s.', role)
             return
 
-        value = self.get('servo_v4_role')
+        value = self.get('servo_pd_role')
         if value != role:
-            self.set_nocheck('servo_v4_role', role)
+            self.set_nocheck('servo_pd_role', role)
         else:
             logging.debug('Already in the role: %s.', role)
 
@@ -1601,17 +1720,17 @@ class Servo(object):
 
         It returns None if not a servo v4.
         """
-        if not self._servo_type.startswith('servo_v4'):
+        if not self.get_servo_type().startswith('servo_v4'):
             logging.debug('Not a servo v4, unable to get role')
             return None
 
-        if not self.has_control('servo_v4_role'):
+        if not self.has_control('servo_pd_role'):
             logging.debug(
                     'Servo does not has servo_v4_role control, unable'
                     ' to get the role.')
             return None
 
-        return self.get('servo_v4_role')
+        return self.get('servo_pd_role')
 
     def set_servo_v4_pd_comm(self, en):
         """Set the PD communication of servo v4, either 'on' or 'off'.
@@ -1620,43 +1739,31 @@ class Servo(object):
 
         @param en: a string of 'on' or 'off' for PD communication.
         """
-        if self._servo_type.startswith('servo_v4'):
-            self.set_nocheck('servo_v4_pd_comm', en)
+        if self.get_servo_type().startswith('servo_v4'):
+            self.set_nocheck('servo_pd_comm', en)
         else:
             logging.debug('Not a servo v4, unable to set PD comm to %s.', en)
 
     def supports_built_in_pd_control(self):
         """Return whether the servo type supports pd charging and control."""
-        if 'servo_v4' not in self._servo_type:
-            # Only servo v4 supports this feature.
-            logging.info('%r type does not support pd control.',
-                         self._servo_type)
-            return False
-        # On servo v4, it still needs to be the type-c version.
-        if not self.get('servo_v4_type') == 'type-c':
-            logging.info('PD controls require a type-c servo v4.')
+        # Only servo v4 type-c supports this feature.
+        if not self.is_servo_v4_type_c():
+            logging.info('PD controls require a servo v4 type-c.')
             return False
         # Lastly, one cannot really do anything without a plugged in charger.
         chg_port_mv = self.get('ppchg5_mv')
         if chg_port_mv < V4_CHG_ATTACHED_MIN_VOLTAGE_MV:
-            logging.warn('It appears that no charger is plugged into servo v4. '
-                         'Charger port voltage: %dmV', chg_port_mv)
+            logging.info(
+                    'It appears that no charger is plugged into servo v4. '
+                    'Charger port voltage: %dmV', chg_port_mv)
             return False
         logging.info('Charger port voltage: %dmV', chg_port_mv)
         return True
 
     def dts_mode_is_valid(self):
         """Return whether servo setup supports dts mode control for cr50."""
-        if 'servo_v4' not in self._servo_type:
-            # Only servo v4 supports this feature.
-            logging.debug('%r type does not support dts mode control.',
-                          self._servo_type)
-            return False
-        # On servo v4, it still needs ot be the type-c version.
-        if not 'type-c' == self.get('servo_v4_type'):
-            logging.info('DTS controls require a type-c servo v4.')
-            return False
-        return True
+        # Only servo v4 type-c supports this feature.
+        return self.is_servo_v4_type_c()
 
     def dts_mode_is_safe(self):
         """Return whether servo setup supports dts mode without losing access.
@@ -1675,11 +1782,11 @@ class Servo(object):
         if not self.dts_mode_is_valid():
             logging.info('Not a valid servo setup. Unable to get dts mode.')
             return
-        return self.get('servo_v4_dts_mode')
+        return self.get('servo_dts_mode')
 
     def ccd_watchdog_enable(self, enable):
         """Control the ccd watchdog."""
-        if 'ccd' not in self._servo_type:
+        if 'ccd' not in self.get_servo_type():
             return
         if self._ccd_watchdog_disabled and enable:
             logging.info('CCD watchdog disabled for test')
@@ -1717,7 +1824,7 @@ class Servo(object):
         if not enable_watchdog:
             self.ccd_watchdog_enable(False)
 
-        self.set_nocheck('servo_v4_dts_mode', state)
+        self.set_nocheck('servo_dts_mode', state)
 
         if enable_watchdog:
             self.ccd_watchdog_enable(True)
@@ -1726,20 +1833,22 @@ class Servo(object):
     def _get_servo_type_fw_version(self, servo_type, prefix=''):
         """Helper to handle fw retrieval for micro/v4 vs ccd.
 
-        @param servo_type: one of 'servo_v4', 'servo_micro', 'ccd_cr50'
+        @param servo_type: one of 'servo_v4', 'servo_micro', 'c2d2',
+                           'ccd_cr50', or 'ccd_gsc'
         @param prefix: whether the control has a prefix
 
         @returns: fw version for non-ccd devices, cr50 version for ccd device
         """
-        if servo_type == 'ccd_cr50':
-            # ccd_cr50 runs on cr50, so need to query the cr50 fw.
-            servo_type = 'cr50'
+        # If it's a ccd device, remove the 'ccd_' prefix to find the firmware
+        # name.
+        if servo_type.startswith(self.CCD_PREFIX):
+            servo_type = servo_type[len(self.CCD_PREFIX)::]
         cmd = '%s_version' % servo_type
         try:
             return self.get(cmd, prefix=prefix)
         except error.TestFail:
             # Do not fail here, simply report the version as unknown.
-            logging.warn('Unable to query %r to get servo fw version.', cmd)
+            logging.warning('Unable to query %r to get servo fw version.', cmd)
             return 'unknown'
 
 
@@ -1757,12 +1866,18 @@ class Servo(object):
             return '%s_version.%s' % (dev, tag)
 
         fw_versions = {}
-        if 'servo_v4' not in self._servo_type:
+        # Note, this works because v4p1 starts with v4 as well.
+        # TODO(coconutruben): make this more robust so that it can work on
+        # a future v-whatever as well.
+        if 'servo_v4' not in self.get_servo_type():
             return {}
-        v4_tag = get_fw_version_tag('support', 'servo_v4')
-        fw_versions[v4_tag] = self._get_servo_type_fw_version('servo_v4')
-        if 'with' in self._servo_type:
-            dut_devs = self._servo_type.split('_with_')[1].split('_and_')
+        # v4 or v4p1
+        v4_flavor = self.get_servo_type().split('_with_')[0]
+        v4_tag = get_fw_version_tag('root', v4_flavor)
+        fw_versions[v4_tag] = self._get_servo_type_fw_version('servo_fw',
+                                                              prefix='root')
+        if 'with' in self.get_servo_type():
+            dut_devs = self.get_servo_type().split('_with_')[1].split('_and_')
             main_tag = get_fw_version_tag('main', dut_devs[0])
             fw_versions[main_tag] = self._get_servo_type_fw_version(dut_devs[0])
             if len(dut_devs) == 2:
@@ -1773,7 +1888,7 @@ class Servo(object):
                 # the time that there are more cases of '_and_' devices,
                 # this needs to be reworked.
                 dual_tag = get_fw_version_tag('ccd_flex_secondary', dut_devs[1])
-                fw = self._get_servo_type_fw_version(dut_devs[1], 'ccd_cr50')
+                fw = self._get_servo_type_fw_version(dut_devs[1], dut_devs[1])
                 fw_versions[dual_tag] = fw
         return fw_versions
 
@@ -1832,3 +1947,40 @@ class Servo(object):
             return None
 
         return self.get('vbus_voltage')
+
+    def supports_eth_power_control(self):
+        """True if servo supports power management for ethernet dongle."""
+        return self.has_control('dut_eth_pwr_en')
+
+    def set_eth_power(self, state):
+        """Set ethernet dongle power state, either 'on' or 'off'.
+
+        Note: this functionality is supported only on servo v4p1.
+
+        @param state: a string of 'on' or 'off'.
+        """
+        if state != 'off' and state != 'on':
+            raise error.TestError('Unknown ethernet power state request: %s' %
+                                  state)
+
+        if not self.supports_eth_power_control():
+            logging.info('Not a supported servo setup. Unable to set ethernet'
+                         'dongle power state %s.', state)
+            return
+
+        self.set_nocheck('dut_eth_pwr_en', state)
+
+    def eth_power_reset(self):
+        """Reset ethernet dongle power state if supported'.
+
+        It does nothing if servo setup does not support power management for
+        the etherent dongle, only log information about this.
+        """
+        if self.supports_eth_power_control():
+            logging.info("Resetting servo's Ethernet controller...")
+            self.set_eth_power('off')
+            time.sleep(1)
+            self.set_eth_power('on')
+        else:
+            logging.info("Trying to reset servo's Ethernet controller, but"
+                         "this feature is not supported on used servo setup.")

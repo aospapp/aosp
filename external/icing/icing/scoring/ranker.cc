@@ -90,21 +90,20 @@ void HeapifyTermDown(std::vector<TermMetadata>& scored_terms,
 
   // If left child is smaller than current minimum.
   if (left < heap_size &&
-      scored_terms.at(left).hit_count < scored_terms.at(min).hit_count) {
+      scored_terms.at(left).score < scored_terms.at(min).score) {
     min = left;
   }
 
   // If right child is smaller than current minimum.
   if (right < heap_size &&
-      scored_terms.at(right).hit_count < scored_terms.at(min).hit_count) {
+      scored_terms.at(right).score < scored_terms.at(min).score) {
     min = right;
   }
 
   // If the minimum is not the subtree root, swap and continue heapifying the
   // lower level subtree.
   if (min != target_subtree_root_index) {
-    std::swap(scored_terms.at(min),
-              scored_terms.at(target_subtree_root_index));
+    std::swap(scored_terms.at(min), scored_terms.at(target_subtree_root_index));
     HeapifyTermDown(scored_terms, min);
   }
 }
@@ -119,8 +118,8 @@ void HeapifyTermUp(std::vector<TermMetadata>& scored_terms,
 
   // If the current child is smaller than the root, swap and continue heapifying
   // the upper level subtree
-  if (root >= 0 && scored_terms.at(target_subtree_child_index).hit_count <
-                       scored_terms.at(root).hit_count) {
+  if (root >= 0 && scored_terms.at(target_subtree_child_index).score <
+                       scored_terms.at(root).score) {
     std::swap(scored_terms.at(root),
               scored_terms.at(target_subtree_child_index));
     HeapifyTermUp(scored_terms, root);
@@ -146,13 +145,35 @@ TermMetadata PopRootTerm(std::vector<TermMetadata>& scored_terms) {
   return root;
 }
 
-// Helper function to extract the root from the heap. The heap structure will be
-// maintained.
-//
-// Returns:
-//   The current root element on success
-//   RESOURCE_EXHAUSTED_ERROR if heap is empty
-libtextclassifier3::StatusOr<ScoredDocumentHit> PopRoot(
+}  // namespace
+
+void BuildHeapInPlace(
+    std::vector<ScoredDocumentHit>* scored_document_hits,
+    const ScoredDocumentHitComparator& scored_document_hit_comparator) {
+  const int heap_size = scored_document_hits->size();
+  // Since we use a vector to represent the heap, [size / 2 - 1] is the index
+  // of the parent node of the last node.
+  for (int subtree_root_index = heap_size / 2 - 1; subtree_root_index >= 0;
+       subtree_root_index--) {
+    Heapify(scored_document_hits, subtree_root_index,
+            scored_document_hit_comparator);
+  }
+}
+
+void PushToTermHeap(TermMetadata term, int number_to_return,
+                    std::vector<TermMetadata>& scored_terms_heap) {
+  if (scored_terms_heap.size() < number_to_return) {
+    scored_terms_heap.push_back(std::move(term));
+    // We insert at end, so we should heapify bottom up.
+    HeapifyTermUp(scored_terms_heap, scored_terms_heap.size() - 1);
+  } else if (scored_terms_heap.at(0).score < term.score) {
+    scored_terms_heap.at(0) = std::move(term);
+    // We insert at root, so we should heapify top down.
+    HeapifyTermDown(scored_terms_heap, /*target_subtree_root_index=*/0);
+  }
+}
+
+libtextclassifier3::StatusOr<ScoredDocumentHit> PopNextTopResultFromHeap(
     std::vector<ScoredDocumentHit>* scored_document_hits_heap,
     const ScoredDocumentHitComparator& scored_document_hit_comparator) {
   if (scored_document_hits_heap->empty()) {
@@ -175,34 +196,6 @@ libtextclassifier3::StatusOr<ScoredDocumentHit> PopRoot(
   return root;
 }
 
-}  // namespace
-
-void BuildHeapInPlace(
-    std::vector<ScoredDocumentHit>* scored_document_hits,
-    const ScoredDocumentHitComparator& scored_document_hit_comparator) {
-  const int heap_size = scored_document_hits->size();
-  // Since we use a vector to represent the heap, [size / 2 - 1] is the index
-  // of the parent node of the last node.
-  for (int subtree_root_index = heap_size / 2 - 1; subtree_root_index >= 0;
-       subtree_root_index--) {
-    Heapify(scored_document_hits, subtree_root_index,
-            scored_document_hit_comparator);
-  }
-}
-
-void PushToTermHeap(TermMetadata term, int number_to_return,
-                    std::vector<TermMetadata>& scored_terms_heap) {
-  if (scored_terms_heap.size() < number_to_return) {
-    scored_terms_heap.push_back(std::move(term));
-    // We insert at end, so we should heapify bottom up.
-    HeapifyTermUp(scored_terms_heap, scored_terms_heap.size() - 1);
-  } else if (scored_terms_heap.at(0).hit_count < term.hit_count) {
-    scored_terms_heap.at(0) = std::move(term);
-    // We insert at root, so we should heapify top down.
-    HeapifyTermDown(scored_terms_heap, /*target_subtree_root_index=*/0);
-  }
-}
-
 std::vector<ScoredDocumentHit> PopTopResultsFromHeap(
     std::vector<ScoredDocumentHit>* scored_document_hits_heap, int num_results,
     const ScoredDocumentHitComparator& scored_document_hit_comparator) {
@@ -211,7 +204,8 @@ std::vector<ScoredDocumentHit> PopTopResultsFromHeap(
       num_results, static_cast<int>(scored_document_hits_heap->size()));
   while (result_size-- > 0) {
     libtextclassifier3::StatusOr<ScoredDocumentHit> next_best_document_hit_or =
-        PopRoot(scored_document_hits_heap, scored_document_hit_comparator);
+        PopNextTopResultFromHeap(scored_document_hits_heap,
+                                 scored_document_hit_comparator);
     if (next_best_document_hit_or.ok()) {
       scored_document_hit_result.push_back(
           std::move(next_best_document_hit_or).ValueOrDie());

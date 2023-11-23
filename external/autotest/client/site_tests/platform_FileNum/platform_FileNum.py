@@ -1,5 +1,3 @@
-#!/usr/bin/python2
-#
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -46,7 +44,7 @@ class platform_FileNum(test.test):
 
             os.makedirs(create_dir)
 
-            for i in xrange(count):
+            for i in range(count):
                 f = open(os.path.join(create_dir, '%d.txt' % i), 'w')
                 f.write(self._TEST_TEXT)
                 f.close()

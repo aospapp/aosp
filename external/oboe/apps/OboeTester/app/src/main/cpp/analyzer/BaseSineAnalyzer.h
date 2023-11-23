@@ -105,7 +105,7 @@ public:
             float sinOut = sinf(mOutputPhase);
             incrementOutputPhase();
             output = (sinOut * mOutputAmplitude)
-                     + (mWhiteNoise.nextRandomDouble() * mNoiseAmplitude);
+                     + (mWhiteNoise.nextRandomDouble() * getNoiseAmplitude());
             // ALOGD("sin(%f) = %f, %f\n", mOutputPhase, sinOut,  mPhaseIncrement);
         }
         for (int i = 0; i < channelCount; i++) {
@@ -135,11 +135,18 @@ public:
         return magnitude;
     }
 
+    /**
+     * Perform sin/cos analysis on each sample.
+     * Measure magnitude and phase on every period.
+     * @param sample
+     * @param referencePhase
+     * @return true if magnitude and phase updated
+     */
     bool transformSample(float sample, float referencePhase) {
         // Track incoming signal and slowly adjust magnitude to account
         // for drift in the DRC or AGC.
-        mSinAccumulator += sample * sinf(referencePhase);
-        mCosAccumulator += sample * cosf(referencePhase);
+        mSinAccumulator += static_cast<double>(sample) * sinf(referencePhase);
+        mCosAccumulator += static_cast<double>(sample) * cosf(referencePhase);
         mFramesAccumulated++;
         // Must be a multiple of the period or the calculation will not be accurate.
         if (mFramesAccumulated == mSinePeriod) {
@@ -163,6 +170,7 @@ public:
     void reset() override {
         LoopbackProcessor::reset();
         resetAccumulator();
+        mMagnitude = 0.0;
     }
 
     void prepareToTest() override {

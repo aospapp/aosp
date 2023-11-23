@@ -1,0 +1,60 @@
+From 4a7246ed78e8845dd2ac5477fb4abd490a83f6eb Mon Sep 17 00:00:00 2001
+From: Maurice Lam <yukl@google.com>
+Date: Thu, 2 Feb 2023 19:21:46 +0000
+Subject: [PATCH 2/3] Make openssl buildable
+
+---
+ openssl/src/bio.rs | 9 +++++++--
+ openssl/src/dh.rs  | 2 +-
+ 2 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/openssl/src/bio.rs b/openssl/src/bio.rs
+index 6a72552a..5007d677 100644
+--- a/openssl/src/bio.rs
++++ b/openssl/src/bio.rs
+@@ -7,6 +7,11 @@ use std::slice;
+ use crate::cvt_p;
+ use crate::error::ErrorStack;
+ 
++#[cfg(boringssl)]
++type SignedLenType = libc::ssize_t;
++#[cfg(not(boringssl))]
++type SignedLenType = libc::c_int;
++
+ pub struct MemBioSlice<'a>(*mut ffi::BIO, PhantomData<&'a [u8]>);
+ 
+ impl<'a> Drop for MemBioSlice<'a> {
+@@ -25,7 +30,7 @@ impl<'a> MemBioSlice<'a> {
+         let bio = unsafe {
+             cvt_p(BIO_new_mem_buf(
+                 buf.as_ptr() as *const _,
+-                buf.len() as c_int,
++                buf.len() as SignedLenType,
+             ))?
+         };
+ 
+@@ -78,7 +83,7 @@ cfg_if! {
+         use ffi::BIO_new_mem_buf;
+     } else {
+         #[allow(bad_style)]
+-        unsafe fn BIO_new_mem_buf(buf: *const ::libc::c_void, len: ::libc::c_int) -> *mut ffi::BIO {
++        unsafe fn BIO_new_mem_buf(buf: *const ::libc::c_void, len: SignedLenType) -> *mut ffi::BIO {
+             ffi::BIO_new_mem_buf(buf as *mut _, len)
+         }
+     }
+diff --git a/openssl/src/dh.rs b/openssl/src/dh.rs
+index 12170b99..e781543e 100644
+--- a/openssl/src/dh.rs
++++ b/openssl/src/dh.rs
+@@ -239,7 +239,7 @@ where
+ }
+ 
+ cfg_if! {
+-    if #[cfg(any(ossl110, libressl270))] {
++    if #[cfg(any(ossl110, libressl270, boringssl))] {
+         use ffi::{DH_set0_pqg, DH_get0_pqg, DH_get0_key, DH_set0_key};
+     } else {
+         #[allow(bad_style)]
+-- 
+2.39.1.519.gcb327c4b5f-goog
+

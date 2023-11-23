@@ -15,9 +15,8 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:cellular_modem_repair"
 DEPENDENCIES = "servo_state:WORKING"
-
+PY_VERSION = 3
 DOC = """
   Tests that a cellular modem is available for testing.
 

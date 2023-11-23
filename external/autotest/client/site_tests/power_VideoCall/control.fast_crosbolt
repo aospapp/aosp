@@ -2,11 +2,12 @@ AUTHOR = "puthik"
 NAME = "power_VideoCall.fast_crosbolt"
 PURPOSE = "Make sure power_VideoCall works fine."
 CRITERIA = "This test is a benchmark."
-TIME = "SHORT"
+TIME = "MEDIUM"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
 ATTRIBUTES = "suite:crosbolt_perf_perbuild"
+PY_VERSION = 3
 
 DOC = """
 This test simulates video call multitasking and record power related statistic.
@@ -27,7 +28,8 @@ job.default_profile_only = True
 job.profilers.add('cros_perf', interval=20)
 
 job.run_test('power_VideoCall', pdash_note=pdash_note, duration=180,
-             tag=NAME.split('.')[1], seconds_period=5, force_discharge=True)
+             tag=NAME.split('.')[1], seconds_period=5,
+             force_discharge='optional')
 
 job.profilers.delete('cros_perf')
 

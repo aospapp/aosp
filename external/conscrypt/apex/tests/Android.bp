@@ -67,7 +67,7 @@ android_test {
     // Tag this module as an mts test artifact
     test_suites: [
         "general-tests",
-        "mts",
+        "mts-conscrypt",
     ],
 
 }

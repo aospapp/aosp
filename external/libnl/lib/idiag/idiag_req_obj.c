@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/idiag/idiagnl_req_obj.c Inet Diag Request Object
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2013 Sassano Systems LLC <joe@sassanosystems.com>
  */
 
@@ -175,6 +168,9 @@ static int idiagnl_req_clone(struct nl_object *_dst, struct nl_object *_src)
 {
 	struct idiagnl_req *dst = (struct idiagnl_req *) _dst;
 	struct idiagnl_req *src = (struct idiagnl_req *) _src;
+
+	src->idiag_src = NULL;
+	src->idiag_dst = NULL;
 
 	if (src->idiag_src)
 		if (!(dst->idiag_src = nl_addr_clone(src->idiag_src)))

@@ -46,7 +46,7 @@ class PersonNameEngine {
   }
 
   bool Chunk(const UnicodeText& context_unicode,
-             const std::vector<Token>& tokens,
+             const std::vector<Token>& tokens, ModeFlag mode,
              std::vector<AnnotatedSpan>* result) const {
     return true;
   }

@@ -17,6 +17,12 @@ import six.moves.xmlrpc_client
 import time
 import os
 
+try:
+    import docker
+    from autotest_lib.site_utils.docker import utils as docker_utils
+except ImportError:
+    logging.info("Docker API is not installed in this environment")
+
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import autotest_enum
 from autotest_lib.client.common_lib import error
@@ -53,7 +59,13 @@ class BaseServoHost(ssh_host.SSHHost):
     UPDATE_STATE = autotest_enum.AutotestEnum('IDLE', 'RUNNING',
                                               'PENDING_REBOOT')
 
-    def _initialize(self, hostname, is_in_lab=None, *args, **dargs):
+    def _initialize(self,
+                    hostname,
+                    is_in_lab=None,
+                    servo_host_ssh_port=None,
+                    servod_docker=None,
+                    *args,
+                    **dargs):
         """Construct a BaseServoHost object.
 
         @param is_in_lab: True if the servo host is in Cros Lab. Default is set
@@ -61,13 +73,29 @@ class BaseServoHost(ssh_host.SSHHost):
                           called to check if the servo host is in Cros lab.
 
         """
+        if servo_host_ssh_port is not None:
+            dargs['port'] = int(servo_host_ssh_port)
+
         super(BaseServoHost, self)._initialize(hostname=hostname,
                                                *args, **dargs)
-        self._is_localhost = (self.hostname == 'localhost')
-        if self._is_localhost:
+
+        self.servod_container_name = None
+        self._is_containerized_servod = False
+        if bool(servod_docker):
+            self._is_containerized_servod = True
+            self.servod_container_name = servod_docker
+        elif self.hostname.endswith('docker_servod'):
+            # For backward compatibility
+            self.servod_container_name = self.hostname
+            self._is_containerized_servod = True
+
+        self._is_localhost = (self.hostname == 'localhost'
+                              and servo_host_ssh_port is None)
+        if self._is_localhost or self._is_containerized_servod:
             self._is_in_lab = False
         elif is_in_lab is None:
-            self._is_in_lab = utils.host_is_in_lab_zone(self.hostname)
+            self._is_in_lab = (utils.host_is_in_lab_zone(self.hostname)
+                               or self.is_satlab())
         else:
             self._is_in_lab = is_in_lab
 
@@ -130,9 +158,21 @@ class BaseServoHost(ssh_host.SSHHost):
 
         @returns True if ths host is a labstation otherwise False.
         """
+        if self.is_containerized_servod():
+            return False
+
         if self._is_labstation is None:
-            board = self.get_board()
-            self._is_labstation = board is not None and 'labstation' in board
+            if 'labstation' in self.hostname:
+                logging.info('Based on hostname, the servohost is'
+                             ' a labstation.')
+                self._is_labstation = True
+            else:
+                logging.info(
+                        'Cannot determine if %s is a labstation from'
+                        ' hostname, getting board info from the'
+                        ' servohost.', self.hostname)
+                board = self.get_board()
+                self._is_labstation = bool(board) and 'labstation' in board
 
         return self._is_labstation
 
@@ -213,12 +253,22 @@ class BaseServoHost(ssh_host.SSHHost):
         return self._is_localhost
 
 
+    def is_containerized_servod(self):
+        """Checks whether the servo host is a containerized servod.
+
+        @returns: True if using containerized servod, otherwise False.
+
+        """
+        return self._is_containerized_servod
+
     def is_cros_host(self):
         """Check if a servo host is running chromeos.
 
         @return: True if the servo host is running chromeos.
             False if it isn't, or we don't have enough information.
         """
+        if self.is_containerized_servod():
+            return False
         try:
             result = self.run('grep -q CHROMEOS /etc/lsb-release',
                               ignore_status=True, timeout=10)
@@ -245,12 +295,12 @@ class BaseServoHost(ssh_host.SSHHost):
         """Update the image on the servo host, if needed.
 
         This method recognizes the following cases:
-          * If the Host is not running Chrome OS, do nothing.
+          * If the Host is not running ChromeOS, do nothing.
           * If a previously triggered update is now complete, reboot
             to the new version.
           * If the host is processing an update do nothing.
           * If the host has an update that pending on reboot, do nothing.
-          * If the host is running a version of Chrome OS different
+          * If the host is running a version of ChromeOS different
             from the default for servo Hosts, start an update.
 
         @stable_version the target build number.(e.g. R82-12900.0.0)
@@ -394,6 +444,18 @@ class BaseServoHost(ssh_host.SSHHost):
 
     def _servo_host_reboot(self):
         """Reboot this servo host because a reboot is requested."""
+        try:
+            # TODO(otabek) remove if found the fix for b/174514811
+            # The default factory firmware remember the latest chromeboxes
+            # status after power off. If box was in sleep mode before the
+            # break, the box will stay at sleep mode after power on.
+            # Disable power manager has make chromebox to boot always when
+            # we deliver the power to the device.
+            logging.info('Stoping powerd service on device')
+            self.run('stop powerd', ignore_status=True, timeout=30)
+        except Exception as e:
+            logging.debug('(Not critical) Fail to stop powerd; %s', e)
+
         logging.info('Rebooting servo host %s from build %s', self.hostname,
                      self.get_release_version())
         # Tell the reboot() call not to wait for completion.
@@ -410,7 +472,7 @@ class BaseServoHost(ssh_host.SSHHost):
         # with the logging bits ripped out, so that they can't cause
         # the failure logging problem described above.
         #
-        # The black stain that this has left on my soul can never be
+        # The stain that this has left on my soul can never be
         # erased.
         old_boot_id = self.get_boot_id()
         if not self.wait_down(timeout=self.WAIT_DOWN_REBOOT_TIMEOUT,
@@ -485,9 +547,18 @@ class BaseServoHost(ssh_host.SSHHost):
 
         """
         command = ('scp -rq %s -o BatchMode=yes -o StrictHostKeyChecking=no '
-                   '-o UserKnownHostsFile=/dev/null -P %d %s "%s"')
-        return command % (self._master_ssh.ssh_option,
-                          self.port, sources, dest)
+                   '-o UserKnownHostsFile=/dev/null %s %s "%s"')
+        port = self.port
+        if port is None:
+            logging.info('BaseServoHost: defaulting to port 22. See b/204502754.')
+            port = 22
+        args = (
+            self._main_ssh.ssh_option,
+            ("-P %s" % port),
+            sources,
+            dest,
+        )
+        return command % args
 
 
     def run(self, command, timeout=3600, ignore_status=False,
@@ -540,10 +611,30 @@ class BaseServoHost(ssh_host.SSHHost):
             'verbose'             : verbose,
             'args'                : args,
         }
-        if self.is_localhost():
+        if self.is_containerized_servod():
+            logging.debug("Trying to run the command %s", command)
+            client = docker_utils.get_docker_client(timeout=timeout)
+            container = client.containers.get(self.servod_container_name)
+            try:
+                (exit_code,
+                 output) = container.exec_run("bash -c '%s'" % command)
+                # b/217780680, Make this compatible with python3,
+                if isinstance(output, bytes):
+                    output = output.decode(errors='replace')
+            except docker.errors.APIError:
+                logging.exception("Failed to run command %s", command)
+                for line in container.logs().split(b'\n'):
+                    logging.error(line)
+                return utils.CmdResult(command=command,
+                                       stdout="",
+                                       exit_status=-1)
+            return utils.CmdResult(command=command,
+                                   stdout=output,
+                                   exit_status=exit_code)
+        elif self.is_localhost():
             if self._sudo_required:
                 run_args['command'] = 'sudo -n sh -c "%s"' % utils.sh_escape(
-                    command)
+                        command)
             try:
                 return utils.run(**run_args)
             except error.CmdError as e:
@@ -603,3 +694,38 @@ class BaseServoHost(ssh_host.SSHHost):
                     'The servohost was just rebooted, wait %s'
                     ' seconds for it to become ready', diff)
             time.sleep(diff)
+
+    def is_up(self,
+              timeout=60,
+              connect_timeout=None,
+              base_cmd="true",
+              with_servod=True):
+        """
+        Check if the remote host is up by ssh-ing and running a base command.
+
+        @param timeout: command execution timeout in seconds.
+        @param connect_timeout: ssh connection timeout in seconds.
+        @param base_cmd: a base command to run with ssh. The default is 'true'.
+        @returns True if the remote host is up before the timeout expires,
+                 False otherwise.
+        """
+        if self.is_containerized_servod():
+            client = docker_utils.get_docker_client(timeout=timeout)
+            # Look up the container list with hostname and with/without servod process by label.
+            containers = client.containers.list(
+                    filters={
+                            'name': self.hostname,
+                            'label': ["WITH_SERVOD=%s" % str(with_servod)]
+                    })
+            if not containers:
+                return False
+            elif with_servod:
+                # For container with servod process, check if servod process started.
+                (exit_code, output) = containers[0].exec_run("ps")
+                logging.info("Is Up output %s", output)
+                if b"servod" not in output:
+                    return False
+            return True
+        else:
+            return super(BaseServoHost, self).is_up(timeout, connect_timeout,
+                                                    base_cmd)

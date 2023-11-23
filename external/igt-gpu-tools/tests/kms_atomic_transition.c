@@ -902,6 +902,11 @@ static bool output_is_internal_panel(igt_output_t *output)
 	}
 }
 
+static bool output_is_DSI(igt_output_t *output)
+{
+	return (output->config.connector->connector_type == DRM_MODE_CONNECTOR_DSI);
+}
+
 igt_main
 {
 	igt_display_t display;
@@ -973,7 +978,7 @@ igt_main
 		int tested = 0;
 
 		for_each_pipe_with_valid_output(&display, pipe, output) {
-			if (!output_is_internal_panel(output))
+			if (!output_is_internal_panel(output) || output_is_DSI(output))
 				continue;
 			run_transition_test(&display, pipe, output, TRANSITION_MODESET_FAST, false, false);
 			tested++;

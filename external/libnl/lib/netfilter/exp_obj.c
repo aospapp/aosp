@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/netfilter/exp_obj.c	Conntrack Expectation Object
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2008 Thomas Graf <tgraf@suug.ch>
  * Copyright (c) 2007 Philip Craig <philipc@snapgear.com>
  * Copyright (c) 2007 Secure Computing Corporation
@@ -88,7 +81,17 @@ static int exp_clone(struct nl_object *_dst, struct nl_object *_src)
 	struct nfnl_exp *src = (struct nfnl_exp *) _src;
 	struct nl_addr *addr;
 
-	// Expectation
+	dst->exp_helper_name = NULL;
+	dst->exp_fn = NULL;
+	dst->exp_expect.src = NULL;
+	dst->exp_expect.dst = NULL;
+	dst->exp_master.src = NULL;
+	dst->exp_master.dst = NULL;
+	dst->exp_mask.src = NULL;
+	dst->exp_mask.dst = NULL;
+	dst->exp_nat.src = NULL;
+	dst->exp_nat.dst = NULL;
+
 	if (src->exp_expect.src) {
 		addr = nl_addr_clone(src->exp_expect.src);
 		if (!addr)
@@ -103,7 +106,6 @@ static int exp_clone(struct nl_object *_dst, struct nl_object *_src)
 		dst->exp_expect.dst = addr;
 	}
 
-	// Master CT
 	if (src->exp_master.src) {
 		addr = nl_addr_clone(src->exp_master.src);
 		if (!addr)
@@ -118,7 +120,6 @@ static int exp_clone(struct nl_object *_dst, struct nl_object *_src)
 		dst->exp_master.dst = addr;
 	}
 
-	// Mask
 	if (src->exp_mask.src) {
 		addr = nl_addr_clone(src->exp_mask.src);
 		if (!addr)
@@ -133,7 +134,6 @@ static int exp_clone(struct nl_object *_dst, struct nl_object *_src)
 		dst->exp_mask.dst = addr;
 	}
 
-	// NAT
 	if (src->exp_nat.src) {
 		addr = nl_addr_clone(src->exp_nat.src);
 		if (!addr)
@@ -218,7 +218,7 @@ static void exp_dump_tuples(struct nfnl_exp *exp, struct nl_dump_params *p)
 	}
 
 	if (nfnl_exp_test_nat_dir(exp))
-		nl_dump(p, "nat dir %s ", exp->exp_nat_dir);
+		nl_dump(p, "nat dir %u ", exp->exp_nat_dir);
 
 }
 

@@ -41,6 +41,11 @@ enum VideoCodecProfile {
     VP9PROFILE_PROFILE2 = 14,
     VP9PROFILE_PROFILE3 = 15,
     VP9PROFILE_MAX = VP9PROFILE_PROFILE3,
+    HEVCPROFILE_MIN = 16,
+    HEVCPROFILE_MAIN = HEVCPROFILE_MIN,
+    HEVCPROFILE_MAIN10 = 17,
+    HEVCPROFILE_MAIN_STILL_PICTURE = 18,
+    HEVCPROFILE_MAX = HEVCPROFILE_MAIN_STILL_PICTURE,
 };
 
 // The enum class of video codec type.
@@ -49,6 +54,7 @@ enum class VideoCodecType {
     H264,
     VP8,
     VP9,
+    HEVC,
 };
 
 // Structure to store resolution.

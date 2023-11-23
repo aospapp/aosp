@@ -16,10 +16,12 @@
 
 #include <string>
 
-#include "absl/types/optional.h"
+#include "absl/strings/string_view.h"
 #include "api/video/video_bitrate_allocation.h"
 #include "api/video/video_codec_type.h"
-#include "common_types.h"  // NOLINT(build/include_directory)
+#include "api/video_codecs/scalability_mode.h"
+#include "api/video_codecs/simulcast_stream.h"
+#include "api/video_codecs/spatial_layer.h"
 #include "rtc_base/system/rtc_export.h"
 
 namespace webrtc {
@@ -29,6 +31,7 @@ namespace webrtc {
 
 // Video codec
 enum class VideoCodecComplexity {
+  kComplexityLow = -1,
   kComplexityNormal = 0,
   kComplexityHigh = 1,
   kComplexityHigher = 2,
@@ -41,11 +44,14 @@ struct VideoCodecVP8 {
   bool operator!=(const VideoCodecVP8& other) const {
     return !(*this == other);
   }
-  VideoCodecComplexity complexity;
+  // Temporary utility method for transition deleting numberOfTemporalLayers
+  // setting (replaced by ScalabilityMode).
+  void SetNumberOfTemporalLayers(unsigned char n) {
+    numberOfTemporalLayers = n;
+  }
   unsigned char numberOfTemporalLayers;
   bool denoisingOn;
   bool automaticResizeOn;
-  bool frameDroppingOn;
   int keyFrameInterval;
 };
 
@@ -61,10 +67,13 @@ struct VideoCodecVP9 {
   bool operator!=(const VideoCodecVP9& other) const {
     return !(*this == other);
   }
-  VideoCodecComplexity complexity;
+  // Temporary utility method for transition deleting numberOfTemporalLayers
+  // setting (replaced by ScalabilityMode).
+  void SetNumberOfTemporalLayers(unsigned char n) {
+    numberOfTemporalLayers = n;
+  }
   unsigned char numberOfTemporalLayers;
   bool denoisingOn;
-  bool frameDroppingOn;
   int keyFrameInterval;
   bool adaptiveQpMode;
   bool automaticResizeOn;
@@ -79,7 +88,11 @@ struct VideoCodecH264 {
   bool operator!=(const VideoCodecH264& other) const {
     return !(*this == other);
   }
-  bool frameDroppingOn;
+  // Temporary utility method for transition deleting numberOfTemporalLayers
+  // setting (replaced by ScalabilityMode).
+  void SetNumberOfTemporalLayers(unsigned char n) {
+    numberOfTemporalLayers = n;
+  }
   int keyFrameInterval;
   uint8_t numberOfTemporalLayers;
 };
@@ -101,9 +114,24 @@ class RTC_EXPORT VideoCodec {
  public:
   VideoCodec();
 
+  // Scalability mode as described in
+  // https://www.w3.org/TR/webrtc-svc/#scalabilitymodes*
+  absl::optional<ScalabilityMode> GetScalabilityMode() const {
+    return scalability_mode_;
+  }
+  void SetScalabilityMode(ScalabilityMode scalability_mode) {
+    scalability_mode_ = scalability_mode;
+  }
+  void UnsetScalabilityMode() { scalability_mode_ = absl::nullopt; }
+
+  VideoCodecComplexity GetVideoEncoderComplexity() const;
+  void SetVideoEncoderComplexity(VideoCodecComplexity complexity_setting);
+
+  bool GetFrameDropEnabled() const;
+  void SetFrameDropEnabled(bool enabled);
+
   // Public variables. TODO(hta): Make them private with accessors.
   VideoCodecType codecType;
-  unsigned char plType;
 
   // TODO(nisse): Change to int, for consistency.
   uint16_t width;
@@ -127,12 +155,6 @@ class RTC_EXPORT VideoCodec {
   VideoCodecMode mode;
   bool expect_encode_from_texture;
 
-  // The size of pool which is used to store video frame buffers inside decoder.
-  // If value isn't present some codec-default value will be used.
-  // If value is present and decoder doesn't have buffer pool the
-  // value will be ignored.
-  absl::optional<int> buffer_pool_size;
-
   // Timing frames configuration. There is delay of delay_ms between two
   // consequent timing frames, excluding outliers. Frame is always made a
   // timing frame if it's at least outlier_ratio in percent of "ideal" average
@@ -145,6 +167,9 @@ class RTC_EXPORT VideoCodec {
     int64_t delay_ms;
     uint16_t outlier_ratio_percent;
   } timing_frame_thresholds;
+
+  // Legacy Google conference mode flag for simulcast screenshare
+  bool legacy_conference_mode;
 
   bool operator==(const VideoCodec& other) const = delete;
   bool operator!=(const VideoCodec& other) const = delete;
@@ -164,6 +189,11 @@ class RTC_EXPORT VideoCodec {
   // TODO(hta): Consider replacing the union with a pointer type.
   // This will allow removing the VideoCodec* types from this file.
   VideoCodecUnion codec_specific_;
+  absl::optional<ScalabilityMode> scalability_mode_;
+  // 'complexity_' indicates the CPU capability of the client. It's used to
+  // determine encoder CPU complexity (e.g., cpu_used for VP8, VP9. and AV1).
+  VideoCodecComplexity complexity_;
+  bool frame_drop_enabled_ = false;
 };
 
 }  // namespace webrtc

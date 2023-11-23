@@ -60,11 +60,13 @@ cc_library_headers {
     vendor_available: true,
     host_supported: true,
     sdk_version: "current",
+    min_sdk_version: "apex_inherit",
     apex_available: [
         "//apex_available:platform",
         "com.android.extservices",
         "com.android.neuralnetworks",
         "test_com.android.neuralnetworks",
+        "com.android.adservices",
     ],
 }
 
@@ -78,13 +80,20 @@ genrule {
 
 subdirs = ["tensorflow/lite"]
 
+filegroup {
+    name: "tensorflow_tsl_logging_srcs",
+    srcs: [
+        "tensorflow/tsl/platform/default/logging.cc",
+        "tensorflow/tsl/platform/default/env_time.cc",
+    ],
+}
+
 cc_library_static {
     name: "TfliteNnapiDelegateTests_static",
     srcs: [
         "tensorflow/lite/delegates/nnapi/nnapi_delegate_test.cc",
+        "tensorflow/lite/kernels/test_delegate_providers.cc",
         "tensorflow/lite/kernels/test_util.cc",
-        "tensorflow/core/platform/default/logging.cc",
-        "tensorflow/core/platform/default/env_time.cc",
         "tensorflow/lite/kernels/acceleration_test_util.cc",
         "tensorflow/lite/kernels/acceleration_test_util_internal.cc",
         "tensorflow/lite/delegates/nnapi/acceleration_test_list.cc",
@@ -112,6 +121,7 @@ cc_library_static {
         "libgtest_ndk_c++",
         "libgmock_ndk",
         "libtflite_static",
+        "tensorflow_abseil",
     ],
     header_libs: [
         "libeigen",
@@ -120,4 +130,176 @@ cc_library_static {
     ],
     sdk_version: "current",
     stl: "c++_static",
+}
+
+cc_library_static {
+    name: "libtensorflow_core_mobile_srcs_only_runtime",
+    srcs: [
+        ":tensorflow_c_srcs",
+        ":tensorflow_c_eager_srcs",
+        ":tensorflow_core_common_runtime_mobile_srcs_only_runtime",
+        ":tensorflow_core_framework_mobile_srcs_only_runtime",
+        ":tensorflow_core_framework_mobile_srcs_no_runtime",
+        ":tensorflow_core_graph_mobile_srcs_only_runtime",
+        ":tensorflow_core_util_mobile_srcs_no_runtime",
+        ":tensorflow_core_util_mobile_srcs_only_runtime",
+        ":tensorflow_core_platform_mobile_srcs_no_runtime",
+        ":tensorflow_core_platform_mobile_srcs_only_runtime",
+        ":tensorflow_core_profiler_mobile_srcs_no_runtime",
+        ":tensorflow_core_tfrt_fallback_op_kernel_runner",
+        ":tensorflow_tsl_platform_default_mobile_srcs_no_runtime",
+        ":tensorflow_tsl_platform_default_mobile_srcs_only_runtime",
+        ":tensorflow_core_lib_io_mobile_src_only_runtime",
+        ":tensorflow_core_lib_mobile_src_only_runtime",
+        ":tensorflow_core_lib_mobile_src_no_runtime",
+        "tensorflow/core/nccl/collective_communicator.cc",
+        "tensorflow/core/example/feature_util.cc",
+        "tensorflow/core/lib/wav/wav_io.cc",
+        "tensorflow/compiler/jit/defs.cc",
+    ],
+    export_include_dirs: ["."],
+    static_libs: [
+        "tensorflow_abseil",
+    ],
+    whole_static_libs: [
+        "libdoubleconversion",
+        "tensorflow_core_proto_cpp_lite",
+    ],
+    shared_libs: [
+        "libz",
+    ],
+    header_libs: [
+        "libtextclassifier_hash_headers",
+        "libeigen",
+        "tensorflow_headers",
+    ],
+    cflags: [
+        "-DNAMESPACE_FOR_HASH_FUNCTIONS=farmhash",
+        "-DTF_ANDROID_ENABLE_LOGSINK",
+        "-DPLATFORM_POSIX_ANDROID",
+        "-DENABLE_ABSL_IN_TENSORFLOW",
+        "-DIS_MOBILE_PLATFORM",
+        "-DTF_ANDROID_ENABLE_LOG_EVERY_N_SECONDS",
+        "-Wno-deprecated-builtins",
+        "-Wno-deprecated-declarations",
+        "-Wno-expansion-to-defined",
+        "-Wno-ignored-qualifiers",
+        "-Wno-missing-field-initializers",
+        "-Wno-mismatched-tags",
+        "-Wno-unused-const-variable",
+        "-Wno-unused-but-set-variable",
+        "-Wno-unused-parameter",
+    ],
+    stl: "libc++_static",
+}
+
+cc_library_static {
+    name: "tflite_configuration_proto",
+    proto: {
+        type: "lite",
+        canonical_path_from_root: false,
+        export_proto_headers: true,
+    },
+    stl: "libc++",
+    srcs: ["tensorflow/lite/experimental/acceleration/configuration/**/*.proto"],
+    sdk_version: "current",
+    min_sdk_version: "30",
+    apex_available: [
+        "com.android.adservices",
+        "com.android.extservices",
+    ],
+}
+
+filegroup(
+    name = "tensorflow_core_protobuf_src",
+    srcs = [
+        "tensorflow/core/protobuf/bfc_memory_map.proto",
+        "tensorflow/core/protobuf/config.proto",
+        "tensorflow/core/protobuf/coordination_config.proto",
+        "tensorflow/core/protobuf/coordination_service.proto",
+        "tensorflow/core/protobuf/cluster.proto",
+        "tensorflow/core/protobuf/debug.proto",
+        "tensorflow/core/protobuf/device_filters.proto",
+        "tensorflow/core/protobuf/device_properties.proto",
+        "tensorflow/core/protobuf/data_service.proto",
+        "tensorflow/core/protobuf/debug_event.proto",
+        "tensorflow/core/protobuf/eager_service.proto",
+        "tensorflow/core/protobuf/graph_debug_info.proto",
+        "tensorflow/core/protobuf/queue_runner.proto",
+        "tensorflow/core/protobuf/rewriter_config.proto",
+        "tensorflow/core/protobuf/tensor_bundle.proto",
+        "tensorflow/core/protobuf/saver.proto",
+        "tensorflow/core/protobuf/verifier_config.proto",
+        "tensorflow/core/protobuf/error_codes.proto",
+        "tensorflow/core/protobuf/composite_tensor_variant.proto",
+        "tensorflow/core/protobuf/master.proto",
+        "tensorflow/core/protobuf/meta_graph.proto",
+        "tensorflow/core/protobuf/named_tensor.proto",
+        "tensorflow/core/protobuf/remote_tensor_handle.proto",
+        "tensorflow/core/protobuf/saved_model.proto",
+        "tensorflow/core/protobuf/saved_object_graph.proto",
+        "tensorflow/core/protobuf/status.proto",
+        "tensorflow/core/protobuf/struct.proto",
+        "tensorflow/core/protobuf/worker.proto",
+        "tensorflow/core/protobuf/tensorflow_server.proto",
+        "tensorflow/core/protobuf/trackable_object_graph.proto",
+        "tensorflow/core/protobuf/transport_options.proto",
+        "tensorflow/core/grappler/costs/op_performance_data.proto",
+        "tensorflow/compiler/xla/pjrt/distributed/protocol.proto",
+        "tensorflow/compiler/xla/stream_executor/dnn.proto",
+    ],
+)
+
+cc_library {
+    name: "tensorflow_core_proto_cpp_lite",
+    proto: {
+        export_proto_headers: true,
+        canonical_path_from_root: false,
+        type: "lite",
+        include_dirs: ["external/protobuf/src"],
+    },
+    srcs: [
+        "tensorflow/core/framework/*.proto",
+        "tensorflow/core/example/example.proto",
+        "tensorflow/core/example/feature.proto",
+        "tensorflow/core/example/example_parser_configuration.proto",
+        "tensorflow/core/profiler/protobuf/xplane.proto",
+        "tensorflow/core/profiler/profiler_options.proto",
+        "tensorflow/core/util/saved_tensor_slice.proto",
+        "tensorflow/core/util/event.proto",
+        ":tensorflow_core_protobuf_src",
+        ":libprotobuf-internal-protos",
+    ],
+    shared_libs: [
+        "libprotobuf-cpp-lite",
+    ],
+    export_include_dirs: ["."],
+}
+
+java_library_static {
+    name: "tensorflow_core_proto_java_lite",
+    srcs: [
+        "tensorflow/core/framework/*.proto",
+        "tensorflow/core/example/example.proto",
+        "tensorflow/core/example/feature.proto",
+        "tensorflow/core/example/example_parser_configuration.proto",
+        "tensorflow/core/profiler/protobuf/xplane.proto",
+        "tensorflow/core/profiler/profiler_options.proto",
+        "tensorflow/core/util/saved_tensor_slice.proto",
+        "tensorflow/core/util/event.proto",
+        ":tensorflow_core_protobuf_src",
+        ":libprotobuf-internal-protos",
+    ],
+    proto: {
+        canonical_path_from_root: false,
+        include_dirs: [
+            "external/protobuf/src",
+            "external/protobuf/java",
+        ],
+        type: "lite",
+    },
+    static_libs: ["libprotobuf-java-lite"],
+    sdk_version: "current",
+    min_sdk_version: "33",
+    apex_available: ["com.android.ondevicepersonalization"],
 }

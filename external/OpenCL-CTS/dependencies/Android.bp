@@ -33,7 +33,6 @@ genrule {
         "ocl-headers/CL/cl_gl.h",
         "ocl-headers/CL/cl_egl.h",
         "ocl-headers/CL/cl_ext.h",
-        "ocl-headers/CL/cl_gl_ext.h",
     ],
     cmd: "python3 $(location) $(in) > $(out)"
 }

@@ -40,29 +40,34 @@ license {
 
 rust_library {
     name: "libunicode_bidi",
+    // has rustc warnings
     host_supported: true,
     crate_name: "unicode_bidi",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.3.7",
+    cargo_pkg_version: "0.3.10",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
         "default",
+        "hardcoded-data",
         "std",
     ],
     apex_available: [
         "//apex_available:platform",
         "com.android.resolv",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "29",
 }
 
 rust_test {
     name: "unicode-bidi_test_src_lib",
+    // has rustc warnings
     host_supported: true,
     crate_name: "unicode_bidi",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.3.7",
+    cargo_pkg_version: "0.3.10",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
@@ -72,6 +77,7 @@ rust_test {
     edition: "2018",
     features: [
         "default",
+        "hardcoded-data",
         "std",
     ],
     rustlibs: [

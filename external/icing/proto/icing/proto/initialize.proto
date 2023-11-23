@@ -23,7 +23,7 @@ option java_package = "com.google.android.icing.proto";
 option java_multiple_files = true;
 option objc_class_prefix = "ICNG";
 
-// Next tag: 5
+// Next tag: 11
 message IcingSearchEngineOptions {
   // Directory to persist files for Icing. Required.
   // If Icing was previously initialized with this directory, it will reload
@@ -57,6 +57,52 @@ message IcingSearchEngineOptions {
   // Valid values: [1, INT_MAX]
   // Optional.
   optional int32 index_merge_size = 4 [default = 1048576];  // 1 MiB
+
+  // Whether to use namespace id or namespace name to build up fingerprint for
+  // document_key_mapper_ and corpus_mapper_ in document store.
+  // TODO(b/259969017) Flip the default value of this flag to true at the time
+  // when we switch to use persistent hash map for document_key_mapper_ so that
+  // we just need one reconstruction of the internal mappers.
+  optional bool document_store_namespace_id_fingerprint = 5;
+
+  // The threshold of the percentage of invalid documents to rebuild index
+  // during optimize, i.e. we rebuild index if and only if
+  // |invalid_documents| / |all_documents| >= optimize_rebuild_index_threshold
+  //
+  // Rebuilding the index could be faster than optimizing the index if we have
+  // removed most of the documents.
+  // Based on benchmarks, 85%~95% seems to be a good threshold for most cases.
+  //
+  // Default to 0 for better rollout of the new index optimize.
+  optional float optimize_rebuild_index_threshold = 6 [default = 0.0];
+
+  // Level of compression, NO_COMPRESSION = 0, BEST_SPEED = 1,
+  // BEST_COMPRESSION = 9
+  // Valid values: [0, 9]
+  // Optional.
+  optional int32 compression_level = 7 [default = 3];
+
+  // OPTIONAL: Whether to allow circular references between schema types for
+  // the schema definition.
+  //
+  // Even when set to true, circular references are still not allowed in the
+  // following cases:
+  //    1. All edges of a cycle have index_nested_properties=true
+  //    2. One of the types in the cycle has a joinable property, or depends on
+  //       a type with a joinable property.
+  // This is because such a cycle would lead to an infinite number of
+  // indexed/joinable properties:
+  //
+  // The default value is false.
+  optional bool allow_circular_schema_definitions = 8;
+
+  // Whether memory map max possible file size for FileBackedVector before
+  // growing the actual file size.
+  optional bool pre_mapping_fbv = 9;
+
+  // Whether use persistent hash map as the key mapper (if false, then fall back
+  // to dynamic trie key mapper).
+  optional bool use_persistent_hash_map = 10;
 
   reserved 2;
 }

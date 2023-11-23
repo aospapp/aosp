@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "perfetto/base/build_config.h"
@@ -77,7 +78,8 @@ enum class SortingMode {
 enum class DropFtraceDataBefore {
   // Drops ftrace data before timestmap specified by the
   // TracingServiceEvent::tracing_started packet. If this packet is not in the
-  // trace, no data is dropped.
+  // trace, no data is dropped. If preserve_ftrace_buffer (from the trace
+  // config) is set, no data is dropped.
   // Note: this event was introduced in S+ so no data will be dropped on R-
   // traces.
   // This is the default approach.
@@ -94,8 +96,20 @@ enum class DropFtraceDataBefore {
   kAllDataSourcesStarted = 2,
 };
 
+// Enum which encodes which timestamp source (if any) should be used to drop
+// track event data before this timestamp.
+enum class DropTrackEventDataBefore {
+  // Retain all track events. This is the default approach.
+  kNoDrop = 0,
+
+  // Drops track events before the timestamp specified by the
+  // TrackEventRangeOfInterest trace packet. No data is dropped if this packet
+  // is not present in the trace.
+  kTrackEventRangeOfInterest = 1,
+};
+
 // Struct for configuring a TraceProcessor instance (see trace_processor.h).
-struct PERFETTO_EXPORT Config {
+struct PERFETTO_EXPORT_COMPONENT Config {
   // Indicates the sortinng mode that trace processor should use on the passed
   // trace packets. See the enum documentation for more details.
   SortingMode sorting_mode = SortingMode::kDefaultHeuristics;
@@ -115,13 +129,31 @@ struct PERFETTO_EXPORT Config {
   DropFtraceDataBefore drop_ftrace_data_before =
       DropFtraceDataBefore::kTracingStarted;
 
+  // Indicates the source of timestamp before which track events should be
+  // dropped. See the enum documentation for more details.
+  DropTrackEventDataBefore drop_track_event_data_before =
+      DropTrackEventDataBefore::kNoDrop;
+
   // Any built-in metric proto or sql files matching these paths are skipped
   // during trace processor metric initialization.
   std::vector<std::string> skip_builtin_metric_paths;
+
+  // When set to true, the trace processor analyzes trace proto content, and
+  // exports the field path -> total size mapping into an SQL table.
+  //
+  // The analysis feature is hidden behind the flag so that the users who don't
+  // need this feature don't pay the performance costs.
+  //
+  // The flag has no impact on non-proto traces.
+  bool analyze_trace_proto_content = false;
+
+  // When set to true, trace processor will be augmented with a bunch of helpful
+  // features for local development such as extra SQL fuctions.
+  bool enable_dev_features = false;
 };
 
 // Represents a dynamically typed value returned by SQL.
-struct PERFETTO_EXPORT SqlValue {
+struct PERFETTO_EXPORT_COMPONENT SqlValue {
   // Represents the type of the value.
   enum Type {
     kNull = 0,
@@ -129,6 +161,7 @@ struct PERFETTO_EXPORT SqlValue {
     kDouble,
     kString,
     kBytes,
+    kLastType = kBytes,
   };
 
   SqlValue() = default;
@@ -193,6 +226,27 @@ struct PERFETTO_EXPORT SqlValue {
   // The size of bytes_value. Only valid when |type == kBytes|.
   size_t bytes_count = 0;
   Type type = kNull;
+};
+
+// Data used to register a new SQL module.
+struct SqlModule {
+  // Must be unique among modules, or can be used to override existing module if
+  // |allow_module_override| is set.
+  std::string name;
+
+  // Pairs of strings used for |IMPORT| with the contents of SQL files being
+  // run. Strings should only contain alphanumeric characters and '.', where
+  // string before the first dot has to be module name.
+  //
+  // It is encouraged that import key should be the path to the SQL file being
+  // run, with slashes replaced by dots and without the SQL extension. For
+  // example, 'android/camera/junk.sql' would be imported by
+  // 'android.camera.junk'.
+  std::vector<std::pair<std::string, std::string>> files;
+
+  // If true, SqlModule will override registered module with the same name. Can
+  // only be set if enable_dev_features is true, otherwise will throw an error.
+  bool allow_module_override;
 };
 
 }  // namespace trace_processor

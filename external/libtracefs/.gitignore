@@ -1,0 +1,15 @@
+*~
+\#*\#
+.pc
+libtracefs.pc
+TAGS
+tags
+lib/
+bin/
+patches/
+build_prefix
+build_uninstall
+tfs_version.h
+*.o
+.*.d
+sqlhist

@@ -1,6 +1,10 @@
 <!-- Generated with Stardoc: http://skydoc.bazel.build -->
 
-<a name="#my_namespace.min"></a>
+A test that verifies documenting a multi-leveled namespace of functions with whitelist symbols.
+The whitelist symbols should cause everything in my_namespace to to be documented, but only a
+specific symbol in other_namespace to be documented.
+
+<a id="my_namespace.min"></a>
 
 ## my_namespace.min
 
@@ -14,11 +18,11 @@ Returns the minimum of given elements.
 
 
 | Name  | Description | Default Value |
-| :-------------: | :-------------: | :-------------: |
-| integers |  <p align="center"> - </p>   |  none |
+| :------------- | :------------- | :------------- |
+| <a id="my_namespace.min-integers"></a>integers |  <p align="center"> - </p>   |  none |
 
 
-<a name="#my_namespace.math.min"></a>
+<a id="my_namespace.math.min"></a>
 
 ## my_namespace.math.min
 
@@ -32,11 +36,11 @@ Returns the minimum of given elements.
 
 
 | Name  | Description | Default Value |
-| :-------------: | :-------------: | :-------------: |
-| integers |  <p align="center"> - </p>   |  none |
+| :------------- | :------------- | :------------- |
+| <a id="my_namespace.math.min-integers"></a>integers |  <p align="center"> - </p>   |  none |
 
 
-<a name="#other_namespace.foo.nothing"></a>
+<a id="other_namespace.foo.nothing"></a>
 
 ## other_namespace.foo.nothing
 
@@ -45,8 +49,6 @@ other_namespace.foo.nothing()
 </pre>
 
 This function does nothing.
-
-**PARAMETERS**
 
 
 

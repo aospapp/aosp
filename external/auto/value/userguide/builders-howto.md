@@ -154,7 +154,7 @@ public abstract class Animal {
 
   abstract Builder toBuilder();
 
-  public Animal withName(String name) {
+  public final Animal withName(String name) {
     return toBuilder().setName(name).build();
   }
 
@@ -201,7 +201,7 @@ public abstract class Animal {
 
     abstract Animal autoBuild();  // not public
 
-    public Animal build() {
+    public final Animal build() {
       Animal animal = autoBuild();
       Preconditions.checkState(animal.numberOfLegs() >= 0, "Negative legs");
       return animal;
@@ -235,7 +235,7 @@ public abstract class Animal {
 
     abstract Animal autoBuild(); // not public
 
-    public Animal build() {
+    public final Animal build() {
       setName(name().toLowerCase());
       return autoBuild();
     }
@@ -279,8 +279,8 @@ public abstract class Animal {
 
     abstract Animal autoBuild(); // not public
 
-    public Animal build() {
-      if (!name().isPresent()) {
+    public final Animal build() {
+      if (name().isEmpty()) {
         setName(numberOfLegs() + "-legged creature");
       }
       return autoBuild();
@@ -491,7 +491,7 @@ public abstract class Animal {
     public abstract Builder setNumberOfLegs(int value);
 
     abstract ImmutableSet.Builder<String> countriesBuilder();
-    public Builder addCountry(String value) {
+    public final Builder addCountry(String value) {
       countriesBuilder().add(value);
       return this;
     }
@@ -623,11 +623,75 @@ in an exception because the required properties of `Species` have not been set.
 
 A [_step builder_](http://rdafbn.blogspot.com/2012/07/step-builder-pattern_28.html)
 is a collection of builder interfaces that take you step by step through the
-setting of each of a list of required properties. We think that these are a nice
-idea in principle but not necessarily in practice. Regardless, if you want to
-use AutoValue to implement a step builder,
-[this example](https://github.com/google/auto/issues/1000#issuecomment-792875738)
-shows you how.
+setting of each of a list of required properties. This means you can be sure at
+compile time that all the properties are set before you build, at the expense of
+some extra code and a bit less flexibility.
+
+Here is an example:
+
+```java
+@AutoValue
+public abstract class Stepped {
+  public abstract String foo();
+  public abstract String bar();
+  public abstract int baz();
+
+  public static FooStep builder() {
+    return new AutoValue_Stepped.Builder();
+  }
+
+  public interface FooStep {
+    BarStep setFoo(String foo);
+  }
+
+  public interface BarStep {
+    BazStep setBar(String bar);
+  }
+
+  public interface BazStep {
+    Build setBaz(int baz);
+  }
+
+  public interface Build {
+    Stepped build();
+  }
+
+  @AutoValue.Builder
+  abstract static class Builder implements FooStep, BarStep, BazStep, Build {}
+}
+```
+
+It might be used like this:
+
+```java
+Stepped stepped = Stepped.builder().setFoo("foo").setBar("bar").setBaz(3).build();
+```
+
+The idea is that the only way to build an instance of `Stepped`
+is to go through the steps imposed by the `FooStep`, `BarStep`, and
+`BazStep` interfaces to set the properties in order, with a final build step.
+
+Once you have set the `baz` property there is nothing else to do except build,
+so you could also combine the `setBaz` and `build` methods like this:
+
+```java
+  ...
+
+  public interface BazStep {
+    Stepped setBazAndBuild(int baz);
+  }
+
+  @AutoValue.Builder
+  abstract static class Builder implements FooStep, BarStep, BazStep {
+    abstract Builder setBaz(int baz);
+    abstract Stepped build();
+
+    @Override
+    public Stepped setBazAndBuild(int baz) {
+      return setBaz(baz).build();
+    }
+  }
+```
 
 ## <a name="autobuilder"></a> ... create a builder for something other than an `@AutoValue`?
 

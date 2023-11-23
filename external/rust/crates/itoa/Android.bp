@@ -43,18 +43,14 @@ rust_test {
     host_supported: true,
     crate_name: "test",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.4.8",
+    cargo_pkg_version: "1.0.5",
     srcs: ["tests/test.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
     test_options: {
         unit_test: true,
     },
-    edition: "2015",
-    features: [
-        "default",
-        "std",
-    ],
+    edition: "2018",
     rustlibs: [
         "libitoa",
     ],
@@ -65,15 +61,13 @@ rust_library {
     host_supported: true,
     crate_name: "itoa",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.4.8",
+    cargo_pkg_version: "1.0.5",
     srcs: ["src/lib.rs"],
-    edition: "2015",
-    features: [
-        "default",
-        "std",
-    ],
+    edition: "2018",
     apex_available: [
         "//apex_available:platform",
         "com.android.virt",
     ],
+    product_available: true,
+    vendor_available: true,
 }

@@ -19,25 +19,25 @@
 #include "api/jsep.h"
 #include "api/media_types.h"
 #include "api/peer_connection_interface.h"
-#include "api/peer_connection_proxy.h"
 #include "api/scoped_refptr.h"
+#include "api/sctp_transport_interface.h"
 #include "api/task_queue/default_task_queue_factory.h"
-#include "media/base/codec.h"
+#include "api/task_queue/task_queue_factory.h"
+#include "api/transport/sctp_transport_factory_interface.h"
 #include "media/base/fake_media_engine.h"
-#include "media/base/media_constants.h"
 #include "media/base/media_engine.h"
-#include "media/sctp/sctp_transport_internal.h"
 #include "p2p/base/p2p_constants.h"
 #include "p2p/base/port_allocator.h"
 #include "pc/media_session.h"
 #include "pc/peer_connection.h"
-#include "pc/peer_connection_factory.h"
+#include "pc/peer_connection_proxy.h"
 #include "pc/peer_connection_wrapper.h"
+#include "pc/sctp_transport.h"
 #include "pc/sdp_utils.h"
 #include "pc/session_description.h"
 #include "pc/test/mock_peer_connection_observers.h"
 #include "rtc_base/checks.h"
-#include "rtc_base/ref_counted_object.h"
+#include "rtc_base/logging.h"
 #include "rtc_base/rtc_certificate_generator.h"
 #include "rtc_base/thread.h"
 #include "test/gmock.h"
@@ -45,8 +45,8 @@
 #ifdef WEBRTC_ANDROID
 #include "pc/test/android_test_initializer.h"
 #endif
-#include "pc/test/fake_sctp_transport.h"
 #include "rtc_base/virtual_socket_server.h"
+#include "test/pc/sctp/fake_sctp_transport.h"
 
 namespace webrtc {
 
@@ -58,45 +58,19 @@ using ::testing::Values;
 
 namespace {
 
-PeerConnectionFactoryDependencies CreatePeerConnectionFactoryDependencies(
-    rtc::Thread* network_thread,
-    rtc::Thread* worker_thread,
-    rtc::Thread* signaling_thread,
-    std::unique_ptr<cricket::MediaEngineInterface> media_engine,
-    std::unique_ptr<CallFactoryInterface> call_factory) {
+PeerConnectionFactoryDependencies CreatePeerConnectionFactoryDependencies() {
   PeerConnectionFactoryDependencies deps;
-  deps.network_thread = network_thread;
-  deps.worker_thread = worker_thread;
-  deps.signaling_thread = signaling_thread;
+  deps.network_thread = rtc::Thread::Current();
+  deps.worker_thread = rtc::Thread::Current();
+  deps.signaling_thread = rtc::Thread::Current();
   deps.task_queue_factory = CreateDefaultTaskQueueFactory();
-  deps.media_engine = std::move(media_engine);
-  deps.call_factory = std::move(call_factory);
+  deps.media_engine = std::make_unique<cricket::FakeMediaEngine>();
+  deps.call_factory = CreateCallFactory();
+  deps.sctp_factory = std::make_unique<FakeSctpTransportFactory>();
   return deps;
 }
 
 }  // namespace
-
-class PeerConnectionFactoryForDataChannelTest
-    : public rtc::RefCountedObject<PeerConnectionFactory> {
- public:
-  PeerConnectionFactoryForDataChannelTest()
-      : rtc::RefCountedObject<PeerConnectionFactory>(
-            CreatePeerConnectionFactoryDependencies(
-                rtc::Thread::Current(),
-                rtc::Thread::Current(),
-                rtc::Thread::Current(),
-                std::make_unique<cricket::FakeMediaEngine>(),
-                CreateCallFactory())) {}
-
-  std::unique_ptr<cricket::SctpTransportInternalFactory>
-  CreateSctpTransportInternalFactory() {
-    auto factory = std::make_unique<FakeSctpTransportFactory>();
-    last_fake_sctp_transport_factory_ = factory.get();
-    return factory;
-  }
-
-  FakeSctpTransportFactory* last_fake_sctp_transport_factory_ = nullptr;
-};
 
 class PeerConnectionWrapperForDataChannelTest : public PeerConnectionWrapper {
  public:
@@ -155,25 +129,25 @@ class PeerConnectionDataChannelBaseTest : public ::testing::Test {
   WrapperPtr CreatePeerConnection(
       const RTCConfiguration& config,
       const PeerConnectionFactoryInterface::Options factory_options) {
-    rtc::scoped_refptr<PeerConnectionFactoryForDataChannelTest> pc_factory(
-        new PeerConnectionFactoryForDataChannelTest());
+    auto factory_deps = CreatePeerConnectionFactoryDependencies();
+    FakeSctpTransportFactory* fake_sctp_transport_factory =
+        static_cast<FakeSctpTransportFactory*>(factory_deps.sctp_factory.get());
+    rtc::scoped_refptr<PeerConnectionFactoryInterface> pc_factory =
+        CreateModularPeerConnectionFactory(std::move(factory_deps));
     pc_factory->SetOptions(factory_options);
-    RTC_CHECK(pc_factory->Initialize());
     auto observer = std::make_unique<MockPeerConnectionObserver>();
     RTCConfiguration modified_config = config;
     modified_config.sdp_semantics = sdp_semantics_;
-    auto pc = pc_factory->CreatePeerConnection(modified_config, nullptr,
-                                               nullptr, observer.get());
-    if (!pc) {
+    auto result = pc_factory->CreatePeerConnectionOrError(
+        modified_config, PeerConnectionDependencies(observer.get()));
+    if (!result.ok()) {
       return nullptr;
     }
 
-    observer->SetPeerConnectionInterface(pc.get());
+    observer->SetPeerConnectionInterface(result.value().get());
     auto wrapper = std::make_unique<PeerConnectionWrapperForDataChannelTest>(
-        pc_factory, pc, std::move(observer));
-    RTC_DCHECK(pc_factory->last_fake_sctp_transport_factory_);
-    wrapper->set_sctp_transport_factory(
-        pc_factory->last_fake_sctp_transport_factory_);
+        pc_factory, result.MoveValue(), std::move(observer));
+    wrapper->set_sctp_transport_factory(fake_sctp_transport_factory);
     return wrapper;
   }
 
@@ -185,7 +159,7 @@ class PeerConnectionDataChannelBaseTest : public ::testing::Test {
     if (!wrapper) {
       return nullptr;
     }
-    EXPECT_TRUE(wrapper->pc()->CreateDataChannel("dc", nullptr));
+    EXPECT_TRUE(wrapper->pc()->CreateDataChannelOrError("dc", nullptr).ok());
     return wrapper;
   }
 
@@ -219,28 +193,6 @@ class PeerConnectionDataChannelUnifiedPlanTest
       : PeerConnectionDataChannelBaseTest(SdpSemantics::kUnifiedPlan) {}
 };
 
-TEST_P(PeerConnectionDataChannelTest,
-       NoSctpTransportCreatedIfRtpDataChannelEnabled) {
-  RTCConfiguration config;
-  config.enable_rtp_data_channel = true;
-  auto caller = CreatePeerConnectionWithDataChannel(config);
-
-  ASSERT_TRUE(caller->SetLocalDescription(caller->CreateOffer()));
-  EXPECT_FALSE(caller->sctp_transport_factory()->last_fake_sctp_transport());
-}
-
-TEST_P(PeerConnectionDataChannelTest,
-       RtpDataChannelCreatedEvenIfSctpAvailable) {
-  RTCConfiguration config;
-  config.enable_rtp_data_channel = true;
-  PeerConnectionFactoryInterface::Options options;
-  options.disable_sctp_data_channels = false;
-  auto caller = CreatePeerConnectionWithDataChannel(config, options);
-
-  ASSERT_TRUE(caller->SetLocalDescription(caller->CreateOffer()));
-  EXPECT_FALSE(caller->sctp_transport_factory()->last_fake_sctp_transport());
-}
-
 TEST_P(PeerConnectionDataChannelTest, InternalSctpTransportDeletedOnTeardown) {
   auto caller = CreatePeerConnectionWithDataChannel();
 
@@ -270,7 +222,7 @@ TEST_P(PeerConnectionDataChannelTest, SctpContentAndTransportNameSetCorrectly) {
   // transport.
   caller->AddAudioTrack("a");
   caller->AddVideoTrack("v");
-  caller->pc()->CreateDataChannel("dc", nullptr);
+  caller->pc()->CreateDataChannelOrError("dc", nullptr);
 
   auto offer = caller->CreateOffer();
   const auto& offer_contents = offer->description()->contents();
@@ -328,43 +280,6 @@ TEST_P(PeerConnectionDataChannelTest,
       answer->description()->GetTransportInfoByName(data_content->name));
 }
 
-TEST_P(PeerConnectionDataChannelTest,
-       CreateDataChannelWithDtlsDisabledSucceeds) {
-  RTCConfiguration config;
-  config.enable_dtls_srtp.emplace(false);
-  auto caller = CreatePeerConnection();
-
-  EXPECT_TRUE(caller->pc()->CreateDataChannel("dc", nullptr));
-}
-
-TEST_P(PeerConnectionDataChannelTest, CreateDataChannelWithSctpDisabledFails) {
-  PeerConnectionFactoryInterface::Options options;
-  options.disable_sctp_data_channels = true;
-  auto caller = CreatePeerConnection(RTCConfiguration(), options);
-
-  EXPECT_FALSE(caller->pc()->CreateDataChannel("dc", nullptr));
-}
-
-// Test that if a callee has SCTP disabled and receives an offer with an SCTP
-// data channel, the data section is rejected and no SCTP transport is created
-// on the callee.
-TEST_P(PeerConnectionDataChannelTest,
-       DataSectionRejectedIfCalleeHasSctpDisabled) {
-  auto caller = CreatePeerConnectionWithDataChannel();
-  PeerConnectionFactoryInterface::Options options;
-  options.disable_sctp_data_channels = true;
-  auto callee = CreatePeerConnection(RTCConfiguration(), options);
-
-  ASSERT_TRUE(callee->SetRemoteDescription(caller->CreateOfferAndSetAsLocal()));
-
-  EXPECT_FALSE(callee->sctp_transport_factory()->last_fake_sctp_transport());
-
-  auto answer = callee->CreateAnswer();
-  auto* data_content = cricket::GetFirstDataContent(answer->description());
-  ASSERT_TRUE(data_content);
-  EXPECT_TRUE(data_content->rejected);
-}
-
 TEST_P(PeerConnectionDataChannelTest, SctpPortPropagatedFromSdpToTransport) {
   constexpr int kNewSendPort = 9998;
   constexpr int kNewRecvPort = 7775;
@@ -378,8 +293,9 @@ TEST_P(PeerConnectionDataChannelTest, SctpPortPropagatedFromSdpToTransport) {
 
   auto answer = callee->CreateAnswer();
   ChangeSctpPortOnDescription(answer->description(), kNewRecvPort);
+  std::string sdp;
+  answer->ToString(&sdp);
   ASSERT_TRUE(callee->SetLocalDescription(std::move(answer)));
-
   auto* callee_transport =
       callee->sctp_transport_factory()->last_fake_sctp_transport();
   ASSERT_TRUE(callee_transport);
@@ -415,31 +331,7 @@ TEST_P(PeerConnectionDataChannelTest, ObsoleteSdpSyntaxIfSet) {
 
 INSTANTIATE_TEST_SUITE_P(PeerConnectionDataChannelTest,
                          PeerConnectionDataChannelTest,
-                         Values(SdpSemantics::kPlanB,
+                         Values(SdpSemantics::kPlanB_DEPRECATED,
                                 SdpSemantics::kUnifiedPlan));
-
-TEST_F(PeerConnectionDataChannelUnifiedPlanTest,
-       ReOfferAfterPeerRejectsDataChannel) {
-  auto caller = CreatePeerConnectionWithDataChannel();
-  PeerConnectionFactoryInterface::Options options;
-  options.disable_sctp_data_channels = true;
-  auto callee = CreatePeerConnection(RTCConfiguration(), options);
-
-  ASSERT_TRUE(caller->ExchangeOfferAnswerWith(callee.get()));
-
-  auto offer = caller->CreateOffer();
-  ASSERT_TRUE(offer);
-  const auto& contents = offer->description()->contents();
-  ASSERT_EQ(1u, contents.size());
-  EXPECT_TRUE(contents[0].rejected);
-
-  ASSERT_TRUE(
-      caller->SetLocalDescription(CloneSessionDescription(offer.get())));
-  ASSERT_TRUE(callee->SetRemoteDescription(std::move(offer)));
-
-  auto answer = callee->CreateAnswerAndSetAsLocal();
-  ASSERT_TRUE(answer);
-  EXPECT_TRUE(caller->SetRemoteDescription(std::move(answer)));
-}
 
 }  // namespace webrtc

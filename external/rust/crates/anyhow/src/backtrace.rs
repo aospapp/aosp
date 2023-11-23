@@ -38,7 +38,7 @@ macro_rules! backtrace {
 #[cfg(backtrace)]
 macro_rules! backtrace_if_absent {
     ($err:expr) => {
-        match $err.backtrace() {
+        match ($err as &dyn std::error::Error).request_ref::<std::backtrace::Backtrace>() {
             Some(_) => None,
             None => backtrace!(),
         }
@@ -182,7 +182,7 @@ mod capture {
     impl Backtrace {
         fn enabled() -> bool {
             static ENABLED: AtomicUsize = AtomicUsize::new(0);
-            match ENABLED.load(Ordering::SeqCst) {
+            match ENABLED.load(Ordering::Relaxed) {
                 0 => {}
                 1 => return false,
                 _ => return true,
@@ -194,7 +194,7 @@ mod capture {
                     None => false,
                 },
             };
-            ENABLED.store(enabled as usize + 1, Ordering::SeqCst);
+            ENABLED.store(enabled as usize + 1, Ordering::Relaxed);
             enabled
         }
 

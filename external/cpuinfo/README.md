@@ -48,7 +48,7 @@ Detect if target is a 32-bit or 64-bit ARM system:
 #endif
 ```
 
-Check if the host CPU support ARM NEON
+Check if the host CPU supports ARM NEON
 
 ```c
 cpuinfo_initialize();
@@ -100,6 +100,114 @@ for (uint32_t i = 0; i < current_l2->processor_count; i++) {
 pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_set);
 ```
 
+## Use via pkg-config
+
+If you would like to provide your project's build environment with the necessary compiler and linker flags in a portable manner, the library by default when built enables `CPUINFO_BUILD_PKG_CONFIG` and will generate a [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) manifest (_libcpuinfo.pc_). Here are several examples of how to use it:
+
+### Command Line
+
+If you used your distro's package manager to install the library, you can verify that it is available to your build environment like so:
+
+```console
+$ pkg-config --cflags --libs libcpuinfo
+-I/usr/include/x86_64-linux-gnu/ -L/lib/x86_64-linux-gnu/ -lcpuinfo
+```
+
+If you have installed the library from source into a non-standard prefix, pkg-config may need help finding it:
+
+```console
+$ PKG_CONFIG_PATH="/home/me/projects/cpuinfo/prefix/lib/pkgconfig/:$PKG_CONFIG_PATH" pkg-config --cflags --libs libcpuinfo
+-I/home/me/projects/cpuinfo/prefix/include -L/home/me/projects/cpuinfo/prefix/lib -lcpuinfo
+```
+
+### GNU Autotools
+
+To [use](https://autotools.io/pkgconfig/pkg_check_modules.html) with the GNU Autotools include the following snippet in your project's `configure.ac`:
+
+```makefile
+# CPU INFOrmation library...
+PKG_CHECK_MODULES(
+    [libcpuinfo], [libcpuinfo], [],
+    [AC_MSG_ERROR([libcpuinfo missing...])])
+YOURPROJECT_CXXFLAGS="$YOURPROJECT_CXXFLAGS $libcpuinfo_CFLAGS"
+YOURPROJECT_LIBS="$YOURPROJECT_LIBS $libcpuinfo_LIBS"
+```
+
+### Meson
+
+To use with Meson you just need to add `dependency('libcpuinfo')` as a dependency for your executable.
+
+```meson
+project(
+    'MyCpuInfoProject',
+    'cpp',
+    meson_version: '>=0.55.0'
+)
+
+executable(
+    'MyCpuInfoExecutable',
+    sources: 'main.cpp',
+    dependencies: dependency('libcpuinfo')
+)
+```
+
+### Bazel
+
+This project can be built using [Bazel](https://bazel.build/install). 
+
+You can also use this library as a dependency to your Bazel project. Add to the `WORKSPACE` file:
+
+```python
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+git_repository(
+    name = "org_pytorch_cpuinfo",
+    branch = "master",
+    remote = "https://github.com/Vertexwahn/cpuinfo.git",
+)
+```
+
+And to your `BUILD` file:
+
+```python
+cc_binary(
+    name = "cpuinfo_test",
+    srcs = [
+        # ...
+    ],
+    deps = [
+        "@org_pytorch_cpuinfo//:cpuinfo",
+    ],
+)
+```
+
+### CMake
+
+To use with CMake use the [FindPkgConfig](https://cmake.org/cmake/help/latest/module/FindPkgConfig.html) module. Here is an example:
+
+```cmake
+cmake_minimum_required(VERSION 3.6)
+project("MyCpuInfoProject")
+
+find_package(PkgConfig)
+pkg_check_modules(CpuInfo REQUIRED IMPORTED_TARGET libcpuinfo)
+
+add_executable(${PROJECT_NAME} main.cpp)
+target_link_libraries(${PROJECT_NAME} PkgConfig::CpuInfo)
+```
+
+### Makefile
+
+To use within a vanilla makefile, you can call pkg-config directly to supply compiler and linker flags using shell substitution.
+
+```makefile
+CFLAGS=-g3 -Wall -Wextra -Werror ...
+LDFLAGS=-lfoo ...
+...
+CFLAGS+= $(pkg-config --cflags libcpuinfo)
+LDFLAGS+= $(pkg-config --libs libcpuinfo)
+```
+
 ## Exposed information
 - [x] Processor (SoC) name
 - [x] Microarchitecture
@@ -142,12 +250,14 @@ pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_set);
   - [x] x86-64 (iPhone simulator)
   - [x] ARMv7
   - [x] ARM64
-- [x] OS X
+- [x] macOS
   - [x] x86
   - [x] x86-64
+  - [x] ARM64 (Apple silicon)
 - [x] Windows
   - [x] x86
   - [x] x86-64
+  - [x] arm64
 
 ## Methods
 
@@ -156,12 +266,13 @@ pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_set);
   - [x] Using `/proc/cpuinfo` on ARM
   - [x] Using `ro.chipname`, `ro.board.platform`, `ro.product.board`, `ro.mediatek.platform`, `ro.arch` properties (Android)
   - [ ] Using kernel log (`dmesg`) on ARM Linux
+  - [x] Using Windows registry on ARM64 Windows
 - Vendor and microarchitecture detection
   - [x] Intel-designed x86/x86-64 cores (up to Sunny Cove, Goldmont Plus, and Knights Mill)
   - [x] AMD-designed x86/x86-64 cores (up to Puma/Jaguar and Zen 2)
   - [ ] VIA-designed x86/x86-64 cores
   - [ ] Other x86 cores (DM&P, RDC, Transmeta, Cyrix, Rise)
-  - [x] ARM-designed ARM cores (up to Cortex-A55, Cortex-A77, and Neoverse E1/N1)
+  - [x] ARM-designed ARM cores (up to Cortex-A55, Cortex-A77, and Neoverse E1/N1/V1/N2)
   - [x] Qualcomm-designed ARM cores (Scorpion, Krait, and Kryo)
   - [x] Nvidia-designed ARM cores (Denver and Carmel)
   - [x] Samsung-designed ARM cores (Exynos)
@@ -178,6 +289,7 @@ pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_set);
   - [x] Using `/proc/self/auxv` (Android/ARM)
   - [ ] Using instruction probing on ARM (Linux)
   - [ ] Using CPUID registers on ARM64 (Linux)
+  - [x] Using IsProcessorFeaturePresent on ARM64 Windows
 - Cache detection
   - [x] Using CPUID leaf 0x00000002 (x86/x86-64)
   - [x] Using CPUID leaf 0x00000004 (non-AMD x86/x86-64)
@@ -189,6 +301,7 @@ pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_set);
   - [x] Using `sysctlbyname` (Mach)
   - [x] Using sysfs `typology` directories (ARM/Linux)
   - [ ] Using sysfs `cache` directories (Linux)
+  - [x] Using `GetLogicalProcessorInformationEx` on ARM64 Windows
 - TLB detection
   - [x] Using CPUID leaf 0x00000002 (x86/x86-64)
   - [ ] Using CPUID leaves 0x80000005-0x80000006 and 0x80000019 (AMD x86/x86-64)
@@ -202,3 +315,4 @@ pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_set);
   - [x] Using `GetLogicalProcessorInformationEx` (Windows)
   - [x] Using sysfs (Linux)
   - [x] Using chipset name (ARM/Linux)
+

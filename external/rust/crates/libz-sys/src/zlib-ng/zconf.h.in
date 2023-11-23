@@ -6,16 +6,10 @@
 #ifndef ZCONF_H
 #define ZCONF_H
 
+#include "zlib_name_mangling.h"
+
 #if !defined(_WIN32) && defined(__WIN32__)
 #  define _WIN32
-#endif
-
-#ifdef __STDC_VERSION__
-#  if __STDC_VERSION__ >= 199901L
-#    ifndef STDC99
-#      define STDC99
-#    endif
-#  endif
 #endif
 
 /* Clang macro for detecting declspec support

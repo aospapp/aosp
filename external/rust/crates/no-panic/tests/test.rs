@@ -1,6 +1,13 @@
 #[macro_use]
 mod compiletest;
 
+#[rustversion::attr(not(nightly), ignore)]
+#[test]
+fn ui() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/ui/*.rs");
+}
+
 assert_no_panic! {
     mod test_readme {
         #[no_panic]
@@ -119,21 +126,27 @@ assert_no_panic! {
         }
     }
 
-    mod test_self_in_vec {
+    mod test_self_in_macro {
         struct S {
             data: usize,
         }
 
+        macro_rules! id {
+            ($expr:expr) => {
+                $expr
+            };
+        }
+
         impl S {
             #[no_panic]
-            fn get_mut(&mut self) -> Vec<usize> {
-                vec![self.data]
+            fn get_mut(&mut self) -> usize {
+                id![self.data]
             }
         }
 
         fn main() {
             let mut s = S { data: 0 };
-            println!("{}", s.get_mut()[0]);
+            println!("{}", s.get_mut());
         }
     }
 
@@ -163,6 +176,73 @@ assert_no_panic! {
         fn main() {
             let mut s = S { data: 0 };
             println!("{}", s.get_mut());
+        }
+    }
+
+    mod test_self_with_std_pin {
+        use std::pin::Pin;
+
+        pub struct S;
+
+        impl S {
+            #[no_panic]
+            fn f(mut self: Pin<&mut Self>) {
+                let _ = self.as_mut();
+            }
+        }
+
+        fn main() {}
+    }
+
+    mod test_deref_coercion {
+        #[no_panic]
+        pub fn f(s: &str) -> &str {
+            &s
+        }
+
+        fn main() {}
+    }
+
+    mod test_return_impl_trait {
+        use std::io;
+
+        #[no_panic]
+        pub fn f() -> io::Result<impl io::Write> {
+            Ok(Vec::new())
+        }
+
+        fn main() {}
+    }
+
+    mod test_conditional_return {
+        #[no_panic]
+        pub fn f(i: i32) {
+            if i < 0 {
+                return;
+            }
+        }
+
+        fn main() {
+            println!("{:?}", f(-1));
+        }
+    }
+
+    mod test_conditional_return_macro {
+        macro_rules! return_if_negative {
+            ($e:expr) => {
+                if $e < 0 {
+                    return;
+                }
+            }
+        }
+
+        #[no_panic]
+        pub fn f(i: i32) {
+            return_if_negative!(i);
+        }
+
+        fn main() {
+            println!("{:?}", f(-1));
         }
     }
 }

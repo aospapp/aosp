@@ -21,11 +21,15 @@
 namespace pw::log_rpc {
 namespace {
 
+namespace FilterRule = ::pw::log::pwpb::FilterRule;
+namespace LogEntry = ::pw::log::pwpb::LogEntry;
+
 // Returns true if the provided log parameters match the given filter rule.
 bool IsRuleMet(const Filter::Rule& rule,
                uint32_t level,
                ConstByteSpan module,
-               uint32_t flags) {
+               uint32_t flags,
+               ConstByteSpan thread) {
   if (level < static_cast<uint32_t>(rule.level_greater_than_or_equal)) {
     return false;
   }
@@ -36,6 +40,12 @@ bool IsRuleMet(const Filter::Rule& rule,
                                                  module.end(),
                                                  rule.module_equals.begin(),
                                                  rule.module_equals.end())) {
+    return false;
+  }
+  if (!rule.thread_equals.empty() && !std::equal(thread.begin(),
+                                                 thread.end(),
+                                                 rule.thread_equals.begin(),
+                                                 rule.thread_equals.end())) {
     return false;
   }
   return true;
@@ -61,13 +71,12 @@ Status Filter::UpdateRulesFromProto(ConstByteSpan buffer) {
     PW_TRY(decoder.ReadBytes(&rule_buffer));
     protobuf::Decoder rule_decoder(rule_buffer);
     while ((status = rule_decoder.Next()).ok()) {
-      switch (
-          static_cast<log::FilterRule::Fields>(rule_decoder.FieldNumber())) {
-        case log::FilterRule::Fields::LEVEL_GREATER_THAN_OR_EQUAL:
+      switch (static_cast<FilterRule::Fields>(rule_decoder.FieldNumber())) {
+        case FilterRule::Fields::kLevelGreaterThanOrEqual:
           PW_TRY(rule_decoder.ReadUint32(reinterpret_cast<uint32_t*>(
               &rules_[i].level_greater_than_or_equal)));
           break;
-        case log::FilterRule::Fields::MODULE_EQUALS: {
+        case FilterRule::Fields::kModuleEquals: {
           ConstByteSpan module;
           PW_TRY(rule_decoder.ReadBytes(&module));
           if (module.size() > rules_[i].module_equals.max_size()) {
@@ -75,13 +84,21 @@ Status Filter::UpdateRulesFromProto(ConstByteSpan buffer) {
           }
           rules_[i].module_equals.assign(module.begin(), module.end());
         } break;
-        case log::FilterRule::Fields::ANY_FLAGS_SET:
+        case FilterRule::Fields::kAnyFlagsSet:
           PW_TRY(rule_decoder.ReadUint32(&rules_[i].any_flags_set));
           break;
-        case log::FilterRule::Fields::ACTION:
+        case FilterRule::Fields::kAction:
           PW_TRY(rule_decoder.ReadUint32(
               reinterpret_cast<uint32_t*>(&rules_[i].action)));
           break;
+        case FilterRule::Fields::kThreadEquals: {
+          ConstByteSpan thread;
+          PW_TRY(rule_decoder.ReadBytes(&thread));
+          if (thread.size() > rules_[i].thread_equals.max_size()) {
+            return Status::InvalidArgument();
+          }
+          rules_[i].thread_equals.assign(thread.begin(), thread.end());
+        } break;
       }
     }
   }
@@ -95,23 +112,25 @@ bool Filter::ShouldDropLog(ConstByteSpan entry) const {
 
   uint32_t log_level = 0;
   ConstByteSpan log_module;
+  ConstByteSpan log_thread;
   uint32_t log_flags = 0;
   protobuf::Decoder decoder(entry);
   while (decoder.Next().ok()) {
-    switch (static_cast<log::LogEntry::Fields>(decoder.FieldNumber())) {
-      case log::LogEntry::Fields::LINE_LEVEL:
-        if (decoder.ReadUint32(&log_level).ok()) {
-          log_level &= PW_LOG_LEVEL_BITMASK;
-        }
-        break;
-      case log::LogEntry::Fields::MODULE:
-        decoder.ReadBytes(&log_module).IgnoreError();
-        break;
-      case log::LogEntry::Fields::FLAGS:
-        decoder.ReadUint32(&log_flags).IgnoreError();
-        break;
-      default:
-        break;
+    const auto field_num = static_cast<LogEntry::Fields>(decoder.FieldNumber());
+
+    if (field_num == LogEntry::Fields::kLineLevel) {
+      if (decoder.ReadUint32(&log_level).ok()) {
+        log_level &= PW_LOG_LEVEL_BITMASK;
+      }
+
+    } else if (field_num == LogEntry::Fields::kModule) {
+      decoder.ReadBytes(&log_module).IgnoreError();
+
+    } else if (field_num == LogEntry::Fields::kFlags) {
+      decoder.ReadUint32(&log_flags).IgnoreError();
+
+    } else if (field_num == LogEntry::Fields::kThread) {
+      decoder.ReadBytes(&log_thread).IgnoreError();
     }
   }
 
@@ -120,7 +139,7 @@ bool Filter::ShouldDropLog(ConstByteSpan entry) const {
     if (rule.action == Filter::Rule::Action::kInactive) {
       continue;
     }
-    if (IsRuleMet(rule, log_level, log_module, log_flags)) {
+    if (IsRuleMet(rule, log_level, log_module, log_flags, log_thread)) {
       return rule.action == Filter::Rule::Action::kDrop;
     }
   }

@@ -13,7 +13,7 @@
 // the License.
 
 import {Message} from 'google-protobuf';
-import {Status} from '@pigweed/pw_status';
+import {Status} from 'pigweedjs/pw_status';
 
 import {Call} from './call';
 import {Channel, Method, Service} from './descriptors';
@@ -112,13 +112,10 @@ export class PendingCalls {
     rpc.channel.send(packets.encodeClientStreamEnd(rpc.idSet));
   }
 
-  /** Cancels the RPC. Returns the CANCEL packet to send. */
-  cancel(rpc: Rpc): Uint8Array | undefined {
+  /** Cancels the RPC. Returns the CLIENT_ERROR packet to send. */
+  cancel(rpc: Rpc): Uint8Array {
     console.debug(`Cancelling ${rpc}`);
     this.pending.delete(rpc.idString);
-    if (rpc.method.clientStreaming && rpc.method.serverStreaming) {
-      return undefined;
-    }
     return packets.encodeCancel(rpc.idSet);
   }
 

@@ -191,7 +191,7 @@ static int get_status(const struct transport_context *ctx,
 
     /* Check the CRC, if it fails we will retry */
     if (out->crc != our_crc) {
-      NLOGW("App %d status CRC mismatch: theirs=%04x ours=%04x",
+      NLOGW("App 0x%02x status CRC mismatch: theirs=%04x ours=%04x",
             ctx->app_id, out->crc, our_crc);
       continue;
     }
@@ -227,8 +227,9 @@ static uint32_t make_ready(const struct transport_context *ctx) {
     NLOGE("Failed to inspect app %d", ctx->app_id);
     return APP_ERROR_IO;
   }
-  NLOGD("App %d inspection status=0x%08x reply_len=%d protocol=%d flags=0x%04x",
-        ctx->app_id, status.status, status.reply_len, status.version, status.flags);
+  NLOGD("App 0x%02x check status=0x%08x reply_len=%d protocol=%d flags=0x%04x",
+        ctx->app_id, status.status, status.reply_len, status.version,
+        status.flags);
 
   /* If it's already idle then we're ready to proceed */
   if (status.status == APP_STATUS_IDLE) {
@@ -236,7 +237,7 @@ static uint32_t make_ready(const struct transport_context *ctx) {
         && (status.flags & STATUS_FLAG_WORKING)) {
       /* The app is still working when we don't expect it to be. We won't be
        * able to clear the state so might need to force a reset to recover. */
-      NLOGE("App %d is still working", ctx->app_id);
+      NLOGE("App 0x%02x is still working", ctx->app_id);
       return APP_ERROR_BUSY;
     }
     return APP_SUCCESS;
@@ -259,7 +260,7 @@ static uint32_t make_ready(const struct transport_context *ctx) {
 
   /* It's ignoring us and is still not ready, so it's broken */
   if (status.status != APP_STATUS_IDLE) {
-    NLOGE("App %d is not responding", ctx->app_id);
+    NLOGE("App 0x%02x is not responding", ctx->app_id);
     return APP_ERROR_IO;
   }
 
@@ -369,17 +370,20 @@ static uint32_t poll_until_done(const struct transport_context *ctx,
     poll_count++;
     /* Log at higher priority every 16 polls */
     if ((poll_count & (16 - 1)) == 0) {
-      NLOGD("App %d poll=%d status=0x%08x reply_len=%d flags=0x%04x",
-            ctx->app_id, poll_count, status->status, status->reply_len, status->flags);
+      NLOGD("App 0x%02x poll=%d status=0x%08x reply_len=%d flags=0x%04x",
+            ctx->app_id, poll_count, status->status, status->reply_len,
+            status->flags);
     } else {
-      NLOGV("App %d poll=%d status=0x%08x reply_len=%d flags=0x%04x",
-            ctx->app_id, poll_count, status->status, status->reply_len, status->flags);
+      NLOGV("App 0x%02x poll=%d status=0x%08x reply_len=%d flags=0x%04x",
+            ctx->app_id, poll_count, status->status, status->reply_len,
+            status->flags);
     }
 
     /* Check whether the app is done */
     if (status->status & APP_STATUS_DONE) {
-      NLOGD("App %d polled=%d status=0x%08x reply_len=%d flags=0x%04x",
-            ctx->app_id, poll_count, status->status, status->reply_len, status->flags);
+      NLOGD("App 0x%02x polled=%d status=0x%08x reply_len=%d flags=0x%04x",
+            ctx->app_id, poll_count, status->status, status->reply_len,
+            status->flags);
       return APP_STATUS_CODE(status->status);
     }
 
@@ -387,7 +391,7 @@ static uint32_t poll_until_done(const struct transport_context *ctx,
     if (status->version != TRANSPORT_V0
         && !(status->flags & STATUS_FLAG_WORKING)) {
       /* The slave has stopped working without being done so it's misbehaving */
-      NLOGE("App %d just stopped working", ctx->app_id);
+      NLOGE("App 0x%02x just stopped working", ctx->app_id);
       return APP_ERROR_INTERNAL;
     }
     if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
@@ -396,8 +400,8 @@ static uint32_t poll_until_done(const struct transport_context *ctx,
     }
   } while (timespec_before(&now, &abort_at));
 
-  NLOGE("App %d not done after polling %d times in %d seconds",
-        ctx->app_id, poll_count, POLL_LIMIT_SECONDS);
+  NLOGE("App 0x%02x not done after polling %d times in %d seconds", ctx->app_id,
+        poll_count, POLL_LIMIT_SECONDS);
   return APP_ERROR_TIMEOUT;
 }
 
@@ -440,7 +444,8 @@ static uint32_t receive_reply(const struct transport_context *ctx,
     if (status->version == TRANSPORT_V0) return APP_SUCCESS;
 
     if (crc == status->reply_crc) return APP_SUCCESS;
-    NLOGW("App %d reply CRC mismatch: theirs=%04x ours=%04x", ctx->app_id, status->reply_crc, crc);
+    NLOGW("App 0x%02x reply CRC mismatch: theirs=%04x ours=%04x", ctx->app_id,
+          status->reply_crc, crc);
   }
 
   NLOGE("Unable to get valid checksum on app %d reply data", ctx->app_id);
@@ -456,6 +461,7 @@ uint32_t nos_call_application(const struct nos_device *dev,
                               uint8_t *reply, uint32_t *reply_len)
 {
   uint32_t res;
+  uint32_t status_code;
   const struct transport_context ctx = {
     .dev = dev,
     .app_id = app_id,
@@ -472,10 +478,28 @@ uint32_t nos_call_application(const struct nos_device *dev,
     return APP_ERROR_IO;
   }
 
-  NLOGD("Calling App %d with params 0x%04x", app_id, params);
+#ifdef ANDROID
+  if (!dev) {
+    NLOGE("Invalid args to %s()", __func__);
+    return APP_ERROR_IO;
+  }
+
+  // Call GSA nos_call IOCTL interface if needed
+  if (dev->use_one_pass_call) {
+    int err = dev->ops.one_pass_call(dev->ctx, app_id, params, args, arg_len,
+                                     reply, reply_len, &status_code);
+    if (err < 0) {
+      NLOGE("one_pass_call failed: %s", strerror(-err));
+      status_code = APP_ERROR_IO;
+    }
+
+    return status_code;
+  }
+#endif
+
+  NLOGD("Calling App 0x%02x with params 0x%04x", app_id, params);
 
   struct transport_status status;
-  uint32_t status_code;
   int retries = CRC_RETRY_COUNT;
   while (retries--) {
     /* Wake up and wait for Citadel to be ready */
@@ -493,16 +517,16 @@ uint32_t nos_call_application(const struct nos_device *dev,
      * or more than it can accept but this should not happen. Give to the chip a
      * little bit of time and retry calling again. */
     if (status_code == APP_ERROR_TOO_MUCH) {
-      NLOGD("App %d returning 0x%x, give a retry(%d/%d)",
-            app_id, status_code, retries, CRC_RETRY_COUNT);
+      NLOGD("App 0x%02x returning 0x%x, give a retry(%d/%d)", app_id,
+            status_code, retries, CRC_RETRY_COUNT);
       usleep(RETRY_WAIT_TIME_US);
       continue;
     }
     if (status_code != APP_ERROR_CHECKSUM) break;
-    NLOGW("App %d request checksum error", app_id);
+    NLOGW("App 0x%02x request checksum error", app_id);
   }
   if (status_code == APP_ERROR_CHECKSUM) {
-    NLOGE("App %d request checksum failed too many times", app_id);
+    NLOGE("App 0x%02x request checksum failed too many times", app_id);
     status_code = APP_ERROR_IO;
   }
 
@@ -519,6 +543,6 @@ uint32_t nos_call_application(const struct nos_device *dev,
    * next call will try again. */
   (void)clear_status(&ctx);
 
-  NLOGD("App %d returning 0x%x", app_id, status_code);
+  NLOGD("App 0x%02x returning 0x%x", app_id, status_code);
   return status_code;
 }

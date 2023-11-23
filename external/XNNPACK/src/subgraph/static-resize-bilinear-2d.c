@@ -3,21 +3,25 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include <assert.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <xnnpack.h>
 #include <xnnpack/log.h>
+#include <xnnpack/operator.h>
 #include <xnnpack/params.h>
 #include <xnnpack/subgraph.h>
+#include <xnnpack/subgraph-validation.h>
 
 
 static enum xnn_status create_resize_bilinear_operator(
   const struct xnn_node* node,
   const struct xnn_value* values,
   size_t num_values,
-  struct xnn_operator_data* opdata)
+  struct xnn_operator_data* opdata,
+  const struct xnn_caches* caches)
 {
   assert(node->num_inputs == 1);
   const uint32_t input_id = node->inputs[0];
@@ -39,23 +43,31 @@ static enum xnn_status create_resize_bilinear_operator(
     status = xnn_create_resize_bilinear2d_nchw_f32(
       channel_dim /* channels */, channel_dim /* input stride */, channel_dim /* output stride */,
       node->flags,
-      &opdata->operator_object);
+      &opdata->operator_objects[0]);
   } else {
     assert(values[input_id].layout == xnn_layout_type_nhwc);
     assert(values[output_id].layout == xnn_layout_type_nhwc);
     switch (node->compute_type) {
+#ifndef XNN_NO_F16_OPERATORS
+      case xnn_compute_type_fp16:
+        status = xnn_create_resize_bilinear2d_nhwc_f16(
+          channel_dim /* channels */, channel_dim /* input stride */, channel_dim /* output stride */,
+          node->flags,
+          &opdata->operator_objects[0]);
+        break;
+#endif  // !defined(XNN_NO_F16_OPERATORS)
       case xnn_compute_type_fp32:
         status = xnn_create_resize_bilinear2d_nhwc_f32(
           channel_dim /* channels */, channel_dim /* input stride */, channel_dim /* output stride */,
           node->flags,
-          &opdata->operator_object);
+          &opdata->operator_objects[0]);
         break;
 #ifndef XNN_NO_S8_OPERATORS
       case xnn_compute_type_qs8:
         status = xnn_create_resize_bilinear2d_nhwc_s8(
           channel_dim /* channels */, channel_dim /* input stride */, channel_dim /* output stride */,
           node->flags,
-          &opdata->operator_object);
+          &opdata->operator_objects[0]);
         break;
 #endif  // !defined(XNN_NO_S8_OPERATORS)
 #ifndef XNN_NO_U8_OPERATORS
@@ -63,7 +75,7 @@ static enum xnn_status create_resize_bilinear_operator(
         status = xnn_create_resize_bilinear2d_nhwc_u8(
           channel_dim /* channels */, channel_dim /* input stride */, channel_dim /* output stride */,
           node->flags,
-          &opdata->operator_object);
+          &opdata->operator_objects[0]);
         break;
 #endif  // !defined(XNN_NO_U8_OPERATORS)
       default:
@@ -104,10 +116,10 @@ static enum xnn_status setup_resize_bilinear_operator(
   void* output_data = output_blob->data;
   assert(output_data != NULL);
 
-  switch (opdata->operator_object->type) {
+  switch (opdata->operator_objects[0]->type) {
     case xnn_operator_type_resize_bilinear_nchw_f32:
       return xnn_setup_resize_bilinear2d_nchw_f32(
-        opdata->operator_object,
+        opdata->operator_objects[0],
         opdata->batch_size,
         opdata->input_height,
         opdata->input_width,
@@ -117,9 +129,23 @@ static enum xnn_status setup_resize_bilinear_operator(
         output_data,
         threadpool);
       break;
+#ifndef XNN_NO_F16_OPERATORS
+    case xnn_operator_type_resize_bilinear_nhwc_f16:
+      return xnn_setup_resize_bilinear2d_nhwc_f16(
+        opdata->operator_objects[0],
+        opdata->batch_size,
+        opdata->input_height,
+        opdata->input_width,
+        opdata->output_height,
+        opdata->output_width,
+        input_data,
+        output_data,
+        threadpool);
+      break;
+#endif  // !defined(XNN_NO_F16_OPERATORS)
     case xnn_operator_type_resize_bilinear_nhwc_f32:
       return xnn_setup_resize_bilinear2d_nhwc_f32(
-        opdata->operator_object,
+        opdata->operator_objects[0],
         opdata->batch_size,
         opdata->input_height,
         opdata->input_width,
@@ -132,7 +158,7 @@ static enum xnn_status setup_resize_bilinear_operator(
 #ifndef XNN_NO_S8_OPERATORS
     case xnn_operator_type_resize_bilinear_nhwc_s8:
       return xnn_setup_resize_bilinear2d_nhwc_s8(
-        opdata->operator_object,
+        opdata->operator_objects[0],
         opdata->batch_size,
         opdata->input_height,
         opdata->input_width,
@@ -146,7 +172,7 @@ static enum xnn_status setup_resize_bilinear_operator(
 #ifndef XNN_NO_U8_OPERATORS
     case xnn_operator_type_resize_bilinear_nhwc_u8:
       return xnn_setup_resize_bilinear2d_nhwc_u8(
-        opdata->operator_object,
+        opdata->operator_objects[0],
         opdata->batch_size,
         opdata->input_height,
         opdata->input_width,
@@ -170,10 +196,9 @@ enum xnn_status xnn_define_static_resize_bilinear_2d(
   uint32_t output_id,
   uint32_t flags)
 {
-  if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
-    xnn_log_error("failed to define %s operator: XNNPACK is not initialized",
-      xnn_node_type_to_string(xnn_node_type_static_resize_bilinear_2d));
-    return xnn_status_uninitialized;
+  enum xnn_status status;
+  if ((status = xnn_subgraph_check_xnnpack_initialized(xnn_node_type_static_resize_bilinear_2d)) != xnn_status_success) {
+    return status;
   }
 
   if (new_width == 0 || new_height == 0) {
@@ -208,19 +233,15 @@ enum xnn_status xnn_define_static_resize_bilinear_2d(
     return xnn_status_invalid_parameter;
   }
 
-  if (input_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with input ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_static_resize_bilinear_2d), input_id);
-    return xnn_status_invalid_parameter;
+  if ((status = xnn_subgraph_check_input_node_id(xnn_node_type_static_resize_bilinear_2d, input_id, subgraph->num_values)) !=
+      xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* input_value = &subgraph->values[input_id];
-  if (input_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with input ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_static_resize_bilinear_2d), input_id, input_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_input_type_dense(xnn_node_type_static_resize_bilinear_2d, input_id, input_value);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   switch (input_value->datatype) {
@@ -240,19 +261,15 @@ enum xnn_status xnn_define_static_resize_bilinear_2d(
       return xnn_status_invalid_parameter;
   }
 
-  if (output_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_static_resize_bilinear_2d), output_id);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_node_id(xnn_node_type_static_resize_bilinear_2d, output_id, subgraph->num_values);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* output_value = &subgraph->values[output_id];
-  if (output_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_static_resize_bilinear_2d), output_id, output_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_type_dense(xnn_node_type_static_resize_bilinear_2d, output_id, output_value);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   enum xnn_compute_type compute_type = xnn_compute_type_invalid;

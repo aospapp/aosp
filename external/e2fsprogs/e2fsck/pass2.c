@@ -150,6 +150,7 @@ void e2fsck_pass2(e2fsck_t ctx)
 	mtrace_print("Pass 2");
 #endif
 
+	fs->flags |= EXT2_FLAG_IGNORE_SWAP_DIRENT;
 	if (!(ctx->options & E2F_OPT_PREEN))
 		fix_problem(ctx, PR_2_PASS_HEADER, &cd.pctx);
 
@@ -317,6 +318,7 @@ void e2fsck_pass2(e2fsck_t ctx)
 	print_resource_track(ctx, _("Pass 2"), &rtrack, fs->io);
 cleanup:
 	ext2fs_free_mem(&buf);
+	fs->flags &= ~EXT2_FLAG_IGNORE_SWAP_DIRENT;
 }
 
 #define MAX_DEPTH 32000
@@ -360,8 +362,9 @@ static int dict_de_cf_cmp(const void *cmp_ctx, const void *a, const void *b)
 	de_b = (const struct ext2_dir_entry *) b;
 	b_len = ext2fs_dirent_name_len(de_b);
 
-	return ext2fs_casefold_cmp(tbl, (unsigned char *) de_a->name, a_len,
-				   (unsigned char *) de_b->name, b_len);
+	return ext2fs_casefold_cmp(tbl,
+				   (const unsigned char *) de_a->name, a_len,
+				   (const unsigned char *) de_b->name, b_len);
 }
 
 /*
@@ -406,6 +409,7 @@ static int check_dot(e2fsck_t ctx,
 	int		status = 0;
 	int		created = 0;
 	problem_t	problem = 0;
+	int		ftype = EXT2_FT_DIR;
 
 	if (!dirent->inode)
 		problem = PR_2_MISSING_DOT;
@@ -417,12 +421,14 @@ static int check_dot(e2fsck_t ctx,
 
 	(void) ext2fs_get_rec_len(ctx->fs, dirent, &rec_len);
 	if (problem) {
+		if (!ext2fs_has_feature_filetype(ctx->fs->super))
+			ftype = EXT2_FT_UNKNOWN;
 		if (fix_problem(ctx, problem, pctx)) {
 			if (rec_len < 12)
 				rec_len = dirent->rec_len = 12;
 			dirent->inode = ino;
 			ext2fs_dirent_set_name_len(dirent, 1);
-			ext2fs_dirent_set_file_type(dirent, EXT2_FT_UNKNOWN);
+			ext2fs_dirent_set_file_type(dirent, ftype);
 			dirent->name[0] = '.';
 			dirent->name[1] = '\0';
 			status = 1;
@@ -443,12 +449,24 @@ static int check_dot(e2fsck_t ctx,
 				nextdir = (struct ext2_dir_entry *)
 					((char *) dirent + 12);
 				dirent->rec_len = 12;
-				(void) ext2fs_set_rec_len(ctx->fs, new_len,
-							  nextdir);
-				nextdir->inode = 0;
-				ext2fs_dirent_set_name_len(nextdir, 0);
-				ext2fs_dirent_set_file_type(nextdir,
-							    EXT2_FT_UNKNOWN);
+				/* if the next entry looks like "..", leave it
+				 * and let check_dotdot() verify the dirent,
+				 * otherwise zap the following entry. */
+				if (strncmp(nextdir->name, "..", 3) != 0) {
+					(void)ext2fs_set_rec_len(ctx->fs,
+								 new_len,
+								 nextdir);
+					nextdir->inode = 0;
+					ext2fs_dirent_set_name_len(nextdir, 0);
+					ext2fs_dirent_set_file_type(nextdir,
+								    ftype);
+#ifdef WORDS_BIGENDIAN
+				} else {
+					(void) ext2fs_dirent_swab_in2(ctx->fs,
+						(char *) nextdir,
+						ctx->fs->blocksize - 12, 0);
+#endif
+				}
 				status = 1;
 			}
 		}
@@ -467,6 +485,7 @@ static int check_dotdot(e2fsck_t ctx,
 {
 	problem_t	problem = 0;
 	unsigned int	rec_len;
+	int		ftype = EXT2_FT_DIR;
 
 	if (!dirent->inode)
 		problem = PR_2_MISSING_DOT_DOT;
@@ -479,6 +498,8 @@ static int check_dotdot(e2fsck_t ctx,
 
 	(void) ext2fs_get_rec_len(ctx->fs, dirent, &rec_len);
 	if (problem) {
+		if (!ext2fs_has_feature_filetype(ctx->fs->super))
+			ftype = EXT2_FT_UNKNOWN;
 		if (fix_problem(ctx, problem, pctx)) {
 			if (rec_len < 12)
 				dirent->rec_len = 12;
@@ -489,7 +510,7 @@ static int check_dotdot(e2fsck_t ctx,
 			 */
 			dirent->inode = EXT2_ROOT_INO;
 			ext2fs_dirent_set_name_len(dirent, 2);
-			ext2fs_dirent_set_file_type(dirent, EXT2_FT_UNKNOWN);
+			ext2fs_dirent_set_file_type(dirent, ftype);
 			dirent->name[0] = '.';
 			dirent->name[1] = '.';
 			dirent->name[2] = '\0';
@@ -779,7 +800,7 @@ static void salvage_directory(ext2_filsys fs,
 	 * Special case of directory entry of size 8: copy what's left
 	 * of the directory block up to cover up the invalid hole.
 	 */
-	if ((left >= ext2fs_dir_rec_len(1, hash_in_dirent)) &&
+	if ((left >= (int) ext2fs_dir_rec_len(1, hash_in_dirent)) &&
 	     (rec_len == EXT2_DIR_ENTRY_HEADER_LEN)) {
 		memmove(cp, cp+EXT2_DIR_ENTRY_HEADER_LEN, left);
 		memset(cp + left, 0, EXT2_DIR_ENTRY_HEADER_LEN);
@@ -1285,7 +1306,7 @@ skip_checksum:
 
 	if (cf_dir) {
 		dict_init(&de_dict, DICTCOUNT_T_MAX, dict_de_cf_cmp);
-		dict_set_cmp_context(&de_dict, (void *)ctx->fs->encoding);
+		dict_set_cmp_context(&de_dict, (const void *)ctx->fs->encoding);
 	} else {
 		dict_init(&de_dict, DICTCOUNT_T_MAX, dict_de_cmp);
 	}
@@ -1301,7 +1322,7 @@ skip_checksum:
 		unsigned int name_len;
 		/* csum entry is not checked here, so don't worry about it */
 		int extended = (dot_state > 1) && hash_in_dirent;
-		int min_dir_len = ext2fs_dir_rec_len(1, extended);
+		unsigned int min_dir_len = ext2fs_dir_rec_len(1, extended);
 
 		problem = 0;
 		if (!inline_data_size || dot_state > 1) {
@@ -1357,12 +1378,14 @@ skip_checksum:
 							  hash_in_dirent);
 #ifdef WORDS_BIGENDIAN
 					if (need_reswab) {
+						unsigned int len;
+
 						(void) ext2fs_get_rec_len(fs,
-							dirent, &rec_len);
-						ext2fs_dirent_swab_in2(fs,
-							((char *)dirent) + offset + rec_len,
-							max_block_size - offset - rec_len,
-							0);
+							dirent, &len);
+						len += offset;
+						if (max_block_size > len)
+							ext2fs_dirent_swab_in2(fs,
+				((char *)dirent) + len, max_block_size - len, 0);
 					}
 #endif
 					dir_modified++;
@@ -1420,7 +1443,10 @@ skip_checksum:
 		name_len = ext2fs_dirent_name_len(dirent);
 		if (((dirent->inode != EXT2_ROOT_INO) &&
 		     (dirent->inode < EXT2_FIRST_INODE(fs->super))) ||
-		    (dirent->inode > fs->super->s_inodes_count)) {
+		    (dirent->inode > fs->super->s_inodes_count) ||
+		    (dirent->inode == fs->super->s_usr_quota_inum) ||
+		    (dirent->inode == fs->super->s_grp_quota_inum) ||
+		    (dirent->inode == fs->super->s_prj_quota_inum)) {
 			problem = PR_2_BAD_INO;
 		} else if (ctx->inode_bb_map &&
 			   (ext2fs_test_inode_bitmap2(ctx->inode_bb_map,
@@ -1515,6 +1541,7 @@ skip_checksum:
 					&cd->pctx)){
 				ext2fs_bg_flags_clear(fs, group,
 						      EXT2_BG_INODE_UNINIT);
+				ext2fs_group_desc_csum_set(fs, group);
 				ext2fs_mark_super_dirty(fs);
 				ctx->flags |= E2F_FLAG_RESTART_LATER;
 			} else {
@@ -1526,6 +1553,7 @@ skip_checksum:
 			pctx.num = dirent->inode;
 			if (fix_problem(ctx, PR_2_INOREF_IN_UNUSED, &cd->pctx)){
 				ext2fs_bg_itable_unused_set(fs, group, 0);
+				ext2fs_group_desc_csum_set(fs, group);
 				ext2fs_mark_super_dirty(fs);
 				ctx->flags |= E2F_FLAG_RESTART_LATER;
 			} else {
@@ -1783,7 +1811,7 @@ struct del_block {
 };
 
 /*
- * This function is called to deallocate a block, and is an interator
+ * This function is called to deallocate a block, and is an iterator
  * functioned called by deallocate inode via ext2fs_iterate_block().
  */
 static int deallocate_inode_block(ext2_filsys fs,

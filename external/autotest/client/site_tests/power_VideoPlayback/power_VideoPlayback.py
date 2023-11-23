@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -115,7 +116,6 @@ class power_VideoPlayback(power_videotest.power_VideoTest):
         local_path = os.path.join(self._RAMDISK, os.path.basename(url))
         logging.info('Downloading %s to %s', url, local_path)
         file_utils.download_file(url, local_path)
-        self.cr.browser.platform.SetHTTPServerDirectories(self._RAMDISK)
 
     def _start_video(self, cr, url):
         """Start playing video.
@@ -125,7 +125,11 @@ class power_VideoPlayback(power_videotest.power_VideoTest):
         """
         local_path = os.path.join(self._RAMDISK, os.path.basename(url))
         tab = cr.browser.tabs[0]
-        tab.Navigate(cr.browser.platform.http_server.UrlOf(local_path))
+        # Ensure the tab is activated because Chrome sometimes starts with
+        # and focus on another "What's new" tab.
+        tab.Activate()
+
+        tab.Navigate('file://' + local_path)
         tab.WaitForDocumentReadyStateToBeComplete()
         tab.EvaluateJavaScript(
             "document.getElementsByTagName('video')[0].loop=true")
@@ -136,7 +140,6 @@ class power_VideoPlayback(power_videotest.power_VideoTest):
         @param cr: Autotest Chrome instance.
         @param url: url of video file to play.
         """
-        self.cr.browser.platform.StopAllLocalServers()
         local_path = os.path.join(self._RAMDISK, os.path.basename(url))
         os.remove(local_path)
 

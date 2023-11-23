@@ -35,8 +35,8 @@ modes (which is why there are two):
   more like a `for_each` call: each time a new item is produced, the
   `consume` method is called with that item. (The traits themselves are
   a bit more complex, as they support state that can be threaded
-  through and ultimately reduced.) Unlike producers, there are two
-  variants of consumers. The difference is how the split is performed:
+  through and ultimately reduced.) Like producers, there are two
+  variants of consumers which differ in how the split is performed:
   - in the `Consumer` trait, splitting is done with `split_at`, which
     accepts an index where the split should be performed. All
     iterators can work in this mode. The resulting halves thus have an
@@ -124,7 +124,7 @@ implement `IndexedParallelIterator`.
 
 The `bridge` function will then connect the consumer, which is
 handling the `flat_map` and `for_each`, with the producer, which is
-handling the `zip` and its preecessors. It will split down until the
+handling the `zip` and its predecessors. It will split down until the
 chunks seem reasonably small, then pull items from the producer and
 feed them to the consumer.
 

@@ -19,7 +19,7 @@ class firmware_Cr50CCDFirmwareUpdate(Cr50Test):
     version = 1
     should_restore_fw = False
 
-    def initialize(self, host, cmdline_args, full_args):
+    def initialize(self, host, cmdline_args, full_args, fw_path=None):
         """Initialize the test and check if cr50 exists.
 
         Raises:
@@ -33,8 +33,10 @@ class firmware_Cr50CCDFirmwareUpdate(Cr50Test):
         if not self.check_ec_capability():
             raise error.TestNAError('Nothing needs to be tested on this device')
 
+        self.fw_path = fw_path
+        self.b_ver = ''
         servo_type = self.servo.get_servo_version()
-        if 'ccd_cr50' not in servo_type:
+        if 'ccd' not in servo_type:
             raise error.TestNAError('unsupported servo type: %s' % servo_type)
 
         if eval(full_args.get('backup_fw', 'False')):
@@ -95,6 +97,7 @@ class firmware_Cr50CCDFirmwareUpdate(Cr50Test):
 
             try:
                 self.cros_host.firmware_install(build=self.b_ver,
+                                                local_tarball=self.fw_path,
                                                 install_bios=False)
             except Exception as e:
                 logging.error('firmware_install failed: %s', str(e))
@@ -121,20 +124,26 @@ class firmware_Cr50CCDFirmwareUpdate(Cr50Test):
         # have its own release directory, but its parent, gru does.
         parent = getattr(self.faft_config, 'parent', None)
 
-        self.b_ver = host.get_latest_release_version(self.faft_config.platform,
-                                                     parent)
-        if not self.b_ver:
-            raise error.TestError('Cannot locate the latest release for %s' %
-                                  self.faft_config.platform)
+        if not self.fw_path:
+            self.b_ver = host.get_latest_release_version(
+                    self.faft_config.platform, parent)
+            if not self.b_ver:
+                raise error.TestError(
+                        'Cannot locate the latest release for %s' %
+                        self.faft_config.platform)
 
         # Fast open cr50 and check if testlab is enabled.
         self.fast_ccd_open(enable_testlab=True)
-        if self.servo.has_control('active_v4_device'):
-            try:
-                self.servo.set('active_v4_device', 'ccd_cr50')
-            except error.TestFail as e:
-                raise error.TestNAError('cannot change active_v4_device: %s' %
-                                        str(e))
+        if not self.servo.enable_ccd_servo_device():
+            raise error.TestNAError('Cannot make ccd active')
+        # TODO(b/196824029): remove when servod supports using the power state
+        # controller with the ccd device.
+        try:
+            self.host.servo.get_power_state_controller().reset()
+        except Exception as e:
+            logging.info(e)
+            raise error.TestNAError('Unable to do power state reset with '
+                                    'active ccd device')
 
         # If it is ITE EC, then ccd reset factory.
         if self.servo.get('ec_chip') == 'it83xx':
@@ -142,7 +151,9 @@ class firmware_Cr50CCDFirmwareUpdate(Cr50Test):
 
         self.should_restore_fw = True
         try:
-            self.cros_host.firmware_install(build=self.b_ver, rw_only=rw_only,
+            self.cros_host.firmware_install(build=self.b_ver,
+                                            rw_only=rw_only,
+                                            local_tarball=self.fw_path,
                                             dest=self.resultsdir,
                                             verify_version=True)
         except Exception as e:

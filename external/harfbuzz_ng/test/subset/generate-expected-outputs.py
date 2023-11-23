@@ -27,15 +27,30 @@ def strip_check_sum (ttx_string):
 		       ttx_string, count=1)
 
 
-def generate_expected_output(input_file, unicodes, profile_flags, output_directory, font_name):
+def generate_expected_output(input_file, unicodes, profile_flags, instance_flags, output_directory, font_name):
+	input_path = input_file
+	if instance_flags:
+		instance_path = os.path.join(tempfile.mkdtemp (), font_name)
+		args = ["fonttools", "varLib.instancer",
+			"--no-overlap-flag",
+			"--no-recalc-bounds",
+			"--no-recalc-timestamp",
+			"--output=%s" % instance_path,
+			input_file]
+		args.extend(instance_flags)
+		check_call(args)
+		input_path = instance_path
+
 	fonttools_path = os.path.join(tempfile.mkdtemp (), font_name)
-	args = ["fonttools", "subset", input_file]
+	args = ["fonttools", "subset", input_path]
 	args.extend(["--drop-tables+=DSIG",
 		     "--drop-tables-=sbix",
+		     "--no-harfbuzz-repacker", # disable harfbuzz repacker so we aren't comparing to ourself.
 		     "--unicodes=%s" % unicodes,
 		     "--output-file=%s" % fonttools_path])
 	args.extend(profile_flags)
 	check_call(args)
+
 	with io.StringIO () as fp:
 		with TTFont (fonttools_path) as font:
 			font.saveXML (fp)
@@ -50,7 +65,10 @@ def generate_expected_output(input_file, unicodes, profile_flags, output_directo
 		"--drop-tables+=DSIG",
 		"--drop-tables-=sbix"]
 	args.extend(profile_flags)
+	if instance_flags:
+		args.extend(["--instance=%s" % ','.join(instance_flags)])
 	check_call(args)
+
 	with io.StringIO () as fp:
 		with TTFont (harfbuzz_path) as font:
 			font.saveXML (fp)
@@ -84,4 +102,4 @@ for path in args:
 			font_name = test.get_font_name()
 			print("Creating subset %s/%s" % (output_directory, font_name))
 			generate_expected_output(test.font_path, unicodes, test.get_profile_flags(),
-						 output_directory, font_name)
+						 test.get_instance_flags(), output_directory, font_name)

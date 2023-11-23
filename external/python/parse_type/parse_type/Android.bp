@@ -27,12 +27,4 @@ python_library {
     srcs: [
         "*.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
 }

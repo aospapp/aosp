@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#undef NDEBUG /* Required for assert to work */
+
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
 #define LOG_TAG "hwc-drm-atomic-state-manager"
 
@@ -26,6 +28,7 @@
 #include <utils/Trace.h>
 
 #include <array>
+#include <cassert>
 #include <cstdlib>
 #include <ctime>
 #include <sstream>
@@ -70,13 +73,15 @@ auto DrmAtomicStateManager::CommitFrame(AtomicCommitArgs &args) -> int {
     return -ENOMEM;
   }
 
-  int64_t out_fence = -1;
-  if (crtc->GetOutFencePtrProperty() &&
-      !crtc->GetOutFencePtrProperty().AtomicSet(*pset, uint64_t(&out_fence))) {
+  int out_fence = -1;
+  if (!crtc->GetOutFencePtrProperty().AtomicSet(*pset, uint64_t(&out_fence))) {
     return -EINVAL;
   }
 
+  bool nonblock = true;
+
   if (args.active) {
+    nonblock = false;
     new_frame_state.crtc_active_state = *args.active;
     if (!crtc->GetActiveProperty().AtomicSet(*pset, *args.active ? 1 : 0) ||
         !connector->GetCrtcIdProperty().AtomicSet(*pset, crtc->GetId())) {
@@ -100,14 +105,13 @@ auto DrmAtomicStateManager::CommitFrame(AtomicCommitArgs &args) -> int {
   auto unused_planes = new_frame_state.used_planes;
 
   if (args.composition) {
-    new_frame_state.used_framebuffers.clear();
     new_frame_state.used_planes.clear();
 
     for (auto &joining : args.composition->plan) {
       DrmPlane *plane = joining.plane->Get();
-      DrmHwcLayer &layer = joining.layer;
+      LayerData &layer = joining.layer;
 
-      new_frame_state.used_framebuffers.emplace_back(layer.fb_id_handle);
+      new_frame_state.used_framebuffers.emplace_back(layer.fb);
       new_frame_state.used_planes.emplace_back(joining.plane);
 
       /* Remove from 'unused' list, since plane is re-used */
@@ -130,31 +134,126 @@ auto DrmAtomicStateManager::CommitFrame(AtomicCommitArgs &args) -> int {
   }
 
   uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
-  if (args.test_only)
-    flags |= DRM_MODE_ATOMIC_TEST_ONLY;
+
+  if (args.test_only) {
+    return drmModeAtomicCommit(drm->GetFd(), pset.get(),
+                               flags | DRM_MODE_ATOMIC_TEST_ONLY, drm);
+  }
+
+  if (last_present_fence_) {
+    ATRACE_NAME("WaitPriorFramePresented");
+
+    constexpr int kTimeoutMs = 500;
+    int err = sync_wait(last_present_fence_.Get(), kTimeoutMs);
+    if (err != 0) {
+      ALOGE("sync_wait(fd=%i) returned: %i (errno: %i)",
+            last_present_fence_.Get(), err, errno);
+    }
+
+    CleanupPriorFrameResources();
+  }
+
+  if (nonblock) {
+    flags |= DRM_MODE_ATOMIC_NONBLOCK;
+  }
 
   int err = drmModeAtomicCommit(drm->GetFd(), pset.get(), flags, drm);
+
   if (err != 0) {
-    if (!args.test_only)
-      ALOGE("Failed to commit pset ret=%d\n", err);
+    ALOGE("Failed to commit pset ret=%d\n", err);
     return err;
   }
 
-  if (!args.test_only) {
-    if (args.display_mode) {
-      /* TODO(nobody): we still need this for synthetic vsync, remove after
-       * vsync reworked */
-      connector->SetActiveMode(*args.display_mode);
-    }
-
+  if (nonblock) {
+    last_present_fence_ = UniqueFd::Dup(out_fence);
+    staged_frame_state_ = std::move(new_frame_state);
+    frames_staged_++;
+    ptt_->Notify();
+  } else {
     active_frame_state_ = std::move(new_frame_state);
-
-    if (crtc->GetOutFencePtrProperty()) {
-      args.out_fence = UniqueFd((int)out_fence);
-    }
   }
 
+  if (args.display_mode) {
+    /* TODO(nobody): we still need this for synthetic vsync, remove after
+     * vsync reworked */
+    connector->SetActiveMode(*args.display_mode);
+  }
+
+  args.out_fence = UniqueFd(out_fence);
+
   return 0;
+}
+
+PresentTrackerThread::PresentTrackerThread(DrmAtomicStateManager *st_man)
+    : st_man_(st_man),
+      mutex_(&st_man_->pipe_->device->GetResMan().GetMainLock()) {
+  pt_ = std::thread(&PresentTrackerThread::PresentTrackerThreadFn, this);
+}
+
+PresentTrackerThread::~PresentTrackerThread() {
+  ALOGI("PresentTrackerThread successfully destroyed");
+}
+
+void PresentTrackerThread::PresentTrackerThreadFn() {
+  /* object should be destroyed on thread exit */
+  auto self = std::unique_ptr<PresentTrackerThread>(this);
+
+  int tracking_at_the_moment = -1;
+
+  for (;;) {
+    UniqueFd present_fence;
+
+    {
+      std::unique_lock lk(*mutex_);
+      cv_.wait(lk, [&] {
+        return st_man_ == nullptr ||
+               st_man_->frames_staged_ > tracking_at_the_moment;
+      });
+
+      if (st_man_ == nullptr) {
+        break;
+      }
+
+      tracking_at_the_moment = st_man_->frames_staged_;
+
+      present_fence = UniqueFd::Dup(st_man_->last_present_fence_.Get());
+      if (!present_fence) {
+        continue;
+      }
+    }
+
+    {
+      ATRACE_NAME("AsyncWaitForBuffersSwap");
+      constexpr int kTimeoutMs = 500;
+      int err = sync_wait(present_fence.Get(), kTimeoutMs);
+      if (err != 0) {
+        ALOGE("sync_wait(fd=%i) returned: %i (errno: %i)", present_fence.Get(),
+              err, errno);
+      }
+    }
+
+    {
+      std::unique_lock lk(*mutex_);
+      if (st_man_ == nullptr) {
+        break;
+      }
+
+      /* If resources is already cleaned-up by main thread, skip */
+      if (tracking_at_the_moment > st_man_->frames_tracked_) {
+        st_man_->CleanupPriorFrameResources();
+      }
+    }
+  }
+}
+
+void DrmAtomicStateManager::CleanupPriorFrameResources() {
+  assert(frames_staged_ - frames_tracked_ == 1);
+  assert(last_present_fence_);
+
+  ATRACE_NAME("CleanupPriorFrameResources");
+  frames_tracked_++;
+  active_frame_state_ = std::move(staged_frame_state_);
+  last_present_fence_ = {};
 }
 
 auto DrmAtomicStateManager::ExecuteAtomicCommit(AtomicCommitArgs &args) -> int {

@@ -62,7 +62,7 @@ public final class ImmutableClassToInstanceMap<B> extends ForwardingMap<Class<? 
    */
   public static <B, T extends B> ImmutableClassToInstanceMap<B> of(Class<T> type, T value) {
     ImmutableMap<Class<? extends B>, B> map = ImmutableMap.<Class<? extends B>, B>of(type, value);
-    return new ImmutableClassToInstanceMap<B>(map);
+    return new ImmutableClassToInstanceMap<>(map);
   }
 
   /**
@@ -70,7 +70,7 @@ public final class ImmutableClassToInstanceMap<B> extends ForwardingMap<Class<? 
    * Builder} constructor.
    */
   public static <B> Builder<B> builder() {
-    return new Builder<B>();
+    return new Builder<>();
   }
 
   /**
@@ -131,11 +131,11 @@ public final class ImmutableClassToInstanceMap<B> extends ForwardingMap<Class<? 
      * @throws IllegalArgumentException if duplicate keys were added
      */
     public ImmutableClassToInstanceMap<B> build() {
-      ImmutableMap<Class<? extends B>, B> map = mapBuilder.build();
+      ImmutableMap<Class<? extends B>, B> map = mapBuilder.buildOrThrow();
       if (map.isEmpty()) {
         return of();
       } else {
-        return new ImmutableClassToInstanceMap<B>(map);
+        return new ImmutableClassToInstanceMap<>(map);
       }
     }
   }

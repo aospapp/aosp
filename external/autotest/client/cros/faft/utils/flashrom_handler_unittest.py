@@ -1,7 +1,8 @@
+#!/usr/bin/python3
 """Unit tests for flashrom_handler.py."""
 
-import mock
 import unittest
+from unittest import mock
 
 from autotest_lib.client.common_lib import autotemp
 from autotest_lib.client.cros.faft.utils import (os_interface,
@@ -22,7 +23,7 @@ class TestFlashromHandler(unittest.TestCase):
         self.good_flashrom = mock.Mock()
         attrs = {
                 'communicate.return_value':
-                ('working flashrom stdout', 'working flashrom stderr')
+                (b'working flashrom stdout', b'working flashrom stderr')
         }
         self.good_flashrom.configure_mock(**attrs)
         self.good_flashrom.returncode = 0
@@ -30,7 +31,7 @@ class TestFlashromHandler(unittest.TestCase):
         self.bad_flashrom = mock.Mock()
         attrs = {
                 'communicate.return_value':
-                ('broken flashrom stdout', 'broken flashrom stderr')
+                (b'broken flashrom stdout', b'broken flashrom stderr')
         }
         self.bad_flashrom.configure_mock(**attrs)
         self.bad_flashrom.returncode = 1

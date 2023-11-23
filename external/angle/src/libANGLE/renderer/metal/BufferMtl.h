@@ -12,6 +12,7 @@
 
 #import <Metal/Metal.h>
 
+#include <optional>
 #include <utility>
 
 #include "libANGLE/Buffer.h"
@@ -81,9 +82,14 @@ struct IndexConversionBufferMtl : public ConversionBufferMtl
 
 struct UniformConversionBufferMtl : public ConversionBufferMtl
 {
-    UniformConversionBufferMtl(ContextMtl *context, size_t offsetIn);
+    UniformConversionBufferMtl(ContextMtl *context,
+                               std::pair<size_t, size_t> offsetIn,
+                               size_t blockSize);
 
-    const size_t offset;
+    size_t initialSrcOffset() { return offset.second; }
+
+    const size_t uniformBufferBlockSize;
+    const std::pair<size_t, size_t> offset;
 };
 
 class BufferHolderMtl
@@ -162,7 +168,9 @@ class BufferMtl : public BufferImpl, public BufferHolderMtl
                                                        bool primitiveRestartEnabled,
                                                        size_t offset);
 
-    ConversionBufferMtl *getUniformConversionBuffer(ContextMtl *context, size_t offset);
+    ConversionBufferMtl *getUniformConversionBuffer(ContextMtl *context,
+                                                    std::pair<size_t, size_t> offset,
+                                                    size_t blockSize);
 
     size_t size() const { return static_cast<size_t>(mState.getSize()); }
 
@@ -215,17 +223,13 @@ class BufferMtl : public BufferImpl, public BufferHolderMtl
 
     struct RestartRangeCache
     {
-        RestartRangeCache() : indexType(gl::DrawElementsType::InvalidEnum) { isDirty = true; }
         RestartRangeCache(std::vector<IndexRange> &&ranges_, gl::DrawElementsType indexType_)
-            : ranges(ranges_), indexType(indexType_), isDirty(false)
+            : ranges(ranges_), indexType(indexType_)
         {}
-        void markDirty() { isDirty = true; }
-        operator bool() const { return isDirty; }
-        std::vector<IndexRange> ranges;
-        gl::DrawElementsType indexType;
-        bool isDirty;
+        const std::vector<IndexRange> ranges;
+        const gl::DrawElementsType indexType;
     };
-    RestartRangeCache mRestartRangeCache;
+    std::optional<RestartRangeCache> mRestartRangeCache;
     std::vector<IndexRange> mRestartIndices;
 };
 

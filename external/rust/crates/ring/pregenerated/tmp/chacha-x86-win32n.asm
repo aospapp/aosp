@@ -1,9 +1,7 @@
 ; This file is generated from a similarly-named Perl script in the BoringSSL
 ; source tree. Do not edit by hand.
 
-%ifdef BORINGSSL_PREFIX
-%include "boringssl_prefix_symbols_nasm.inc"
-%endif
+%include "ring_core_generated/prefix_symbols_nasm.inc"
 %ifidn __OUTPUT_FORMAT__,obj
 section	code	use32 class=code align=64
 %elifidn __OUTPUT_FORMAT__,win32
@@ -12,10 +10,10 @@ section	.text	code align=64
 %else
 section	.text	code
 %endif
-global	_GFp_ChaCha20_ctr32
+global	_ChaCha20_ctr32
 align	16
-_GFp_ChaCha20_ctr32:
-L$_GFp_ChaCha20_ctr32_begin:
+_ChaCha20_ctr32:
+L$_ChaCha20_ctr32_begin:
 	push	ebp
 	push	ebx
 	push	esi
@@ -26,7 +24,7 @@ L$_GFp_ChaCha20_ctr32_begin:
 	call	L$pic_point
 L$pic_point:
 	pop	eax
-	lea	ebp,[_GFp_ia32cap_P]
+	lea	ebp,[_OPENSSL_ia32cap_P]
 	test	DWORD [ebp],16777216
 	jz	NEAR L$001x86
 	test	DWORD [4+ebp],512
@@ -970,4 +968,4 @@ db	44,32,67,82,89,80,84,79,71,65,77,83,32,98,121,32
 db	60,97,112,112,114,111,64,111,112,101,110,115,115,108,46,111
 db	114,103,62,0
 segment	.bss
-common	_GFp_ia32cap_P 16
+common	_OPENSSL_ia32cap_P 16

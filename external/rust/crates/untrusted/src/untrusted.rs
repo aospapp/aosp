@@ -102,7 +102,7 @@
 )]
 // ANDROID: This lint is included in warnings and thus forbidden, but this version of the library
 // is not compatible with it.
-#![allow(non_autolinks)]
+#![allow(rustdoc::bare_urls)]
 #![no_std]
 
 // ANDROID: Unconditionally use std to allow building as a dylib.

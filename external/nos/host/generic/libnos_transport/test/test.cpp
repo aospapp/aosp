@@ -201,7 +201,7 @@ ACTION(ReadStatusV42_Working) {
   status->length = STATUS_MAX_LENGTH;
   status->version = 42;
   status->flags = STATUS_FLAG_WORKING;
-  status->crc = 0xaec0;
+  status->crc = 0xf781;
   status->reply_crc = 0;
 }
 

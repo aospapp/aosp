@@ -13,13 +13,13 @@
 #     size_t mr,                (x0) - unused.  mr = 1
 #     size_t nc,                x1
 #     size_t kc,                x2 / x0
-#     const uint8_t*restrict a, x3
+#     const void*restrict a,    x3
 #     size_t a_stride,          (x4) - unused
 #     const void*restrict w,    x5
-#     uint8_t*restrict c,       x6
+#     void*restrict c,          x6
 #     size_t cm_stride,         (x7) - unused
 #     size_t cn_stride,         [sp] -> x14
-#     const union xnn_f16_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 8] -> (x8)
+#     const union xnn_f16_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 8] -> (x8)
 
 # d8-d15, x19-x30 need to be preserved if used. x18 is reserved by the OS.
 
@@ -29,7 +29,7 @@
 # C pointer
 # x6  c0
 
-# Clamp v4, v5, v6
+# Clamp v4, v5
 
 BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_1x16__aarch64_neonfp16arith_ld32
 
@@ -37,7 +37,7 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_1x16__aarch64_neonfp16arith_ld32
         LDP     x14, x8, [sp]
 
         # Load params values
-        LD3R    {v4.8h, v5.8h, v6.8h}, [x8]
+        LD2R    {v4.8h, v5.8h}, [x8]
 0:
         # Load initial bias from w into accumulators
         LDP     q16, q17, [x5], 32
@@ -53,18 +53,19 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_1x16__aarch64_neonfp16arith_ld32
         # Main loop - 2 halffloats of A (4 bytes)
 1:
         LDR     s0, [x3], 4
-        LDR     q20, [x5], 16
-        LDR     q21, [x5], 16
-        LDR     q22, [x5], 16
-        LDR     q23, [x5], 16
+        LDR     q20, [x5, 0]
+        LDR     q21, [x5, 16]
+        LDR     q22, [x5, 32]
+        LDR     q23, [x5, 48]
         SUBS    x0, x0, 4
         FMLA    v16.8h, v20.8h, v0.h[0]
         FMLA    v17.8h, v21.8h, v0.h[0]
         FMLA    v18.8h, v22.8h, v0.h[1]
         FMLA    v19.8h, v23.8h, v0.h[1]
+        ADD     x5, x5, 64
         B.HS    1b
 
-        # Is there a remainder?- 1 halffloats of A (2 bytes)
+        # Is there a remainder?- 1 halffloat of A (2 bytes)
         TBNZ    x0, 1, 3f
 
 2:
@@ -72,14 +73,11 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_1x16__aarch64_neonfp16arith_ld32
         FADD    v17.8h, v17.8h, v19.8h
         SUBS    x1, x1, 16
 
-        # Scale and Clamp
-
-        FMUL    v16.8h, v16.8h, v4.8h
-        FMUL    v17.8h, v17.8h, v4.8h
-        FMAX    v16.8h, v16.8h, v5.8h
-        FMAX    v17.8h, v17.8h, v5.8h
-        FMIN    v16.8h, v16.8h, v6.8h
-        FMIN    v17.8h, v17.8h, v6.8h
+        # Clamp
+        FMAX    v16.8h, v16.8h, v4.8h
+        FMAX    v17.8h, v17.8h, v4.8h
+        FMIN    v16.8h, v16.8h, v5.8h
+        FMIN    v17.8h, v17.8h, v5.8h
 
         # Store full 1 x 16
         B.LO    4f

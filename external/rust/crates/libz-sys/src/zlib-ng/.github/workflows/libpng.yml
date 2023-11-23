@@ -1,5 +1,5 @@
 name: CI Libpng
-on: [pull_request]
+on: [push, pull_request]
 jobs:
   pngtest:
     name: Ubuntu Clang
@@ -7,7 +7,7 @@ jobs:
 
     steps:
     - name: Checkout repository (zlib-ng)
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
 
     - name: Generate project files (zlib-ng)
       run: |

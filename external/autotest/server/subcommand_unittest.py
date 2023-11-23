@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright 2009 Google Inc. Released under the GPL v2
 
 from __future__ import absolute_import
@@ -241,14 +241,14 @@ class real_subcommand_test(unittest.TestCase):
         """Test fork_waitfor failure with an exception."""
         cmd = self._setup_subcommand(lambda: None, 'foo')
         with self.assertRaises(error.AutoservSubcommandError):
-          cmd.fork_waitfor(timeout=60)
+            cmd.fork_waitfor(timeout=60)
 
 
     def test_fork_waitfor_timeout_fail(self):
         """Test fork_waitfor timing out."""
         cmd = self._setup_subcommand(lambda: time.sleep(60))
         with self.assertRaises(error.AutoservSubcommandError):
-          cmd.fork_waitfor(timeout=1)
+            cmd.fork_waitfor(timeout=1)
 
 
 class parallel_test(unittest.TestCase):
@@ -263,7 +263,7 @@ class parallel_test(unittest.TestCase):
 
     def _get_cmd(self, func, args):
         cmd = _create_subcommand(func, args)
-        cmd.result_pickle = self.god.create_mock_class(file, 'file')
+        cmd.result_pickle = self.god.create_mock_class(open, 'open')
         return self.god.create_mock_class(cmd, 'subcommand')
 
 
@@ -286,9 +286,9 @@ class parallel_test(unittest.TestCase):
 
         for task in tasklist:
             task.fork_waitfor.expect_call(timeout=None).and_return(0)
-            (six.moves.cPickle.load.expect_call(task.result_pickle)
-                    .and_return(6))
-            task.result_pickle.close.expect_call()
+            (six.moves.cPickle.load.expect_call(
+                    task.result_pickle, encoding='utf-8').and_return(6))
+
 
         subcommand.parallel(tasklist)
         self.god.check_playback()
@@ -299,9 +299,9 @@ class parallel_test(unittest.TestCase):
 
         for task in tasklist:
             task.fork_waitfor.expect_call(timeout=None).and_return(1)
-            (six.moves.cPickle.load.expect_call(task.result_pickle)
-                    .and_return(6))
-            task.result_pickle.close.expect_call()
+            (six.moves.cPickle.load.expect_call(
+                    task.result_pickle, encoding='utf-8').and_return(6))
+
 
         self.assertRaises(subcommand.error.AutoservError, subcommand.parallel,
                           tasklist)
@@ -319,9 +319,10 @@ class parallel_test(unittest.TestCase):
         for task in tasklist:
             subcommand.time.time.expect_call().and_return(1)
             task.fork_waitfor.expect_call(timeout=timeout).and_return(None)
-            (six.moves.cPickle.load.expect_call(task.result_pickle)
-                    .and_return(6))
-            task.result_pickle.close.expect_call()
+            (six.moves.cPickle.load.expect_call(
+                    task.result_pickle, encoding='utf-8').and_return(6))
+
+
 
         self.assertRaises(subcommand.error.AutoservError, subcommand.parallel,
                           tasklist, timeout=timeout)
@@ -332,15 +333,15 @@ class parallel_test(unittest.TestCase):
         tasklist = self._setup_common()
 
         tasklist[0].fork_waitfor.expect_call(timeout=None).and_return(0)
-        (six.moves.cPickle.load.expect_call(tasklist[0].result_pickle)
-                .and_return(6))
-        tasklist[0].result_pickle.close.expect_call()
+        (six.moves.cPickle.load.expect_call(tasklist[0].result_pickle,
+                                            encoding='utf-8').and_return(6))
+        # tasklist[0].result_pickle.close.expect_call()
 
         error = Exception('fail')
         tasklist[1].fork_waitfor.expect_call(timeout=None).and_return(1)
-        (six.moves.cPickle.load.expect_call(tasklist[1].result_pickle)
-                .and_return(error))
-        tasklist[1].result_pickle.close.expect_call()
+        (six.moves.cPickle.load.expect_call(
+                tasklist[1].result_pickle, encoding='utf-8').and_return(error))
+        # tasklist[1].result_pickle.close.expect_call()
 
         self.assertEquals(subcommand.parallel(tasklist, return_results=True),
                           [6, error])

@@ -71,6 +71,63 @@ vn_replace_VkImageViewUsageCreateInfo_handle(VkImageViewUsageCreateInfo *val)
     } while (pnext);
 }
 
+/* struct VkImageViewMinLodCreateInfoEXT chain */
+
+static inline void *
+vn_decode_VkImageViewMinLodCreateInfoEXT_pnext_temp(struct vn_cs_decoder *dec)
+{
+    /* no known/supported struct */
+    if (vn_decode_simple_pointer(dec))
+        vn_cs_decoder_set_fatal(dec);
+    return NULL;
+}
+
+static inline void
+vn_decode_VkImageViewMinLodCreateInfoEXT_self_temp(struct vn_cs_decoder *dec, VkImageViewMinLodCreateInfoEXT *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_float(dec, &val->minLod);
+}
+
+static inline void
+vn_decode_VkImageViewMinLodCreateInfoEXT_temp(struct vn_cs_decoder *dec, VkImageViewMinLodCreateInfoEXT *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_IMAGE_VIEW_MIN_LOD_CREATE_INFO_EXT)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkImageViewMinLodCreateInfoEXT_pnext_temp(dec);
+    vn_decode_VkImageViewMinLodCreateInfoEXT_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkImageViewMinLodCreateInfoEXT_handle_self(VkImageViewMinLodCreateInfoEXT *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->minLod */
+}
+
+static inline void
+vn_replace_VkImageViewMinLodCreateInfoEXT_handle(VkImageViewMinLodCreateInfoEXT *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_IMAGE_VIEW_MIN_LOD_CREATE_INFO_EXT:
+            vn_replace_VkImageViewMinLodCreateInfoEXT_handle_self((VkImageViewMinLodCreateInfoEXT *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
 /* struct VkImageViewCreateInfo chain */
 
 static inline void *
@@ -98,6 +155,14 @@ vn_decode_VkImageViewCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
             pnext->sType = stype;
             pnext->pNext = vn_decode_VkImageViewCreateInfo_pnext_temp(dec);
             vn_decode_VkSamplerYcbcrConversionInfo_self_temp(dec, (VkSamplerYcbcrConversionInfo *)pnext);
+        }
+        break;
+    case VK_STRUCTURE_TYPE_IMAGE_VIEW_MIN_LOD_CREATE_INFO_EXT:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkImageViewMinLodCreateInfoEXT));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkImageViewCreateInfo_pnext_temp(dec);
+            vn_decode_VkImageViewMinLodCreateInfoEXT_self_temp(dec, (VkImageViewMinLodCreateInfoEXT *)pnext);
         }
         break;
     default:
@@ -163,6 +228,9 @@ vn_replace_VkImageViewCreateInfo_handle(VkImageViewCreateInfo *val)
             break;
         case VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO:
             vn_replace_VkSamplerYcbcrConversionInfo_handle_self((VkSamplerYcbcrConversionInfo *)pnext);
+            break;
+        case VK_STRUCTURE_TYPE_IMAGE_VIEW_MIN_LOD_CREATE_INFO_EXT:
+            vn_replace_VkImageViewMinLodCreateInfoEXT_handle_self((VkImageViewMinLodCreateInfoEXT *)pnext);
             break;
         default:
             /* ignore unknown/unsupported struct */

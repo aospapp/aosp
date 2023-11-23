@@ -1,3 +1,16 @@
+<a name="v4.6.5"></a>
+### v4.6.5 (2022-08-09)
+
+* memchr: use non deprecated feature `std` instead of `use_std`
+
+* refactor: Extract less-generic code from sequence's add_errors (-5%)
+
+<a name="v4.6.4"></a>
+### v4.6.4 (2022-04-25)
+
+
+
+
 <a name="v4.6.3"></a>
 ### v4.6.3 (2022-01-12)
 

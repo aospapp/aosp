@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # pylint: disable=missing-docstring
 
 import unittest
@@ -11,10 +11,8 @@ class harness_unittest(unittest.TestCase):
     def setUp(self):
         self.god = mock.mock_god()
 
-
     def tearDown(self):
         self.god.unstub_all()
-
 
     def test_select_none(self):
         job = object()
@@ -24,7 +22,6 @@ class harness_unittest(unittest.TestCase):
         harness_standalone.harness_standalone.expect_new(job, harness_args)
         harness.select(None, job, harness_args)
         self.god.check_playback()
-
 
     def test_select_standalone(self):
         job = object()
@@ -36,5 +33,5 @@ class harness_unittest(unittest.TestCase):
         self.god.check_playback()
 
 
-if  __name__ == "__main__":
+if __name__ == "__main__":
     unittest.main()

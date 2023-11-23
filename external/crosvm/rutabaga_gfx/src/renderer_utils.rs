@@ -1,19 +1,23 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 //! renderer_utils: Utility functions and structs used by virgl_renderer and gfxstream.
 
-use std::os::raw::{c_int, c_void};
+#[cfg(feature = "virgl_renderer_next")]
+use std::os::raw::c_int;
+use std::os::raw::c_void;
 use std::panic::catch_unwind;
 use std::process::abort;
 
-use base::{IntoRawDescriptor, SafeDescriptor};
-
-use crate::rutabaga_utils::{
-    RutabagaError, RutabagaFence, RutabagaFenceHandler, RutabagaResult, RUTABAGA_FLAG_FENCE,
-};
-
+#[cfg(feature = "virgl_renderer_next")]
+use crate::rutabaga_os::IntoRawDescriptor;
+use crate::rutabaga_os::SafeDescriptor;
+use crate::rutabaga_utils::RutabagaError;
+use crate::rutabaga_utils::RutabagaFence;
+use crate::rutabaga_utils::RutabagaFenceHandler;
+use crate::rutabaga_utils::RutabagaResult;
+use crate::rutabaga_utils::RUTABAGA_FLAG_FENCE;
 #[cfg(feature = "gfxstream")]
 use crate::rutabaga_utils::RUTABAGA_FLAG_INFO_RING_IDX;
 
@@ -68,8 +72,6 @@ pub extern "C" fn write_context_fence(
     catch_unwind(|| {
         assert!(!cookie.is_null());
         let cookie = unsafe { &*(cookie as *mut VirglCookie) };
-
-        // Call fence completion callback
         if let Some(handler) = &cookie.fence_handler {
             handler.call(RutabagaFence {
                 flags: RUTABAGA_FLAG_FENCE | RUTABAGA_FLAG_INFO_RING_IDX,
@@ -82,7 +84,7 @@ pub extern "C" fn write_context_fence(
     .unwrap_or_else(|_| abort())
 }
 
-#[allow(dead_code)]
+#[cfg(feature = "virgl_renderer_next")]
 pub unsafe extern "C" fn get_server_fd(cookie: *mut c_void, version: u32) -> c_int {
     catch_unwind(|| {
         assert!(!cookie.is_null());

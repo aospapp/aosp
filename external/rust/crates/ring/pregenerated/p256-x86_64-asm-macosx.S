@@ -8,6 +8,7 @@
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text	
 
 
@@ -33,58 +34,11 @@ L$ordK:
 
 
 
-.globl	_GFp_nistz256_add
-.private_extern _GFp_nistz256_add
+.globl	_nistz256_neg
+.private_extern _nistz256_neg
 
 .p2align	5
-_GFp_nistz256_add:
-	pushq	%r12
-	pushq	%r13
-
-	movq	0(%rsi),%r8
-	xorq	%r13,%r13
-	movq	8(%rsi),%r9
-	movq	16(%rsi),%r10
-	movq	24(%rsi),%r11
-	leaq	L$poly(%rip),%rsi
-
-	addq	0(%rdx),%r8
-	adcq	8(%rdx),%r9
-	movq	%r8,%rax
-	adcq	16(%rdx),%r10
-	adcq	24(%rdx),%r11
-	movq	%r9,%rdx
-	adcq	$0,%r13
-
-	subq	0(%rsi),%r8
-	movq	%r10,%rcx
-	sbbq	8(%rsi),%r9
-	sbbq	16(%rsi),%r10
-	movq	%r11,%r12
-	sbbq	24(%rsi),%r11
-	sbbq	$0,%r13
-
-	cmovcq	%rax,%r8
-	cmovcq	%rdx,%r9
-	movq	%r8,0(%rdi)
-	cmovcq	%rcx,%r10
-	movq	%r9,8(%rdi)
-	cmovcq	%r12,%r11
-	movq	%r10,16(%rdi)
-	movq	%r11,24(%rdi)
-
-	popq	%r13
-	popq	%r12
-	.byte	0xf3,0xc3
-
-
-
-
-.globl	_GFp_nistz256_neg
-.private_extern _GFp_nistz256_neg
-
-.p2align	5
-_GFp_nistz256_neg:
+_nistz256_neg:
 
 	pushq	%r12
 
@@ -140,13 +94,13 @@ L$neg_epilogue:
 
 
 
-.globl	_GFp_p256_scalar_mul_mont
-.private_extern _GFp_p256_scalar_mul_mont
+.globl	_p256_scalar_mul_mont
+.private_extern _p256_scalar_mul_mont
 
 .p2align	5
-_GFp_p256_scalar_mul_mont:
+_p256_scalar_mul_mont:
 
-	leaq	_GFp_ia32cap_P(%rip),%rcx
+	leaq	_OPENSSL_ia32cap_P(%rip),%rcx
 	movq	8(%rcx),%rcx
 	andl	$0x80100,%ecx
 	cmpl	$0x80100,%ecx
@@ -468,13 +422,13 @@ L$ord_mul_epilogue:
 
 
 
-.globl	_GFp_p256_scalar_sqr_rep_mont
-.private_extern _GFp_p256_scalar_sqr_rep_mont
+.globl	_p256_scalar_sqr_rep_mont
+.private_extern _p256_scalar_sqr_rep_mont
 
 .p2align	5
-_GFp_p256_scalar_sqr_rep_mont:
+_p256_scalar_sqr_rep_mont:
 
-	leaq	_GFp_ia32cap_P(%rip),%rcx
+	leaq	_OPENSSL_ia32cap_P(%rip),%rcx
 	movq	8(%rcx),%rcx
 	andl	$0x80100,%ecx
 	cmpl	$0x80100,%ecx
@@ -1209,13 +1163,13 @@ L$ord_sqrx_epilogue:
 
 
 
-.globl	_GFp_nistz256_mul_mont
-.private_extern _GFp_nistz256_mul_mont
+.globl	_p256_mul_mont
+.private_extern _p256_mul_mont
 
 .p2align	5
-_GFp_nistz256_mul_mont:
+_p256_mul_mont:
 
-	leaq	_GFp_ia32cap_P(%rip),%rcx
+	leaq	_OPENSSL_ia32cap_P(%rip),%rcx
 	movq	8(%rcx),%rcx
 	andl	$0x80100,%ecx
 L$mul_mont:
@@ -1500,13 +1454,13 @@ __ecp_nistz256_mul_montq:
 
 
 
-.globl	_GFp_nistz256_sqr_mont
-.private_extern _GFp_nistz256_sqr_mont
+.globl	_p256_sqr_mont
+.private_extern _p256_sqr_mont
 
 .p2align	5
-_GFp_nistz256_sqr_mont:
+_p256_sqr_mont:
 
-	leaq	_GFp_ia32cap_P(%rip),%rcx
+	leaq	_OPENSSL_ia32cap_P(%rip),%rcx
 	movq	8(%rcx),%rcx
 	andl	$0x80100,%ecx
 	pushq	%rbp
@@ -2024,13 +1978,13 @@ __ecp_nistz256_sqr_montx:
 
 
 
-.globl	_GFp_nistz256_select_w5
-.private_extern _GFp_nistz256_select_w5
+.globl	_nistz256_select_w5
+.private_extern _nistz256_select_w5
 
 .p2align	5
-_GFp_nistz256_select_w5:
+_nistz256_select_w5:
 
-	leaq	_GFp_ia32cap_P(%rip),%rax
+	leaq	_OPENSSL_ia32cap_P(%rip),%rax
 	movq	8(%rax),%rax
 	testl	$32,%eax
 	jnz	L$avx2_select_w5
@@ -2086,18 +2040,18 @@ L$select_loop_sse_w5:
 	movdqu	%xmm7,80(%rdi)
 	.byte	0xf3,0xc3
 
-L$SEH_end_GFp_nistz256_select_w5:
+L$SEH_end_nistz256_select_w5:
 
 
 
 
-.globl	_GFp_nistz256_select_w7
-.private_extern _GFp_nistz256_select_w7
+.globl	_nistz256_select_w7
+.private_extern _nistz256_select_w7
 
 .p2align	5
-_GFp_nistz256_select_w7:
+_nistz256_select_w7:
 
-	leaq	_GFp_ia32cap_P(%rip),%rax
+	leaq	_OPENSSL_ia32cap_P(%rip),%rax
 	movq	8(%rax),%rax
 	testl	$32,%eax
 	jnz	L$avx2_select_w7
@@ -2142,13 +2096,13 @@ L$select_loop_sse_w7:
 	movdqu	%xmm5,48(%rdi)
 	.byte	0xf3,0xc3
 
-L$SEH_end_GFp_nistz256_select_w7:
+L$SEH_end_nistz256_select_w7:
 
 
 
 
 .p2align	5
-GFp_nistz256_avx2_select_w5:
+ecp_nistz256_avx2_select_w5:
 
 L$avx2_select_w5:
 	vzeroupper
@@ -2205,16 +2159,14 @@ L$select_loop_avx2_w5:
 	vzeroupper
 	.byte	0xf3,0xc3
 
-L$SEH_end_GFp_nistz256_avx2_select_w5:
+L$SEH_end_ecp_nistz256_avx2_select_w5:
 
 
 
 
-.globl	_GFp_nistz256_avx2_select_w7
-.private_extern _GFp_nistz256_avx2_select_w7
 
 .p2align	5
-_GFp_nistz256_avx2_select_w7:
+ecp_nistz256_avx2_select_w7:
 
 L$avx2_select_w7:
 	vzeroupper
@@ -2286,7 +2238,7 @@ L$select_loop_avx2_w7:
 	vzeroupper
 	.byte	0xf3,0xc3
 
-L$SEH_end_GFp_nistz256_avx2_select_w7:
+L$SEH_end_ecp_nistz256_avx2_select_w7:
 
 
 .p2align	5
@@ -2417,13 +2369,13 @@ __ecp_nistz256_mul_by_2q:
 	.byte	0xf3,0xc3
 
 
-.globl	_GFp_nistz256_point_double
-.private_extern _GFp_nistz256_point_double
+.globl	_p256_point_double
+.private_extern _p256_point_double
 
 .p2align	5
-_GFp_nistz256_point_double:
+_p256_point_double:
 
-	leaq	_GFp_ia32cap_P(%rip),%rcx
+	leaq	_OPENSSL_ia32cap_P(%rip),%rcx
 	movq	8(%rcx),%rcx
 	andl	$0x80100,%ecx
 	cmpl	$0x80100,%ecx
@@ -2645,13 +2597,13 @@ L$point_doubleq_epilogue:
 	.byte	0xf3,0xc3
 
 
-.globl	_GFp_nistz256_point_add
-.private_extern _GFp_nistz256_point_add
+.globl	_p256_point_add
+.private_extern _p256_point_add
 
 .p2align	5
-_GFp_nistz256_point_add:
+_p256_point_add:
 
-	leaq	_GFp_ia32cap_P(%rip),%rcx
+	leaq	_OPENSSL_ia32cap_P(%rip),%rcx
 	movq	8(%rcx),%rcx
 	andl	$0x80100,%ecx
 	cmpl	$0x80100,%ecx
@@ -3076,13 +3028,13 @@ L$point_addq_epilogue:
 	.byte	0xf3,0xc3
 
 
-.globl	_GFp_nistz256_point_add_affine
-.private_extern _GFp_nistz256_point_add_affine
+.globl	_p256_point_add_affine
+.private_extern _p256_point_add_affine
 
 .p2align	5
-_GFp_nistz256_point_add_affine:
+_p256_point_add_affine:
 
-	leaq	_GFp_ia32cap_P(%rip),%rcx
+	leaq	_OPENSSL_ia32cap_P(%rip),%rcx
 	movq	8(%rcx),%rcx
 	andl	$0x80100,%ecx
 	cmpl	$0x80100,%ecx
@@ -3541,7 +3493,7 @@ __ecp_nistz256_mul_by_2x:
 
 
 .p2align	5
-GFp_nistz256_point_doublex:
+p256_point_doublex:
 
 L$point_doublex:
 	pushq	%rbp
@@ -3763,7 +3715,7 @@ L$point_doublex_epilogue:
 
 
 .p2align	5
-GFp_nistz256_point_addx:
+p256_point_addx:
 
 L$point_addx:
 	pushq	%rbp
@@ -4188,7 +4140,7 @@ L$point_addx_epilogue:
 
 
 .p2align	5
-GFp_nistz256_point_add_affinex:
+p256_point_add_affinex:
 
 L$point_add_affinex:
 	pushq	%rbp

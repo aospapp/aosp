@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -11,6 +11,10 @@ Sample usage:
 
 utils/site_check_dut_usage.py 11/1/2011 11/5/2011 netbook_LABEL
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import datetime
 import optparse
@@ -102,25 +106,25 @@ class CheckDutUsageRunner(object):
 
         # Print the list of hostnames if the user requested.
         if self._list_hostnames:
-            print '=================================================='
-            print 'Machines with label:'
+            print('==================================================')
+            print('Machines with label:')
             for machine in machines:
-                print machine
-            print '=================================================='
+                print(machine)
+            print('==================================================')
 
         # Print the usage summary.
-        print '=================================================='
-        print 'Total running time', total_run_time
-        print 'Total queued time', total_queued_time
-        print 'Total number of machines', num_machines
-        print 'Average time spent running tests per machine ', avg_run_time
-        print 'Average Job Time ', datetime.timedelta(seconds=int(
-                avg_job_run_time))
-        print 'Average Time Job Queued ', datetime.timedelta(seconds=int(
-                avg_job_queued_time))
-        print 'Total duration ', duration
-        print 'Usage ', usage
-        print '=================================================='
+        print('==================================================')
+        print('Total running time', total_run_time)
+        print('Total queued time', total_queued_time)
+        print('Total number of machines', num_machines)
+        print('Average time spent running tests per machine ', avg_run_time)
+        print('Average Job Time ', datetime.timedelta(seconds=int(
+                avg_job_run_time)))
+        print('Average Time Job Queued ', datetime.timedelta(seconds=int(
+                avg_job_queued_time)))
+        print('Total duration ', duration)
+        print('Usage ', usage)
+        print('==================================================')
 
 
     def run(self):
@@ -136,7 +140,7 @@ class CheckDutUsageRunner(object):
 
         durations = self.find_all_durations()
         if not durations:
-            print 'Query returned no results.'
+            print('Query returned no results.')
         else:
             self.calculate_usage(durations)
 

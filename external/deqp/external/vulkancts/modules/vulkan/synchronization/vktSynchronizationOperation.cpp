@@ -1549,7 +1549,7 @@ public:
 			pipelineBuilder
 				.setShader	(vk, device, VK_SHADER_STAGE_GEOMETRY_BIT,	context.getBinaryCollection().get(shaderPrefix + "geom"), DE_NULL);
 
-		m_pipeline = pipelineBuilder.build(vk, device, *m_pipelineLayout, *m_renderPass, context.getPipelineCacheData());
+		m_pipeline = pipelineBuilder.build(vk, device, *m_pipelineLayout, *m_renderPass, context.getPipelineCacheData(), context.getResourceInterface());
 	}
 
 	void recordCommands (OperationContext& context, const VkCommandBuffer cmdBuffer, const VkDescriptorSet descriptorSet)
@@ -1633,7 +1633,7 @@ public:
 		const Unique<VkShaderModule> shaderModule(createShaderModule(vk, device, context.getBinaryCollection().get(shaderPrefix + "comp"), (VkShaderModuleCreateFlags)0));
 
 		m_pipelineLayout = makePipelineLayout(vk, device, descriptorSetLayout);
-		m_pipeline		 = makeComputePipeline(vk, device, *m_pipelineLayout, *shaderModule, DE_NULL, context.getPipelineCacheData());
+		m_pipeline		 = makeComputePipeline(vk, device, *m_pipelineLayout, *shaderModule, DE_NULL, context.getPipelineCacheData(), context.getResourceInterface());
 	}
 
 	void recordCommands (OperationContext& context, const VkCommandBuffer cmdBuffer, const VkDescriptorSet descriptorSet)
@@ -2878,7 +2878,7 @@ public:
 		// Create pipeline
 		const Unique<VkShaderModule> shaderModule(createShaderModule(vk, device, context.getBinaryCollection().get("comp"), (VkShaderModuleCreateFlags)0));
 		m_pipelineLayout	= makePipelineLayout (vk, device, *m_descriptorSetLayout);
-		m_pipeline			= makeComputePipeline(vk, device, *m_pipelineLayout, *shaderModule, DE_NULL, context.getPipelineCacheData());
+		m_pipeline			= makeComputePipeline(vk, device, *m_pipelineLayout, *shaderModule, DE_NULL, context.getPipelineCacheData(), context.getResourceInterface());
 	}
 
 	void recordCommands(const VkCommandBuffer cmdBuffer)
@@ -3968,7 +3968,7 @@ public:
 			.setShader						(vk, device, VK_SHADER_STAGE_VERTEX_BIT,	context.getBinaryCollection().get("draw_vert"), DE_NULL)
 			.setShader						(vk, device, VK_SHADER_STAGE_FRAGMENT_BIT,	context.getBinaryCollection().get("draw_frag"), DE_NULL);
 
-		m_pipeline = pipelineBuilder.build(vk, device, *m_pipelineLayout, *m_renderPass, context.getPipelineCacheData());
+		m_pipeline = pipelineBuilder.build(vk, device, *m_pipelineLayout, *m_renderPass, context.getPipelineCacheData(), context.getResourceInterface() );
 
 		// Set expected draw values
 
@@ -4415,7 +4415,7 @@ public:
 			.setShader						(vk, device, VK_SHADER_STAGE_VERTEX_BIT,	context.getBinaryCollection().get(shaderPrefix + "vert"), DE_NULL)
 			.setShader						(vk, device, VK_SHADER_STAGE_FRAGMENT_BIT,	context.getBinaryCollection().get(shaderPrefix + "frag"), DE_NULL);
 
-		m_pipeline = pipelineBuilder.build(vk, device, *m_pipelineLayout, *m_renderPass, context.getPipelineCacheData());
+		m_pipeline = pipelineBuilder.build(vk, device, *m_pipelineLayout, *m_renderPass, context.getPipelineCacheData(), context.getResourceInterface());
 	}
 
 	void recordCommands (OperationContext& context, const VkCommandBuffer cmdBuffer, const VkDescriptorSet descriptorSet)
@@ -4502,7 +4502,7 @@ public:
 		const Unique<VkShaderModule> shaderModule(createShaderModule(vk, device, context.getBinaryCollection().get(shaderPrefix + "comp"), (VkShaderModuleCreateFlags)0));
 
 		m_pipelineLayout = makePipelineLayout(vk, device, descriptorSetLayout);
-		m_pipeline		 = makeComputePipeline(vk, device, *m_pipelineLayout, *shaderModule, DE_NULL, context.getPipelineCacheData());
+		m_pipeline		 = makeComputePipeline(vk, device, *m_pipelineLayout, *shaderModule, DE_NULL, context.getPipelineCacheData(), context.getResourceInterface());
 	}
 
 	void recordCommands (OperationContext& context, const VkCommandBuffer cmdBuffer, const VkDescriptorSet descriptorSet)
@@ -4959,7 +4959,7 @@ public:
 			.setVertexInputSingleAttribute	(attributeFormat, tcu::getPixelSize(mapVkFormat(attributeFormat)))
 			.setShader						(vk, device, VK_SHADER_STAGE_VERTEX_BIT,	context.getBinaryCollection().get("input_vert"), DE_NULL)
 			.setShader						(vk, device, VK_SHADER_STAGE_FRAGMENT_BIT,	context.getBinaryCollection().get("input_frag"), DE_NULL)
-			.build							(vk, device, *m_pipelineLayout, *m_renderPass, context.getPipelineCacheData());
+			.build							(vk, device, *m_pipelineLayout, *m_renderPass, context.getPipelineCacheData(), context.getResourceInterface());
 	}
 
 	void recordCommands (const VkCommandBuffer cmdBuffer)
@@ -5040,7 +5040,7 @@ public:
 			// with this operation we can test pre_rasterization, index_input and attribute_input flags;
 			// since this operation is executed for three buffers of different size we use diferent flags depending on the size
 			if (m_resource.getBuffer().size > MAX_UPDATE_BUFFER_SIZE)
-				stageMask = VK_PIPELINE_STAGE_2_PRE_RASTERIZATION_SHADERS_BIT_KHR;
+				stageMask = VK_PIPELINE_STAGE_2_VERTEX_INPUT_BIT_KHR;
 			else
 				stageMask = usingIndexedDraw ? VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT_KHR
 											 : VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT_KHR;

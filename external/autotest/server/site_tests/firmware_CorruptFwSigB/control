@@ -4,17 +4,18 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_CorruptFwSigB"
 PURPOSE = "Servo based firmware signature B corruption test"
 CRITERIA = "This test will fail if firmware verification mis-behaved"
-ATTRIBUTES = "suite:faft_bios, suite:faft_bios_ro_qual, suite:faft_bios_rw_qual, suite:faft_lv3, suite:faft_normal, suite:faft_bios_ec3po, suite:faft_bios_tot"
+ATTRIBUTES = "suite:faft_bios, suite:faft_bios_ro_qual, suite:faft_bios_rw_qual, suite:faft_lv3, suite:faft_normal, suite:faft_bios_tot"
 DEPENDENCIES = "servo_state:WORKING"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
-JOB_RETRIES = 4
+JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """
 This test corrupts firmware signature B and checks the next boot results.

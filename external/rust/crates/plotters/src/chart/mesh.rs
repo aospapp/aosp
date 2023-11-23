@@ -39,7 +39,7 @@ where
 
     /// The offset of x labels. This is used when we want to place the label in the middle of
     /// the grid. This is used to adjust label position for histograms, but since plotters 0.3, this
-    /// use case is deprecated, see [CentricDiscreteRanged coord decorator](../coord/trait.IntoCentric.html) for more details
+    /// use case is deprecated, see [SegmentedCoord coord decorator](../coord/ranged1d/trait.IntoSegmentedCoord.html) for more details
     /// - `value`: The offset in pixel
     pub fn x_label_offset<S: SizeDesc>(&mut self, value: S) -> &mut Self {
         self.style.x_label_offset(value);
@@ -48,7 +48,7 @@ where
 
     /// The offset of y labels. This is used when we want to place the label in the middle of
     /// the grid. This is used to adjust label position for histograms, but since plotters 0.3, this
-    /// use case is deprecated, see [CentricDiscreteRanged coord decorator](../coord/trait.IntoCentric.html) for more details
+    /// use case is deprecated, see [SegmentedCoord coord decorator](../coord/ranged1d/trait.IntoSegmentedCoord.html) for more details
     /// - `value`: The offset in pixel
     pub fn y_label_offset<S: SizeDesc>(&mut self, value: S) -> &mut Self {
         self.style.y_label_offset(value);
@@ -116,7 +116,7 @@ where
         self
     }
 
-    /// Set all the tick mark to the same size
+    /// Set all the tick marks to the same size
     /// `value`: The new size
     pub fn set_all_tick_mark_size<S: SizeDesc>(&mut self, value: S) -> &mut Self {
         let size = value.in_pixels(&self.style.parent_size);
@@ -124,7 +124,8 @@ where
         self.style.y_tick_size = [size, size];
         self
     }
-
+    /// Sets the tick mark size for a given label area position.
+    /// `value`: The new size
     pub fn set_tick_mark_size<S: SizeDesc>(
         &mut self,
         pos: LabelAreaPosition,
@@ -149,6 +150,8 @@ pub struct MeshStyle<'a, 'b, X: Ranged, Y: Ranged, DB: DrawingBackend> {
     pub(super) draw_y_axis: bool,
     pub(super) x_label_offset: i32,
     pub(super) y_label_offset: i32,
+    pub(super) x_light_lines_limit: usize,
+    pub(super) y_light_lines_limit: usize,
     pub(super) n_x_labels: usize,
     pub(super) n_y_labels: usize,
     pub(super) axis_desc_style: Option<TextStyle<'b>>,
@@ -159,8 +162,8 @@ pub struct MeshStyle<'a, 'b, X: Ranged, Y: Ranged, DB: DrawingBackend> {
     pub(super) axis_style: Option<ShapeStyle>,
     pub(super) x_label_style: Option<TextStyle<'b>>,
     pub(super) y_label_style: Option<TextStyle<'b>>,
-    pub(super) format_x: &'b dyn Fn(&X::ValueType) -> String,
-    pub(super) format_y: &'b dyn Fn(&Y::ValueType) -> String,
+    pub(super) format_x: Option<&'b dyn Fn(&X::ValueType) -> String>,
+    pub(super) format_y: Option<&'b dyn Fn(&Y::ValueType) -> String>,
     pub(super) target: Option<&'b mut ChartContext<'a, DB, Cartesian2d<X, Y>>>,
     pub(super) _phantom_data: PhantomData<(X, Y)>,
     pub(super) x_tick_size: [i32; 2],
@@ -197,14 +200,16 @@ where
             draw_y_mesh: true,
             draw_x_axis: true,
             draw_y_axis: true,
-            n_x_labels: 10,
-            n_y_labels: 10,
+            x_light_lines_limit: 10,
+            y_light_lines_limit: 10,
+            n_x_labels: 11,
+            n_y_labels: 11,
             bold_line_style: None,
             light_line_style: None,
             x_label_style: None,
             y_label_style: None,
-            format_x: &X::format,
-            format_y: &Y::format,
+            format_x: None,
+            format_y: None,
             target: Some(chart),
             _phantom_data: PhantomData,
             x_desc: None,
@@ -252,7 +257,7 @@ where
 
     /// The offset of x labels. This is used when we want to place the label in the middle of
     /// the grid. This is used to adjust label position for histograms, but since plotters 0.3, this
-    /// use case is deprecated, see [CentricDiscreteRanged coord decorator](../coord/trait.IntoCentric.html) for more details
+    /// use case is deprecated, see [SegmentedCoord coord decorator](../coord/ranged1d/trait.IntoSegmentedCoord.html) for more details
     /// - `value`: The offset in pixel
     pub fn x_label_offset<S: SizeDesc>(&mut self, value: S) -> &mut Self {
         self.x_label_offset = value.in_pixels(&self.parent_size);
@@ -261,7 +266,7 @@ where
 
     /// The offset of y labels. This is used when we want to place the label in the middle of
     /// the grid. This is used to adjust label position for histograms, but since plotters 0.3, this
-    /// use case is deprecated, see [CentricDiscreteRanged coord decorator](../coord/trait.IntoCentric.html) for more details
+    /// use case is deprecated, see [SegmentedCoord coord decorator](../coord/ranged1d/trait.IntoSegmentedCoord.html) for more details
     /// - `value`: The offset in pixel
     pub fn y_label_offset<S: SizeDesc>(&mut self, value: S) -> &mut Self {
         self.y_label_offset = value.in_pixels(&self.parent_size);
@@ -308,6 +313,29 @@ where
         self.axis_style = Some(style.into());
         self
     }
+
+    /// Set the maximum number of divisions for the minor grid
+    /// - `value`: Maximum desired divisions between two consecutive X labels
+    pub fn x_max_light_lines(&mut self, value: usize) -> &mut Self {
+        self.x_light_lines_limit = value;
+        self
+    }
+
+    /// Set the maximum number of divisions for the minor grid
+    /// - `value`: Maximum desired divisions between two consecutive Y labels
+    pub fn y_max_light_lines(&mut self, value: usize) -> &mut Self {
+        self.y_light_lines_limit = value;
+        self
+    }
+
+    /// Set the maximum number of divisions for the minor grid
+    /// - `value`: Maximum desired divisions between two consecutive labels in X and Y
+    pub fn max_light_lines(&mut self, value: usize) -> &mut Self {
+        self.x_light_lines_limit = value;
+        self.y_light_lines_limit = value;
+        self
+    }
+
     /// Set how many labels for the X axis at most
     /// - `value`: The maximum desired number of labels in the X axis
     pub fn x_labels(&mut self, value: usize) -> &mut Self {
@@ -362,14 +390,14 @@ where
     /// Set the formatter function for the X label text
     /// - `fmt`: The formatter function
     pub fn x_label_formatter(&mut self, fmt: &'b dyn Fn(&X::ValueType) -> String) -> &mut Self {
-        self.format_x = fmt;
+        self.format_x = Some(fmt);
         self
     }
 
     /// Set the formatter function for the Y label text
     /// - `fmt`: The formatter function
     pub fn y_label_formatter(&mut self, fmt: &'b dyn Fn(&Y::ValueType) -> String) -> &mut Self {
-        self.format_y = fmt;
+        self.format_y = Some(fmt);
         self
     }
 
@@ -395,7 +423,11 @@ where
     }
 
     /// Draw the configured mesh on the target plot
-    pub fn draw(&mut self) -> Result<(), DrawingAreaErrorKind<DB::ErrorType>> {
+    pub fn draw(&mut self) -> Result<(), DrawingAreaErrorKind<DB::ErrorType>>
+    where
+        X: ValueFormatter<<X as Ranged>::ValueType>,
+        Y: ValueFormatter<<Y as Ranged>::ValueType>,
+    {
         let target = self.target.take().unwrap();
 
         let default_mesh_color_1 = RGBColor(0, 0, 0).mix(0.2);
@@ -409,15 +441,12 @@ where
 
         let bold_style = self
             .bold_line_style
-            .clone()
             .unwrap_or_else(|| (&default_mesh_color_1).into());
         let light_style = self
             .light_line_style
-            .clone()
             .unwrap_or_else(|| (&default_mesh_color_2).into());
         let axis_style = self
             .axis_style
-            .clone()
             .unwrap_or_else(|| (&default_axis_color).into());
 
         let x_label_style = self
@@ -437,13 +466,13 @@ where
 
         target.draw_mesh(
             (
-                LightPoints::new(self.n_y_labels, self.n_y_labels * 10),
-                LightPoints::new(self.n_x_labels, self.n_x_labels * 10),
+                LightPoints::new(self.n_y_labels, self.n_y_labels * self.y_light_lines_limit),
+                LightPoints::new(self.n_x_labels, self.n_x_labels * self.x_light_lines_limit),
             ),
             &light_style,
             &x_label_style,
             &y_label_style,
-            |_| None,
+            |_, _, _| None,
             self.draw_x_mesh,
             self.draw_y_mesh,
             self.x_label_offset,
@@ -463,17 +492,25 @@ where
             &bold_style,
             &x_label_style,
             &y_label_style,
-            |m| match m {
+            |xr, yr, m| match m {
                 MeshLine::XMesh(_, _, v) => {
                     if self.draw_x_axis {
-                        Some((self.format_x)(v))
+                        if let Some(fmt_func) = self.format_x {
+                            Some(fmt_func(v))
+                        } else {
+                            Some(xr.format_ext(v))
+                        }
                     } else {
                         None
                     }
                 }
                 MeshLine::YMesh(_, _, v) => {
                     if self.draw_y_axis {
-                        Some((self.format_y)(v))
+                        if let Some(fmt_func) = self.format_y {
+                            Some(fmt_func(v))
+                        } else {
+                            Some(yr.format_ext(v))
+                        }
                     } else {
                         None
                     }

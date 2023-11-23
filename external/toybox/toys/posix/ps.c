@@ -209,7 +209,10 @@ GLOBALS(
     } pgrep;
   };
 
-  struct ptr_len gg, GG, pp, PP, ss, tt, uu, UU;
+  struct ps_ptr_len {
+    void *ptr;
+    long len;
+  } gg, GG, pp, PP, ss, tt, uu, UU;
   struct dirtree *threadparent;
   unsigned width, height, scroll;
   dev_t tty;
@@ -461,7 +464,7 @@ static void help_help(void)
 // process match filter for top/ps/pgrep: Return 0 to discard, nonzero to keep
 static int shared_match_process(long long *slot)
 {
-  struct ptr_len match[] = {
+  struct ps_ptr_len match[] = {
     {&TT.gg, SLOT_gid}, {&TT.GG, SLOT_rgid}, {&TT.pp, SLOT_pid},
     {&TT.PP, SLOT_ppid}, {&TT.ss, SLOT_sid}, {&TT.tt, SLOT_ttynr},
     {&TT.uu, SLOT_uid}, {&TT.UU, SLOT_ruid}
@@ -471,7 +474,7 @@ static int shared_match_process(long long *slot)
 
   // Do we have -g -G -p -P -s -t -u -U options selecting processes?
   for (i = 0; i < ARRAY_LEN(match); i++) {
-    struct ptr_len *mm = match[i].ptr;
+    struct ps_ptr_len *mm = match[i].ptr;
 
     if (mm->len) {
       ll = mm->ptr;
@@ -842,7 +845,7 @@ static int get_ps(struct dirtree *new)
     off_t temp = 6;
 
     sprintf(buf, "%lld/exe", slot[SLOT_tid]);
-    if (readfileat(fd, buf, buf, &temp) && !memcmp(buf, "\177ELF", 4)) {
+    if (readfileat(fd, buf, buf, &temp) && !smemcmp(buf, "\177ELF", 4)) {
       if (buf[4] == 1) slot[SLOT_bits] = 32;
       else if (buf[4] == 2) slot[SLOT_bits] = 64;
     }
@@ -1146,7 +1149,7 @@ static long long get_headers(struct ofields *field, char *buf, int blen)
 // Parse command line options -p -s -t -u -U -g -G
 static char *parse_rest(void *data, char *str, int len)
 {
-  struct ptr_len *pl = (struct ptr_len *)data;
+  struct ps_ptr_len *pl = (struct ps_ptr_len *)data;
   long *ll = pl->ptr;
   char *end;
   int num = 0;
@@ -1345,7 +1348,7 @@ void ps_main(void)
     not_o = "F,S,UID,%sPPID,C,PRI,NI,BIT,SZ,WCHAN,TTY,TIME,CMD";
   else if (CFG_TOYBOX_ON_ANDROID)
     sprintf(not_o = toybuf+128,
-            "USER,%%sPPID,VSIZE,RSS,WCHAN:10,ADDR:10,S,%s",
+            "USER,%%sPPID,VSIZE:10,RSS,WCHAN:10,ADDR:10,S,%s",
             FLAG(T) ? "CMD" : "NAME");
   sprintf(toybuf, not_o, FLAG(T) ? "PID,TID," : "PID,");
 
@@ -1518,13 +1521,13 @@ static void top_common(
     "iow", "irq", "sirq", "host"};
   unsigned tock = 0;
   int i, lines, topoff = 0, done = 0;
-  char stdout_buf[BUFSIZ];
+  char stdout_buf[8192];
 
   if (!TT.fields) perror_exit("no -o");
 
   // Avoid flicker and hide the cursor in interactive mode.
   if (!FLAG(b)) {
-    setbuf(stdout, stdout_buf);
+    setbuffer(stdout, stdout_buf, sizeof(stdout_buf));
     sigatexit(top_cursor_cleanup);
     xputsn("\e[?25l");
   }
@@ -1631,8 +1634,8 @@ static void top_common(
             run[1+stridx("RTtZ", *string_field(mix.tb[i], &field))]++;
           sprintf(toybuf,
             "%ss: %d total, %3ld running, %3ld sleeping, %3ld stopped, "
-            "%3ld zombie", FLAG(H)?"Thread":"Task", mix.count, run[1], run[0],
-            run[2]+run[3], run[4]);
+            "%3ld zombie", FLAG(H) ? "Thread" : "Task", mix.count, run[1],
+            run[0], run[2]+run[3], run[4]);
           lines = header_line(lines, 0);
 
           if (readfile("/proc/meminfo", toybuf+256, sizeof(toybuf)-256)) {
@@ -1840,12 +1843,12 @@ static int iotop_filter(long long *oslot, long long *nslot, int milis)
   if (!FLAG(a)) merge_deltas(oslot, nslot, milis);
   else oslot[SLOT_upticks] = ((millitime()-TT.time)*TT.ticks)/1000;
 
-  return !FLAG(O)||oslot[SLOT_iobytes+!FLAG(A)];
+  return !FLAG(O) || oslot[SLOT_iobytes+!FLAG(A)];
 }
 
 void iotop_main(void)
 {
-  char *s1 = 0, *s2 = 0, *d = "D"+!!FLAG(A);
+  char *s1 = 0, *s2 = 0, *d = "D"+FLAG(A);
 
   if (FLAG(K)) TT.forcek++;
 
@@ -1880,9 +1883,7 @@ static void do_pgk(struct procpid *tb)
   }
   if (!FLAG(c) && (!TT.pgrep.signal || TT.tty)) {
     printf("%lld", *tb->slot);
-    if (FLAG(l))
-      printf(" %s", tb->str+tb->offset[4]*!!FLAG(f));
-    
+    if (FLAG(l)) printf(" %s", tb->str+tb->offset[4]*FLAG(f));
     printf("%s", TT.pgrep.d ? TT.pgrep.d : "\n");
   }
 }
@@ -1892,7 +1893,7 @@ static void match_pgrep(void *p)
   struct procpid *tb = p;
   regmatch_t match;
   struct regex_list *reg;
-  char *name = tb->str+tb->offset[4]*!!FLAG(f);
+  char *name = tb->str+tb->offset[4]*FLAG(f);
 
   // Never match ourselves.
   if (TT.pgrep.self == *tb->slot) return;

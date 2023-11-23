@@ -19,6 +19,8 @@
 
 #include "icing/text_classifier/lib3/utils/base/status.h"
 #include "icing/absl_ports/canonical_errors.h"
+#include "icing/proto/document.pb.h"
+#include "icing/proto/schema.pb.h"
 #include "icing/schema/schema-util.h"
 #include "icing/util/status-macros.h"
 
@@ -149,15 +151,19 @@ libtextclassifier3::Status DocumentValidator::Validate(
     // fail, we don't need to validate the extra documents.
     if (property_config.data_type() ==
         PropertyConfigProto::DataType::DOCUMENT) {
-      const std::string_view nested_type_expected =
-          property_config.schema_type();
+      ICING_ASSIGN_OR_RETURN(
+          const std::unordered_set<SchemaTypeId>* nested_type_ids_expected,
+          schema_store_->GetSchemaTypeIdsWithChildren(
+              property_config.schema_type()));
       for (const DocumentProto& nested_document : property.document_values()) {
-        if (nested_type_expected.compare(nested_document.schema()) != 0) {
+        libtextclassifier3::StatusOr<SchemaTypeId> nested_document_type_id_or =
+            schema_store_->GetSchemaTypeId(nested_document.schema());
+        if (!nested_document_type_id_or.ok() ||
+            nested_type_ids_expected->count(
+                nested_document_type_id_or.ValueOrDie()) == 0) {
           return absl_ports::InvalidArgumentError(absl_ports::StrCat(
-              "Property '", property.name(), "' should have type '",
-              nested_type_expected,
-              "' but actual "
-              "value has type '",
+              "Property '", property.name(), "' should be type or subtype of '",
+              property_config.schema_type(), "' but actual value has type '",
               nested_document.schema(), "' for key: (", document.namespace_(),
               ", ", document.uri(), ")."));
         }

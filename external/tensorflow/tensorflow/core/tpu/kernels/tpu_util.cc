@@ -68,8 +68,8 @@ Status ShapeTensorToTensorShape(const Tensor& tensor, TensorShape* shape) {
     return errors::InvalidArgument("Shape tensor must be an int64 vector.");
   }
   const int64_t rank = tensor.NumElements();
-  auto tensor_dims = tensor.flat<int64>();
-  std::vector<int64> dims(rank);
+  auto tensor_dims = tensor.flat<int64_t>();
+  std::vector<int64_t> dims(rank);
   for (int64_t i = 0; i < rank; ++i) {
     dims[i] = tensor_dims(i);
   }
@@ -83,7 +83,7 @@ Status DynamicShapesToTensorShapes(const OpInputList& dynamic_shapes,
     TF_RETURN_IF_ERROR(
         ShapeTensorToTensorShape(dynamic_shapes[i], &(*shapes)[i]));
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status DynamicShapesToTensorShapes(const InputList& dynamic_shapes,
@@ -95,7 +95,7 @@ Status DynamicShapesToTensorShapes(const InputList& dynamic_shapes,
         ShapeTensorToTensorShape(dynamic_shape.tensor(), &(*shapes)[i]));
     ++i;
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 xla::StatusOr<std::unique_ptr<::grpc::ServerBuilder>> CreateServerBuilder(

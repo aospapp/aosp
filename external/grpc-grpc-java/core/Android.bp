@@ -36,7 +36,15 @@ java_library {
         "jsr305",
         "guava",
     ],
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
     sdk_version: "current",
+    min_sdk_version: "30",
+    apex_available: [
+        "com.android.adservices",
+        "com.android.devicelock",
+        "com.android.extservices",
+    ],
 }
 
 java_library {
@@ -52,6 +60,8 @@ java_library {
         "jsr305",
         "guava",
     ],
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
     sdk_version: "current",
 }
 
@@ -66,7 +76,7 @@ java_library {
         "grpc-java-core",
         "grpc-java-context",
         "jsr305",
-        "gson-prebuilt-jar",
+        "gson",
         "error_prone_annotations",
         "guava",
         "opencensus-java-api",
@@ -83,7 +93,20 @@ java_library {
             ],
         },
     },
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
     sdk_version: "current",
+    min_sdk_version: "30",
+    apex_available: [
+        "com.android.adservices",
+        "com.android.devicelock",
+        "com.android.extservices",
+    ],
+    errorprone: {
+        javacflags: [
+            "-Xep:BanJNDI:WARN",
+        ],
+    },
 }
 
 java_library {
@@ -98,5 +121,7 @@ java_library {
         "jsr305",
         "guava",
     ],
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
     sdk_version: "current",
 }

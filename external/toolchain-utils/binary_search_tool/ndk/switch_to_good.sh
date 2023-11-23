@@ -1,6 +1,6 @@
 #!/bin/bash -u
 #
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2016 Google LLC
 #
 # This script is intended to be used by binary_search_state.py, as
 # part of the binary search triage on Android NDK apps. This script simply
@@ -43,4 +43,3 @@ fi
 
 cat $OBJ_LIST_FILE | xargs rm
 exit 0
-

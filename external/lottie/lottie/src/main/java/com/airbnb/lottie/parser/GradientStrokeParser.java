@@ -10,15 +10,19 @@ import com.airbnb.lottie.model.content.GradientStroke;
 import com.airbnb.lottie.model.content.GradientType;
 import com.airbnb.lottie.model.content.ShapeStroke;
 import com.airbnb.lottie.parser.moshi.JsonReader;
+import com.airbnb.lottie.value.Keyframe;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 class GradientStrokeParser {
 
-  private GradientStrokeParser() {}
-  private static JsonReader.Options NAMES = JsonReader.Options.of(
+  private GradientStrokeParser() {
+  }
+
+  private static final JsonReader.Options NAMES = JsonReader.Options.of(
       "nm",
       "g",
       "o",
@@ -149,6 +153,9 @@ class GradientStrokeParser {
       }
     }
 
+    // Telegram sometimes omits opacity.
+    // https://github.com/airbnb/lottie-android/issues/1600
+    opacity = opacity == null ? new AnimatableIntegerValue(Collections.singletonList(new Keyframe<>(100))) : opacity;
     return new GradientStroke(
         name, gradientType, color, opacity, startPoint, endPoint, width, capType, joinType,
         miterLimit, lineDashPattern, offset, hidden);

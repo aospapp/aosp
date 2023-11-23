@@ -4,18 +4,28 @@
 //! Structs for Tube based endpoint. Listeners are not used with Tubes, since they are essentially
 //! fancy socket pairs.
 
-use std::io::{IoSlice, IoSliceMut};
+use std::cmp::min;
+use std::fs::File;
+use std::io::IoSlice;
+use std::io::IoSliceMut;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::ptr::copy_nonoverlapping;
 
-use base::{AsRawDescriptor, FromRawDescriptor, RawDescriptor, Tube};
-use serde::{Deserialize, Serialize};
+use base::AsRawDescriptor;
+use base::FromRawDescriptor;
+use base::RawDescriptor;
+use base::Tube;
+use serde::Deserialize;
+use serde::Serialize;
+use tube_transporter::packed_tube;
 
-use super::{Error, Result};
-use crate::connection::{Endpoint, Listener, Req};
-use std::cmp::min;
-use std::fs::File;
-use std::marker::PhantomData;
+use crate::connection::Endpoint;
+use crate::connection::Req;
+use crate::message::SlaveReq;
+use crate::take_single_file;
+use crate::Error;
+use crate::Result;
 
 #[derive(Serialize, Deserialize)]
 struct RawDescriptorContainer {
@@ -29,25 +39,16 @@ struct EndpointMessage {
     data: Vec<u8>,
 }
 
-/// No-op for Tubes. Tubes are a socketpair() equivalent and cannot be listened for or connected.
-pub struct TubeListener;
-
-impl Listener for TubeListener {
-    type Connection = Tube;
-
-    fn accept(&mut self) -> Result<Option<Self::Connection>> {
-        unimplemented!("listeners for Tubes are not used")
-    }
-
-    fn set_nonblocking(&self, _block: bool) -> Result<()> {
-        unimplemented!("listeners for Tubes are not used")
-    }
-}
-
 /// Tube endpoint for vhost-user connection.
 pub struct TubeEndpoint<R: Req> {
     tube: Tube,
     _r: PhantomData<R>,
+}
+
+impl<R: Req> TubeEndpoint<R> {
+    pub(crate) fn get_tube(&self) -> &Tube {
+        &self.tube
+    }
 }
 
 impl<R: Req> From<Tube> for TubeEndpoint<R> {
@@ -60,15 +61,6 @@ impl<R: Req> From<Tube> for TubeEndpoint<R> {
 }
 
 impl<R: Req> Endpoint<R> for TubeEndpoint<R> {
-    type Listener = TubeListener;
-
-    fn from_connection(tube: <<Self as Endpoint<R>>::Listener as Listener>::Connection) -> Self {
-        Self {
-            tube,
-            _r: PhantomData,
-        }
-    }
-
     fn connect<P: AsRef<Path>>(_path: P) -> Result<Self> {
         unimplemented!("connections not supported on Tubes")
     }
@@ -163,6 +155,16 @@ impl<R: Req> Endpoint<R> for TubeEndpoint<R> {
 
         Ok((bytes_read, files))
     }
+
+    fn create_slave_request_endpoint(
+        &mut self,
+        files: Option<Vec<File>>,
+    ) -> Result<Box<dyn Endpoint<SlaveReq>>> {
+        let file = take_single_file(files).ok_or(Error::InvalidMessage)?;
+        // Safe because the file represents a packed tube.
+        let tube = unsafe { packed_tube::unpack(file.into()).expect("unpacked Tube") };
+        Ok(Box::new(TubeEndpoint::from(tube)))
+    }
 }
 
 impl<R: Req> AsRawDescriptor for TubeEndpoint<R> {
@@ -175,19 +177,27 @@ impl<R: Req> AsRawDescriptor for TubeEndpoint<R> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::IoSlice;
+    use std::io::Read;
+    use std::io::Seek;
+    use std::io::SeekFrom;
+    use std::io::Write;
+    use std::mem;
+
+    use base::AsRawDescriptor;
+    use base::Tube;
+    use tempfile::tempfile;
+
     use super::*;
     use crate::connection::EndpointExt;
-    use crate::message::{MasterReq, VhostUserMsgHeader};
-    use base::{AsRawDescriptor, Tube};
-    use std::io::{IoSlice, Read, Seek, SeekFrom, Write};
-    use std::mem;
-    use tempfile::tempfile;
+    use crate::message::MasterReq;
+    use crate::message::VhostUserMsgHeader;
 
     fn create_pair() -> (TubeEndpoint<MasterReq>, TubeEndpoint<MasterReq>) {
         let (master_tube, slave_tube) = Tube::pair().unwrap();
         (
-            TubeEndpoint::<MasterReq>::from_connection(master_tube),
-            TubeEndpoint::<MasterReq>::from_connection(slave_tube),
+            TubeEndpoint::<MasterReq>::from(master_tube),
+            TubeEndpoint::<MasterReq>::from(slave_tube),
         )
     }
 

@@ -14,10 +14,6 @@
 # ==============================================================================
 """Tests for `tensorflow::FunctionParameterCanonicalizer`."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from tensorflow.python.platform import test
 from tensorflow.python.util import _function_parameter_canonicalizer_binding_for_test
 
@@ -84,6 +80,13 @@ class FunctionParameterCanonicalizerTest(test.TestCase):
     with self.assertRaisesRegex(
         TypeError, "Got multiple values for argument 'transpose_a'"):
       self._matmul_func.canonicalize(2, 3, False, transpose_a=True)
+
+  def testKwargNotInterned(self):
+    func = (
+        _function_parameter_canonicalizer_binding_for_test
+        .FunctionParameterCanonicalizer(['long_parameter_name'], ()))
+    kwargs = dict([('_'.join(['long', 'parameter', 'name']), 5)])
+    func.canonicalize(**kwargs)
 
 
 if __name__ == '__main__':

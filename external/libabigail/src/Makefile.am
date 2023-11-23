@@ -46,12 +46,12 @@ if CTF_READER
 libabigail_la_SOURCES += abg-ctf-reader.cc
 endif
 
-libabigail_la_LIBADD = $(DEPS_LIBS)
+libabigail_la_LIBADD = $(DEPS_LIBS) $(FTS_LIBS)
 libabigail_la_LDFLAGS = -lpthread -Wl,--as-needed -no-undefined
 
 CUSTOM_MACROS = -DABIGAIL_ROOT_SYSTEM_LIBDIR=\"${libdir}\"
 
 AM_CPPFLAGS=\
-$(CUSTOM_MACROS) $(DEPS_CPPFLAGS) \
+$(CUSTOM_MACROS) $(DEPS_CPPFLAGS) $(FTS_CFLAGS) \
 -Wall -I$(abs_top_srcdir) -I$(abs_top_srcdir)/include \
 -I$(abs_top_builddir)/include -I$(abs_top_builddir)

@@ -3,6 +3,7 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include <assert.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -10,15 +11,18 @@
 
 #include <xnnpack.h>
 #include <xnnpack/log.h>
+#include <xnnpack/operator.h>
 #include <xnnpack/params.h>
 #include <xnnpack/subgraph.h>
+#include <xnnpack/subgraph-validation.h>
 
 
 static enum xnn_status create_minimum_operator(
   const struct xnn_node* node,
   const struct xnn_value* values,
   size_t num_values,
-  struct xnn_operator_data* opdata)
+  struct xnn_operator_data* opdata,
+  const struct xnn_caches* caches)
 {
   assert(node->compute_type == xnn_compute_type_fp32);
 
@@ -35,9 +39,23 @@ static enum xnn_status create_minimum_operator(
   assert(output_id != XNN_INVALID_VALUE_ID);
   assert(output_id < num_values);
 
-  const enum xnn_status status = xnn_create_minimum_nd_f32(
-    node->flags,
-    &opdata->operator_object);
+  enum xnn_status status;
+  switch (node->compute_type) {
+#ifndef XNN_NO_F16_OPERATORS
+    case xnn_compute_type_fp16:
+      status = xnn_create_minimum_nd_f16(
+        node->flags,
+        &opdata->operator_objects[0]);
+      break;
+#endif  // !defined(XNN_NO_F16_OPERATORS)
+    case xnn_compute_type_fp32:
+      status = xnn_create_minimum_nd_f32(
+        node->flags,
+        &opdata->operator_objects[0]);
+      break;
+    default:
+      XNN_UNREACHABLE;
+  }
   if (status == xnn_status_success) {
     opdata->shape1.num_dims = values[input1_id].shape.num_dims;
     opdata->shape2.num_dims = values[input2_id].shape.num_dims;
@@ -98,14 +116,30 @@ static enum xnn_status setup_minimum_operator(
   void* output_data = output_blob->data;
   assert(output_data != NULL);
 
-  return xnn_setup_minimum_nd_f32(
-    opdata->operator_object,
-    opdata->shape1.num_dims,
-    opdata->shape1.dim,
-    opdata->shape2.num_dims,
-    opdata->shape2.dim,
-    input1_data, input2_data, output_data,
-    threadpool);
+  switch (opdata->operator_objects[0]->type) {
+#ifndef XNN_NO_F16_OPERATORS
+    case xnn_operator_type_minimum_nd_f16:
+      return xnn_setup_minimum_nd_f16(
+        opdata->operator_objects[0],
+        opdata->shape1.num_dims,
+        opdata->shape1.dim,
+        opdata->shape2.num_dims,
+        opdata->shape2.dim,
+        input1_data, input2_data, output_data,
+        threadpool);
+#endif  // !defined(XNN_NO_F16_OPERATORS)
+    case xnn_operator_type_minimum_nd_f32:
+      return xnn_setup_minimum_nd_f32(
+        opdata->operator_objects[0],
+        opdata->shape1.num_dims,
+        opdata->shape1.dim,
+        opdata->shape2.num_dims,
+        opdata->shape2.dim,
+        input1_data, input2_data, output_data,
+        threadpool);
+    default:
+      XNN_UNREACHABLE;
+  }
 }
 
 enum xnn_status xnn_define_minimum2(
@@ -115,25 +149,20 @@ enum xnn_status xnn_define_minimum2(
   uint32_t output_id,
   uint32_t flags)
 {
-  if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
-    xnn_log_error("failed to define %s operator: XNNPACK is not initialized",
-      xnn_node_type_to_string(xnn_node_type_minimum2));
-    return xnn_status_uninitialized;
+  enum xnn_status status;
+  if ((status = xnn_subgraph_check_xnnpack_initialized(xnn_node_type_minimum2)) != xnn_status_success) {
+    return status;
   }
 
-  if (input1_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with the first input ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_minimum2), input1_id);
-    return xnn_status_invalid_parameter;
+  if ((status = xnn_subgraph_check_nth_input_node_id(
+        xnn_node_type_minimum2, input1_id, subgraph->num_values, 1)) != xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* input1_value = &subgraph->values[input1_id];
-  if (input1_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with the first input ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_minimum2), input1_id, input1_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_nth_input_type_dense(xnn_node_type_minimum2, input1_id, input1_value, 1);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   switch (input1_value->datatype) {
@@ -147,19 +176,15 @@ enum xnn_status xnn_define_minimum2(
       return xnn_status_invalid_parameter;
   }
 
-  if (input2_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with the second input ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_minimum2), input2_id);
-    return xnn_status_invalid_parameter;
+  if ((status = xnn_subgraph_check_nth_input_node_id(
+        xnn_node_type_minimum2, input2_id, subgraph->num_values, 2)) != xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* input2_value = &subgraph->values[input2_id];
-  if (input2_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with the second input ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_minimum2), input2_id, input2_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_nth_input_type_dense(xnn_node_type_minimum2, input2_id, input2_value, 2);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   switch (input2_value->datatype) {
@@ -173,19 +198,15 @@ enum xnn_status xnn_define_minimum2(
       return xnn_status_invalid_parameter;
   }
 
-  if (output_id >= subgraph->num_values) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": invalid Value ID",
-      xnn_node_type_to_string(xnn_node_type_minimum2), output_id);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_node_id(xnn_node_type_minimum2, output_id, subgraph->num_values);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   const struct xnn_value* output_value = &subgraph->values[output_id];
-  if (output_value->type != xnn_value_type_dense_tensor) {
-    xnn_log_error(
-      "failed to define %s operator with output ID #%" PRIu32 ": unsupported Value type %d (expected dense tensor)",
-      xnn_node_type_to_string(xnn_node_type_minimum2), output_id, output_value->type);
-    return xnn_status_invalid_parameter;
+  status = xnn_subgraph_check_output_type_dense(xnn_node_type_minimum2, output_id, output_value);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   switch (output_value->datatype) {

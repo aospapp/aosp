@@ -4,7 +4,7 @@
 
 import logging
 import os
-import xmlrpclib
+import six
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
@@ -107,7 +107,7 @@ class firmware_FWupdate(FirmwareTest):
         try:
             if self.flashed and self._want_restore and self.is_firmware_saved():
                 self.restore_firmware()
-        except (EnvironmentError, xmlrpclib.Fault,
+        except (EnvironmentError, six.moves.xmlrpc_client.Fault,
                 error.AutoservError, error.TestBaseException):
             logging.error("Problem restoring firmware:", exc_info=True)
 
@@ -118,7 +118,7 @@ class firmware_FWupdate(FirmwareTest):
                         self._orig_sw_wp['start'],
                         self._orig_sw_wp['length'],
                         self._orig_sw_wp['enabled'])
-        except (EnvironmentError, xmlrpclib.Fault,
+        except (EnvironmentError, six.moves.xmlrpc_client.Fault,
                 error.AutoservError, error.TestBaseException):
             logging.error("Problem restoring software write-protect:",
                           exc_info=True)
@@ -268,7 +268,7 @@ class firmware_FWupdate(FirmwareTest):
                 self.MODE, append, options, ignore_status=True)
 
         if result.exit_status == 255:
-            logging.warn("DUT network dropped during update.")
+            logging.warning("DUT network dropped during update.")
         elif result.exit_status != 0:
             if (image_fwids == before_fwids and
                     'Good. It seems nothing was changed.' in result.stdout):
@@ -409,7 +409,7 @@ class firmware_FWupdate(FirmwareTest):
         if self.new_bios or (self.new_bios_ro and self.new_bios_rw):
             errors += self.test_new(raise_error=False)
         else:
-            logging.warn("No 'new_bios_ro' given, skipping: %s",
+            logging.warning("No 'new_bios_ro' given, skipping: %s",
                          self.test_new.__doc__)
         if errors:
             if len(errors) > 1:

@@ -7,13 +7,12 @@
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS
+ * IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language
+ * governing permissions and limitations under the License.
  */
-
 #include "src/traced/probes/probes_producer.h"
 
 #include <stdio.h>
@@ -28,6 +27,7 @@
 #include "perfetto/ext/base/watchdog.h"
 #include "perfetto/ext/base/weak_ptr.h"
 #include "perfetto/ext/traced/traced.h"
+#include "perfetto/ext/tracing/core/basic_types.h"
 #include "perfetto/ext/tracing/core/trace_packet.h"
 #include "perfetto/ext/tracing/ipc/producer_ipc_client.h"
 #include "perfetto/tracing/core/data_source_config.h"
@@ -35,7 +35,9 @@
 #include "perfetto/tracing/core/forward_decls.h"
 #include "perfetto/tracing/core/trace_config.h"
 #include "src/android_stats/statsd_logging_helper.h"
+#include "src/traced/probes/android_game_intervention_list/android_game_intervention_list_data_source.h"
 #include "src/traced/probes/android_log/android_log_data_source.h"
+#include "src/traced/probes/android_system_property/android_system_property_data_source.h"
 #include "src/traced/probes/common/cpu_freq_info.h"
 #include "src/traced/probes/filesystem/inode_file_data_source.h"
 #include "src/traced/probes/ftrace/ftrace_data_source.h"
@@ -46,6 +48,7 @@
 #include "src/traced/probes/power/linux_power_sysfs_data_source.h"
 #include "src/traced/probes/probes_data_source.h"
 #include "src/traced/probes/ps/process_stats_data_source.h"
+#include "src/traced/probes/statsd_client/statsd_binder_data_source.h"
 #include "src/traced/probes/sys_stats/sys_stats_data_source.h"
 #include "src/traced/probes/system_info/system_info_data_source.h"
 
@@ -122,6 +125,8 @@ ProbesProducer::CreateDSInstance<FtraceDataSource>(
   if (ftrace_creation_failed_)
     return nullptr;
 
+  FtraceConfig ftrace_config;
+  ftrace_config.ParseFromString(config.ftrace_config_raw());
   // Lazily create on the first instance.
   if (!ftrace_) {
     ftrace_ = FtraceController::Create(task_runner_, this);
@@ -131,15 +136,10 @@ ProbesProducer::CreateDSInstance<FtraceDataSource>(
       ftrace_creation_failed_ = true;
       return nullptr;
     }
-
-    ftrace_->DisableAllEvents();
-    ftrace_->ClearTrace();
   }
 
   PERFETTO_LOG("Ftrace setup (target_buf=%" PRIu32 ")", config.target_buffer());
   const BufferID buffer_id = static_cast<BufferID>(config.target_buffer());
-  FtraceConfig ftrace_config;
-  ftrace_config.ParseFromString(config.ftrace_config_raw());
   std::unique_ptr<FtraceDataSource> data_source(new FtraceDataSource(
       ftrace_->GetWeakPtr(), session_id, std::move(ftrace_config),
       endpoint_->CreateTraceWriter(buffer_id)));
@@ -174,6 +174,17 @@ ProbesProducer::CreateDSInstance<ProcessStatsDataSource>(
   return std::unique_ptr<ProcessStatsDataSource>(new ProcessStatsDataSource(
       task_runner_, session_id, endpoint_->CreateTraceWriter(buffer_id), config,
       std::unique_ptr<CpuFreqInfo>(new CpuFreqInfo())));
+}
+
+template <>
+std::unique_ptr<ProbesDataSource>
+ProbesProducer::CreateDSInstance<StatsdBinderDataSource>(
+    TracingSessionID session_id,
+    const DataSourceConfig& config) {
+  auto buffer_id = static_cast<BufferID>(config.target_buffer());
+  return std::unique_ptr<StatsdBinderDataSource>(new StatsdBinderDataSource(
+      task_runner_, session_id, endpoint_->CreateTraceWriter(buffer_id),
+      config));
 }
 
 template <>
@@ -221,6 +232,17 @@ ProbesProducer::CreateDSInstance<PackagesListDataSource>(
 
 template <>
 std::unique_ptr<ProbesDataSource>
+ProbesProducer::CreateDSInstance<AndroidGameInterventionListDataSource>(
+    TracingSessionID session_id,
+    const DataSourceConfig& config) {
+  auto buffer_id = static_cast<BufferID>(config.target_buffer());
+  return std::unique_ptr<ProbesDataSource>(
+      new AndroidGameInterventionListDataSource(
+          config, session_id, endpoint_->CreateTraceWriter(buffer_id)));
+}
+
+template <>
+std::unique_ptr<ProbesDataSource>
 ProbesProducer::CreateDSInstance<SysStatsDataSource>(
     TracingSessionID session_id,
     const DataSourceConfig& config) {
@@ -262,6 +284,17 @@ ProbesProducer::CreateDSInstance<InitialDisplayStateDataSource>(
       endpoint_->CreateTraceWriter(buffer_id)));
 }
 
+template <>
+std::unique_ptr<ProbesDataSource>
+ProbesProducer::CreateDSInstance<AndroidSystemPropertyDataSource>(
+    TracingSessionID session_id,
+    const DataSourceConfig& config) {
+  auto buffer_id = static_cast<BufferID>(config.target_buffer());
+  return std::unique_ptr<ProbesDataSource>(new AndroidSystemPropertyDataSource(
+      task_runner_, config, session_id,
+      endpoint_->CreateTraceWriter(buffer_id)));
+}
+
 // Another anonymous namespace. This cannot be moved into the anonymous
 // namespace on top (it would fail to compile), because the CreateDSInstance
 // methods need to be fully declared before.
@@ -280,12 +313,22 @@ constexpr DataSourceTraits Ds() {
   return DataSourceTraits{&T::descriptor, &ProbesProducer::CreateDSInstance<T>};
 }
 
-const DataSourceTraits kAllDataSources[] = {
-    Ds<AndroidLogDataSource>(),   Ds<AndroidPowerDataSource>(),
-    Ds<FtraceDataSource>(),       Ds<InitialDisplayStateDataSource>(),
-    Ds<InodeFileDataSource>(),    Ds<LinuxPowerSysfsDataSource>(),
-    Ds<MetatraceDataSource>(),    Ds<PackagesListDataSource>(),
-    Ds<ProcessStatsDataSource>(), Ds<SysStatsDataSource>(),
+constexpr const DataSourceTraits kAllDataSources[] = {
+    Ds<AndroidGameInterventionListDataSource>(),
+    Ds<AndroidLogDataSource>(),
+    Ds<AndroidPowerDataSource>(),
+    Ds<AndroidSystemPropertyDataSource>(),
+    Ds<FtraceDataSource>(),
+    Ds<InitialDisplayStateDataSource>(),
+    Ds<InodeFileDataSource>(),
+    Ds<LinuxPowerSysfsDataSource>(),
+    Ds<MetatraceDataSource>(),
+    Ds<PackagesListDataSource>(),
+    Ds<ProcessStatsDataSource>(),
+#if PERFETTO_BUILDFLAG(PERFETTO_ANDROID_BUILD)
+    Ds<StatsdBinderDataSource>(),
+#endif
+    Ds<SysStatsDataSource>(),
     Ds<SystemInfoDataSource>(),
 };
 
@@ -303,6 +346,12 @@ void ProbesProducer::OnConnect() {
   for (size_t i = 0; i < proto_descs.size(); i++) {
     DataSourceDescriptor& proto_desc = proto_descs[i];
     const ProbesDataSource::Descriptor* desc = kAllDataSources[i].descriptor;
+    for (size_t j = i + 1; j < proto_descs.size(); j++) {
+      if (kAllDataSources[i].descriptor == kAllDataSources[j].descriptor) {
+        PERFETTO_FATAL("Duplicate descriptor name %s",
+                       kAllDataSources[i].descriptor->name);
+      }
+    }
 
     proto_desc.set_name(desc->name);
     proto_desc.set_will_notify_on_start(true);
@@ -382,7 +431,16 @@ void ProbesProducer::StartDataSource(DataSourceInstanceID instance_id,
   if (data_source->started)
     return;
   if (config.trace_duration_ms() != 0) {
-    uint32_t timeout = 5000 + 2 * config.trace_duration_ms();
+    // We need to ensure this timeout is worse than the worst case
+    // time from us starting to traced managing to disable us.
+    // See b/236814186#comment8 for context
+    // Note: when using prefer_suspend_clock_for_duration the actual duration
+    // might be < timeout measured in in wall time. But this is fine
+    // because the resulting timeout will be conservative (it will be accurate
+    // if the device never suspends, and will be more lax if it does).
+    uint32_t timeout =
+        2 * (kDefaultFlushTimeoutMs + config.trace_duration_ms() +
+             config.stop_timeout_ms());
     watchdogs_.emplace(
         instance_id, base::Watchdog::GetInstance()->CreateFatalTimer(
                          timeout, base::WatchdogCrashReason::kTraceDidntStop));
@@ -402,12 +460,10 @@ void ProbesProducer::StopDataSource(DataSourceInstanceID id) {
   }
   ProbesDataSource* data_source = it->second.get();
 
-  // MetatraceDataSource special case: re-flush and ack the stop (to record the
-  // flushes of other data sources).
+  // MetatraceDataSource special case: re-flush to record the final flushes of
+  // other data sources.
   if (data_source->descriptor == &MetatraceDataSource::descriptor)
     data_source->Flush(FlushRequestID{0}, [] {});
-
-  endpoint_->NotifyDataSourceStopped(id);
 
   TracingSessionID session_id = data_source->tracing_session_id;
 
@@ -426,6 +482,14 @@ void ProbesProducer::StopDataSource(DataSourceInstanceID id) {
   }
   data_sources_.erase(it);
   watchdogs_.erase(id);
+
+  // We could (and used to) acknowledge the stop before tearing the local state
+  // down, allowing the tracing service and the consumer to carry on quicker.
+  // However in the case of tracebox, the traced_probes subprocess gets killed
+  // as soon as the trace is considered finished (i.e. all data source stops
+  // were acked), and therefore the kill would race against the tracefs
+  // cleanup.
+  endpoint_->NotifyDataSourceStopped(id);
 }
 
 void ProbesProducer::OnTracingSetup() {
@@ -547,6 +611,8 @@ void ProbesProducer::OnFtraceDataWrittenIntoDataSourceBuffers() {
           ps_ds->OnRenamePids(metadata->rename_pids);
         if (!metadata->pids.empty())
           ps_ds->OnPids(metadata->pids);
+        if (!metadata->fds.empty())
+          ps_ds->OnFds(metadata->fds);
       }
       for (auto in_it = ino_range.first; in_it != ino_range.second; in_it++) {
         auto* inode_ds = static_cast<InodeFileDataSource*>(in_it->second);

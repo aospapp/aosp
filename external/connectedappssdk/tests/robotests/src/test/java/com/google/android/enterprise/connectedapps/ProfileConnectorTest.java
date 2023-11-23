@@ -32,6 +32,7 @@ import com.google.android.enterprise.connectedapps.testapp.configuration.TestApp
 import com.google.android.enterprise.connectedapps.testapp.connector.DirectBootAwareConnector;
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnectorWithCustomServiceClass;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -70,6 +71,11 @@ public class ProfileConnectorTest {
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
   }
 
+  @After
+  public void teardown() {
+    testProfileConnector.clearConnectionHolders();
+  }
+
   @Test
   public void construct_nullConnector_throwsNullPointerException() {
     assertThrows(NullPointerException.class, () -> TestProfileConnector.create(null));
@@ -79,21 +85,34 @@ public class ProfileConnectorTest {
   // handle the multiple threads very well
   @Test
   public void connect_callingFromUIThread_throwsIllegalStateException() {
-    assertThrows(IllegalStateException.class, testProfileConnector::connect);
+    assertThrows(IllegalStateException.class, () -> testProfileConnector.connect(this));
   }
 
   @Test
-  public void startConnecting_fromPersonalProfile_binds() {
+  public void addConnectionHolder_null_throwsException() {
+    assertThrows(NullPointerException.class, () -> testProfileConnector.addConnectionHolder(null));
+  }
+
+  @Test
+  public void removeConnectionHolder_null_throwsException() {
+    assertThrows(NullPointerException.class,
+        () -> testProfileConnector.removeConnectionHolder(null));
+  }
+
+  @Test
+  public void addConnectionHolder_fromPersonalProfile_binds() {
     testUtilities.setRunningOnPersonalProfile();
-    testUtilities.startConnectingAndWait();
+
+    testProfileConnector.addConnectionHolder(this);
 
     assertThat(testProfileConnector.isConnected()).isTrue();
   }
 
   @Test
-  public void startConnecting_fromWorkProfile_binds() {
+  public void addConnectionHolder_fromWorkProfile_binds() {
     testUtilities.setRunningOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+
+    testProfileConnector.addConnectionHolder(this);
 
     assertThat(testProfileConnector.isConnected()).isTrue();
   }
@@ -116,7 +135,7 @@ public class ProfileConnectorTest {
 
   @Test
   public void disconnect_isBound_unbinds() {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     testUtilities.disconnect();
 
@@ -124,26 +143,26 @@ public class ProfileConnectorTest {
   }
 
   @Test
-  public void startConnecting_callsConnectionListener() {
-    testProfileConnector.registerConnectionListener(connectionListener);
-    testUtilities.startConnectingAndWait();
+  public void addConnectionHolder_callsConnectionListener() {
+    testProfileConnector.addConnectionListener(connectionListener);
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     assertThat(connectionListener.connectionChangedCount()).isEqualTo(1);
   }
 
   @Test
-  public void startConnecting_doesNotCallUnregisteredConnectionListener() {
-    testProfileConnector.registerConnectionListener(connectionListener);
-    testProfileConnector.unregisterConnectionListener(connectionListener);
-    testUtilities.startConnectingAndWait();
+  public void addConnectionHolder_doesNotCallUnregisteredConnectionListener() {
+    testProfileConnector.addConnectionListener(connectionListener);
+    testProfileConnector.removeConnectionListener(connectionListener);
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     assertThat(connectionListener.connectionChangedCount()).isEqualTo(0);
   }
 
   @Test
   public void disconnect_callsConnectionListener() {
-    testProfileConnector.registerConnectionListener(connectionListener);
-    testUtilities.startConnectingAndWait();
+    testProfileConnector.addConnectionListener(connectionListener);
+    testUtilities.addDefaultConnectionHolderAndWait();
     connectionListener.resetConnectionChangedCount();
 
     testUtilities.disconnect();
@@ -153,8 +172,8 @@ public class ProfileConnectorTest {
 
   @Test
   public void bindingDies_callsConnectionListener() {
-    testProfileConnector.registerConnectionListener(connectionListener);
-    testUtilities.startConnectingAndWait();
+    testProfileConnector.addConnectionListener(connectionListener);
+    testUtilities.addDefaultConnectionHolderAndWait();
     connectionListener.resetConnectionChangedCount();
 
     testUtilities.turnOffWorkProfile();
@@ -163,9 +182,9 @@ public class ProfileConnectorTest {
   }
 
   @Test
-  public void startConnecting_profileConnectorWithCustomServiceClass() {
+  public void addConnectionHolder_profileConnectorWithCustomServiceClass() {
     TestProfileConnectorWithCustomServiceClass.create(context, scheduledExecutorService)
-        .startConnecting();
+        .addConnectionHolder(this);
     testUtilities.advanceTimeBySeconds(1); // Allow connection
 
     assertThat(shadowOf(context).getNextStartedService().getComponent().getClassName())
@@ -232,23 +251,13 @@ public class ProfileConnectorTest {
   }
 
   @Test
-  public void isManuallyManagingConnection_returnsFalse() {
-    assertThat(testProfileConnector.isManuallyManagingConnection()).isFalse();
-  }
+  public void addConnectionHolder_autocloseReturnedConnectionHolder_unbinds() {
+    try (ProfileConnectionHolder p = testProfileConnector.addConnectionHolder(this)) {
+      // Intentionally empty
+    }
 
-  @Test
-  public void isManuallyManagingConnection_hasManuallyConnected_returnsTrue() {
-    testUtilities.startConnectingAndWait();
+    testUtilities.advanceTimeBySeconds(31);
 
-    assertThat(testProfileConnector.isManuallyManagingConnection()).isTrue();
-  }
-
-  @Test
-  public void isManuallyManagingConnection_hasCalledStopManualConnectionManagement_returnsFalse() {
-    testUtilities.startConnectingAndWait();
-
-    testProfileConnector.stopManualConnectionManagement();
-
-    assertThat(testProfileConnector.isManuallyManagingConnection()).isFalse();
+    assertThat(testProfileConnector.isConnected()).isFalse();
   }
 }

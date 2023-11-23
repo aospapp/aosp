@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as m from 'mithril';
+import m from 'mithril';
 
 import {Actions} from '../common/actions';
-import {EngineConfig} from '../common/state';
-import * as version from '../gen/perfetto_version';
+import {VERSION} from '../gen/perfetto_version';
 
 import {globals} from './globals';
+import {runQueryInNewTab} from './query_result_tab';
 import {executeSearch} from './search_handler';
 import {taskTracker} from './task_tracker';
 
@@ -28,7 +28,7 @@ type Mode = typeof SEARCH|typeof COMMAND;
 
 const PLACEHOLDER = {
   [SEARCH]: 'Search',
-  [COMMAND]: 'e.g. select * from sched left join thread using(utid) limit 10'
+  [COMMAND]: 'e.g. select * from sched left join thread using(utid) limit 10',
 };
 
 export const DISMISSED_PANNING_HINT_KEY = 'dismissedPanningHint';
@@ -60,6 +60,15 @@ function onKeyDown(e: Event) {
   if (mode === SEARCH && key === 'Enter') {
     txt.blur();
   }
+
+  if (mode === COMMAND && key === 'Enter') {
+    const openInPinnedTab = event.metaKey || event.ctrlKey;
+    runQueryInNewTab(
+        txt.value,
+        openInPinnedTab ? 'Pinned query' : 'Omnibox query',
+        openInPinnedTab ? undefined : 'omnibox_query',
+    );
+  }
 }
 
 function onKeyUp(e: Event) {
@@ -69,16 +78,11 @@ function onKeyUp(e: Event) {
   const txt = e.target as HTMLInputElement;
 
   if (key === 'Escape') {
-    globals.dispatch(Actions.deleteQuery({queryId: 'command'}));
     mode = SEARCH;
     txt.value = '';
     txt.blur();
     globals.rafScheduler.scheduleFullRedraw();
     return;
-  }
-  if (mode === COMMAND && key === 'Enter') {
-    globals.dispatch(Actions.executeQuery(
-        {engineId: '0', queryId: 'command', query: txt.value}));
   }
 }
 
@@ -91,12 +95,10 @@ class Omnibox implements m.ClassComponent {
 
   view() {
     const msgTTL = globals.state.status.timestamp + 1 - Date.now() / 1e3;
-    let enginesAreBusy = false;
-    for (const engine of Object.values(globals.state.engines)) {
-      enginesAreBusy = enginesAreBusy || !engine.ready;
-    }
+    const engineIsBusy =
+        globals.state.engine !== undefined && !globals.state.engine.ready;
 
-    if (msgTTL > 0 || enginesAreBusy) {
+    if (msgTTL > 0 || engineIsBusy) {
       setTimeout(
           () => globals.rafScheduler.scheduleFullRedraw(), msgTTL * 1000);
       return m(
@@ -113,14 +115,16 @@ class Omnibox implements m.ClassComponent {
           placeholder: PLACEHOLDER[mode],
           oninput: (e: InputEvent) => {
             const value = (e.target as HTMLInputElement).value;
-            globals.frontendLocalState.setOmnibox(
-                value, commandMode ? 'COMMAND' : 'SEARCH');
+            globals.dispatch(Actions.setOmnibox({
+              omnibox: value,
+              mode: commandMode ? 'COMMAND' : 'SEARCH',
+            }));
             if (mode === SEARCH) {
               displayStepThrough = value.length >= 4;
               globals.dispatch(Actions.setSearchIndex({index: -1}));
             }
           },
-          value: globals.frontendLocalState.omnibox,
+          value: globals.state.omniboxState.omnibox,
         }),
         displayStepThrough ?
             m(
@@ -133,19 +137,16 @@ class Omnibox implements m.ClassComponent {
                               globals.currentSearchResults.totalResults}`}`),
                 m('button',
                   {
-                    disabled: globals.state.searchIndex <= 0,
                     onclick: () => {
                       executeSearch(true /* reverse direction */);
-                    }
+                    },
                   },
                   m('i.material-icons.left', 'keyboard_arrow_left')),
                 m('button',
                   {
-                    disabled: globals.state.searchIndex ===
-                        globals.currentSearchResults.totalResults - 1,
                     onclick: () => {
                       executeSearch();
-                    }
+                    },
                   },
                   m('i.material-icons.right', 'keyboard_arrow_right')),
                 ) :
@@ -176,9 +177,9 @@ class Progress implements m.ClassComponent {
 
   loadingAnimation() {
     if (this.progressBar === undefined) return;
-    const engine: EngineConfig = globals.state.engines['0'];
-    if ((engine !== undefined && !engine.ready) ||
-        globals.numQueuedQueries > 0 || taskTracker.hasPendingTasks()) {
+    const engine = globals.getCurrentEngine();
+    if ((engine && !engine.ready) || globals.numQueuedQueries > 0 ||
+        taskTracker.hasPendingTasks()) {
       this.progressBar.classList.add('progress-anim');
     } else {
       this.progressBar.classList.remove('progress-anim');
@@ -191,13 +192,13 @@ class NewVersionNotification implements m.ClassComponent {
   view() {
     return m(
         '.new-version-toast',
-        `Updated to ${version.VERSION} and ready for offline use!`,
+        `Updated to ${VERSION} and ready for offline use!`,
         m('button.notification-btn.preferred',
           {
             onclick: () => {
               globals.frontendLocalState.newVersionAvailable = false;
               globals.rafScheduler.scheduleFullRedraw();
-            }
+            },
           },
           'Dismiss'),
     );
@@ -208,7 +209,11 @@ class NewVersionNotification implements m.ClassComponent {
 class HelpPanningNotification implements m.ClassComponent {
   view() {
     const dismissed = localStorage.getItem(DISMISSED_PANNING_HINT_KEY);
-    if (dismissed === 'true' || !globals.frontendLocalState.showPanningHint) {
+    // Do not show the help notification in embedded mode because local storage
+    // does not persist for iFrames. The host is responsible for communicating
+    // to users that they can press '?' for help.
+    if (globals.embeddedMode || dismissed === 'true' ||
+        !globals.frontendLocalState.showPanningHint) {
       return;
     }
     return m(
@@ -222,7 +227,7 @@ class HelpPanningNotification implements m.ClassComponent {
               globals.frontendLocalState.showPanningHint = false;
               localStorage.setItem(DISMISSED_PANNING_HINT_KEY, 'true');
               globals.rafScheduler.scheduleFullRedraw();
-            }
+            },
           },
           'Dismiss'),
     );
@@ -231,6 +236,8 @@ class HelpPanningNotification implements m.ClassComponent {
 
 class TraceErrorIcon implements m.ClassComponent {
   view() {
+    if (globals.embeddedMode) return;
+
     const errors = globals.traceErrors;
     if (!errors && !globals.metricError || mode === COMMAND) return;
     const message = errors ? `${errors} import or data loss errors detected.` :

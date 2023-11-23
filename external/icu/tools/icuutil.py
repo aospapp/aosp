@@ -39,6 +39,22 @@ ICU_DATA_FILTERS = """{
         "windowsZones",
         "zoneinfo64"
       ]
+    },
+    "brkitr_adaboost": {
+      "includelist": [
+        "jaml"
+      ]
+    }
+  }
+}
+"""
+
+ICU_MLDATA_FILTERS = """{
+  "featureFilters": {
+    "brkitr_adaboost": {
+      "includelist": [
+        "jaml"
+      ]
     }
   }
 }
@@ -346,7 +362,7 @@ def _MakeIcuDataFilesOnce():
   i18nutil.SwitchToNewTemporaryDirectory()
   icu_build_dir = '%s/icu' % os.getcwd()
 
-  PrepareIcuBuild(icu_build_dir)
+  PrepareIcuBuild(icu_build_dir, data_filters_json=ICU_MLDATA_FILTERS)
 
   MakeAndCopyIcuDataFiles(icu_build_dir)
 

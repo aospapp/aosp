@@ -119,7 +119,7 @@ int tst_fs_fill_subdirs_(void (*cleanup) (void), const char *dir)
 		return 0;
 	}
 
-	/* for current kernel, subdir limit is not availiable for all fs */
+	/* for current kernel, subdir limit is not available for all fs */
 	fs_type = tst_fs_type(cleanup, dir);
 
 	whitelist_size = ARRAY_SIZE(subdir_limit_whitelist);
@@ -147,9 +147,8 @@ int tst_fs_fill_subdirs_(void (*cleanup) (void), const char *dir)
 			 * created directory (the '.' and link from parent dir)
 			 */
 			if (s.st_nlink != (i + 2)) {
-				tst_brkm(TBROK, cleanup, "%s link counts have"
-					 "%d, should be %d", dir,
-					 (int)s.st_nlink, i + 2);
+				tst_brkm(TBROK, cleanup, "%s link counts have %d, should be %d",
+					 dir, (int)s.st_nlink, i + 2);
 				return 0;
 			} else {
 				tst_resm(TINFO, "the maximum subdirectories in "

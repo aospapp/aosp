@@ -35,7 +35,7 @@ license {
 cc_library_static {
     name: "libpffft",
     // vendor needed for libpreprocessing effects.
-    vendor: true,
+    vendor_available: true,
     srcs: [
         "pffft.c",
         "pffft_common.c",
@@ -43,7 +43,8 @@ cc_library_static {
     local_include_dirs: ["."],
     export_include_dirs: ["."],
     host_supported: true,
-    visibility: ["//external/webrtc:__subpackages__"],
+    visibility: ["//external/webrtc:__subpackages__",
+        "//frameworks/av/media/libaudioclient/tests",],
     cflags: [
         "-Wno-#pragma-messages",
     ],

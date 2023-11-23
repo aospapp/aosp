@@ -1,0 +1,5 @@
+{
+  "patch": "patches/Android.bp.diff",
+  "host-first-multilib": true,
+  "run": true
+}

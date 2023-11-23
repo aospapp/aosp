@@ -1,0 +1,30 @@
+ARG ubuntu_version=22.04
+ARG gcc_version=10.3.0
+FROM ghcr.io/rse-ops/gcc-ubuntu-${ubuntu_version}:gcc-${gcc_version}
+
+# docker build -t ghcr.io/woodard/libabigail-ubuntu-22.04 .
+
+# Install Libabigail to its own view
+WORKDIR /opt/abigail-env
+RUN . /opt/spack/share/spack/setup-env.sh && \
+    spack env create -d . && \
+    spack env activate . && \
+    spack add libabigail@master  && \
+    spack --debug install
+
+# Prepare a source extraction of libabigail at /src (intended to be overwritten by user)
+COPY . /src
+
+# Second run - should have deps cached
+RUN . /opt/spack/share/spack/setup-env.sh && \
+
+    # This adds metadata for libabigail to spack.yaml
+    spack develop --path /src libabigail@master && \
+    spack --debug install
+    # At this point you can spack install, and bind the code to /code to develop
+
+# ensure libabigail stuffs always on the path
+RUN cd /opt/abigail-env && \
+    spack env activate --sh -d . >> /etc/profile.d/z10_spack_environment.sh
+
+ENTRYPOINT ["/bin/bash", "--rcfile", "/etc/profile", "-l", "-c"]

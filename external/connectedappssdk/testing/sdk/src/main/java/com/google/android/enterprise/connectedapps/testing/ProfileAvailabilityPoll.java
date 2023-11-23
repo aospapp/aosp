@@ -25,7 +25,7 @@ public final class ProfileAvailabilityPoll {
   private static final int POLL_FREQUENCY_MS = 1000;
   private static final int POLL_TIMEOUT_MS = 30000;
 
-  public static void blockUntilProfileRunningAndUnlocked(Context context, UserHandle userHandle) {
+  public static void blockUntilUserRunningAndUnlocked(Context context, UserHandle userHandle) {
     UserManager userManager = context.getSystemService(UserManager.class);
     BlockingPoll.poll(
         () -> userManager.isUserRunning(userHandle) && userManager.isUserUnlocked(userHandle),
@@ -33,7 +33,7 @@ public final class ProfileAvailabilityPoll {
         POLL_TIMEOUT_MS);
   }
 
-  public static void blockUntilProfileNotAvailable(Context context, UserHandle userHandle) {
+  public static void blockUntilUserNotAvailable(Context context, UserHandle userHandle) {
     UserManager userManager = context.getSystemService(UserManager.class);
     BlockingPoll.poll(
         () -> !userManager.isUserRunning(userHandle) || userManager.isQuietModeEnabled(userHandle),

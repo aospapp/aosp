@@ -2,11 +2,7 @@
   "add-module-block": "cargo2android_glibc.bp",
   "apex-available": [
     "//apex_available:platform",
-    "com.android.bluetooth",
-    "com.android.compos",
-    "com.android.resolv",
-    "com.android.uwb",
-    "com.android.virt"
+    "//apex_available:anyapex"
   ],
   "dependencies": true,
   "device": true,

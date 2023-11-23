@@ -48,7 +48,6 @@ import signal
 import six
 import sys
 import time
-import warnings
 
 # primary public APIs
 
@@ -127,11 +126,6 @@ def _logging_manager_aware_logger__find_caller(unused):
         rv = (filename, f.f_lineno, co.co_name)
         break
     return rv
-
-
-if sys.version_info[:2] > (2, 7):
-    warnings.warn('This module has not been reviewed for Python %s' %
-                  sys.version)
 
 
 # Monkey patch our way around logging's design...

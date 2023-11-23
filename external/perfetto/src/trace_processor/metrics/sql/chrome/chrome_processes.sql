@@ -16,66 +16,27 @@
 
 -- Table to map any of the various chrome process names to a type (e.g. Browser,
 -- Renderer, GPU Process, etc).
-DROP TABLE IF EXISTS chrome_process_name_type_mapping;
-CREATE TABLE chrome_process_name_type_mapping (
-  original_name_pattern TEXT UNIQUE,
-  type TEXT
-);
-
-WITH prefix (value) AS (
-  SELECT *
-  FROM (
-      VALUES ("org.chromium.chrome"),
-        ("com.google.android.apps.chrome"),
-        ("com.android.chrome"),
-        ("com.chrome.beta"),
-        ("com.chrome.canary"),
-        ("com.chrome.dev")
-    )
-),
-suffix (value, TYPE) AS (
-  SELECT *
-  FROM (
-      VALUES ("", "Browser"),
-        (
-          ":sandboxed_process*:org.chromium.content.app.SandboxedProcessService*",
-          "Sandboxed"
-        ),
-        (":privileged_process*", "Privileged"),
-        ("_zygote", "Zygote")
-    )
-)
--- Insert the Chrome process names for a normal chrome trace
-INSERT INTO chrome_process_name_type_mapping
-VALUES ('Browser', 'Browser'),
-  ('Renderer', 'Renderer'),
-  ('GPU Process', 'Gpu'),
-  ('Gpu', 'Gpu'),
-  ('Zygote', 'Zygote'),
-  ('Utility', 'Utility'),
-  ('SandboxHelper', 'SandboxHelper'),
-  ('PpapiPlugin', 'PpapiPlugin'),
-  ('PpapiBroker', 'PpapiBroker')
-UNION ALL
--- Construct all the possible Chrome process names for an Android system chrome
--- trace.
-SELECT prefix.value || suffix.value AS name,
-  suffix.type AS type
-FROM prefix,
-  suffix;
-
 DROP VIEW IF EXISTS all_chrome_processes;
 CREATE VIEW all_chrome_processes AS
-SELECT upid, m.type AS process_type
-FROM process JOIN chrome_process_name_type_mapping m
-ON name GLOB original_name_pattern;
+SELECT upid, IFNULL(pt.string_value, '') AS process_type
+FROM process
+-- A process is a Chrome process if it has a chrome.process_type arg.
+-- The value of the arg may be NULL.
+-- All Chromium producers emit chrome_process field in their process track
+-- descriptor when Chromium track event data source is enabled.
+-- So this returns all processes in Chrome traces, and a subset of processes
+-- in system traces.
+JOIN
+  (SELECT arg_set_id, string_value FROM args WHERE key = 'chrome.process_type')
+  pt
+  ON process.arg_set_id = pt.arg_set_id;
 
 -- A view of all Chrome threads.
 DROP VIEW IF EXISTS all_chrome_threads;
 CREATE VIEW all_chrome_threads AS
-  SELECT utid, thread.upid, thread.name
-  FROM thread, all_chrome_processes
-  WHERE thread.upid = all_chrome_processes.upid;
+SELECT utid, thread.upid, thread.name
+FROM thread, all_chrome_processes
+WHERE thread.upid = all_chrome_processes.upid;
 
 -- For sandboxed and privileged processes (found in Android system traces), use
 -- the main thread name to type of process.
@@ -86,7 +47,7 @@ CREATE VIEW chrome_subprocess_types AS
 SELECT DISTINCT p.upid,
   SUBSTR(t.name, 3, LENGTH(t.name) - 6) AS sandbox_type
 FROM all_chrome_processes p
-  JOIN all_chrome_threads t ON p.upid = t.upid
+JOIN all_chrome_threads t ON p.upid = t.upid
 WHERE process_type IN ("Sandboxed", "Privileged")
   AND t.name GLOB "Cr*Main";
 
@@ -97,12 +58,12 @@ CREATE VIEW chrome_process AS
 SELECT PROCESS.*,
   IIF(sandbox_type IS NULL, process_type, sandbox_type) AS process_type
 FROM PROCESS
-  JOIN (
+JOIN (
     SELECT a.upid,
       sandbox_type,
       process_type
     FROM all_chrome_processes a
-      LEFT JOIN chrome_subprocess_types s ON a.upid = s.upid
+    LEFT JOIN chrome_subprocess_types s ON a.upid = s.upid
   ) c ON PROCESS.upid = c.upid;
 
 -- Contains all the chrome threads from thread with an extra column,
@@ -121,6 +82,6 @@ FROM (
     SELECT t.utid,
       p.*
     FROM all_chrome_threads t
-      JOIN chrome_process p ON t.upid = p.upid
+    JOIN chrome_process p ON t.upid = p.upid
   ) c
-  JOIN thread ON thread.utid = c.utid;
+JOIN thread ON thread.utid = c.utid;

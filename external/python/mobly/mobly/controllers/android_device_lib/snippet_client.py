@@ -13,6 +13,7 @@
 # limitations under the License.
 """JSON RPC interface to Mobly Snippet Lib."""
 
+import logging
 import re
 import time
 
@@ -20,6 +21,12 @@ from mobly import utils
 from mobly.controllers.android_device_lib import adb
 from mobly.controllers.android_device_lib import errors
 from mobly.controllers.android_device_lib import jsonrpc_client_base
+from mobly.snippet import errors as snippet_errors
+
+logging.warning('The module mobly.controllers.android_device_lib.snippet_client'
+                ' is deprecated and will be removed in a future version. Use'
+                ' module mobly.controllers.android_device_lib.snippet_client_v2'
+                ' instead.')
 
 _INSTRUMENTATION_RUNNER_PACKAGE = (
     'com.google.android.mobly.snippet.SnippetRunner')
@@ -56,17 +63,17 @@ _SETSID_COMMAND = 'setsid'
 
 _NOHUP_COMMAND = 'nohup'
 
-
-class AppStartPreCheckError(jsonrpc_client_base.Error):
-  """Raised when pre checks for the snippet failed."""
-
-
-class ProtocolVersionError(jsonrpc_client_base.AppStartError):
-  """Raised when the protocol reported by the snippet is unknown."""
+# Aliases of error types for backward compatibility.
+AppStartPreCheckError = snippet_errors.ServerStartPreCheckError
+ProtocolVersionError = snippet_errors.ServerStartProtocolError
 
 
 class SnippetClient(jsonrpc_client_base.JsonRpcClientBase):
   """A client for interacting with snippet APKs using Mobly Snippet Lib.
+
+  DEPRECATED: Use
+  mobly.controllers.android_device_lib.snippet_client_v2.SnippetClientV2
+  instead.
 
   See superclass documentation for a list of public attributes.
 
@@ -251,6 +258,8 @@ class SnippetClient(jsonrpc_client_base.JsonRpcClientBase):
       raise errors.DeviceError(
           self._ad, 'Failed to stop existing apk. Unexpected output: %s' % out)
 
+    self._stop_event_client()
+
   def _start_event_client(self):
     """Overrides superclass."""
     event_client = SnippetClient(package=self.package, ad=self._ad)
@@ -258,6 +267,17 @@ class SnippetClient(jsonrpc_client_base.JsonRpcClientBase):
     event_client.device_port = self.device_port
     event_client.connect(self.uid, jsonrpc_client_base.JsonRpcCommand.CONTINUE)
     return event_client
+
+  def _stop_event_client(self):
+    """Releases all the resources acquired in `_start_event_client`."""
+    if self._event_client:
+      self._event_client.close_socket_connection()
+      # Without cleaning host_port of event_client, the event client will try to
+      # stop the port forwarding when deconstructed, which should only be
+      # stopped by the corresponding snippet client.
+      self._event_client.host_port = None
+      self._event_client.device_port = None
+      self._event_client = None
 
   def _restore_event_client(self):
     """Restores previously created event client."""

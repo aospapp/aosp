@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_ECCbiEeprom"
 PURPOSE = "Servo-based CBI EEPRROM functionality test"
 CRITERIA = "Tests minimum requirements of CBI EEPROM, e.g. write protect."
@@ -15,6 +15,7 @@ TEST_CLASS = "firmware"
 TEST_TYPE = "server"
 DEPENDENCIES = "ec:cros, servo_state:WORKING"
 JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """
 Ensure that the EEPROM for Cros Board Info meets minimum hardware requirements.

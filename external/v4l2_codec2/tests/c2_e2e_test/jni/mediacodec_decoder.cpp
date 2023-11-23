@@ -32,7 +32,7 @@ constexpr size_t kTimeoutMaxRetries = 500;
 
 // Helper function to get possible C2 hardware decoder names from |type|.
 // Note: A single test APK is built for both ARC++ and ARCVM, so both the VDA decoder and the new
-// V4L2 decoder names need to be specified here.
+// V4L2 decoder names need to be specified here (except for HEVC, which is only on ARCVM).
 std::vector<const char*> GetC2VideoDecoderNames(VideoCodecType type) {
     switch (type) {
     case VideoCodecType::H264:
@@ -41,6 +41,8 @@ std::vector<const char*> GetC2VideoDecoderNames(VideoCodecType type) {
         return {"c2.v4l2.vp8.decoder", "c2.vda.vp8.decoder"};
     case VideoCodecType::VP9:
         return {"c2.v4l2.vp9.decoder", "c2.vda.vp9.decoder"};
+    case VideoCodecType::HEVC:
+        return {"c2.v4l2.hevc.decoder"};
     default:  // unknown type
         return {};
     }

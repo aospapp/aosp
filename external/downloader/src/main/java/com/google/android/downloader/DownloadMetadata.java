@@ -25,13 +25,13 @@ import com.google.auto.value.AutoValue;
 @AutoValue
 public abstract class DownloadMetadata {
   /** The HTTP content tag of the download, or the empty string if none was returned. */
-  abstract String getContentTag();
+  public abstract String getContentTag();
 
   /**
    * The last modification timestamp of the download, in seconds since the UNIX epoch, or 0 if none
    * was returned.
    */
-  abstract long getLastModifiedTimeSeconds();
+  public abstract long getLastModifiedTimeSeconds();
 
   /** Creates an empty instance of {@link DownloadMetadata}. */
   public static DownloadMetadata create() {

@@ -79,7 +79,7 @@
 //! use std::f64::consts::PI;
 //!
 //! use itertools_num::linspace;
-//! use rand::{Rng, XorShiftRng};
+//! use rand::Rng;
 //! use criterion_plot::prelude::*;
 //!
 //! fn sinc(mut x: f64) -> f64 {
@@ -97,7 +97,7 @@
 //! let ref xs_ = linspace::<f64>(-4., 4., 101).collect::<Vec<_>>();
 //!
 //! // Fake some data
-//! let ref mut rng: XorShiftRng = rand::thread_rng().gen();
+//! let ref mut rng = rand::thread_rng();
 //! let xs = linspace::<f64>(-4., 4., 13).skip(1).take(11);
 //! let ys = xs.map(|x| sinc(x) + 0.05 * rng.gen::<f64>() - 0.025).collect::<Vec<_>>();
 //! let y_low = ys.iter().map(|&y| y - 0.025 - 0.075 * rng.gen::<f64>()).collect::<Vec<_>>();
@@ -438,12 +438,15 @@ impl Figure {
         }
     }
 
+    // Allow clippy::format_push_string even with older versions of rust (<1.62) which
+    // don't have it defined.
+    #[allow(clippy::all)]
     fn script(&self) -> Vec<u8> {
         let mut s = String::new();
 
         s.push_str(&format!(
             "set output '{}'\n",
-            self.output.display().to_string().replace("'", "''")
+            self.output.display().to_string().replace('\'', "''")
         ));
 
         if let Some(width) = self.box_width {

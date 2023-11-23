@@ -1,6 +1,6 @@
 # Development
 
-Updated: 29 July 2021
+Updated: 13 Mar 2023
 
 This document is meant for the day when I (Gavin D. Howard) get [hit by a
 bus][1]. In other words, it's meant to make the [bus factor][1] a non-issue.
@@ -65,6 +65,8 @@ about things like fuzzing, [`scan-build`][19], [valgrind][20],
 [AddressSanitizer][21] (and the other sanitizers), and many other things.
 
 One of my happiest moments was when my `bc` was made the default in FreeBSD.
+Another happiest moment was when I found out that my `bc` had shipped with Mac
+OSX Ventura, without my knowledge.
 
 But since I believe in [finishing the software I write][22], I have done less
 work on `bc` over time, though there are still times when I put a lot of effort
@@ -349,7 +351,22 @@ tabs, and assuming they were 4 spaces wide, but other than that, I basically
 kept the same style, with some exceptions that are more or less dependent on my
 taste.
 
-The code style is as follows:
+However, I later managed to get [ClangFormat][24] to work, so I changed the
+style to that.
+
+### ClangFormat
+
+The style is now defined as whatever [ClangFormat][24] outputs using the
+existing `.clang-format` file. More precisely, the style is whatever is output
+when the following command is run in the root directory:
+
+```
+./scripts/format.sh
+```
+
+### Historical Style
+
+The code style used to be:
 
 * Tabs are 4 spaces.
 * Tabs are used at the beginning of lines for indent.
@@ -395,51 +412,11 @@ The code style is as follows:
 * Besides short `if` statements and loops, there should *never* be more than one
   statement per line.
 
-### ClangFormat
-
-I attempted three times to use [ClangFormat][24] to impose a standard,
-machine-useful style on `bc`. All three failed. Otherwise, the style in this
-repo would be more consistent.
-
 ## Repo Structure
 
 Functions are documented with Doxygen-style doc comments. Functions that appear
 in headers are documented in the headers, while static functions are documented
 where they are defined.
-
-### `bcl.sln`
-
-A Visual Studio solution file for [`bcl`][156]. This, along with
-[`bcl.vcxproj`][63] and [`bcl.vcxproj.filters`][64] is what makes it possible to
-build [`bcl`][156] on Windows.
-
-### `bcl.vcxproj`
-
-A Visual Studio project file for [`bcl`][156]. This, along with [`bcl.sln`][65]
-and [`bcl.vcxproj.filters`][64] is what makes it possible to build [`bcl`][156]
-on Windows.
-
-### `bcl.vcxproj.filters`
-
-A Visual Studio filters file for [`bcl`][156]. This, along with [`bcl.sln`][65]
-and [`bcl.vcxproj`][63] is what makes it possible to build [`bcl`][156] on
-Windows.
-
-### `bc.sln`
-
-A Visual Studio solution file for `bc`. This, along with [`bc.vcxproj`][66]
-and [`bc.vcxproj.filters`][67] is what makes it possible to build `bc` on
-Windows.
-
-### `bc.vcxproj`
-
-A Visual Studio project file for `bc`. This, along with [`bc.sln`][68] and
-[`bc.vcxproj.filters`][67] is what makes it possible to build `bc` on Windows.
-
-### `bc.vcxproj.filters`
-
-A Visual Studio filters file for `bc`. This, along with [`bc.sln`][68] and
-[`bc.vcxproj`][66] is what makes it possible to build `bc` on Windows.
 
 ### `configure`
 
@@ -919,6 +896,8 @@ data structures.
 Vectors are what do the heavy lifting in almost all of `bc`'s data structures.
 Even the maps of identifiers and arrays use vectors.
 
+The code associated with this header is in [`src/vector.c`][228].
+
 #### `version.h`
 
 This header defines the version of `bc`.
@@ -1082,7 +1061,9 @@ template, and the manpage generated from the markdown version.
 ### `scripts/`
 
 This folder contains helper scripts. Most of them are written in pure [POSIX
-`sh`][72], but one ([`karatsuba.py`][78]) is written in Python 3.
+`sh`][72], but three ([`afl.py`][94], [`karatsuba.py`][78], and
+[`randmath.py`][95]) are written in Python 3, and one ([`ministat.c`][223]) is
+written in C. [`ministat.c`][223] in particular is copied from elsewhere.
 
 For more information about the shell scripts, see [POSIX Shell Scripts][76].
 
@@ -1563,10 +1544,18 @@ test scripts to know where the standard and other test directories are.
 The test for the [`bcl`][156] API. For more information, see the [`bcl`
 Test][157] section.
 
+#### `error.sh`
+
+The script to run the file-based error tests in `tests/<calculator>/errors/` for
+each calculator. For more information, see the [Error Tests][151] section.
+
+This is a separate script so that each error file can be run separately and in
+parallel.
+
 #### `errors.sh`
 
-The script to run the error tests for each calculator. For more information, see
-the [Error Tests][151] section.
+The script to run the line-based error tests in `tests/<calculator>/errors.txt`
+for each calculator. For more information, see the [Error Tests][151] section.
 
 #### `extra_required.txt`
 
@@ -1751,6 +1740,61 @@ information, see the [Corpuses][192] subsection of the [Fuzzing][82] section.
 The fuzzing input directory for the inputs for `dc`. For more information, see
 the [Corpuses][192] subsection of the [Fuzzing][82] section.
 
+### `vs/`
+
+The directory containing all of the materials needed to build `bc`, `dc`, and
+`bcl` on Windows.
+
+#### `bcl.sln`
+
+A Visual Studio solution file for [`bcl`][156]. This, along with
+[`bcl.vcxproj`][63] and [`bcl.vcxproj.filters`][64] is what makes it possible to
+build [`bcl`][156] on Windows.
+
+#### `bcl.vcxproj`
+
+A Visual Studio project file for [`bcl`][156]. This, along with [`bcl.sln`][65]
+and [`bcl.vcxproj.filters`][64] is what makes it possible to build [`bcl`][156]
+on Windows.
+
+#### `bcl.vcxproj.filters`
+
+A Visual Studio filters file for [`bcl`][156]. This, along with [`bcl.sln`][65]
+and [`bcl.vcxproj`][63] is what makes it possible to build [`bcl`][156] on
+Windows.
+
+#### `bc.sln`
+
+A Visual Studio solution file for `bc`. This, along with [`bc.vcxproj`][66]
+and [`bc.vcxproj.filters`][67] is what makes it possible to build `bc` on
+Windows.
+
+#### `bc.vcxproj`
+
+A Visual Studio project file for `bc`. This, along with [`bc.sln`][68] and
+[`bc.vcxproj.filters`][67] is what makes it possible to build `bc` on Windows.
+
+#### `bc.vcxproj.filters`
+
+A Visual Studio filters file for `bc`. This, along with [`bc.sln`][68] and
+[`bc.vcxproj`][66] is what makes it possible to build `bc` on Windows.
+
+#### `tests/`
+
+A directory of files to run tests on Windows.
+
+##### `tests_bc.bat`
+
+A file to run basic `bc` tests on Windows. It expects that it will be run from
+the directory containing it, and it also expects a `bc.exe` in the same
+directory.
+
+##### `tests_dc.bat`
+
+A file to run basic `dc` tests on Windows. It expects that it will be run from
+the directory containing it, and it also expects a `bc.exe` in the same
+directory.
+
 ## Build System
 
 The build system is described in detail in the [build manual][14], so
@@ -1806,9 +1850,7 @@ the definition of the `BcStatus` enum.)
 
 In other words, I use `#if` instead of `#ifndef` or `#ifdef`, where possible.
 
-There are a couple of cases where I went with standard stuff instead. For
-example, to test whether I am in debug mode or not, I still use the standard
-`#ifndef NDEBUG`.
+There are a couple of cases where I went with standard stuff instead.
 
 #### Standard Macros
 
@@ -1824,11 +1866,12 @@ example, to test whether I am in debug mode or not, I still use the standard
 
 :   The macro expands to the build type, which is one of: `A`, `E`, `H`, `N`,
     `EH`, `EN`, `HN`, `EHN`. This build type is used in the help text to direct
-    the user to the correct markdown manual in the `git.yzena.com` website.
+    the user to the correct markdown manual in the `git.gavinhoward.com`
+    website.
 
 `EXECPREFIX`
 
-:   Thist macro expands to the prefix on the executable name. This is used to
+:   This macro expands to the prefix on the executable name. This is used to
     allow `bc` and `dc` to skip the prefix when finding out which calculator is
     executing.
 
@@ -1869,7 +1912,7 @@ example, to test whether I am in debug mode or not, I still use the standard
 `BC_ENABLE_AFL`
 
 :   This macro expands to `1` if `bc` has been built for fuzzing with
-    [AFL++][125], `0` otherwise.. See the [Fuzzing][82] section for more
+    [AFL++][125], `0` otherwise. See the [Fuzzing][82] section for more
     information.
 
 `BC_DEFAULT_BANNER`
@@ -2014,7 +2057,7 @@ directory of all other test directories for each calculator.
 
 #### `bc` Standard Tests
 
-The list of current (17 July 2021) standard tests for `bc` is below:
+The list of current (27 February 2023) standard tests for `bc` is below:
 
 decimal
 
@@ -2168,6 +2211,10 @@ bessel
 
 :   Tests the `j()` function in the math library.
 
+fib
+
+:   Tests the `fib()` Fibonacci function in the extended math library.
+
 arrays
 
 :   Test arrays.
@@ -2231,9 +2278,44 @@ bitfuncs
 :   Tests the bitwise functions, `band()`, `bor()`, `bxor()`, `blshift()` and
     `brshift()` in [`gen/lib2.bc`][26].
 
+leadingzero
+
+:   Tests the leading zero functionality and the `plz*()` and `pnlz*()`
+    functions in [`gen/lib2.bc`][26].
+
+is_number
+
+:   Tests the `is_number()` built-in function.
+
+is_string
+
+:   Tests the `is_number()` built-in function.
+
+asciify_array
+
+:   Tests the ability of `asciify()` to convert an array into a full string.
+
+line_by_line1
+
+:   Tests the line-by-line behavior of `bc` with regards to `quit` in a function
+    definition.
+
+line_by_line2
+
+:   Tests the line-by-line behavior of `bc` with regards to `quit`.
+
+line_loop_quit1
+
+:   Tests the behavior of `bc` with a `quit` after a single-line loop.
+
+line_loop_quit2
+
+:   Tests the behavior of `bc` with a `quit` after a single-line loop and a
+    newline escape.
+
 #### `dc` Standard Tests
 
-The list of current (17 July 2021) standard tests for `dc` is below:
+The list of current (27 February 2023) standard tests for `dc` is below:
 
 decimal
 
@@ -2247,7 +2329,7 @@ stack_len
 
 :   Tests taking the length of the results stack.
 
-stack_len
+exec_stack_len
 
 :   Tests taking the length of the execution stack.
 
@@ -2309,7 +2391,7 @@ shift
 
 abs
 
-:   Tests the `abs()` builtin function.
+:   Tests the `abs()` builtin function (the `b` command).
 
 scientific
 
@@ -2328,6 +2410,14 @@ misc
 :   Miscellaneous tests. I named it this because at the time, I struggled to
     classify them.
 
+misc1
+
+:   More miscellaneous tests. This used to be an error file
+    (`tests/dc/errors/15.txt`) due to the presence of a invalid `u` character.
+    However, starting with version `6.1.0`, `u` became a valid command
+    (`is_number()`), so the error file became valid. It was checked manually and
+    moved, and `tests/dc/errors/34.txt` became the new `tests/dc/errors/15.txt`.
+
 strings
 
 :   Tests strings.
@@ -2336,9 +2426,13 @@ rand
 
 :   Tests the pseudo-random number generator and its special stack handling.
 
-exec_stack
+is_number
 
-:   Tests the execution stack depth command.
+:   Tests the `is_number()` built-in function (the `u` command).
+
+is_string
+
+:   Tests the `is_number()` built-in function (the `t` command).
 
 ### Script Tests
 
@@ -2381,7 +2475,7 @@ to put it on the same line as others.
 
 #### `bc` Script Tests
 
-The list of current (17 July 2021) script tests for `bc` is below:
+The list of current (27 February 2023) script tests for `bc` is below:
 
 print.bc
 
@@ -2407,9 +2501,21 @@ parse.bc
 
 :   Tests parsing even harder than the parse standard test.
 
+root.bc
+
+:   Tests that `root()` and `cbrt()` do not go into an infinite loop on a
+    pathological case found by a user.
+
 array.bc
 
 :   Tests arrays even harder than the arrays standard test.
+
+array2.bc
+
+:   Implements a test where an array element is passed as a parameter to a
+    function, and then another array is passed to a later parameter that is
+    named the same as the first array. This was added because of a bug found
+    while writing a script in bc.
 
 atan.bc
 
@@ -2448,9 +2554,17 @@ strings2.bc
 
 :   Tests escaping in strings.
 
+ifs.bc
+
+:   Tests proper ending of `if` statements without `else` statements.
+
+ifs2.bc
+
+:   More tests proper ending of `if` statements without `else` statements.
+
 #### `dc` Script Tests
 
-The list of current (17 July 2021) script tests for `dc` is below:
+The list of current (27 February 2023) script tests for `dc` is below:
 
 prime.dc
 
@@ -2488,6 +2602,11 @@ weird.dc
 
 :   A miscellaneous test.
 
+no_clamp.dc
+
+:   A test to ensure `dc` has the same behavior as the BSD `dc` with digi
+    clamping off when parsing numbers.
+
 ### Error Tests
 
 One of the most useful parts of the `bc` test suite, in my opinion, is the heavy
@@ -2516,15 +2635,16 @@ treated differently.
 
 The error tests in the standard test directory, which include `errors.txt` for
 both calculators, `posix_errors.txt` for `bc`, and `read_errors.txt` for `dc`,
-are read line-by-line and shoved through `stdin`, and each line is considered a
-separate test. For this reason, there can't be any blank lines in the error
-files in the standard tests directory because a blank line causes a successful
-exit.
+are run by [`tests/errors.sh`][226]. It reads them line-by-line and shoves the
+data through `stdin`. Each line is considered a separate test. For this reason,
+there can't be any blank lines in the error files in the standard tests
+directory because a blank line causes a successful exit.
 
 On the other hand, the tests in the `errors/` directory below the standard tests
-directory are considered to be one test per file, and they are used differently.
-They are shoved into the calculator through `stdin`, but they are also executed
-on the command-line.
+directory are run by [`tests/error.sh`][227] and are considered to be one test
+per file. As such, they are used differently. They are shoved into the
+calculator through `stdin`, but they are also executed by passing them on the
+command-line.
 
 To add an error test, first figure out which kind you want.
 
@@ -2537,7 +2657,8 @@ respective `errors.txt` file.
 
 On the other hand, if you care if the error is run as a file on the
 command-line, or the error requires multiple lines to reproduce, then put the
-test in the respective `errors/` directory.
+test in the respective `errors/` directory and run the [`configure.sh`][69]
+script again.
 
 After that, you are done; the test suite will automatically pick up the new
 test, and you don't have to tell the test suite the expected results.
@@ -2606,8 +2727,16 @@ possible. I guess I could have done more, but doing so would have required a lot
 of time.
 
 I have tried to make it as easy as possible to run the history tests. They will
-run automatically if you use the `make test` command, and they will also use
-parallel execution with `make -j<cores> test`.
+run automatically if you use the `make test_history` command, and they will also
+use parallel execution with `make -j<cores> test_history`.
+
+However, the history tests are meant only to be run by maintainers of `bc`; they
+are *not* meant to be run by users and packagers. The reason for this is that
+they only seem to work reliably on Linux; `pexpect` seems to have issues on
+other platforms, especially timeout issues.
+
+Thus, they are excluded from running with `make test` and [`tests/all.sh`][225].
+However, they can be run from the [`scripts/release.sh`][83] script.
 
 All of the tests are contained in [`tests/history.py`][139]. The reason for this
 is because they are in Python, and I don't have an easy way of including Python
@@ -2804,6 +2933,19 @@ of targets to make this easy and as fast as possible.
 
 In addition to all of that, the build system is responsible for selecting the
 `bc`/`dc` tests or the [`bcl` test][157].
+
+### Output Directories
+
+During any run of the test suite, the test suite outputs the results of running
+various tests to files. These files are usually output to `tests/bc_outputs/`
+and `tests/dc_outputs/`.
+
+However, in some cases, it may be necessary to output test results to a
+different directory. If that is the case, set the environment variable
+`BC_TEST_OUTPUT_DIR` to the name of the directory.
+
+If that is done, then test results will be written to
+`$BC_TEST_OUTPUT_DIR/bc_outputs/` and `$BC_TEST_OUTPUT_DIR/dc_outputs/`.
 
 ### Test Suite Portability
 
@@ -3223,13 +3365,13 @@ reported a crash or not. If so, it will copy the crashing test case to
 `stdin`.
 
 From there, I personally always investigate the crash and fix it. Then, when the
-crash is fixed, I either move `.test.txt` to `tests/bc/errors/<idx>.txt` as an
-error test (if it produces an error) or I create a new `tests/bc/misc<idx>.txt`
-test for it and a corresponding results file. (See [Test Suite][124] for more
-information about the test suite.) In either case, `<idx>` is the next number
-for a file in that particular place. For example, if the last file in
-`tests/bc/errors/` is `tests/bc/errors/18.txt`, I move `.test.txt` to
-`tests/bc/error/19.txt`.
+crash is fixed, I either move `.test.txt` to `tests/{bc,dc}/errors/<idx>.txt` as
+an error test (if it produces an error) or I create a new
+`tests/{bc,dc}/misc<idx>.txt` test for it and a corresponding results file. (See
+[Test Suite][124] for more information about the test suite.) In either case,
+`<idx>` is the next number for a file in that particular place. For example, if
+the last file in `tests/{bc,dc}/errors/` is `tests/{bc,dc}/errors/18.txt`, I
+move `.test.txt` to `tests/bc/error/19.txt`.
 
 Then I immediately run [`scripts/afl.py`][94] again to find the next crash
 because often, [AFL++][125] found multiple test cases that trigger the same
@@ -3509,7 +3651,7 @@ bytecode because the virtual machine assumes the bytecode is valid.
 Sidenote: one of those bugs caused an infinite recursion when running the sine
 (`s()`) function in the math library, so yes, parser bugs can be *very* weird.
 
-Anyway, they way I did `assert()`'s was like this: whenever I realized that I
+Anyway, the way I did `assert()`'s was like this: whenever I realized that I
 had put assumptions into the code, I would put an `assert()` there to test it
 **and** to *document* it.
 
@@ -3711,6 +3853,16 @@ barely worked after a lot of work and a lot of portability code, but even with
 all of that, it does not have at least one feature: multi-line pasting from the
 clipboard.
 
+#### Editline and Readline
+
+I also implemented an integration with both editline and readline, though not at
+the same time. This allows distributions that want to use either one in `bc` to
+do so. This enables users to use their `.editrc` and `.inputrc` settings.
+
+The integration is custom to each library, and it does *not* involve any of
+`bc`'s custom history code. It also required changes to `bc`'s [Custom
+I/O][114].
+
 ### Error Handling
 
 The error handling on `bc` got an overhaul for version [`3.0.0`][32], and it
@@ -3726,7 +3878,7 @@ if (BC_ERR(s)) return s;
 ```
 
 In fact, a quick and dirty count of such lines in version `2.7.2` (the last
-version before [`3.0.0`][32] turned up 252 occurrences of that sort of line.
+version before [`3.0.0`][32]) turned up 252 occurrences of that sort of line.
 
 And that didn't even guarantee that return values were checked *everywhere*.
 
@@ -3770,6 +3922,8 @@ because there are a few big snares:
 2.	While `longjmp()` is required to be [async-signal-safe][115], if it is
 	invoked by a signal handler that interrupted a non-[async-signal-safe][115]
 	function, then the behavior is undefined.
+3.	Any mutation that is not guaranteed to be atomic with respect to signals may
+	be incomplete when a signal arrives.
 
 Oh boy.
 
@@ -3779,12 +3933,15 @@ any modifying pointer arithmetic, pointers and their data would be safe. For
 cases where I have local data that must change and stay changed, I needed to
 *undo* the `setjmp()`, do the change, and the *redo* the `setjmp()`.
 
-For number 2, `bc` needs some way to tell the signal handler that it cannot do a
-`longjmp()`. This is done by "locking" signals with a `volatile sig_atomic_t`.
-(For more information, see the [Async-Signal-Safe Signal Handling][173]
-section.) For every function that calls a function that is not
+For number 2 and number 3, `bc` needs some way to tell the signal handler that
+it cannot do a `longjmp()`. This is done by "locking" signals with a `volatile
+sig_atomic_t`. (For more information, see the [Async-Signal-Safe Signal
+Handling][173] section.) For every function that calls a function that is not
 async-signal-safe, they first need to use `BC_SIG_LOCK` to lock signals, and
 afterward, use `BC_SIG_UNLOCK` to unlock signals.
+
+Code also need to do this for all global, non-atomic mutation, which means that
+modifying any part of the `BcVm` global struct.
 
 `BC_SIG_UNLOCK` has another requirement: it must check for signals or errors and
 jump if necessary.
@@ -3849,7 +4006,7 @@ Other than that, and some common plumbing, the lexers have separate code.
 
 The `dc` lexer is remarkably simple; in fact, besides [`src/main.c`][205],
 [`src/bc.c`][40], and [`src/dc.c`][44], which just contain one function each,
-the only file smaller that [`src/dc_lex.c`][45] is [`src/args.c`][206], which
+the only file smaller than [`src/dc_lex.c`][45] is [`src/args.c`][206], which
 just processes command-line arguments after they are parsed by
 [`src/opt.c`][51].
 
@@ -3913,6 +4070,95 @@ instruction.
 Another example are conditional execution instructions; they need to produce the
 instruction for the condition, and then they must parse a possible "else" part,
 which might not exist.
+
+##### Existing Commands
+
+`dc` is based on commands, which are usually one letter. The following table is
+a table of which ASCII characters are already used:
+
+| Characters | Used? | For...                                     |
+|------------|-------|--------------------------------------------|
+| Space      | x     | Separator                                  |
+| `!`        | x     | Conditional Execution of Registers         |
+| `"`        | x     | Bounded Rand Operator                      |
+| `#`        | x     | Comments                                   |
+| `$`        | x     | Truncation                                 |
+| `%`        | x     | Modulus                                    |
+| `&`        |       |                                            |
+| `'`        | x     | Rand Operator                              |
+| `(`        | x     | Greater Than Operator                      |
+| `)`        | x     | Less Than Operator                         |
+| `*`        | x     | Multiplication                             |
+| `+`        | x     | Addition                                   |
+| `,`        | x     | Depth of Execution Stack                   |
+| `-`        | x     | Subtraction                                |
+| `.`        | x     | Numbers                                    |
+| `/`        | x     | Division                                   |
+| `0-9`      | x     | Numbers                                    |
+| `:`        | x     | Store into Array                           |
+| `;`        | x     | Load from Array                            |
+| `<`        | x     | Conditional Execution of Registers         |
+| `=`        | x     | Conditional Execution of Registers         |
+| `>`        | x     | Conditional Execution of Registers         |
+| `?`        | x     | Ask for User Input                         |
+| `@`        | x     | Places Operator                            |
+| `A-F`      | x     | Numbers                                    |
+| `G`        | x     | Equal Operator                             |
+| `H`        | x     | Shift Left                                 |
+| `I`        | x     | Push `ibase` onto Stack                    |
+| `J`        | x     | Push `seed` onto Stack                     |
+| `K`        | x     | Push `scale` onto Stack                    |
+| `L`        | x     | Pop off of Register                        |
+| `M`        | x     | Boolean And Operator                       |
+| `N`        | x     | Boolean Not Operator                       |
+| `O`        | x     | Push `obase` onto Stack                    |
+| `P`        | x     | Byte Stream Printing                       |
+| `Q`        | x     | Quit Some Number of Macros                 |
+| `R`        | x     | Pop Top of Stack                           |
+| `S`        | x     | Push onto Register                         |
+| `T`        | x     | Push Max `ibase` onto Stack                |
+| `U`        | x     | Push Max `obase` onto Stack                |
+| `V`        | x     | Push Max `scale` onto Stack                |
+| `W`        | x     | Push Max of `'` Operator                   |
+| `X`        | x     | Scale of a Number                          |
+| `Y`        | x     | Length of Array                            |
+| `Z`        | x     | Number of Significant Digits               |
+| `[`        | x     | Strings                                    |
+| `\\`       | x     | Escaping Brackets in Strings               |
+| `]`        | x     | Strings                                    |
+| `^`        | x     | Power                                      |
+| `_`        | x     | Negative Numbers and Negation              |
+| Backtick   |       |                                            |
+| `a`        | x     | Asciify                                    |
+| `b`        | x     | Absolute Value                             |
+| `c`        | x     | Clear Stack                                |
+| `d`        | x     | Duplication of Top of Stack                |
+| `e`        | x     | Else in Conditional Execution of Registers |
+| `f`        | x     | Printing the Stack                         |
+| `g`        | x     | Global Settings                            |
+| `h`        | x     | Shift Right                                |
+| `i`        | x     | Set `ibase`                                |
+| `j`        | x     | Set `seed`                                 |
+| `k`        | x     | Set `scale`                                |
+| `l`        | x     | Load from Register                         |
+| `m`        | x     | Boolean Or Operator                        |
+| `n`        | x     | Print and Pop                              |
+| `o`        | x     | Set `obase`                                |
+| `p`        | x     | Print with Newline                         |
+| `q`        | x     | Quit Two Macros                            |
+| `r`        | x     | Swap Top Two Items                         |
+| `s`        | x     | Store into Register                        |
+| `t`        | x     | Equivalent of `bc`'s `is_number()`         |
+| `u`        | x     | Equivalent of `bc`'s `is_string()`         |
+| `v`        | x     | Square Root                                |
+| `w`        |       |                                            |
+| `x`        | x     | Execute String                             |
+| `y`        | x     | Current Depth of a Register                |
+| `z`        | x     | Current Depth of Stack                     |
+| `{`        | x     | Greater Than or Equal Operator             |
+| `\|`       | x     | Moduler Exponentiation                     |
+| `}`        | x     | Less Than or Equal Operator                |
+| `~`        | x     | Division and Modulus Combined              |
 
 #### `bc` Parsing
 
@@ -4042,6 +4288,9 @@ expressions can only *stack*; this means that, if an expression begins before
 another ends, it must *also* end before that other expression ends. This
 property ensures that operators will never interfere with each other on the
 operator stack.
+
+Also, the operator precedence is reversed: a lower precedence *value* means a
+higher precedence.
 
 ###### Recursion
 
@@ -4250,8 +4499,8 @@ more elements are needed, the array is grown automatically, and new elements are
 given the value of zero.
 
 In fact, if *any* array is accessed and does not have an element at that index,
-the array is automaticall grown to that size, and all new elements are given the
-value zero. This behavior is guaranteed by the [`bc` spec][2].
+the array is automatically grown to that size, and all new elements are given
+the value zero. This behavior is guaranteed by the [`bc` spec][2].
 
 ###### Array References
 
@@ -4324,7 +4573,7 @@ release when I change the code, and I have not released `bc` after version
 
 In order to do arbitrary-precision math, as `bc` must do, there must be some way
 of representing arbitrary-precision numbers. `BcNum` in [`include/num.h`][184]
-is `bc`'s.
+is `bc`'s way of doing that.
 
 (Note: the word ["limb"][214] is used below; it has a specific meaning when
 applied to arbitrary-precision numbers. It means one piece of the number. It can
@@ -4348,7 +4597,7 @@ number is not reallocated; the number of limbs is just added to.
 
 There is one additional wrinkle: to make the usual operations (binary operators)
 fast, the decimal point is *not* allowed to be in the middle of a limb; it must
-always be between limbs, after all limbs (integer) or before all limbs (real
+always be between limbs, after all limbs (integer), or before all limbs (real
 between -1 and 1).
 
 The reason for this is because addition, subtraction, multiplication, and
@@ -4407,9 +4656,9 @@ mean:
   This is the only case where `scale` does not have to coincide with `rdx`
   This can happen with division, for example, that sets a specific `scale` for
   the result value but may produce 0.
-* `(rdx >> 1) < len`: the number is greater than or equal to 1, or less than or
+* `(rdx >> 1) == len`: the number is greater than or equal to 1, or less than or
   equal to -1.
-* `(rdx >> 1) == len`: the number is greater than -1 and less than 1, not
+* `(rdx >> 1) < len`: the number is greater than -1 and less than 1, not
   including 0, although this will be true for 0 as well. However, 0 is always
   assumed to be represented by `len == 0`.
 * `(rdx >> 1) == 0`: the number is an integer. In this case, `scale` must also
@@ -4431,6 +4680,25 @@ make it easier to understand the code. The style follows these rules:
 
 While these rules are not hard and fast, using them as a guide will probably
 help.
+
+#### Digit Clamping
+
+There is a question of what to do when parsing numbers and coming across digits
+that are greater than or equal to the current `ibase`. `bc` and `dc` do one of
+two things:
+
+* Clamp the digit to the maximum correct digit, or
+* Use the digit as-is, multiplying it by the `ibase` to the power of the digit's
+  position (starting from 0 at the least significant digit).
+
+The former behavior is what GNU `bc` does, and the latter is what GNU `dc`, the
+OpenBSD `bc`, and the OpenBSD `dc` do.
+
+It is possible to switch between the two with the `-c` and `-C` command-line
+options. However, it is important for developers to understand that both
+behaviors exist and should exist.
+
+The library can also do both, and it is set in a global for each thread.
 
 ### Strings as Numbers
 
@@ -4519,6 +4787,11 @@ places increases by 1:
 ...
 ```
 
+This happens because because every decimal representation of `1/2^p` ends with a
+5 because 5 is half of 10. Because 5 is odd, half of it always ends with the
+digits 25, where 2 is where the previous 5 was, and the new 5 is one decimal
+place further right.
+
 So the algorithm to convert all 255 bits of the seed is as follows:
 
 1.	Convert the increment to a `BcNum`.
@@ -4561,7 +4834,7 @@ For more information, see all of the code guarded by `#if BC_DEBUG_CODE` in the
 
 Yes, all of the code is guarded by `#if` preprocessor statements; this is
 because the code should *never* be in a release build, and by making programmers
-add this manually (not even an option to [`configure.sh`][69], it is easier to
+add this manually (not even an option to [`configure.sh`][69]), it is easier to
 ensure that never happens.
 
 However, that said, the extra debug code is useful; that was why I kept it in.
@@ -4569,10 +4842,10 @@ However, that said, the extra debug code is useful; that was why I kept it in.
 ## Performance
 
 While I have put in a lot of effort to make `bc` as fast as possible, there
-might be some things you can do to speed it up without changing the code.
+might be some things users can do to speed it up without changing the code.
 
-First, you can probably use [profile-guided optimization][217] to optimize even
-better, using the test suite to profile.
+First, users can probably use [profile-guided optimization][217] to optimize
+even better, using the test suite to profile.
 
 Second, I included macros that might help branch placement and prediction:
 
@@ -4664,16 +4937,16 @@ for generating real numbers with it. (In `bc`, such support is in
 
 ### Signal Handling
 
-Like signal handling in `bc` proper (see the [Async-Signal-Safe Signal
-Handling][173] section), `bcl` has the infrastructure for signal handling.
+`bcl` does not have the capability for signal handling (as of version `6.0.0`).
 
-This infrastructure is different, however, as `bcl` assumes that clients will
-implement their own signal handling.
+### Threads
 
-So instead of doing signal handling on its own, `bcl` provides the capability to
-interrupt executions and return to the clients almost immediately. Like in `bc`,
-this is done with `setjmp()` and `longjmp()`, although the jump series is
-stopped before returning normally to client code.
+It is possible to use `bcl` across multiple threads. However, `bcl` must be
+initialized on each thread where it will be used.
+
+This is because `bcl` uses thread-specific data to store the "globals" for each
+thread. This is to ensure that threads do not stomp on each other's numbers or
+other data structures.
 
 ### Contexts
 
@@ -4851,8 +5124,8 @@ However, where possible, errors are returned directly.
 [129]: #afl-quickstart
 [130]: #convenience
 [131]: #datac
-[132]: https://git.yzena.com/gavin/vim-bc
-[133]: https://git.yzena.com/gavin/bc_libs
+[132]: https://git.gavinhoward.com/gavin/vim-bc
+[133]: https://git.gavinhoward.com/gavin/bc_libs
 [134]: #debugging
 [135]: #asserts
 [136]: #portability
@@ -4946,3 +5219,7 @@ However, where possible, errors are returned directly.
 [222]: https://www.freebsd.org/cgi/man.cgi?query=ministat&apropos=0&sektion=0&manpath=FreeBSD+13.0-RELEASE+and+Ports&arch=default&format=html
 [223]: #ministatc
 [224]: #dc
+[225]: #allsh
+[226]: #errorssh
+[227]: #errorsh
+[228]: #vectorc

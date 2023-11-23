@@ -55,11 +55,13 @@ class UnmuteMicrophone(Action):
         context.cfm_facade.unmute_mic()
 
 class WaitForMeetingsLandingPage(Action):
-  """
+    """
   Wait for landing page to load after reboot.
   """
-  def do_execute(self, context):
-    context.cfm_facade.wait_for_meetings_landing_page()
+
+    def do_execute(self, context):
+        context.cfm_facade.wait_for_meetings_landing_page()
+
 
 class JoinMeeting(Action):
     """
@@ -135,7 +137,7 @@ class RepeatTimes(Action):
         return 'Repeat[scenario=%s, times=%s]' % (self.scenario, self.times)
 
     def do_execute(self, context):
-        for _ in xrange(self.times):
+        for _ in range(self.times):
             self.scenario.execute(context)
 
 class AssertFileDoesNotContain(Action):
@@ -233,7 +235,7 @@ class SelectScenarioAtRandom(Action):
         self._random = random.Random(random_seed)
 
     def do_execute(self, context):
-        for _ in xrange(self._run_times):
+        for _ in range(self._run_times):
             self._random.choice(self._scenarios).execute(context)
 
     def __repr__(self):
@@ -354,7 +356,7 @@ class RetryAssertAction(Action):
         self._retry_delay_seconds = retry_delay_seconds
 
     def do_execute(self, context):
-        for attempt in xrange(self._num_tries):
+        for attempt in range(self._num_tries):
             try:
                 self._action.execute(context)
                 return
@@ -407,7 +409,7 @@ def _wait_for_condition(condition, timeout_seconds=10):
     """
     if condition():
         return
-    for _ in xrange(timeout_seconds):
+    for _ in range(timeout_seconds):
         time.sleep(1)
         if condition():
             return

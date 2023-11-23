@@ -13,8 +13,7 @@ using namespace angle;
 
 namespace
 {
-
-class GLSLTest : public ANGLETest
+class GLSLTest : public ANGLETest<>
 {
   protected:
     GLSLTest()
@@ -33,11 +32,11 @@ class GLSLTest : public ANGLETest
 
         if (vectorSize == 1)
         {
-            sprintf(varyingType, "float");
+            snprintf(varyingType, sizeof(varyingType), "float");
         }
         else
         {
-            sprintf(varyingType, "vec%d", vectorSize);
+            snprintf(varyingType, sizeof(varyingType), "vec%d", vectorSize);
         }
 
         return std::string(varyingType);
@@ -49,12 +48,13 @@ class GLSLTest : public ANGLETest
 
         if (arraySize == 1)
         {
-            sprintf(buff, "varying %s v%d;\n", GenerateVaryingType(vectorSize).c_str(), id);
+            snprintf(buff, sizeof(buff), "varying %s v%d;\n",
+                     GenerateVaryingType(vectorSize).c_str(), id);
         }
         else
         {
-            sprintf(buff, "varying %s v%d[%d];\n", GenerateVaryingType(vectorSize).c_str(), id,
-                    arraySize);
+            snprintf(buff, sizeof(buff), "varying %s v%d[%d];\n",
+                     GenerateVaryingType(vectorSize).c_str(), id, arraySize);
         }
 
         return std::string(buff);
@@ -67,15 +67,16 @@ class GLSLTest : public ANGLETest
 
         if (arraySize == 1)
         {
-            sprintf(buff, "\t v%d = %s(1.0);\n", id, GenerateVaryingType(vectorSize).c_str());
+            snprintf(buff, sizeof(buff), "\t v%d = %s(1.0);\n", id,
+                     GenerateVaryingType(vectorSize).c_str());
             returnString += buff;
         }
         else
         {
             for (int i = 0; i < arraySize; i++)
             {
-                sprintf(buff, "\t v%d[%d] = %s(1.0);\n", id, i,
-                        GenerateVaryingType(vectorSize).c_str());
+                snprintf(buff, sizeof(buff), "\t v%d[%d] = %s(1.0);\n", id, i,
+                         GenerateVaryingType(vectorSize).c_str());
                 returnString += buff;
             }
         }
@@ -88,7 +89,7 @@ class GLSLTest : public ANGLETest
         if (arraySize == 1)
         {
             char buff[100];
-            sprintf(buff, "v%d + ", id);
+            snprintf(buff, sizeof(buff), "v%d + ", id);
             return std::string(buff);
         }
         else
@@ -97,7 +98,7 @@ class GLSLTest : public ANGLETest
             for (int i = 0; i < arraySize; i++)
             {
                 char buff[100];
-                sprintf(buff, "v%d[%d] + ", id, i);
+                snprintf(buff, sizeof(buff), "v%d[%d] + ", id, i);
                 returnString += buff;
             }
             return returnString;
@@ -501,6 +502,29 @@ class GLSLTest : public ANGLETest
 
         EXPECT_PIXEL_COLOR_EQ(getWindowWidth() / 2, getWindowHeight() / 2, color)
             << "index " << index;
+    }
+
+    std::string ExpectedExtensionMacros(std::vector<std::string> expected)
+    {
+        std::string shader;
+        for (const auto &ext : expected)
+        {
+            if (IsGLExtensionEnabled(ext))
+            {
+                shader += "\n#ifndef " + ext + "\n#error !defined(" + ext + ")\n#endif\n";
+            }
+        }
+        return shader;
+    }
+
+    std::string UnexpectedExtensionMacros(std::vector<std::string> unexpected)
+    {
+        std::string shader;
+        for (const auto &ext : unexpected)
+        {
+            shader += "\n#ifdef " + ext + "\n#error defined(" + ext + ")\n#endif\n";
+        }
+        return shader;
     }
 };
 
@@ -1014,6 +1038,30 @@ void main()
     ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), kFS);
 }
 
+// Test that struct with same name can be declared in inner scope.
+TEST_P(GLSLTest, SameNameStructInInnerScope)
+{
+    constexpr char kVS[] = R"(
+void main() {
+    gl_Position = vec4(0);
+})";
+
+    constexpr char kFS[] = R"(
+struct S
+{
+    mediump float f;
+};
+void main()
+{
+    struct S
+    {
+        S n;
+    };
+})";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+}
+
 // Regression test based on WebGL's conformance/glsl/misc/empty-declaration.html
 TEST_P(GLSLTest, StructEmptyDeclaratorBug)
 {
@@ -1027,7 +1075,6 @@ void main() {
 })";
 
     constexpr char kFS[] = R"(precision mediump float;
-precision mediump float;
 void main()
 {
     gl_FragColor = vec4(1.0,0.0,0.0,1.0);
@@ -3628,6 +3675,77 @@ TEST_P(GLSLTest, NestedPowStatements)
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 }
 
+// This test covers a crash seen in an application during SPIR-V compilation
+TEST_P(GLSLTest_ES3, NestedPowFromUniform)
+{
+    constexpr char kVS[] = R"(#version 300 es
+in vec2 position;
+void main()
+{
+    gl_Position = vec4(position, 0, 1);
+})";
+
+    constexpr char kFS[] = R"(#version 300 es
+precision mediump float;
+precision mediump int;
+
+uniform highp vec4 scale;
+out mediump vec4 out_FragColor;
+void main()
+{
+    highp vec4 v0;
+    v0 = scale;
+    highp vec3 v1;
+    v1.xyz = v0.xyz;
+    if ((v0.y!=1.0))
+    {
+        vec3 v3;
+        v3.xyz = pow(v0.xyz,v0.xxx);
+        float h0;
+        if ((v3.x < 3.13))
+        {
+            h0 = (v3.x * 1.29);
+        }
+        else
+        {
+            h0 = ((pow(v3.x,4.16)*1.055)+-5.5);
+        }
+        float h1;
+        if ((v3.y<3.13))
+        {
+            h1 = (v3.y*1.29);
+        }
+        else
+        {
+            h1 = ((pow(v3.y,4.16)*1.055)+-5.5);
+        }
+        float h2;
+        if ((v3.z<3.13))
+        {
+            h2 = (v3.z*1.29);
+        }
+        else
+        {
+            h2 = ((pow(v3.z,4.16)*1.055)+-5.5);
+        }
+        v1.xyz = vec3(h0, h1, h2);
+    }
+    out_FragColor = vec4(v1, v0.w);
+}
+)";
+
+    ANGLE_GL_PROGRAM(prog, kVS, kFS);
+
+    GLint scaleIndex = glGetUniformLocation(prog.get(), "scale");
+    ASSERT_NE(-1, scaleIndex);
+
+    glUseProgram(prog.get());
+    glUniform4f(scaleIndex, 0.5, 0.5, 0.5, 0.5);
+
+    // Don't crash
+    drawQuad(prog.get(), "position", 0.5f);
+}
+
 // Test that -float calculation is correct.
 TEST_P(GLSLTest_ES3, UnaryMinusOperatorFloat)
 {
@@ -4331,6 +4449,36 @@ TEST_P(GLSLTest_ES3, WriteIntoDynamicIndexingOfSwizzledVector)
     ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), kFS);
     drawQuad(program.get(), essl3_shaders::PositionAttrib(), 0.5f);
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+}
+
+// Test including Ternary using a uniform block is correctly
+// expanded.
+TEST_P(GLSLTest_ES3, NamelessUniformBlockTernary)
+{
+    const char kVS[] = R"(#version 300 es
+    precision highp float;
+    out vec4 color_interp;
+    void  main()
+    {
+        color_interp = vec4(0.0);
+    }
+)";
+    const char kFS[] = R"(#version 300 es
+    precision highp float;
+    out vec4 fragColor;
+    in vec4 color_interp;
+layout(std140) uniform TestData {
+    int a;
+    int b;
+};
+void main()
+{
+    int c, a1;
+    a1 += c > 0 ? a : b;
+    fragColor = vec4(a1,a1,a1,1.0);
+}
+)";
+    ANGLE_GL_PROGRAM(testProgram, kVS, kFS);
 }
 
 // Test that the length() method is correctly translated in Vulkan atomic counter buffer emulation.
@@ -5044,6 +5192,254 @@ void main(void)
     EXPECT_NEAR(ptr[9], kImage2Data[3], 0.0001f);
 
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+}
+
+// Check that imageLoad gives the correct color after clearing the texture -- anglebug.com/7355
+TEST_P(GLSLTest_ES31, ImageLoadAfterClear)
+{
+    ANGLE_GL_PROGRAM(program,
+                     R"(#version 310 es
+precision highp float;
+void main()
+{
+    gl_Position.x = ((gl_VertexID & 1) == 0 ? -1.0 : 1.0);
+    gl_Position.y = ((gl_VertexID & 2) == 0 ? -1.0 : 1.0);
+    gl_Position.zw = vec2(0, 1);
+})",
+
+                     R"(#version 310 es
+precision highp float;
+layout(binding=0, rgba8) readonly highp uniform image2D img;
+out vec4 fragColor;
+void main()
+{
+    ivec2 imgcoord = ivec2(floor(gl_FragCoord.xy));
+    fragColor = vec4(1, 0, 0, 0) + imageLoad(img, imgcoord);
+})");
+    ASSERT_TRUE(program.valid());
+    glUseProgram(program.get());
+
+    GLTexture tex;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+    glBindImageTexture(0, tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA8);
+
+    // Clear the texture to green.
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    glClearColor(0, 1, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
+
+    // Draw the texture via imageLoad, plus red, into the main framebuffer. Make sure the texture
+    // was still green. (green + red == yellow.)
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    EXPECT_PIXEL_RECT_EQ(0, 0, getWindowWidth(), getWindowHeight(), GLColor::yellow);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Check that writeonly image2D handles can be passed as function args.
+TEST_P(GLSLTest_ES31, WriteOnlyImage2DAsFunctionArg)
+{
+    // Create an image.
+    GLTexture tex;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+
+    // Clear the image to red.
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    const char kVS[] = R"(#version 310 es
+precision highp float;
+void main()
+{
+    gl_Position.x = ((gl_VertexID & 1) == 0 ? -1.0 : 1.0);
+    gl_Position.y = ((gl_VertexID & 2) == 0 ? -1.0 : 1.0);
+    gl_Position.zw = vec2(0, 1);
+})";
+
+    const char kFS[] = R"(#version 310 es
+precision highp float;
+layout(binding=0, rgba8) writeonly highp uniform image2D uniformImage;
+void store(writeonly highp image2D img, vec4 color)
+{
+    ivec2 imgcoord = ivec2(floor(gl_FragCoord.xy));
+    imageStore(img, imgcoord, color);
+}
+void main()
+{
+    store(uniformImage, vec4(1, 1, 0, 1));
+})";
+
+    // Store yellow to the image.
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    glUseProgram(program);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindImageTexture(0, tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA8);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT);
+
+    // Check that the image is yellow.
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    EXPECT_PIXEL_RECT_EQ(0, 0, getWindowWidth(), getWindowHeight(), GLColor::yellow);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Check that readonly image2D handles can be passed as function args.
+TEST_P(GLSLTest_ES31, ReadOnlyImage2DAsFunctionArg)
+{
+    const int w = getWindowWidth();
+    const int h = getWindowHeight();
+
+    // Create an image.
+    GLTexture tex;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, w, h);
+
+    const std::vector<GLColor> kInitData(w * h, GLColor::red);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, kInitData.data());
+
+    // Create a framebuffer.
+    GLTexture color;
+    glBindTexture(GL_TEXTURE_2D, color);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, w, h);
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+    EXPECT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    // Initialize the framebuffer with the contents of the texture.
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    const char kVS[] = R"(#version 310 es
+precision highp float;
+void main()
+{
+    gl_Position.x = ((gl_VertexID & 1) == 0 ? -1.0 : 1.0);
+    gl_Position.y = ((gl_VertexID & 2) == 0 ? -1.0 : 1.0);
+    gl_Position.zw = vec2(0, 1);
+})";
+
+    const char kFS[] = R"(#version 310 es
+precision highp float;
+layout(binding=0, rgba8) readonly highp uniform image2D uniformImage;
+out vec4 color;
+vec4 load(readonly highp image2D img)
+{
+    ivec2 imgcoord = ivec2(floor(gl_FragCoord.xy));
+    return imageLoad(img, imgcoord);
+}
+void main()
+{
+    color = load(uniformImage);
+})";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    glUseProgram(program);
+
+    glBindImageTexture(0, tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA8);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // Check that the framebuffer is red.
+    EXPECT_PIXEL_RECT_EQ(0, 0, w, h, GLColor::red);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Check that the volatile keyword combined with memoryBarrierImage() allow load/store from
+// different aliases of the same image -- anglebug.com/7343
+//
+// ES 3.1 requires most image formats to be either readonly or writeonly. (It appears that this
+// limitation exists due to atomics, since we still have the volatile keyword and the built-in
+// memoryBarrierImage(), which ought to allow us to load and store different aliases of the same
+// image.) To test this, we create two aliases of the same image -- one for reading and one for
+// writing.
+TEST_P(GLSLTest_ES31, AliasedLoadStore)
+{
+
+    GLTexture tex;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, getWindowWidth(), getWindowHeight());
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    ANGLE_GL_PROGRAM(program,
+
+                     R"(#version 310 es
+precision highp float;
+void main()
+{
+    gl_Position.x = ((gl_VertexID & 1) == 0 ? -1.0 : 1.0);
+    gl_Position.y = ((gl_VertexID & 2) == 0 ? -1.0 : 1.0);
+    gl_Position.zw = vec2(0, 1);
+})",
+
+                     R"(#version 310 es
+precision highp float;
+layout(binding=0, rgba8) volatile readonly highp uniform image2D img_r;
+layout(binding=0, rgba8) volatile writeonly highp uniform image2D img_w;
+uniform vec4 drawColor;
+void main()
+{
+    ivec2 coord = ivec2(floor(gl_FragCoord.xy));
+    vec4 oldval = imageLoad(img_r, coord);
+    memoryBarrierImage();
+    imageStore(img_w, coord, oldval + drawColor);
+})");
+
+    ASSERT_TRUE(program.valid());
+    glUseProgram(program.get());
+    GLint drawColorLocation = glGetUniformLocation(program, "drawColor");
+
+    // Tell the driver the binding is GL_READ_WRITE, since it will be referenced by two image2Ds:
+    // one readeonly and one writeonly.
+    glBindImageTexture(0, tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glUniform4f(drawColorLocation, 0, 1, 0, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    // Ensure the cleared color was loaded before we stored.
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    EXPECT_PIXEL_RECT_EQ(0, 0, getWindowWidth(), getWindowHeight(), GLColor::yellow);
+
+    ASSERT_GL_NO_ERROR();
+
+    // Now make two draws to ensure the imageStore is coherent.
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glUniform4f(drawColorLocation, 0, 1, 0, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    glUniform4f(drawColorLocation, 0, 0, 1, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+    // Ensure the first imageStore was loaded by the second imageLoad.
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    EXPECT_PIXEL_RECT_EQ(0, 0, getWindowWidth(), getWindowHeight(), GLColor::white);
+
+    ASSERT_GL_NO_ERROR();
 }
 
 // Test that structs containing arrays of samplers work as expected.
@@ -6089,6 +6485,50 @@ TEST_P(WebGLGLSLTest, UninitializedNamelessStructInGlobalScope)
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 }
 
+// Test that uninitialized output arguments are initialized to 0.
+TEST_P(WebGL2GLSLTest, InitOutputParams)
+{
+    constexpr char kFS[] = R"(#version 300 es
+precision mediump float;
+
+struct S { float a; };
+
+out vec4 color;
+
+float f(out vec2 o1, out S o2[2], out float o3[3])
+{
+    float uninitialized_local;
+
+    // leave o1 uninitialized
+    // leave o2 partially uninitialized
+    o2[0].a = 1.0;
+
+    // leave o3 partially uninitialized
+    o3[1] = 0.5;
+
+    return uninitialized_local;
+}
+
+void main()
+{
+    vec2 v1 = vec2(123., 234.);
+    S v2[2] = S[2](S(-1111.), S(55.));
+    float v3[3] = float[3](20., 30., 40.);
+    float v4 = f(v1, v2, v3);
+
+    // Everything should be 0 now except for v2[0].a and v3[1] which should be 1.0 and 0.5
+    // respectively.
+    color = vec4(v1.x + v2[0].a + v3[0],  // 1.0
+                 v1.y + v2[1].a + v3[1],  // 0.5
+                 v3[2] + v4,              // 0
+                 1.0);
+})";
+
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), kFS);
+    drawQuad(program.get(), essl3_shaders::PositionAttrib(), 0.5f, 1.0f, true);
+    EXPECT_PIXEL_NEAR(0, 0, 255, 127, 0, 255, 1);
+}
+
 // Tests nameless struct uniforms.
 TEST_P(GLSLTest, EmbeddedStructUniform)
 {
@@ -6137,6 +6577,50 @@ void main()
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 }
 
+// Test that samplers in structs can be extracted if the first reference to the struct does not
+// select an attribute.
+TEST_P(GLSLTest, SamplerInStructNoMemberIndexing)
+{
+    constexpr char kVS[] = R"(
+uniform struct {
+    sampler2D n;
+    vec2 c;
+} s;
+void main()
+{
+    s;
+})";
+
+    constexpr char kFS[] = R"(void main()
+{
+    gl_FragColor = vec4(1);
+})";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+}
+
+// Similar test to SamplerInStructNoMemberIndexing, but the struct variable is an array.
+TEST_P(GLSLTest, SamplerInStructArrayNoMemberIndexing)
+{
+    constexpr char kVS[] = R"(
+uniform struct
+{
+    sampler2D K;
+    vec4 c;
+} s[6];
+void main()
+{
+    s[0];
+})";
+
+    constexpr char kFS[] = R"(void main()
+{
+    gl_FragColor = vec4(1);
+})";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+}
+
 // Tests that rewriting samplers in structs doesn't mess up indexing.
 TEST_P(GLSLTest, SamplerInStructMemberIndexing)
 {
@@ -6154,6 +6638,7 @@ uniform S uni;
 varying vec2 texCoord;
 void main()
 {
+    uni;
     if (uni.b)
     {
         gl_FragColor = texture2D(uni.samp, texCoord);
@@ -6189,6 +6674,35 @@ void main()
     ASSERT_GL_NO_ERROR();
 
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+}
+
+// Tests that rewriting samplers in structs works when passed as function argument.  In this test,
+// the function references another struct, which is not being modified.  Regression test for AST
+// validation applied to a multipass transformation, where references to declarations were attempted
+// to be validated without having the entire shader.  In this case, the reference to S2 was flagged
+// as invalid because S2's declaration was not visible.
+TEST_P(GLSLTest, SamplerInStructAsFunctionArg)
+{
+    const char kFS[] = R"(precision mediump float;
+struct S { sampler2D samp; bool b; };
+struct S2 { float f; };
+
+uniform S us;
+
+float f(S s)
+{
+    S2 s2;
+    s2.f = float(s.b);
+    return s2.f;
+}
+
+void main()
+{
+    gl_FragColor = vec4(f(us), 0, 0, 1);
+})";
+
+    CompileShader(GL_FRAGMENT_SHADER, kFS);
+    ASSERT_GL_NO_ERROR();
 }
 
 // Tests two nameless struct uniforms.
@@ -6504,6 +7018,102 @@ TEST_P(GLSLTest_ES31, VaryingTessellationSampleInAndOut)
     ANGLE_GL_PROGRAM_WITH_TESS(program, kVS, kTCS, kTES, kFS);
     drawPatches(program.get(), "inputAttribute", 0.5f, 1.0f, GL_FALSE);
     ASSERT_GL_NO_ERROR();
+}
+
+// Test that `smooth sample` and `flat sample` pass the validation.
+TEST_P(GLSLTest_ES3, AliasedSampleQualifiers)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_shader_multisample_interpolation"));
+
+    constexpr char kVS[] =
+        R"(#version 300 es
+        #extension GL_OES_shader_multisample_interpolation : require
+
+        smooth sample out mediump float f;
+        flat sample out mediump int i;
+        void main()
+        {
+            f = 1.0;
+            i = 1;
+            gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+        })";
+
+    constexpr char kFS[] =
+        R"(#version 300 es
+        #extension GL_OES_shader_multisample_interpolation : require
+
+        smooth sample in mediump float f;
+        flat sample in mediump int i;
+        out mediump vec4 color;
+        void main()
+        {
+            color = vec4(f, float(i), 0, 1);
+        })";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+}
+
+// Test that `noperspective centroid` passes the validation and compiles.
+TEST_P(GLSLTest_ES3, NoPerspectiveCentroid)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_NV_shader_noperspective_interpolation"));
+
+    constexpr char kVS[] =
+        R"(#version 300 es
+        #extension GL_NV_shader_noperspective_interpolation : require
+
+        noperspective centroid out mediump float f;
+        void main()
+        {
+            f = 1.0;
+            gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+        })";
+
+    constexpr char kFS[] =
+        R"(#version 300 es
+        #extension GL_NV_shader_noperspective_interpolation : require
+
+        noperspective centroid in mediump float f;
+        out mediump vec4 color;
+        void main()
+        {
+            color = vec4(f, 0.0, 0.0, 1.0);
+        })";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+}
+
+// Test that `noperspective sample` passes the validation and compiles.
+TEST_P(GLSLTest_ES3, NoPerspectiveSample)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_shader_multisample_interpolation"));
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_NV_shader_noperspective_interpolation"));
+
+    constexpr char kVS[] =
+        R"(#version 300 es
+        #extension GL_OES_shader_multisample_interpolation : require
+        #extension GL_NV_shader_noperspective_interpolation : require
+
+        noperspective sample out mediump float f;
+        void main()
+        {
+            f = 1.0;
+            gl_Position = vec4(f, 0.0, 0.0, 1.0);
+        })";
+
+    constexpr char kFS[] =
+        R"(#version 300 es
+        #extension GL_OES_shader_multisample_interpolation : require
+        #extension GL_NV_shader_noperspective_interpolation : require
+
+        noperspective sample in mediump float f;
+        out mediump vec4 color;
+        void main()
+        {
+            color = vec4(f, 0.0, 0.0, 1.0);
+        })";
+
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
 }
 
 // Test that a shader with sample in / sample out can be used successfully when the varying
@@ -7182,6 +7792,64 @@ void main()
 
     EXPECT_PIXEL_COLOR_EQ(1, 1, GLColor::green);
 }
+
+// This test covers passing a struct containing a sampler as a function argument, where the function
+// has non-return branch statements.
+TEST_P(GLSLTest_ES3, StructsWithSamplersAsFunctionArgWithBranch)
+{
+    // Shader failed to compile on Nexus devices. http://anglebug.com/2114
+    ANGLE_SKIP_TEST_IF(IsNexus5X() && IsAdreno() && IsOpenGLES());
+
+    const char kFragmentShader[] = R"(precision mediump float;
+struct S { sampler2D samplerMember; };
+uniform S uStruct;
+uniform vec2 uTexCoord;
+vec4 foo(S structVar)
+{
+    vec4 result;
+    while (true)
+    {
+        result = texture2D(structVar.samplerMember, uTexCoord);
+        if (result.x == 12345.)
+        {
+            continue;
+        }
+        break;
+    }
+    return result;
+}
+void main()
+{
+    gl_FragColor = foo(uStruct);
+})";
+
+    ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), kFragmentShader);
+
+    // Initialize the texture with green.
+    GLTexture tex;
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    GLubyte texData[] = {0u, 255u, 0u, 255u};
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, texData);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    ASSERT_GL_NO_ERROR();
+
+    // Draw
+    glUseProgram(program);
+    GLint samplerMemberLoc = glGetUniformLocation(program, "uStruct.samplerMember");
+    ASSERT_NE(-1, samplerMemberLoc);
+    glUniform1i(samplerMemberLoc, 0);
+    GLint texCoordLoc = glGetUniformLocation(program, "uTexCoord");
+    ASSERT_NE(-1, texCoordLoc);
+    glUniform2f(texCoordLoc, 0.5f, 0.5f);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    ASSERT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_COLOR_EQ(1, 1, GLColor::green);
+}
+
 // This test covers passing an array of structs containing samplers as a function argument.
 TEST_P(GLSLTest, ArrayOfStructsWithSamplersAsFunctionArg)
 {
@@ -8922,7 +9590,7 @@ TEST_P(GLSLTest_ES31, ExceedCombinedShaderOutputResourcesInVSAndFS)
 
 // Test that assigning an assignment expression to a swizzled vector field in a user-defined
 // function works correctly.
-TEST_P(GLSLTest_ES3, AssignAssignmentToSwizzled)
+TEST_P(GLSLTest_ES3, AssignToSwizzled)
 {
     constexpr char kFS[] = R"(#version 300 es
 precision highp float;
@@ -8949,6 +9617,36 @@ void main()
     ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), kFS);
     drawQuad(program.get(), essl3_shaders::PositionAttrib(), 0.5f);
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
+}
+
+// Similar to AssignToSwizzled, but uses other assignment operators than `=`.
+TEST_P(GLSLTest_ES3, AssignToSwizzled2)
+{
+    constexpr char kFS[] = R"(#version 300 es
+precision highp float;
+out vec4 my_FragColor;
+
+uniform float uzero;
+
+vec3 fun(float s, float v)
+{
+    vec3 r = vec3(0.125, 0.5, 0.);
+    if (s < 1.0) {
+        r.x /= r.y *= r.z += v;
+        return r;
+    }
+    return r;
+}
+
+void main()
+{
+    my_FragColor.a = 1.0;
+    my_FragColor.rgb = fun(uzero, 1.0);
+})";
+
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), kFS);
+    drawQuad(program.get(), essl3_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_NEAR(0, 0, 63, 127, 255, 255, 1);
 }
 
 // Test a fragment shader that returns inside if (that being the only branch that actually gets
@@ -9395,7 +10093,7 @@ foo
     ANGLE_GL_PROGRAM(program, kVS, kFS);
 }
 
-// Test that inactive output variables compile ok in combination with SH_INIT_OUTPUT_VARIABLES
+// Test that inactive output variables compile ok in combination with initOutputVariables
 // (which is enabled on WebGL).
 TEST_P(WebGL2GLSLTest, InactiveOutput)
 {
@@ -9529,13 +10227,6 @@ TEST_P(GLSLTest_ES3, InitSameNameArray)
 // Tests using gl_FragData[0] instead of gl_FragColor.
 TEST_P(GLSLTest, FragData)
 {
-    // Ensures that we don't regress and emit Vulkan layer warnings.
-    // TODO(jonahr): http://anglebug.com/3900 - Remove check once warnings are cleaned up
-    if (IsVulkan())
-    {
-        treatPlatformWarningsAsErrors();
-    }
-
     constexpr char kFS[] = R"(void main() { gl_FragData[0] = vec4(1, 0, 0, 1); })";
     ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), kFS);
     drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
@@ -9659,12 +10350,16 @@ void InitBuffer(GLuint program,
 template <typename T>
 bool VerifyBuffer(GLuint buffer, const T data[], uint32_t dataSize)
 {
+    uint32_t sizeInBytes = dataSize * sizeof(*data);
+
+    glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
 
     const T *ptr = reinterpret_cast<const T *>(
-        glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, dataSize, GL_MAP_READ_BIT));
+        glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeInBytes, GL_MAP_READ_BIT));
 
-    bool isCorrect = memcmp(ptr, data, dataSize * sizeof(*data)) == 0;
+    bool isCorrect = memcmp(ptr, data, sizeInBytes) == 0;
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
     return isCorrect;
@@ -12310,6 +13005,64 @@ void main(){
                              static_cast<uint32_t>(ssbo430Expect.size())));
 }
 
+// Verify that uint in interface block cast to bool works.
+TEST_P(GLSLTest_ES3, UintCastToBoolFromInterfaceBlocks)
+{
+    constexpr char kFS[] = R"(#version 300 es
+precision mediump float;
+
+uniform uvec4 uv4;
+uniform uvec2 uv2;
+uniform uint u1;
+uniform uint u2;
+
+out vec4 colorOut;
+
+void main()
+{
+    bvec4 bv4 = bvec4(uv4);
+    bvec2 bv2 = bvec2(uv2);
+    bool b1 = bool(u1);
+    bool b2 = bool(u2);
+
+    vec4 vv4 = mix(vec4(0), vec4(0.4), bv4);
+    vec2 vv2 = mix(vec2(0), vec2(0.7), bv2);
+    float v1 = b1 ? 1.0 : 0.0;
+    float v2 = b2 ? 0.0 : 1.0;
+
+    colorOut = vec4(vv4.x - vv4.y + vv4.z + vv4.w,
+                        (vv2.y - vv2.x) * 1.5,
+                        v1,
+                        v2);
+})";
+
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), kFS);
+    EXPECT_GL_NO_ERROR();
+
+    glUseProgram(program);
+    GLint uv4 = glGetUniformLocation(program, "uv4");
+    GLint uv2 = glGetUniformLocation(program, "uv2");
+    GLint u1  = glGetUniformLocation(program, "u1");
+    GLint u2  = glGetUniformLocation(program, "u2");
+    ASSERT_NE(uv4, -1);
+    ASSERT_NE(uv2, -1);
+    ASSERT_NE(u1, -1);
+    ASSERT_NE(u2, -1);
+
+    glUniform4ui(uv4, 123, 0, 9, 8297312);
+    glUniform2ui(uv2, 0, 90812);
+    glUniform1ui(u1, 8979421);
+    glUniform1ui(u2, 0);
+
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    drawQuad(program, essl3_shaders::PositionAttrib(), 0.5f);
+    EXPECT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
+}
+
 // Test that the precise keyword is not reserved before ES3.1.
 TEST_P(GLSLTest_ES3, PreciseNotReserved)
 {
@@ -12357,15 +13110,11 @@ void main() { v_varying = a_position.x; gl_Position = a_position; })";
     EXPECT_EQ(0u, program);
 }
 
-// Test that reusing the same variable name for different uses across stages links fine.  Glslang
-// wrapper's SPIR-V transformation should ignore all names for non-shader-interface variables and
-// not get confused by them.
+// Test that reusing the same variable name for different uses across stages links fine.  The SPIR-V
+// transformation should ignore all names for non-shader-interface variables and not get confused by
+// them.
 TEST_P(GLSLTest_ES31, VariableNameReuseAcrossStages)
 {
-    // Fails to compile the fragment shader with error "undeclared identifier '_g'"
-    // http://anglebug.com/4404
-    ANGLE_SKIP_TEST_IF(IsD3D11());
-
     constexpr char kVS[] = R"(#version 310 es
 precision mediump float;
 uniform highp vec4 a;
@@ -15293,31 +16042,1768 @@ void main() {
     CompileShader(GL_FRAGMENT_SHADER, kFS);
     ASSERT_GL_NO_ERROR();
 }
+
+// Test for a driver bug with matrix multiplication in the tessellation control shader.
+TEST_P(GLSLTest_ES31, TessellationControlShaderMatrixMultiplicationBug)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_tessellation_shader"));
+
+    constexpr char kTCS[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : enable
+layout(vertices = 1) out;
+precision highp float;
+
+patch out mat4 x;
+
+void main()
+{
+    x = mat4(
+        0.53455, 0.47307, 0.34935, 0.28717,
+        0.67195, 0.59992, 0.48213, 0.43678,
+        0.76376, 0.6772, 0.55361, 0.5165,
+        0.77996, 0.68862, 0.56187, 0.52611
+    );
+
+    const mat4 m = mat4(
+        vec4( -1.0, 3.0,-3.0, 1.0),
+        vec4(  3.0,-6.0, 3.0, 0.0),
+        vec4( -3.0, 3.0, 0.0, 0.0),
+        vec4(  1.0, 0.0, 0.0, 0.0)
+    );
+
+    x = m * x;
+
+    gl_TessLevelInner[0u] = 1.;
+    gl_TessLevelInner[1u] = 1.;
+    gl_TessLevelOuter[0u] = 1.;
+    gl_TessLevelOuter[1u] = 1.;
+    gl_TessLevelOuter[2u] = 1.;
+    gl_TessLevelOuter[3u] = 1.;
+})";
+
+    constexpr char kTES[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : enable
+layout(quads, cw, fractional_odd_spacing) in;
+precision highp float;
+
+patch in mat4 x;
+
+out mat4 x_fs;
+
+void main()
+{
+    x_fs = x;
+    gl_Position = vec4(gl_TessCoord.xy * 2. - 1., 0, 1);
+})";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision highp float;
+
+in mat4 x_fs;
+out vec4 color;
+
+void main()
+{
+    // Note: on the failing driver, .w of every column has the same value as .x of the same column.
+
+    const mat4 expect = mat4(
+        0.12378, -0.18672, -0.18444, 0.53455,
+        0.1182, -0.13728, -0.21609, 0.67195,
+        0.12351, -0.11109, -0.25968, 0.76376,
+        0.1264, -0.10623, -0.27402, 0.77996
+    );
+
+    color = vec4(all(lessThan(abs(x_fs[0] - expect[0]), vec4(0.01))),
+                 all(lessThan(abs(x_fs[1] - expect[1]), vec4(0.01))),
+                 all(lessThan(abs(x_fs[2] - expect[2]), vec4(0.01))),
+                 all(lessThan(abs(x_fs[3] - expect[3]), vec4(0.01))));
+})";
+
+    ANGLE_GL_PROGRAM_WITH_TESS(program, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    drawPatches(program.get(), essl31_shaders::PositionAttrib(), 0.5f, 1.0f, GL_FALSE);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test for a driver bug with matrix copy in the tessellation control shader.
+TEST_P(GLSLTest_ES31, TessellationControlShaderMatrixCopyBug)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_tessellation_shader"));
+
+    constexpr char kTCS[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : enable
+layout(vertices = 1) out;
+precision highp float;
+
+patch out mat4 x;
+patch out vec4 col0;
+
+void main()
+{
+    // Note: if |x| is not an |out| varying, the test passes.
+    x = mat4(
+        0.53455, 0.47307, 0.34935, 0.28717,
+        0.67195, 0.59992, 0.48213, 0.43678,
+        0.76376, 0.6772, 0.55361, 0.5165,
+        0.77996, 0.68862, 0.56187, 0.52611
+    );
+
+    const mat4 m = mat4(
+        vec4( -1.0, 3.0,-3.0, 1.0),
+        vec4(  3.0,-6.0, 3.0, 0.0),
+        vec4( -3.0, 3.0, 0.0, 0.0),
+        vec4(  1.0, 0.0, 0.0, 0.0)
+    );
+
+    mat4 temp = x;
+
+    // Note: On the failing driver, commenting this line makes the test pass.
+    // However, the output being tested is |temp|, assigned above, not |x|.
+    x = m * x;
+
+    col0 = temp[0];
+
+    gl_TessLevelInner[0u] = 1.;
+    gl_TessLevelInner[1u] = 1.;
+    gl_TessLevelOuter[0u] = 1.;
+    gl_TessLevelOuter[1u] = 1.;
+    gl_TessLevelOuter[2u] = 1.;
+    gl_TessLevelOuter[3u] = 1.;
+})";
+
+    constexpr char kTES[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : enable
+layout(quads, cw, fractional_odd_spacing) in;
+precision highp float;
+
+patch in vec4 col0;
+
+out vec4 col0_fs;
+
+void main()
+{
+    col0_fs = col0;
+    gl_Position = vec4(gl_TessCoord.xy * 2. - 1., 0, 1);
+})";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision highp float;
+
+in vec4 col0_fs;
+out vec4 color;
+
+void main()
+{
+    // Note: on the failing driver, |col0| has the value of |m * x|, not |temp|.
+    color = vec4(abs(col0_fs.x - 0.53455) < 0.01,
+                abs(col0_fs.y - 0.47307) < 0.01,
+                abs(col0_fs.z - 0.34935) < 0.01,
+                abs(col0_fs.w - 0.28717) < 0.01);
+})";
+
+    ANGLE_GL_PROGRAM_WITH_TESS(program, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    drawPatches(program.get(), essl31_shaders::PositionAttrib(), 0.5f, 1.0f, GL_FALSE);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::white);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Tests the generation of HLSL functions with uint/int parameters that may be ambiguous.
+TEST_P(GLSLTest_ES3, AmbiguousHLSLIntegerFunctionParameters)
+{
+    const char kVS[] = R"(#version 300 es
+precision highp float;
+void main()
+{
+    gl_Position = vec4(0, 0, 0, 0);
+})";
+
+    const char kFS[] = R"(#version 300 es
+precision highp float;
+out vec4 color;
+void main()
+{
+    // Ensure that both uint and int to float constructors are generated before the ambiguous usage.
+    int i = int(gl_FragCoord.x);
+    float f1 = float(i);
+    color.r = f1;
+
+    uint ui = uint(gl_FragCoord.x);
+    float f2 = float(i);
+    color.g = f2;
+
+    // Ambiguous call
+    float f3 = float(1u << (2u * ui));
+    color.b = f3;
+})";
+
+    ANGLE_GL_PROGRAM(testProgram, kVS, kFS);
+}
+
+// Tests adding a struct definition inline in a shader.
+// Metal backend contains a pass that separates struct definition and declaration.
+TEST_P(GLSLTest_ES3, StructInShader)
+{
+    const char kVS[] = R"(#version 300 es
+precision highp float;
+void main(void)
+{
+    struct structMain {
+        float i;
+    } testStruct;
+
+    testStruct.i = 5.0 ;
+    gl_Position = vec4(testStruct.i - 4.0, 0, 0, 1);
+})";
+
+    const char kFS[] = R"(#version 300 es
+precision highp float;
+out vec4 color;
+void main()
+{
+    color = vec4(0,1,0,0);
+})";
+
+    ANGLE_GL_PROGRAM(testProgram, kVS, kFS);
+}
+
+// Issue: A while loop's expression, and a branch
+// condition with EOpContinue were being deep
+// copied as part of monomorphize functions,
+// causing a crash, as they were not null-checked.
+// Tests transforming a function that will be monomorphized.
+TEST_P(GLSLTest_ES3, MonomorphizeForAndContinue)
+{
+
+    constexpr char kFS[] =
+        R"(#version 300 es
+        
+        precision mediump float;
+        out vec4 fragOut;
+        struct aParam
+        {
+            sampler2D sampler;
+        };
+        uniform aParam theParam;
+
+        float monomorphizedFunction(aParam a)
+        {
+            int i = 0;
+            vec4 j = vec4(0);
+            for(;;)
+            {
+                if(i++ < 10)
+                {
+                    j += texture(a.sampler, vec2(0.0f,0.0f));
+                    continue;
+                }
+                break;
+            }
+            return j.a;
+        }
+        void main()
+        {
+            fragOut.a = monomorphizedFunction(theParam);
+        }        
+)";
+    CompileShader(GL_FRAGMENT_SHADER, kFS);
+    ASSERT_GL_NO_ERROR();
+}
+
+// Tests inout parameters with array references.
+TEST_P(GLSLTest_ES3, InoutWithArrayRefs)
+{
+    const char kVS[] = R"(#version 300 es
+precision highp float;
+void swap(inout float a, inout float b)
+{
+    float tmp = a;
+    a = b;
+    b = tmp;
+}
+
+void main(void)
+{
+    vec3 testVec = vec3(0.0, 1.0, 1.0);
+    swap(testVec[0], testVec[1]);
+    gl_Position = vec4(testVec[0], testVec[1], testVec[2], 1.0);
+})";
+
+    const char kFS[] = R"(#version 300 es
+precision highp float;
+out vec4 color;
+void main()
+{
+    color = vec4(0,1,0,0);
+})";
+
+    ANGLE_GL_PROGRAM(testProgram, kVS, kFS);
+}
+
+// Test that sample variables compile.
+TEST_P(GLSLTest_ES3, SampleVariables)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_OES_sample_variables"));
+
+    const char kFS[] = R"(#version 300 es
+#extension GL_OES_sample_variables : require
+precision highp float;
+out vec4 color;
+void main()
+{
+    gl_SampleMask[0] = gl_SampleMaskIn[0] & 0x55555555;
+    color = vec4(gl_SamplePosition.yx, float(gl_SampleID), float(gl_MaxSamples + gl_NumSamples));
+})";
+
+    ANGLE_GL_PROGRAM(testProgram, essl3_shaders::vs::Simple(), kFS);
+}
+
+// Test that shader caching maintains uniforms across compute shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheComputeWithUniform)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+    constexpr char kCS[] = R"(#version 310 es
+layout (local_size_x = 2, local_size_y = 3, local_size_z = 1) in;
+
+uniform uint inputs[6];
+
+layout (binding = 0, std430) buffer OutputBuffer {
+    uint outputs[6];
+};
+
+void main() {
+    outputs[gl_LocalInvocationIndex] = inputs[gl_LocalInvocationIndex];
+}
+)";
+
+    ANGLE_GL_COMPUTE_PROGRAM(unusedProgram, kCS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_COMPUTE_PROGRAM(program, kCS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr std::array<GLuint, 6> kInputUniform = {1, 2, 3, 4, 5, 6};
+    for (int i = 0; i < static_cast<int>(kInputUniform.size()); ++i)
+    {
+        const std::string uniformName =
+            std::string("inputs[") + std::to_string(i) + std::string("]");
+        int inputLocation =
+            glGetUniformLocation(program, static_cast<const GLchar *>(uniformName.c_str()));
+        glUniform1ui(inputLocation, kInputUniform[i]);
+        ASSERT_GL_NO_ERROR();
+    }
+
+    constexpr std::array<GLuint, 6> kOutputInitData = {0, 0, 0, 0, 0, 0};
+    GLBuffer outputBuffer;
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, outputBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint) * kOutputInitData.size(),
+                 kOutputInitData.data(), GL_STATIC_READ);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, outputBuffer);
+
+    glDispatchCompute(1, 1, 1);
+    glDeleteProgram(program);
+    ASSERT_GL_NO_ERROR();
+    glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+
+    auto outputData = static_cast<const GLuint *>(glMapBufferRange(
+        GL_SHADER_STORAGE_BUFFER, 0, sizeof(GLuint) * kOutputInitData.size(), GL_MAP_READ_BIT));
+    for (int i = 0; i < static_cast<int>(kInputUniform.size()); ++i)
+    {
+        EXPECT_EQ(kInputUniform[i], outputData[i]);
+    }
+}
+
+// Test that shader caching maintains uniform blocks across shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheComputeWithUniformBlocks)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+    constexpr char kCS[] = R"(#version 310 es
+layout (local_size_x = 2, local_size_y = 3, local_size_z = 1) in;
+
+layout (std140) uniform Input1 {
+    uint input1;
+};
+
+layout (std140) uniform Input2 {
+    uint input2;
+};
+
+layout (binding = 0, std430) buffer OutputBuffer {
+    uint outputs[6];
+};
+
+void main() {
+    if (gl_LocalInvocationIndex < uint(3))
+    {
+        outputs[gl_LocalInvocationIndex] = input1;
+    }
+    else
+    {
+        outputs[gl_LocalInvocationIndex] = input2;
+    }
+}
+)";
+
+    ANGLE_GL_COMPUTE_PROGRAM(unusedProgram, kCS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_COMPUTE_PROGRAM(program, kCS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLuint kInput1Data = 1;
+    GLBuffer input1;
+    glBindBuffer(GL_UNIFORM_BUFFER, input1);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLuint), &kInput1Data, GL_STATIC_COPY);
+    const GLuint kInput1Index = glGetUniformBlockIndex(program, "Input1");
+    glUniformBlockBinding(program, kInput1Index, 1);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 1, input1);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    ASSERT_GL_NO_ERROR();
+
+    constexpr GLuint kInput2Data = 2;
+    GLBuffer input2;
+    glBindBuffer(GL_UNIFORM_BUFFER, input2);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLuint), &kInput2Data, GL_STATIC_COPY);
+    const GLuint kInput2Index = glGetUniformBlockIndex(program, "Input2");
+    glUniformBlockBinding(program, kInput2Index, 2);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 2, input2);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    ASSERT_GL_NO_ERROR();
+
+    constexpr std::array<GLuint, 6> kOutputInitData = {0, 0, 0, 0, 0, 0};
+    GLBuffer outputBuffer;
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, outputBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint) * kOutputInitData.size(),
+                 kOutputInitData.data(), GL_STATIC_READ);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, outputBuffer);
+    ASSERT_GL_NO_ERROR();
+
+    glDispatchCompute(1, 1, 1);
+    glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+    glDeleteProgram(program);
+    ASSERT_GL_NO_ERROR();
+
+    auto outputData                       = static_cast<const GLuint *>(glMapBufferRange(
+        GL_SHADER_STORAGE_BUFFER, 0, sizeof(GLuint) * kOutputInitData.size(), GL_MAP_READ_BIT));
+    constexpr std::array<GLuint, 6> kWant = {kInput1Data, kInput1Data, kInput1Data,
+                                             kInput2Data, kInput2Data, kInput2Data};
+    for (int i = 0; i < static_cast<int>(kWant.size()); ++i)
+    {
+        EXPECT_EQ(kWant[i], outputData[i]);
+    }
+}
+
+// Test that shader caching maintains uniforms across vertex shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheVertexWithUniform)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+    constexpr char kVS[] = R"(#version 310 es
+
+precision mediump float;
+
+layout (location = 0) in vec4 a_position;
+
+uniform float redInput;
+
+out float redValue;
+
+void main() {
+    gl_Position = a_position;
+    redValue = redInput;
+})";
+
+    constexpr char kFS[] = R"(#version 310 es
+
+precision mediump float;
+
+in float redValue;
+
+out vec4 fragColor;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM(unusedProgram, kVS, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kRedValue = 1.0f;
+    int redInputLocation        = glGetUniformLocation(program, "redInput");
+    glUniform1f(redInputLocation, kRedValue);
+    ASSERT_GL_NO_ERROR();
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains uniform blocks across vertex shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheVertexWithUniformBlock)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+    constexpr char kVS[] = R"(#version 310 es
+
+precision mediump float;
+
+layout (location = 0) in vec4 a_position;
+
+layout (std140) uniform Input {
+    float redInput;
+};
+
+out float redValue;
+
+void main() {
+    gl_Position = a_position;
+    redValue = redInput;
+})";
+
+    constexpr char kFS[] = R"(#version 310 es
+
+precision mediump float;
+
+in float redValue;
+
+out vec4 fragColor;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM(unusedProgram, kVS, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kInputData = 1.0f;
+    GLBuffer input;
+    glBindBuffer(GL_UNIFORM_BUFFER, input);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLfloat), &kInputData, GL_STATIC_COPY);
+    const GLuint kInputIndex = glGetUniformBlockIndex(program, "Input");
+    glUniformBlockBinding(program, kInputIndex, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, input);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    ASSERT_GL_NO_ERROR();
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains SSBOs across vertex shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheVertexWithSSBO)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    // Check that GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS is at least 1.
+    GLint maxVertexShaderStorageBlocks;
+    glGetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, &maxVertexShaderStorageBlocks);
+    ANGLE_SKIP_TEST_IF(maxVertexShaderStorageBlocks == 0);
+    constexpr char kVS[] = R"(#version 310 es
+
+precision mediump float;
+
+layout (location = 0) in vec4 a_position;
+
+layout (binding = 0, std430) buffer Input {
+    float redInput;
+};
+
+out float redValue;
+
+void main() {
+    gl_Position = a_position;
+    redValue = redInput;
+})";
+
+    constexpr char kFS[] = R"(#version 310 es
+
+precision mediump float;
+
+in float redValue;
+
+out vec4 fragColor;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM(unusedProgram, kVS, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kInputData = 1.0f;
+    GLBuffer input;
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, input);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLfloat), &kInputData, GL_STATIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, input);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    ASSERT_GL_NO_ERROR();
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains uniforms across vertex shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheFragmentWithUniform)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+    constexpr char kFS[] = R"(#version 310 es
+
+precision mediump float;
+
+uniform float redValue;
+
+out vec4 fragColor;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM(unusedProgram, essl31_shaders::vs::Simple(), kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM(program, essl31_shaders::vs::Simple(), kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    GLfloat redValue     = 1.0f;
+    int redInputLocation = glGetUniformLocation(program, "redValue");
+    glUniform1f(redInputLocation, redValue);
+    ASSERT_GL_NO_ERROR();
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains uniform blocks across vertex shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheFragmentWithUniformBlock)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+    constexpr char kFS[] = R"(#version 310 es
+
+precision mediump float;
+
+layout (std140) uniform Input {
+    float redValue;
+};
+
+out vec4 fragColor;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM(unusedProgram, essl31_shaders::vs::Simple(), kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM(program, essl31_shaders::vs::Simple(), kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kInputData = 1.0f;
+    GLBuffer input;
+    glBindBuffer(GL_UNIFORM_BUFFER, input);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLfloat), &kInputData, GL_STATIC_COPY);
+    const GLuint kInputIndex = glGetUniformBlockIndex(program, "Input");
+    glUniformBlockBinding(program, kInputIndex, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, input);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    ASSERT_GL_NO_ERROR();
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains SSBOs across vertex shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheFragmentWithSSBO)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+    constexpr char kFS[] = R"(#version 310 es
+
+precision mediump float;
+
+layout (binding = 0, std430) buffer Input {
+    float redValue;
+};
+
+out vec4 fragColor;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM(unusedProgram, essl31_shaders::vs::Simple(), kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM(program, essl31_shaders::vs::Simple(), kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kInputData = 1.0f;
+    GLBuffer input;
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, input);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLfloat), &kInputData, GL_STATIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, input);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    ASSERT_GL_NO_ERROR();
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains whether GL_ARB_sample_shading is enabled across shader
+// compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheFragmentWithARBSampleShading)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_ARB_sample_shading"));
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    constexpr char kFS[] = R"(#version 310 es
+#extension GL_ARB_sample_shading : enable
+
+precision mediump float;
+
+out vec4 fragColor;
+
+void main()
+{
+#ifdef GL_ARB_sample_shading
+    fragColor = vec4(1., 0., 0., 1.);
+#else
+    fragColor = vec4(0.);
+#endif
+})";
+
+    ANGLE_GL_PROGRAM(unusedProgram, essl31_shaders::vs::Simple(), kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM(program, essl31_shaders::vs::Simple(), kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains which advanced blending equations (provided by
+// GL_KHR_blend_equation_advanced) are used across shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheFragmentWithKHRAdvancedBlendEquations)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_KHR_blend_equation_advanced"));
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    constexpr char kFS[] = R"(#version 310 es
+#extension GL_KHR_blend_equation_advanced : require
+
+layout (blend_support_multiply) out;
+
+precision mediump float;
+
+out vec4 fragColor;
+
+void main()
+{
+    fragColor = vec4(1., 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM(unusedProgram, essl31_shaders::vs::Simple(), kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM(program, essl31_shaders::vs::Simple(), kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains uniforms in geometry shaders across shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheGeometryWithUniform)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_geometry_shader"));
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    constexpr char kGS[] = R"(#version 310 es
+#extension GL_EXT_geometry_shader : require
+precision mediump float;
+
+layout (triangles) in;
+layout (triangle_strip, max_vertices = 3) out;
+
+uniform float redInput;
+
+out float redValue;
+
+void main() {
+    gl_Position = gl_in[0].gl_Position;
+    redValue = redInput;
+    EmitVertex();
+
+    gl_Position = gl_in[1].gl_Position;
+    redValue = redInput;
+    EmitVertex();
+
+    gl_Position = gl_in[2].gl_Position;
+    redValue = redInput;
+    EmitVertex();
+
+    EndPrimitive();
+}
+)";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision mediump float;
+
+out vec4 fragColor;
+
+in float redValue;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM_WITH_GS(unusedProgram, essl31_shaders::vs::Simple(), kGS, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM_WITH_GS(program, essl31_shaders::vs::Simple(), kGS, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kRedValue = 1.0f;
+    int redInputLocation        = glGetUniformLocation(program, "redInput");
+    glUniform1f(redInputLocation, kRedValue);
+    ASSERT_GL_NO_ERROR();
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains uniform blocks in geometry shaders across shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheGeometryWithUniformBlock)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_geometry_shader"));
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    constexpr char kGS[] = R"(#version 310 es
+#extension GL_EXT_geometry_shader : require
+precision mediump float;
+
+layout (triangles) in;
+layout (triangle_strip, max_vertices = 3) out;
+
+layout (std140) uniform Input {
+    float redInput;
+};
+
+out float redValue;
+
+void main() {
+    gl_Position = gl_in[0].gl_Position;
+    redValue = redInput;
+    EmitVertex();
+
+    gl_Position = gl_in[1].gl_Position;
+    redValue = redInput;
+    EmitVertex();
+
+    gl_Position = gl_in[2].gl_Position;
+    redValue = redInput;
+    EmitVertex();
+
+    EndPrimitive();
+}
+)";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision mediump float;
+
+out vec4 fragColor;
+
+in float redValue;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM_WITH_GS(unusedProgram, essl31_shaders::vs::Simple(), kGS, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM_WITH_GS(program, essl31_shaders::vs::Simple(), kGS, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kInputData = 1.0f;
+    GLBuffer input;
+    glBindBuffer(GL_UNIFORM_BUFFER, input);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLfloat), &kInputData, GL_STATIC_COPY);
+    const GLuint kInputIndex = glGetUniformBlockIndex(program, "Input");
+    glUniformBlockBinding(program, kInputIndex, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, input);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    ASSERT_GL_NO_ERROR();
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains SSBO in geometry shaders across shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheGeometryWithSSBO)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_geometry_shader"));
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+    GLint maxGeometryShaderStorageBlocks = 0;
+    glGetIntegerv(GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS_EXT, &maxGeometryShaderStorageBlocks);
+    ANGLE_SKIP_TEST_IF(maxGeometryShaderStorageBlocks == 0);
+
+    constexpr char kGS[] = R"(#version 310 es
+#extension GL_EXT_geometry_shader : require
+precision mediump float;
+
+layout (triangles) in;
+layout (triangle_strip, max_vertices = 3) out;
+
+layout (binding = 0, std430) buffer Input {
+    float redInput;
+};
+
+out float redValue;
+
+void main() {
+    gl_Position = gl_in[0].gl_Position;
+    redValue = redInput;
+    EmitVertex();
+
+    gl_Position = gl_in[1].gl_Position;
+    redValue = redInput;
+    EmitVertex();
+
+    gl_Position = gl_in[2].gl_Position;
+    redValue = redInput;
+    EmitVertex();
+
+    EndPrimitive();
+}
+)";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision mediump float;
+
+out vec4 fragColor;
+
+in float redValue;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM_WITH_GS(unusedProgram, essl31_shaders::vs::Simple(), kGS, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM_WITH_GS(program, essl31_shaders::vs::Simple(), kGS, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kInputData = 1.0f;
+    GLBuffer input;
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, input);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLfloat), &kInputData, GL_STATIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, input);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    ASSERT_GL_NO_ERROR();
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains the number of invocations in geometry shaders across shader
+// compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheGeometryWithInvocations)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_geometry_shader"));
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    constexpr char kGS[] = R"(#version 310 es
+#extension GL_EXT_geometry_shader : require
+precision mediump float;
+
+layout (triangles, invocations = 2) in;
+layout (triangle_strip, max_vertices = 3) out;
+
+out float redValue;
+
+void main() {
+    float redOut = 0.;
+    if (gl_InvocationID == 1) {
+        redOut = 1.;
+    }
+
+    gl_Position = gl_in[0].gl_Position;
+    redValue = redOut;
+    EmitVertex();
+
+    gl_Position = gl_in[1].gl_Position;
+    redValue = redOut;
+    EmitVertex();
+
+    gl_Position = gl_in[2].gl_Position;
+    redValue = redOut;
+    EmitVertex();
+
+    EndPrimitive();
+}
+)";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision mediump float;
+
+out vec4 fragColor;
+
+in float redValue;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM_WITH_GS(unusedProgram, essl31_shaders::vs::Simple(), kGS, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM_WITH_GS(program, essl31_shaders::vs::Simple(), kGS, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains uniforms in tessellation control shaders across shader
+// compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheTessellationControlWithUniform)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_tessellation_shader"));
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    constexpr char kTCS[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : require
+precision mediump float;
+
+layout (vertices = 1) out;
+
+uniform float redInput;
+
+patch out float redValueCS;
+
+void main()
+{
+    gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+    gl_TessLevelInner[0] = 1.0;
+    gl_TessLevelInner[1] = 1.0;
+    gl_TessLevelOuter[0] = 1.0;
+    gl_TessLevelOuter[1] = 1.0;
+    gl_TessLevelOuter[2] = 1.0;
+    gl_TessLevelOuter[3] = 1.0;
+
+    redValueCS = redInput;
+}
+
+)";
+
+    constexpr char kTES[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : require
+precision mediump float;
+
+layout (quads, cw, fractional_odd_spacing) in;
+
+patch in float redValueCS;
+
+out float redValue;
+
+void main()
+{
+    gl_Position = vec4(gl_TessCoord.xy * 2. - 1., 0, 1);
+
+    redValue = redValueCS;
+}
+)";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision mediump float;
+
+out vec4 fragColor;
+
+in float redValue;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM_WITH_TESS(unusedProgram, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM_WITH_TESS(program, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kRedValue = 1.0f;
+    int redInputLocation        = glGetUniformLocation(program, "redInput");
+    glUniform1f(redInputLocation, kRedValue);
+    ASSERT_GL_NO_ERROR();
+
+    drawPatches(program, essl31_shaders::PositionAttrib(), 0.5f, 1.0f, GL_FALSE);
+    ASSERT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains uniform blocks in tessellation control shaders across shader
+// compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheTessellationControlWithUniformBlock)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_tessellation_shader"));
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    constexpr char kTCS[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : require
+precision mediump float;
+
+layout (vertices = 1) out;
+
+layout (std140) uniform Input {
+    float redInput;
+};
+
+patch out float redValueCS;
+
+void main()
+{
+    gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+    gl_TessLevelInner[0] = 1.0;
+    gl_TessLevelInner[1] = 1.0;
+    gl_TessLevelOuter[0] = 1.0;
+    gl_TessLevelOuter[1] = 1.0;
+    gl_TessLevelOuter[2] = 1.0;
+    gl_TessLevelOuter[3] = 1.0;
+
+    redValueCS = redInput;
+}
+
+)";
+
+    constexpr char kTES[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : require
+precision mediump float;
+
+layout (quads, cw, fractional_odd_spacing) in;
+
+patch in float redValueCS;
+
+out float redValue;
+
+void main()
+{
+    gl_Position = vec4(gl_TessCoord.xy * 2. - 1., 0, 1);
+
+    redValue = redValueCS;
+}
+)";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision mediump float;
+
+out vec4 fragColor;
+
+in float redValue;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM_WITH_TESS(unusedProgram, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM_WITH_TESS(program, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kInputData = 1.0f;
+    GLBuffer input;
+    glBindBuffer(GL_UNIFORM_BUFFER, input);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLfloat), &kInputData, GL_STATIC_COPY);
+    const GLuint kInputIndex = glGetUniformBlockIndex(program, "Input");
+    glUniformBlockBinding(program, kInputIndex, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, input);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    ASSERT_GL_NO_ERROR();
+
+    drawPatches(program, essl31_shaders::PositionAttrib(), 0.5f, 1.0f, GL_FALSE);
+    ASSERT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains SSBOs in tessellation control shaders across shader
+// compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheTessellationControlWithSSBO)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_tessellation_shader"));
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+    GLint maxTessControlShaderStorageBlocks;
+    glGetIntegerv(GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS_EXT,
+                  &maxTessControlShaderStorageBlocks);
+    ANGLE_SKIP_TEST_IF(maxTessControlShaderStorageBlocks == 0);
+
+    constexpr char kTCS[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : require
+precision mediump float;
+
+layout (vertices = 1) out;
+
+layout (binding = 0, std430) buffer Input {
+    float redInput;
+};
+
+patch out float redValueCS;
+
+void main()
+{
+    gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+    gl_TessLevelInner[0] = 1.0;
+    gl_TessLevelInner[1] = 1.0;
+    gl_TessLevelOuter[0] = 1.0;
+    gl_TessLevelOuter[1] = 1.0;
+    gl_TessLevelOuter[2] = 1.0;
+    gl_TessLevelOuter[3] = 1.0;
+
+    redValueCS = redInput;
+}
+
+)";
+
+    constexpr char kTES[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : require
+precision mediump float;
+
+layout (quads, cw, fractional_odd_spacing) in;
+
+patch in float redValueCS;
+
+out float redValue;
+
+void main()
+{
+    gl_Position = vec4(gl_TessCoord.xy * 2. - 1., 0, 1);
+
+    redValue = redValueCS;
+}
+)";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision mediump float;
+
+out vec4 fragColor;
+
+in float redValue;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM_WITH_TESS(unusedProgram, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM_WITH_TESS(program, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kInputData = 1.0f;
+    GLBuffer input;
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, input);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLfloat), &kInputData, GL_STATIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, input);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    ASSERT_GL_NO_ERROR();
+
+    drawPatches(program, essl31_shaders::PositionAttrib(), 0.5f, 1.0f, GL_FALSE);
+    ASSERT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains uniforms in tessellation evaluation shaders across shader
+// compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheTessellationEvalWithUniform)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_tessellation_shader"));
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    constexpr char kTCS[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : require
+precision mediump float;
+
+layout (vertices = 1) out;
+
+void main()
+{
+    gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+    gl_TessLevelInner[0] = 1.0;
+    gl_TessLevelInner[1] = 1.0;
+    gl_TessLevelOuter[0] = 1.0;
+    gl_TessLevelOuter[1] = 1.0;
+    gl_TessLevelOuter[2] = 1.0;
+    gl_TessLevelOuter[3] = 1.0;
+}
+
+)";
+
+    constexpr char kTES[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : require
+precision mediump float;
+
+layout (quads, cw, fractional_odd_spacing) in;
+
+uniform float redInput;
+
+out float redValue;
+
+void main()
+{
+    gl_Position = vec4(gl_TessCoord.xy * 2. - 1., 0, 1);
+
+    redValue = redInput;
+}
+)";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision mediump float;
+
+out vec4 fragColor;
+
+in float redValue;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM_WITH_TESS(unusedProgram, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM_WITH_TESS(program, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kRedValue = 1.0f;
+    int redInputLocation        = glGetUniformLocation(program, "redInput");
+    glUniform1f(redInputLocation, kRedValue);
+    ASSERT_GL_NO_ERROR();
+
+    drawPatches(program, essl31_shaders::PositionAttrib(), 0.5f, 1.0f, GL_FALSE);
+    ASSERT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains uniform blocks in tessellation evaluation shaders across
+// shader compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheTessellationEvalWithUniformBlock)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_tessellation_shader"));
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    constexpr char kTCS[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : require
+precision mediump float;
+
+layout (vertices = 1) out;
+
+void main()
+{
+    gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+    gl_TessLevelInner[0] = 1.0;
+    gl_TessLevelInner[1] = 1.0;
+    gl_TessLevelOuter[0] = 1.0;
+    gl_TessLevelOuter[1] = 1.0;
+    gl_TessLevelOuter[2] = 1.0;
+    gl_TessLevelOuter[3] = 1.0;
+}
+
+)";
+
+    constexpr char kTES[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : require
+precision mediump float;
+
+layout (quads, cw, fractional_odd_spacing) in;
+
+layout (std140) uniform Input {
+    float redInput;
+};
+
+out float redValue;
+
+void main()
+{
+    gl_Position = vec4(gl_TessCoord.xy * 2. - 1., 0, 1);
+
+    redValue = redInput;
+}
+)";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision mediump float;
+
+out vec4 fragColor;
+
+in float redValue;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM_WITH_TESS(unusedProgram, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM_WITH_TESS(program, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kInputData = 1.0f;
+    GLBuffer input;
+    glBindBuffer(GL_UNIFORM_BUFFER, input);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GLfloat), &kInputData, GL_STATIC_COPY);
+    const GLuint kInputIndex = glGetUniformBlockIndex(program, "Input");
+    glUniformBlockBinding(program, kInputIndex, 0);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, input);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    ASSERT_GL_NO_ERROR();
+
+    drawPatches(program, essl31_shaders::PositionAttrib(), 0.5f, 1.0f, GL_FALSE);
+    ASSERT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that shader caching maintains SSBOs in tessellation evaluation shaders across shader
+// compilations.
+TEST_P(GLSLTest_ES31, ShaderCacheTessellationEvalWithSSBO)
+{
+    ANGLE_SKIP_TEST_IF(!IsGLExtensionEnabled("GL_EXT_tessellation_shader"));
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+    GLint maxTessEvalShaderStorageBlocks;
+    glGetIntegerv(GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS_EXT,
+                  &maxTessEvalShaderStorageBlocks);
+    ANGLE_SKIP_TEST_IF(maxTessEvalShaderStorageBlocks == 0);
+
+    constexpr char kTCS[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : require
+precision mediump float;
+
+layout (vertices = 1) out;
+
+void main()
+{
+    gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+    gl_TessLevelInner[0] = 1.0;
+    gl_TessLevelInner[1] = 1.0;
+    gl_TessLevelOuter[0] = 1.0;
+    gl_TessLevelOuter[1] = 1.0;
+    gl_TessLevelOuter[2] = 1.0;
+    gl_TessLevelOuter[3] = 1.0;
+}
+
+)";
+
+    constexpr char kTES[] = R"(#version 310 es
+#extension GL_EXT_tessellation_shader : require
+precision mediump float;
+
+layout (quads, cw, fractional_odd_spacing) in;
+
+layout (binding = 0, std430) buffer Input {
+    float redInput;
+};
+
+out float redValue;
+
+void main()
+{
+    gl_Position = vec4(gl_TessCoord.xy * 2. - 1., 0, 1);
+
+    redValue = redInput;
+}
+)";
+
+    constexpr char kFS[] = R"(#version 310 es
+precision mediump float;
+
+out vec4 fragColor;
+
+in float redValue;
+
+void main()
+{
+    fragColor = vec4(redValue, 0., 0., 1.);
+})";
+
+    ANGLE_GL_PROGRAM_WITH_TESS(unusedProgram, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    ASSERT_GL_NO_ERROR();
+    // Delete the shader and recompile to fetch from cache.
+    glDeleteProgram(unusedProgram);
+    ANGLE_GL_PROGRAM_WITH_TESS(program, essl31_shaders::vs::Simple(), kTCS, kTES, kFS);
+    ASSERT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    constexpr GLfloat kInputData = 1.0f;
+    GLBuffer input;
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, input);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLfloat), &kInputData, GL_STATIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, input);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+    ASSERT_GL_NO_ERROR();
+
+    drawPatches(program, essl31_shaders::PositionAttrib(), 0.5f, 1.0f, GL_FALSE);
+    ASSERT_GL_NO_ERROR();
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+}
+
+// Test that only macros for ESSL 1.0 compatible extensions are defined
+TEST_P(GLSLTest, ESSL1ExtensionMacros)
+{
+    std::string fs = essl1_shaders::fs::Red();
+    fs += ExpectedExtensionMacros({
+        "GL_ANGLE_multi_draw",
+        "GL_APPLE_clip_distance",
+        "GL_ARB_texture_rectangle",
+        "GL_ARM_shader_framebuffer_fetch",
+        "GL_EXT_blend_func_extended",
+        "GL_EXT_draw_buffers",
+        "GL_EXT_frag_depth",
+        "GL_EXT_separate_shader_objects",
+        "GL_EXT_shader_framebuffer_fetch_non_coherent",
+        "GL_EXT_shader_framebuffer_fetch",
+        "GL_EXT_shader_non_constant_global_initializers",
+        "GL_EXT_shader_texture_lod",
+        "GL_EXT_shadow_samplers",
+        "GL_KHR_blend_equation_advanced",
+        "GL_NV_EGL_stream_consumer_external",
+        "GL_NV_shader_framebuffer_fetch",
+        "GL_OES_EGL_image_external",
+        "GL_OES_standard_derivatives",
+        "GL_OES_texture_3D",
+        "GL_WEBGL_video_texture",
+    });
+    fs += UnexpectedExtensionMacros({
+        "GL_ANDROID_extension_pack_es31a",
+        "GL_ANGLE_base_vertex_base_instance_shader_builtin",
+        "GL_ANGLE_clip_cull_distance",
+        "GL_ANGLE_shader_pixel_local_storage",
+        "GL_ANGLE_texture_multisample",
+        "GL_EXT_clip_cull_distance",
+        "GL_EXT_geometry_shader",
+        "GL_EXT_gpu_shader5",
+        "GL_EXT_primitive_bounding_box",
+        "GL_EXT_shader_io_blocks",
+        "GL_EXT_tessellation_shader",
+        "GL_EXT_texture_buffer",
+        "GL_EXT_texture_cube_map_array",
+        "GL_EXT_YUV_target",
+        "GL_NV_shader_noperspective_interpolation",
+        "GL_OES_EGL_image_external_essl3",
+        "GL_OES_geometry_shader",
+        "GL_OES_primitive_bounding_box",
+        "GL_OES_sample_variables",
+        "GL_OES_shader_image_atomic",
+        "GL_OES_shader_io_blocks",
+        "GL_OES_shader_multisample_interpolation",
+        "GL_OES_texture_buffer",
+        "GL_OES_texture_cube_map_array",
+        "GL_OES_texture_storage_multisample_2d_array",
+        "GL_OVR_multiview",
+        "GL_OVR_multiview2",
+    });
+    ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), fs.c_str());
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that only macros for ESSL 3.0 compatible extensions are defined
+TEST_P(GLSLTest_ES3, ESSL3ExtensionMacros)
+{
+    std::string fs = essl3_shaders::fs::Red();
+    fs += ExpectedExtensionMacros({
+        "GL_ANGLE_base_vertex_base_instance_shader_builtin",
+        "GL_ANGLE_clip_cull_distance",
+        "GL_ANGLE_multi_draw",
+        "GL_ANGLE_shader_pixel_local_storage",
+        "GL_ANGLE_texture_multisample",
+        "GL_APPLE_clip_distance",
+        "GL_ARB_texture_rectangle",
+        "GL_ARM_shader_framebuffer_fetch",
+        "GL_EXT_blend_func_extended",
+        "GL_EXT_clip_cull_distance",
+        "GL_EXT_separate_shader_objects",
+        "GL_EXT_shader_framebuffer_fetch_non_coherent",
+        "GL_EXT_shader_framebuffer_fetch",
+        "GL_EXT_shader_non_constant_global_initializers",
+        "GL_EXT_YUV_target",
+        "GL_KHR_blend_equation_advanced",
+        "GL_NV_EGL_stream_consumer_external",
+        "GL_NV_shader_noperspective_interpolation",
+        "GL_OES_EGL_image_external_essl3",
+        "GL_OES_sample_variables",
+        "GL_OES_shader_multisample_interpolation",
+        "GL_OVR_multiview",
+        "GL_OVR_multiview2",
+        "GL_WEBGL_video_texture",
+    });
+    fs += UnexpectedExtensionMacros({
+        "GL_ANDROID_extension_pack_es31a",
+        "GL_EXT_draw_buffers",
+        "GL_EXT_frag_depth",
+        "GL_EXT_geometry_shader",
+        "GL_EXT_gpu_shader5",
+        "GL_EXT_primitive_bounding_box",
+        "GL_EXT_shader_io_blocks",
+        "GL_EXT_shader_texture_lod",
+        "GL_EXT_shadow_samplers",
+        "GL_EXT_tessellation_shader",
+        "GL_EXT_texture_buffer",
+        "GL_EXT_texture_cube_map_array",
+        "GL_NV_shader_framebuffer_fetch",
+        "GL_OES_EGL_image_external",
+        "GL_OES_geometry_shader",
+        "GL_OES_primitive_bounding_box",
+        "GL_OES_shader_image_atomic",
+        "GL_OES_shader_io_blocks",
+        "GL_OES_standard_derivatives",
+        "GL_OES_texture_3D",
+        "GL_OES_texture_buffer",
+        "GL_OES_texture_cube_map_array",
+        "GL_OES_texture_storage_multisample_2d_array",
+    });
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), fs.c_str());
+    ASSERT_GL_NO_ERROR();
+}
+
+// Test that only macros for ESSL 3.1 compatible extensions are defined
+TEST_P(GLSLTest_ES31, ESSL31ExtensionMacros)
+{
+    std::string fs = essl31_shaders::fs::Red();
+    fs += ExpectedExtensionMacros({
+        "GL_ANDROID_extension_pack_es31a",
+        "GL_ANGLE_base_vertex_base_instance_shader_builtin",
+        "GL_ANGLE_clip_cull_distance",
+        "GL_ANGLE_multi_draw",
+        "GL_ANGLE_shader_pixel_local_storage",
+        "GL_ANGLE_texture_multisample",
+        "GL_APPLE_clip_distance",
+        "GL_ARB_texture_rectangle",
+        "GL_ARM_shader_framebuffer_fetch",
+        "GL_EXT_blend_func_extended",
+        "GL_EXT_clip_cull_distance",
+        "GL_EXT_geometry_shader",
+        "GL_EXT_gpu_shader5",
+        "GL_EXT_primitive_bounding_box",
+        "GL_EXT_separate_shader_objects",
+        "GL_EXT_shader_framebuffer_fetch_non_coherent",
+        "GL_EXT_shader_framebuffer_fetch",
+        "GL_EXT_shader_io_blocks",
+        "GL_EXT_shader_non_constant_global_initializers",
+        "GL_EXT_tessellation_shader",
+        "GL_EXT_texture_buffer",
+        "GL_EXT_texture_cube_map_array",
+        "GL_EXT_YUV_target",
+        "GL_KHR_blend_equation_advanced",
+        "GL_NV_EGL_stream_consumer_external",
+        "GL_NV_shader_noperspective_interpolation",
+        "GL_OES_EGL_image_external_essl3",
+        "GL_OES_geometry_shader",
+        "GL_OES_primitive_bounding_box",
+        "GL_OES_sample_variables",
+        "GL_OES_shader_image_atomic",
+        "GL_OES_shader_io_blocks",
+        "GL_OES_shader_multisample_interpolation",
+        "GL_OES_texture_buffer",
+        "GL_OES_texture_cube_map_array",
+        "GL_OES_texture_storage_multisample_2d_array",
+        "GL_OVR_multiview",
+        "GL_OVR_multiview2",
+        "GL_WEBGL_video_texture",
+    });
+    fs += UnexpectedExtensionMacros({
+        "GL_EXT_draw_buffers",
+        "GL_EXT_frag_depth",
+        "GL_EXT_shader_texture_lod",
+        "GL_EXT_shadow_samplers",
+        "GL_NV_shader_framebuffer_fetch",
+        "GL_OES_EGL_image_external",
+        "GL_OES_standard_derivatives",
+        "GL_OES_texture_3D",
+    });
+    ANGLE_GL_PROGRAM(program, essl31_shaders::vs::Simple(), fs.c_str());
+    ASSERT_GL_NO_ERROR();
+}
+
 }  // anonymous namespace
 
-ANGLE_INSTANTIATE_TEST_ES2_AND_ES3_AND(GLSLTest,
-                                       ES2_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
+ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(GLSLTest);
 
 ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(GLSLTestNoValidation);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ES3);
-ANGLE_INSTANTIATE_TEST_ES3_AND(GLSLTest_ES3,
-                               ES3_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
+ANGLE_INSTANTIATE_TEST_ES3(GLSLTest_ES3);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTestLoops);
-ANGLE_INSTANTIATE_TEST_ES3_AND(GLSLTestLoops,
-                               ES3_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
+ANGLE_INSTANTIATE_TEST_ES3(GLSLTestLoops);
 
-ANGLE_INSTANTIATE_TEST_ES2_AND(WebGLGLSLTest,
-                               ES2_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
+ANGLE_INSTANTIATE_TEST_ES2(WebGLGLSLTest);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(WebGL2GLSLTest);
-ANGLE_INSTANTIATE_TEST_ES3_AND(WebGL2GLSLTest,
-                               ES3_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
+ANGLE_INSTANTIATE_TEST_ES3(WebGL2GLSLTest);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ES31);
-ANGLE_INSTANTIATE_TEST_ES31_AND(GLSLTest_ES31,
-                                ES31_VULKAN().enable(Feature::GenerateSPIRVThroughGlslang));
+ANGLE_INSTANTIATE_TEST_ES31(GLSLTest_ES31);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GLSLTest_ES31_InitShaderVariables);
 ANGLE_INSTANTIATE_TEST(GLSLTest_ES31_InitShaderVariables,

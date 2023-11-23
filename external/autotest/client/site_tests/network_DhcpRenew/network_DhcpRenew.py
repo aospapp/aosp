@@ -61,20 +61,24 @@ class network_DhcpRenew(dhcp_test_base.DhcpTestBase):
         lease_start_time = time.time()
         t1_deadline = lease_start_time + LEASE_T1_TIME
         t2_deadline = lease_start_time + LEASE_T2_TIME
+        # DHCP standard forbids to include "server ID" and "requested IP"
+        # options during RENEW/REBIND (T1/T2 tiemouts)
+        dhcp_opts_rr = dhcp_options.copy()
+        del dhcp_opts_rr[dhcp_packet.OPTION_SERVER_ID]
+        del dhcp_opts_rr[dhcp_packet.OPTION_REQUESTED_IP]
         # Ignore the T1 deadline packet.
         t1_handler = dhcp_handling_rule.DhcpHandlingRule_RespondToRequest(
                 intended_ip,
                 self.server_ip,
-                dhcp_options,
-                {},
-                should_respond=False)
+                dhcp_opts_rr, {},
+                should_respond=False,
+                expect_server_ip_set=False)
         t1_handler.target_time_seconds = t1_deadline
         t1_handler.allowable_time_delta_seconds = RENEWAL_TIME_DELTA_SECONDS
         t2_handler = dhcp_handling_rule.DhcpHandlingRule_RespondToPostT2Request(
                 intended_ip,
                 self.server_ip,
-                dhcp_options,
-                {},
+                dhcp_opts_rr, {},
                 should_respond=False)
         t2_handler.target_time_seconds = t2_deadline
         t2_handler.allowable_time_delta_seconds = RENEWAL_TIME_DELTA_SECONDS

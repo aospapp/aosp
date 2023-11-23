@@ -78,6 +78,7 @@
 #define XFRM_SA_ATTR_REPLAY_MAXDIFF 0x1000000
 #define XFRM_SA_ATTR_REPLAY_STATE   0x2000000
 #define XFRM_SA_ATTR_EXPIRE         0x4000000
+#define XFRM_SA_ATTR_OFFLOAD_DEV    0x8000000
 
 static struct nl_cache_ops  xfrmnl_sa_ops;
 static struct nl_object_ops xfrm_sa_obj_ops;
@@ -125,6 +126,8 @@ static void xfrm_sa_free_data(struct nl_object *c)
 		free (sa->sec_ctx);
 	if (sa->replay_state_esn)
 		free (sa->replay_state_esn);
+	if (sa->user_offload)
+		free(sa->user_offload);
 }
 
 static int xfrm_sa_clone(struct nl_object *_dst, struct nl_object *_src)
@@ -132,6 +135,20 @@ static int xfrm_sa_clone(struct nl_object *_dst, struct nl_object *_src)
 	struct xfrmnl_sa*   dst = nl_object_priv(_dst);
 	struct xfrmnl_sa*   src = nl_object_priv(_src);
 	uint32_t            len = 0;
+
+	dst->sel = NULL;
+	dst->id.daddr = NULL;
+	dst->saddr = NULL;
+	dst->lft = NULL;
+	dst->aead = NULL;
+	dst->auth = NULL;
+	dst->crypt = NULL;
+	dst->comp = NULL;
+	dst->encap = NULL;
+	dst->coaddr = NULL;
+	dst->sec_ctx = NULL;
+	dst->replay_state_esn = NULL;
+	dst->user_offload = NULL;
 
 	if (src->sel)
 		if ((dst->sel = xfrmnl_sel_clone (src->sel)) == NULL)
@@ -149,40 +166,35 @@ static int xfrm_sa_clone(struct nl_object *_dst, struct nl_object *_src)
 		if ((dst->saddr = nl_addr_clone (src->saddr)) == NULL)
 			return -NLE_NOMEM;
 
-	if (src->aead)
-	{
+	if (src->aead) {
 		len = sizeof (struct xfrmnl_algo_aead) + ((src->aead->alg_key_len + 7) / 8);
 		if ((dst->aead = calloc (1, len)) == NULL)
 			return -NLE_NOMEM;
 		memcpy ((void *)dst->aead, (void *)src->aead, len);
 	}
 
-	if (src->auth)
-	{
+	if (src->auth) {
 		len = sizeof (struct xfrmnl_algo_auth) + ((src->auth->alg_key_len + 7) / 8);
 		if ((dst->auth = calloc (1, len)) == NULL)
 			return -NLE_NOMEM;
 		memcpy ((void *)dst->auth, (void *)src->auth, len);
 	}
 
-	if (src->crypt)
-	{
+	if (src->crypt) {
 		len = sizeof (struct xfrmnl_algo) + ((src->crypt->alg_key_len + 7) / 8);
 		if ((dst->crypt = calloc (1, len)) == NULL)
 			return -NLE_NOMEM;
 		memcpy ((void *)dst->crypt, (void *)src->crypt, len);
 	}
 
-	if (src->comp)
-	{
+	if (src->comp) {
 		len = sizeof (struct xfrmnl_algo) + ((src->comp->alg_key_len + 7) / 8);
 		if ((dst->comp = calloc (1, len)) == NULL)
 			return -NLE_NOMEM;
 		memcpy ((void *)dst->comp, (void *)src->comp, len);
 	}
 
-	if (src->encap)
-	{
+	if (src->encap) {
 		len = sizeof (struct xfrmnl_encap_tmpl);
 		if ((dst->encap = calloc (1, len)) == NULL)
 			return -NLE_NOMEM;
@@ -193,20 +205,24 @@ static int xfrm_sa_clone(struct nl_object *_dst, struct nl_object *_src)
 		if ((dst->coaddr = nl_addr_clone (src->coaddr)) == NULL)
 			return -NLE_NOMEM;
 
-	if (src->sec_ctx)
-	{
+	if (src->sec_ctx) {
 		len = sizeof (*src->sec_ctx) + src->sec_ctx->ctx_len;
 		if ((dst->sec_ctx = calloc (1, len)) == NULL)
 			return -NLE_NOMEM;
 		memcpy ((void *)dst->sec_ctx, (void *)src->sec_ctx, len);
 	}
 
-	if (src->replay_state_esn)
-	{
+	if (src->replay_state_esn) {
 		len = sizeof (struct xfrmnl_replay_state_esn) + (src->replay_state_esn->bmp_len * sizeof (uint32_t));
 		if ((dst->replay_state_esn = calloc (1, len)) == NULL)
 			return -NLE_NOMEM;
 		memcpy ((void *)dst->replay_state_esn, (void *)src->replay_state_esn, len);
+	}
+
+	if (src->user_offload) {
+		dst->user_offload = _nl_memdup_ptr(src->user_offload);
+		if (!dst->user_offload)
+			return -NLE_NOMEM;
 	}
 
 	return 0;
@@ -333,6 +349,7 @@ static const struct trans_tbl sa_attrs[] = {
 	__ADD(XFRM_SA_ATTR_REPLAY_MAXDIFF, replay_maxdiff),
 	__ADD(XFRM_SA_ATTR_REPLAY_STATE, replay_state),
 	__ADD(XFRM_SA_ATTR_EXPIRE, expire),
+	__ADD(XFRM_SA_ATTR_OFFLOAD_DEV, user_offload),
 };
 
 static char* xfrm_sa_attrs2str(int attrs, char *buf, size_t len)
@@ -430,14 +447,23 @@ static void xfrm_sa_dump_line(struct nl_object *a, struct nl_dump_params *p)
 		sprintf (mode, "INF");
 	else
 		sprintf (mode, "%" PRIu64, sa->lft->hard_packet_limit);
-	nl_dump_line(p, "\t\thard limit: %s (bytes), %s (packets)\n", flags, mode);
-	nl_dump_line(p, "\t\tsoft add_time: %llu (seconds), soft use_time: %llu (seconds) \n",
-	             sa->lft->soft_add_expires_seconds, sa->lft->soft_use_expires_seconds);
-	nl_dump_line(p, "\t\thard add_time: %llu (seconds), hard use_time: %llu (seconds) \n",
-	             sa->lft->hard_add_expires_seconds, sa->lft->hard_use_expires_seconds);
+	nl_dump_line(p, "\t\thard limit: %s (bytes), %s (packets)\n", flags,
+		     mode);
+	nl_dump_line(
+		p,
+		"\t\tsoft add_time: %llu (seconds), soft use_time: %llu (seconds) \n",
+		(long long unsigned)sa->lft->soft_add_expires_seconds,
+		(long long unsigned)sa->lft->soft_use_expires_seconds);
+	nl_dump_line(
+		p,
+		"\t\thard add_time: %llu (seconds), hard use_time: %llu (seconds) \n",
+		(long long unsigned)sa->lft->hard_add_expires_seconds,
+		(long long unsigned)sa->lft->hard_use_expires_seconds);
 
 	nl_dump_line(p, "\tlifetime current: \n");
-	nl_dump_line(p, "\t\t%llu bytes, %llu packets\n", sa->curlft.bytes, sa->curlft.packets);
+	nl_dump_line(p, "\t\t%llu bytes, %llu packets\n",
+		     (long long unsigned)sa->curlft.bytes,
+		     (long long unsigned)sa->curlft.packets);
 	if (sa->curlft.add_time != 0)
 	{
 		add_time = sa->curlft.add_time;
@@ -639,6 +665,7 @@ static struct nla_policy xfrm_sa_policy[XFRMA_MAX+1] = {
 	[XFRMA_SEC_CTX]         = { .minlen = sizeof(struct xfrm_sec_ctx) },
 	[XFRMA_LTIME_VAL]       = { .minlen = sizeof(struct xfrm_lifetime_cur) },
 	[XFRMA_REPLAY_VAL]      = { .minlen = sizeof(struct xfrm_replay_state) },
+	[XFRMA_OFFLOAD_DEV]     = { .minlen = sizeof(struct xfrm_user_offload) },
 	[XFRMA_REPLAY_THRESH]   = { .type = NLA_U32 },
 	[XFRMA_ETIMER_THRESH]   = { .type = NLA_U32 },
 	[XFRMA_SRCADDR]         = { .minlen = sizeof(xfrm_address_t) },
@@ -650,11 +677,7 @@ static struct nla_policy xfrm_sa_policy[XFRMA_MAX+1] = {
 
 static int xfrm_sa_request_update(struct nl_cache *c, struct nl_sock *h)
 {
-	struct xfrm_id sa_id;
-
-	memset (&sa_id, 0, sizeof (sa_id));
-	return nl_send_simple (h, XFRM_MSG_GETSA, NLM_F_DUMP,
-	                       &sa_id, sizeof (sa_id));
+	return nl_send_simple (h, XFRM_MSG_GETSA, NLM_F_DUMP, NULL, 0);
 }
 
 int xfrmnl_sa_parse(struct nlmsghdr *n, struct xfrmnl_sa **result)
@@ -699,6 +722,8 @@ int xfrmnl_sa_parse(struct nlmsghdr *n, struct xfrmnl_sa **result)
 		addr    = nl_addr_build (sa_info->sel.family, &sa_info->sel.daddr.a6, sizeof (sa_info->sel.daddr.a6));
 	nl_addr_set_prefixlen (addr, sa_info->sel.prefixlen_d);
 	xfrmnl_sel_set_daddr (sa->sel, addr);
+	/* Drop the reference count from the above set operation */
+	nl_addr_put(addr);
 	xfrmnl_sel_set_prefixlen_d (sa->sel, sa_info->sel.prefixlen_d);
 
 	if (sa_info->sel.family == AF_INET)
@@ -707,6 +732,8 @@ int xfrmnl_sa_parse(struct nlmsghdr *n, struct xfrmnl_sa **result)
 		addr    = nl_addr_build (sa_info->sel.family, &sa_info->sel.saddr.a6, sizeof (sa_info->sel.saddr.a6));
 	nl_addr_set_prefixlen (addr, sa_info->sel.prefixlen_s);
 	xfrmnl_sel_set_saddr (sa->sel, addr);
+	/* Drop the reference count from the above set operation */
+	nl_addr_put(addr);
 	xfrmnl_sel_set_prefixlen_s (sa->sel, sa_info->sel.prefixlen_s);
 
 	xfrmnl_sel_set_dport (sa->sel, ntohs(sa_info->sel.dport));
@@ -911,6 +938,22 @@ int xfrmnl_sa_parse(struct nlmsghdr *n, struct xfrmnl_sa **result)
 		sa->replay_state.bitmap     =   replay_state->bitmap;
 		sa->ce_mask |= XFRM_SA_ATTR_REPLAY_STATE;
 		sa->replay_state_esn = NULL;
+	}
+
+	if (tb[XFRMA_OFFLOAD_DEV]) {
+		struct xfrm_user_offload *offload;
+
+		len = sizeof(struct xfrmnl_user_offload);
+
+		if ((sa->user_offload = calloc(1, len)) == NULL) {
+			err = -NLE_NOMEM;
+			goto errout;
+		}
+
+		offload = nla_data(tb[XFRMA_OFFLOAD_DEV]);
+		sa->user_offload->ifindex = offload->ifindex;
+		sa->user_offload->flags = offload->flags;
+		sa->ce_mask |= XFRM_SA_ATTR_OFFLOAD_DEV;
 	}
 
 	*result = sa;
@@ -1192,8 +1235,7 @@ static int build_xfrm_sa_message(struct xfrmnl_sa *tmpl, int cmd, int flags, str
 				return -NLE_NOMEM;
 			}
 
-			strncpy(auth->alg_name, tmpl->auth->alg_name, sizeof(auth->alg_name));
-			auth->alg_name[sizeof(auth->alg_name) - 1] = '\0';
+			_nl_strncpy_assert(auth->alg_name, tmpl->auth->alg_name, sizeof(auth->alg_name));
 			auth->alg_key_len = tmpl->auth->alg_key_len;
 			memcpy(auth->alg_key, tmpl->auth->alg_key, (tmpl->auth->alg_key_len + 7) / 8);
 			if (nla_put(msg, XFRMA_ALG_AUTH, len, auth) < 0) {
@@ -1262,6 +1304,21 @@ static int build_xfrm_sa_message(struct xfrmnl_sa *tmpl, int cmd, int flags, str
 		else {
 			NLA_PUT (msg, XFRMA_REPLAY_VAL, sizeof (struct xfrm_replay_state), &tmpl->replay_state);
 		}
+	}
+
+	if (tmpl->ce_mask & XFRM_SA_ATTR_OFFLOAD_DEV) {
+		struct xfrm_user_offload *offload;
+		struct nlattr *attr;
+
+		len = sizeof(struct xfrm_user_offload);
+		attr = nla_reserve(msg, XFRMA_OFFLOAD_DEV, len);
+
+		if (!attr)
+			goto nla_put_failure;
+
+		offload = nla_data(attr);
+		offload->ifindex = tmpl->user_offload->ifindex;
+		offload->flags = tmpl->user_offload->flags;
 	}
 
 	*result = msg;
@@ -1336,6 +1393,7 @@ static int build_xfrm_sa_delete_message(struct xfrmnl_sa *tmpl, int cmd, int fla
 		!(tmpl->ce_mask & XFRM_SA_ATTR_PROTO))
 		return -NLE_MISSING_ATTR;
 
+	memset(&sa_id, 0, sizeof(struct xfrm_usersa_id));
 	memcpy (&sa_id.daddr, nl_addr_get_binary_addr (tmpl->id.daddr),
 	        sizeof (uint8_t) * nl_addr_get_len (tmpl->id.daddr));
 	sa_id.family = nl_addr_get_family (tmpl->id.daddr);
@@ -2155,6 +2213,57 @@ int xfrmnl_sa_set_replay_state_esn (struct xfrmnl_sa* sa, unsigned int oseq, uns
 	return 0;
 }
 
+
+/**
+ * Get interface id and flags from xfrm_user_offload.
+ *
+ * @arg sa              The xfrmnl_sa object.
+ * @arg ifindex         An optional output value for the offload interface index.
+ * @arg flags           An optional output value for the offload flags.
+ *
+ * @return 0 on success or a negative error code.
+ */
+int xfrmnl_sa_get_user_offload(struct xfrmnl_sa *sa, int *ifindex, uint8_t *flags)
+{
+	int ret = -1;
+
+	if (sa->ce_mask & XFRM_SA_ATTR_OFFLOAD_DEV && sa->user_offload) {
+		if (ifindex)
+			*ifindex = sa->user_offload->ifindex;
+		if (flags)
+			*flags = sa->user_offload->flags;
+		ret = 0;
+	}
+
+	return ret;
+}
+
+
+/**
+ * Set interface id and flags for xfrm_user_offload.
+ *
+ * @arg sa              The xfrmnl_sa object.
+ * @arg ifindex         Id of the offload interface.
+ * @arg flags           Offload flags for the state.
+ *
+ * @return 0 on success or a negative error code.
+ */
+int xfrmnl_sa_set_user_offload(struct xfrmnl_sa *sa, int ifindex, uint8_t flags)
+{
+	_nl_auto_free struct xfrmnl_user_offload *b = NULL;
+
+	if (!(b = calloc(1, sizeof(*b))))
+		return -1;
+
+	b->ifindex = ifindex;
+	b->flags = flags;
+
+	free(sa->user_offload);
+	sa->user_offload = _nl_steal_pointer(&b);
+	sa->ce_mask |= XFRM_SA_ATTR_OFFLOAD_DEV;
+
+	return 0;
+}
 
 int xfrmnl_sa_is_hardexpiry_reached (struct xfrmnl_sa* sa)
 {

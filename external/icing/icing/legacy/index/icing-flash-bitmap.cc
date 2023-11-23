@@ -73,8 +73,7 @@ class IcingFlashBitmap::Accessor {
 
 bool IcingFlashBitmap::Verify() const {
   if (!is_initialized()) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Can't verify unopened flash bitmap %s", filename_.c_str());
+    ICING_LOG(ERROR) << "Can't verify unopened flash bitmap " << filename_;
     return false;
   }
   if (mmapper_ == nullptr) {
@@ -83,26 +82,21 @@ bool IcingFlashBitmap::Verify() const {
   }
   Accessor accessor(mmapper_.get());
   if (accessor.header()->magic != kMagic) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Flash bitmap %s has incorrect magic header", filename_.c_str());
+    ICING_LOG(ERROR) << "Flash bitmap " << filename_ << " has incorrect magic header";
     return false;
   }
   if (accessor.header()->version != kCurVersion) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Flash bitmap %s has incorrect version", filename_.c_str());
+    ICING_LOG(ERROR) << "Flash bitmap " << filename_ << " has incorrect version";
     return false;
   }
   if (accessor.header()->dirty) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Flash bitmap %s is dirty", filename_.c_str());
+    ICING_LOG(ERROR) << "Flash bitmap " << filename_ << " is dirty";
     return false;
   }
   uint32_t crc =
       IcingStringUtil::UpdateCrc32(0, accessor.data(), accessor.data_size());
   if (accessor.header()->crc != crc) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Flash bitmap %s has incorrect CRC32 %u %u", filename_.c_str(),
-        accessor.header()->crc, crc);
+    ICING_LOG(ERROR) << "Flash bitmap " << filename_ << " has incorrect CRC32 " << accessor.header()->crc << " " << crc;
     return false;
   }
   return true;
@@ -265,17 +259,14 @@ uint32_t IcingFlashBitmap::UpdateCrc() const {
 bool IcingFlashBitmap::Grow(size_t new_file_size) {
   IcingScopedFd fd(filesystem_->OpenForWrite(filename_.c_str()));
   if (!filesystem_->Grow(fd.get(), new_file_size)) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Grow %s to new size %zu failed", filename_.c_str(), new_file_size);
+    ICING_LOG(ERROR) << "Grow " << filename_ << " to new size " << new_file_size << " failed";
     return false;
   }
   if (!mmapper_->Remap(fd.get(), 0, new_file_size)) {
-    ICING_LOG(ERROR) << IcingStringUtil::StringPrintf(
-        "Remap of %s after grow failed", filename_.c_str());
+    ICING_LOG(ERROR) << "Remap of " << filename_ << " after grow failed";
     return false;
   }
-  ICING_VLOG(1) << IcingStringUtil::StringPrintf(
-      "Grew %s new size %zu", filename_.c_str(), new_file_size);
+  ICING_VLOG(1) << "Grew " << filename_ << " new size " << new_file_size;
   Accessor accessor(mmapper_.get());
   accessor.header()->dirty = true;
   return true;

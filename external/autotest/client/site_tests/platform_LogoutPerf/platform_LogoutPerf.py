@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -40,8 +41,7 @@ class platform_LogoutPerf(arc.ArcTest):
             logging.info('timestamp %s is missing', ts_name)
             return 0
         with open(pathname) as statfile:
-            values = map(lambda l: float(l.split()[0]),
-                         statfile.readlines())
+            values = [float(l.split()[0]) for l in statfile.readlines()]
         logging.info('timestamp of %s -> %s ', ts_name, values[-1])
         return values[-1]
 

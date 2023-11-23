@@ -4,20 +4,20 @@ on:
   workflow_dispatch:
 
 jobs:
-
   build_release:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-10.15, windows-2016]
+        # Keep arch names in sync with replayer download and merge
+        os: [ubuntu-latest, macos-10.15, windows-2019]
         include:
           - os: ubuntu-latest
             arch: "linux"
             bazel_args: "--config=toolchain --extra_toolchains=@llvm_toolchain//:cc-toolchain-x86_64-linux"
           - os: macos-10.15
             arch: "macos-x86_64"
-            bazel_args: "--config=toolchain --extra_toolchains=@llvm_toolchain//:cc-toolchain-x86_64-darwin"
-          - os: windows-2016
+            bazel_args: "--config=toolchain --extra_toolchains=@llvm_toolchain//:cc-toolchain-x86_64-darwin --xcode_version_config=//.github:host_xcodes"
+          - os: windows-2019
             arch: "windows"
             bazel_args: ""
 
@@ -29,9 +29,13 @@ jobs:
         with:
           java-version: 8
 
+      - name: Set Build Buddy config
+        run: .github/scripts/echoBuildBuddyConfig.sh ${{ secrets.BUILDBUDDY_API_KEY }} >> $GITHUB_ENV
+        shell: bash
+
       - name: Build
         run: |
-          bazelisk build --config=ci --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }} --java_runtime_version=localjdk_${{ matrix.jdk }} ${{ matrix.bazel_args }} //agent/src/main/java/com/code_intelligence/jazzer/replay:Replayer_deploy.jar //:jazzer_release
+          bazelisk build ${{env.BUILD_BUDDY_CONFIG}} --java_runtime_version=local_jdk_8 ${{ matrix.bazel_args }} //agent/src/main/java/com/code_intelligence/jazzer/replay:Replayer_deploy.jar //:jazzer_release
           cp -L bazel-bin/agent/src/main/java/com/code_intelligence/jazzer/replay/Replayer_deploy.jar replayer.jar
           cp -L bazel-bin/jazzer_release.tar.gz release-${{ matrix.arch }}.tar.gz
 
@@ -55,8 +59,8 @@ jobs:
       - name: Download macOS jar
         uses: actions/download-artifact@v2
         with:
-          name: replayer_darwin
-          path: replayer_darwin
+          name: replayer_macos-x86_64
+          path: replayer_macos-x86_64
 
       - name: Download Linux jar
         uses: actions/download-artifact@v2
@@ -73,7 +77,7 @@ jobs:
       - name: Merge jars
         run: |
           mkdir merged
-          unzip -o replayer_darwin/replayer.jar -d merged
+          unzip -o replayer_macos-x86_64/replayer.jar -d merged
           unzip -o replayer_linux/replayer.jar -d merged
           unzip -o replayer_windows/replayer.jar -d merged
           jar cvmf merged/META-INF/MANIFEST.MF replayer.jar -C merged .
@@ -83,4 +87,3 @@ jobs:
         with:
           name: replayer
           path: replayer.jar
-

@@ -5,6 +5,8 @@
 #ifndef SRC_UNITTEST_COMMON_H_
 #define SRC_UNITTEST_COMMON_H_
 
+#include <unistd.h>
+
 #include <string>
 #include <vector>
 

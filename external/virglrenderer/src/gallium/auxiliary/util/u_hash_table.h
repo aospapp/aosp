@@ -47,7 +47,6 @@ extern "C" {
  * Generic purpose hash table.
  */
 struct util_hash_table;
-struct util_hash_table_u64;
 
 
 /**
@@ -57,8 +56,8 @@ struct util_hash_table_u64;
  * @param compare should return 0 for two equal keys.
  */
 struct util_hash_table *
-util_hash_table_create(unsigned (*hash)(void *key),
-                       int (*compare)(void *key1, void *key2),
+util_hash_table_create(uint32_t (*hash)(const void *key),
+                       bool (*equal)(const void *key1, const void *key2),
                        void (*destroy)(void *value));
 
 
@@ -90,26 +89,6 @@ util_hash_table_foreach(struct util_hash_table *ht,
 void
 util_hash_table_destroy(struct util_hash_table *ht);
 
-
-struct util_hash_table_u64 *
-util_hash_table_create_u64(void (*destroy)(void *value));
-
-enum pipe_error
-util_hash_table_set_u64(struct util_hash_table_u64 *ht,
-                        uint64_t key,
-                        void *value);
-
-void *
-util_hash_table_get_u64(struct util_hash_table_u64 *ht,
-                        uint64_t key);
-
-
-void
-util_hash_table_remove_u64(struct util_hash_table_u64 *ht,
-                           uint64_t key);
-
-void
-util_hash_table_destroy_u64(struct util_hash_table_u64 *ht);
 
 #ifdef __cplusplus
 }

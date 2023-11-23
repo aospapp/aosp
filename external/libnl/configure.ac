@@ -1,18 +1,12 @@
-#
-# configure.in
-#
-# 	This library is free software; you can redistribute it and/or
-#	modify it under the terms of the GNU Lesser General Public
-#	License as published by the Free Software Foundation version 2.1
-#	of the License.
+# SPDX-License-Identifier: LGPL-2.1-only
+
 #
 # Copyright (c) 2003-2013 Thomas Graf <tgraf@suug.ch>
 #
 
-
 # copied from glib
 m4_define([libnl_major_version], [3])
-m4_define([libnl_minor_version], [5])
+m4_define([libnl_minor_version], [7])
 m4_define([libnl_micro_version], [0])
 m4_define([libnl_git_sha], [m4_esyscmd([ ( [ -d ./.git/ ] && [ "$(readlink -f ./.git/)" = "$(readlink -f "$(git rev-parse --git-dir 2>/dev/null)" 2>/dev/null)" ] && git rev-parse --verify -q HEAD 2>/dev/null ) || true ])])
 
@@ -112,6 +106,8 @@ if test "x$enable_pthreads" = "xno"; then
 else
     AC_CHECK_LIB([pthread], [pthread_mutex_lock], [], AC_MSG_ERROR([libpthread is required]))
 fi
+
+AM_CONDITIONAL([ENABLE_STATIC], [test "$enable_static" != "no"])
 
 AC_ARG_ENABLE([debug],
 	AS_HELP_STRING([--disable-debug], [Do not include debugging statements]),

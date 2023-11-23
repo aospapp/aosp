@@ -43,47 +43,18 @@
 #include "tst_test.h"
 #include "tst_safe_stdio.h"
 
-#if defined(__i386__) || defined(__x86_64__)
-
 static pid_t child_pid;
 
-#if defined(__x86_64__)
-# define KERN_ADDR_MIN 0xffff800000000000
-# define KERN_ADDR_MAX 0xffffffffffffffff
-# define KERN_ADDR_BITS 64
-#elif defined(__i386__)
+#if defined(__i386__)
 # define KERN_ADDR_MIN 0xc0000000
 # define KERN_ADDR_MAX 0xffffffff
 # define KERN_ADDR_BITS 32
+#else
+# define KERN_ADDR_MIN 0xffff800000000000
+# define KERN_ADDR_MAX 0xffffffffffffffff
+# define KERN_ADDR_BITS 64
 #endif
 
-static int deffered_check;
-
-static struct tst_kern_exv kvers[] = {
-	{"RHEL8", "4.18.0-49"},
-	{NULL, NULL},
-};
-
-static void setup(void)
-{
-	/*
-	 * When running in compat mode we can't pass 64 address to ptrace so we
-	 * have to skip the test.
-	 */
-	if (tst_kernel_bits() != KERN_ADDR_BITS)
-		tst_brk(TCONF, "Cannot pass 64bit kernel address in compat mode");
-
-
-	/*
-	 * The original fix for the kernel haven't rejected the kernel address
-	 * right away when breakpoint was modified from userspace it was
-	 * disabled instead and the EINVAL was returned when dr7 was written to
-	 * enable it again. On RHEL8, it has introduced the right fix since
-	 * 4.18.0-49.
-	 */
-	if (tst_kvercmp2(4, 19, 0, kvers) < 0)
-		deffered_check = 1;
-}
 
 static void child_main(void)
 {
@@ -106,6 +77,7 @@ static void ptrace_try_kern_addr(unsigned long kern_addr)
 	if (SAFE_WAITPID(child_pid, &status, WUNTRACED) != child_pid)
 		tst_brk(TBROK, "Received event from unexpected PID");
 
+#if defined(__i386__) || defined(__x86_64__)
 	SAFE_PTRACE(PTRACE_ATTACH, child_pid, NULL, NULL);
 	SAFE_PTRACE(PTRACE_POKEUSER, child_pid,
 		(void *)offsetof(struct user, u_debugreg[0]), (void *)1);
@@ -116,9 +88,13 @@ static void ptrace_try_kern_addr(unsigned long kern_addr)
 		(void *)offsetof(struct user, u_debugreg[0]),
 		(void *)kern_addr));
 
-	if (deffered_check) {
-		TEST(ptrace(PTRACE_POKEUSER, child_pid,
-			(void *)offsetof(struct user, u_debugreg[7]), (void *)1));
+	if (TST_RET == -1) {
+		addr = ptrace(PTRACE_PEEKUSER, child_pid,
+					  (void *)offsetof(struct user, u_debugreg[0]), NULL);
+		if (addr == kern_addr) {
+			TEST(ptrace(PTRACE_POKEUSER, child_pid,
+				(void *)offsetof(struct user, u_debugreg[7]), (void *)1));
+		}
 	}
 
 	if (TST_RET != -1) {
@@ -133,11 +109,7 @@ static void ptrace_try_kern_addr(unsigned long kern_addr)
 		}
 	}
 
-	addr = ptrace(PTRACE_PEEKUSER, child_pid,
-	              (void*)offsetof(struct user, u_debugreg[0]), NULL);
-
-	if (!deffered_check && addr == kern_addr)
-		tst_res(TFAIL, "Was able to set breakpoint on kernel addr");
+#endif
 
 	SAFE_PTRACE(PTRACE_DETACH, child_pid, NULL, NULL);
 	SAFE_KILL(child_pid, SIGCONT);
@@ -161,9 +133,18 @@ static void cleanup(void)
 
 static struct tst_test test = {
 	.test_all = run,
-	.setup = setup,
 	.cleanup = cleanup,
 	.forks_child = 1,
+	/*
+	 * When running in compat mode we can't pass 64 address to ptrace so we
+	 * have to skip the test.
+	 */
+	.skip_in_compat = 1,
+	.supported_archs = (const char *const []) {
+		"x86",
+		"x86_64",
+		NULL
+	},
 	.tags = (const struct tst_tag[]) {
 		{"linux-git", "f67b15037a7a"},
 		{"CVE", "2018-1000199"},
@@ -171,6 +152,3 @@ static struct tst_test test = {
 		{}
 	}
 };
-#else
-TST_TEST_TCONF("This test is only supported on x86 systems");
-#endif

@@ -151,7 +151,7 @@ public final class BytecodeAnnotator {
       throws IOException {
     ClassReader cr = new ClassReader(is);
     ClassWriter cw = new ClassWriter(0);
-    ClassNode cn = new ClassNode(Opcodes.ASM7);
+    ClassNode cn = new ClassNode(Opcodes.ASM9);
     cr.accept(cn, 0);
 
     String className = cn.name.replace('/', '.');

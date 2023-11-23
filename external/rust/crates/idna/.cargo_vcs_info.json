@@ -1,5 +1,6 @@
 {
   "git": {
-    "sha1": "837538c549f3458f157ee154ae76e3e2b9e27118"
-  }
+    "sha1": "359bc90a4f07224f79cc79c45dc873d44bcd6f14"
+  },
+  "path_in_vcs": "idna"
 }

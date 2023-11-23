@@ -73,7 +73,7 @@ echo "" >> $OUTPUT_BP
 
 echo ""
 echo "Parsing LTP make dry_run output..."
-CMD="python android_build_generator.py --ltp_root $LTP_ROOT --output_mk_path $OUTPUT_MK \
+CMD="python3 android_build_generator.py --ltp_root $LTP_ROOT --output_mk_path $OUTPUT_MK \
     --output_bp_path $OUTPUT_BP --output_plist_path $OUTPUT_PLIST \
     --custom_cflags_file $CUSTOM_CFLAGS_PATH"
 echo $CMD

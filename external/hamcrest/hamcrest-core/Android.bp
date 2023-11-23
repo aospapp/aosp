@@ -28,5 +28,7 @@ java_library_static {
     host_supported: true,
     hostdex: true,
     srcs: ["src/main/java/**/*.java"],
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
     sdk_version: "core_current",
 }

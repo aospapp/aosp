@@ -37,7 +37,7 @@ class QrExpander : public OpExpanderPass {
       XlaOp a, PrecisionConfig::Precision precision);
 
   virtual StatusOr<XlaOp> CompactWYRepresentation(
-      PrimitiveType type, absl::Span<const int64> batch_dims, XlaOp vs,
+      PrimitiveType type, absl::Span<const int64_t> batch_dims, XlaOp vs,
       XlaOp taus, int64_t m, int64_t n, PrecisionConfig::Precision precision);
 
  private:
@@ -49,7 +49,7 @@ class QrExpander : public OpExpanderPass {
       PrecisionConfig::Precision precision);
 
   // Mapping from op signatures to existing computations.
-  absl::flat_hash_map<string, HloComputation*> computation_cache_;
+  absl::flat_hash_map<std::string, HloComputation*> computation_cache_;
 };
 
 }  // namespace xla

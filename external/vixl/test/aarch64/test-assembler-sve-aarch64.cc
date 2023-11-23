@@ -44,75 +44,10 @@
 #include "aarch64/simulator-aarch64.h"
 #include "test-assembler-aarch64.h"
 
+#define TEST_SVE(name) TEST_SVE_INNER("ASM", name)
+
 namespace vixl {
 namespace aarch64 {
-
-Test* MakeSVETest(int vl, const char* name, Test::TestFunctionWithConfig* fn) {
-  // We never free this memory, but we need it to live for as long as the static
-  // linked list of tests, and this is the easiest way to do it.
-  Test* test = new Test(name, fn);
-  test->set_sve_vl_in_bits(vl);
-  return test;
-}
-
-// The TEST_SVE macro works just like the usual TEST macro, but the resulting
-// function receives a `const Test& config` argument, to allow it to query the
-// vector length.
-#ifdef VIXL_INCLUDE_SIMULATOR_AARCH64
-// On the Simulator, run SVE tests with several vector lengths, including the
-// extreme values and an intermediate value that isn't a power of two.
-
-#define TEST_SVE(name)                                                  \
-  void Test##name(Test* config);                                        \
-  Test* test_##name##_list[] =                                          \
-      {MakeSVETest(128, "AARCH64_ASM_" #name "_vl128", &Test##name),    \
-       MakeSVETest(384, "AARCH64_ASM_" #name "_vl384", &Test##name),    \
-       MakeSVETest(2048, "AARCH64_ASM_" #name "_vl2048", &Test##name)}; \
-  void Test##name(Test* config)
-
-#define SVE_SETUP_WITH_FEATURES(...) \
-  SETUP_WITH_FEATURES(__VA_ARGS__);  \
-  simulator.SetVectorLengthInBits(config->sve_vl_in_bits())
-
-#else
-// Otherwise, just use whatever the hardware provides.
-static const int kSVEVectorLengthInBits =
-    CPUFeatures::InferFromOS().Has(CPUFeatures::kSVE)
-        ? CPU::ReadSVEVectorLengthInBits()
-        : kZRegMinSize;
-
-#define TEST_SVE(name)                                                     \
-  void Test##name(Test* config);                                           \
-  Test* test_##name##_vlauto = MakeSVETest(kSVEVectorLengthInBits,         \
-                                           "AARCH64_ASM_" #name "_vlauto", \
-                                           &Test##name);                   \
-  void Test##name(Test* config)
-
-#define SVE_SETUP_WITH_FEATURES(...) \
-  SETUP_WITH_FEATURES(__VA_ARGS__);  \
-  USE(config)
-
-#endif
-
-// Call masm->Insr repeatedly to allow test inputs to be set up concisely. This
-// is optimised for call-site clarity, not generated code quality, so it doesn't
-// exist in the MacroAssembler itself.
-//
-// Usage:
-//
-//    int values[] = { 42, 43, 44 };
-//    InsrHelper(&masm, z0.VnS(), values);    // Sets z0.S = { ..., 42, 43, 44 }
-//
-// The rightmost (highest-indexed) array element maps to the lowest-numbered
-// lane.
-template <typename T, size_t N>
-void InsrHelper(MacroAssembler* masm,
-                const ZRegister& zdn,
-                const T (&values)[N]) {
-  for (size_t i = 0; i < N; i++) {
-    masm->Insr(zdn, values[i]);
-  }
-}
 
 // Conveniently initialise P registers with scalar bit patterns. The destination
 // lane size is ignored. This is optimised for call-site clarity, not generated
@@ -3448,8 +3383,10 @@ static void PtrueHelper(Test* config,
     typedef void (
         MacroAssembler::*AssemblePtrueFn)(const PRegisterWithLaneSize& pd,
                                           int pattern);
-    AssemblePtrueFn assemble =
-        (s == SetFlags) ? &MacroAssembler::ptrues : &MacroAssembler::ptrue;
+    AssemblePtrueFn assemble = &MacroAssembler::ptrue;
+    if (s == SetFlags) {
+      assemble = &MacroAssembler::ptrues;
+    }
 
     ExactAssemblyScope guard(&masm, 12 * kInstructionSize);
     __ msr(NZCV, x20);
@@ -5537,6 +5474,9 @@ TEST_SVE(sve_addpl) {
 }
 
 TEST_SVE(sve_calculate_sve_address) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
+
   // Shadow the `MacroAssembler` type so that the test macros work without
   // modification.
   typedef CalculateSVEAddressMacroAssembler MacroAssembler;
@@ -5646,6 +5586,7 @@ TEST_SVE(sve_calculate_sve_address) {
     ASSERT_EQUAL_64(0xabcd404400000000 - 48, x28);
     ASSERT_EQUAL_64(0xabcd505500000000 - (48 << 4), x29);
   }
+#pragma GCC diagnostic pop
 }
 
 TEST_SVE(sve_permute_vector_unpredicated) {
@@ -10549,18 +10490,22 @@ TEST_SVE(sve_ld1rq) {
 
   // Check that all segments match by rotating the vector by one segment,
   // eoring, and orring across the vector.
-  __ Ext(z4.VnB(), z0.VnB(), z0.VnB(), 16);
+  __ Mov(z4, z0);
+  __ Ext(z4.VnB(), z4.VnB(), z4.VnB(), 16);
   __ Eor(z4.VnB(), z4.VnB(), z0.VnB());
   __ Orv(b4, p0, z4.VnB());
-  __ Ext(z5.VnB(), z1.VnB(), z1.VnB(), 16);
+  __ Mov(z5, z1);
+  __ Ext(z5.VnB(), z5.VnB(), z5.VnB(), 16);
   __ Eor(z5.VnB(), z5.VnB(), z1.VnB());
   __ Orv(b5, p0, z5.VnB());
   __ Orr(z4, z4, z5);
-  __ Ext(z5.VnB(), z2.VnB(), z2.VnB(), 16);
+  __ Mov(z5, z2);
+  __ Ext(z5.VnB(), z5.VnB(), z5.VnB(), 16);
   __ Eor(z5.VnB(), z5.VnB(), z2.VnB());
   __ Orv(b5, p0, z5.VnB());
   __ Orr(z4, z4, z5);
-  __ Ext(z5.VnB(), z3.VnB(), z3.VnB(), 16);
+  __ Mov(z5, z3);
+  __ Ext(z5.VnB(), z5.VnB(), z5.VnB(), 16);
   __ Eor(z5.VnB(), z5.VnB(), z3.VnB());
   __ Orv(b5, p0, z5.VnB());
   __ Orr(z4, z4, z5);
@@ -11681,19 +11626,19 @@ static void SdotUdotHelper(Test* config,
                     const ZRegister& za,
                     const ZRegister& zn,
                     const ZRegister& zm,
-                    bool is_signed,
-                    int index) {
-    if (is_signed) {
-      if (index < 0) {
+                    bool is_signed_fn,
+                    int index_fn) {
+    if (is_signed_fn) {
+      if (index_fn < 0) {
         __ Sdot(zd, za, zn, zm);
       } else {
-        __ Sdot(zd, za, zn, zm, index);
+        __ Sdot(zd, za, zn, zm, index_fn);
       }
     } else {
-      if (index < 0) {
+      if (index_fn < 0) {
         __ Udot(zd, za, zn, zm);
       } else {
-        __ Udot(zd, za, zn, zm, index);
+        __ Udot(zd, za, zn, zm, index_fn);
       }
     }
   };
@@ -14573,7 +14518,8 @@ TEST_SVE(sve_fcadd) {
   __ Sel(z2.VnH(), p3, z1.VnH(), z30.VnH());  // 5i + 0
   __ Sel(z3.VnH(), p2, z1.VnH(), z30.VnH());  // 0i + 5
   __ Sel(z7.VnH(), p3, z7.VnH(), z0.VnH());   // Ai + 10
-  __ Ext(z8.VnB(), z7.VnB(), z7.VnB(), 2);
+  __ Mov(z8, z7);
+  __ Ext(z8.VnB(), z8.VnB(), z8.VnB(), 2);
   __ Sel(z8.VnH(), p2, z8.VnH(), z30.VnH());  // 0i + A
 
   // (10i + 10) + rotate(5i + 0, 90)
@@ -14615,7 +14561,8 @@ TEST_SVE(sve_fcadd) {
   __ Sel(z2.VnS(), p3, z1.VnS(), z30.VnS());
   __ Sel(z29.VnS(), p2, z1.VnS(), z30.VnS());
   __ Sel(z11.VnS(), p3, z11.VnS(), z0.VnS());
-  __ Ext(z12.VnB(), z11.VnB(), z11.VnB(), 4);
+  __ Mov(z12, z11);
+  __ Ext(z12.VnB(), z12.VnB(), z12.VnB(), 4);
   __ Sel(z12.VnS(), p2, z12.VnS(), z30.VnS());
   __ Fcadd(z8.VnS(), p0.Merging(), z0.VnS(), z2.VnS(), 90);
   __ Fcadd(z8.VnS(), p0.Merging(), z8.VnS(), z29.VnS(), 270);
@@ -14635,7 +14582,8 @@ TEST_SVE(sve_fcadd) {
   __ Sel(z2.VnD(), p3, z1.VnD(), z30.VnD());
   __ Sel(z28.VnD(), p2, z1.VnD(), z30.VnD());
   __ Sel(z15.VnD(), p3, z15.VnD(), z0.VnD());
-  __ Ext(z16.VnB(), z15.VnB(), z15.VnB(), 8);
+  __ Mov(z16, z15);
+  __ Ext(z16.VnB(), z16.VnB(), z16.VnB(), 8);
   __ Sel(z16.VnD(), p2, z16.VnD(), z30.VnD());
   __ Fcadd(z12.VnD(), p0.Merging(), z0.VnD(), z2.VnD(), 90);
   __ Fcadd(z12.VnD(), p0.Merging(), z12.VnD(), z28.VnD(), 270);
@@ -14701,8 +14649,8 @@ TEST_SVE(sve_fcmla_index) {
 
   // Create a reference result from a vector complex multiply.
   __ Dup(z6.VnH(), 0);
-  __ Fcmla(z6.VnH(), p0.Merging(), z0.VnH(), z2.VnH(), 0);
-  __ Fcmla(z6.VnH(), p0.Merging(), z0.VnH(), z2.VnH(), 90);
+  __ Fcmla(z6.VnH(), p0.Merging(), z6.VnH(), z0.VnH(), z2.VnH(), 0);
+  __ Fcmla(z6.VnH(), p0.Merging(), z6.VnH(), z0.VnH(), z2.VnH(), 90);
 
   // Repeated, but for wider elements.
   __ Fdup(z0.VnS(), 42.0);
@@ -14726,8 +14674,8 @@ TEST_SVE(sve_fcmla_index) {
   __ Fcmla(z8.VnS(), z0.VnS(), z3.VnS(), 0, 270);
   __ Fneg(z8.VnS(), p0.Merging(), z8.VnS());
   __ Dup(z9.VnS(), 0);
-  __ Fcmla(z9.VnS(), p0.Merging(), z0.VnS(), z2.VnS(), 0);
-  __ Fcmla(z9.VnS(), p0.Merging(), z0.VnS(), z2.VnS(), 90);
+  __ Fcmla(z9.VnS(), p0.Merging(), z9.VnS(), z0.VnS(), z2.VnS(), 0);
+  __ Fcmla(z9.VnS(), p0.Merging(), z9.VnS(), z0.VnS(), z2.VnS(), 90);
   END();
 
   if (CAN_RUN()) {
@@ -14770,8 +14718,8 @@ TEST_SVE(sve_fcmla) {
   //   ...      7      6   5   4      3      2   1   0     <-- element
   //   ... | 20+A^2 | 8A | 0 | 0 | 20+A^2 | 8A | 0 | 0 |   <-- value
   __ Dup(z5.VnH(), 0);
-  __ Fcmla(z5.VnH(), p3.Merging(), z4.VnH(), z3.VnH(), 0);
-  __ Fcmla(z5.VnH(), p3.Merging(), z4.VnH(), z3.VnH(), 90);
+  __ Fcmla(z5.VnH(), p3.Merging(), z5.VnH(), z4.VnH(), z3.VnH(), 0);
+  __ Fcmla(z5.VnH(), p3.Merging(), z5.VnH(), z4.VnH(), z3.VnH(), 90);
 
   // Move the odd results to the even result positions.
   //   ...   7   6      5      4   3   2      1      0     <-- element
@@ -14783,8 +14731,8 @@ TEST_SVE(sve_fcmla) {
   //   ...   7   6       5       4   3   2       1       0     <-- element
   //   ... | 0 | 0 | -20-A^2 | -8A | 0 | 0 | -20-A^2 | -8A |   <-- value
   __ Dup(z6.VnH(), 0);
-  __ Fcmla(z6.VnH(), p2.Merging(), z4.VnH(), z3.VnH(), 180);
-  __ Fcmla(z6.VnH(), p2.Merging(), z4.VnH(), z3.VnH(), 270);
+  __ Fcmla(z6.VnH(), p2.Merging(), z6.VnH(), z4.VnH(), z3.VnH(), 180);
+  __ Fcmla(z6.VnH(), p2.Merging(), z6.VnH(), z4.VnH(), z3.VnH(), 270);
 
   // Negate the even results. The results in z6 should now match the results
   // computed earlier in z5.
@@ -14807,12 +14755,12 @@ TEST_SVE(sve_fcmla) {
   __ Punpklo(p2.VnH(), p2.VnB());
   __ Punpklo(p3.VnH(), p3.VnB());
   __ Dup(z7.VnS(), 0);
-  __ Fcmla(z7.VnS(), p3.Merging(), z4.VnS(), z3.VnS(), 0);
-  __ Fcmla(z7.VnS(), p3.Merging(), z4.VnS(), z3.VnS(), 90);
+  __ Fcmla(z7.VnS(), p3.Merging(), z7.VnS(), z4.VnS(), z3.VnS(), 0);
+  __ Fcmla(z7.VnS(), p3.Merging(), z7.VnS(), z4.VnS(), z3.VnS(), 90);
   __ Ext(z7.VnB(), z7.VnB(), z7.VnB(), 8);
   __ Dup(z8.VnS(), 0);
-  __ Fcmla(z8.VnS(), p2.Merging(), z4.VnS(), z3.VnS(), 180);
-  __ Fcmla(z8.VnS(), p2.Merging(), z4.VnS(), z3.VnS(), 270);
+  __ Fcmla(z8.VnS(), p2.Merging(), z8.VnS(), z4.VnS(), z3.VnS(), 180);
+  __ Fcmla(z8.VnS(), p2.Merging(), z8.VnS(), z4.VnS(), z3.VnS(), 270);
   __ Fneg(z8.VnS(), p2.Merging(), z8.VnS());
 
   // Double precision computed for even lanes only.
@@ -14827,11 +14775,11 @@ TEST_SVE(sve_fcmla) {
   __ Sel(z4.VnD(), p2, z1.VnD(), z2.VnD());
   __ Punpklo(p2.VnH(), p2.VnB());
   __ Dup(z9.VnD(), 0);
-  __ Fcmla(z9.VnD(), p2.Merging(), z4.VnD(), z3.VnD(), 0);
-  __ Fcmla(z9.VnD(), p2.Merging(), z4.VnD(), z3.VnD(), 90);
+  __ Fcmla(z9.VnD(), p2.Merging(), z9.VnD(), z4.VnD(), z3.VnD(), 0);
+  __ Fcmla(z9.VnD(), p2.Merging(), z9.VnD(), z4.VnD(), z3.VnD(), 90);
   __ Dup(z10.VnD(), 0);
-  __ Fcmla(z10.VnD(), p2.Merging(), z4.VnD(), z3.VnD(), 180);
-  __ Fcmla(z10.VnD(), p2.Merging(), z4.VnD(), z3.VnD(), 270);
+  __ Fcmla(z10.VnD(), p2.Merging(), z10.VnD(), z4.VnD(), z3.VnD(), 180);
+  __ Fcmla(z10.VnD(), p2.Merging(), z10.VnD(), z4.VnD(), z3.VnD(), 270);
   __ Fneg(z10.VnD(), p2.Merging(), z10.VnD());
   END();
 
@@ -18705,6 +18653,1332 @@ TEST_SVE(sve_prefetch_offset) {
     RUN();
   }
 }
+
+TEST_SVE(sve2_match_nmatch) {
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+
+  START();
+
+  __ Ptrue(p0.VnB());
+  __ Ptrue(p1.VnH());
+  __ Ptrue(p2.VnS());
+
+  // Vector to search is bytes 0 - 7, repeating every eight bytes.
+  __ Index(z0.VnB(), 0, 1);
+  __ Dup(z0.VnD(), z0.VnD(), 0);
+
+  // Elements to find are (repeated) bytes 0 - 3 in the first segment, 4 - 7
+  // in the second, 8 - 11 in the third, etc.
+  __ Index(z1.VnB(), 0, 1);
+  __ Lsr(z1.VnB(), z1.VnB(), 2);
+
+  __ Match(p3.VnB(), p0.Zeroing(), z0.VnB(), z1.VnB());
+  __ Match(p4.VnB(), p1.Zeroing(), z0.VnB(), z1.VnB());
+  __ Nmatch(p0.VnB(), p0.Zeroing(), z0.VnB(), z1.VnB());
+
+  __ Uunpklo(z0.VnH(), z0.VnB());
+  __ Uunpklo(z1.VnH(), z1.VnB());
+
+  __ Match(p5.VnH(), p1.Zeroing(), z0.VnH(), z1.VnH());
+  __ Match(p6.VnH(), p2.Zeroing(), z0.VnH(), z1.VnH());
+  __ Nmatch(p1.VnH(), p1.Zeroing(), z0.VnH(), z1.VnH());
+
+  END();
+  if (CAN_RUN()) {
+    RUN();
+
+    int p3_exp[] = {1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0,
+                    0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1};
+    ASSERT_EQUAL_SVE(p3_exp, p3.VnB());
+    int p4_exp[] = {0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1};
+    ASSERT_EQUAL_SVE(p4_exp, p4.VnB());
+    int p0_exp[] = {0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1,
+                    1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0};
+    ASSERT_EQUAL_SVE(p0_exp, p0.VnB());
+
+    int p5_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1};
+    ASSERT_EQUAL_SVE(p5_exp, p5.VnB());
+    int p6_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    ASSERT_EQUAL_SVE(p6_exp, p6.VnB());
+    int p1_exp[] = {0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1,
+                    0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0};
+    ASSERT_EQUAL_SVE(p1_exp, p1.VnB());
+  }
+}
+
+TEST_SVE(sve2_saba_uaba) {
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+
+  START();
+
+  __ Index(z0.VnB(), 0, 1);
+  __ Dup(z1.VnB(), 0xff);
+  __ Dup(z2.VnB(), 1);
+  __ Uaba(z2.VnB(), z2.VnB(), z0.VnB(), z1.VnB());
+  __ Index(z0.VnB(), 0, -1);
+
+  __ Index(z3.VnH(), 0, 1);
+  __ Index(z4.VnH(), 1, 1);
+  __ Uaba(z3.VnH(), z3.VnH(), z3.VnH(), z4.VnH());
+
+  __ Index(z5.VnS(), 3, 6);
+  __ Index(z6.VnS(), 5, 6);
+  __ Uaba(z5.VnS(), z5.VnS(), z5.VnS(), z6.VnS());
+
+  __ Index(z7.VnD(), 424, 12);
+  __ Index(z8.VnD(), 4242, 12);
+  __ Uaba(z7.VnD(), z7.VnD(), z7.VnD(), z8.VnD());
+
+  __ Index(z9.VnH(), -1, -1);
+  __ Dup(z10.VnB(), 0);
+  __ Saba(z10.VnB(), z10.VnB(), z9.VnB(), z10.VnB());
+  __ Index(z11.VnH(), 0x0101, 1);
+
+  __ Index(z12.VnH(), 0, 1);
+  __ Index(z13.VnH(), 0, -1);
+  __ Saba(z13.VnH(), z13.VnH(), z12.VnH(), z13.VnH());
+
+  __ Index(z14.VnS(), 0, 2);
+  __ Index(z15.VnS(), 0, -2);
+  __ Saba(z15.VnS(), z15.VnS(), z14.VnS(), z15.VnS());
+
+  __ Index(z16.VnD(), 0, 42);
+  __ Index(z17.VnD(), 0, -42);
+  __ Saba(z17.VnD(), z17.VnD(), z16.VnD(), z17.VnD());
+
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+
+    ASSERT_EQUAL_SVE(z0, z2);
+    ASSERT_EQUAL_SVE(z3, z4);
+    ASSERT_EQUAL_SVE(z5, z6);
+    ASSERT_EQUAL_SVE(z7, z8);
+
+    ASSERT_EQUAL_SVE(z10, z11);
+    ASSERT_EQUAL_SVE(z12, z13);
+    ASSERT_EQUAL_SVE(z14, z15);
+    ASSERT_EQUAL_SVE(z16, z17);
+  }
+}
+
+TEST_SVE(sve2_integer_multiply_long_vector) {
+  // The test just check Sqdmull[b|t] and Pmull[b|t], as the way how the element
+  // operating of the other instructions in the group are likewise.
+  int32_t zn_inputs_s[] =
+      {1, -2, 3, -4, 5, -6, 7, -8, INT32_MIN, INT32_MAX, INT32_MAX, INT32_MIN};
+
+  int32_t zm_inputs_s[] =
+      {1, 2, 3, 4, 5, 6, 7, 8, INT32_MAX, INT32_MIN, INT32_MAX, INT32_MIN};
+  int64_t sqdmullb_vec_expected_d[] =
+      {-8, -32, -72, -128, RawbitsToInt64(0x8000000100000000), INT64_MAX};
+
+  uint64_t sqdmullt_vec_expected_d[] =
+      {2, 18, 50, 98, 0x8000000100000000, 0x7ffffffe00000002};
+
+  uint64_t pmullb_vec_expected_d[] = {0x00000001fffffffc,
+                                      0x00000003fffffff0,
+                                      0x000000020000001c,
+                                      0x00000007ffffffc0,
+                                      0x3fffffff80000000,
+                                      0x4000000000000000};
+
+  uint64_t pmullt_vec_expected_d[] = {0x05,
+                                      0x11,
+                                      0x15,
+                                      0x3fffffff80000000,
+                                      0x1555555555555555};
+
+  uint64_t sqdmullb_idx_expected_d[] = {0xfffffffffffffff8,
+                                        0xfffffffffffffff0,
+                                        0xffffffffffffffb8,
+                                        0xffffffffffffffa0,
+                                        0x8000000100000000,
+                                        INT64_MAX};
+
+  uint64_t sqdmullt_idx_expected_d[] =
+      {8,                    // 2 * zn[11] * zm[8] = 2 * 4 * 1
+       24,                   // 2 * zn[9] * zm[8] = 2 * 4 * 3
+       80,                   // 2 * zn[7] * zm[4] = 2 * 8 * 5
+       112,                  // 2 * zn[5] * zm[4] = 2 * 8 * 7
+       0x7fffffffffffffff,   // 2 * zn[3] * zm[0]
+       0x8000000100000000};  // 2 * zn[1] * zm[0]
+
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+  START();
+
+  InsrHelper(&masm, z31.VnS(), zn_inputs_s);
+  InsrHelper(&masm, z30.VnS(), zm_inputs_s);
+
+  __ Sqdmullb(z1.VnD(), z31.VnS(), z30.VnS());
+  __ Sqdmullt(z2.VnD(), z31.VnS(), z30.VnS());
+
+  __ Pmullb(z3.VnD(), z31.VnS(), z30.VnS());
+  __ Pmullt(z4.VnD(), z31.VnS(), z30.VnS());
+
+  __ Mov(z7, z30);
+  __ Mov(z8, z31);
+  __ Sqdmullb(z5.VnD(), z8.VnS(), z7.VnS(), 2);
+  __ Sqdmullt(z6.VnD(), z8.VnS(), z7.VnS(), 0);
+
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+
+    ASSERT_EQUAL_SVE(sqdmullb_vec_expected_d, z1.VnD());
+    ASSERT_EQUAL_SVE(sqdmullt_vec_expected_d, z2.VnD());
+    ASSERT_EQUAL_SVE(pmullb_vec_expected_d, z3.VnD());
+    ASSERT_EQUAL_SVE(pmullt_vec_expected_d, z4.VnD());
+    ASSERT_EQUAL_SVE(sqdmullb_idx_expected_d, z5.VnD());
+    ASSERT_EQUAL_SVE(sqdmullt_idx_expected_d, z6.VnD());
+  }
+}
+
+TEST_SVE(sve2_integer_multiply_add_long_vector) {
+  int32_t zn_inputs_s[] =
+      {1, -2, 3, -4, 5, -6, 7, -8, INT32_MIN, INT32_MAX, INT32_MAX, INT32_MIN};
+
+  int32_t zm_inputs_s[] =
+      {1, 2, 3, 4, 5, 6, 7, 8, INT32_MAX, INT32_MIN, INT32_MAX, INT32_MIN};
+
+  int64_t sqdmlalb_vec_expected_d[] =
+      {-3, -28, -69, -126, RawbitsToInt64(0x8000000100000001), INT64_MAX};
+
+  int64_t sqdmlalt_vec_expected_d[] = {-3,
+                                       14,
+                                       47,
+                                       96,
+                                       RawbitsToInt64(0x80000000ffffffff),
+                                       static_cast<int64_t>(
+                                           0x7ffffffe00000002)};
+
+  int64_t sqdmlalb_idx_expected_d[] =
+      {-11,   // za.d[5] + 2 * zn.s[10] * zm.s[8] = 5 + 2 * -2 * 4
+       -28,   // za.d[4] + 2 * zn.s[8] * zm.s[8] = 4 + 2 * -4 * 4
+       -93,   // za.d[3] + 2 * zn.s[6] * zm.s[4] = 3 + 2 * -6 * 8
+       -126,  // za.d[2] + 2 * zn.s[4] * zm.s[4] = 2 + 2 * -8 * 8
+       RawbitsToInt64(0x8000000100000001),
+       INT64_MAX};
+
+  int64_t sqdmlalt_idx_expected_d[] =
+      {1,   // za.d[5] + 2 * zn.s[11] * zm.s[9] = -5 + 2 * 1 * 3
+       14,  // za.d[4] + 2 * zn.s[9] * zm.s[9] = -4 + 2 * 3 * 3
+       67,  // za.d[3] + 2 * zn.s[7] * zm.s[5] = -3 + 2 * 5 * 7
+       96,  // za.d[2] + 2 * zn.s[5] * zm.s[5] = -2 + 2 * 7 * 7
+       RawbitsToInt64(0x80000000ffffffff),
+       static_cast<int64_t>(0x7ffffffe00000002)};
+
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+  START();
+
+  InsrHelper(&masm, z0.VnS(), zn_inputs_s);
+  InsrHelper(&masm, z1.VnS(), zm_inputs_s);
+  __ Index(z2.VnD(), 0, 1);
+  __ Index(z3.VnD(), 0, -1);
+
+  __ Mov(z31, z2);
+  __ Sqdmlalb(z31.VnD(), z31.VnD(), z0.VnS(), z1.VnS());
+  __ Mov(z30, z3);
+  __ Sqdmlalt(z30.VnD(), z30.VnD(), z0.VnS(), z1.VnS());
+  __ Mov(z29, z31);
+  __ Sqdmlslb(z29.VnD(), z29.VnD(), z0.VnS(), z1.VnS());
+  __ Mov(z28, z30);
+  __ Sqdmlslt(z28.VnD(), z28.VnD(), z0.VnS(), z1.VnS());
+
+  __ Sqdmlalb(z27.VnD(), z2.VnD(), z0.VnS(), z1.VnS());
+  __ Sqdmlalt(z26.VnD(), z3.VnD(), z0.VnS(), z1.VnS());
+  __ Sqdmlslb(z25.VnD(), z27.VnD(), z0.VnS(), z1.VnS());
+  __ Sqdmlslt(z24.VnD(), z26.VnD(), z0.VnS(), z1.VnS());
+
+  __ Mov(z23, z2);
+  __ Sqdmlalb(z23.VnD(), z23.VnD(), z0.VnS(), z1.VnS(), 0);
+  __ Mov(z22, z3);
+  __ Sqdmlalt(z22.VnD(), z22.VnD(), z0.VnS(), z1.VnS(), 1);
+  __ Mov(z21, z23);
+  __ Sqdmlslb(z21.VnD(), z21.VnD(), z0.VnS(), z1.VnS(), 0);
+  __ Mov(z20, z22);
+  __ Sqdmlslt(z20.VnD(), z20.VnD(), z0.VnS(), z1.VnS(), 1);
+
+
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+
+    ASSERT_EQUAL_SVE(sqdmlalb_vec_expected_d, z31.VnD());
+    ASSERT_EQUAL_SVE(sqdmlalt_vec_expected_d, z30.VnD());
+    ASSERT_EQUAL_SVE(z2, z29);
+    ASSERT_EQUAL_SVE(z3, z28);
+
+    ASSERT_EQUAL_SVE(z31, z27);
+    ASSERT_EQUAL_SVE(z30, z26);
+    ASSERT_EQUAL_SVE(z29, z25);
+    ASSERT_EQUAL_SVE(z28, z24);
+
+    ASSERT_EQUAL_SVE(sqdmlalb_idx_expected_d, z23.VnD());
+    ASSERT_EQUAL_SVE(sqdmlalt_idx_expected_d, z22.VnD());
+    ASSERT_EQUAL_SVE(z2, z21);
+    ASSERT_EQUAL_SVE(z3, z20);
+  }
+}
+
+TEST_SVE(sve2_ldnt1) {
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+  START();
+
+  int data_size = kZRegMaxSizeInBytes * 4;
+  uint8_t* data = new uint8_t[data_size];
+  for (int i = 0; i < data_size; i++) {
+    data[i] = i & 0xff;
+  }
+
+  // Set the base half-way through the buffer so we can use negative indices.
+  __ Mov(x0, reinterpret_cast<uintptr_t>(&data[data_size / 2]));
+  __ Index(z30.VnD(), x0, 1);
+  __ Ptrue(p0.VnB());
+  __ Punpklo(p1.VnH(), p0.VnB());
+  __ Punpklo(p2.VnH(), p1.VnB());
+  __ Punpklo(p3.VnH(), p2.VnB());
+  __ Punpklo(p4.VnH(), p3.VnB());
+
+  __ Mov(x1, 1);
+  __ Ldnt1b(z0.VnD(), p1.Zeroing(), SVEMemOperand(z30.VnD(), x1));
+  __ Ld1b(z1.VnD(), p1.Zeroing(), SVEMemOperand(x1, z30.VnD()));
+
+  __ Mov(x1, -4);
+  __ Ldnt1h(z2.VnD(), p2.Zeroing(), SVEMemOperand(z30.VnD(), x1));
+  __ Ld1h(z3.VnD(), p2.Zeroing(), SVEMemOperand(x1, z30.VnD()));
+
+  __ Mov(x1, 16);
+  __ Ldnt1w(z4.VnD(), p3.Zeroing(), SVEMemOperand(z30.VnD(), x1));
+  __ Ld1w(z5.VnD(), p3.Zeroing(), SVEMemOperand(x1, z30.VnD()));
+
+  __ Mov(x1, -16);
+  __ Ldnt1d(z6.VnD(), p4.Zeroing(), SVEMemOperand(z30.VnD(), x1));
+  __ Ld1d(z7.VnD(), p4.Zeroing(), SVEMemOperand(x1, z30.VnD()));
+
+  __ Mov(x1, 1);
+  __ Ldnt1sb(z8.VnD(), p0.Zeroing(), SVEMemOperand(z30.VnD(), x1));
+  __ Ld1sb(z9.VnD(), p0.Zeroing(), SVEMemOperand(x1, z30.VnD()));
+
+  __ Mov(x1, -4);
+  __ Ldnt1sh(z10.VnD(), p2.Zeroing(), SVEMemOperand(z30.VnD(), x1));
+  __ Ld1sh(z11.VnD(), p2.Zeroing(), SVEMemOperand(x1, z30.VnD()));
+
+  __ Mov(x1, 16);
+  __ Ldnt1sw(z12.VnD(), p3.Zeroing(), SVEMemOperand(z30.VnD(), x1));
+  __ Ld1sw(z13.VnD(), p3.Zeroing(), SVEMemOperand(x1, z30.VnD()));
+
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+    ASSERT_EQUAL_SVE(z0, z1);
+    ASSERT_EQUAL_SVE(z2, z3);
+    ASSERT_EQUAL_SVE(z4, z5);
+    ASSERT_EQUAL_SVE(z6, z7);
+    ASSERT_EQUAL_SVE(z8, z9);
+    ASSERT_EQUAL_SVE(z10, z11);
+    ASSERT_EQUAL_SVE(z12, z13);
+  }
+}
+
+TEST_SVE(sve2_stnt1) {
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+  START();
+
+  int data_size = kZRegMaxSizeInBytes * 4;
+  uint8_t* data = new uint8_t[data_size];
+
+  // Set the base half-way through the buffer so we can use negative indices.
+  __ Mov(x0, reinterpret_cast<uintptr_t>(&data[data_size / 2]));
+  __ Ptrue(p0.VnB());
+  __ Punpklo(p1.VnH(), p0.VnB());
+  __ Punpklo(p2.VnH(), p1.VnB());
+  __ Punpklo(p3.VnH(), p2.VnB());
+  __ Punpklo(p4.VnH(), p3.VnB());
+  __ Dup(z0.VnB(), 0xaa);
+  __ Dup(z1.VnB(), 0x55);
+  __ Rdvl(x1, 1);
+  __ Mov(x3, 0);
+
+  // Put store addresses into z30, and a small offset in x4.
+  __ Index(z30.VnD(), x0, 1);
+  __ Mov(x4, 2);
+
+  // Store an entire vector of 0xaa to the buffer, then a smaller scatter store
+  // of 0x55 using Stnt1b.
+  __ St1b(z0.VnB(), p0, SVEMemOperand(x0, x4));
+  __ Stnt1b(z1.VnD(), p0, SVEMemOperand(z30.VnD(), x4));
+
+  // Load the entire vector back from the buffer.
+  __ Ld1b(z2.VnB(), p0.Zeroing(), SVEMemOperand(x0, x4));
+
+  // Construct a predicate that reflects the number of bytes stored by Stnt1b,
+  // based on the current VL, and use Sel to obtain a reference vector for
+  // comparison.
+  __ Lsr(x2, x1, 3);
+  __ Whilelo(p5.VnB(), x3, x2);
+  __ Sel(z3.VnB(), p5.Merging(), z1.VnB(), z0.VnB());
+
+  // Repeat for larger element sizes.
+  __ Mov(x4, -4);
+  __ Index(z30.VnD(), x0, 2);
+  __ St1b(z0.VnB(), p0, SVEMemOperand(x0, x4));
+  __ Stnt1h(z1.VnD(), p0, SVEMemOperand(z30.VnD(), x4));
+  __ Ld1b(z4.VnB(), p0.Zeroing(), SVEMemOperand(x0, x4));
+  __ Lsr(x2, x1, 2);
+  __ Whilelo(p5.VnB(), x3, x2);
+  __ Sel(z5.VnB(), p5.Merging(), z1.VnB(), z0.VnB());
+
+  __ Mov(x4, 16);
+  __ Index(z30.VnD(), x0, 4);
+  __ St1b(z0.VnB(), p0, SVEMemOperand(x0, x4));
+  __ Stnt1w(z1.VnD(), p0, SVEMemOperand(z30.VnD(), x4));
+  __ Ld1b(z6.VnB(), p0.Zeroing(), SVEMemOperand(x0, x4));
+  __ Lsr(x2, x1, 1);
+  __ Whilelo(p5.VnB(), x3, x2);
+  __ Sel(z7.VnB(), p5.Merging(), z1.VnB(), z0.VnB());
+
+  __ Mov(x4, -16);
+  __ Index(z30.VnD(), x0, 8);
+  __ St1b(z0.VnB(), p0, SVEMemOperand(x0, x4));
+  __ Stnt1d(z1.VnD(), p0, SVEMemOperand(z30.VnD(), x4));
+  __ Ld1b(z8.VnB(), p0.Zeroing(), SVEMemOperand(x0, x4));
+  __ Whilelo(p5.VnB(), x3, x1);
+  __ Sel(z9.VnB(), p5.Merging(), z1.VnB(), z0.VnB());
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+    ASSERT_EQUAL_SVE(z2, z3);
+    ASSERT_EQUAL_SVE(z4, z5);
+    ASSERT_EQUAL_SVE(z6, z7);
+    ASSERT_EQUAL_SVE(z8, z9);
+  }
+}
+
+TEST_SVE(sve2_while_simple) {
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+
+  START();
+  __ Mov(x0, 1);
+  __ Mov(x1, 0);
+  __ Mov(x2, 3);
+
+  __ Whilehi(p0.VnB(), x0, x1);
+  __ Whilehs(p1.VnB(), x0, x1);
+  __ Whilehi(p2.VnB(), x2, x1);
+  __ Whilehs(p3.VnB(), x2, x1);
+  __ Whilehi(p4.VnB(), x2, x0);
+  __ Whilehs(p5.VnB(), x2, x0);
+
+  __ Whilegt(p6.VnB(), x0, x1);
+  __ Whilege(p7.VnB(), x0, x1);
+  __ Whilegt(p8.VnB(), x2, x1);
+  __ Whilege(p9.VnB(), x2, x1);
+  __ Whilegt(p10.VnB(), x2, x0);
+  __ Whilege(p11.VnB(), x2, x0);
+
+  __ Mov(x4, 0x80000000);
+  __ Mov(x5, 0x80000001);
+  __ Whilege(p12.VnB(), w5, w4);
+  __ Whilegt(p13.VnB(), w5, w4);
+
+  __ Mov(x6, 0x8000000000000000);
+  __ Mov(x7, 0x8000000000000001);
+  __ Whilege(p14.VnB(), x7, x6);
+  __ Whilegt(p15.VnB(), x7, x6);
+
+  for (int i = 0; i < 16; i++) {
+    __ Rev(PRegister(i).VnB(), PRegister(i).VnB());
+  }
+
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+    int p0_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    int p1_exp[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    int p2_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1};
+    int p3_exp[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    int p4_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1};
+    int p5_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1};
+    int p6_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    int p7_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1};
+    int p8_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1};
+    int p9_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1};
+    int p10_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1};
+    int p11_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1};
+    int p12_exp[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    int p13_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    int p14_exp[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    int p15_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+
+    ASSERT_EQUAL_SVE(p0_exp, p0.VnB());
+    ASSERT_EQUAL_SVE(p1_exp, p1.VnB());
+    ASSERT_EQUAL_SVE(p2_exp, p2.VnB());
+    ASSERT_EQUAL_SVE(p3_exp, p3.VnB());
+    ASSERT_EQUAL_SVE(p4_exp, p4.VnB());
+    ASSERT_EQUAL_SVE(p5_exp, p5.VnB());
+    ASSERT_EQUAL_SVE(p6_exp, p6.VnB());
+    ASSERT_EQUAL_SVE(p7_exp, p7.VnB());
+    ASSERT_EQUAL_SVE(p8_exp, p8.VnB());
+    ASSERT_EQUAL_SVE(p9_exp, p9.VnB());
+    ASSERT_EQUAL_SVE(p10_exp, p10.VnB());
+    ASSERT_EQUAL_SVE(p11_exp, p11.VnB());
+    ASSERT_EQUAL_SVE(p12_exp, p12.VnB());
+    ASSERT_EQUAL_SVE(p13_exp, p13.VnB());
+    ASSERT_EQUAL_SVE(p14_exp, p14.VnB());
+    ASSERT_EQUAL_SVE(p15_exp, p15.VnB());
+  }
+}
+
+TEST_SVE(sve2_whilerw_whilewr_simple) {
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+
+  START();
+  __ Mov(x0, 0);
+  __ Mov(x1, 1);
+  __ Mov(x2, 3);
+
+  __ Whilerw(p0.VnB(), x0, x0);
+  __ Whilerw(p1.VnB(), x0, x1);
+  __ Whilerw(p2.VnB(), x1, x0);
+
+  __ Whilewr(p3.VnB(), x0, x0);
+  __ Whilewr(p4.VnB(), x0, x1);
+  __ Whilewr(p5.VnB(), x1, x0);
+
+  __ Whilewr(p6.VnH(), x1, x1);
+  __ Whilewr(p7.VnH(), x1, x2);
+  __ Whilewr(p8.VnH(), x2, x1);
+
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+    int p0_exp[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    ASSERT_EQUAL_SVE(p0_exp, p0.VnB());
+    int p1_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    ASSERT_EQUAL_SVE(p1_exp, p1.VnB());
+    int p2_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    ASSERT_EQUAL_SVE(p2_exp, p2.VnB());
+    int p3_exp[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    ASSERT_EQUAL_SVE(p3_exp, p3.VnB());
+    int p4_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    ASSERT_EQUAL_SVE(p4_exp, p4.VnB());
+    int p5_exp[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    ASSERT_EQUAL_SVE(p5_exp, p5.VnB());
+    int p6_exp[] = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
+    ASSERT_EQUAL_SVE(p6_exp, p6.VnB());
+    int p7_exp[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    ASSERT_EQUAL_SVE(p7_exp, p7.VnB());
+    int p8_exp[] = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
+    ASSERT_EQUAL_SVE(p8_exp, p8.VnB());
+  }
+}
+
+TEST_SVE(sve2_sqrdcmlah) {
+  int32_t zn_inputs[] = {-1, -2, -3, -4, 1, 2, 3, 4};
+  int32_t zm_inputs[] = {-1, -2, 3, 4, 1, 2, -3, -4};
+  int32_t za_inputs[] = {1, 2, 3, 4, 5, 6, 7, 8};
+  int32_t zd_000_expected[] =
+      {1025, 2050, -6141, -8188, 1029, 2054, -6137, -8184};
+  int32_t zd_090_expected[] =
+      {1025, -510, -6141, 4612, 1029, -506, -6137, 4616};
+  int32_t zd_180_expected[] =
+      {-1023, -2046, 6147, 8196, -1019, -2042, 6151, 8200};
+  int32_t zd_270_expected[] =
+      {-1023, 514, 6147, -4604, -1019, 518, 6151, -4600};
+  int32_t zd_0_270_expected[] =
+      {2049, -1534, 6147, -4604, 2053, -1530, 6151, -4600};
+  int32_t zd_3_090_expected[] =
+      {1025, -510, 3075, -1532, 1029, -506, 3079, -1528};
+
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+  START();
+
+  InsrHelper(&masm, z0.VnS(), zn_inputs);
+  InsrHelper(&masm, z1.VnS(), zm_inputs);
+  InsrHelper(&masm, z31.VnS(), za_inputs);
+
+  // When the value in operands is small, shift left a random value so that it
+  // can affect the result in destination.
+  int shift = 20;
+  __ Lsl(z0.VnS(), z0.VnS(), shift);
+  __ Lsl(z1.VnS(), z1.VnS(), shift);
+
+  __ Mov(z10, z31);
+  __ Sqrdcmlah(z10.VnS(), z10.VnS(), z0.VnS(), z1.VnS(), 0);
+
+  __ Mov(z11, z31);
+  __ Sqrdcmlah(z11.VnS(), z11.VnS(), z0.VnS(), z1.VnS(), 90);
+
+  __ Mov(z12, z31);
+  __ Sqrdcmlah(z12.VnS(), z12.VnS(), z0.VnS(), z1.VnS(), 180);
+
+  __ Mov(z13, z31);
+  __ Sqrdcmlah(z13.VnS(), z13.VnS(), z0.VnS(), z1.VnS(), 270);
+
+  __ Sqrdcmlah(z14.VnS(), z31.VnS(), z0.VnS(), z1.VnS(), 0);
+  __ Sqrdcmlah(z15.VnS(), z31.VnS(), z0.VnS(), z1.VnS(), 90);
+  __ Sqrdcmlah(z16.VnS(), z31.VnS(), z0.VnS(), z1.VnS(), 180);
+  __ Sqrdcmlah(z17.VnS(), z31.VnS(), z0.VnS(), z1.VnS(), 270);
+
+  __ Mov(z18, z31);
+  __ Sqrdcmlah(z18.VnS(), z18.VnS(), z0.VnS(), z1.VnS(), 0, 270);
+
+  __ Mov(z19, z31);
+  __ Sqrdcmlah(z19.VnS(), z19.VnS(), z0.VnS(), z1.VnS(), 1, 90);
+
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+
+    ASSERT_EQUAL_SVE(zd_000_expected, z10.VnS());
+    ASSERT_EQUAL_SVE(zd_090_expected, z11.VnS());
+    ASSERT_EQUAL_SVE(zd_180_expected, z12.VnS());
+    ASSERT_EQUAL_SVE(zd_270_expected, z13.VnS());
+
+    ASSERT_EQUAL_SVE(z14, z10);
+    ASSERT_EQUAL_SVE(z15, z11);
+    ASSERT_EQUAL_SVE(z16, z12);
+    ASSERT_EQUAL_SVE(z17, z13);
+
+    ASSERT_EQUAL_SVE(zd_0_270_expected, z18.VnS());
+    ASSERT_EQUAL_SVE(zd_3_090_expected, z19.VnS());
+  }
+}
+
+TEST_SVE(sve2_sqrdmlah) {
+  uint16_t zn_inputs_h[] = {0x7ffe, 0x7ffd, 0x7ffd, 0x7ffd, 0x8000,
+                            0x7fff, 0x7ffe, 0x7ffe, 0x8001, 0x8000,
+                            0x7ffd, 0x7ffd, 0x7ffd, 0x5555, 0x5555,
+                            0x5555, 0x8000, 0x8000, 0xaaaa, 0x8001};
+
+  uint16_t zm_inputs_h[] = {0x7ffd, 0x7fff, 0x7ffe, 0x7ffd, 0x8001,
+                            0x7fff, 0x7fff, 0x7ffe, 0x8000, 0x8000,
+                            0xaaaa, 0x0001, 0x0001, 0xaaaa, 0xaaaa,
+                            0xcccc, 0x8000, 0x8000, 0x8000, 0x8001};
+
+  uint16_t za_inputs_h[] = {0x1010, 0x1010, 0x1010, 0x1010, 0x1010,
+                            0x1010, 0x1010, 0x1010, 0x8000, 0x8011,
+                            0x8006, 0xff7d, 0xfeff, 0xaabc, 0xaabb,
+                            0x9c72, 0x8000, 0x0000, 0x8000, 0xffff};
+
+  uint16_t zd_expected_h[] = {0x7fff, 0x7fff, 0x7fff, 0x7fff, 0x7fff,
+                              0x7fff, 0x7fff, 0x7fff, 0xffff, 0x0011,
+                              0x8000, 0xff7e, 0xff00, 0x8000, 0x8000,
+                              0x8000, 0x0000, 0x7fff, 0xd556, 0x7ffd};
+
+  uint32_t zn_inputs_s[] = {0x04000000,
+                            0x80000000,
+                            0x04000000,
+                            0x80000000,
+                            0x80000000,
+                            0x80000001,
+                            0x7fffffff,
+                            0x80000000,
+                            0x7ffffffe,
+                            0x7ffffffd,
+                            0x7ffffffd,
+                            0x7ffffffd};
+
+  uint32_t zm_inputs_s[] = {0x00000020,
+                            0x80000000,
+                            0x00000010,
+                            0x80000000,
+                            0x7fffffff,
+                            0x80000000,
+                            0x80000000,
+                            0x80000001,
+                            0x7ffffffd,
+                            0x7fffffff,
+                            0x7ffffffe,
+                            0x7ffffffd};
+
+  uint32_t za_inputs_s[] = {0x00000000,
+                            0x00000000,
+                            0x00000020,
+                            0x00108000,
+                            0x00000000,
+                            0x00000001,
+                            0x00000000,
+                            0x00000001,
+                            0x10101010,
+                            0x10101010,
+                            0x10101010,
+                            0x10101010};
+
+  uint32_t zd_expected_s[] = {0x00000001,
+                              0x7fffffff,
+                              0x00000021,
+                              0x7fffffff,
+                              0x80000001,
+                              0x7fffffff,
+                              0x80000001,
+                              0x7fffffff,
+                              0x7fffffff,
+                              0x7fffffff,
+                              0x7fffffff,
+                              0x7fffffff};
+
+  uint64_t zn_inputs_d[] = {0x0400000000000000, 0x8000000000000000,
+                            0x0400000000000000, 0x8000000000000000,
+                            0x8000000000000000, 0x8000000000000001,
+                            0x7fffffffffffffff, 0x8000000000000000,
+                            0x7ffffffffffffffe, 0x7ffffffffffffffd,
+                            0x7ffffffffffffffd, 0x7ffffffffffffffd,
+                            0xf1299accc9186169, 0xd529d2675ee9da21,
+                            0x1a10b5d60b92dcf9, 0xfb1d358e0e6455b1,
+                            0x8eb7721078bdc589, 0x4171509750ded141,
+                            0x8eb7721078bdc589, 0x4171509750ded141};
+
+  uint64_t zm_inputs_d[] = {0x0000000000000020, 0x8000000000000000,
+                            0x0000000000000010, 0x8000000000000000,
+                            0x7fffffffffffffff, 0x8000000000000000,
+                            0x8000000000000000, 0x8000000000000001,
+                            0x7ffffffffffffffd, 0x7fffffffffffffff,
+                            0x7ffffffffffffffe, 0x7ffffffffffffffd,
+                            0x30b940efe73f180e, 0x3bc1ff1e52a99b66,
+                            0x40de5c9793535a5e, 0x24752faf47bdddb6,
+                            0x162663016b07e5ae, 0x1de34b56f3d22006,
+                            0x8eb7721078bdc589, 0x4171509750ded141};
+
+  uint64_t za_inputs_d[] = {0x0000000000000000, 0x0000000000000000,
+                            0x0000000000000020, 0x0010108000000000,
+                            0x0000000000000000, 0x0000000000000001,
+                            0x0000000000000000, 0x0000000000000001,
+                            0x1010101010101010, 0x1010101010101010,
+                            0x1010101010101010, 0x1010101010101010,
+                            0xb18253371b2c2c77, 0xa70de31e6645eaef,
+                            0xda817198c0318487, 0x9fd9e6b8e04b42ff,
+                            0xced1f6b7119ab197, 0x01ae051a85509b0f,
+                            0x01a211e9352f7927, 0x7667b70a5b13749f};
+
+  uint64_t zd_expected_d[] = {0x0000000000000001, 0x7fffffffffffffff,
+                              0x0000000000000021, 0x7fffffffffffffff,
+                              0x8000000000000001, 0x7fffffffffffffff,
+                              0x8000000000000001, 0x7fffffffffffffff,
+                              0x7fffffffffffffff, 0x7fffffffffffffff,
+                              0x7fffffffffffffff, 0x7fffffffffffffff,
+                              0xabdc73dea0d72a35, 0x930e3dc877301966,
+                              0xe7b7145a059f8a9f, 0x9e75a4a9d10cf8af,
+                              0xbb378528642d2581, 0x10f5e6d693ffddf3,
+                              0x65e455a46adc091c, 0x7fffffffffffffff};
+
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+  START();
+
+  InsrHelper(&masm, z0.VnH(), zn_inputs_h);
+  InsrHelper(&masm, z1.VnH(), zm_inputs_h);
+  InsrHelper(&masm, z2.VnH(), za_inputs_h);
+
+  __ Sqrdmlah(z2.VnH(), z2.VnH(), z0.VnH(), z1.VnH());
+
+  InsrHelper(&masm, z3.VnS(), zn_inputs_s);
+  InsrHelper(&masm, z4.VnS(), zm_inputs_s);
+  InsrHelper(&masm, z5.VnS(), za_inputs_s);
+
+  __ Sqrdmlah(z5.VnS(), z5.VnS(), z3.VnS(), z4.VnS());
+
+  InsrHelper(&masm, z6.VnD(), zn_inputs_d);
+  InsrHelper(&masm, z7.VnD(), zm_inputs_d);
+  InsrHelper(&masm, z8.VnD(), za_inputs_d);
+
+  __ Sqrdmlah(z8.VnD(), z8.VnD(), z6.VnD(), z7.VnD());
+
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+    ASSERT_EQUAL_SVE(zd_expected_h, z2.VnH());
+    ASSERT_EQUAL_SVE(zd_expected_s, z5.VnS());
+    ASSERT_EQUAL_SVE(zd_expected_d, z8.VnD());
+  }
+}
+
+TEST_SVE(sve2_cmla) {
+  int32_t zn_inputs_s[] = {-2, -4, -6, -8, 2, 4, 6, 8};
+  int32_t zm_inputs_s[] = {-2, -4, -6, -8, 2, 4, 6, 8};
+  int32_t zda_inputs_s[] = {1, 2, 3, 4, 5, 6, 7, 8};
+  int32_t zd_000_expected[] = {9, 18, 51, 68, 13, 22, 55, 72};
+  int32_t zd_090_expected[] = {9, -2, 51, -32, 13, 2, 55, -28};
+  int32_t zd_180_expected[] = {-7, -14, -45, -60, -3, -10, -41, -56};
+  int32_t zd_270_expected[] = {-7, 6, -45, 40, -3, 10, -41, 44};
+
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+  START();
+
+  InsrHelper(&masm, z31.VnS(), zn_inputs_s);
+  InsrHelper(&masm, z30.VnS(), zm_inputs_s);
+
+  InsrHelper(&masm, z0.VnS(), zda_inputs_s);
+  __ Mov(z29, z0);
+  __ Cmla(z0.VnS(), z0.VnS(), z31.VnS(), z30.VnS(), 0);
+
+  InsrHelper(&masm, z1.VnS(), zda_inputs_s);
+  __ Mov(z28, z1);
+  __ Cmla(z1.VnS(), z1.VnS(), z31.VnS(), z30.VnS(), 90);
+
+  InsrHelper(&masm, z2.VnS(), zda_inputs_s);
+  __ Mov(z27, z2);
+  __ Cmla(z2.VnS(), z2.VnS(), z31.VnS(), z30.VnS(), 180);
+
+  InsrHelper(&masm, z3.VnS(), zda_inputs_s);
+  __ Mov(z26, z3);
+  __ Cmla(z3.VnS(), z3.VnS(), z31.VnS(), z30.VnS(), 270);
+
+  __ Cmla(z4.VnS(), z29.VnS(), z31.VnS(), z30.VnS(), 0);
+  __ Cmla(z5.VnS(), z28.VnS(), z31.VnS(), z30.VnS(), 90);
+  __ Cmla(z6.VnS(), z27.VnS(), z31.VnS(), z30.VnS(), 180);
+  __ Cmla(z7.VnS(), z26.VnS(), z31.VnS(), z30.VnS(), 270);
+
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+
+    ASSERT_EQUAL_SVE(zd_000_expected, z0.VnS());
+    ASSERT_EQUAL_SVE(zd_090_expected, z1.VnS());
+    ASSERT_EQUAL_SVE(zd_180_expected, z2.VnS());
+    ASSERT_EQUAL_SVE(zd_270_expected, z3.VnS());
+
+    ASSERT_EQUAL_SVE(z4, z0);
+    ASSERT_EQUAL_SVE(z5, z1);
+    ASSERT_EQUAL_SVE(z6, z2);
+    ASSERT_EQUAL_SVE(z7, z3);
+  }
+}
+
+TEST_SVE(sve2_integer_saturating_multiply_add_long) {
+  int32_t zn_bottom_inputs[] =
+      {-2, -4, -6, -8, INT32_MAX, INT32_MIN, INT32_MIN};
+
+  int32_t zm_top_inputs[] = {1, 3, 5, 7, INT32_MAX, INT32_MAX, INT32_MIN};
+
+  int64_t sqdmlalbt_expected[] = {2,
+                                  -19,
+                                  -56,
+                                  -109,
+                                  static_cast<int64_t>(0x7ffffffe00000004),
+                                  RawbitsToInt64(0x8000000100000001),
+                                  INT64_MAX};
+
+  int64_t sqdmlslbt_expected[] = {-2,
+                                  19,
+                                  56,
+                                  109,
+                                  RawbitsToInt64(0x80000001fffffffc),
+                                  static_cast<int64_t>(0x7ffffffeffffffff),
+                                  RawbitsToInt64(0x8000000000000001)};
+
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+  START();
+
+  InsrHelper(&masm, z31.VnS(), zn_bottom_inputs);
+  InsrHelper(&masm, z30.VnS(), zm_top_inputs);
+
+  __ Dup(z29.VnD(), 0);
+  __ Zip1(z31.VnS(), z31.VnS(), z29.VnS());
+  __ Zip1(z30.VnS(), z29.VnS(), z30.VnS());
+
+  // Initialise inputs for za.
+  __ Index(z1.VnD(), 0, 1);
+  __ Index(z2.VnD(), 0, -1);
+
+  __ Sqdmlalbt(z1.VnD(), z1.VnD(), z31.VnS(), z30.VnS());
+  __ Sqdmlslbt(z2.VnD(), z2.VnD(), z31.VnS(), z30.VnS());
+
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+
+    ASSERT_EQUAL_SVE(sqdmlalbt_expected, z1.VnD());
+    ASSERT_EQUAL_SVE(sqdmlslbt_expected, z2.VnD());
+  }
+}
+
+TEST_SVE(sve2_floating_point_multiply_add_long_vector) {
+  uint16_t zn_inputs[] = {Float16ToRawbits(Float16(1000)),
+                          Float16ToRawbits(Float16(2000)),
+                          Float16ToRawbits(Float16(0.5)),
+                          Float16ToRawbits(Float16(-0.5)),
+                          Float16ToRawbits(Float16(14)),
+                          Float16ToRawbits(Float16(-14)),
+                          Float16ToRawbits(kFP16PositiveInfinity),
+                          Float16ToRawbits(kFP16NegativeInfinity)};
+
+  uint16_t zm_inputs[] = {Float16ToRawbits(Float16(10)),
+                          Float16ToRawbits(Float16(-10)),
+                          Float16ToRawbits(Float16(10)),
+                          Float16ToRawbits(Float16(-10)),
+                          Float16ToRawbits(Float16(10)),
+                          Float16ToRawbits(Float16(-10)),
+                          Float16ToRawbits(Float16(10)),
+                          Float16ToRawbits(Float16(-10))};
+
+  uint32_t za_inputs[] = {FloatToRawbits(1.0f),
+                          FloatToRawbits(-1.0f),
+                          FloatToRawbits(1.0f),
+                          FloatToRawbits(-1.0f)};
+
+  uint32_t fmlalb_zd_expected[] = {0xc69c3e00,  // -19999
+                                   0x40800000,  // 4
+                                   0x430d0000,  // 141
+                                   FloatToRawbits(kFP32PositiveInfinity)};
+
+  uint32_t fmlalt_zd_expected[] = {0x461c4400,  // 10001
+                                   0x40800000,  // 4
+                                   0x430d0000,  // 141
+                                   FloatToRawbits(kFP32PositiveInfinity)};
+
+  uint32_t fmlslb_zd_expected[] = {0x469c4200,  // 20001
+                                   0xc0c00000,  // -6
+                                   0xc30b0000,  // -139
+                                   FloatToRawbits(kFP32NegativeInfinity)};
+
+  uint32_t fmlslt_zd_expected[] = {0xc61c3c00,  // -9999
+                                   0xc0c00000,  // -6
+                                   0xc30b0000,  // -139
+                                   FloatToRawbits(kFP32NegativeInfinity)};
+
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+  START();
+
+  InsrHelper(&masm, z31.VnH(), zn_inputs);
+  InsrHelper(&masm, z30.VnH(), zm_inputs);
+  InsrHelper(&masm, z29.VnS(), za_inputs);
+
+  __ Mov(z0, z29);
+  __ Fmlalb(z0.VnS(), z0.VnS(), z31.VnH(), z30.VnH());
+
+  __ Mov(z1, z29);
+  __ Fmlalt(z1.VnS(), z1.VnS(), z31.VnH(), z30.VnH());
+
+  __ Mov(z2, z29);
+  __ Fmlslb(z2.VnS(), z2.VnS(), z31.VnH(), z30.VnH());
+
+  __ Mov(z3, z29);
+  __ Fmlslt(z3.VnS(), z3.VnS(), z31.VnH(), z30.VnH());
+
+  __ Fmlalb(z4.VnS(), z29.VnS(), z31.VnH(), z30.VnH());
+  __ Fmlalt(z5.VnS(), z29.VnS(), z31.VnH(), z30.VnH());
+  __ Fmlslb(z6.VnS(), z29.VnS(), z31.VnH(), z30.VnH());
+  __ Fmlslt(z7.VnS(), z29.VnS(), z31.VnH(), z30.VnH());
+
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+
+    ASSERT_EQUAL_SVE(fmlalb_zd_expected, z0.VnS());
+    ASSERT_EQUAL_SVE(fmlalt_zd_expected, z1.VnS());
+    ASSERT_EQUAL_SVE(fmlslb_zd_expected, z2.VnS());
+    ASSERT_EQUAL_SVE(fmlslt_zd_expected, z3.VnS());
+
+    ASSERT_EQUAL_SVE(z4, z0);
+    ASSERT_EQUAL_SVE(z5, z1);
+    ASSERT_EQUAL_SVE(z6, z2);
+    ASSERT_EQUAL_SVE(z7, z3);
+  }
+}
+
+TEST_SVE(sve2_flogb_simple) {
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVE2);
+
+  START();
+  __ Ptrue(p0.VnB());
+  __ Index(z0.VnS(), -4, 1);
+  __ Mov(z1.VnS(), 0);
+  __ Mov(z2.VnD(), 0x000fffffffffffff);
+  __ Mov(z3.VnD(), 0x0010000000000000);
+  __ Scvtf(z0.VnS(), p0.Merging(), z0.VnS());
+  __ Scvtf(z1.VnS(), p0.Merging(), z1.VnS());
+  __ Fdiv(z1.VnS(), p0.Merging(), z0.VnS(), z1.VnS());
+  __ Flogb(z0.VnS(), p0.Merging(), z0.VnS());
+  __ Flogb(z1.VnS(), p0.Merging(), z1.VnS());
+  __ Flogb(z2.VnD(), p0.Merging(), z2.VnD());
+  __ Flogb(z3.VnD(), p0.Merging(), z3.VnD());
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+    uint64_t expected_z0[] = {0x0000000200000002,
+                              0x0000000200000002,
+                              0x0000000100000001,
+                              0x0000000080000000,
+                              0x0000000000000001,
+                              0x0000000100000002};
+    ASSERT_EQUAL_SVE(expected_z0, z0.VnD());
+
+    uint64_t expected_z1[] = {0x7fffffff7fffffff,
+                              0x7fffffff7fffffff,
+                              0x7fffffff7fffffff,
+                              0x7fffffff80000000,
+                              0x7fffffff7fffffff,
+                              0x7fffffff7fffffff};
+    ASSERT_EQUAL_SVE(expected_z1, z1.VnD());
+
+    uint64_t expected_z2[] = {0xfffffffffffffc01,
+                              0xfffffffffffffc01,
+                              0xfffffffffffffc01,
+                              0xfffffffffffffc01};
+    ASSERT_EQUAL_SVE(expected_z2, z2.VnD());
+
+    uint64_t expected_z3[] = {0xfffffffffffffc02,
+                              0xfffffffffffffc02,
+                              0xfffffffffffffc02,
+                              0xfffffffffffffc02};
+    ASSERT_EQUAL_SVE(expected_z3, z3.VnD());
+  }
+}
+
+TEST_SVE(neon_matmul) {
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE,
+                          CPUFeatures::kSVEI8MM,
+                          CPUFeatures::kNEON,
+                          CPUFeatures::kI8MM);
+
+  // Test Neon integer matrix multiply against SVE.
+  START();
+  __ Movi(v0.V2D(), 0xffeeddccbbaa9988, 0x77665544332211);
+  __ Movi(v1.V2D(), 0xaa5555aa55555555, 0x55aaaa55aaaaaa);
+  __ Movi(v2.V2D(), 0, 0);
+  __ Movi(v3.V2D(), 0, 0);
+  __ Movi(v4.V2D(), 0, 0);
+  __ Movi(v5.V2D(), 0, 0);
+  __ Movi(v6.V2D(), 0, 0);
+  __ Movi(v7.V2D(), 0, 0);
+
+  __ Smmla(v2.V4S(), v0.V16B(), v1.V16B());
+  __ Smmla(z3.VnS(), z3.VnS(), z0.VnB(), z1.VnB());
+  __ Ummla(v4.V4S(), v0.V16B(), v1.V16B());
+  __ Ummla(z5.VnS(), z5.VnS(), z0.VnB(), z1.VnB());
+  __ Usmmla(v6.V4S(), v0.V16B(), v1.V16B());
+  __ Usmmla(z7.VnS(), z7.VnS(), z0.VnB(), z1.VnB());
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+
+    // The inputs as Z registers are zero beyond the least-significant 128 bits,
+    // so the Neon and SVE results should be equal for any VL.
+    ASSERT_EQUAL_SVE(z3, z2);
+    ASSERT_EQUAL_SVE(z5, z4);
+    ASSERT_EQUAL_SVE(z7, z6);
+  }
+}
+
+TEST_SVE(sudot_usdot) {
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE,
+                          CPUFeatures::kSVE2,
+                          CPUFeatures::kSVEI8MM);
+
+  START();
+  __ Ptrue(p0.VnB());
+  __ Index(z0.VnS(), -424242, 77777);
+  __ Index(z1.VnB(), 127, -1);
+  __ Sqabs(z1.VnB(), p0.Merging(), z1.VnB());
+  __ Index(z2.VnB(), 0, 1);
+  __ Sqabs(z2.VnB(), p0.Merging(), z2.VnB());
+  __ Index(z3.VnB(), -128, 1);
+  __ Mov(z4.VnD(), 0);
+
+  // Test Usdot against Udot/Sdot over the range of inputs where they should be
+  // equal.
+  __ Usdot(z5.VnS(), z0.VnS(), z1.VnB(), z2.VnB());
+  __ Udot(z6.VnS(), z0.VnS(), z1.VnB(), z2.VnB());
+  __ Usdot(z7.VnS(), z0.VnS(), z1.VnB(), z3.VnB());
+  __ Sdot(z8.VnS(), z0.VnS(), z1.VnB(), z3.VnB());
+
+  // Construct values which, when interpreted correctly as signed/unsigned,
+  // should give a zero result for dot product.
+  __ Mov(z10.VnS(), 0x8101ff40);  // [-127, 1, -1, 64] as signed bytes.
+  __ Mov(z11.VnS(), 0x02fe8002);  // [2, 254, 128, 2] as unsigned bytes.
+  __ Usdot(z12.VnS(), z4.VnS(), z11.VnB(), z10.VnB());
+  __ Usdot(z13.VnS(), z4.VnS(), z10.VnB(), z11.VnB());
+
+  // Construct a vector with duplicated values across segments. This allows
+  // testing indexed dot product against the already tested variant.
+  __ Mov(z14.VnS(), 1);
+  __ Mul(z15.VnS(), z14.VnS(), z3.VnS(), 1);
+
+  __ Usdot(z16.VnS(), z0.VnS(), z3.VnB(), z3.VnB(), 1);
+  __ Usdot(z17.VnS(), z0.VnS(), z3.VnB(), z15.VnB());
+  __ Sudot(z18.VnS(), z0.VnS(), z3.VnB(), z3.VnB(), 1);
+  __ Usdot(z19.VnS(), z0.VnS(), z15.VnB(), z3.VnB());
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+    ASSERT_EQUAL_SVE(z6, z5);
+    ASSERT_EQUAL_SVE(z8, z7);
+    ASSERT_EQUAL_SVE(z4, z12);
+
+    uint64_t z13_expected[] = {0xffff8200ffff8200, 0xffff8200ffff8200};
+    ASSERT_EQUAL_SVE(z13_expected, z13.VnD());
+
+    ASSERT_EQUAL_SVE(z17, z16);
+    ASSERT_EQUAL_SVE(z19, z18);
+  }
+}
+
+// Manually constructed simulator test to avoid creating a VL128 variant.
+
+#ifdef VIXL_INCLUDE_SIMULATOR_AARCH64
+void Testsve_fmatmul(Test* config) {
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVEF64MM);
+
+  // Only double-precision matrix multiply is tested here. Single-precision is
+  // tested in the simulator tests using a generated sequence. The (templated)
+  // code used in the simulator for both cases is the same, which is why the
+  // tests here don't need to be comprehensive.
+  START();
+  Label vl_too_short;
+  __ Rdvl(x0, 1);
+  __ Cmp(x0, 32);
+  __ B(lt, &vl_too_short);  // Skip testing VL128.
+
+  __ Fdup(z0.VnD(), 1.0);
+  __ Fdup(z1.VnD(), 2.0);
+  __ Mov(z2.VnD(), 0);
+
+  // Build 2x2 identity matrix in z3.
+  Label iden_loop;
+  __ Lsr(x0, x0, 5);
+  __ Bind(&iden_loop);
+  __ Insr(z3.VnD(), d0);
+  __ Insr(z3.VnD(), d2);
+  __ Insr(z3.VnD(), d2);
+  __ Insr(z3.VnD(), d0);
+  __ Sub(x0, x0, 1);
+  __ Cbnz(x0, &iden_loop);
+
+  __ Fmmla(z1.VnD(), z1.VnD(), z0.VnD(), z0.VnD());
+  __ Fmmla(z2.VnD(), z2.VnD(), z1.VnD(), z3.VnD());
+
+  __ Ptrue(p0.VnB());
+  __ Index(z4.VnD(), -8, 3);
+  __ Scvtf(z4.VnD(), p0.Merging(), z4.VnD());
+  __ Mov(z5.VnD(), 0);
+  __ Fmmla(z4.VnD(), z4.VnD(), z4.VnD(), z4.VnD());
+  __ Fmmla(z5.VnD(), z5.VnD(), z4.VnD(), z3.VnD());
+
+  __ Bind(&vl_too_short);
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+
+    int vl = core.GetSVELaneCount(kBRegSize) * 8;
+    if (vl >= 256) {
+      ASSERT_EQUAL_SVE(z1, z2);
+      ASSERT_EQUAL_SVE(z4, z5);
+
+      switch (vl) {
+        case 256:
+        case 384: {
+          // All results are 4.0 (1 * 1 + 2). Results for elements beyond a VL
+          // that's a multiple of 256 bits should be zero.
+          uint64_t z1_expected[] = {0x0000000000000000,
+                                    0x0000000000000000,
+                                    0x4010000000000000,
+                                    0x4010000000000000,
+                                    0x4010000000000000,
+                                    0x4010000000000000};
+          ASSERT_EQUAL_SVE(z1_expected, z1.VnD());
+
+          uint64_t z4_expected[] = {0x0000000000000000,
+                                    0x0000000000000000,
+                                    0x4018000000000000,   // 6.0
+                                    0x4022000000000000,   // 9.0
+                                    0x4018000000000000,   // 6.0
+                                    0x4054400000000000};  // 81.0
+          ASSERT_EQUAL_SVE(z4_expected, z4.VnD());
+          break;
+        }
+        case 2048: {
+          uint64_t z1_expected[] =
+              {0x4010000000000000, 0x4010000000000000, 0x4010000000000000,
+               0x4010000000000000, 0x4010000000000000, 0x4010000000000000,
+               0x4010000000000000, 0x4010000000000000, 0x4010000000000000,
+               0x4010000000000000, 0x4010000000000000, 0x4010000000000000,
+               0x4010000000000000, 0x4010000000000000, 0x4010000000000000,
+               0x4010000000000000, 0x4010000000000000, 0x4010000000000000,
+               0x4010000000000000, 0x4010000000000000, 0x4010000000000000,
+               0x4010000000000000, 0x4010000000000000, 0x4010000000000000,
+               0x4010000000000000, 0x4010000000000000, 0x4010000000000000,
+               0x4010000000000000, 0x4010000000000000, 0x4010000000000000,
+               0x4010000000000000, 0x4010000000000000};
+          ASSERT_EQUAL_SVE(z1_expected, z1.VnD());
+
+          uint64_t z4_expected[] = {
+              0x40cb690000000000, 0x40c9728000000000, 0x40c9710000000000,
+              0x40c79e8000000000, 0x40c41f0000000000, 0x40c2708000000000,
+              0x40c26f0000000000, 0x40c0e48000000000, 0x40bbea0000000000,
+              0x40b91d0000000000, 0x40b91a0000000000, 0x40b6950000000000,
+              0x40b1d60000000000, 0x40af320000000000, 0x40af2c0000000000,
+              0x40ab420000000000, 0x40a4040000000000, 0x40a0aa0000000000,
+              0x40a0a40000000000, 0x409bb40000000000, 0x4091b80000000000,
+              0x408a880000000000, 0x408a700000000000, 0x4083c80000000000,
+              0x4071a00000000000, 0x4061a00000000000, 0x4061400000000000,
+              0x4051400000000000, 0x4018000000000000, 0x4022000000000000,
+              0x4018000000000000, 0x4054400000000000,
+          };
+          ASSERT_EQUAL_SVE(z4_expected, z4.VnD());
+          break;
+        }
+        default:
+          printf("WARNING: Some tests skipped due to unexpected VL.\n");
+          break;
+      }
+    }
+  }
+}
+Test* test_sve_fmatmul_list[] =
+    {Test::MakeSVETest(256, "AARCH64_ASM_sve_fmatmul_vl256", &Testsve_fmatmul),
+     Test::MakeSVETest(384, "AARCH64_ASM_sve_fmatmul_vl384", &Testsve_fmatmul),
+     Test::MakeSVETest(2048,
+                       "AARCH64_ASM_sve_fmatmul_vl2048",
+                       &Testsve_fmatmul)};
+
+void Testsve_ld1ro(Test* config) {
+  SVE_SETUP_WITH_FEATURES(CPUFeatures::kSVE, CPUFeatures::kSVEF64MM);
+  START();
+
+  int data_size = (kQRegSizeInBytes + 128) * 4;
+  uint8_t* data = new uint8_t[data_size];
+  for (int i = 0; i < data_size; i++) {
+    data[i] = i & 0xff;
+  }
+
+  // Set the base to just past half-way through the buffer so we can use
+  // negative indices.
+  __ Mov(x0, reinterpret_cast<uintptr_t>(&data[7 + data_size / 2]));
+
+  __ Index(z0.VnB(), 0, 1);
+  __ Ptrue(p0.VnB());
+  __ Cmplo(p0.VnB(), p0.Zeroing(), z0.VnB(), 4);
+  __ Pfalse(p1.VnB());
+  __ Zip1(p1.VnB(), p0.VnB(), p1.VnB());
+  __ Ptrue(p2.VnB());
+
+  __ Mov(x1, -32);
+  __ Ld1rob(z0.VnB(), p1.Zeroing(), SVEMemOperand(x0, -32));
+  __ Ld1rob(z1.VnB(), p1.Zeroing(), SVEMemOperand(x0, x1));
+
+  __ Mov(x1, 64 / 2);
+  __ Ld1roh(z2.VnH(), p2.Zeroing(), SVEMemOperand(x0, 64));
+  __ Ld1roh(z3.VnH(), p2.Zeroing(), SVEMemOperand(x0, x1, LSL, 1));
+
+  __ Mov(x1, -96 / 4);
+  __ Ld1row(z4.VnS(), p2.Zeroing(), SVEMemOperand(x0, -96));
+  __ Ld1row(z5.VnS(), p2.Zeroing(), SVEMemOperand(x0, x1, LSL, 2));
+
+  __ Mov(x1, 128 / 8);
+  __ Ld1rod(z6.VnD(), p2.Zeroing(), SVEMemOperand(x0, 128));
+  __ Ld1rod(z7.VnD(), p2.Zeroing(), SVEMemOperand(x0, x1, LSL, 3));
+
+  // Check that all 256-bit segments match by rotating the vector by one
+  // segment, eoring, and orring across the vector.
+  __ Dup(z11.VnQ(), z0.VnQ(), 2);
+  __ Mov(z8, z0);
+  __ Ext(z8.VnB(), z8.VnB(), z8.VnB(), 32);
+  __ Eor(z8.VnB(), z8.VnB(), z0.VnB());
+  __ Orv(b9, p2, z8.VnB());
+
+  __ Mov(z8, z2);
+  __ Ext(z8.VnB(), z8.VnB(), z8.VnB(), 32);
+  __ Eor(z8.VnB(), z8.VnB(), z2.VnB());
+  __ Orv(b8, p2, z8.VnB());
+  __ Orr(z9, z9, z8);
+
+  __ Mov(z8, z4);
+  __ Ext(z8.VnB(), z8.VnB(), z8.VnB(), 32);
+  __ Eor(z8.VnB(), z8.VnB(), z4.VnB());
+  __ Orv(b8, p2, z8.VnB());
+  __ Orr(z9, z9, z8);
+
+  __ Mov(z8, z6);
+  __ Ext(z8.VnB(), z8.VnB(), z8.VnB(), 32);
+  __ Eor(z8.VnB(), z8.VnB(), z6.VnB());
+  __ Orv(b8, p2, z8.VnB());
+  __ Orr(z9, z9, z8);
+
+  END();
+
+  if (CAN_RUN()) {
+    RUN();
+
+    int vl = core.GetSVELaneCount(kBRegSize) * 8;
+    if (vl >= 256) {
+      ASSERT_EQUAL_SVE(z0, z1);
+      ASSERT_EQUAL_SVE(z2, z3);
+      ASSERT_EQUAL_SVE(z4, z5);
+      ASSERT_EQUAL_SVE(z6, z7);
+
+      switch (vl) {
+        case 256:
+        case 2048: {
+          // Check the result of the rotate/eor sequence.
+          uint64_t expected_z9[] = {0, 0};
+          ASSERT_EQUAL_SVE(expected_z9, z9.VnD());
+          break;
+        }
+        case 384: {
+          // For non-multiple-of-256 VL, the top 128-bits must be zero, which
+          // breaks the rotate/eor sequence. Check the results explicitly.
+          uint64_t z0_expected[] = {0x0000000000000000,
+                                    0x0000000000000000,
+                                    0x0000000000000000,
+                                    0x0000000000000000,
+                                    0x0000000000000000,
+                                    0x000d000b00090007};
+          uint64_t z2_expected[] = {0x0000000000000000,
+                                    0x0000000000000000,
+                                    0x868584838281807f,
+                                    0x7e7d7c7b7a797877,
+                                    0x767574737271706f,
+                                    0x6e6d6c6b6a696867};
+          uint64_t z4_expected[] = {0x0000000000000000,
+                                    0x0000000000000000,
+                                    0xe6e5e4e3e2e1e0df,
+                                    0xdedddcdbdad9d8d7,
+                                    0xd6d5d4d3d2d1d0cf,
+                                    0xcecdcccbcac9c8c7};
+          uint64_t z6_expected[] = {0x0000000000000000,
+                                    0x0000000000000000,
+                                    0xc6c5c4c3c2c1c0bf,
+                                    0xbebdbcbbbab9b8b7,
+                                    0xb6b5b4b3b2b1b0af,
+                                    0xaeadacabaaa9a8a7};
+          ASSERT_EQUAL_SVE(z0_expected, z0.VnD());
+          ASSERT_EQUAL_SVE(z2_expected, z2.VnD());
+          ASSERT_EQUAL_SVE(z4_expected, z4.VnD());
+          ASSERT_EQUAL_SVE(z6_expected, z6.VnD());
+          break;
+        }
+        default:
+          printf("WARNING: Some tests skipped due to unexpected VL.\n");
+          break;
+      }
+    }
+  }
+}
+Test* test_sve_ld1ro_list[] =
+    {Test::MakeSVETest(256, "AARCH64_ASM_sve_ld1ro_vl256", &Testsve_ld1ro),
+     Test::MakeSVETest(384, "AARCH64_ASM_sve_ld1ro_vl384", &Testsve_ld1ro),
+     Test::MakeSVETest(2048, "AARCH64_ASM_sve_ld1ro_vl2048", &Testsve_ld1ro)};
+#endif
 
 }  // namespace aarch64
 }  // namespace vixl

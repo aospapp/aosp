@@ -1,13 +1,13 @@
-.TH LIBPSX 3 "2021-01-31" "" "Linux Programmer's Manual"
+.TH LIBPSX 3 "2021-03-06" "" "Linux Programmer's Manual"
 .SH NAME
 psx_syscall3, psx_syscall6 \- POSIX semantics for system calls
 .SH SYNOPSIS
 .nf
-.B #include <sys/psx_syscall.h>
-.sp
-.BI "long int psx_syscall3(long int" " syscall_nr, " "long int" " arg1, " "long int" " arg2, " "long int" " arg3);"
-.sp
-.BI "long int psx_syscall6(long int" " syscall_nr, " "long int" " arg1, " "long int" " arg2, " "long int" " arg3, " "long int" " arg4, " "long int" " arg5, " "long int" " arg6);"
+#include <sys/psx_syscall.h>
+
+long int psx_syscall3(long int syscall_nr, long int arg1, long int arg2, long int arg3);
+long int psx_syscall6(long int syscall_nr, long int arg1, long int arg2, long int arg3, long int arg4, long int arg5, long int arg6);
+.fi
 .sp
 Link with one of these:
 .sp
@@ -80,9 +80,14 @@ about why this is needed here:
 .TP
 https://sites.google.com/site/fullycapable/who-ordered-libpsx
 .SH "REPORTING BUGS"
-Please report bugs via:
+The
+.B libpsx
+library is distributed from
+https://sites.google.com/site/fullycapable/ where the release notes
+may already cover recent issues.  Please report newly discovered bugs
+via:
 .TP
-https://bugzilla.kernel.org/buglist.cgi?component=libcap&list_id=1047723&product=Tools&resolution=---
+https://bugzilla.kernel.org/buglist.cgi?component=libcap&list_id=1090757
 .SH SEE ALSO
 .BR libcap (3),
 .BR pthreads "(7) and"

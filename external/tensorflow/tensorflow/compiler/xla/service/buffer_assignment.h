@@ -39,8 +39,6 @@ limitations under the License.
 #include "tensorflow/compiler/xla/statusor.h"
 #include "tensorflow/compiler/xla/types.h"
 #include "tensorflow/core/platform/logging.h"
-#include "tensorflow/core/platform/macros.h"
-#include "tensorflow/core/platform/types.h"
 
 namespace xla {
 
@@ -69,7 +67,7 @@ class BufferAllocation {
  public:
   // Holds a unique identifier for each allocation. Values are assigned
   // contiguously and can be used as array indexes.
-  using Index = int64;
+  using Index = int64_t;
 
   BufferAllocation(Index index, int64_t size, LogicalBuffer::Color color)
       : index_(index), size_(size), color_(color) {}
@@ -124,7 +122,7 @@ class BufferAllocation {
 
   // If this allocation holds a Buffer from a parameter of the entry
   // computation, this methods returns the parameter number. CHECKs otherwise.
-  int64 parameter_number() const {
+  int64_t parameter_number() const {
     CHECK(is_entry_computation_parameter_);
     return parameter_number_;
   }
@@ -144,15 +142,15 @@ class BufferAllocation {
 
   // Returns the size of the allocation. Necessarily this must be at least as
   // large as any LogicalBuffer assigned to this allocation.
-  int64 size() const { return size_; }
+  int64_t size() const { return size_; }
 
   // Returns the color of the allocation. Only logical buffers with a matching
   // color can reside in this allocation.
   LogicalBuffer::Color color() const { return color_; }
 
   struct OffsetSize {
-    int64 offset = 0;
-    int64 size = 0;
+    int64_t offset = 0;
+    int64_t size = 0;
   };
 
   // Access to the logical buffers assigned to this allocation, and their
@@ -172,8 +170,8 @@ class BufferAllocation {
 
     const BufferAllocation* allocation() const { return allocation_; }
     Index index() const { return allocation_->index(); }
-    int64 offset() const { return offset_; }
-    int64 size() const { return size_; }
+    int64_t offset() const { return offset_; }
+    int64_t size() const { return size_; }
 
     bool operator==(const Slice& other) const {
       return index() == other.index() && offset_ == other.offset_ &&
@@ -200,12 +198,12 @@ class BufferAllocation {
       return H::combine(std::move(h), s.index(), s.offset(), s.size());
     }
 
-    string ToString() const;
+    std::string ToString() const;
 
    private:
     const BufferAllocation* allocation_ = nullptr;
-    int64 offset_ = 0;
-    int64 size_ = 0;
+    int64_t offset_ = 0;
+    int64_t size_ = 0;
   };
 
   // GetSlice returns the Slice of contiguous memory that holds the value
@@ -213,7 +211,7 @@ class BufferAllocation {
   // REQUIRES: 'buffer' must be assigned to this allocation.
   Slice GetSlice(const HloValue& buffer) const;
 
-  string ToString() const;
+  std::string ToString() const;
   BufferAllocationProto ToProto() const;
 
   // Whether the buffer is a parameter to or live out of the entry computation.
@@ -263,7 +261,7 @@ class BufferAllocation {
   // Get the number of bytes lost to fragmentation. This is equal to the
   // difference between the size of the allocation and the size of the maximal
   // live set.
-  int64 fragmentation_bytes() const { return fragmentation_bytes_; }
+  int64_t fragmentation_bytes() const { return fragmentation_bytes_; }
 
   bool operator==(const BufferAllocation& other) const {
     return index_ == other.index_;
@@ -301,7 +299,7 @@ class BufferAllocation {
   Index index_;
 
   // Size of the allocation in bytes.
-  int64 size_;
+  int64_t size_;
 
   // Whether this buffer needs to be thread-local.
   bool is_thread_local_ = false;
@@ -322,7 +320,7 @@ class BufferAllocation {
 
   // If this allocation holds an entry computation parameter, this field
   // indicates the index (starting from 0) of the parameter.
-  int64 parameter_number_ = 0;
+  int64_t parameter_number_ = 0;
 
   // If this buffer is for an entry computation parameter, which subshape of the
   // parameter is it for?
@@ -341,7 +339,7 @@ class BufferAllocation {
   // logical offsets and sizes.
   absl::flat_hash_map<const HloValue*, OffsetSize> assigned_buffers_;
 
-  int64 fragmentation_bytes_ = 0;
+  int64_t fragmentation_bytes_ = 0;
   std::vector<HeapSimulatorTrace> heap_traces_;
 
   // Set of buffers live at the point of peak memory usage for this allocation.
@@ -370,11 +368,11 @@ class BufferAssignment {
   }
 
   // Returns the total size allocation holding all temporary buffers.
-  int64 temp_allocation_total_size() const {
+  int64_t temp_allocation_total_size() const {
     return temp_allocation_total_size_;
   }
 
-  uint64 multiheap_size_constraint_per_heap() const {
+  uint64_t multiheap_size_constraint_per_heap() const {
     return multiheap_size_constraint_per_heap_;
   }
 
@@ -467,28 +465,31 @@ class BufferAssignment {
   // Returns the HloLiveRange object used to construct this assignment.
   const HloLiveRange& hlo_live_range() const { return *hlo_live_range_; }
 
-  string ToString() const;
-  string BufferInfoString() const;
+  std::string ToString() const;
+  // Verbose string tailored to debugging OOMs, includes the Hlo op metadata for
+  // every buffer associated with each allocation.
+  std::string ToVerboseString() const;
+  std::string BufferInfoString() const;
   BufferAssignmentProto ToProto() const;
 
   // Statistics for the assignment.  Values initialized to -1 are not always
   // collected; fragmentation is only collected for instructions that have a
   // sequential total ordering.
   struct Stats {
-    int64 parameter_allocation_count = 0;
-    int64 parameter_allocation_bytes = 0;
-    int64 constant_allocation_count = 0;
-    int64 constant_allocation_bytes = 0;
-    int64 maybe_live_out_allocation_count = 0;
-    int64 maybe_live_out_allocation_bytes = 0;
-    int64 preallocated_temp_allocation_count = 0;
-    int64 preallocated_temp_allocation_bytes = 0;
-    int64 preallocated_temp_fragmentation_bytes = -1;
-    int64 total_allocation_count = 0;
-    int64 total_allocation_bytes = 0;
-    int64 total_fragmentation_bytes = -1;
+    int64_t parameter_allocation_count = 0;
+    int64_t parameter_allocation_bytes = 0;
+    int64_t constant_allocation_count = 0;
+    int64_t constant_allocation_bytes = 0;
+    int64_t maybe_live_out_allocation_count = 0;
+    int64_t maybe_live_out_allocation_bytes = 0;
+    int64_t preallocated_temp_allocation_count = 0;
+    int64_t preallocated_temp_allocation_bytes = 0;
+    int64_t preallocated_temp_fragmentation_bytes = -1;
+    int64_t total_allocation_count = 0;
+    int64_t total_allocation_bytes = 0;
+    int64_t total_fragmentation_bytes = -1;
 
-    string ToString() const;
+    std::string ToString() const;
   };
   const Stats& GetStats() const { return stats_; }
 
@@ -539,7 +540,7 @@ class BufferAssignment {
   BufferAllocation* GetMutableAssignedAllocation(const HloBuffer& buffer);
   BufferAllocation* GetMutableAllocation(BufferAllocation::Index index);
 
-  int64 HloBufferSize(const HloBuffer& buffer) {
+  int64_t HloBufferSize(const HloBuffer& buffer) {
     int64_t result = buffer_size_(*buffer.values()[0]);
     for (const HloValue* value : buffer.values()) {
       DCHECK_EQ(result, buffer_size_(*value));
@@ -557,9 +558,9 @@ class BufferAssignment {
   std::vector<BufferAllocation> allocations_;
 
   // The total size of all temporary buffers.
-  int64 temp_allocation_total_size_ = 0;
+  int64_t temp_allocation_total_size_ = 0;
 
-  uint64 multiheap_size_constraint_per_heap_;
+  uint64_t multiheap_size_constraint_per_heap_;
 
   // Maps Buffers to the index of the BufferAllocation which holds the buffer.
   absl::flat_hash_map<const HloValue*, BufferAllocation::Index>
@@ -581,13 +582,16 @@ class BufferAssignment {
 
   Stats stats_;
 
-  TF_DISALLOW_COPY_AND_ASSIGN(BufferAssignment);
+  BufferAssignment(const BufferAssignment&) = delete;
+  BufferAssignment& operator=(const BufferAssignment&) = delete;
 };
 
 // A class which constructs a buffer assignment.
 class BufferAssigner {
  public:
   using Colorer = std::function<Status(HloAliasAnalysis*, const HloOrdering&)>;
+  using MustNotLiveOut =
+      std::function<bool(const HloInstruction*, const ShapeIndex&)>;
 
   static Colorer DefaultColorer() {
     return [](HloAliasAnalysis* alias_analysis, const HloOrdering&) {
@@ -600,7 +604,7 @@ class BufferAssigner {
           value->set_color(BufferValue::Color(0));
         }
       }
-      return Status::OK();
+      return OkStatus();
     };
   }
 
@@ -618,14 +622,14 @@ class BufferAssigner {
       LogicalBuffer::AlignmentFunction color_alignment,
       bool allocate_buffers_for_constants = false,
       Colorer colorer = DefaultColorer(),
-      const absl::flat_hash_set<HloOpcode>& must_not_live_out = {},
+      std::optional<MustNotLiveOut> must_not_live_out = std::nullopt,
       HloDataflowAnalysis::CanShareBuffer can_share_buffer = nullptr,
       std::unique_ptr<memory_space_assignment::PresetAssignments>
           preset_assignments = {});
 
  private:
   BufferAssigner(bool allocate_buffers_for_constants, Colorer colorer,
-                 const absl::flat_hash_set<HloOpcode>& must_not_live_out,
+                 std::optional<MustNotLiveOut> must_not_live_out,
                  std::unique_ptr<memory_space_assignment::PresetAssignments>
                      preset_assignments)
       : allocate_buffers_for_constants_(allocate_buffers_for_constants),
@@ -706,14 +710,16 @@ class BufferAssigner {
   // Functor used to assign colors to newly allocated logical buffers.
   Colorer colorer_;
 
-  // A set of hlo opcodes that can't live out of a computation.
-  absl::flat_hash_set<HloOpcode> must_not_live_out_;
+  // An optional function that returns true if the given instruction can't live
+  // out of a computation.
+  std::optional<MustNotLiveOut> must_not_live_out_;
 
   // Description of any buffer offsets that are already set by an earlier pass.
   std::unique_ptr<memory_space_assignment::PresetAssignments>
       preset_assignments_;
 
-  TF_DISALLOW_COPY_AND_ASSIGN(BufferAssigner);
+  BufferAssigner(const BufferAssigner&) = delete;
+  BufferAssigner& operator=(const BufferAssigner&) = delete;
 };
 
 }  // namespace xla

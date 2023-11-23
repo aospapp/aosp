@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "suite_HWQual.power_LoadTest"
 PURPOSE = "Measure power draw when system is under load."
 CRITERIA = "This test is a benchmark."
@@ -11,6 +11,7 @@ TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
 ATTRIBUTES = "suite:power_loadtest"
+PY_VERSION = 3
 
 DOC = """
 This test runs a load test consisting of cycling though web pages, playing

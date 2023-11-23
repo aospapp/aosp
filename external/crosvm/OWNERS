@@ -1,8 +1,23 @@
+# ChromeOS Team
 acourbot@chromium.org
+denniskempin@google.com
 dtor@chromium.org
 dverkamp@chromium.org
 keiichiw@chromium.org
-denniskempin@google.com
 paulhsia@chromium.org
+stevensd@chromium.org
 uekawa@chromium.org
+
+# For Windows
+auradkar@google.com
+nkgold@google.com
+rizhang@google.com
+
+# Bots
 crosvm-bot@crosvm-packages.iam.gserviceaccount.com
+recipe-mega-autoroller@chops-service-accounts.iam.gserviceaccount.com
+crosvm-luci-ci-builder@crosvm-infra.iam.gserviceaccount.com
+
+# Changes to Cargo.lock will require additional reviews by the crosvm council.
+per-file Cargo.lock = set noparent
+per-file Cargo.lock = file:OWNERS_COUNCIL

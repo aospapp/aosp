@@ -1,4 +1,4 @@
-/* Copyright 2020 The TensorFlow Authors. All Rights Reserved.
+/* Copyright 2022 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,18 +18,15 @@ limitations under the License.
 #include "absl/status/status.h"
 #include "tensorflow_lite_support/cc/common.h"
 #include "tensorflow_lite_support/cc/port/status_macros.h"
-#include "tensorflow_lite_support/cc/text/tokenizers/bert_tokenizer.h"
 #include "tensorflow_lite_support/cc/text/tokenizers/regex_tokenizer.h"
-#include "tensorflow_lite_support/cc/text/tokenizers/sentencepiece_tokenizer.h"
 #include "tensorflow_lite_support/metadata/metadata_schema_generated.h"
+#include "utils/bert_tokenizer.h"
 
 namespace tflite {
 namespace support {
 namespace text {
 namespace tokenizer {
 
-
-using ::tflite::ProcessUnit;
 using ::tflite::SentencePieceTokenizerOptions;
 using ::tflite::support::CreateStatusWithPayload;
 using ::tflite::support::StatusOr;
@@ -71,18 +68,8 @@ StatusOr<std::unique_ptr<Tokenizer>> CreateTokenizerFromProcessUnit(
       ASSIGN_OR_RETURN(absl::string_view vocab_buffer,
                        CheckAndLoadFirstAssociatedFile(options->vocab_file(),
                                                        metadata_extractor));
-      return absl::make_unique<BertTokenizer>(vocab_buffer.data(),
-                                              vocab_buffer.size());
-    }
-    case ProcessUnitOptions_SentencePieceTokenizerOptions: {
-      const tflite::SentencePieceTokenizerOptions* options =
-          tokenizer_process_unit->options_as<SentencePieceTokenizerOptions>();
-      ASSIGN_OR_RETURN(absl::string_view model_buffer,
-                       CheckAndLoadFirstAssociatedFile(
-                           options->sentencePiece_model(), metadata_extractor));
-      // TODO(b/160647204): Extract sentence piece model vocabulary
-      return absl::make_unique<SentencePieceTokenizer>(model_buffer.data(),
-                                                       model_buffer.size());
+      return absl::make_unique<libtextclassifier3::BertTokenizer>(
+          vocab_buffer.data(), vocab_buffer.size());
     }
     case ProcessUnitOptions_RegexTokenizerOptions: {
       const tflite::RegexTokenizerOptions* options =

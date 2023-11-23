@@ -4,8 +4,10 @@
 
 import logging
 import time
+from xml.parsers import expat
 
 from autotest_lib.client.common_lib import error
+from autotest_lib.server.cros.servo import servo
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
 
@@ -24,14 +26,28 @@ class firmware_ECChargingState(FirmwareTest):
     # The period to check battery state while charging.
     CHECK_BATT_STATE_WAIT = 60
 
+    # The min battery charged percentage that can be considered "full" by
+    # powerd. Should be kPowerSupplyFullFactorPref, which defaults to 98%, but
+    # that is a pref so set it a little lower to be safe.
+    FULL_BATTERY_PERCENT = 95
+
+    # Battery status
+    STATUS_FULLY_CHARGED = 0x20
+    STATUS_DISCHARGING = 0x40
+    STATUS_TERMINATE_CHARGE_ALARM = 0x4000
+    STATUS_OVER_CHARGED_ALARM = 0x8000
+    # TERMINATE_CHARGE_ALARM and OVER_CHARGED_ALARM are alarms that shows up during normal use.
+    # Other alarms should not appear during testing.
+    STATUS_ALARM_MASK = (0xFF00 & ~STATUS_TERMINATE_CHARGE_ALARM
+                         & ~STATUS_OVER_CHARGED_ALARM)
+
     def initialize(self, host, cmdline_args):
         super(firmware_ECChargingState, self).initialize(host, cmdline_args)
         if not self.check_ec_capability(['battery', 'charging']):
             raise error.TestNAError("Nothing needs to be tested on this DUT")
-        if self.servo.get_servo_version() != 'servo_v4_with_ccd_cr50':
-            raise error.TestNAError("This test can only be run with servo-v4 "
-                    "+ CCD. If you don't have a Type-C servo-v4, please run "
-                    "the test manually.")
+        if not self.servo.is_servo_v4_type_c():
+            raise error.TestNAError(
+                    "This test can only be run with servo-v4 Type-C.")
         if host.is_ac_connected() != True:
             raise error.TestFail("This test must be run with AC power.")
         self.switcher.setup_mode('normal')
@@ -49,8 +65,9 @@ class firmware_ECChargingState(FirmwareTest):
 
     def check_ac_state(self):
         """Check if AC is plugged."""
-        ac_state = int(self.ec.send_command_get_output("chgstate",
-            ["ac\s*=\s*(0|1)\s*"])[0][1])
+        ac_state = int(
+                self.ec.send_command_get_output("chgstate",
+                                                ["ac\s*=\s*(0|1)\s*"])[0][1])
         if ac_state == 1:
             return 'on'
         elif ac_state == 0:
@@ -58,11 +75,84 @@ class firmware_ECChargingState(FirmwareTest):
         else:
             return 'unknown'
 
-    def get_battery_level(self):
-        """Get battery charge percentage."""
-        batt_level = int(self.ec.send_command_get_output("battery",
-                ["Charge:\s+(\d+)\s+"])[0][1])
-        return batt_level
+    def _retry_send_cmd(self, command, regex_list):
+        """Send an EC command, and retry if it fails."""
+        retries = 3
+        while retries > 0:
+            retries -= 1
+            try:
+                return self.ec.send_command_get_output(command, regex_list)
+            except (servo.UnresponsiveConsoleError,
+                    servo.ResponsiveConsoleError, expat.ExpatError) as e:
+                if retries <= 0:
+                    raise
+                logging.warning('Failed to send EC cmd. %s', e)
+
+    def _get_battery_info(self):
+        """Return information about the battery in a dict."""
+        match = self._retry_send_cmd("battery", [
+                r"Status:\s*(0x[0-9a-f]+)\s",
+                r"Param flags:\s*([0-9a-f]+)\s",
+                r"Charge:\s+(\d+)\s+",
+        ])
+        status = int(match[0][1], 16)
+        params = int(match[1][1], 16)
+        level = int(match[2][1])
+
+        result = {
+                "status": status,
+                "flags": params,
+                "level": level,
+        }
+
+        if status & self.STATUS_ALARM_MASK != 0:
+            raise error.TestFail("Battery should not throw alarms: %s" %
+                                 result)
+
+        # The battery may raise a TERMINATE_CHARGE alarm transiently as
+        # it becomes fully charged. Exempt that case, but catch cases where
+        # it's yelling to stop for something like invalid charge parameters.
+        if (status & \
+            (self.STATUS_TERMINATE_CHARGE_ALARM | \
+             self.STATUS_FULLY_CHARGED)) == \
+            self.STATUS_TERMINATE_CHARGE_ALARM:
+            raise error.TestFail(
+                    "Battery raising TERMINATE_CHARGE alarm non-full: %s" %
+                    result)
+        return result
+
+    def _check_kernel_battery_state(
+            self,
+            sysfs_battery_state,
+            ec_battery_info,
+    ):
+        if sysfs_battery_state == 'Charging':
+            # Charging is just not-discharging. There is no ec battery status
+            # for charging.
+            if ec_battery_info['status'] & self.STATUS_DISCHARGING != 0:
+                raise error.TestFail(
+                        'Kernel reports battery %s, but actual state is %s',
+                        sysfs_battery_state, ec_battery_info)
+        elif sysfs_battery_state == 'Fully charged':
+            # Powerd has it's own creative way of determining full, it doesn't
+            # use the status from the EC. So we will consider it acceptable if
+            # the battery level is actually full, or above
+            if (
+                    ec_battery_info['status'] & self.STATUS_FULLY_CHARGED == 0
+                    and ec_battery_info['level'] < self.FULL_BATTERY_PERCENT):
+                raise error.TestFail(
+                        'Kernel reports battery %s, but actual state is %s',
+                        sysfs_battery_state, ec_battery_info)
+        elif (sysfs_battery_state == 'Not charging'
+              or sysfs_battery_state == 'Discharging'):
+            if ec_battery_info['status'] & self.STATUS_DISCHARGING == 0:
+                raise error.TestFail(
+                        'Kernel reports battery %s, but actual state is %s',
+                        sysfs_battery_state, ec_battery_info)
+        else:
+            raise error.TestFail(
+                    'Kernel reports battery %s, but actual state is %s',
+                    sysfs_battery_state, ec_battery_info)
 
     def run_once(self, host):
         """Execute the main body of the test."""
@@ -87,10 +177,12 @@ class firmware_ECChargingState(FirmwareTest):
         self.servo.power_normal_press()
         self.switcher.wait_for_client()
 
-        batt_state = host.get_battery_state()
-        if batt_state != 'Discharging':
-            raise error.TestFail("Wrong battery state. Expected: "
-                    "Discharging, got: %s." % batt_state)
+        battery = self._get_battery_info()
+        sysfs_battery_state = host.get_battery_state()
+        if battery['status'] & self.STATUS_DISCHARGING == 0:
+            raise error.TestFail("Wrong battery status. Expected: "
+                                 "Discharging, got: %s." % battery)
+        self._check_kernel_battery_state(sysfs_battery_state, battery)
 
         logging.info("Suspend, plug AC, and then wake up the device.")
         self.suspend()
@@ -105,27 +197,33 @@ class firmware_ECChargingState(FirmwareTest):
         self.servo.power_normal_press()
         self.switcher.wait_for_client()
 
-        batt_state = host.get_battery_state()
-        if batt_state != 'Charging' and batt_state != 'Fully charged':
+        battery = self._get_battery_info()
+        sysfs_battery_state = host.get_battery_state()
+        if (battery['status'] & self.STATUS_FULLY_CHARGED == 0
+                    and battery['status'] & self.STATUS_DISCHARGING != 0):
             raise error.TestFail("Wrong battery state. Expected: "
-                    "Charging/Fully charged, got: %s." % batt_state)
-
+                                 "Charging/Fully charged, got: %s." % battery)
+        self._check_kernel_battery_state(host.get_battery_state(), battery)
         logging.info("Keep charging until the battery reports fully charged.")
         deadline = time.time() + self.FULL_CHARGE_TIMEOUT
         while time.time() < deadline:
-            batt_state = host.get_battery_state()
-            if batt_state == 'Fully charged':
+            battery = self._get_battery_info()
+            if battery['status'] & self.STATUS_FULLY_CHARGED != 0:
                 logging.info("The battery reports fully charged.")
+                self._check_kernel_battery_state(host.get_battery_state(),
+                                                 battery)
                 return
-            elif batt_state == 'Charging':
-                logging.info("Wait for the battery to be fully charged. "
-                        "The current battery level is %d%%.",
-                        self.get_battery_level())
+            elif battery['status'] & self.STATUS_DISCHARGING == 0:
+                logging.info(
+                        "Wait for the battery to be fully charged. "
+                        "The current battery level is %d%%.", battery['level'])
             else:
-                raise error.TestFail("The battery state is %s. "
-                        "Is AC unplugged?", batt_state)
+                raise error.TestFail("Wrong battery state. Expected: "
+                                     "Charging/Fully charged, got: %s." %
+                                     battery)
             time.sleep(self.CHECK_BATT_STATE_WAIT)
 
-        raise error.TestFail("The battery does not report fully charged "
-                "before timeout is reached. The final battery level is %d%%.",
-                self.get_battery_level())
+        raise error.TestFail(
+                "The battery does not report fully charged "
+                "before timeout is reached. The final battery "
+                "level is %d%%.", battery['level'])

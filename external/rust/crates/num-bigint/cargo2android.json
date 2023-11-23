@@ -1,9 +1,14 @@
 {
+  "apex-available": [
+    "//apex_available:platform",
+    "com.android.virt"
+  ],
   "cfg-blocklist": [
     "use_addcarry"
   ],
   "copy-out": true,
   "device": true,
   "run": true,
-  "tests": true
+  "tests": true,
+  "vendor-available": true
 }

@@ -14,7 +14,6 @@ TST_PARSE_ARGS=parse_args
 TST_NEEDS_ROOT=1
 TST_NEEDS_DEVICE=1
 TST_NEEDS_CMDS="blkid df"
-. tst_test.sh
 
 usage()
 {
@@ -36,16 +35,14 @@ parse_args()
 setup()
 {
 	if [ -n "$TST_FS_TYPE" ]; then
-		tst_require_cmds mkfs.${TST_FS_TYPE}
+		tst_require_cmds mkfs.$TST_FS_TYPE
 	fi
-
-	ROD_SILENT mkdir -p mntpoint
 }
 
 mkfs_verify_type()
 {
 	if [ -z "$1" ]; then
-		blkid $2 -t TYPE="ext2" >/dev/null
+		blkid $2 -t TYPE="$TST_FS_TYPE" >/dev/null
 	else
 		if [ "$1" = "msdos" ]; then
 			blkid $2 -t TYPE="vfat" >/dev/null
@@ -58,7 +55,7 @@ mkfs_verify_type()
 mkfs_verify_size()
 {
 	tst_mount
-	local blocknum=`df -P -B 1k mntpoint | tail -n1 | awk '{print $2}'`
+	local blocknum=`df -P -B 1k $TST_MNTPOINT | tail -n1 | awk '{print $2}'`
 	tst_umount
 
 	if [ $blocknum -gt "$2" ]; then
@@ -102,7 +99,7 @@ mkfs_test()
 
 	local mkfs_cmd="mkfs $mkfs_op $fs_op $device $size"
 
-	echo ${fs_op} | grep -q "\-c"
+	echo $fs_op | grep -q "\-c"
 	if [ $? -eq 0 ] && [ "$fs_type" = "ntfs" ]; then
 		tst_res TCONF "'$mkfs_cmd' not supported."
 		return
@@ -115,7 +112,7 @@ mkfs_test()
 		fi
 	fi
 
-	${mkfs_cmd} >temp 2>&1
+	$mkfs_cmd >temp 2>&1
 	if [ $? -ne 0 ]; then
 		grep -q -E "unknown option | invalid option" temp
 		if [ $? -eq 0 ]; then
@@ -174,4 +171,5 @@ test5()
 	mkfs_test "-h"
 }
 
+. tst_test.sh
 tst_run

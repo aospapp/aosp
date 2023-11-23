@@ -164,6 +164,10 @@ cc_library_static {
         "//apex_available:anyapex",
     ],
     min_sdk_version: "apex_inherit",
+    // sdk_version normally isn't needed as only the platform variant
+    // is used, except on riscv64 which doesn't have an NDK libc++ and
+    // reuses this module for sdk variants.
+    sdk_version: "current",
 }
 
 cc_fuzz {

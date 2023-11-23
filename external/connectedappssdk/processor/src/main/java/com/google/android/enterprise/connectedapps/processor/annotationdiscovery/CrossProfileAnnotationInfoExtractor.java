@@ -43,7 +43,6 @@ final class CrossProfileAnnotationInfoExtractor
         CrossProfileAnnotationInfo.builder()
             .setConnectorClass(
                 GeneratorUtilities.extractClassFromAnnotation(types, annotation::connector))
-            .setProfileClassName(annotation.profileClassName())
             .setParcelableWrapperClasses(
                 ImmutableSet.copyOf(
                     GeneratorUtilities.extractClassesFromAnnotation(
@@ -54,12 +53,6 @@ final class CrossProfileAnnotationInfoExtractor
                         types, annotation::futureWrappers)))
             .setIsStatic(annotation.isStatic());
 
-    long timeoutMillis = annotation.timeoutMillis();
-
-    if (timeoutMillis != CrossProfileAnnotation.TIMEOUT_MILLIS_NOT_SET) {
-      builder.setTimeoutMillis(timeoutMillis);
-    }
-
     return builder.build();
   }
 
@@ -69,7 +62,6 @@ final class CrossProfileAnnotationInfoExtractor
         .setConnectorClass(
             elements.getTypeElement(
                 "com.google.android.enterprise.connectedapps.annotations.CrossProfile"))
-        .setProfileClassName("")
         .setParcelableWrapperClasses(ImmutableSet.of())
         .setFutureWrapperClasses(ImmutableSet.of())
         .setIsStatic(false)

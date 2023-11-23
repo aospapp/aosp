@@ -52,7 +52,7 @@ KmemActivityTrigger::~KmemActivityTrigger() {
 KmemActivityTrigger::WorkerData::~WorkerData() {
   PERFETTO_DCHECK_THREAD(thread_checker_);
   if (ftrace_procfs_) {
-    ftrace_procfs_->DisableTracing();
+    ftrace_procfs_->SetTracingOn(false);
     ftrace_procfs_->ClearTrace();
   }
   DisarmFtraceFDWatches();
@@ -79,7 +79,7 @@ KmemActivityTrigger::WorkerData::WorkerData(base::TaskRunner* task_runner)
   ftrace_procfs_->DisableAllEvents();
   ftrace_procfs_->EnableEvent("vmscan", "mm_vmscan_direct_reclaim_begin");
   ftrace_procfs_->EnableEvent("compaction", "mm_compaction_begin");
-  ftrace_procfs_->EnableTracing();
+  ftrace_procfs_->SetTracingOn(true);
 
   num_cpus_ = ftrace_procfs_->NumberOfCpus();
   for (size_t cpu = 0; cpu < num_cpus_; cpu++) {
@@ -90,13 +90,14 @@ KmemActivityTrigger::WorkerData::WorkerData(base::TaskRunner* task_runner)
       // Deliberately keeping this into the |trace_pipe_fds_| array so there is
       // a 1:1 mapping between CPU number and index in the array.
     } else {
-        // Attempt reading from the trace pipe to detect if the CPU is disabled,
-        // since open() doesn't fail. (b/169210648, b/178929757) This doesn't block
-        // as OpenPipeForCpu() opens the pipe in non-blocking mode.
-        char ch;
-        if (base::Read(scoped_fd.get(), &ch, sizeof(char)) < 0 && errno == ENODEV) {
-            scoped_fd.reset();
-        }
+      // Attempt reading from the trace pipe to detect if the CPU is disabled,
+      // since open() doesn't fail. (b/169210648, b/178929757) This doesn't
+      // block as OpenPipeForCpu() opens the pipe in non-blocking mode.
+      char ch;
+      if (base::Read(scoped_fd.get(), &ch, sizeof(char)) < 0 &&
+          errno == ENODEV) {
+        scoped_fd.reset();
+      }
     }
   }
 

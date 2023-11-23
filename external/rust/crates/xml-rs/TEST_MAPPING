@@ -3,12 +3,12 @@
   "imports": [
     {
       "path": "external/rust/crates/serde-xml-rs"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
     }
   ],
   "presubmit": [
-    {
-      "name": "virtualizationservice_device_test"
-    },
     {
       "name": "xml-rs_test_tests_event_reader"
     },
@@ -20,9 +20,6 @@
     }
   ],
   "presubmit-rust": [
-    {
-      "name": "virtualizationservice_device_test"
-    },
     {
       "name": "xml-rs_test_tests_event_reader"
     },

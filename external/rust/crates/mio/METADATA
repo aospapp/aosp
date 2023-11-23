@@ -1,5 +1,9 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/mio
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "mio"
-description: "Lightweight non-blocking IO"
+description: "Lightweight non-blocking I/O."
 third_party {
   url {
     type: HOMEPAGE
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/mio/mio-0.7.13.crate"
+    value: "https://static.crates.io/crates/mio/mio-0.8.6.crate"
   }
-  version: "0.7.13"
+  version: "0.8.6"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2021
-    month: 6
-    day: 21
+    year: 2023
+    month: 2
+    day: 16
   }
 }

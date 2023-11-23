@@ -1,40 +1,17 @@
-/******************************************************************************
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright (c) International Business Machines  Corp., 2007, 2008
  *
- *   Copyright © International Business Machines  Corp., 2007, 2008
+ * Authors: Darren Hart <dvhltc@us.ibm.com>
+ *          Dinakar Guniguntala <dino@in.ibm.com>
+ */
+/*\
+ * [Description]
  *
- *   This program is free software;  you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
- *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY;  without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
- *   the GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program;  if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
- *
- * NAME
- *      matrix_mult.c
- *
- * DESCRIPTION
- *      Compare running sequential matrix multiplication routines
- *      to running them in parallel to judge mutliprocessor
- *      performance
- *
- * USAGE:
- *      Use run_auto.sh script in current directory to build and run test.
- *
- * AUTHOR
- *      Darren Hart <dvhltc@us.ibm.com>
- *
- * HISTORY
- *      2007-Mar-09:  Initial version by Darren Hart <dvhltc@us.ibm.com>
- *      2008-Feb-26:  Closely emulate jvm Dinakar Guniguntala <dino@in.ibm.com>
- *
- *****************************************************************************/
+ * Compare running sequential matrix multiplication routines
+ * to running them in parallel to judge multiprocessor
+ * performance
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,9 +46,14 @@ static int iterations_percpu;
 stats_container_t sdat, cdat, *curdat;
 stats_container_t shist, chist;
 static pthread_barrier_t mult_start;
-static pthread_mutex_t mutex_cpu;
 
-void usage(void)
+struct matrices {
+	double A[MATRIX_SIZE][MATRIX_SIZE];
+	double B[MATRIX_SIZE][MATRIX_SIZE];
+	double C[MATRIX_SIZE][MATRIX_SIZE];
+};
+
+static void usage(void)
 {
 	rt_help();
 	printf("matrix_mult specific options:\n");
@@ -80,7 +62,7 @@ void usage(void)
 	printf("  -i#	   #: number of iterations\n");
 }
 
-int parse_args(int c, char *v)
+static int parse_args(int c, char *v)
 {
 	int handled = 1;
 	switch (c) {
@@ -100,7 +82,7 @@ int parse_args(int c, char *v)
 	return handled;
 }
 
-void matrix_init(double A[MATRIX_SIZE][MATRIX_SIZE],
+static void matrix_init(double A[MATRIX_SIZE][MATRIX_SIZE],
 		 double B[MATRIX_SIZE][MATRIX_SIZE])
 {
 	int i, j;
@@ -112,41 +94,39 @@ void matrix_init(double A[MATRIX_SIZE][MATRIX_SIZE],
 	}
 }
 
-void matrix_mult(int m_size)
+static void matrix_mult(struct matrices *matrices)
 {
-	double A[m_size][m_size];
-	double B[m_size][m_size];
-	double C[m_size][m_size];
 	int i, j, k;
 
-	matrix_init(A, B);
-	for (i = 0; i < m_size; i++) {
-		int i_m = m_size - i;
-		for (j = 0; j < m_size; j++) {
-			double sum = A[i_m][j] * B[j][i];
-			for (k = 0; k < m_size; k++)
-				sum += A[i_m][k] * B[k][j];
-			C[i][j] = sum;
+	matrix_init(matrices->A, matrices->B);
+	for (i = 0; i < MATRIX_SIZE; i++) {
+		int i_m = MATRIX_SIZE - i;
+		for (j = 0; j < MATRIX_SIZE; j++) {
+			double sum = matrices->A[i_m][j] *  matrices->B[j][i];
+			for (k = 0; k < MATRIX_SIZE; k++)
+				sum +=  matrices->A[i_m][k] *  matrices->B[k][j];
+			 matrices->C[i][j] = sum;
 		}
 	}
 }
 
-void matrix_mult_record(int m_size, int index)
+static void matrix_mult_record(struct matrices *matrices, int index)
 {
 	nsec_t start, end, delta;
 	int i;
 
 	start = rt_gettime();
 	for (i = 0; i < ops; i++)
-		matrix_mult(MATRIX_SIZE);
+		matrix_mult(matrices);
 	end = rt_gettime();
 	delta = (long)((end - start) / NS_PER_US);
 	curdat->records[index].x = index;
 	curdat->records[index].y = delta;
 }
 
-int set_affinity(void)
+static int set_affinity(void)
 {
+	static pthread_mutex_t mutex_cpu = PTHREAD_MUTEX_INITIALIZER;
 	cpu_set_t mask;
 	int cpuid;
 
@@ -166,9 +146,10 @@ int set_affinity(void)
 	return -1;
 }
 
-void *concurrent_thread(void *thread)
+static void *concurrent_thread(void *thread)
 {
 	struct thread *t = (struct thread *)thread;
+	struct matrices *matrices = (struct matrices *) t->arg;
 	int thread_id = (intptr_t) t->id;
 	int cpuid;
 	int i;
@@ -183,18 +164,22 @@ void *concurrent_thread(void *thread)
 	index = iterations_percpu * thread_id;	/* To avoid stats overlapping */
 	pthread_barrier_wait(&mult_start);
 	for (i = 0; i < iterations_percpu; i++)
-		matrix_mult_record(MATRIX_SIZE, index++);
+		matrix_mult_record(matrices, index++);
 
 	return NULL;
 }
 
-void main_thread(void)
+static int main_thread(void)
 {
 	int ret, i, j;
 	nsec_t start, end;
 	long smin = 0, smax = 0, cmin = 0, cmax = 0, delta = 0;
 	float savg, cavg;
 	int cpuid;
+	struct matrices *matrices[numcpus];
+
+	for (i = 0; i < numcpus; ++i)
+		matrices[i] = malloc(sizeof(struct matrices));
 
 	if (stats_container_init(&sdat, iterations) ||
 	    stats_container_init(&shist, HIST_BUCKETS) ||
@@ -205,12 +190,11 @@ void main_thread(void)
 		exit(1);
 	}
 
-	tids = malloc(sizeof(int) * numcpus);
+	tids = calloc(numcpus, sizeof(int));
 	if (!tids) {
 		perror("malloc");
 		exit(1);
 	}
-	memset(tids, 0, numcpus);
 
 	cpuid = set_affinity();
 	if (cpuid == -1) {
@@ -224,7 +208,7 @@ void main_thread(void)
 	printf("\nRunning sequential operations\n");
 	start = rt_gettime();
 	for (i = 0; i < iterations; i++)
-		matrix_mult_record(MATRIX_SIZE, i);
+		matrix_mult_record(matrices[0], i);
 	end = rt_gettime();
 	delta = (long)((end - start) / NS_PER_US);
 
@@ -256,7 +240,7 @@ void main_thread(void)
 	online_cpu_id = -1;	/* Redispatch cpus */
 	/* Create numcpus-1 concurrent threads */
 	for (j = 0; j < numcpus; j++) {
-		tids[j] = create_fifo_thread(concurrent_thread, NULL, PRIO);
+		tids[j] = create_fifo_thread(concurrent_thread, matrices[j], PRIO);
 		if (tids[j] == -1) {
 			printf
 			    ("Thread creation failed (max threads exceeded?)\n");
@@ -308,7 +292,10 @@ void main_thread(void)
 	     criteria);
 	printf("Result: %s\n", ret ? "FAIL" : "PASS");
 
-	return;
+	for (i = 0; i < numcpus; i++)
+		free(matrices[i]);
+
+	return ret;
 }
 
 int main(int argc, char *argv[])
@@ -319,7 +306,7 @@ int main(int argc, char *argv[])
 	numcpus = sysconf(_SC_NPROCESSORS_ONLN);
 	/* the minimum avg concurrent multiplier to pass */
 	criteria = pass_criteria * numcpus;
-	int new_iterations;
+	int new_iterations, ret;
 
 	if (iterations <= 0) {
 		fprintf(stderr, "iterations must be greater than zero\n");
@@ -348,7 +335,7 @@ int main(int argc, char *argv[])
 	printf("Number of CPUs: %u\n", numcpus);
 
 	set_priority(PRIO);
-	main_thread();
+	ret = main_thread();
 
-	return 0;
+	return ret;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
+/* Copyright 2014 The ChromiumOS Authors
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -72,4 +72,8 @@ struct fscrypt_policy_v1 {
 #endif /* !FS_IOC_SET_ENCRYPTION_POLICY && !FS_IOC_GET_ENCRYPTION_POLICY */
 #if !defined(FS_IOC_GET_ENCRYPTION_POLICY_EX)
 #define FS_IOC_GET_ENCRYPTION_POLICY_EX _IOWR('f', 22, __u8[9])
+#endif
+
+#if !defined(MADV_FREE)
+#define MADV_FREE 8
 #endif

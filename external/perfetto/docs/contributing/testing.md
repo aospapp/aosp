@@ -98,11 +98,11 @@ Trace Processor diff tests
 Trace processor is mainly tested using so called "diff tests".
 
 For these tests, trace processor parses a known trace and executes a query
-file. The output of these queries is then compared (i.e. "diff"ed) against
+string or file. The output of these queries is then compared (i.e. "diff"ed) against
 an expected output file and discrepencies are highlighted.
 
 Similar diff tests are also available when writing metrics - instead of a
-query file, the metric name is used and the expected output file contains
+query, the metric name is used and the expected output string contains
 the expected result of computing the metric.
 
 These tests (for both queries and metrics) can be run as follows:
@@ -110,11 +110,6 @@ These tests (for both queries and metrics) can be run as follows:
 tools/ninja -C <out directory>
 tools/diff_test_trace_processor.py <out directory>/trace_processor_shell
 ```
-
-To add a new diff test (for query tests only), the `tools/add_tp_diff_test.py`
-script is useful. It will automatically create the query and expected output
-files and adds them both to the index. For metrics, this has to be done
-manually for now.
 
 TIP: Query diff tests are expected to only have a single query which produces
 output in the whole file (usually at the end). Calling
@@ -149,9 +144,9 @@ Once finished you can commit and upload as part of your CL to cause the CI to
 use your new screenshots.
 
 NOTE: If you see a failing diff test you can see the pixel differences on the CI
-by using the link to the UI and replace `/ui/index.html` with
-`/ui-test-artifacts/<name_of_failing_png_test_from_logs>.png`. This allows you
-to tell where in the picture the change was introduced.
+by using a link ending with `ui-test-artifacts/index.html`. Report located on
+that page contains changed screenshots as well as a command to accept the
+changes if these are desirable.
 
 Android CTS tests
 -----------------
@@ -177,7 +172,7 @@ Finally, the following command should be run:
 adb shell /data/local/tmp/CtsPerfettoTestCases64
 ```
 
-Chromium waterfall
+{#chromium} Chromium waterfall
 ------------------
 Perfetto is constantly rolled into chromium's //third_party/perfetto via
 [this autoroller](https://autoroll.skia.org/r/perfetto-chromium-autoroll).
@@ -185,4 +180,66 @@ Perfetto is constantly rolled into chromium's //third_party/perfetto via
 The [Chromium CI](https://build.chromium.org) runs the `perfetto_unittests`
 target, as defined in the [buildbot config][chromium_buildbot].
 
+You can also test a pending Perfetto CL against Chromium's CI / TryBots
+before submitting it. This can be useful when making trickier API changes or to
+test on platforms that the Perfetto CI doesn't cover (e.g. Windows, MacOS),
+allowing you to verify the patch before you submit it (and it then eventually
+auto-rolls into Chromium).
+
+To do this, first make sure you have uploaded your Perfetto patch to the
+Android Gerrit. Next, create a new Chromium CL that modifies Chromium's
+`//src/DEPS` file.
+
+If you recently uploaded your change, it may be enough to modify the git commit
+hash in the `DEPS` entry for `src/third_party/perfetto`:
+
+```
+  'src/third_party/perfetto':
+    Var('android_git') + '/platform/external/perfetto.git' + '@' + '8fe19f55468ee227e99c1a682bd8c0e8f7e5bcdb',
+```
+
+Replace the git hash with the commit hash of your most recent patch set, which
+you can find in gerrit next to the active patch set number.
+
+Alternatively, you can add `hooks` to patch in the pending CL on top of
+Chromium's current third_party/perfetto revision. For this, add the following
+entries to the `hooks` array in Chromium's `//src/DEPS` file, modifying the
+`refs/changes/XX/YYYYYYY/ZZ` to the appropriate values for your gerrit change.
+You can see these values when pressing the "Download" button in gerrit. You can
+also use this method to patch in multiple Perfetto changes at once by
+adding additional `hooks` entries. [Here][chromium_cl]'s an example CL.
+
+```
+  {
+    'name': 'fetch_custom_patch',
+    'pattern': '.',
+    'action': [ 'git', '-C', 'src/third_party/perfetto/',
+                'fetch', 'https://android.googlesource.com/platform/external/perfetto',
+                'refs/changes/XX/YYYYYYY/ZZ',
+    ],
+  },
+  {
+    'name': 'apply_custom_patch',
+    'pattern': '.',
+    'action': ['git', '-C', 'src/third_party/perfetto/',
+               '-c', 'user.name=Custom Patch', '-c', 'user.email=custompatch@example.com',
+               'cherry-pick', 'FETCH_HEAD',
+    ],
+  },
+```
+
+If you'd like to test your change against the SDK build of Chrome, you
+can add `Cq-Include-Trybots:` lines for perfetto SDK trybots to the change
+description in gerrit (this won't be needed once Chrome's migration to the
+SDK is complete, see [tracking bug][sdk_migration_bug]):
+
+```
+Cq-Include-Trybots: luci.chromium.try:linux-perfetto-rel
+Cq-Include-Trybots: luci.chromium.try:android-perfetto-rel
+Cq-Include-Trybots: luci.chromium.try:mac-perfetto-rel
+Cq-Include-Trybots: luci.chromium.try:win-perfetto-rel
+```
+
 [chromium_buildbot]: https://cs.chromium.org/search/?q=perfetto_.*tests+f:%5Esrc/testing.*json$&sq=package:chromium&type=cs
+[chromium_cl]: https://chromium-review.googlesource.com/c/chromium/src/+/2030528
+[sdk_migration_bug]: https://crbug.com/1006541

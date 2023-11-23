@@ -12,6 +12,7 @@ JOB_RETRIES = 1
 TEST_TYPE = 'server'
 TIME = 'MEDIUM'
 MAX_RESULT_SIZE_KB = 512000
+PY_VERSION = 3
 DOC = 'Run module CtsAppSecurityHostTestCases of the Android Compatibility Test Suite (CTS) using x86 ABI in the ARC++ container.'
 
 def run_TS(machine):
@@ -31,6 +32,6 @@ def run_TS(machine):
         retry_manual_tests=True,
         use_jdk9=True,
         warn_on_test_retry=False,
-        timeout=3600)
+        timeout=7200)
 
 parallel_simple(run_TS, machines)

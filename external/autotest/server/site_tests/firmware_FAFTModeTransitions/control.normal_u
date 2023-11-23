@@ -9,11 +9,12 @@ NAME = "firmware_FAFTModeTransitions.normal_u"
 PURPOSE = "Test FAFT ability to switch from normal to another mode and back"
 CRITERIA = "This test will fail if FAFT can not switch from normal and back again."
 ATTRIBUTES = "suite:faft_smoke"
+DEPENDENCIES = "servo_state:WORKING, servo_usb_state:NORMAL"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
-JOB_RETRIES = 4
+PY_VERSION = 3
 
 DOC = """
 This test checks the following mode transitions:

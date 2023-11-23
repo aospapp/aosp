@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_Fingerprint.ReadFlash"
 PURPOSE = """
 Verify that fingerprint flash cannot be read.
@@ -19,6 +19,7 @@ TEST_CLASS = "firmware"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING, fingerprint"
 JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """
 Attempts to read flash from RW firmware and validates that it fails. Then

@@ -1,14 +1,7 @@
 {
-  "apex-available": [
-    "//apex_available:platform",
-    "com.android.bluetooth",
-    "com.android.compos",
-    "com.android.resolv",
-    "com.android.uwb",
-    "com.android.virt"
-  ],
   "dependencies": true,
   "dependency-blocklist": [
+    "backtrace",
     "rustversion",
     "syn",
     "trybuild"
@@ -18,8 +11,13 @@
   "run": true,
   "test-blocklist": [
     "tests/compiletest.rs",
-    "tests/test_backtrace.rs"
+    "tests/test_backtrace.rs",
+    "tests/test_ensure.rs"
   ],
   "tests": true,
-  "vendor-available": true
+  "vendor-available": true,
+  "product-available": true,
+  "cfg-blocklist": [
+    "backtrace"
+  ]
 }

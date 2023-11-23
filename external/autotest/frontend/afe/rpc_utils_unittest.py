@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # Copyright (c) 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -6,8 +6,8 @@
 
 """Unit tests for frontend/afe/rpc_utils.py."""
 
-import mock
 import unittest
+from unittest import mock
 
 import common
 from autotest_lib.client.common_lib import control_data

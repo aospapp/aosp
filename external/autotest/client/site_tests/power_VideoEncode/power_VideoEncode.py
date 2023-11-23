@@ -1,4 +1,5 @@
-# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Lint as: python2, python3
+# # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 import logging
@@ -48,10 +49,12 @@ class power_VideoEncode(power_test.power_Test):
                        Format is tuple of codec, resolution and framerate.
         """
         extra_browser_args = self.get_extra_browser_args_for_camera_test()
+        # b/228256145 to avoid powerd restart
+        extra_browser_args.append('--disable-features=FirmwareUpdaterApp')
         with chrome.Chrome(init_network_controller=True,
                            extra_browser_args=extra_browser_args) as cr:
 
-            tab = cr.browser.tabs.New()
+            tab = cr.browser.tabs[0]
             tab.Activate()
 
             # Just measure power in full-screen.
@@ -59,6 +62,9 @@ class power_VideoEncode(power_test.power_Test):
             if not fullscreen:
                 with keyboard.Keyboard() as keys:
                     keys.press_key('f4')
+
+            # Stop services again as Chrome might have restarted them.
+            self._services.stop_services()
 
             url = self.video_url
             tab.Navigate(url)

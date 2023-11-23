@@ -78,6 +78,8 @@ java_test {
         javacflags: [
             "-Xep:MissingOverride:OFF",
             "-Xep:DoNotCall:OFF",
+            "-Xep:TryFailThrowable:OFF",
+            "-Xep:ReturnValueIgnored:OFF",
         ],
     },
 }

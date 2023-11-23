@@ -88,7 +88,7 @@ void TestCeilOfRatioUnsigned(uint64 kMax) {
 template <typename SignedInteger>
 void TestCeilOfRatioSigned(int64_t kMin, int64_t kMax) {
   const int kNumTests = 30;
-  const int64 kTestData[kNumTests][kNumTestArguments] = {
+  const int64_t kTestData[kNumTests][kNumTestArguments] = {
       // Numerator  | Denominator | Expected floor of ratio | Expected ceil of
       // ratio |
       // When numerator = 0, the result is always zero
@@ -130,7 +130,7 @@ void TestCeilOfRatioSigned(int64_t kMin, int64_t kMax) {
       {kMax, kMin, -1, 0},
       {kMax, kMax, 1, 1},
   };
-  TestCeilOfRatio<SignedInteger, int64>(kTestData, kNumTests);
+  TestCeilOfRatio<SignedInteger, int64_t>(kTestData, kNumTests);
 }
 
 // ------------------------------------------------------------------------ //
@@ -194,7 +194,7 @@ TEST(MathUtil, CeilOfRatio) {
   TestCeilOfRatioSigned<int8>(kint8min, kint8max);
   TestCeilOfRatioSigned<int16>(kint16min, kint16max);
   TestCeilOfRatioSigned<int32>(kint32min, kint32max);
-  TestCeilOfRatioSigned<int64>(kint64min, kint64max);
+  TestCeilOfRatioSigned<int64_t>(kint64min, kint64max);
 #if 0
   TestThatCeilOfRatioDenomMinusOneIsIncorrect();
 #endif
@@ -261,11 +261,11 @@ TEST(MathUtil, IPow) {
   TestOneIPowN<double>();
   TestOneIPowN<float>();
   TestOneIPowN<int>();
-  TestOneIPowN<int64>();
+  TestOneIPowN<int64_t>();
   TestTwoIPowN<double>();
   TestTwoIPowN<float>();
   TestTwoIPowN<int>();
-  TestTwoIPowN<int64>();
+  TestTwoIPowN<int64_t>();
 
   EXPECT_EQ(MathUtil::IPow(3, 0), 1);
   EXPECT_EQ(MathUtil::IPow(3, 1), 3);
@@ -334,6 +334,24 @@ TEST(MathUtil, IPowEdgeCases) {
   // pow(-∞, exp) returns -0 if exp is a negative odd integer
   // pow(-∞, exp) returns +0 if exp is a negative non-integer or even integer
   // pow(+∞, exp) returns +0 for any negative exp
+}
+
+TEST(MathUtil, Sign) {
+  EXPECT_EQ(MathUtil::Sign(1), 1);
+  EXPECT_EQ(MathUtil::Sign(0), 0);
+  EXPECT_EQ(MathUtil::Sign(-1), -1);
+
+  EXPECT_EQ(MathUtil::Sign(0.0f), 0.0f);
+  EXPECT_EQ(MathUtil::Sign(1.0f), 1.0f);
+  EXPECT_EQ(MathUtil::Sign(-1.0f), -1.0f);
+
+  EXPECT_EQ(MathUtil::Sign(std::numeric_limits<float>::infinity()), 1.0f);
+  EXPECT_EQ(MathUtil::Sign(-std::numeric_limits<float>::infinity()), -1.0f);
+
+  EXPECT_TRUE(
+      std::isnan(MathUtil::Sign(std::numeric_limits<float>::quiet_NaN())));
+  EXPECT_TRUE(
+      std::isnan(MathUtil::Sign(-std::numeric_limits<float>::quiet_NaN())));
 }
 
 }  // namespace

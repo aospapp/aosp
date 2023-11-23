@@ -14,6 +14,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
 ATTRIBUTES = "suite:wifi_tdls_cast"
+PY_VERSION = 3
 DOC = """
   Test a mirroring session between a TDLS enabled ChromeOS device and
   Chromecast. The test downloads Cast extension from Chrome Web Store,

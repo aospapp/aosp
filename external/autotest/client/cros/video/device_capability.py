@@ -61,7 +61,7 @@ class DeviceCapability(object):
                                          'managed-capabilities.yaml')
         if not os.path.exists(managed_cap_fpath):
             raise error.TestFail("%s is not installed" % managed_cap_fpath)
-        managed_caps = yaml.load(file(managed_cap_fpath))
+        managed_caps = yaml.safe_load(open(managed_cap_fpath))
 
         cap_files = [f for f in os.listdir(settings_path)
                      if re.match(r'^[0-9]+-.*\.yaml$', f)]
@@ -72,7 +72,7 @@ class DeviceCapability(object):
         for fname in cap_files:
             logging.debug('Processing caps: %s', fname)
             fname = os.path.join(settings_path, fname)
-            for rule in yaml.load(file(fname)):
+            for rule in yaml.safe_load(open(fname)):
                 # The type of rule is string or dict
                 # If the type is a string, it is a capability (e.g. webcam).
                 # If a specific condition (e.g. kepler, cpu type) is required,

@@ -1102,6 +1102,29 @@ void wpas_dbus_signal_eap_status(struct wpa_supplicant *wpa_s,
 }
 
 
+void wpas_dbus_signal_psk_mismatch(struct wpa_supplicant *wpa_s)
+{
+	struct wpas_dbus_priv *iface;
+	DBusMessage *msg;
+
+	iface = wpa_s->global->dbus;
+
+	/* Do nothing if the control interface is not turned on */
+	if (!iface || !wpa_s->dbus_new_path)
+		return;
+
+	msg = dbus_message_new_signal(wpa_s->dbus_new_path,
+				      WPAS_DBUS_NEW_IFACE_INTERFACE,
+				      "PskMismatch");
+	if (!msg)
+		return;
+
+	dbus_connection_send(iface->con, msg, NULL);
+
+	dbus_message_unref(msg);
+}
+
+
 /**
  * wpas_dbus_signal_sta - Send a station related event signal
  * @wpa_s: %wpa_supplicant network interface data
@@ -2343,6 +2366,12 @@ void wpas_dbus_signal_prop_changed(struct wpa_supplicant *wpa_s,
 		break;
 	case WPAS_DBUS_PROP_BSS_TM_STATUS:
 		prop = "BSSTMStatus";
+		break;
+	case WPAS_DBUS_PROP_MAC_ADDRESS:
+		prop = "MACAddress";
+		break;
+	case WPAS_DBUS_PROP_SIGNAL_CHANGE:
+		prop = "SignalChange";
 		break;
 	default:
 		wpa_printf(MSG_ERROR, "dbus: %s: Unknown Property value %d",
@@ -3939,6 +3968,11 @@ static const struct wpa_dbus_property_desc wpas_dbus_interface_properties[] = {
 	  wpas_dbus_setter_mac_address_randomization_mask,
 	  NULL
 	},
+	{ "MACAddress", WPAS_DBUS_NEW_IFACE_INTERFACE, "ay",
+	  wpas_dbus_getter_mac_address,
+	  NULL,
+	  NULL,
+	},
 	{ NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -4518,6 +4552,11 @@ static const struct wpa_dbus_property_desc wpas_dbus_p2p_peer_properties[] = {
 	},
 	{ "VSIE", WPAS_DBUS_NEW_IFACE_P2P_PEER, "ay",
 	  wpas_dbus_getter_p2p_peer_vsie,
+	  NULL,
+	  NULL
+	},
+	{ "SignalChange", WPAS_DBUS_NEW_IFACE_INTERFACE, "a{sv}",
+	  wpas_dbus_getter_signal_change,
 	  NULL,
 	  NULL
 	},

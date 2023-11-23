@@ -15,6 +15,7 @@ TEST_CLASS = "audio"
 TEST_TYPE = "server"
 #ATTRIBUTES = "suite:chameleon_audio_unstable"
 DEPENDENCIES = "audio_box, hotwording"
+PY_VERSION = 3
 
 DOC = """
 A basic assistant voice command test with hotword dsp.

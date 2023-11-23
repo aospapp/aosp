@@ -16,11 +16,11 @@
 
 #include <algorithm>
 #include <map>
+#include <optional>
 #include <random>
 #include <string>
 
 #include "perfetto/base/logging.h"
-#include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/scoped_file.h"
 #include "perfetto/trace_processor/trace_processor.h"
 #include "protos/perfetto/common/descriptor.pbzero.h"
@@ -133,7 +133,7 @@ TEST_F(TraceProcessorIntegrationTest, AndroidSchedAndPs) {
       "where dur != 0 and utid != 0");
   ASSERT_TRUE(it.Next());
   ASSERT_EQ(it.Get(0).type, SqlValue::kLong);
-  ASSERT_EQ(it.Get(0).long_value, 139787);
+  ASSERT_EQ(it.Get(0).long_value, 139793);
   ASSERT_EQ(it.Get(1).type, SqlValue::kLong);
   ASSERT_EQ(it.Get(1).long_value, 19684308497);
   ASSERT_FALSE(it.Next());
@@ -232,7 +232,7 @@ TEST_F(TraceProcessorIntegrationTest, Sfgate) {
       "on s.track_id = t.id where utid != 0");
   ASSERT_TRUE(it.Next());
   ASSERT_EQ(it.Get(0).type, SqlValue::kLong);
-  ASSERT_EQ(it.Get(0).long_value, 39828);
+  ASSERT_EQ(it.Get(0).long_value, 43357);
   ASSERT_EQ(it.Get(1).type, SqlValue::kLong);
   ASSERT_EQ(it.Get(1).long_value, 40532506000);
   ASSERT_FALSE(it.Next());
@@ -423,35 +423,34 @@ TEST_F(TraceProcessorIntegrationTest, RestoreInitialTables) {
 // with opening the same trace with ninjatracing + chrome://tracing.
 TEST_F(TraceProcessorIntegrationTest, NinjaLog) {
   ASSERT_TRUE(LoadTrace("ninja_log", 1024).ok());
-  auto it = Query("select count(*) from process where name like 'Build';");
+  auto it = Query("select count(*) from process where name glob 'Build';");
   ASSERT_TRUE(it.Next());
-  ASSERT_EQ(it.Get(0).long_value, 2);
+  ASSERT_EQ(it.Get(0).long_value, 1);
 
   it = Query(
       "select count(*) from thread left join process using(upid) where "
       "thread.name like 'Worker%' and process.pid=1");
   ASSERT_TRUE(it.Next());
-  ASSERT_EQ(it.Get(0).long_value, 14);
+  ASSERT_EQ(it.Get(0).long_value, 28);
 
   it = Query(
       "create view slices_1st_build as select slices.* from slices left "
       "join thread_track on(slices.track_id == thread_track.id) left join "
-      "thread using(utid) left join process using(upid) where pid=2");
+      "thread using(utid) left join process using(upid) where pid=1");
   it.Next();
   ASSERT_TRUE(it.Status().ok());
 
   it = Query("select (max(ts) - min(ts)) / 1000000 from slices_1st_build");
   ASSERT_TRUE(it.Next());
-  ASSERT_EQ(it.Get(0).long_value, 12612);
+  ASSERT_EQ(it.Get(0).long_value, 44697);
 
   it = Query("select name from slices_1st_build order by ts desc limit 1");
   ASSERT_TRUE(it.Next());
-  ASSERT_STREQ(it.Get(0).string_value,
-               "obj/src/trace_processor/unittests.trace_sorter_unittest.o");
+  ASSERT_STREQ(it.Get(0).string_value, "trace_processor_shell");
 
   it = Query("select sum(dur) / 1000000 from slices_1st_build");
   ASSERT_TRUE(it.Next());
-  ASSERT_EQ(it.Get(0).long_value, 276174);
+  ASSERT_EQ(it.Get(0).long_value, 837192);
 }
 
 /*

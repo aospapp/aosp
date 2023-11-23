@@ -41,11 +41,19 @@ int fdt_get_stdout_node_offset(const void *dtb);
 uint64_t fdtw_translate_address(const void *dtb, int bus_node,
 				uint64_t base_address);
 
+int fdtw_for_each_cpu(const void *fdt,
+		      int (*callback)(const void *dtb, int node, uintptr_t mpidr));
+
 static inline uint32_t fdt_blob_size(const void *dtb)
 {
 	const uint32_t *dtb_header = dtb;
 
 	return fdt32_to_cpu(dtb_header[1]);
 }
+
+#define fdt_for_each_compatible_node(dtb, node, compatible_str)       \
+for (node = fdt_node_offset_by_compatible(dtb, -1, compatible_str);   \
+     node >= 0;                                                       \
+     node = fdt_node_offset_by_compatible(dtb, node, compatible_str))
 
 #endif /* FDT_WRAPPERS_H */

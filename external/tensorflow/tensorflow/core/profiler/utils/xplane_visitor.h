@@ -26,7 +26,6 @@ limitations under the License.
 #include "absl/types/optional.h"
 #include "tensorflow/core/platform/types.h"
 #include "tensorflow/core/profiler/protobuf/xplane.pb.h"
-#include "tensorflow/core/profiler/utils/time_utils.h"
 #include "tensorflow/core/profiler/utils/timespan.h"
 
 namespace tensorflow {
@@ -41,21 +40,25 @@ class XStatVisitor {
 
   // REQUIRED: plane, stat and metadata cannot be nullptr.
   XStatVisitor(const XPlaneVisitor* plane, const XStat* stat,
-               const XStatMetadata* metadata, absl::optional<int64> type);
+               const XStatMetadata* metadata, absl::optional<int64_t> type);
 
-  int64 Id() const { return stat_->metadata_id(); }
+  int64_t Id() const { return stat_->metadata_id(); }
 
   absl::string_view Name() const { return metadata_->name(); }
 
-  absl::optional<int64> Type() const { return type_; }
+  absl::optional<int64_t> Type() const { return type_; }
 
   absl::string_view Description() const { return metadata_->description(); }
 
   XStat::ValueCase ValueCase() const { return stat_->value_case(); }
 
-  int64 IntValue() const { return stat_->int64_value(); }
+  bool BoolValue() const { return static_cast<bool>(IntValue()); }
+
+  int64_t IntValue() const { return stat_->int64_value(); }
 
   uint64 UintValue() const { return stat_->uint64_value(); }
+
+  absl::string_view BytesValue() const { return stat_->bytes_value(); }
 
   uint64 IntOrUintValue() const {
     return ValueCase() == XStat::kUint64Value ? UintValue()
@@ -77,7 +80,7 @@ class XStatVisitor {
   const XStat* stat_;
   const XStatMetadata* metadata_;
   const XPlaneVisitor* plane_;
-  absl::optional<int64> type_;
+  absl::optional<int64_t> type_;
 };
 
 template <class T>
@@ -127,6 +130,8 @@ class XEventMetadataVisitor : public XStatsOwner<XEventMetadata> {
                         const XEventMetadata* metadata)
       : XStatsOwner(plane, metadata) {}
 
+  int64_t Id() const { return metadata()->id(); }
+
   absl::string_view Name() const { return metadata()->name(); }
 
   bool HasDisplayName() const { return !metadata()->display_name().empty(); }
@@ -147,38 +152,45 @@ class XEventVisitor : public XStatsOwner<XEvent> {
   XEventVisitor(const XPlaneVisitor* plane, const XLine* line,
                 const XEvent* event);
 
-  int64 Id() const { return event_->metadata_id(); }
+  const XPlaneVisitor& Plane() const { return *plane_; }
+
+  const XEvent& RawEvent() const { return *event_; }
+
+  int64_t Id() const { return event_->metadata_id(); }
 
   absl::string_view Name() const { return metadata_->name(); }
 
-  absl::optional<int64> Type() const { return type_; }
+  absl::optional<int64_t> Type() const { return type_; }
 
   bool HasDisplayName() const { return !metadata_->display_name().empty(); }
 
   absl::string_view DisplayName() const { return metadata_->display_name(); }
 
-  double OffsetNs() const { return PicosToNanos(event_->offset_ps()); }
+  double OffsetNs() const { return PicoToNano(event_->offset_ps()); }
 
-  int64 OffsetPs() const { return event_->offset_ps(); }
+  int64_t OffsetPs() const { return event_->offset_ps(); }
 
-  int64 LineTimestampNs() const { return line_->timestamp_ns(); }
+  int64_t LineTimestampNs() const { return line_->timestamp_ns(); }
 
-  double TimestampNs() const { return line_->timestamp_ns() + OffsetNs(); }
+  int64_t TimestampNs() const { return line_->timestamp_ns() + OffsetNs(); }
 
-  int64 TimestampPs() const {
-    return NanosToPicos(line_->timestamp_ns()) + event_->offset_ps();
+  int64_t TimestampPs() const {
+    return NanoToPico(line_->timestamp_ns()) + event_->offset_ps();
   }
 
-  double DurationNs() const { return PicosToNanos(event_->duration_ps()); }
+  double DurationNs() const { return PicoToNano(event_->duration_ps()); }
 
-  int64 DurationPs() const { return event_->duration_ps(); }
+  int64_t DurationPs() const { return event_->duration_ps(); }
 
-  int64 EndOffsetPs() const {
+  int64_t EndOffsetPs() const {
     return event_->offset_ps() + event_->duration_ps();
   }
-  int64 EndTimestampPs() const { return TimestampPs() + DurationPs(); }
 
-  int64 NumOccurrences() const { return event_->num_occurrences(); }
+  int64_t EndTimestampNs() const { return TimestampNs() + DurationNs(); }
+
+  int64_t EndTimestampPs() const { return TimestampPs() + DurationPs(); }
+
+  int64_t NumOccurrences() const { return event_->num_occurrences(); }
 
   bool operator<(const XEventVisitor& other) const {
     return GetTimespan() < other.GetTimespan();
@@ -197,7 +209,7 @@ class XEventVisitor : public XStatsOwner<XEvent> {
   const XLine* line_;
   const XEvent* event_;
   const XEventMetadata* metadata_;
-  absl::optional<int64> type_;
+  absl::optional<int64_t> type_;
 };
 
 class XLineVisitor {
@@ -206,9 +218,9 @@ class XLineVisitor {
   XLineVisitor(const XPlaneVisitor* plane, const XLine* line)
       : plane_(plane), line_(line) {}
 
-  int64 Id() const { return line_->id(); }
+  int64_t Id() const { return line_->id(); }
 
-  int64 DisplayId() const {
+  int64_t DisplayId() const {
     return line_->display_id() ? line_->display_id() : line_->id();
   }
 
@@ -219,9 +231,9 @@ class XLineVisitor {
                                           : line_->name();
   }
 
-  double TimestampNs() const { return line_->timestamp_ns(); }
+  int64_t TimestampNs() const { return line_->timestamp_ns(); }
 
-  int64 DurationPs() const { return line_->duration_ps(); }
+  int64_t DurationPs() const { return line_->duration_ps(); }
 
   size_t NumEvents() const { return line_->events_size(); }
 
@@ -237,7 +249,7 @@ class XLineVisitor {
   const XLine* line_;
 };
 
-using TypeGetter = std::function<absl::optional<int64>(absl::string_view)>;
+using TypeGetter = std::function<absl::optional<int64_t>(absl::string_view)>;
 using TypeGetterList = std::vector<TypeGetter>;
 
 class XPlaneVisitor : public XStatsOwner<XPlane> {
@@ -248,7 +260,7 @@ class XPlaneVisitor : public XStatsOwner<XPlane> {
       const TypeGetterList& event_type_getter_list = TypeGetterList(),
       const TypeGetterList& stat_type_getter_list = TypeGetterList());
 
-  int64 Id() const { return plane_->id(); }
+  int64_t Id() const { return plane_->id(); }
 
   absl::string_view Name() const { return plane_->name(); }
 
@@ -260,12 +272,30 @@ class XPlaneVisitor : public XStatsOwner<XPlane> {
       for_each_line(XLineVisitor(this, &line));
     }
   }
+  template <typename ThreadBundle, typename ForEachLineFunc>
+  void ForEachLineInParallel(ForEachLineFunc&& for_each_line) const {
+    ThreadBundle bundle;
+    for (const XLine& line : plane_->lines()) {
+      bundle.Add([this, line = &line, &for_each_line] {
+        for_each_line(XLineVisitor(this, line));
+      });
+    }
+    bundle.JoinAll();
+  }
+
+  template <typename ForEachEventMetadataFunc>
+  void ForEachEventMetadata(
+      ForEachEventMetadataFunc&& for_each_event_metadata) {
+    for (const auto& [id, event_metadata] : plane_->event_metadata()) {
+      for_each_event_metadata(XEventMetadataVisitor(this, &event_metadata));
+    }
+  }
 
   // Returns event metadata given its id. Returns a default value if not found.
   const XEventMetadata* GetEventMetadata(int64_t event_metadata_id) const;
 
   // Returns the type of an event given its id.
-  absl::optional<int64> GetEventType(int64_t event_metadata_id) const;
+  absl::optional<int64_t> GetEventType(int64_t event_metadata_id) const;
 
   // Returns stat metadata given its id. Returns a default value if not found.
   const XStatMetadata* GetStatMetadata(int64_t stat_metadata_id) const;
@@ -275,7 +305,7 @@ class XPlaneVisitor : public XStatsOwner<XPlane> {
   const XStatMetadata* GetStatMetadataByType(int64_t stat_type) const;
 
   // Returns the type of an stat given its id.
-  absl::optional<int64> GetStatType(int64_t stat_metadata_id) const;
+  absl::optional<int64_t> GetStatType(int64_t stat_metadata_id) const;
 
  private:
   void BuildEventTypeMap(const XPlane* plane,
@@ -285,11 +315,11 @@ class XPlaneVisitor : public XStatsOwner<XPlane> {
 
   const XPlane* plane_;
 
-  absl::flat_hash_map<int64 /*metadata_id*/, int64 /*EventType*/>
+  absl::flat_hash_map<int64_t /*metadata_id*/, int64_t /*EventType*/>
       event_type_by_id_;
-  absl::flat_hash_map<int64 /*metadata_id*/, int64 /*StatType*/>
+  absl::flat_hash_map<int64_t /*metadata_id*/, int64_t /*StatType*/>
       stat_type_by_id_;
-  absl::flat_hash_map<int64 /*StatType*/, const XStatMetadata*>
+  absl::flat_hash_map<int64_t /*StatType*/, const XStatMetadata*>
       stat_metadata_by_type_;
 };
 

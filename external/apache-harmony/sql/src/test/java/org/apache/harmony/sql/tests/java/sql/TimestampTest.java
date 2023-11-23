@@ -130,6 +130,22 @@ public class TimestampTest extends TestCase {
                     "1969-12-31 05:14:39.309" },
             new String[] { "1970-01-01 19:45:20.231", "1970-01-02 07:17:59.0", "1969-12-31 22:14:39.309" } };
 
+    private TimeZone oldTimeZone;
+
+    @Override
+    public void setUp() {
+        oldTimeZone = TimeZone.getDefault();
+        // TIME_TESTN and corresponsing values in YEAR_ARRAY and MONTH_ARRAY
+        // are time zone dependant. TIME_TESTN comments indicate that
+        // they are interpreted as GMT, hence setting time zone to GMT.
+        TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
+    }
+
+    @Override
+    public void tearDown() {
+        TimeZone.setDefault(oldTimeZone);
+    }
+
     /*
     * Constructor test
     */
@@ -659,13 +675,6 @@ public class TimestampTest extends TestCase {
     public void testSerializationCompatibility() throws Exception {
         Timestamp object = new Timestamp(100L);
         SerializationTest.verifyGolden(this, object);
-    }
-
-    // Reset defualt timezone
-    TimeZone defaultTimeZone = TimeZone.getDefault();
-
-    protected void tearDown() {
-        TimeZone.setDefault(defaultTimeZone);
     }
 
     /**

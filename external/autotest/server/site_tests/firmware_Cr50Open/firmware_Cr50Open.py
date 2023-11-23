@@ -26,7 +26,7 @@ class firmware_Cr50Open(Cr50Test):
 
         self.ccd_open_restricted = ccd_open_restricted
         self.fast_ccd_open(enable_testlab=True)
-        self.cr50.send_command('ccd reset')
+        self.cr50.ccd_reset()
         self.cr50.set_ccd_level('lock')
 
 
@@ -51,6 +51,7 @@ class firmware_Cr50Open(Cr50Test):
         try:
             self.cr50.set_ccd_level('open')
         except error.TestFail as e:
+            self.cr50.check_for_console_errors('ccd open from console')
             if not batt_pres:
                 raise error.TestFail('Unable to open cr50 from console with '
                                      'batt disconnected: %s' % str(e))
@@ -68,7 +69,8 @@ class firmware_Cr50Open(Cr50Test):
         self.cr50.set_ccd_level('lock')
 
         if not batt_pres:
-            cr50_utils.GSCTool(self.host, ['-a', '-o'])
+            cr50_utils.GSCTool(self.host, ['-a', '-o'],
+                               expect_reboot=not batt_pres)
             # Wait long enough for cr50 to open ccd and wipe the tpm.
             time.sleep(10)
             if self.cr50.OPEN != self.cr50.get_ccd_level():
@@ -80,6 +82,7 @@ class firmware_Cr50Open(Cr50Test):
             self.ccd_open_from_ap()
         except error.TestFail as e:
             logging.info(e)
+            self.cr50.check_for_console_errors('ccd open from ap')
             # ccd open should work if the device is in dev mode or ccd open
             # isn't restricted. If open failed for some reason raise the error.
             if dev_mode or not self.ccd_open_restricted:

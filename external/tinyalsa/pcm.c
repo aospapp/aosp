@@ -26,6 +26,7 @@
 ** DAMAGE.
 */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -253,11 +254,11 @@ static void param_init(struct snd_pcm_hw_params *p)
 struct pcm {
     int fd;
     unsigned int flags;
-    int running:1;
-    int prepared:1;
+    bool running:1;
+    bool prepared:1;
     int underruns;
     unsigned int buffer_size;
-    unsigned int boundary;
+    unsigned long boundary;
     char error[PCM_ERROR_MAX];
     struct pcm_config config;
     struct snd_pcm_mmap_status *mmap_status;
@@ -465,7 +466,7 @@ static int pcm_mmap_transfer_areas(struct pcm *pcm, char *buf,
 int pcm_get_htimestamp(struct pcm *pcm, unsigned int *avail,
                        struct timespec *tstamp)
 {
-    int frames;
+    snd_pcm_sframes_t frames;
     int rc;
     snd_pcm_uframes_t hw_ptr;
 
@@ -488,11 +489,12 @@ int pcm_get_htimestamp(struct pcm *pcm, unsigned int *avail,
     if (pcm->flags & PCM_IN)
         frames = hw_ptr - pcm->mmap_control->appl_ptr;
     else
-        frames = hw_ptr + pcm->buffer_size - pcm->mmap_control->appl_ptr;
+        frames = hw_ptr + (snd_pcm_uframes_t) pcm->buffer_size -
+                pcm->mmap_control->appl_ptr;
 
     if (frames < 0)
         frames += pcm->boundary;
-    else if (frames > (int)pcm->boundary)
+    else if (frames >= (snd_pcm_sframes_t) pcm->boundary)
         frames -= pcm->boundary;
 
     *avail = (unsigned int)frames;
@@ -549,12 +551,12 @@ int pcm_write(struct pcm *pcm, const void *data, unsigned int count)
                 return prepare_error;
             if (pcm->ops->ioctl(pcm->data, SNDRV_PCM_IOCTL_WRITEI_FRAMES, &x))
                 return oops(pcm, errno, "cannot write initial data");
-            pcm->running = 1;
+            pcm->running = true;
             return 0;
         }
         if (pcm->ops->ioctl(pcm->data, SNDRV_PCM_IOCTL_WRITEI_FRAMES, &x)) {
-            pcm->prepared = 0;
-            pcm->running = 0;
+            pcm->prepared = false;
+            pcm->running = false;
             if (errno == EPIPE) {
                 /* we failed to make our window -- try to restart if we are
                  * allowed to do so.  Otherwise, simply allow the EPIPE error to
@@ -589,8 +591,8 @@ int pcm_read(struct pcm *pcm, void *data, unsigned int count)
             }
         }
         if (pcm->ops->ioctl(pcm->data, SNDRV_PCM_IOCTL_READI_FRAMES, &x)) {
-            pcm->prepared = 0;
-            pcm->running = 0;
+            pcm->prepared = false;
+            pcm->running = false;
             if (errno == EPIPE) {
                     /* we failed to make our window -- try to restart */
                 pcm->underruns++;
@@ -891,8 +893,8 @@ int pcm_close(struct pcm *pcm)
     if (pcm->snd_node)
         snd_utils_put_dev_node(pcm->snd_node);
 
-    pcm->prepared = 0;
-    pcm->running = 0;
+    pcm->prepared = false;
+    pcm->running = false;
     pcm->buffer_size = 0;
     pcm->fd = -1;
     free(pcm);
@@ -1029,15 +1031,12 @@ struct pcm *pcm_open(unsigned int card, unsigned int device,
     sparams.xfer_align = config->period_size / 2; /* needed for old kernels */
     sparams.silence_threshold = config->silence_threshold;
     sparams.silence_size = config->silence_size;
-    pcm->boundary = sparams.boundary = pcm->buffer_size;
-
-    while (pcm->boundary * 2 <= INT_MAX - pcm->buffer_size)
-        pcm->boundary *= 2;
 
     if (pcm->ops->ioctl(pcm->data, SNDRV_PCM_IOCTL_SW_PARAMS, &sparams)) {
         oops(&bad_pcm, errno, "cannot set sw params");
         goto fail;
     }
+    pcm->boundary = sparams.boundary;
 
     rc = pcm_hw_mmap_status(pcm);
     if (rc < 0) {
@@ -1084,7 +1083,7 @@ int pcm_prepare(struct pcm *pcm)
     if (pcm->ops->ioctl(pcm->data, SNDRV_PCM_IOCTL_PREPARE) < 0)
         return oops(pcm, errno, "cannot prepare channel");
 
-    pcm->prepared = 1;
+    pcm->prepared = true;
     return 0;
 }
 
@@ -1100,7 +1099,7 @@ int pcm_start(struct pcm *pcm)
     if (pcm->ops->ioctl(pcm->data, SNDRV_PCM_IOCTL_START) < 0)
         return oops(pcm, errno, "cannot start channel");
 
-    pcm->running = 1;
+    pcm->running = true;
     return 0;
 }
 
@@ -1109,50 +1108,53 @@ int pcm_stop(struct pcm *pcm)
     if (pcm->ops->ioctl(pcm->data, SNDRV_PCM_IOCTL_DROP) < 0)
         return oops(pcm, errno, "cannot stop channel");
 
-    pcm->prepared = 0;
-    pcm->running = 0;
+    pcm->prepared = false;
+    pcm->running = false;
     return 0;
 }
 
-static inline int pcm_mmap_playback_avail(struct pcm *pcm)
+static inline long pcm_mmap_playback_avail(struct pcm *pcm)
 {
-    int avail;
+    long avail = pcm->mmap_status->hw_ptr + (unsigned long) pcm->buffer_size -
+            pcm->mmap_control->appl_ptr;
 
-    avail = pcm->mmap_status->hw_ptr + pcm->buffer_size - pcm->mmap_control->appl_ptr;
-
-    if (avail < 0)
+    if (avail < 0) {
         avail += pcm->boundary;
-    else if (avail > (int)pcm->boundary)
+    } else if ((unsigned long) avail >= pcm->boundary) {
         avail -= pcm->boundary;
+    }
 
     return avail;
 }
 
-static inline int pcm_mmap_capture_avail(struct pcm *pcm)
+static inline long pcm_mmap_capture_avail(struct pcm *pcm)
 {
-    int avail = pcm->mmap_status->hw_ptr - pcm->mmap_control->appl_ptr;
-    if (avail < 0)
+    long avail = pcm->mmap_status->hw_ptr - pcm->mmap_control->appl_ptr;
+    if (avail < 0) {
         avail += pcm->boundary;
+    }
     return avail;
 }
 
 int pcm_mmap_avail(struct pcm *pcm)
 {
     pcm_sync_ptr(pcm, SNDRV_PCM_SYNC_PTR_HWSYNC);
-    if (pcm->flags & PCM_IN)
-        return pcm_mmap_capture_avail(pcm);
-    else
-        return pcm_mmap_playback_avail(pcm);
+    if (pcm->flags & PCM_IN) {
+        return (int) pcm_mmap_capture_avail(pcm);
+    } else {
+        return (int) pcm_mmap_playback_avail(pcm);
+    }
 }
 
 static void pcm_mmap_appl_forward(struct pcm *pcm, int frames)
 {
-    unsigned int appl_ptr = pcm->mmap_control->appl_ptr;
+    unsigned long appl_ptr = pcm->mmap_control->appl_ptr;
     appl_ptr += frames;
 
     /* check for boundary wrap */
-    if (appl_ptr > pcm->boundary)
+    if (appl_ptr >= pcm->boundary) {
          appl_ptr -= pcm->boundary;
+    }
     pcm->mmap_control->appl_ptr = appl_ptr;
 }
 
@@ -1313,8 +1315,8 @@ int pcm_mmap_transfer(struct pcm *pcm, const void *buffer, unsigned int bytes)
 
                 err = pcm_wait(pcm, time);
                 if (err < 0) {
-                    pcm->prepared = 0;
-                    pcm->running = 0;
+                    pcm->prepared = false;
+                    pcm->running = false;
                     oops(pcm, errno, "wait error: hw 0x%x app 0x%x avail 0x%x\n",
                         (unsigned int)pcm->mmap_status->hw_ptr,
                         (unsigned int)pcm->mmap_control->appl_ptr,

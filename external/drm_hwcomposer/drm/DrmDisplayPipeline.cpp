@@ -86,15 +86,15 @@ static auto TryCreatePipeline(DrmDevice &dev, DrmConnector &connector,
     return {};
   }
 
-  if (primary_planes.size() > 1) {
-    ALOGE("Found more than 1 primary plane for CRTC %d", crtc.GetId());
-    return {};
+  for (const auto &plane : primary_planes) {
+    pipe->primary_plane = plane->BindPipeline(pipe.get());
+    if (pipe->primary_plane) {
+      break;
+    }
   }
 
-  pipe->primary_plane = primary_planes[0]->BindPipeline(pipe.get());
   if (!pipe->primary_plane) {
-    ALOGE("Primary plane %d is already owned. Internal error.",
-          primary_planes[0]->GetId());
+    ALOGE("Failed to bind primary plane");
     return {};
   }
 

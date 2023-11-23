@@ -13,51 +13,38 @@
 #     size_t mr,                x0
 #     size_t nc,                x1
 #     size_t kc,                x2 / x0
-#     const uint8_t*restrict a, x3
+#     const void*restrict a,    x3
 #     size_t a_stride,          x4
 #     const void*restrict w,    x5
-#     uint8_t*restrict c,       x6
+#     void*restrict c,          x6
 #     size_t cm_stride,         x7
 #     size_t cn_stride,         [sp] -> (x8)
 
-#     const union xnn_f16_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 8] -> (x8)
+#     const union xnn_f16_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 8] -> (x8)
 
 # d8-d15, x19-x30 need to be preserved if used. x18 is reserved by the OS.
 
-# A pointers
-#  x3 a0
-#  x9 a1
-# x10 a2
-# x11 a3
-# x12 a4
-#  x4 a5
+# Register usage
+# A0  x3 v0
+# A1  x9 v1
+# A2 x10 v2
+# A3 x11 v3
+# A4 x12 v4
+# A5  x4 v5
 
-# C pointers
-#  x6 c0
-# x16 c1
-# x17 c2
-# x14 c3
-# x13 c4
-#  x7 c5
+# B   x5 v16 v17 v18 v19
 
-# Vector register usage
-# A0   v0
-# A1   v1
-# A2   v2
-# A3   v3
-# A4   v4
-# A5   v5
-# B   v16 v17 v18 v19
-# C   v20 v21
-# C   v22 v23
-# C   v24 v25
-# C   v26 v27
-# C   v28 v29
-# C   v30 v31
+# C0  x6  v20 v21
+# C1 x16  v22 v23
+# C2 x17  v24 v25
+# C3 x14  v26 v27
+# C4 x13  v28 v29
+# C5  x7  v30 v31
+
 # Clamp v6, (v4), (v5)
+# unused     v7
 # unused A   v8 v9 v10 v11
 # unused B   v12 v13 v14 v15
-
 
 BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x16__aarch64_neonfp16arith_ld32
 
@@ -72,7 +59,7 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x16__aarch64_neonfp16arith_ld32
         CSEL    x16, x6, x16, LO        //   c1 = c0
 
         # Load params
-        LDR     d6, [x8]
+        LDR     s6, [x8]
 
         ADD     x10, x9, x4             // a2 = a1 + a_stride
         ADD     x17, x16, x7            // c2 = c1 + cm_stride
@@ -119,6 +106,7 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x16__aarch64_neonfp16arith_ld32
         SUBS    x0, x2, 4               // k = kc - 4
         B.LO    3f
 
+       .p2align 3
         # Main loop - 2 halffloats of A (4 bytes)
         # 24 FMA + 6 ld32 A + 4 LDR B
 1:
@@ -130,13 +118,13 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x16__aarch64_neonfp16arith_ld32
         LDR     s3, [x11], 4
         LDR     s4, [x12], 4
         LDR     s5,  [x4], 4
+        LDR     q18, [x5], 16
+        LDR     q19, [x5], 16
         SUBS    x0, x0, 4
         FMLA    v20.8h, v16.8h,  v0.h[0]
         FMLA    v22.8h, v16.8h,  v1.h[0]
         FMLA    v24.8h, v16.8h,  v2.h[0]
         FMLA    v26.8h, v16.8h,  v3.h[0]
-        LDR     q18, [x5], 16
-        LDR     q19, [x5], 16
         FMLA    v28.8h, v16.8h,  v4.h[0]
         FMLA    v30.8h, v16.8h,  v5.h[0]
         FMLA    v21.8h, v17.8h,  v0.h[0]
@@ -163,21 +151,9 @@ BEGIN_FUNCTION xnn_f16_gemm_minmax_ukernel_6x16__aarch64_neonfp16arith_ld32
         # Is there a remainder?- 1 halffloat of A (2 bytes)
         TBNZ    x0, 1, 3f
 2:
-        # Scale and Clamp
-        FMUL    v20.8h, v20.8h, v6.h[0]
-        DUP     v4.8h, v6.h[1]
-        FMUL    v21.8h, v21.8h, v6.h[0]
-        DUP     v5.8h, v6.h[2]
-        FMUL    v22.8h, v22.8h, v6.h[0]
-        FMUL    v23.8h, v23.8h, v6.h[0]
-        FMUL    v24.8h, v24.8h, v6.h[0]
-        FMUL    v25.8h, v25.8h, v6.h[0]
-        FMUL    v26.8h, v26.8h, v6.h[0]
-        FMUL    v27.8h, v27.8h, v6.h[0]
-        FMUL    v28.8h, v28.8h, v6.h[0]
-        FMUL    v29.8h, v29.8h, v6.h[0]
-        FMUL    v30.8h, v30.8h, v6.h[0]
-        FMUL    v31.8h, v31.8h, v6.h[0]
+        # Clamp
+        DUP     v4.8h, v6.h[0]
+        DUP     v5.8h, v6.h[1]
         FMAX    v20.8h, v20.8h, v4.8h
         FMAX    v21.8h, v21.8h, v4.8h
         FMAX    v22.8h, v22.8h, v4.8h

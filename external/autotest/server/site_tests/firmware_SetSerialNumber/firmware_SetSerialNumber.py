@@ -85,7 +85,7 @@ class firmware_SetSerialNumber(FirmwareTest):
         self.switcher.wait_for_client()
 
         # Check that device is no longer in dev mode
-        self.checkers.mode_checker('normal')
+        self.check_state((self.checkers.mode_checker, 'normal'))
 
         # Check that serial_number is correctly set
         result = self.faft_client.system.run_shell_command_get_output(
@@ -104,8 +104,8 @@ class firmware_SetSerialNumber(FirmwareTest):
         if ('is disabled' in result or
                 'start=0x00000000' in result or
                 'len=0x00000000' in result):
-           raise error.TestFail('Expected write protection to be enabled '
-                                'but output was:\n\n%s' % result)
+            raise error.TestFail('Expected write protection to be enabled '
+                                 'but output was:\n\n%s' % result)
 
     def cleanup(self):
         self.servo.set_nocheck('fw_wp_state', 'reset')

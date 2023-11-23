@@ -8,14 +8,15 @@
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text	
-.extern	GFp_ia32cap_P
-.hidden GFp_ia32cap_P
-.globl	GFp_gcm_init_clmul
-.hidden GFp_gcm_init_clmul
-.type	GFp_gcm_init_clmul,@function
+.extern	OPENSSL_ia32cap_P
+.hidden OPENSSL_ia32cap_P
+.globl	gcm_init_clmul
+.hidden gcm_init_clmul
+.type	gcm_init_clmul,@function
 .align	16
-GFp_gcm_init_clmul:
+gcm_init_clmul:
 .cfi_startproc	
 .L_init_clmul:
 	movdqu	(%rsi),%xmm2
@@ -169,12 +170,12 @@ GFp_gcm_init_clmul:
 	movdqu	%xmm4,80(%rdi)
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_gcm_init_clmul,.-GFp_gcm_init_clmul
-.globl	GFp_gcm_gmult_clmul
-.hidden GFp_gcm_gmult_clmul
-.type	GFp_gcm_gmult_clmul,@function
+.size	gcm_init_clmul,.-gcm_init_clmul
+.globl	gcm_gmult_clmul
+.hidden gcm_gmult_clmul
+.type	gcm_gmult_clmul,@function
 .align	16
-GFp_gcm_gmult_clmul:
+gcm_gmult_clmul:
 .cfi_startproc	
 .L_gmult_clmul:
 	movdqu	(%rdi),%xmm0
@@ -223,12 +224,12 @@ GFp_gcm_gmult_clmul:
 	movdqu	%xmm0,(%rdi)
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_gcm_gmult_clmul,.-GFp_gcm_gmult_clmul
-.globl	GFp_gcm_ghash_clmul
-.hidden GFp_gcm_ghash_clmul
-.type	GFp_gcm_ghash_clmul,@function
+.size	gcm_gmult_clmul,.-gcm_gmult_clmul
+.globl	gcm_ghash_clmul
+.hidden gcm_ghash_clmul
+.type	gcm_ghash_clmul,@function
 .align	32
-GFp_gcm_ghash_clmul:
+gcm_ghash_clmul:
 .cfi_startproc	
 .L_ghash_clmul:
 	movdqa	.Lbswap_mask(%rip),%xmm10
@@ -242,7 +243,7 @@ GFp_gcm_ghash_clmul:
 	jz	.Lodd_tail
 
 	movdqu	16(%rsi),%xmm6
-	leaq	GFp_ia32cap_P(%rip),%rax
+	leaq	OPENSSL_ia32cap_P(%rip),%rax
 	movl	4(%rax),%eax
 	cmpq	$0x30,%rcx
 	jb	.Lskip4x
@@ -610,12 +611,12 @@ GFp_gcm_ghash_clmul:
 	movdqu	%xmm0,(%rdi)
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_gcm_ghash_clmul,.-GFp_gcm_ghash_clmul
-.globl	GFp_gcm_init_avx
-.hidden GFp_gcm_init_avx
-.type	GFp_gcm_init_avx,@function
+.size	gcm_ghash_clmul,.-gcm_ghash_clmul
+.globl	gcm_init_avx
+.hidden gcm_init_avx
+.type	gcm_init_avx,@function
 .align	32
-GFp_gcm_init_avx:
+gcm_init_avx:
 .cfi_startproc	
 	vzeroupper
 
@@ -720,12 +721,12 @@ GFp_gcm_init_avx:
 	vzeroupper
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_gcm_init_avx,.-GFp_gcm_init_avx
-.globl	GFp_gcm_ghash_avx
-.hidden GFp_gcm_ghash_avx
-.type	GFp_gcm_ghash_avx,@function
+.size	gcm_init_avx,.-gcm_init_avx
+.globl	gcm_ghash_avx
+.hidden gcm_ghash_avx
+.type	gcm_ghash_avx,@function
 .align	32
-GFp_gcm_ghash_avx:
+gcm_ghash_avx:
 .cfi_startproc	
 	vzeroupper
 
@@ -1099,7 +1100,7 @@ GFp_gcm_ghash_avx:
 	vzeroupper
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_gcm_ghash_avx,.-GFp_gcm_ghash_avx
+.size	gcm_ghash_avx,.-gcm_ghash_avx
 .align	64
 .Lbswap_mask:
 .byte	15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0

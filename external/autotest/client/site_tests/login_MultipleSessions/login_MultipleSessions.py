@@ -1,9 +1,14 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import gobject
 from dbus.mainloop.glib import DBusGMainLoop
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
@@ -27,11 +32,8 @@ class login_MultipleSessions(test.test):
         self._bus_loop = DBusGMainLoop(set_as_default=True)
         self._session_manager = session_manager.connect(self._bus_loop)
         self._listener = session_manager.OwnershipSignalListener(
-                gobject.MainLoop())
+                GObject.MainLoop())
         self._listener.listen_for_new_key_and_policy()
-
-        self._cryptohome_proxy = cryptohome.CryptohomeProxy(
-            self._bus_loop, self.autodir, self.job)
 
 
     def run_once(self):
@@ -64,7 +66,7 @@ class login_MultipleSessions(test.test):
 
 
     def __start_session_for(self, user):
-        """Call StartSession() for user, ensure he has clean on-device state
+        """Call StartSession() for user, ensure the user has clean on-device state
 
         Make a fresh cryptohome for user, and then start a session for him
         with the session manager.
@@ -73,7 +75,7 @@ class login_MultipleSessions(test.test):
 
         @raises error.TestFail: if the session cannot be started.
         """
-        self._cryptohome_proxy.ensure_clean_cryptohome_for(user)
+        cryptohome.ensure_clean_cryptohome_for(user)
         self._session_manager.StartSession(user, '')
 
 

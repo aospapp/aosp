@@ -11,8 +11,9 @@
 
 [package]
 edition = "2018"
+rust-version = "1.63.0"
 name = "arbitrary"
-version = "1.1.0"
+version = "1.2.3"
 authors = [
     "The Rust-Fuzz Project Developers",
     "Nick Fitzgerald <fitzgen@gmail.com>",
@@ -42,10 +43,8 @@ path = "./tests/derive.rs"
 required-features = ["derive"]
 
 [dependencies.derive_arbitrary]
-version = "1.0.0"
+version = "1.2.3"
 optional = true
-
-[dev-dependencies]
 
 [features]
 derive = ["derive_arbitrary"]

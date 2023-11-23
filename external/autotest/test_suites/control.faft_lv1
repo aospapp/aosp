@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "faft_lv1"
 PURPOSE = "Test hard-to-automate 'normal' mode firmware scenarios."
 
@@ -14,7 +14,7 @@ TEST_TYPE = "Server"
 DOC = """
 
 This test suite runs FAFT (Fully Automated Firmware Test) for BIOS that should
-all pass and that verifies the BIOS fit Chrome OS verified-boot requirements.
+all pass and that verifies the BIOS fit ChromeOS verified-boot requirements.
 
 All BIOS tests are categorized into 5 test levels:
   Level-1: Basic BIOS tests which verify basic vboot functions.

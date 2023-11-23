@@ -33,4 +33,6 @@ java_library_host {
         "guava",
         "jsr305",
     ],
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
 }

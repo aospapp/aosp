@@ -84,6 +84,7 @@ options = {
                    '-pedantic',
                    '-Wwrite-strings',
                    '-Wunused',
+                   '-Wshadow',
                    '-Wno-missing-noreturn'],
       'CPPPATH' : [config.dir_src_vixl]
       },
@@ -115,6 +116,10 @@ options = {
     'ubsan:on' : {
       'CCFLAGS': ['-fsanitize=undefined'],
       'LINKFLAGS': ['-fsanitize=undefined']
+      },
+    'coverage:on' : {
+      'CCFLAGS': ['-fprofile-instr-generate', '-fcoverage-mapping'],
+      'LINKFLAGS': ['-fprofile-instr-generate', '-fcoverage-mapping']
       }
     }
 
@@ -254,6 +259,8 @@ vars.AddVariables(
     EnumVariable('mode', 'Build mode',
                  'release', allowed_values=config.build_options_modes),
     EnumVariable('ubsan', 'Enable undefined behavior checks',
+                 'off', allowed_values=['on', 'off']),
+    EnumVariable('coverage', 'Enable code coverage measurement',
                  'off', allowed_values=['on', 'off']),
     EnumVariable('negative_testing',
                   'Enable negative testing (needs exceptions)',
@@ -482,7 +489,7 @@ top_level_targets.Add('', 'Build the VIXL library.')
 
 # Common test code.
 test_build_dir = PrepareVariantDir('test', TargetBuildDir(env))
-test_objects = [env.Object(Glob(join(test_build_dir, '*.cc')))]
+test_objects = [env.Object(Glob(join(test_build_dir, '*.cc'), exclude=join(test_build_dir, 'test-donkey.cc')))]
 
 # AArch32 support
 if CanTargetAArch32(env):
@@ -563,6 +570,15 @@ if CanTargetAArch64(env):
       CCFLAGS = env['CCFLAGS'] + ['-DTEST_EXAMPLES'],
       CPPPATH = env['CPPPATH'] + [config.dir_aarch64_examples] + [config.dir_tests])
   test_objects.append(test_aarch64_examples_obj)
+
+  # The simulator test generator.
+  donkey_objects = []
+  donkey_objects.append(env.Object(
+      [join(test_build_dir, 'test-donkey.cc'), join(test_aarch64_build_dir, 'test-utils-aarch64.cc')],
+      CPPPATH = env['CPPPATH'] + [config.dir_tests],
+      CCFLAGS = [flag for flag in env['CCFLAGS'] if flag != '-O3']))
+  donkey = env.Program(join(test_build_dir, 'test-donkey'), donkey_objects, LIBS=[libvixl])
+  env.Alias('tests', donkey)
 
 test = env.Program(join(test_build_dir, 'test-runner'), test_objects,
                    LIBS=[libvixl])

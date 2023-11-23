@@ -40,9 +40,11 @@ _target_config = {
   pw_boot_BACKEND = "$dir_pw_boot_cortex_m"
   pw_log_BACKEND = dir_pw_log_basic
   pw_sys_io_BACKEND = dir_pw_sys_io_baremetal_lm3s6965evb
+  pw_rpc_system_server_BACKEND = "$dir_pw_hdlc:hdlc_sys_io_system_server"
   pw_sync_INTERRUPT_SPIN_LOCK_BACKEND =
       "$dir_pw_sync_baremetal:interrupt_spin_lock"
   pw_sync_MUTEX_BACKEND = "$dir_pw_sync_baremetal:mutex"
+  pw_rpc_CONFIG = "$dir_pw_rpc:disable_global_mutex"
 
   # pw_cpu_exception_armv7m tests do not work as expected in QEMU. It does not
   # appear the divide-by-zero traps as expected when enabled, which prevents the
@@ -80,6 +82,14 @@ _clang_target_default_configs = [
   "$dir_pw_build:clang_thread_safety_warnings",
   "$dir_pw_build:extra_strict_warnings",
   "$dir_pw_toolchain/arm_clang:enable_float_printf",
+
+  # TODO(b/232587313): Disable lock annotations for this target because the
+  # clang toolchain currently relies on the standard library headers provided by
+  # arm-none-eabi-gcc, and thus do not have thread safety lock annotations on
+  # things like std::lock_guard. Thread safety checks will not work until
+  # the clang-based ARM toolchain uses a C++ standard library that has these
+  # annotations set up.
+  "$dir_pigweed/targets/lm3s6965evb_qemu:disable_lock_annotations",
 ]
 
 pw_target_toolchain_lm3s6965evb_qemu = {

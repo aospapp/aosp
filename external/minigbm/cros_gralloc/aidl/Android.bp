@@ -24,14 +24,14 @@ package {
 }
 
 cc_binary {
-    name: "android.hardware.graphics.allocator-V1-service.minigbm",
+    name: "android.hardware.graphics.allocator-service.minigbm",
     defaults: ["minigbm_cros_gralloc_defaults"],
     relative_install_path: "hw",
-    init_rc: [":allocator_rc"],
-    vintf_fragments: [":allocator_xml"],
+    init_rc: ["allocator.rc"],
+    vintf_fragments: ["allocator.xml"],
     vendor: true,
     shared_libs: [
-        "android.hardware.graphics.allocator-V1-ndk",
+        "android.hardware.graphics.allocator-V2-ndk",
         "android.hardware.graphics.mapper@4.0",
         "libbase",
         "libbinder_ndk",
@@ -48,14 +48,4 @@ cc_binary {
         "Allocator.cpp",
         "Main.cpp",
     ],
-}
-
-filegroup {
-    name: "allocator_rc",
-    srcs: ["allocator.rc"],
-}
-
-filegroup {
-    name: "allocator_xml",
-    srcs: ["allocator.xml"],
 }

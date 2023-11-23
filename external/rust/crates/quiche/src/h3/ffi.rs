@@ -24,11 +24,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::ffi;
+#[cfg(feature = "sfv")]
+use std::convert::TryFrom;
+
 use std::ptr;
 use std::slice;
 
-use libc::c_char;
 use libc::c_int;
 use libc::c_void;
 use libc::size_t;
@@ -37,6 +38,7 @@ use libc::ssize_t;
 use crate::*;
 
 use crate::h3::NameValue;
+use crate::h3::Priority;
 
 #[no_mangle]
 pub extern fn quiche_h3_config_new() -> *mut h3::Config {
@@ -48,10 +50,10 @@ pub extern fn quiche_h3_config_new() -> *mut h3::Config {
 }
 
 #[no_mangle]
-pub extern fn quiche_h3_config_set_max_header_list_size(
+pub extern fn quiche_h3_config_set_max_field_section_size(
     config: &mut h3::Config, v: u64,
 ) {
-    config.set_max_header_list_size(v);
+    config.set_max_field_section_size(v);
 }
 
 #[no_mangle]
@@ -69,6 +71,13 @@ pub extern fn quiche_h3_config_set_qpack_blocked_streams(
 }
 
 #[no_mangle]
+pub extern fn quiche_h3_config_enable_extended_connect(
+    config: &mut h3::Config, enabled: bool,
+) {
+    config.enable_extended_connect(enabled);
+}
+
+#[no_mangle]
 pub extern fn quiche_h3_config_free(config: *mut h3::Config) {
     unsafe { Box::from_raw(config) };
 }
@@ -81,6 +90,29 @@ pub extern fn quiche_h3_conn_new_with_transport(
         Ok(c) => Box::into_raw(Box::new(c)),
 
         Err(_) => ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern fn quiche_h3_for_each_setting(
+    conn: &h3::Connection,
+    cb: extern fn(identifier: u64, value: u64, argp: *mut c_void) -> c_int,
+    argp: *mut c_void,
+) -> c_int {
+    match conn.peer_settings_raw() {
+        Some(raw) => {
+            for setting in raw {
+                let rc = cb(setting.0, setting.1, argp);
+
+                if rc != 0 {
+                    return rc;
+                }
+            }
+
+            0
+        },
+
+        None => -1,
     }
 }
 
@@ -114,6 +146,10 @@ pub extern fn quiche_h3_event_type(ev: &h3::Event) -> u32 {
         h3::Event::Datagram { .. } => 3,
 
         h3::Event::GoAway { .. } => 4,
+
+        h3::Event::Reset { .. } => 5,
+
+        h3::Event::PriorityUpdate { .. } => 6,
     }
 }
 
@@ -163,6 +199,13 @@ pub extern fn quiche_h3_event_headers_has_body(ev: &h3::Event) -> bool {
 }
 
 #[no_mangle]
+pub extern fn quiche_h3_extended_connect_enabled_by_peer(
+    conn: &h3::Connection,
+) -> bool {
+    conn.extended_connect_enabled_by_peer()
+}
+
+#[no_mangle]
 pub extern fn quiche_h3_event_free(ev: *mut h3::Event) {
     unsafe { Box::from_raw(ev) };
 }
@@ -207,17 +250,15 @@ pub extern fn quiche_h3_send_response(
 #[no_mangle]
 pub extern fn quiche_h3_send_response_with_priority(
     conn: &mut h3::Connection, quic_conn: &mut Connection, stream_id: u64,
-    headers: *const Header, headers_len: size_t, priority: *const c_char,
-    fin: bool,
+    headers: *const Header, headers_len: size_t, priority: &Priority, fin: bool,
 ) -> c_int {
     let resp_headers = headers_from_ptr(headers, headers_len);
-    let priority = unsafe { ffi::CStr::from_ptr(priority).to_str().unwrap() };
 
     match conn.send_response_with_priority(
         quic_conn,
         stream_id,
         &resp_headers,
-        &priority,
+        priority,
         fin,
     ) {
         Ok(_) => 0,
@@ -259,6 +300,61 @@ pub extern fn quiche_h3_recv_body(
         Ok(v) => v as ssize_t,
 
         Err(e) => e.to_c(),
+    }
+}
+
+#[no_mangle]
+#[cfg(feature = "sfv")]
+pub extern fn quiche_h3_parse_extensible_priority(
+    priority: *const u8, priority_len: size_t, parsed: &mut Priority,
+) -> c_int {
+    let priority = unsafe { slice::from_raw_parts(priority, priority_len) };
+
+    match h3::Priority::try_from(priority) {
+        Ok(v) => {
+            parsed.urgency = v.urgency;
+            parsed.incremental = v.incremental;
+            0
+        },
+
+        Err(e) => e.to_c() as c_int,
+    }
+}
+
+#[no_mangle]
+pub extern fn quiche_h3_send_priority_update_for_request(
+    conn: &mut h3::Connection, quic_conn: &mut Connection, stream_id: u64,
+    priority: &Priority,
+) -> c_int {
+    match conn.send_priority_update_for_request(quic_conn, stream_id, priority) {
+        Ok(()) => 0,
+
+        Err(e) => e.to_c() as c_int,
+    }
+}
+
+#[no_mangle]
+pub extern fn quiche_h3_take_last_priority_update(
+    conn: &mut h3::Connection, prioritized_element_id: u64,
+    cb: extern fn(
+        priority_field_value: *const u8,
+        priority_field_value_len: size_t,
+        argp: *mut c_void,
+    ) -> c_int,
+    argp: *mut c_void,
+) -> c_int {
+    match conn.take_last_priority_update(prioritized_element_id) {
+        Ok(priority) => {
+            let rc = cb(priority.as_ptr(), priority.len(), argp);
+
+            if rc != 0 {
+                return rc;
+            }
+
+            0
+        },
+
+        Err(e) => e.to_c() as c_int,
     }
 }
 

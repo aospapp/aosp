@@ -1,12 +1,14 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import collections
+import logging
 import pprint
 import re
-import xmlrpclib
 
+from six.moves import xmlrpc_client as xmlrpclib
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib.cros.network import ap_constants
 from autotest_lib.client.common_lib.cros.network import xmlrpc_datatypes
@@ -47,7 +49,7 @@ class StaticAPConfigurator(ap_configurator.APConfiguratorAbstract):
         self.mac_address = ap_config.get_wan_mac()
         self.host_name = ap_config.get_wan_host()
         # Get corresponding PDU from host name.
-        self.pdu = re.sub('host\d+', 'rpm1', self.host_name) + '.cros'
+        self.pdu = re.sub('host\\d+', 'rpm1', self.host_name) + '.cros'
         self.channel = ap_config.get_channel()
         self.band = ap_config.get_band()
         self.current_band = ap_config.get_band()
@@ -142,6 +144,8 @@ class StaticAPConfigurator(ap_configurator.APConfiguratorAbstract):
         """Allow cartridge to run commands in _command_list"""
         self.check_pdu_status()
         for command in self._command_list:
+            logging.debug("Command to run method: %s", command.method.__name__)
+            logging.debug("Command to run with args: %s", str(command.args))
             command.method(*command.args)
 
 

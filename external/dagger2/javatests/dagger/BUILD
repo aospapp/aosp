@@ -27,10 +27,10 @@ GenJavaTests(
     javacopts = DOCLINT_HTML_AND_SYNTAX + DOCLINT_REFERENCES,
     deps = [
         "//java/dagger:core",
-        "//java/dagger/internal/guava:collect",
-        "//java/dagger/internal/guava:concurrent",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/guava/collect",
+        "//third_party/java/guava/util/concurrent",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )

@@ -41,7 +41,7 @@ rust_library_host {
     name: "libsyn",
     crate_name: "syn",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.0.86",
+    cargo_pkg_version: "1.0.107",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -61,7 +61,9 @@ rust_library_host {
     rustlibs: [
         "libproc_macro2",
         "libquote",
-        "libunicode_xid",
+        "libunicode_ident",
     ],
     compile_multilib: "first",
+    product_available: true,
+    vendor_available: true,
 }

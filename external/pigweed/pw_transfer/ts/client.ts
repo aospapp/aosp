@@ -1,4 +1,4 @@
-// Copyright 2021 The Pigweed Authors
+// Copyright 2022 The Pigweed Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
 // use this file except in compliance with the License. You may obtain a copy of
@@ -18,9 +18,9 @@ import {
   BidirectionalStreamingCall,
   BidirectionalStreamingMethodStub,
   ServiceClient,
-} from '@pigweed/pw_rpc';
-import {Status} from '@pigweed/pw_status';
-import {Chunk} from 'transfer_proto_tspb/transfer_proto_tspb_pb/pw_transfer/transfer_pb';
+} from 'pigweedjs/pw_rpc';
+import {Status} from 'pigweedjs/pw_status';
+import {Chunk} from 'pigweedjs/protos/pw_transfer/transfer_pb';
 
 import {
   ReadTransfer,
@@ -82,14 +82,16 @@ export class Manager {
    * @throws Throws an error when the transfer fails to complete.
    */
   async read(
-    transferId: number,
+    resourceId: number,
     progressCallback?: ProgressCallback
   ): Promise<Uint8Array> {
-    if (transferId in this.readTransfers) {
-      throw new Error(`Read transfer ${transferId} already exists`);
+    if (resourceId in this.readTransfers) {
+      throw new Error(
+        `Read transfer for resource ${resourceId} already exists`
+      );
     }
     const transfer = new ReadTransfer(
-      transferId,
+      resourceId,
       this.sendReadChunkCallback,
       this.defaultResponseTimeoutS,
       this.maxRetries,
@@ -121,16 +123,16 @@ export class Manager {
   /**
   Transmits (uploads) data to the server.
    *
-   * @param{number} transferId: ID of the write transfer
+   * @param{number} resourceId: ID of the resource to which to write.
    * @param{Uint8Array} data: Data to send to the server.
    */
   async write(
-    transferId: number,
+    resourceId: number,
     data: Uint8Array,
     progressCallback?: ProgressCallback
   ): Promise<void> {
     const transfer = new WriteTransfer(
-      transferId,
+      resourceId,
       data,
       this.sendWriteChunkCallback,
       this.defaultResponseTimeoutS,

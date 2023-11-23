@@ -18,9 +18,7 @@ limitations under the License.
 #include <cmath>
 #include <vector>
 
-#include "absl/base/casts.h"
 #include "tensorflow/compiler/xla/client/lib/constants.h"
-#include "tensorflow/compiler/xla/client/lib/math.h"
 #include "tensorflow/compiler/xla/client/xla_builder.h"
 #include "tensorflow/compiler/xla/util.h"
 
@@ -38,8 +36,8 @@ namespace {
 
 // Rotates a 32-bit integer 'v' left by 'distance' bits.
 XlaOp RotateLeftU32(XlaOp v, int distance) {
-  return (v << ConstantR0<uint32>(v.builder(), distance)) |
-         ShiftRightLogical(v, ConstantR0<uint32>(v.builder(), 32 - distance));
+  return (v << ConstantR0<uint32_t>(v.builder(), distance)) |
+         ShiftRightLogical(v, ConstantR0<uint32_t>(v.builder(), 32 - distance));
 }
 
 // The internal state of the Three Fry implementation.
@@ -59,7 +57,7 @@ ThreeFry2x32State ThreeFry2x32(ThreeFry2x32State input, ThreeFry2x32State key) {
 
   std::array<XlaOp, 3> ks;
   // 0x1BD11BDA is a parity constant specified by the ThreeFry2x32 algorithm.
-  ks[2] = ConstantR0<uint32>(builder, 0x1BD11BDA);
+  ks[2] = ConstantR0<uint32_t>(builder, 0x1BD11BDA);
   for (int i = 0; i < 2; ++i) {
     ks[i] = key[i];
     x[i] = input[i];
@@ -85,40 +83,40 @@ ThreeFry2x32State ThreeFry2x32(ThreeFry2x32State input, ThreeFry2x32State key) {
   x = round(x, rotations[2]);
   x = round(x, rotations[3]);
   x[0] = x[0] + ks[1];
-  x[1] = x[1] + ks[2] + ConstantR0<uint32>(builder, 1);
+  x[1] = x[1] + ks[2] + ConstantR0<uint32_t>(builder, 1);
 
   x = round(x, rotations[4]);
   x = round(x, rotations[5]);
   x = round(x, rotations[6]);
   x = round(x, rotations[7]);
   x[0] = x[0] + ks[2];
-  x[1] = x[1] + ks[0] + ConstantR0<uint32>(builder, 2);
+  x[1] = x[1] + ks[0] + ConstantR0<uint32_t>(builder, 2);
 
   x = round(x, rotations[0]);
   x = round(x, rotations[1]);
   x = round(x, rotations[2]);
   x = round(x, rotations[3]);
   x[0] = x[0] + ks[0];
-  x[1] = x[1] + ks[1] + ConstantR0<uint32>(builder, 3);
+  x[1] = x[1] + ks[1] + ConstantR0<uint32_t>(builder, 3);
 
   x = round(x, rotations[4]);
   x = round(x, rotations[5]);
   x = round(x, rotations[6]);
   x = round(x, rotations[7]);
   x[0] = x[0] + ks[1];
-  x[1] = x[1] + ks[2] + ConstantR0<uint32>(builder, 4);
+  x[1] = x[1] + ks[2] + ConstantR0<uint32_t>(builder, 4);
 
   x = round(x, rotations[0]);
   x = round(x, rotations[1]);
   x = round(x, rotations[2]);
   x = round(x, rotations[3]);
   x[0] = x[0] + ks[2];
-  x[1] = x[1] + ks[0] + ConstantR0<uint32>(builder, 5);
+  x[1] = x[1] + ks[0] + ConstantR0<uint32_t>(builder, 5);
 
   return x;
 }
 
-// Converts a uint64 to two uint32s.
+// Converts a uint64_t to two uint32s.
 std::array<XlaOp, 2> Uint64ToUint32s(XlaOp u64) {
   XlaBuilder* builder = u64.builder();
   XlaOp const32 = ConstantR0WithType(builder, U64, 32);
@@ -127,7 +125,7 @@ std::array<XlaOp, 2> Uint64ToUint32s(XlaOp u64) {
   return {fst, snd};
 }
 
-// Converts two uint32s to a uint64.
+// Converts two uint32s to a uint64_t.
 XlaOp Uint32sToUint64(std::array<XlaOp, 2> u32s) {
   XlaBuilder* builder = u32s[0].builder();
   return ConvertElementType(u32s[0], U64) |
@@ -150,11 +148,11 @@ std::pair<ThreeFry2x32State, XlaOp> GetThreeFryInputsAndUpdatedState(
     }
     input_u64 =
         input_u64 + (Iota(builder, u64_shape, i) *
-                     ConstantR0<uint64>(builder, trailing_dims_product));
+                     ConstantR0<uint64_t>(builder, trailing_dims_product));
     trailing_dims_product *= shape.dimensions(i);
   }
-  XlaOp new_state =
-      initial_state + ConstantR0<uint64>(builder, ShapeUtil::ElementsIn(shape));
+  XlaOp new_state = initial_state +
+                    ConstantR0<uint64_t>(builder, ShapeUtil::ElementsIn(shape));
   return std::make_pair(Uint64ToUint32s(input_u64), new_state);
 }
 
@@ -162,8 +160,8 @@ std::pair<ThreeFry2x32State, XlaOp> GetThreeFryInputsAndUpdatedState(
 struct SplitShapePair {
   Shape half_shape;
   Shape concat_shape;
-  int64 split_dim;
-  int64 new_concat_dim;
+  int64_t split_dim;
+  int64_t new_concat_dim;
 };
 
 // Split the shape on a dimension > 1 into two halves.
@@ -193,13 +191,16 @@ SplitShapePair SplitShapeIntoHalves(const Shape& shape) {
     }
   }
   CHECK_GE(pair.split_dim, 0);
-  std::vector<int64> half_shape_dims;
-  std::vector<int64> concat_shape_dims;
-  for (int64_t i = 0; i < shape.rank(); ++i) {
+  std::vector<int64_t> half_shape_dims;
+  std::vector<int64_t> concat_shape_dims;
+  const auto rank = shape.rank();
+  half_shape_dims.reserve(rank + 1);
+  concat_shape_dims.reserve(rank + 1);
+  for (int64_t i = 0; i < rank; ++i) {
     if (i == pair.split_dim) {
       // Create a new trivial dim for the later concat, which is more friendly
       // to sharding propagation.
-      half_shape_dims.push_back(CeilOfRatio<int64>(shape.dimensions(i), 2));
+      half_shape_dims.push_back(CeilOfRatio<int64_t>(shape.dimensions(i), 2));
       half_shape_dims.push_back(1);
       concat_shape_dims.push_back(half_shape_dims[i]);
       concat_shape_dims.push_back(2);
@@ -226,15 +227,14 @@ XlaOp CombineShapePair(absl::Span<const XlaOp> pair,
   XlaOp result = ConcatInDim(builder, pair, shape_pair.new_concat_dim);
   const int64_t pre_split_size =
       original_shape.dimensions(shape_pair.split_dim);
-  std::vector<int64> reshape_dims(original_shape.dimensions().begin(),
-                                  original_shape.dimensions().end());
-  reshape_dims[shape_pair.split_dim] =
-      RoundUpToNearest<int64>(pre_split_size, 2);
+  std::vector<int64_t> reshape_dims(original_shape.dimensions().begin(),
+                                    original_shape.dimensions().end());
+  reshape_dims[shape_pair.split_dim] = RoundUpTo<int64_t>(pre_split_size, 2);
   result = Reshape(result, reshape_dims);
   if (reshape_dims[shape_pair.split_dim] != pre_split_size) {
-    result = Slice(result, std::vector<int64>(original_shape.rank(), 0),
+    result = Slice(result, std::vector<int64_t>(original_shape.rank(), 0),
                    original_shape.dimensions(),
-                   std::vector<int64>(original_shape.rank(), 1));
+                   std::vector<int64_t>(original_shape.rank(), 1));
   }
   return result;
 }
@@ -270,10 +270,10 @@ using Philox4x32State = std::array<XlaOp, 4>;
 // Computes the Philox4x32 algorithm using 10 rounds.
 Philox4x32State Philox4x32(Philox4x32State state, Philox4x32Key key) {
   // Constants specified by the Philox algorithm.
-  static const uint32 kPhiloxW32A = 0x9E3779B9;
-  static const uint32 kPhiloxW32B = 0xBB67AE85;
-  static const uint32 kPhiloxM4x32A = 0xD2511F53;
-  static const uint32 kPhiloxM4x32B = 0xCD9E8D57;
+  static const uint32_t kPhiloxW32A = 0x9E3779B9;
+  static const uint32_t kPhiloxW32B = 0xBB67AE85;
+  static const uint32_t kPhiloxM4x32A = 0xD2511F53;
+  static const uint32_t kPhiloxM4x32B = 0xCD9E8D57;
 
   struct HighLowPair {
     XlaOp high;
@@ -281,12 +281,12 @@ Philox4x32State Philox4x32(Philox4x32State state, Philox4x32Key key) {
   };
 
   // Compute the high and low words from multiplying two 32-bit integers.
-  auto mul_hi_low = [](XlaOp x, uint32 k) {
+  auto mul_hi_low = [](XlaOp x, uint32_t k) {
     auto product =
-        ConvertElementType(x, U64) * ConstantR0<uint64>(x.builder(), k);
+        ConvertElementType(x, U64) * ConstantR0<uint64_t>(x.builder(), k);
     auto low = ConvertElementType(product, U32);
-    auto high =
-        ConvertElementType(product >> ConstantR0<uint64>(x.builder(), 32), U32);
+    auto high = ConvertElementType(
+        product >> ConstantR0<uint64_t>(x.builder(), 32), U32);
     return HighLowPair{high, low};
   };
 
@@ -301,8 +301,8 @@ Philox4x32State Philox4x32(Philox4x32State state, Philox4x32Key key) {
   // Update the key after a round of Philox algorithm.
   auto raise_key = [](Philox4x32Key key) {
     XlaBuilder* builder = key[0].builder();
-    return Philox4x32Key{key[0] + ConstantR0<uint32>(builder, kPhiloxW32A),
-                         key[1] + ConstantR0<uint32>(builder, kPhiloxW32B)};
+    return Philox4x32Key{key[0] + ConstantR0<uint32_t>(builder, kPhiloxW32A),
+                         key[1] + ConstantR0<uint32_t>(builder, kPhiloxW32B)};
   };
 
   static const int kNumRounds = 10;
@@ -325,10 +325,10 @@ std::pair<Philox4x32State, Philox4x32Key> ScramblePhiloxKey(Philox4x32Key key) {
       ConvertElementType(key1, U32),
       ConvertElementType(key1 >> ScalarLike(key1, 32), U32),
   };
-  key = {ConstantR0<uint32>(builder, 0x3ec8f720),
-         ConstantR0<uint32>(builder, 0x02461e29)};
+  key = {ConstantR0<uint32_t>(builder, 0x3ec8f720),
+         ConstantR0<uint32_t>(builder, 0x02461e29)};
   state = Philox4x32(state, key);
-  XlaOp zero = ConstantR0<uint32>(builder, 0);
+  XlaOp zero = ConstantR0<uint32_t>(builder, 0);
   return {Philox4x32State{zero, zero, state[2], state[3]},
           Philox4x32Key{state[0], state[1]}};
 }
@@ -339,11 +339,11 @@ std::pair<Philox4x32State, Philox4x32Key> ScramblePhiloxKey(Philox4x32Key key) {
 // dimensions prepended to its shape.
 std::array<XlaOp, 2> Uint128AddUint64(
     const std::array<XlaOp, 2>& u128, XlaOp u64,
-    absl::Span<const int64> broadcast_sizes = {}) {
+    absl::Span<const int64_t> broadcast_sizes = {}) {
   auto u128_low = u128[0];
   auto u128_high = u128[1];
   XlaOp new_u128_low = u128_low + u64;
-  XlaOp one = ConstantR0<uint64>(u128[0].builder(), 1);
+  XlaOp one = ConstantR0<uint64_t>(u128[0].builder(), 1);
   XlaOp new_u128_high = Select(Lt(new_u128_low, u128_low),
                                Broadcast(u128_high + one, broadcast_sizes),
                                Broadcast(u128_high, broadcast_sizes));
@@ -381,8 +381,8 @@ std::pair<Philox4x32State, XlaOp> GetPhiloxInputsAndUpdatedState(
   XlaOp iota = Iota(builder, U64, n);
   auto state_u128 = Uint32sToUint128(state);
   auto inputs = Uint128ToUint32s(Uint128AddUint64(state_u128, iota, {n}));
-  XlaOp new_state =
-      Uint128ToOp(Uint128AddUint64(state_u128, ConstantR0<uint64>(builder, n)));
+  XlaOp new_state = Uint128ToOp(
+      Uint128AddUint64(state_u128, ConstantR0<uint64_t>(builder, n)));
   return std::make_pair(inputs, new_state);
 }
 
@@ -393,7 +393,7 @@ std::pair<Philox4x32State, XlaOp> GeneratePhiloxBits(int64_t num_elems,
                                                      Philox4x32Key key) {
   Philox4x32State state;
   state = Uint128ToUint32s(Uint128FromOp(initial_state));
-  const int64_t num_vector4 = CeilOfRatio<int64>(num_elems, 4);
+  const int64_t num_vector4 = CeilOfRatio<int64_t>(num_elems, 4);
   Philox4x32State inputs;
   XlaOp new_state;
   std::tie(inputs, new_state) =
@@ -426,7 +426,7 @@ RngOutput PhiloxRngBit32(XlaOp op_key, XlaOp initial_state,
   numbers = Slice(numbers, /*start_indices=*/{0},
                   /*limit_indices=*/{num_elems},
                   /*strides=*/{1});
-  return {Reshape(numbers, AsInt64Slice(shape.dimensions())), new_state};
+  return {Reshape(numbers, shape.dimensions()), new_state};
 }
 
 // Generates an array of primitive type U64 with the given shape containing
@@ -459,7 +459,7 @@ RngOutput PhiloxRngBit64(XlaOp op_key, XlaOp initial_state,
   numbers = Slice(numbers, /*start_indices=*/{0},
                   /*limit_indices=*/{num_elems},
                   /*strides=*/{1});
-  return {Reshape(numbers, AsInt64Slice(shape.dimensions())), new_state};
+  return {Reshape(numbers, shape.dimensions()), new_state};
 }
 
 XlaOp ConvertRandomBitsToUniformFloatingPoint(XlaOp bits, XlaOp minval,
@@ -625,14 +625,14 @@ RngOutput NormalFloatingPointDistribution(XlaOp key, XlaOp initial_state,
 
   // Separate the bits into two groups to perform the Box-Muller transform.
   XlaOp bits_0 = Slice(bits_state.value,
-                       std::vector<int64>(shape_pair.half_shape.rank(), 0),
+                       std::vector<int64_t>(shape_pair.half_shape.rank(), 0),
                        shape_pair.half_shape.dimensions(),
-                       std::vector<int64>(shape_pair.half_shape.rank(), 1));
-  std::vector<int64> bits_1_starts(shape_pair.half_shape.rank(), 0);
+                       std::vector<int64_t>(shape_pair.half_shape.rank(), 1));
+  std::vector<int64_t> bits_1_starts(shape_pair.half_shape.rank(), 0);
   bits_1_starts[shape_pair.new_concat_dim] = 1;
   XlaOp bits_1 = Slice(bits_state.value, bits_1_starts,
                        shape_pair.concat_shape.dimensions(),
-                       std::vector<int64>(shape_pair.half_shape.rank(), 1));
+                       std::vector<int64_t>(shape_pair.half_shape.rank(), 1));
   std::tie(bits_0, bits_1) = BoxMullerTransform(bits_0, bits_1);
 
   // Put the numbers in the two groups back to form the requested shape.

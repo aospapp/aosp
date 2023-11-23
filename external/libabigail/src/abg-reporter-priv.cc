@@ -1149,14 +1149,42 @@ maybe_report_diff_for_symbol(const elf_symbol_sptr&	symbol1,
 	  << "\n";
     }
 
-  if (symbol1->get_crc() != 0 && symbol2->get_crc() != 0
-      && symbol1->get_crc() != symbol2->get_crc())
+  const abg_compat::optional<uint32_t>& crc1 = symbol1->get_crc();
+  const abg_compat::optional<uint32_t>& crc2 = symbol2->get_crc();
+  if (crc1 != crc2)
     {
+      const std::string none = "(none)";
       out << indent << "CRC (modversions) changed from "
-	  << std::showbase << std::hex
-	  << symbol1->get_crc() << " to " << symbol2->get_crc()
-	  << std::noshowbase << std::dec
+	  << std::showbase << std::hex;
+      if (crc1.has_value())
+	out << crc1.value();
+      else
+	out << none;
+      out << " to ";
+      if (crc2.has_value())
+	out << crc2.value();
+      else
+	out << none;
+      out << std::noshowbase << std::dec
 	  << "\n";
+    }
+
+  const abg_compat::optional<std::string>& ns1 = symbol1->get_namespace();
+  const abg_compat::optional<std::string>& ns2 = symbol2->get_namespace();
+  if (ns1 != ns2)
+    {
+      const std::string none = "(none)";
+      out << indent << "namespace changed from ";
+      if (ns1.has_value())
+	out << "'" << ns1.value() << "'";
+      else
+	out << none;
+      out << " to ";
+      if (ns2.has_value())
+	out << "'" << ns2.value() << "'";
+      else
+	out << none;
+      out << "\n";
     }
 }
 
@@ -1451,5 +1479,53 @@ maybe_report_data_members_replaced_by_anon_dm(const class_or_union_diff &d,
     }
 }
 
+/// Report about the base classes of a class having been re-ordered.
+///
+/// @param d the class diff to consider.
+///
+/// @param out the output stream to report the change to.
+///
+/// @param indent the indentation string to use.
+void
+maybe_report_base_class_reordering(const class_diff	&d,
+				   ostream		&out,
+				   const string	&indent)
+{
+  if (d.moved_bases().empty())
+    return;
+
+  class_decl_sptr first = d.first_class_decl(),
+    second = d.second_class_decl();
+
+  ABG_ASSERT(!first->get_base_specifiers().empty());
+  ABG_ASSERT(!second->get_base_specifiers().empty());
+
+  out << indent << "base classes of '"
+      << first->get_pretty_representation()
+      << "' are re-ordered from: ";
+
+  vector<class_decl_sptr> classes = {first, second};
+  unsigned nb_classes_seen = 0;
+  for (auto &klass : classes)
+    {
+      if (nb_classes_seen >= 1)
+	out << " to: ";
+      out << "'";
+      bool needs_comma = false;
+      for (auto &b : klass->get_base_specifiers())
+	{
+	  if (needs_comma)
+	    out << ", ";
+	  if (b->get_is_virtual())
+	    out << "virtual ";
+	  out << b->get_base_class()->get_qualified_name();
+	  needs_comma = true;
+	}
+      out << "'";
+      nb_classes_seen++;
+    }
+  if (nb_classes_seen)
+    out << "\n";
+}
 } // Namespace comparison
 } // end namespace abigail

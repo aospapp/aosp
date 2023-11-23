@@ -15,19 +15,19 @@
 #include <string_view>
 #include <vector>
 
-#include "testing/base/public/gmock.h"
-#include "testing/base/public/gunit.h"
-#include "third_party/icing/portable/platform.h"
-#include "third_party/icing/proto/schema_proto_portable.pb.h"
-#include "third_party/icing/testing/common-matchers.h"
-#include "third_party/icing/testing/icu-data-file-helper.h"
-#include "third_party/icing/testing/jni-test-helpers.h"
-#include "third_party/icing/testing/test-data.h"
-#include "third_party/icing/tokenization/language-segmenter-factory.h"
-#include "third_party/icing/tokenization/language-segmenter.h"
-#include "third_party/icing/tokenization/tokenizer-factory.h"
-#include "third_party/icing/tokenization/tokenizer.h"
-#include "third_party/icu/include/unicode/uloc.h"
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
+#include "icing/portable/platform.h"
+#include "icing/proto/schema.pb.h"
+#include "icing/testing/common-matchers.h"
+#include "icing/testing/icu-data-file-helper.h"
+#include "icing/testing/jni-test-helpers.h"
+#include "icing/testing/test-data.h"
+#include "icing/tokenization/language-segmenter-factory.h"
+#include "icing/tokenization/language-segmenter.h"
+#include "icing/tokenization/tokenizer-factory.h"
+#include "icing/tokenization/tokenizer.h"
+#include "unicode/uloc.h"
 
 namespace icing {
 namespace lib {
@@ -43,9 +43,9 @@ class CombinedTokenizerTest : public ::testing::Test {
   void SetUp() override {
     if (!IsCfStringTokenization() && !IsReverseJniTokenization()) {
       ICING_ASSERT_OK(
-          // File generated via icu_data_file rule in //third_party/icing/BUILD.
+          // File generated via icu_data_file rule in //icing/BUILD.
           icu_data_file_helper::SetUpICUDataFile(
-              GetTestFilePath("third_party/icing/icu.dat")));
+              GetTestFilePath("icing/icu.dat")));
     }
     jni_cache_ = GetTestJniCache();
 
@@ -142,6 +142,7 @@ TEST_F(CombinedTokenizerTest, Negation) {
   EXPECT_THAT(query_terms, ElementsAre("foo", "bar", "baz"));
 }
 
+// TODO(b/254874614): Handle colon word breaks in ICU 72+
 TEST_F(CombinedTokenizerTest, Colons) {
   const std::string_view kText = ":foo: :bar baz:";
   ICING_ASSERT_OK_AND_ASSIGN(
@@ -165,6 +166,7 @@ TEST_F(CombinedTokenizerTest, Colons) {
   EXPECT_THAT(query_terms, ElementsAre("foo", "bar", "baz"));
 }
 
+// TODO(b/254874614): Handle colon word breaks in ICU 72+
 TEST_F(CombinedTokenizerTest, ColonsPropertyRestricts) {
   ICING_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<Tokenizer> indexing_tokenizer,
@@ -176,33 +178,61 @@ TEST_F(CombinedTokenizerTest, ColonsPropertyRestricts) {
       CreateQueryTokenizer(tokenizer_factory::QueryTokenizerType::RAW_QUERY,
                            lang_segmenter_.get()));
 
-  // This is a difference between the two tokenizers. "foo:bar" is a single
-  // token to the plain tokenizer because ':' is a word connector. But "foo:bar"
-  // is a property restrict to the query tokenizer - so "foo" is the property
-  // and "bar" is the only text term.
-  constexpr std::string_view kText = "foo:bar";
-  ICING_ASSERT_OK_AND_ASSIGN(std::vector<Token> indexing_tokens,
-                             indexing_tokenizer->TokenizeAll(kText));
-  std::vector<std::string> indexing_terms = GetTokenTerms(indexing_tokens);
-  EXPECT_THAT(indexing_terms, ElementsAre("foo:bar"));
+  if (IsIcu72PlusTokenization()) {
+    // In ICU 72+ and above, ':' are no longer considered word connectors. The
+    // query tokenizer should still consider them to be property restricts.
+    constexpr std::string_view kText = "foo:bar";
+    ICING_ASSERT_OK_AND_ASSIGN(std::vector<Token> indexing_tokens,
+                               indexing_tokenizer->TokenizeAll(kText));
+    std::vector<std::string> indexing_terms = GetTokenTerms(indexing_tokens);
+    EXPECT_THAT(indexing_terms, ElementsAre("foo", "bar"));
 
-  ICING_ASSERT_OK_AND_ASSIGN(std::vector<Token> query_tokens,
-                             query_tokenizer->TokenizeAll(kText));
-  std::vector<std::string> query_terms = GetTokenTerms(query_tokens);
-  EXPECT_THAT(query_terms, ElementsAre("bar"));
+    ICING_ASSERT_OK_AND_ASSIGN(std::vector<Token> query_tokens,
+                               query_tokenizer->TokenizeAll(kText));
+    std::vector<std::string> query_terms = GetTokenTerms(query_tokens);
+    EXPECT_THAT(query_terms, ElementsAre("bar"));
 
-  // This difference, however, should only apply to the first ':'. A
-  // second ':' should be treated by both tokenizers as a word connector.
-  constexpr std::string_view kText2 = "foo:bar:baz";
-  ICING_ASSERT_OK_AND_ASSIGN(indexing_tokens,
-                             indexing_tokenizer->TokenizeAll(kText2));
-  indexing_terms = GetTokenTerms(indexing_tokens);
-  EXPECT_THAT(indexing_terms, ElementsAre("foo:bar:baz"));
+    // This difference, however, should only apply to the first ':'. Both should
+    // consider a second ':' to be a word break.
+    constexpr std::string_view kText2 = "foo:bar:baz";
+    ICING_ASSERT_OK_AND_ASSIGN(indexing_tokens,
+                               indexing_tokenizer->TokenizeAll(kText2));
+    indexing_terms = GetTokenTerms(indexing_tokens);
+    EXPECT_THAT(indexing_terms, ElementsAre("foo", "bar", "baz"));
 
-  ICING_ASSERT_OK_AND_ASSIGN(query_tokens,
-                             query_tokenizer->TokenizeAll(kText2));
-  query_terms = GetTokenTerms(query_tokens);
-  EXPECT_THAT(query_terms, ElementsAre("bar:baz"));
+    ICING_ASSERT_OK_AND_ASSIGN(query_tokens,
+                               query_tokenizer->TokenizeAll(kText2));
+    query_terms = GetTokenTerms(query_tokens);
+    EXPECT_THAT(query_terms, ElementsAre("bar", "baz"));
+  } else {
+    // This is a difference between the two tokenizers. "foo:bar" is a single
+    // token to the plain tokenizer because ':' is a word connector. But
+    // "foo:bar" is a property restrict to the query tokenizer - so "foo" is the
+    // property and "bar" is the only text term.
+    constexpr std::string_view kText = "foo:bar";
+    ICING_ASSERT_OK_AND_ASSIGN(std::vector<Token> indexing_tokens,
+                               indexing_tokenizer->TokenizeAll(kText));
+    std::vector<std::string> indexing_terms = GetTokenTerms(indexing_tokens);
+    EXPECT_THAT(indexing_terms, ElementsAre("foo:bar"));
+
+    ICING_ASSERT_OK_AND_ASSIGN(std::vector<Token> query_tokens,
+                               query_tokenizer->TokenizeAll(kText));
+    std::vector<std::string> query_terms = GetTokenTerms(query_tokens);
+    EXPECT_THAT(query_terms, ElementsAre("bar"));
+
+    // This difference, however, should only apply to the first ':'. A
+    // second ':' should be treated by both tokenizers as a word connector.
+    constexpr std::string_view kText2 = "foo:bar:baz";
+    ICING_ASSERT_OK_AND_ASSIGN(indexing_tokens,
+                               indexing_tokenizer->TokenizeAll(kText2));
+    indexing_terms = GetTokenTerms(indexing_tokens);
+    EXPECT_THAT(indexing_terms, ElementsAre("foo:bar:baz"));
+
+    ICING_ASSERT_OK_AND_ASSIGN(query_tokens,
+                               query_tokenizer->TokenizeAll(kText2));
+    query_terms = GetTokenTerms(query_tokens);
+    EXPECT_THAT(query_terms, ElementsAre("bar:baz"));
+  }
 }
 
 TEST_F(CombinedTokenizerTest, Punctuation) {

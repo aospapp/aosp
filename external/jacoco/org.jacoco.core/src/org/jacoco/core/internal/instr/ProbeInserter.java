@@ -154,7 +154,7 @@ class ProbeInserter extends MethodVisitor implements IProbeInserter {
 		int pos = 0; // Current variable position
 		while (idx < nLocal || pos <= variable) {
 			if (pos == variable) {
-				newLocal[newIdx++] = InstrSupport.DATAFIELD_DESC;
+				newLocal[newIdx++] = InstrSupport.DATAFIELD_DESC_UNQUALIFIED;
 				pos++;
 			} else {
 				if (idx < nLocal) {

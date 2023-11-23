@@ -1,13 +1,15 @@
 [package]
 name = "enumn"
-version = "0.1.3"
+version = "0.1.6"
 authors = ["David Tolnay <dtolnay@gmail.com>"]
-edition = "2018"
-license = "MIT OR Apache-2.0"
+categories = ["rust-patterns", "no-std"]
 description = "Convert number to enum"
-repository = "https://github.com/dtolnay/enumn"
 documentation = "https://docs.rs/enumn"
-readme = "README.md"
+edition = "2018"
+keywords = ["enum", "integer"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/dtolnay/enumn"
+rust-version = "1.31"
 
 [lib]
 proc-macro = true

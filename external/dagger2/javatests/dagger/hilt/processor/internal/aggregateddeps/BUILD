@@ -27,7 +27,7 @@ compiler_test(
         "//java/dagger/hilt/internal:component_entry_point",
         "//java/dagger/hilt/internal:generated_entry_point",
         "//:dagger_with_compiler",
-        "@google_bazel_common//third_party/java/jsr250_annotations",
+        "//third_party/java/jsr250_annotations",
         "//java/dagger/hilt:entry_point",
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android/testing:hilt_android_test",
@@ -35,11 +35,11 @@ compiler_test(
     ],
     deps = [
         "//java/dagger/hilt/processor/internal/aggregateddeps:processor_lib",
-        "//java/dagger/internal/guava:base",
         "//javatests/dagger/hilt/processor/internal:generated_import",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/compile_testing",
+        "//third_party/java/guava/base",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

@@ -49,8 +49,7 @@
 //! ## Basic example
 //!
 //! ```rust
-//! use serde;
-//! use serde_derive::{Deserialize, Serialize};
+//! use serde::{Deserialize, Serialize};
 //! use serde_xml_rs::{from_str, to_string};
 //!
 //! #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -60,7 +59,7 @@
 //! }
 //!
 //! fn main() {
-//!     let src = r#"<Item><name>Banana</name><source>Store</source></Item>"#;
+//!     let src = r#"<?xml version="1.0" encoding="UTF-8"?><Item><name>Banana</name><source>Store</source></Item>"#;
 //!     let should_be = Item {
 //!         name: "Banana".to_string(),
 //!         source: "Store".to_string(),
@@ -77,8 +76,7 @@
 //! ## Tag contents
 //!
 //! ```rust
-//! # use serde;
-//! # use serde_derive::{Deserialize, Serialize};
+//! # use serde::{Deserialize, Serialize};
 //! # use serde_xml_rs::{from_str, to_string};
 //!
 //! #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -102,8 +100,7 @@
 //! ## Repeated tags
 //!
 //! ```rust
-//! # use serde;
-//! # use serde_derive::{Deserialize, Serialize};
+//! # use serde::{Deserialize, Serialize};
 //! # use serde_xml_rs::{from_str, to_string};
 //!
 //! #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -160,8 +157,7 @@
 //! ## Custom EventReader
 //!
 //! ```rust
-//! use serde::Deserialize;
-//! use serde_derive::{Deserialize, Serialize};
+//! use serde::{Deserialize, Serialize};
 //! use serde_xml_rs::{from_str, to_string, de::Deserializer};
 //! use xml::reader::{EventReader, ParserConfig};
 //!

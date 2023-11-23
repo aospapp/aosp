@@ -17,30 +17,26 @@
 package dagger.internal.codegen.binding;
 
 import static dagger.internal.codegen.base.MoreAnnotationMirrors.unwrapOptionalEquivalence;
-import static dagger.internal.codegen.binding.ContributionBinding.FactoryCreationStrategy.CLASS_CONSTRUCTOR;
-import static dagger.internal.codegen.binding.ContributionBinding.FactoryCreationStrategy.DELEGATE;
-import static dagger.internal.codegen.binding.ContributionBinding.FactoryCreationStrategy.SINGLETON_INSTANCE;
+import static dagger.internal.codegen.xprocessing.XElements.asMethod;
 import static java.util.Arrays.asList;
 
-import com.google.auto.common.MoreElements;
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XElementKt;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.base.Equivalence;
-import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import dagger.internal.codegen.base.ContributionType;
 import dagger.internal.codegen.base.ContributionType.HasContributionType;
 import dagger.internal.codegen.base.MapType;
 import dagger.internal.codegen.base.SetType;
-import dagger.model.BindingKind;
-import dagger.model.DependencyRequest;
-import dagger.model.Key;
+import dagger.internal.codegen.xprocessing.XTypes;
+import dagger.spi.model.BindingKind;
+import dagger.spi.model.DependencyRequest;
+import dagger.spi.model.Key;
 import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeMirror;
 
 /**
  * An abstract class for a value object representing the mechanism by which a {@link Key} can be
@@ -49,7 +45,7 @@ import javax.lang.model.type.TypeMirror;
 public abstract class ContributionBinding extends Binding implements HasContributionType {
 
   /** Returns the type that specifies this' nullability, absent if not nullable. */
-  public abstract Optional<DeclaredType> nullableType();
+  public abstract Optional<XType> nullableType();
 
   public abstract Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedMapKeyAnnotation();
 
@@ -58,16 +54,16 @@ public abstract class ContributionBinding extends Binding implements HasContribu
   }
 
   /** If {@link #bindingElement()} is a method that returns a primitive type, returns that type. */
-  public final Optional<TypeMirror> contributedPrimitiveType() {
+  public final Optional<XType> contributedPrimitiveType() {
     return bindingElement()
-        .filter(bindingElement -> bindingElement instanceof ExecutableElement)
-        .map(bindingElement -> MoreElements.asExecutable(bindingElement).getReturnType())
-        .filter(type -> type.getKind().isPrimitive());
+        .filter(XElementKt::isMethod)
+        .map(bindingElement -> asMethod(bindingElement).getReturnType())
+        .filter(XTypes::isPrimitive);
   }
 
   @Override
   public boolean requiresModuleInstance() {
-    return !isContributingModuleKotlinObject().orElse(false) && super.requiresModuleInstance();
+    return !isContributingModuleKotlinObject() && super.requiresModuleInstance();
   }
 
   @Override
@@ -79,51 +75,18 @@ public abstract class ContributionBinding extends Binding implements HasContribu
    * Returns {@code true} if the contributing module is a Kotlin object. Note that a companion
    * object is also considered a Kotlin object.
    */
-  abstract Optional<Boolean> isContributingModuleKotlinObject();
-
-  /** The strategy for getting an instance of a factory for a {@link ContributionBinding}. */
-  public enum FactoryCreationStrategy {
-    /** The factory class is a single instance. */
-    SINGLETON_INSTANCE,
-    /** The factory must be created by calling the constructor. */
-    CLASS_CONSTRUCTOR,
-    /** The factory is simply delegated to another. */
-    DELEGATE,
+  private boolean isContributingModuleKotlinObject() {
+    return contributingModule().isPresent()
+        && (contributingModule().get().isKotlinObject()
+            || contributingModule().get().isCompanionObject());
   }
 
   /**
-   * Returns the {@link FactoryCreationStrategy} appropriate for a binding.
-   *
-   * <p>Delegate bindings use the {@link FactoryCreationStrategy#DELEGATE} strategy.
-   *
-   * <p>Bindings without dependencies that don't require a module instance use the {@link
-   * FactoryCreationStrategy#SINGLETON_INSTANCE} strategy.
-   *
-   * <p>All other bindings use the {@link FactoryCreationStrategy#CLASS_CONSTRUCTOR} strategy.
+   * The {@link XType type} for the {@code Factory<T>} or {@code Producer<T>} which is created for
+   * this binding. Uses the binding's key, V in the case of {@code Map<K, FrameworkClass<V>>>}, and
+   * E {@code Set<E>} for {@link dagger.multibindings.IntoSet @IntoSet} methods.
    */
-  public final FactoryCreationStrategy factoryCreationStrategy() {
-    switch (kind()) {
-      case DELEGATE:
-        return DELEGATE;
-      case PROVISION:
-        return dependencies().isEmpty() && !requiresModuleInstance()
-            ? SINGLETON_INSTANCE
-            : CLASS_CONSTRUCTOR;
-      case INJECTION:
-      case MULTIBOUND_SET:
-      case MULTIBOUND_MAP:
-        return dependencies().isEmpty() ? SINGLETON_INSTANCE : CLASS_CONSTRUCTOR;
-      default:
-        return CLASS_CONSTRUCTOR;
-    }
-  }
-
-  /**
-   * The {@link TypeMirror type} for the {@code Factory<T>} or {@code Producer<T>} which is created
-   * for this binding. Uses the binding's key, V in the case of {@code Map<K, FrameworkClass<V>>>},
-   * and E {@code Set<E>} for {@link dagger.multibindings.IntoSet @IntoSet} methods.
-   */
-  public final TypeMirror contributedType() {
+  public final XType contributedType() {
     switch (contributionType()) {
       case MAP:
         return MapType.from(key()).unwrappedFrameworkValueType();
@@ -131,25 +94,9 @@ public abstract class ContributionBinding extends Binding implements HasContribu
         return SetType.from(key()).elementType();
       case SET_VALUES:
       case UNIQUE:
-        return key().type();
+        return key().type().xprocessing();
     }
     throw new AssertionError();
-  }
-
-  /**
-   * Returns {@link BindingKind#MULTIBOUND_SET} or {@link
-   * BindingKind#MULTIBOUND_MAP} if the key is a set or map.
-   *
-   * @throws IllegalArgumentException if {@code key} is neither a set nor a map
-   */
-  static BindingKind bindingKindForMultibindingKey(Key key) {
-    if (SetType.isSet(key)) {
-      return BindingKind.MULTIBOUND_SET;
-    } else if (MapType.isMap(key)) {
-      return BindingKind.MULTIBOUND_MAP;
-    } else {
-      throw new IllegalArgumentException(String.format("key is not for a set or map: %s", key));
-    }
   }
 
   public abstract Builder<?, ?> toBuilder();
@@ -170,21 +117,19 @@ public abstract class ContributionBinding extends Binding implements HasContribu
 
     public abstract B contributionType(ContributionType contributionType);
 
-    public abstract B bindingElement(Element bindingElement);
+    public abstract B bindingElement(XElement bindingElement);
 
-    abstract B bindingElement(Optional<Element> bindingElement);
+    abstract B bindingElement(Optional<XElement> bindingElement);
 
     public final B clearBindingElement() {
       return bindingElement(Optional.empty());
     };
 
-    abstract B contributingModule(TypeElement contributingModule);
-
-    abstract B isContributingModuleKotlinObject(boolean isModuleKotlinObject);
+    abstract B contributingModule(XTypeElement contributingModule);
 
     public abstract B key(Key key);
 
-    public abstract B nullableType(Optional<DeclaredType> nullableType);
+    public abstract B nullableType(Optional<XType> nullableType);
 
     abstract B wrappedMapKeyAnnotation(
         Optional<Equivalence.Wrapper<AnnotationMirror>> wrappedMapKeyAnnotation);
@@ -192,16 +137,6 @@ public abstract class ContributionBinding extends Binding implements HasContribu
     public abstract B kind(BindingKind kind);
 
     @CheckReturnValue
-    abstract C autoBuild();
-
-    @CheckReturnValue
-    public C build() {
-      C binding = autoBuild();
-      Preconditions.checkState(
-          binding.contributingModule().isPresent()
-              == binding.isContributingModuleKotlinObject().isPresent(),
-          "The contributionModule and isModuleKotlinObject must both be set together.");
-      return binding;
-    }
+    abstract C build();
   }
 }

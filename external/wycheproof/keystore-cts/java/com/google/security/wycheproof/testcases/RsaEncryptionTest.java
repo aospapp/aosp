@@ -18,25 +18,39 @@ import static org.junit.Assert.fail;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.math.BigInteger;
+import java.security.KeyStore;
+import java.security.KeyPair;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.security.spec.RSAPublicKeySpec;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
+import org.junit.After;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import android.security.keystore.KeyProtection;
+import android.security.keystore.KeyProperties;
+import android.keystore.cts.util.KeyStoreUtil;
 
 /**
  * RSA encryption tests
  *
  * @author bleichen@google.com (Daniel Bleichenbacher)
  */
-@RunWith(JUnit4.class)
 public class RsaEncryptionTest {
+  private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
+  private static final String KEY_ALIAS_SIG = "SigningKey";
+
+  @After
+  public void tearDown() throws Exception {
+    KeyStoreUtil.cleanUpKeyStore();
+  }
 
   /**
    * Providers that implement RSA with PKCS1Padding but not OAEP are outdated and should be avoided
@@ -46,15 +60,11 @@ public class RsaEncryptionTest {
    */
   @Test
   public void testOutdatedProvider() throws Exception {
+    Cipher c = Cipher.getInstance("RSA/ECB/PKCS1Padding", EXPECTED_PROVIDER_NAME);
     try {
-      Cipher c = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-      try {
-        Cipher.getInstance("RSA/ECB/OAEPWITHSHA-1ANDMGF1PADDING");
-      } catch (NoSuchPaddingException | NoSuchAlgorithmException ex) {
-        fail("Provider " + c.getProvider().getName() + " is outdated and should not be used.");
-      }
+      Cipher.getInstance("RSA/ECB/OAEPWITHSHA-1ANDMGF1PADDING", EXPECTED_PROVIDER_NAME);
     } catch (NoSuchPaddingException | NoSuchAlgorithmException ex) {
-      System.out.println("RSA/ECB/PKCS1Padding is not implemented");
+      fail("Provider " + c.getProvider().getName() + " is outdated and should not be used.");
     }
   }
 
@@ -67,12 +77,23 @@ public class RsaEncryptionTest {
    */
   // This is a false positive, since errorprone cannot track values passed into a method.
   @SuppressWarnings("InsecureCryptoUsage")
-  protected static PrivateKey getPrivateKey(JsonObject object) throws Exception {
+  protected static PrivateKey getPrivateKey(JsonObject object, boolean isStrongBox)
+          throws Exception {
     KeyFactory kf;
     kf = KeyFactory.getInstance("RSA");
     byte[] encoded = TestUtil.hexToBytes(object.get("privateKeyPkcs8").getAsString());
+    BigInteger modulus = new BigInteger(TestUtil.hexToBytes(object.get("n").getAsString()));  
+    BigInteger exponent = new BigInteger(TestUtil.hexToBytes(object.get("e").getAsString()));
+
     PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
-    return kf.generatePrivate(keySpec);
+    PrivateKey intermediateKey = kf.generatePrivate(keySpec);
+    PublicKey pubKey = kf.generatePublic(new RSAPublicKeySpec(modulus, exponent));
+    KeyStore keyStore = KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_SIG, pubKey, intermediateKey,
+                        new KeyProtection.Builder(KeyProperties.PURPOSE_DECRYPT)
+                          .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
+                          .setIsStrongBoxBacked(isStrongBox)
+                          .build());
+    return (PrivateKey) keyStore.getKey(KEY_ALIAS_SIG, null);
   }
 
   /** Convenience method to get a byte array from a JsonObject */
@@ -124,16 +145,11 @@ public class RsaEncryptionTest {
    */
   @SuppressWarnings("InsecureCryptoUsage")
   public void testDecryption(String filename) throws Exception {
-    final String expectedSchema = "rsaes_pkcs1_decrypt_schema.json";
-    JsonObject test = JsonUtil.getTestVectors(filename);
-    String schema = test.get("schema").getAsString();
-    if (!schema.equals(expectedSchema)) {
-      System.out.println(
-          "Expecting test vectors with schema "
-              + expectedSchema
-              + " found vectors with schema "
-              + schema);
-    }
+    testDecryption(filename, false);
+  }
+  @SuppressWarnings("InsecureCryptoUsage")
+  public void testDecryption(String filename, boolean isStrongBox) throws Exception {
+    JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
     // Padding oracle attacks become simpler when the decryption leaks detailed information about
     // invalid paddings. Hence implementations are expected to not include such information in the
     // exception thrown in the case of an invalid padding.
@@ -144,10 +160,10 @@ public class RsaEncryptionTest {
     Set<String> exceptions = new TreeSet<String>();
 
     int errors = 0;
-    Cipher decrypter = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+    Cipher decrypter = Cipher.getInstance("RSA/ECB/PKCS1Padding", EXPECTED_PROVIDER_NAME);
     for (JsonElement g : test.getAsJsonArray("testGroups")) {
       JsonObject group = g.getAsJsonObject();
-      PrivateKey key = getPrivateKey(group);
+      PrivateKey key = getPrivateKey(group, isStrongBox);
       for (JsonElement t : group.getAsJsonArray("tests")) {
         JsonObject testcase = t.getAsJsonObject();
         int tcid = testcase.get("tcId").getAsInt();
@@ -178,31 +194,18 @@ public class RsaEncryptionTest {
           }
         }
         if (decrypted == null && result.equals("valid")) {
-            System.out.printf(
-                "Valid ciphertext not decrypted. filename:%s tcId:%d ct:%s cause:%s\n",
-                filename, tcid, ciphertextHex, exception);
           errors++;
         } else if (decrypted != null) {
           String decryptedHex = TestUtil.bytesToHex(decrypted);
           if (result.equals("invalid")) {
-            System.out.printf(
-                "Invalid ciphertext decrypted. filename:%s tcId:%d expected:%s decrypted:%s\n",
-                filename, tcid, messageHex, decryptedHex);
              errors++;
           } else if (!decryptedHex.equals(messageHex)) {
-            System.out.printf(
-                "Incorrect decryption. filename:%s tcId:%d expected:%s decrypted:%s\n",
-                filename, tcid, messageHex, decryptedHex);
              errors++;
           }
         }
       }
     }
     if (exceptions.size() != 1) {
-      System.out.println("Exceptions for RSA/ECB/PKCS1Padding");
-      for (String s : exceptions) {
-        System.out.println(s);
-      }
       fail("Exceptions leak information about the padding");
     }
     assertEquals(0, errors);
@@ -211,6 +214,11 @@ public class RsaEncryptionTest {
   @Test
   public void testDecryption2048() throws Exception {
     testDecryption("rsa_pkcs1_2048_test.json");
+  }
+  @Test
+  public void testDecryption2048_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testDecryption("rsa_pkcs1_2048_test.json", true);
   }
 
   @Test

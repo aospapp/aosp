@@ -77,23 +77,23 @@ p4s_test(){
     # are we sane?
     WICH=`which which 2>/dev/null`
     if [ $WICH == "" ]; then
-        # thats bad
+        # that's bad
         echo "Sorry, I haven't found which"
         exit
     fi
 
-    # we needt his apps
+    # we need these apps
     CHMOD=`which chmod 2>/dev/null`
     SETCAP=`which setcap 2>/dev/null`
     if [ "$CHMOD" == "" -o "$SETCAP" == "" ]; then
-        echo "Sorry, I'm missing chmod or setcap !"
+        echo "Sorry, I'm missing chmod or setcap!"
         exit
     fi
 
-    # checking setcap for SET_SETFCAP PCap ?
+    # checking setcap for SET_SETFCAP PCap?
     # for now we stick to root
     if [ "$( id -u )" != "0" ]; then
-        echo "Sorry, you must be root !"
+        echo "Sorry, you must be root!"
         exit 1
     fi
 }
@@ -129,7 +129,7 @@ p4s_app_convert(){
 
 
 p4s_app_revert(){
-    # revert a singel app
+    # revert a single app
     # $1 is app name
     APP=`which -a $1 2>/dev/null`
     if [ "$APP" != "" ]; then
@@ -153,7 +153,7 @@ p4s_app_revert(){
 
 
 p4s_convert(){
-    # we go throug the APPSARRAY and call s2p_app_convert to do the job
+    # we go through the APPSARRAY and call s2p_app_convert to do the job
     COUNTER=0
     let UPPER=${#APPSARRAY[*]}-1
     until [ $COUNTER == $UPPER ]; do
@@ -190,7 +190,7 @@ p4s_usage(){
     echo "If you are using pam_cap.so, you might want to change the set into the"
     echo "Inherited and Effective set (check for the SET var)."
     echo
-    echo "You need and I will check fot the utilities which, chmod and setcap."
+    echo "You need and I will check for the utilities which, chmod and setcap."
     echo
     echo "Your Filesystem has to support extended attributes and your kernel must have"
     echo "support for POSIX File Capabilities (CONFIG_SECURITY_FILE_CAPABILITIES)."

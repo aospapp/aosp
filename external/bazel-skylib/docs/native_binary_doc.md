@@ -1,3 +1,15 @@
+<!-- Generated with Stardoc: http://skydoc.bazel.build -->
+
+native_binary() and native_test() rule implementations.
+
+These rules let you wrap a pre-built binary or script in a conventional binary
+and test rule respectively. They fulfill the same goal as sh_binary and sh_test
+do, but they run the wrapped binary directly, instead of through Bash, so they
+don't depend on Bash and work with --shell_exectuable="".
+
+
+<a id="#native_binary"></a>
+
 ## native_binary
 
 <pre>
@@ -9,59 +21,19 @@ Wraps a pre-built binary or script with a binary rule.
 You can "bazel run" this rule like any other binary rule, and use it as a tool in genrule.tools for example. You can also augment the binary with runfiles.
 
 
-### Parameters
+**PARAMETERS**
 
-<table class="params-table">
-  <colgroup>
-    <col class="col-param" />
-    <col class="col-description" />
-  </colgroup>
-  <tbody>
-    <tr id="native_binary-name">
-      <td><code>name</code></td>
-      <td>
-        required.
-      </td>
-    </tr>
-    <tr id="native_binary-src">
-      <td><code>src</code></td>
-      <td>
-        required.
-        <p>
-          label; path of the pre-built executable
-        </p>
-      </td>
-    </tr>
-    <tr id="native_binary-out">
-      <td><code>out</code></td>
-      <td>
-        required.
-        <p>
-          output; an output name for the copy of the binary. (Bazel requires that this rule make a copy of 'src'.)
-        </p>
-      </td>
-    </tr>
-    <tr id="native_binary-data">
-      <td><code>data</code></td>
-      <td>
-        optional. default is <code>None</code>
-        <p>
-          list of labels; data dependencies
-        </p>
-      </td>
-    </tr>
-    <tr id="native_binary-kwargs">
-      <td><code>kwargs</code></td>
-      <td>
-        optional.
-        <p>
-          The <a href="https://docs.bazel.build/versions/master/be/common-definitions.html#common-attributes-binaries">common attributes for binaries</a>.
-        </p>
-      </td>
-    </tr>
-  </tbody>
-</table>
 
+| Name  | Description | Default Value |
+| :------------- | :------------- | :------------- |
+| <a id="native_binary-name"></a>name |  The name of the rule.   |  none |
+| <a id="native_binary-src"></a>src |  label; path of the pre-built executable   |  none |
+| <a id="native_binary-out"></a>out |  output; an output name for the copy of the binary. (Bazel requires that this rule make a copy of 'src'.)   |  none |
+| <a id="native_binary-data"></a>data |  list of labels; data dependencies   |  <code>None</code> |
+| <a id="native_binary-kwargs"></a>kwargs |  The &lt;a href="https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes-binaries"&gt;common attributes for binaries&lt;/a&gt;.   |  none |
+
+
+<a id="#native_test"></a>
 
 ## native_test
 
@@ -75,57 +47,15 @@ You can "bazel test" this rule like any other test rule. You can also augment th
 runfiles.
 
 
-### Parameters
+**PARAMETERS**
 
-<table class="params-table">
-  <colgroup>
-    <col class="col-param" />
-    <col class="col-description" />
-  </colgroup>
-  <tbody>
-    <tr id="native_test-name">
-      <td><code>name</code></td>
-      <td>
-        required.
-      </td>
-    </tr>
-    <tr id="native_test-src">
-      <td><code>src</code></td>
-      <td>
-        required.
-        <p>
-          label; path of the pre-built executable
-        </p>
-      </td>
-    </tr>
-    <tr id="native_test-out">
-      <td><code>out</code></td>
-      <td>
-        required.
-        <p>
-          output; an output name for the copy of the binary. (Bazel requires that this rule make a copy of 'src'.)
-        </p>
-      </td>
-    </tr>
-    <tr id="native_test-data">
-      <td><code>data</code></td>
-      <td>
-        optional. default is <code>None</code>
-        <p>
-          list of labels; data dependencies
-        </p>
-      </td>
-    </tr>
-    <tr id="native_test-kwargs">
-      <td><code>kwargs</code></td>
-      <td>
-        optional.
-        <p>
-          The <a href="https://docs.bazel.build/versions/master/be/common-definitions.html#common-attributes-tests">common attributes for tests</a>.
-        </p>
-      </td>
-    </tr>
-  </tbody>
-</table>
+
+| Name  | Description | Default Value |
+| :------------- | :------------- | :------------- |
+| <a id="native_test-name"></a>name |  The name of the test rule.   |  none |
+| <a id="native_test-src"></a>src |  label; path of the pre-built executable   |  none |
+| <a id="native_test-out"></a>out |  output; an output name for the copy of the binary. (Bazel requires that this rule make a copy of 'src'.)   |  none |
+| <a id="native_test-data"></a>data |  list of labels; data dependencies   |  <code>None</code> |
+| <a id="native_test-kwargs"></a>kwargs |  The &lt;a href="https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes-tests"&gt;common attributes for tests&lt;/a&gt;.   |  none |
 
 

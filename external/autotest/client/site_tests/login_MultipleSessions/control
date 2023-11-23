@@ -9,6 +9,7 @@ TIME = "FAST"
 TEST_CLASS = "login"
 TEST_TYPE = "client"
 JOB_RETRIES = 2
+PY_VERSION = 3
 
 DOC = """
 This test is intended to ensure that the session manager can

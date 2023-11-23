@@ -108,6 +108,11 @@ java_library_host {
         "error_prone_annotations",
     ],
     java_version: "1.8",
+    errorprone: {
+        javacflags: [
+            "-Xep:NoCanIgnoreReturnValueOnClasses:WARN",
+        ],
+    },
 }
 
 java_library_host {
@@ -121,6 +126,11 @@ java_library_host {
          "junit",
     ],
     java_version: "1.8",
+    errorprone: {
+        javacflags: [
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
+    },
 }
 
 // Guava for Android can't compile against an Android bootclasspath, compile
@@ -135,6 +145,11 @@ java_library_host {
         "error_prone_annotations",
     ],
     java_version: "1.8",
+    errorprone: {
+        javacflags: [
+            "-Xep:NoCanIgnoreReturnValueOnClasses:WARN",
+        ],
+    },
 }
 
 java_host_for_device {
@@ -142,19 +157,22 @@ java_host_for_device {
     libs: ["guava-android-host"],
 }
 
-// Compatibility name for existing host modules
-java_library_host {
-    name: "guavalib",
-    static_libs: ["guava"],
-}
-
 // Compile dummy implementations of annotations used by guava but not
 // present in the Android tree.
+// 30 may not be the lowest min_sdk_version, but the min sdk version
+// for permission controller.
 java_library {
     name: "guava-android-annotation-stubs",
     host_supported: true,
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
     sdk_version: "core_current",
+    min_sdk_version: "30",
     srcs: ["android-annotation-stubs/src/**/*.java"],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
 }
 
 // Compile guava testlib
@@ -167,4 +185,9 @@ java_library {
         "guava-android-annotation-stubs",
         "junit",
     ],
+    errorprone: {
+        javacflags: [
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
+    },
 }

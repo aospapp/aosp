@@ -16,11 +16,11 @@
 
 buildscript {
     ext {
-        agp_version = System.getenv('AGP_VERSION') ?: "4.2.0-beta04"
+        agp_version = System.getenv('AGP_VERSION') ?: "4.2.0"
     }
     repositories {
         google()
-        jcenter()
+        mavenCentral()
     }
     dependencies {
         classpath "com.android.tools.build:gradle:$agp_version"
@@ -30,7 +30,6 @@ buildscript {
 allprojects {
     repositories {
       google()
-      jcenter()
       mavenCentral()
       mavenLocal()
     }

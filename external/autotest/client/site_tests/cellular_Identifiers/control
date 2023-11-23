@@ -1,4 +1,4 @@
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2022 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -9,11 +9,12 @@ CRITERIA = """
 This test will fail if one of the following conditions occur:
   - Cellular modem does not provide an identifier
 """
-ATTRIBUTES = "suite:cellular_qual"
+ATTRIBUTES = "suite:cellular_ota_avl"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
+PY_VERSION = 3
 DOC = """
   Tests that a cellular modem provides correct identification information
 

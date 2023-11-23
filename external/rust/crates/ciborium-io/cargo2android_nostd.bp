@@ -1,0 +1,20 @@
+rust_library_rlib {
+    name: "libciborium_io_nostd",
+    crate_name: "ciborium_io",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.2.0",
+    srcs: ["src/lib.rs"],
+    edition: "2021",
+    features: ["alloc"],
+    prefer_rlib: true,
+    no_stdlibs: true,
+    stdlibs: [
+        "liballoc.rust_sysroot",
+        "libcompiler_builtins.rust_sysroot",
+        "libcore.rust_sysroot",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+}

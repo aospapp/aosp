@@ -2,6 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import os
 import sys
@@ -13,6 +17,8 @@ from autotest_lib.site_utils.lxc import constants
 from autotest_lib.site_utils.lxc import lxc
 from autotest_lib.site_utils.lxc import utils as lxc_utils
 from autotest_lib.site_utils.lxc.container import Container
+import six
+from six.moves import range
 
 
 class BaseImage(object):
@@ -102,7 +108,7 @@ class BaseImage(object):
                 except error.CmdError as e:
                     logging.error(e)
                 # Raise the cached exception with original backtrace.
-                raise exc_info[0], exc_info[1], exc_info[2]
+                six.reraise(exc_info[0], exc_info[1], exc_info[2])
             else:
                 raise
         else:

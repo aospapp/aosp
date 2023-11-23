@@ -11,16 +11,27 @@
 
 [package]
 edition = "2018"
-rust-version = "1.39"
+rust-version = "1.47"
 name = "async-task"
-version = "4.1.0"
+version = "4.3.0"
 authors = ["Stjepan Glavina <stjepang@gmail.com>"]
 exclude = ["/.*"]
 description = "Task abstraction for building executors"
-keywords = ["futures", "task", "executor", "spawn"]
-categories = ["asynchronous", "concurrency", "no-std"]
+readme = "README.md"
+keywords = [
+    "futures",
+    "task",
+    "executor",
+    "spawn",
+]
+categories = [
+    "asynchronous",
+    "concurrency",
+    "no-std",
+]
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/smol-rs/async-task"
+
 [dev-dependencies.atomic-waker]
 version = "1"
 

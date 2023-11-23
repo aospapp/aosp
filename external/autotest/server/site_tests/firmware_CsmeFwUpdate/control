@@ -4,14 +4,17 @@
 from autotest_lib.server import utils
 
 NAME = "firmware_CsmeFwUpdate"
-AUTHOR = "Chrome OS Team"
-SUITE = "suite:faft_bios"
+AUTHOR = "ChromeOS Team"
+ATTRIBUTES = "suite:faft_bios"
+DEPENDENCIES = "servo_state:WORKING"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 JOB_RETRIES = 0
 TEST_CASE_ID = "CSME_UPDATE"
+PY_VERSION = 3
+
 DOC = """
 This test updates the RW section of the current bios with another image which contain
 a differnt ME RW version and verifies if MW firmware udpate happens successfully.
@@ -23,4 +26,3 @@ def run(machine):
     host = hosts.create_host(machine, servo_args=servo_args)
     job.run_test("firmware_CsmeFwUpdate", host=host, cmdline_args=args, dev_mode = False)
 parallel_simple(run, machines)
-

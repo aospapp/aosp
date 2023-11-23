@@ -21,6 +21,8 @@
 namespace pw {
 namespace {
 
+using namespace std::literals::string_view_literals;
+
 // Since pw::Vector<T, N> downcasts to a pw::Vector<T, 0>, ensure that the
 // alignment doesn't change.
 static_assert(alignof(Vector<std::max_align_t, 0>) ==
@@ -72,6 +74,19 @@ struct Counter {
   Counter(Counter&& other) : value(other.value) {
     other.value = 0;
     moved += 1;
+  }
+
+  Counter& operator=(const Counter& other) {
+    value = other.value;
+    created += 1;
+    return *this;
+  }
+
+  Counter& operator=(Counter&& other) {
+    value = other.value;
+    other.value = 0;
+    moved += 1;
+    return *this;
   }
 
   ~Counter() { destroyed += 1; }
@@ -156,6 +171,61 @@ TEST(Vector, Construct_InitializerList) {
   EXPECT_EQ(vector.size(), 2u);
   EXPECT_EQ(vector[0], 100);
   EXPECT_EQ(vector[1], 200);
+}
+
+struct Aggregate {
+  int integer;
+  Vector<char, 8> vector;
+};
+
+TEST(Vector, Construct_String) {
+  const auto vector = Vector<char, 8>{"Hello"};
+  EXPECT_EQ(5u, vector.size());
+  EXPECT_EQ("Hello"sv, std::string_view(vector.data(), vector.size()));
+}
+
+TEST(Vector, Construct_StringTruncates) {
+  const auto vector = Vector<char, 8>{"Hello from a long string"};
+  EXPECT_EQ(8u, vector.size());
+  EXPECT_EQ("Hello fr"sv, std::string_view(vector.data(), vector.size()));
+}
+
+TEST(Vector, Construct_AssignFromString) {
+  Vector<char, 8> vector = "Hello";
+  EXPECT_EQ(5u, vector.size());
+  EXPECT_EQ("Hello"sv, std::string_view(vector.data(), vector.size()));
+}
+
+TEST(Vector, Construct_AggregateString) {
+  Aggregate aggregate = {.integer = 42, .vector = "Hello"};
+  EXPECT_EQ(5u, aggregate.vector.size());
+  EXPECT_EQ("Hello"sv,
+            std::string_view(aggregate.vector.data(), aggregate.vector.size()));
+}
+
+TEST(Vector, Construct_StringView) {
+  const auto vector = Vector<char, 8>{"Hello"sv};
+  EXPECT_EQ(5u, vector.size());
+  EXPECT_EQ("Hello"sv, std::string_view(vector.data(), vector.size()));
+}
+
+TEST(Vector, Construct_StringViewTruncates) {
+  const auto vector = Vector<char, 8>{"Hello from a long string"sv};
+  EXPECT_EQ(8u, vector.size());
+  EXPECT_EQ("Hello fr"sv, std::string_view(vector.data(), vector.size()));
+}
+
+TEST(Vector, Construct_AssignFromStringView) {
+  Vector<char, 8> vector = "Hello"sv;
+  EXPECT_EQ(5u, vector.size());
+  EXPECT_EQ("Hello"sv, std::string_view(vector.data(), vector.size()));
+}
+
+TEST(Vector, Construct_AggregateStringView) {
+  Aggregate aggregate = {.integer = 42, .vector = "Hello"sv};
+  EXPECT_EQ(5u, aggregate.vector.size());
+  EXPECT_EQ("Hello"sv,
+            std::string_view(aggregate.vector.data(), aggregate.vector.size()));
 }
 
 TEST(Vector, Destruct_ZeroLength) {
@@ -410,6 +480,212 @@ TEST(Vector, Modify_Resize_Zero) {
   EXPECT_EQ(vector.size(), 0u);
 }
 
+TEST(Vector, Modify_Erase_TrivialRangeBegin) {
+  Vector<size_t, 10> vector;
+
+  for (size_t i = 0; i < vector.max_size(); ++i) {
+    vector.emplace_back(i);
+  }
+
+  vector.erase(vector.begin() + 2, vector.end());
+  EXPECT_EQ(vector.size(), 2u);
+
+  for (size_t i = 0; i < vector.size(); ++i) {
+    EXPECT_EQ(vector[i], i);
+  }
+}
+
+TEST(Vector, Modify_Erase_TrivialRangeEnd) {
+  Vector<size_t, 10> vector;
+
+  for (size_t i = 0; i < vector.max_size(); ++i) {
+    vector.emplace_back(i);
+  }
+
+  vector.erase(vector.begin(), vector.end() - 2);
+  EXPECT_EQ(vector.size(), 2u);
+
+  for (size_t i = 0; i < vector.size(); ++i) {
+    EXPECT_EQ(vector[i], 8u + i);
+  }
+}
+
+TEST(Vector, Modify_Erase_TrivialSingleItem) {
+  Vector<size_t, 10> vector;
+
+  for (size_t i = 0; i < vector.max_size(); ++i) {
+    vector.emplace_back(i);
+  }
+
+  vector.erase(vector.begin() + 9);
+
+  EXPECT_EQ(vector.size(), 9u);
+  EXPECT_EQ(vector.at(8), 8u);
+  EXPECT_EQ(vector.at(0), 0u);
+
+  vector.erase(vector.begin());
+  EXPECT_EQ(vector.size(), 8u);
+  EXPECT_EQ(vector.at(0), 1u);
+}
+
+TEST(Vector, Modify_Erase_NonTrivialRangeBegin) {
+  Counter::Reset();
+  Vector<Counter, 10> vector;
+
+  for (size_t i = 0; i < vector.max_size(); ++i) {
+    vector.emplace_back(static_cast<int>(i));
+  }
+
+  for (size_t i = 0; i < vector.size(); ++i) {
+    EXPECT_EQ(vector[i].value, static_cast<int>(i));
+  }
+
+  vector.erase(vector.begin() + 2, vector.end());
+  EXPECT_EQ(vector.size(), 2u);
+
+  for (size_t i = 0; i < vector.size(); ++i) {
+    EXPECT_EQ(vector[i].value, static_cast<int>(i));
+  }
+
+  EXPECT_EQ(Counter::destroyed, 8);
+  EXPECT_EQ(Counter::moved, 0);
+}
+
+TEST(Vector, Modify_Erase_NonTrivialRangeEnd) {
+  Counter::Reset();
+  Vector<Counter, 10> vector;
+
+  for (size_t i = 0; i < vector.max_size(); ++i) {
+    vector.emplace_back(static_cast<int>(i));
+  }
+
+  vector.erase(vector.begin(), vector.end() - 2);
+  EXPECT_EQ(vector.size(), 2u);
+
+  for (size_t i = 0; i < vector.size(); ++i) {
+    EXPECT_EQ(vector[i].value, static_cast<int>(8u + i));
+  }
+
+  EXPECT_EQ(Counter::destroyed, 8);
+  EXPECT_EQ(Counter::moved, 2);
+}
+
+TEST(Vector, Modify_Erase_None) {
+  Counter::Reset();
+  Vector<Counter, 10> vector;
+
+  for (size_t i = 0; i < vector.max_size(); ++i) {
+    vector.emplace_back(static_cast<int>(i));
+  }
+
+  vector.erase(vector.begin() + 2, vector.begin() + 2);
+  EXPECT_EQ(vector.size(), 10u);
+
+  EXPECT_EQ(Counter::destroyed, 0);
+  EXPECT_EQ(Counter::moved, 0);
+  EXPECT_EQ(Counter::created, 10);
+}
+
+TEST(Vector, Modify_Insert_End) {
+  Counter::Reset();
+  Vector<Counter, 10> vector;
+
+  for (size_t i = 0; i < 8u; ++i) {
+    vector.emplace_back(static_cast<int>(i));
+  }
+
+  EXPECT_EQ(vector.size(), 8u);
+  EXPECT_EQ(Counter::created, 8);
+
+  decltype(vector)::iterator it = vector.insert(vector.cend(), 8);
+  EXPECT_EQ(it->value, 8);
+  EXPECT_EQ(vector.at(8).value, 8);
+
+  EXPECT_EQ(Counter::destroyed, 1);
+  EXPECT_EQ(Counter::moved, 1);
+  EXPECT_EQ(Counter::created, 9);
+}
+
+TEST(Vector, Modify_Insert_Begin) {
+  Counter::Reset();
+  Vector<Counter, 10> vector;
+
+  for (size_t i = 0; i < 8u; ++i) {
+    vector.emplace_back(static_cast<int>(i));
+  }
+
+  EXPECT_EQ(vector.size(), 8u);
+
+  decltype(vector)::iterator it = vector.insert(vector.cbegin(), 123);
+  EXPECT_EQ(it->value, 123);
+  EXPECT_EQ(vector.at(0).value, 123);
+  EXPECT_EQ(vector.at(8).value, 7);
+
+  EXPECT_EQ(Counter::moved, 9);
+}
+
+TEST(Vector, Modify_Insert_CountCopies) {
+  Counter::Reset();
+  Vector<Counter, 10> vector;
+
+  vector.emplace_back(123);
+  vector.insert(vector.cbegin() + 1, 8, Counter{421});
+  EXPECT_EQ(vector.at(0).value, 123);
+  EXPECT_EQ(vector.size(), 9u);
+
+  for (size_t i = 1; i < vector.size(); ++i) {
+    EXPECT_EQ(vector[i].value, 421);
+  }
+
+  EXPECT_EQ(Counter::moved, 0);
+  EXPECT_EQ(Counter::created, 10);
+}
+
+TEST(Vector, Modify_Insert_IteratorRange) {
+  std::array array_to_insert_first{0, 1, 2, 8, 9};
+  std::array array_to_insert_middle{3, 4, 5, 6, 7};
+
+  Vector<int, 10> vector(array_to_insert_first.begin(),
+                         array_to_insert_first.end());
+
+  decltype(vector)::iterator it = vector.insert(vector.cbegin() + 3,
+                                                array_to_insert_middle.begin(),
+                                                array_to_insert_middle.end());
+  EXPECT_EQ(*it, array_to_insert_middle.front());
+
+  for (size_t i = 0; i < vector.max_size(); ++i) {
+    EXPECT_EQ(vector[i], static_cast<int>(i));
+  }
+}
+
+TEST(Vector, Modify_Insert_InitializerListRange) {
+  std::array array_to_insert_first{0, 1, 2, 8, 9};
+  Vector<int, 10> vector(array_to_insert_first.begin(),
+                         array_to_insert_first.end());
+
+  decltype(vector)::iterator it =
+      vector.insert(vector.cbegin() + 3, {3, 4, 5, 6, 7});
+  EXPECT_EQ(*it, 3);
+
+  for (size_t i = 0; i < vector.max_size(); ++i) {
+    EXPECT_EQ(vector[i], static_cast<int>(i));
+  }
+}
+
+TEST(Vector, Modify_Insert_NonTrivial_InitializerListRange) {
+  std::array<Counter, 5> array_to_insert_first{0, 1, 2, 8, 9};
+  Vector<Counter, 10> vector(array_to_insert_first.begin(),
+                             array_to_insert_first.end());
+
+  decltype(vector)::iterator it = vector.insert(
+      vector.cbegin() + 3, std::initializer_list<Counter>{3, 4, 5, 6, 7});
+  EXPECT_EQ(it->value, 3);
+
+  for (size_t i = 0; i < vector.max_size(); ++i) {
+    EXPECT_EQ(vector[i].value, static_cast<int>(i));
+  }
+}
+
 TEST(Vector, Generic) {
   Vector<int, 10> vector{1, 2, 3, 4, 5};
 
@@ -429,6 +705,19 @@ TEST(Vector, Generic) {
     EXPECT_EQ(vector[i], value);
     i += 1;
   }
+}
+
+TEST(Vector, ConstexprMaxSize) {
+  Vector<int, 10> vector;
+  Vector<int, vector.max_size()> vector2;
+
+  EXPECT_EQ(vector.max_size(), vector2.max_size());
+
+  // The following code would fail with the following compiler error:
+  // "non-type template argument is not a constant expression"
+  // Reason: the generic_vector doesn't return a constexpr max_size value.
+  // Vector<int>& generic_vector(vector);
+  // Vector<int, generic_vector.max_size()> vector3;
 }
 
 // Test that Vector<T> is trivially destructible when its type is.

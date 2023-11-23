@@ -18,7 +18,7 @@
 #![deny(missing_docs)]
 #![deny(clippy::all)]
 #![deny(clippy::cargo)]
-
+#[cfg(android_dylib)]
 extern crate std;
 
 #[cfg(feature = "alloc")]

@@ -15,6 +15,8 @@ limitations under the License.
 
 #include "tensorflow/compiler/xla/service/spmd/custom_call_handler.h"
 
+#include <vector>
+
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_cat.h"
@@ -34,23 +36,22 @@ limitations under the License.
 #include "tensorflow/compiler/xla/shape_util.h"
 #include "tensorflow/compiler/xla/util.h"
 #include "tensorflow/compiler/xla/window_util.h"
-#include "tensorflow/core/platform/numbers.h"
 
 namespace xla {
 namespace spmd {
 
 namespace {
 
-StatusOr<absl::flat_hash_map<string, int64>> ParseOpaqueAsAttributes(
+StatusOr<absl::flat_hash_map<std::string, int64_t>> ParseOpaqueAsAttributes(
     const HloInstruction* hlo) {
   absl::string_view opaque = Cast<HloCustomCallInstruction>(hlo)->opaque();
   HloLexer lexer(opaque);
-  absl::flat_hash_map<string, int64> result;
+  absl::flat_hash_map<std::string, int64_t> result;
   while (lexer.Lex() != TokKind::kEof) {
     if (lexer.GetKind() != TokKind::kAttributeName) {
       return InvalidArgument("Expects attribute name, %s", opaque);
     }
-    string attr_name = lexer.GetStrVal();
+    std::string attr_name = lexer.GetStrVal();
     if (lexer.Lex() != TokKind::kInt) {
       return InvalidArgument("expects integer attribute value");
     }
@@ -106,7 +107,8 @@ Status SpmdPartitioningVisitor::HandleCustomCallTopK(HloInstruction* hlo) {
   auto replicated_sharding = HloSharding::Replicate();
   // If batch dimension is partitioned, partial replicated on sort dimension.
   if (batch_dim_partition > 1) {
-    auto sharding_grouped = GroupShardingOnDims(sharding, {batch_dim});
+    auto sharding_grouped =
+        hlo_sharding_util::GroupShardingOnDims(sharding, {batch_dim});
     partition_state = CreatePerGroupPartitioningState(
         partitioned_input.state(), sharding_grouped.device_groups,
         partitioned_input.state().b);
@@ -163,7 +165,7 @@ Status SpmdPartitioningVisitor::HandleCustomCallTopK(HloInstruction* hlo) {
       b_.AddInstruction(HloInstruction::CreateBinary(
           partition_id_s32->shape(), HloOpcode::kMultiply, partition_id_s32,
           b_.AddInstruction(HloInstruction::CreateConstant(
-              LiteralUtil::CreateR0<int32>(per_partition_size))))),
+              LiteralUtil::CreateR0<int32_t>(per_partition_size))))),
       {}));
   index_gte = b_.AddInstruction(HloInstruction::CreateBinary(
       index_offset->shape(), HloOpcode::kAdd, index_gte, index_offset));
@@ -232,7 +234,7 @@ Status SpmdPartitioningVisitor::HandleCustomCallTopK(HloInstruction* hlo) {
       hlo, PartitionedHlo(create_tuple, hlo->shape(), MakePartitioningState())
                .Reshard(hlo->sharding()));
 
-  return Status::OK();
+  return OkStatus();
 }
 
 Status SpmdPartitioningVisitor::HandleCustomCallSPMDInternal_RotateRight(
@@ -262,7 +264,7 @@ Status SpmdPartitioningVisitor::HandleCustomCallSPMDInternal_RotateRight(
   amount %= full_size;
   if (amount == 0) {
     SetPartitionedHlo(hlo, input);
-    return Status::OK();
+    return OkStatus();
   }
 
   // First step: rotate `amount` on padded data. E.g., before
@@ -287,24 +289,24 @@ Status SpmdPartitioningVisitor::HandleCustomCallSPMDInternal_RotateRight(
       HloInstruction* halo = input.hlo();
       if (halo_size != shard_size) {
         halo_shape.set_dimensions(dim, halo_size);
-        std::vector<int64> slice_starts(hlo->shape().rank(), 0);
+        std::vector<int64_t> slice_starts(hlo->shape().rank(), 0);
         slice_starts[dim] = offset_in_shard;
-        std::vector<int64> slice_limits(
+        std::vector<int64_t> slice_limits(
             input.hlo()->shape().dimensions().begin(),
             input.hlo()->shape().dimensions().end());
         slice_limits[dim] = offset_in_shard + halo_size;
         halo = b_.AddInstruction(HloInstruction::CreateSlice(
             halo_shape, halo, slice_starts, slice_limits,
-            std::vector<int64>(halo_shape.rank(), 1)));
+            std::vector<int64_t>(halo_shape.rank(), 1)));
       }
       if (shard_distance != 0) {
-        std::vector<std::pair<int64, int64>> pairs;
+        std::vector<std::pair<int64_t, int64_t>> pairs;
         hlo->sharding().tile_assignment().Each(
-            [&](absl::Span<const int64> indices, int64_t device) {
+            [&](absl::Span<const int64_t> indices, int64_t device) {
               if (indices[dim] >= participating_shards) {
                 return;
               }
-              std::vector<int64> dst_idx(indices.begin(), indices.end());
+              std::vector<int64_t> dst_idx(indices.begin(), indices.end());
               dst_idx[dim] += shard_distance;
               dst_idx[dim] %= participating_shards;
               pairs.emplace_back(device,
@@ -325,7 +327,7 @@ Status SpmdPartitioningVisitor::HandleCustomCallSPMDInternal_RotateRight(
   HloInstruction* rotated0 = rotate_with_padding(amount);
   if (right_padding == 0) {
     SetPartitionedHlo(hlo, [&] { return rotated0; });
-    return Status::OK();
+    return OkStatus();
   }
 
   // Second step: perform another rotate from input, with `right_padding` added
@@ -351,7 +353,7 @@ Status SpmdPartitioningVisitor::HandleCustomCallSPMDInternal_RotateRight(
           b_.AddInstruction(HloInstruction::CreateBinary(
               shard_offset->shape(), HloOpcode::kSubtract,
               b_.AddInstruction(HloInstruction::CreateConstant(
-                  LiteralUtil::CreateR0<int32>(amount))),
+                  LiteralUtil::CreateR0<int32_t>(amount))),
               shard_offset)),
           {}));
   HloInstruction* pred = b_.AddInstruction(HloInstruction::CreateCompare(
@@ -361,12 +363,12 @@ Status SpmdPartitioningVisitor::HandleCustomCallSPMDInternal_RotateRight(
     return b_.AddInstruction(HloInstruction::CreateTernary(
         rotated0->shape(), HloOpcode::kSelect, pred, rotated1, rotated0));
   });
-  return Status::OK();
+  return OkStatus();
 }
 
 std::unique_ptr<HloInstruction> CreateCustomCallSPMDInternal_RotateRight(
     HloInstruction* input, int64_t dim, int64_t amount) {
-  string opaque = absl::StrCat("dimension=", dim, ",amount=", amount);
+  std::string opaque = absl::StrCat("dimension=", dim, ",amount=", amount);
   return HloInstruction::CreateCustomCall(input->shape(), {input},
                                           kSPMDOpRotateRight, opaque);
 }
@@ -380,23 +382,24 @@ Status SpmdPartitioningVisitor::HandleCustomCall(HloInstruction* hlo) {
           CreateR0WithType(hlo->shape().element_type(), 0, &b_));
     }
     auto input = input_partitioned.hlo();
-    CHECK(hlo->sharding().IsManual());
-    CHECK(ShapeUtil::Compatible(input->shape(), hlo->shape()));
+    CHECK(hlo->sharding().IsManual() || hlo->sharding().IsManualSubgroup());
+    CHECK(ShapeUtil::Compatible(
+        input->shape(), MakePartitionedShape(hlo->shape(), hlo->sharding())));
     auto copy = b_.AddInstruction(
         HloInstruction::CreateUnary(input->shape(), HloOpcode::kCopy, input));
     SetPartitionedHlo(hlo, [&] { return copy; });
-    return Status::OK();
+    return OkStatus();
   }
   if (hlo->custom_call_target() == "SPMDShardToFullShape") {
     // This op switches from manual partitioning to auto partitioning.
     auto input = GetPartitionedHlo(hlo->operand(0)).hlo();
-    CHECK(input->sharding().IsManual());
+    CHECK(input->sharding().IsManual() || input->sharding().IsManualSubgroup());
     auto copy = b_.AddInstruction(
         HloInstruction::CreateUnary(input->shape(), HloOpcode::kCopy, input));
     CHECK(ShapeUtil::Compatible(
         copy->shape(), MakePartitionedShape(hlo->shape(), hlo->sharding())));
     SetPartitionedHlo(hlo, [&] { return copy; });
-    return Status::OK();
+    return OkStatus();
   }
 
   if (hlo->custom_call_target() == "TopK") {
@@ -405,6 +408,34 @@ Status SpmdPartitioningVisitor::HandleCustomCall(HloInstruction* hlo) {
 
   if (hlo->custom_call_target() == kSPMDOpRotateRight) {
     return HandleCustomCallSPMDInternal_RotateRight(hlo);
+  }
+
+  if (hlo->sharding().HasUniqueDevice()) {
+    return HandleSingleDevice(hlo);
+  }
+
+  if (hlo->sharding().IsManual()) {
+    // Handle manual custom calls by just cloning it and apply as sharding what
+    // the system expects, which is UniqueDevice(0).
+    std::vector<HloInstruction*> new_operands;
+    new_operands.reserve(hlo->operands().size());
+    for (HloInstruction* operand : hlo->operands()) {
+      new_operands.push_back(GetPartitionedHlo(operand).hlo());
+    }
+    SetPartitionedHlo(hlo, [&] {
+      auto* instr = b_.AddInstruction(
+          hlo->CloneWithNewOperands(hlo->shape(), new_operands));
+      if (hlo->shape().IsTuple()) {
+        std::vector<HloSharding> subshardings(
+            hlo->sharding().tuple_elements().size(),
+            HloSharding::AssignDevice(0));
+        instr->set_sharding(HloSharding::Tuple(hlo->shape(), subshardings));
+      } else {
+        instr->set_sharding(HloSharding::AssignDevice(0));
+      }
+      return instr;
+    });
+    return OkStatus();
   }
 
   return DefaultAction(hlo);

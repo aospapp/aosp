@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 from __future__ import absolute_import
 from __future__ import division
@@ -108,11 +108,11 @@ INFO: logging 4
 """
 
 
-class DummyLoggingConfig(logging_config.LoggingConfig):
+class StubLoggingConfig(logging_config.LoggingConfig):
     console_formatter = logging.Formatter(LOGGING_FORMAT)
 
     def __init__(self):
-        super(DummyLoggingConfig, self).__init__()
+        super(StubLoggingConfig, self).__init__()
         self.log = PipedStringIO()
 
 
@@ -142,7 +142,7 @@ class LoggingManagerTest(unittest.TestCase):
         logging.basicConfig(level=logging.INFO, format=LOGGING_FORMAT,
                             stream=self.stdout)
 
-        self._config_object = DummyLoggingConfig()
+        self._config_object = StubLoggingConfig()
         logging_manager.LoggingManager.logging_config_object = (
                 self._config_object)
 

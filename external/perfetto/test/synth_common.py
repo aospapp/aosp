@@ -102,7 +102,7 @@ class Trace(object):
         ss.prev_state = 0
       elif prev_state == 'S':
         ss.prev_state = 1
-      elif prev_state == 'U':
+      elif prev_state == 'U' or prev_state == 'D':
         ss.prev_state = 2
       else:
         raise Exception('Invalid prev state {}'.format(prev_state))
@@ -276,6 +276,16 @@ class Trace(object):
     pinfo.name = name
     pinfo.uid = uid
     pinfo.version_code = version_code
+
+  def add_debuggable_package_list(self, ts, name, uid, version_code):
+    packet = self.add_packet()
+    packet.timestamp = ts
+    plist = packet.packages_list
+    pinfo = plist.packages.add()
+    pinfo.name = name
+    pinfo.uid = uid
+    pinfo.version_code = version_code
+    pinfo.debuggable = True
 
   def add_profile_packet(self, ts):
     packet = self.add_packet()

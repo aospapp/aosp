@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 import json
-import md5
+import hashlib
 import os
 import requests
 
@@ -27,7 +27,7 @@ def _read_lines_with_prefix(document, position, prefix):
     """
     lines = []
     while document.startswith(prefix, position):
-        position_next_line = document.find('\n', position + len(prefix))
+        position_next_line = document.find(b'\n', position + len(prefix))
         if position_next_line < 0:
             break
         position_next_line += 1  # to eat '\n' character
@@ -60,13 +60,13 @@ def _process_PJL_headers(doc, position, out):
         out += doc[position:(position_pjl+len(PJL_MARKER))]
         position = position_pjl + len(PJL_MARKER)
         # parse header and filter problematic lines
-        lines, position = _read_lines_with_prefix(doc, position, '@PJL')
+        lines, position = _read_lines_with_prefix(doc, position, b'@PJL')
         for line in lines:
-            if not (line.startswith('@PJL SET ') or
-                    line.startswith('@PJL COMMENT') or
-                    line.startswith('@PJL DMINFO') or
-                    line.startswith('@PJL JOB NAME') or
-                    line.startswith('@PJL JOBNAME')):
+            if not (line.startswith(b'@PJL SET ')
+                    or line.startswith(b'@PJL COMMENT')
+                    or line.startswith(b'@PJL DMINFO')
+                    or line.startswith(b'@PJL JOB NAME')
+                    or line.startswith(b'@PJL JOBNAME')):
                 out += line
         # try to find next PJL header
         position_pjl = doc.find(PJL_MARKER, position, position + MARGIN)
@@ -91,28 +91,30 @@ def _process_PS_Adobe_headers(doc, position, out):
             accordingly.
 
     """
-    PS_MARKER = '%!PS-Adobe'
+    PS_MARKER = b'%!PS-Adobe'
     MARGIN = 2048  # max distance to the header
     position_ps = doc.find(PS_MARKER, position, position + MARGIN)
     while position_ps >= 0:
         # add everything till the end of the first line in the header
-        position_next_line = doc.find('\n', position_ps + len(PS_MARKER))
+        position_next_line = doc.find(b'\n', position_ps + len(PS_MARKER))
         if position_next_line < 0:
             break  # no more '\n', we finish the parsing here
         position_next_line += 1 # to eat \n character
         out += doc[position:position_next_line]
         # parse the rest of the header and filter problematic lines
-        lines, position = _read_lines_with_prefix(doc, position_next_line, '%')
+        lines, position = _read_lines_with_prefix(doc, position_next_line,
+                                                  b'%')
         for line in lines:
-            if not (line.startswith('%%Title:') or line.startswith('%%For:')):
+            if not (line.startswith(b'%%Title:')
+                    or line.startswith(b'%%For:')):
                 out += line
         # search for lines with '{setuserinfo}' or '/JobInfo <<'
         position_ps = doc.find(PS_MARKER, position, position + MARGIN)
-        position_ui = doc.find('{setuserinfo}', position, position + MARGIN)
-        position_ji = doc.find('/JobInfo <<', position, position + MARGIN)
+        position_ui = doc.find(b'{setuserinfo}', position, position + MARGIN)
+        position_ji = doc.find(b'/JobInfo <<', position, position + MARGIN)
         # if '/JobInfo <<' was found, move the offset to the end of the section
         if position_ji >= 0:
-            position_ji = doc.find('>>', position_ji)
+            position_ji = doc.find(b'>>', position_ji)
         # if the beginning of the next header was found, make sure that
         # detected sections do not belong to the next header
         if position_ps >= 0:
@@ -124,20 +126,19 @@ def _process_PS_Adobe_headers(doc, position, out):
         position_end = max(position_ji, position_ui)
         if position_end >= 0:
             # find the first '\n' after the farthest section
-            position_end = doc.find('\n', position_end)
+            position_end = doc.find(b'\n', position_end)
             if position_end < 0:
                 break  # no more '\n', we finish the parsing here
             # split into lines everything from here to the end of the section
-            lines = doc[position:position_end].split('\n')
+            lines = doc[position:position_end].split(b'\n')
             position = position_end + 1  # +1 is needed to eat the last \n
             # filter problematic lines
             for line in lines:
-                if not (line.find('{setuserinfo}') >= 0 or
-                        line.find('/UserID') >= 0 or
-                        line.find('/Time') >= 0 or
-                        line.find('/HostLoginName') >= 0 or
-                        line.find('/HostName') >= 0):
-                    out += line + '\n'
+                if not (line.find(b'{setuserinfo}') >= 0 or
+                        line.find(b'/UserID') >= 0 or line.find(b'/Time') >= 0
+                        or line.find(b'/HostLoginName') >= 0
+                        or line.find(b'/HostName') >= 0):
+                    out += line + b'\n'
             # go to the next iteration, position_ps is already set
     return position, out
 
@@ -164,9 +165,11 @@ def _normalize_LIDIL(doc):
     # remove both JOB IDs and exit
     nd = len(doc)
     if nd > LIDIL_JOBID_1_OFF + LIDIL_JOBID_2_OFF + 2*JOBID_SIZE:
-        doc = ''.join([ doc[:(LIDIL_JOBID_1_OFF)],
-                doc[(LIDIL_JOBID_1_OFF+JOBID_SIZE):(nd-LIDIL_JOBID_2_OFF)],
-                doc[(nd-LIDIL_JOBID_2_OFF+JOBID_SIZE):] ])
+        doc = b''.join([
+                doc[:(LIDIL_JOBID_1_OFF)],
+                doc[(LIDIL_JOBID_1_OFF + JOBID_SIZE):(nd - LIDIL_JOBID_2_OFF)],
+                doc[(nd - LIDIL_JOBID_2_OFF + JOBID_SIZE):]
+        ])
     return doc
 
 
@@ -189,10 +192,10 @@ def _normalize_EJL(doc):
         return None
     # copy the document to output; filter lines parsed from the EJL header
     out = EJL_MARKER
-    lines, position = _read_lines_with_prefix(doc, len(EJL_MARKER), '@EJL')
+    lines, position = _read_lines_with_prefix(doc, len(EJL_MARKER), b'@EJL')
     for line in lines:
-        if not (line.startswith('@EJL JI ID=') or
-                line.startswith('@EJL JI USER=')):
+        if not (line.startswith(b'@EJL JI ID=')
+                or line.startswith(b'@EJL JI USER=')):
             out += line
     # add the rest of the document and exit
     out += doc[position:]
@@ -206,9 +209,9 @@ def _normalize_document(doc):
     That includes, but is not limited to: user name, host name, job id, date,
     time.
 
-    @param doc: a raw document sent directly to printer to be printed
+    @param doc: a raw document sent directly to printer to be printed (bytes)
 
-    @returns a copy of doc with removed fragments that can vary between
+    @returns a copy of doc (bytes) with removed fragments that can vary between
         printing jobs. The returned output is supposed to be identical for the
         same input content send to the pipeline for the same PPD file.
 
@@ -223,7 +226,7 @@ def _normalize_document(doc):
 
     # Try to parse and process PJL and PS headers.
     position = 0
-    out = ''
+    out = b''
     position, out = _process_PJL_headers(doc, position, out)
     position, out = _process_PS_Adobe_headers(doc, position, out)
 
@@ -234,10 +237,10 @@ def _normalize_document(doc):
         position = position_tail
 
     # Try to find 'trailer << '.
-    position_trailer = doc.find('trailer << ', position)
+    position_trailer = doc.find(b'trailer << ', position)
     if position_trailer >= 0:
         # If found, prune the line with it.
-        position_end = doc.find('\n', position_trailer)
+        position_end = doc.find(b'\n', position_trailer)
         if position_end >= 0:
             out += doc[position:position_trailer]
             position = position_end + 1  # +1 to ommit '\n' from the trailer
@@ -252,7 +255,7 @@ def calculate_digest(doc):
     """
     Calculates digests for given document.
 
-    @param doc: document's content
+    @param doc: document's content (bytes)
 
     @returns calculated digests as a string of hexadecimals
 
@@ -261,7 +264,7 @@ def calculate_digest(doc):
     out = _normalize_document(doc)
 
     # Calculates hash
-    return md5.new(out).hexdigest()
+    return hashlib.md5(out).hexdigest()
 
 
 def parse_digests_file(path_digests, denylist):
@@ -280,7 +283,7 @@ def parse_digests_file(path_digests, denylist):
     sizes = dict()
     denylist = set(denylist)
     if os.path.isfile(path_digests):
-        with open(path_digests, 'rb') as file_digests:
+        with open(path_digests, 'r') as file_digests:
             lines = file_digests.read().splitlines()
             for line in lines:
                 cols = line.split()
@@ -315,7 +318,7 @@ def save_digests_file(path_digests, digests, sizes, denylist):
         digests_content += '\n'
 
     with open(path_digests, 'wb') as file_digests:
-        file_digests.write(digests_content)
+        file_digests.write(digests_content.encode("utf-8"))
 
 
 def load_lines_from_file(path):

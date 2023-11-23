@@ -35,7 +35,10 @@ class DisplayVkWayland : public DisplayVkLinux
 
     const char *getWSIExtension() const override;
 
+    bool isWayland() const override;
+
   private:
+    bool mOwnDisplay;
     wl_display *mWaylandDisplay;
 };
 

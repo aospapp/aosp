@@ -22,16 +22,18 @@ rust_defaults {
     name: "bytes_test_defaults",
     crate_name: "bytes",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.1.0",
+    cargo_pkg_version: "1.4.0",
     test_suites: ["general-tests"],
     auto_gen_config: true,
     edition: "2018",
     features: [
         "default",
+        "serde",
         "std",
     ],
     rustlibs: [
         "libbytes",
+        "libserde",
         "libserde_test",
     ],
 }
@@ -127,6 +129,16 @@ rust_test {
 }
 
 rust_test {
+    name: "bytes_test_tests_test_serde",
+    defaults: ["bytes_test_defaults"],
+    host_supported: true,
+    srcs: ["tests/test_serde.rs"],
+    test_options: {
+        unit_test: true,
+    },
+}
+
+rust_test {
     name: "bytes_test_tests_test_take",
     defaults: ["bytes_test_defaults"],
     host_supported: true,
@@ -141,21 +153,26 @@ rust_library {
     host_supported: true,
     crate_name: "bytes",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.1.0",
+    cargo_pkg_version: "1.4.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
         "default",
+        "serde",
         "std",
+    ],
+    rustlibs: [
+        "libserde",
     ],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
         "com.android.compos",
         "com.android.resolv",
         "com.android.uwb",
         "com.android.virt",
     ],
+    product_available: true,
     vendor_available: true,
     min_sdk_version: "29",
 }

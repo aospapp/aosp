@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_Fingerprint.AddEntropy"
 PURPOSE = """
 Verify that the add_entropy behavior works correctly.
@@ -19,6 +19,7 @@ TEST_CLASS = "firmware"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING, fingerprint"
 JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """
 Attempts to add entropy while running RW firmware and verifies that it fails.

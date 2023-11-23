@@ -26,7 +26,7 @@ class network_DhcpNonAsciiParameter(dhcp_test_base.DhcpTestBase):
                 "zircon.encrusted.tweezers.google.com",
                 ]
         # Set a server name that is invalid as ASCII or UTF-8.
-        server_name = "\xff"
+        server_name = b"\xff"
         # This is the pool of information the server will give out to the client
         # upon request.
         dhcp_options = {

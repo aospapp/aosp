@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2020 FUJITSU LIMITED. All rights reserved.
+ * Copyright (c) Linux Test Project, 2020-2022
  * Author: Yang Xu <xuyang2018.jy@cn.jujitsu.com>
+ */
+
+/*\
+ * [Description]
  *
- * This is a basic ioctl test about loopdevice.
- * It is designed to test LO_FLAGS_AUTOCLEAR and LO_FLAGS_PARTSCAN flag.
+ * Tests ioctl() on loopdevice with LO_FLAGS_AUTOCLEAR and LO_FLAGS_PARTSCAN flags.
  *
- * For LO_FLAGS_AUTOCLEAR flag, we only check autoclear field value in sys
- * directory and also get lo_flags by using LOOP_GET_STATUS.
+ * For LO_FLAGS_AUTOCLEAR flag, only checks autoclear field value in sysfs
+ * and also gets lo_flags by using LOOP_GET_STATUS.
  *
  * For LO_FLAGS_PARTSCAN flag, it is the same as LO_FLAGS_AUTOCLEAR flag.
- * But we also check whether we can scan partition table correctly ie check
+ * But also checks whether it can scan partition table correctly i.e. checks
  * whether /dev/loopnp1 and /sys/bloclk/loop0/loop0p1 existed.
  *
  * For LO_FLAGS_AUTOCLEAR flag, it can be clear. For LO_FLAGS_PARTSCAN flag,
- * it cannot be clear. We also check this.
- *
- * It is also a regression test for kernel
- * commit 10c70d95c0f2 ("block: remove the bd_openers checks in blk_drop_partitions")
- * commit 6ac92fb5cdff ("loop: Fix wrong masking of status flags").
+ * it cannot be clear. Test checks this.
  */
 
 #include <stdio.h>

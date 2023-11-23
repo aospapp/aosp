@@ -13,6 +13,7 @@ use std::fs::File;
 use std::io::Cursor;
 use std::io::{BufWriter, Error, Write};
 use std::path::Path;
+use std::fmt::Write as _;
 
 fn make_svg_color(color: BackendColor) -> String {
     let (r, g, b) = color.rgb;
@@ -45,7 +46,7 @@ impl Target<'_> {
 }
 
 enum SVGTag {
-    SVG,
+    Svg,
     Circle,
     Line,
     Polygon,
@@ -59,7 +60,7 @@ enum SVGTag {
 impl SVGTag {
     fn to_tag_name(&self) -> &'static str {
         match self {
-            SVGTag::SVG => "svg",
+            SVGTag::Svg => "svg",
             SVGTag::Circle => "circle",
             SVGTag::Line => "line",
             SVGTag::Polyline => "polyline",
@@ -92,14 +93,14 @@ impl<'a> SVGBackend<'a> {
     }
     fn open_tag(&mut self, tag: SVGTag, attr: &[(&str, &str)], close: bool) {
         let buf = self.target.get_mut();
-        buf.push_str("<");
+        buf.push('<');
         buf.push_str(tag.to_tag_name());
         for (key, value) in attr {
-            buf.push_str(" ");
+            buf.push(' ');
             buf.push_str(key);
             buf.push_str("=\"");
             Self::escape_and_push(buf, value);
-            buf.push_str("\"");
+            buf.push('\"');
         }
         if close {
             buf.push_str("/>\n");
@@ -122,7 +123,7 @@ impl<'a> SVGBackend<'a> {
 
     fn init_svg_file(&mut self, size: (u32, u32)) {
         self.open_tag(
-            SVGTag::SVG,
+            SVGTag::Svg,
             &[
                 ("width", &format!("{}", size.0)),
                 ("height", &format!("{}", size.1)),
@@ -314,7 +315,7 @@ impl<'a> DrawingBackend for SVGBackend<'a> {
                 (
                     "points",
                     &path.into_iter().fold(String::new(), |mut s, (x, y)| {
-                        s.push_str(&format!("{},{} ", x, y));
+                        write!(s, "{},{} ", x, y).ok();
                         s
                     }),
                 ),
@@ -340,7 +341,7 @@ impl<'a> DrawingBackend for SVGBackend<'a> {
                 (
                     "points",
                     &path.into_iter().fold(String::new(), |mut s, (x, y)| {
-                        s.push_str(&format!("{},{} ", x, y));
+                        write!(s, "{},{} ", x, y).ok();
                         s
                     }),
                 ),
@@ -472,7 +473,7 @@ impl<'a> DrawingBackend for SVGBackend<'a> {
         );
 
         Self::escape_and_push(self.target.get_mut(), text);
-        self.target.get_mut().push_str("\n");
+        self.target.get_mut().push('\n');
 
         self.close_tag();
 
@@ -486,18 +487,19 @@ impl<'a> DrawingBackend for SVGBackend<'a> {
         (w, h): (u32, u32),
         src: &'b [u8],
     ) -> Result<(), DrawingErrorKind<Self::ErrorType>> {
-        use image::png::PNGEncoder;
+        use image::codecs::png::PngEncoder;
+        use image::ImageEncoder;
 
         let mut data = vec![0; 0];
 
         {
             let cursor = Cursor::new(&mut data);
 
-            let encoder = PNGEncoder::new(cursor);
+            let encoder = PngEncoder::new(cursor);
 
-            let color = image::ColorType::RGB(8);
+            let color = image::ColorType::Rgb8;
 
-            encoder.encode(src, w, h, color).map_err(|e| {
+            encoder.write_image(src, w, h, color).map_err(|e| {
                 DrawingErrorKind::DrawingError(Error::new(
                     std::io::ErrorKind::Other,
                     format!("Image error: {}", e),
@@ -578,7 +580,10 @@ impl Drop for SVGBackend<'_> {
 mod test {
     use super::*;
     use plotters::element::Circle;
-    use plotters::prelude::*;
+    use plotters::prelude::{
+        ChartBuilder, Color, IntoDrawingArea, IntoFont, SeriesLabelPosition, TextStyle, BLACK,
+        BLUE, RED, WHITE,
+    };
     use plotters::style::text_anchor::{HPos, Pos, VPos};
     use std::fs;
     use std::path::Path;
@@ -603,8 +608,8 @@ mod test {
             let root = SVGBackend::with_string(&mut content, (500, 500)).into_drawing_area();
 
             let mut chart = ChartBuilder::on(&root)
-                .caption("This is a test", ("sans-serif", 20))
-                .set_all_label_area_size(40)
+                .caption("This is a test", ("sans-serif", 20u32))
+                .set_all_label_area_size(40u32)
                 .build_cartesian_2d(0..10, 0..10)
                 .unwrap();
 
@@ -674,9 +679,9 @@ mod test {
                 .unwrap();
 
             let mut chart = ChartBuilder::on(&root)
-                .caption("All anchor point positions", ("sans-serif", 20))
-                .set_all_label_area_size(40)
-                .build_cartesian_2d(0..100, 0..50)
+                .caption("All anchor point positions", ("sans-serif", 20u32))
+                .set_all_label_area_size(40u32)
+                .build_cartesian_2d(0..100i32, 0..50i32)
                 .unwrap();
 
             chart
@@ -763,9 +768,9 @@ mod test {
             let root = SVGBackend::with_string(&mut content, (width, height)).into_drawing_area();
 
             let mut chart = ChartBuilder::on(&root)
-                .caption("All series label positions", ("sans-serif", 20))
-                .set_all_label_area_size(40)
-                .build_cartesian_2d(0..50, 0..50)
+                .caption("All series label positions", ("sans-serif", 20u32))
+                .set_all_label_area_size(40u32)
+                .build_cartesian_2d(0..50i32, 0..50i32)
                 .unwrap();
 
             chart
@@ -776,16 +781,16 @@ mod test {
                 .unwrap();
 
             chart
-                .draw_series(std::iter::once(Circle::new((5, 15), 5, &RED)))
+                .draw_series(std::iter::once(Circle::new((5, 15), 5u32, &RED)))
                 .expect("Drawing error")
                 .label("Series 1")
-                .legend(|(x, y)| Circle::new((x, y), 3, RED.filled()));
+                .legend(|(x, y)| Circle::new((x, y), 3u32, RED.filled()));
 
             chart
-                .draw_series(std::iter::once(Circle::new((5, 15), 10, &BLUE)))
+                .draw_series(std::iter::once(Circle::new((5, 15), 10u32, &BLUE)))
                 .expect("Drawing error")
                 .label("Series 2")
-                .legend(|(x, y)| Circle::new((x, y), 3, BLUE.filled()));
+                .legend(|(x, y)| Circle::new((x, y), 3u32, BLUE.filled()));
 
             for pos in vec![
                 SeriesLabelPosition::UpperLeft,

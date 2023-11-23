@@ -18,7 +18,7 @@
 #include "tst_clone.h"
 #include "lapi/fcntl.h"
 #include "lapi/close_range.h"
-#include "lapi/clone.h"
+#include "lapi/sched.h"
 
 static int try_close_range(int fd, int flags)
 {
@@ -111,4 +111,5 @@ static struct tst_test test = {
 	.tcnt = 6,
 	.forks_child = 1,
 	.test = run,
+	.setup = close_range_supported_by_kernel,
 };

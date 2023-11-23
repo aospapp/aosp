@@ -28,6 +28,7 @@
 #include "perfetto/ext/base/sys_types.h"
 #include "perfetto/ext/tracing/core/basic_types.h"
 #include "perfetto/ext/tracing/core/shared_memory.h"
+#include "perfetto/ext/tracing/core/trace_packet.h"
 #include "perfetto/tracing/buffer_exhausted_policy.h"
 #include "perfetto/tracing/core/forward_decls.h"
 
@@ -42,9 +43,6 @@ class Producer;
 class SharedMemoryArbiter;
 class TraceWriter;
 
-// Exposed for testing.
-std::string GetBugreportPath();
-
 // TODO: for the moment this assumes that all the calls happen on the same
 // thread/sequence. Not sure this will be the case long term in Chrome.
 
@@ -54,9 +52,14 @@ std::string GetBugreportPath();
 //    to the ConnectProducer() method.
 // 2. The transport layer (e.g., src/ipc) when the producer and
 //    the service don't talk locally but via some IPC mechanism.
-class PERFETTO_EXPORT ProducerEndpoint {
+class PERFETTO_EXPORT_COMPONENT ProducerEndpoint {
  public:
   virtual ~ProducerEndpoint();
+
+  // Disconnects the endpoint from the service, while keeping the shared memory
+  // valid. After calling this, the endpoint will no longer call any methods
+  // on the Producer.
+  virtual void Disconnect() = 0;
 
   // Called by the Producer to (un)register data sources. Data sources are
   // identified by their name (i.e. DataSourceDescriptor.name)
@@ -156,7 +159,7 @@ class PERFETTO_EXPORT ProducerEndpoint {
 //    the ConnectConsumer() method.
 // 2. The transport layer (e.g., src/ipc) when the consumer and
 //    the service don't talk locally but via some IPC mechanism.
-class PERFETTO_EXPORT ConsumerEndpoint {
+class PERFETTO_EXPORT_COMPONENT ConsumerEndpoint {
  public:
   virtual ~ConsumerEndpoint();
 
@@ -183,6 +186,14 @@ class PERFETTO_EXPORT ConsumerEndpoint {
   virtual void StartTracing() = 0;
 
   virtual void DisableTracing() = 0;
+
+  // Clones an existing tracing session and attaches to it. The session is
+  // cloned in read-only mode and can only be used to read a snapshot of an
+  // existing tracing session. Will invoke Consumer::OnSessionCloned().
+  // If TracingSessionID == kBugreportSessionId (0xff...ff) the session with the
+  // highest bugreport score is cloned (if any exists).
+  // TODO(primiano): make pure virtual after various 3way patches.
+  virtual void CloneSession(TracingSessionID);
 
   // Requests all data sources to flush their data immediately and invokes the
   // passed callback once all of them have acked the flush (in which case
@@ -243,6 +254,14 @@ class PERFETTO_EXPORT ConsumerEndpoint {
   virtual void SaveTraceForBugreport(SaveTraceForBugreportCallback) = 0;
 };  // class ConsumerEndpoint.
 
+struct PERFETTO_EXPORT_COMPONENT TracingServiceInitOpts {
+  // Function used by tracing service to compress packets. Takes a pointer to
+  // a vector of TracePackets and replaces the packets in the vector with
+  // compressed ones.
+  using CompressorFn = void (*)(std::vector<TracePacket>*);
+  CompressorFn compressor_fn = nullptr;
+};
+
 // The public API of the tracing Service business logic.
 //
 // Exposed to:
@@ -253,10 +272,15 @@ class PERFETTO_EXPORT ConsumerEndpoint {
 //
 // Subclassed by:
 //   The service business logic in src/core/tracing_service_impl.cc.
-class PERFETTO_EXPORT TracingService {
+class PERFETTO_EXPORT_COMPONENT TracingService {
  public:
   using ProducerEndpoint = perfetto::ProducerEndpoint;
   using ConsumerEndpoint = perfetto::ConsumerEndpoint;
+  using InitOpts = TracingServiceInitOpts;
+
+  // Default sizes used by the service implementation and client library.
+  static constexpr size_t kDefaultShmPageSize = 4096ul;
+  static constexpr size_t kDefaultShmSize = 256 * 1024ul;
 
   enum class ProducerSMBScrapingMode {
     // Use service's default setting for SMB scraping. Currently, the default
@@ -272,10 +296,12 @@ class PERFETTO_EXPORT TracingService {
     kDisabled
   };
 
-  // Implemented in src/core/tracing_service_impl.cc .
+  // Implemented in src/core/tracing_service_impl.cc . CompressorFn can be
+  // nullptr, in which case TracingService will not support compression.
   static std::unique_ptr<TracingService> CreateInstance(
       std::unique_ptr<SharedMemory::Factory>,
-      base::TaskRunner*);
+      base::TaskRunner*,
+      InitOpts init_opts = {});
 
   virtual ~TracingService();
 

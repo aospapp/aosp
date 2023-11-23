@@ -1,17 +1,28 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import re
+import six
 import time
+
+from six.moves import zip
+
 import common
+
 from autotest_lib.client.cros.cellular import cellular_logging
 from autotest_lib.client.cros.cellular import cellular_system_error
 from autotest_lib.client.cros.cellular import air_state_verifier
 from autotest_lib.client.cros.cellular import base_station_interface
 from autotest_lib.client.cros.cellular import cellular
 from autotest_lib.client.bin import utils
+
 
 POLL_SLEEP = 0.2
 
@@ -70,8 +81,8 @@ class BaseStation8960(base_station_interface.BaseStationInterface):
             result_text = self.c.Query('CALL:COUNT:DTMonitor:%s:DRATe?' %
                                        counter)
             result = [float(x) for x in result_text.rstrip().split(',')]
-            output[counter] = dict(zip(['Mean', 'Current', 'Max', 'Total'],
-                                       result))
+            output[counter] = dict(list(zip(['Mean', 'Current', 'Max', 'Total'],
+                                       result)))
         logging.info('Data counters: %s', output)
         return output
 
@@ -313,7 +324,7 @@ class ConfigDictionaries(object):
     # Put each value in "" marks to quote it for GPIB
     TECHNOLOGY_TO_FORMAT = dict([
         (x, '"%s"' % y) for
-        x, y in TECHNOLOGY_TO_FORMAT_RAW.iteritems()])
+        x, y in six.iteritems(TECHNOLOGY_TO_FORMAT_RAW)])
 
     TECHNOLOGY_TO_CONFIG_STANZA = {
         cellular.Technology.CDMA_2000: ConfigStanzas.CDMA_2000_MAX,

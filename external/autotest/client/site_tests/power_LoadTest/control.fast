@@ -2,15 +2,16 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_LoadTest.fast"
 PURPOSE = "Test health of power load test functionality."
 CRITERIA = "This test is a benchmark."
-TIME = "SHORT"
+TIME = "MEDIUM"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
 ATTRIBUTES = "suite:power_build, suite:power_loadtest_fast"
+PY_VERSION = 3
 
 DOC = """
 This test runs a load test consisting of cycling though web pages, playing

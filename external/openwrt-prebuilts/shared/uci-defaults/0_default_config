@@ -1,0 +1,37 @@
+#!/bin/sh
+
+opkg install /ipks/*
+ip link set eth0 mtu 1460
+
+rule_name=$(uci add network rule)
+
+# Extract configs from /proc/cmdline
+bridged_wifi_tap=false
+words=$(cat /proc/cmdline)
+while
+    word=${words%%" "*}
+    if [ "$word" = "bridged_wifi_tap=true" ]; then
+        bridged_wifi_tap=true
+    elif echo "$word" | grep "^wan_gateway="; then
+        uci set network.wan.gateway=${word#*"="}
+    elif echo "$word" | grep "^wan_ipaddr="; then
+        uci set network.wan.ipaddr=${word#*"="}
+    elif echo "$word" | grep "^wan_broadcast="; then
+        uci set network.wan.broadcast=${word#*"="}
+    fi
+    next=${words#*" "}
+    [ "$words" != "$next" ]
+do
+    words=$next
+done
+
+if $bridged_wifi_tap; then
+    uci set network.wan.netmask="255.255.255.0"
+else
+    uci set network.wan.netmask="255.255.255.252"
+fi
+
+uci commit
+
+# Regarding hostapd issue of OpenWRT 22.03.X versions, reboot it.
+reboot

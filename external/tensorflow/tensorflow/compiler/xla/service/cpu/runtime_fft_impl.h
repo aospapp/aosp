@@ -19,24 +19,20 @@ limitations under the License.
 
 #include "third_party/eigen3/Eigen/Core"
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
-#include "tensorflow/core/framework/numeric_types.h"
-#include "tensorflow/core/platform/types.h"
+#include "tensorflow/compiler/xla/types.h"
 
-// 'tensorflow' namespace is used so that int64 and other types don't require
-// qualification.
-namespace tensorflow {
 namespace xla {
 
-enum class FftType : int32 {
+namespace internal {
+
+enum class FftType : int32_t {
   FFT = 0,    // Forward FFT; complex in, complex out.
   IFFT = 1,   // Inverse FFT; complex in, complex out.
   RFFT = 2,   // Forward real FFT; real in, fft_length / 2 + 1 complex out
   IRFFT = 3,  // Inverse real FFT; fft_length / 2 + 1 complex in,
               //                   fft_length real out
 };
-static constexpr int kFftTypeArraySize = 4;
-
-namespace internal {
+inline constexpr int FftTypeArraySize() { return 4; }
 
 // Computes either a forward or reverse complex-to-complex FFT.
 template <bool Forward, int FFTRank, typename EigenDevice, typename Complex>
@@ -47,7 +43,7 @@ void EigenFftC2C(const EigenDevice& device, Complex* out, Complex* operand,
   const auto axes = Eigen::ArrayXi::LinSpaced(FFTRank, 1, FFTRank);
   constexpr auto direction = Forward ? Eigen::FFT_FORWARD : Eigen::FFT_REVERSE;
 
-  const std::array<int64, 3> fft_shape = {
+  const std::array<int64_t, 3> fft_shape = {
       {fft_length0, fft_length1, fft_length2}};
 
   Eigen::DSizes<Eigen::DenseIndex, FFTRank + 1> dims;
@@ -70,7 +66,7 @@ template <int FFTRank, typename EigenDevice, typename Real, typename Complex>
 void EigenFftR2C(const EigenDevice& device, Complex* out, Real* operand,
                  int64_t input_batch, int64_t fft_length0, int64_t fft_length1,
                  int64_t fft_length2) {
-  const std::array<int64, 3> fft_shape = {
+  const std::array<int64_t, 3> fft_shape = {
       {fft_length0, fft_length1, fft_length2}};
 
   Eigen::DSizes<Eigen::DenseIndex, FFTRank + 1> in_dims;
@@ -109,7 +105,7 @@ template <int FFTRank, typename EigenDevice, typename Complex, typename Real>
 void EigenFftC2R(const EigenDevice& device, Real* out, Complex* operand,
                  int64_t input_batch, int64_t fft_length0, int64_t fft_length1,
                  int64_t fft_length2) {
-  const std::array<int64, 3> fft_shape = {
+  const std::array<int64_t, 3> fft_shape = {
       {fft_length0, fft_length1, fft_length2}};
 
   Eigen::DSizes<Eigen::DenseIndex, FFTRank + 1> in_dims;
@@ -242,9 +238,9 @@ void EigenFftWithRank(const EigenDevice& device, void* out, void* operand,
 
 template <typename EigenDevice>
 void EigenFftImpl(const EigenDevice& device, void* out, void* operand,
-                  FftType fft_type, bool double_precision, int32_t fft_rank,
-                  int64_t input_batch, int64_t fft_length0, int64_t fft_length1,
-                  int64_t fft_length2) {
+                  internal::FftType fft_type, bool double_precision,
+                  int32_t fft_rank, int64_t input_batch, int64_t fft_length0,
+                  int64_t fft_length1, int64_t fft_length2) {
   switch (fft_rank) {
     case 1:
       internal::EigenFftWithRank<1, EigenDevice>(device, out, operand, fft_type,
@@ -268,6 +264,5 @@ void EigenFftImpl(const EigenDevice& device, void* out, void* operand,
 }
 
 }  // namespace xla
-}  // namespace tensorflow
 
 #endif  // TENSORFLOW_COMPILER_XLA_SERVICE_CPU_RUNTIME_FFT_IMPL_H_

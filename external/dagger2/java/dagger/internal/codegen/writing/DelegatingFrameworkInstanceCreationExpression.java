@@ -21,10 +21,14 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.binding.BindingRequest.bindingRequest;
 
 import com.squareup.javapoet.CodeBlock;
+import dagger.assisted.Assisted;
+import dagger.assisted.AssistedFactory;
+import dagger.assisted.AssistedInject;
 import dagger.internal.codegen.binding.ContributionBinding;
+import dagger.internal.codegen.compileroption.CompilerOptions;
 import dagger.internal.codegen.javapoet.CodeBlocks;
 import dagger.internal.codegen.writing.FrameworkFieldInitializer.FrameworkInstanceCreationExpression;
-import dagger.model.DependencyRequest;
+import dagger.spi.model.DependencyRequest;
 
 /** A framework instance creation expression for a {@link dagger.Binds @Binds} binding. */
 final class DelegatingFrameworkInstanceCreationExpression
@@ -32,26 +36,33 @@ final class DelegatingFrameworkInstanceCreationExpression
 
   private final ContributionBinding binding;
   private final ComponentImplementation componentImplementation;
-  private final ComponentBindingExpressions componentBindingExpressions;
+  private final ComponentRequestRepresentations componentRequestRepresentations;
 
+  @AssistedInject
   DelegatingFrameworkInstanceCreationExpression(
-      ContributionBinding binding,
+      @Assisted ContributionBinding binding,
       ComponentImplementation componentImplementation,
-      ComponentBindingExpressions componentBindingExpressions) {
+      ComponentRequestRepresentations componentRequestRepresentations,
+      CompilerOptions compilerOptions) {
     this.binding = checkNotNull(binding);
-    this.componentImplementation = checkNotNull(componentImplementation);
-    this.componentBindingExpressions = checkNotNull(componentBindingExpressions);
+    this.componentImplementation = componentImplementation;
+    this.componentRequestRepresentations = componentRequestRepresentations;
   }
 
   @Override
   public CodeBlock creationExpression() {
     DependencyRequest dependency = getOnlyElement(binding.dependencies());
     return CodeBlocks.cast(
-        componentBindingExpressions
+        componentRequestRepresentations
             .getDependencyExpression(
                 bindingRequest(dependency.key(), binding.frameworkType()),
-                componentImplementation.name())
+                componentImplementation.shardImplementation(binding).name())
             .codeBlock(),
-        binding.frameworkType().frameworkClass());
+        binding.frameworkType().frameworkClassName());
+  }
+
+  @AssistedFactory
+  static interface Factory {
+    DelegatingFrameworkInstanceCreationExpression create(ContributionBinding binding);
   }
 }

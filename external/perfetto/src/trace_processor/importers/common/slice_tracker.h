@@ -39,7 +39,7 @@ class SliceTracker {
   virtual ~SliceTracker();
 
   // virtual for testing
-  virtual base::Optional<SliceId> Begin(
+  virtual std::optional<SliceId> Begin(
       int64_t timestamp,
       TrackId track_id,
       StringId category,
@@ -56,7 +56,7 @@ class SliceTracker {
                              SetArgsCallback args_callback);
 
   template <typename Table>
-  base::Optional<SliceId> BeginTyped(
+  std::optional<SliceId> BeginTyped(
       Table* table,
       typename Table::Row row,
       SetArgsCallback args_callback = SetArgsCallback()) {
@@ -70,7 +70,7 @@ class SliceTracker {
   }
 
   // virtual for testing
-  virtual base::Optional<SliceId> Scoped(
+  virtual std::optional<SliceId> Scoped(
       int64_t timestamp,
       TrackId track_id,
       StringId category,
@@ -79,7 +79,7 @@ class SliceTracker {
       SetArgsCallback args_callback = SetArgsCallback());
 
   template <typename Table>
-  base::Optional<SliceId> ScopedTyped(
+  std::optional<SliceId> ScopedTyped(
       Table* table,
       typename Table::Row row,
       SetArgsCallback args_callback = SetArgsCallback()) {
@@ -92,7 +92,7 @@ class SliceTracker {
   }
 
   // virtual for testing
-  virtual base::Optional<SliceId> End(
+  virtual std::optional<SliceId> End(
       int64_t timestamp,
       TrackId track_id,
       StringId opt_category = {},
@@ -102,16 +102,16 @@ class SliceTracker {
   // Usually args should be added in the Begin or End args_callback but this
   // method is for the situation where new args need to be added to an
   // in-progress slice.
-  base::Optional<uint32_t> AddArgs(TrackId track_id,
-                                   StringId category,
-                                   StringId name,
-                                   SetArgsCallback args_callback);
+  std::optional<uint32_t> AddArgs(TrackId track_id,
+                                  StringId category,
+                                  StringId name,
+                                  SetArgsCallback args_callback);
 
   void FlushPendingSlices();
 
   void SetOnSliceBeginCallback(OnSliceBeginCallback callback);
 
-  base::Optional<SliceId> GetTopmostSliceOnTrack(TrackId track_id) const;
+  std::optional<SliceId> GetTopmostSliceOnTrack(TrackId track_id) const;
 
  private:
   // Slices which have been opened but haven't been closed yet will be marked
@@ -119,7 +119,7 @@ class SliceTracker {
   static constexpr int64_t kPendingDuration = -1;
 
   struct SliceInfo {
-    uint32_t row;
+    tables::SliceTable::RowNumber row;
     ArgsTracker args_tracker;
   };
   using SlicesStack = std::vector<SliceInfo>;
@@ -134,30 +134,41 @@ class SliceTracker {
   };
   using StackMap = base::FlatHashMap<TrackId, TrackInfo>;
 
-  // virtual for testing.
-  virtual base::Optional<SliceId> StartSlice(int64_t timestamp,
-                                             TrackId track_id,
-                                             SetArgsCallback args_callback,
-                                             std::function<SliceId()> inserter);
+  // Args pending translation.
+  struct TranslatableArgs {
+    SliceId slice_id;
+    ArgsTracker::CompactArgSet compact_arg_set;
+  };
 
-  base::Optional<SliceId> CompleteSlice(
+  // virtual for testing.
+  virtual std::optional<SliceId> StartSlice(int64_t timestamp,
+                                            TrackId track_id,
+                                            SetArgsCallback args_callback,
+                                            std::function<SliceId()> inserter);
+
+  std::optional<SliceId> CompleteSlice(
       int64_t timestamp,
       TrackId track_id,
       SetArgsCallback args_callback,
-      std::function<base::Optional<uint32_t>(const SlicesStack&)> finder);
+      std::function<std::optional<uint32_t>(const SlicesStack&)> finder);
 
-  void MaybeCloseStack(int64_t end_ts, SlicesStack*, TrackId track_id);
+  void MaybeCloseStack(int64_t end_ts, const SlicesStack&, TrackId track_id);
 
-  base::Optional<uint32_t> MatchingIncompleteSliceIndex(
-      const SlicesStack& stack,
-      StringId name,
-      StringId category);
+  std::optional<uint32_t> MatchingIncompleteSliceIndex(const SlicesStack& stack,
+                                                       StringId name,
+                                                       StringId category);
 
   int64_t GetStackHash(const SlicesStack&);
 
   void StackPop(TrackId track_id);
-  void StackPush(TrackId track_id, uint32_t slice_idx);
+  void StackPush(TrackId track_id, tables::SliceTable::RowReference);
   void FlowTrackerUpdate(TrackId track_id);
+
+  // If args need translation, adds them to a list of pending translatable args,
+  // so that they are translated at the end of the trace. Takes ownership of the
+  // arg set for the slice. Otherwise, this is a noop, and the args are added to
+  // the args table immediately when the slice is popped.
+  void MaybeAddTranslatableArgs(SliceInfo& slice_info);
 
   OnSliceBeginCallback on_slice_begin_callback_;
 
@@ -170,6 +181,7 @@ class SliceTracker {
 
   TraceProcessorContext* const context_;
   StackMap stacks_;
+  std::vector<TranslatableArgs> translatable_args_;
 };
 
 }  // namespace trace_processor

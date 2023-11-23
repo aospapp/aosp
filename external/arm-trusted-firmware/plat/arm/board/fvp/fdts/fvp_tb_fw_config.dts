@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <lib/libc/cdefs.h>
+
 /dts-v1/;
 
 / {
@@ -24,19 +26,6 @@
 		 */
 		mbedtls_heap_addr = <0x0 0x0>;
 		mbedtls_heap_size = <0x0>;
-
-#if MEASURED_BOOT
-		/* BL2 image hash calculated by BL1 */
-		bl2_hash_data = [
-			00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-#if BL2_HASH_SIZE > 32
-			00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-#if BL2_HASH_SIZE > 48
-			00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-#endif /* > 48 */
-#endif /* > 32 */
-			00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00];
-#endif /* MEASURED_BOOT */
 	};
 
 	/*
@@ -74,6 +63,10 @@
 
 	secure-partitions {
 		compatible = "arm,sp";
+
+#ifdef ARM_BL2_SP_LIST_DTS
+	#include __XSTRING(ARM_BL2_SP_LIST_DTS)
+#else
 #ifdef OPTEE_SP_FW_CONFIG
 		op-tee {
 			uuid = "486178e0-e7f8-11e3-bc5e-0002a5d5c51b";
@@ -104,10 +97,15 @@
 			owner = "Plat";
 		};
 #endif
+#endif /* ARM_BL2_SP_LIST_DTS */
 	};
 
 #if COT_DESC_IN_DTB
 	#include "cot_descriptors.dtsi"
+#endif
+
+#if MEASURED_BOOT
+	#include "event_log.dtsi"
 #endif
 
 };

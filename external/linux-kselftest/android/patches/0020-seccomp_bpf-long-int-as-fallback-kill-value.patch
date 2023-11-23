@@ -1,0 +1,28 @@
+From c893619f9e749c456bc96b1d28812677e15aea3a Mon Sep 17 00:00:00 2001
+From: Edward Liaw <edliaw@google.com>
+Date: Fri, 29 Apr 2022 17:46:38 +0000
+Subject: [PATCH 20/24] seccomp_bpf: long int as fallback kill value
+
+Remove an A from fallback value.  Appears to be a typo.
+
+Signed-off-by: Edward Liaw <edliaw@google.com>
+---
+ tools/testing/selftests/seccomp/seccomp_bpf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/testing/selftests/seccomp/seccomp_bpf.c b/tools/testing/selftests/seccomp/seccomp_bpf.c
+index b575afa3bbb33..3cd98e02fd54b 100644
+--- a/tools/testing/selftests/seccomp/seccomp_bpf.c
++++ b/tools/testing/selftests/seccomp/seccomp_bpf.c
+@@ -807,7 +807,7 @@ void kill_thread_or_group(struct __test_metadata *_metadata,
+ 		.len = (unsigned short)ARRAY_SIZE(filter_thread),
+ 		.filter = filter_thread,
+ 	};
+-	int kill = kill_how == KILL_PROCESS ? SECCOMP_RET_KILL_PROCESS : 0xAAAAAAAAA;
++	int kill = kill_how == KILL_PROCESS ? SECCOMP_RET_KILL_PROCESS : 0xAAAAAAAA;
+ 	struct sock_filter filter_process[] = {
+ 		BPF_STMT(BPF_LD|BPF_W|BPF_ABS,
+ 			offsetof(struct seccomp_data, nr)),
+-- 
+2.36.0.550.gb090851708-goog
+

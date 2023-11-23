@@ -19,48 +19,56 @@ package dagger.internal.codegen.validation;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.base.ComponentAnnotation.anyComponentAnnotation;
 import static dagger.internal.codegen.base.ModuleAnnotation.moduleAnnotation;
-import static javax.lang.model.element.Modifier.ABSTRACT;
+import static dagger.internal.codegen.xprocessing.XMethodElements.getEnclosingTypeElement;
 
-import com.google.auto.common.MoreElements;
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
+import androidx.room.compiler.processing.XVariableElement;
+import dagger.internal.codegen.base.DaggerSuperficialValidation;
 import dagger.internal.codegen.base.ModuleAnnotation;
 import dagger.internal.codegen.binding.InjectionAnnotations;
 import java.util.List;
 import java.util.Optional;
 import javax.inject.Inject;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeMirror;
 
-final class BindsInstanceMethodValidator extends BindsInstanceElementValidator<ExecutableElement> {
+final class BindsInstanceMethodValidator extends BindsInstanceElementValidator<XMethodElement> {
+  private final DaggerSuperficialValidation superficialValidation;
+
   @Inject
-  BindsInstanceMethodValidator(InjectionAnnotations injectionAnnotations) {
+  BindsInstanceMethodValidator(
+      InjectionAnnotations injectionAnnotations,
+      DaggerSuperficialValidation superficialValidation) {
     super(injectionAnnotations);
+    this.superficialValidation = superficialValidation;
   }
 
   @Override
-  protected ElementValidator elementValidator(ExecutableElement element) {
-    return new Validator(element);
+  protected ElementValidator elementValidator(XMethodElement method) {
+    return new Validator(method);
   }
 
   private class Validator extends ElementValidator {
-    Validator(ExecutableElement element) {
-      super(element);
+    private final XMethodElement method;
+
+    Validator(XMethodElement method) {
+      super(method);
+      this.method = method;
     }
 
     @Override
     protected void checkAdditionalProperties() {
-      if (!element.getModifiers().contains(ABSTRACT)) {
+      if (!method.isAbstract()) {
         report.addError("@BindsInstance methods must be abstract");
       }
-      if (element.getParameters().size() != 1) {
+      if (method.getParameters().size() != 1) {
         report.addError(
             "@BindsInstance methods should have exactly one parameter for the bound type");
       }
-      TypeElement enclosingType = MoreElements.asType(element.getEnclosingElement());
-      moduleAnnotation(enclosingType)
+      XTypeElement enclosingTypeElement = getEnclosingTypeElement(method);
+      moduleAnnotation(enclosingTypeElement, superficialValidation)
           .ifPresent(moduleAnnotation -> report.addError(didYouMeanBinds(moduleAnnotation)));
-      anyComponentAnnotation(enclosingType)
+      anyComponentAnnotation(enclosingTypeElement, superficialValidation)
           .ifPresent(
               componentAnnotation ->
                   report.addError(
@@ -71,11 +79,10 @@ final class BindsInstanceMethodValidator extends BindsInstanceElementValidator<E
     }
 
     @Override
-    protected Optional<TypeMirror> bindingElementType() {
-      List<? extends VariableElement> parameters =
-          MoreElements.asExecutable(element).getParameters();
+    protected Optional<XType> bindingElementType() {
+      List<? extends XVariableElement> parameters = method.getParameters();
       return parameters.size() == 1
-          ? Optional.of(getOnlyElement(parameters).asType())
+          ? Optional.of(getOnlyElement(parameters).getType())
           : Optional.empty();
     }
   }
@@ -83,6 +90,6 @@ final class BindsInstanceMethodValidator extends BindsInstanceElementValidator<E
   private static String didYouMeanBinds(ModuleAnnotation moduleAnnotation) {
     return String.format(
         "@BindsInstance methods should not be included in @%ss. Did you mean @Binds?",
-        moduleAnnotation.annotationName());
+        moduleAnnotation.simpleName());
   }
 }

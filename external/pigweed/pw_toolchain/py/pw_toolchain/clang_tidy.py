@@ -19,7 +19,7 @@ clang-tidy:
   - add option `--source-exclude` to exclude matching sources from the
     clang-tidy analysis.
   - inputs the full compile command, with the cc binary name
-  - TODO: infer platform options from the full compile command
+  - TODO(henrichataing): infer platform options from the full compile command
 """
 
 import argparse
@@ -38,84 +38,111 @@ def _parse_args() -> argparse.Namespace:
     """Parses arguments for this script, splitting out the command to run."""
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-v',
-                        '--verbose',
-                        action='store_true',
-                        help='Run clang_tidy with extra debug output.')
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        action='store_true',
+        help='Run clang_tidy with extra debug output.',
+    )
 
-    parser.add_argument('--clang-tidy',
-                        default='clang-tidy',
-                        help='Path to clang-tidy executable.')
+    parser.add_argument(
+        '--clang-tidy',
+        default='clang-tidy',
+        help='Path to clang-tidy executable.',
+    )
 
     parser.add_argument(
         '--source-file',
         required=True,
         type=Path,
-        help='Path to the source file to analyze with clang-tidy.')
+        help='Path to the source file to analyze with clang-tidy.',
+    )
     parser.add_argument(
         '--source-root',
         required=True,
         type=Path,
-        help=('Path to the root source directory.'
-              ' The relative path from the root directory is matched'
-              ' against source filter rather than the absolute path.'))
+        help=(
+            'Path to the root source directory.'
+            ' The relative path from the root directory is matched'
+            ' against source filter rather than the absolute path.'
+        ),
+    )
     parser.add_argument(
         '--export-fixes',
         required=False,
         type=Path,
-        help=('YAML file to store suggested fixes in. The '
-              'stored fixes can be applied to the input source '
-              'code with clang-apply-replacements.'))
+        help=(
+            'YAML file to store suggested fixes in. The '
+            'stored fixes can be applied to the input source '
+            'code with clang-apply-replacements.'
+        ),
+    )
 
-    parser.add_argument('--source-exclude',
-                        default=[],
-                        action='append',
-                        type=str,
-                        help=('Regular expressions matching the paths of'
-                              ' source files to be excluded from the'
-                              ' analysis.'))
+    parser.add_argument(
+        '--source-exclude',
+        default=[],
+        action='append',
+        type=str,
+        help=(
+            'Regular expressions matching the paths of'
+            ' source files to be excluded from the'
+            ' analysis.'
+        ),
+    )
 
     parser.add_argument(
         '--skip-include-path',
         default=[],
-        nargs='*',
-        help=('Exclude include paths ending in these paths from clang-tidy. '
-              'These paths are switched from -I to -isystem so clang-tidy '
-              'ignores them.'))
+        action='append',
+        type=str,
+        help=(
+            'Exclude include paths ending in these paths from clang-tidy. '
+            'These paths are switched from -I to -isystem so clang-tidy '
+            'ignores them.'
+        ),
+    )
 
     # Add a silent placeholder arg for everything that was left over.
-    parser.add_argument('extra_args',
-                        nargs=argparse.REMAINDER,
-                        help=argparse.SUPPRESS)
+    parser.add_argument(
+        'extra_args', nargs=argparse.REMAINDER, help=argparse.SUPPRESS
+    )
 
     parsed_args = parser.parse_args()
 
     if parsed_args.extra_args[0] != '--':
         parser.error('arguments not correctly split')
-
     parsed_args.extra_args = parsed_args.extra_args[1:]
     return parsed_args
 
 
-def _filter_include_paths(args: Iterable[str],
-                          skip_include_paths: Iterable[str]) -> Iterable[str]:
+def _filter_include_paths(
+    args: Iterable[str], skip_include_paths: Iterable[str]
+) -> Iterable[str]:
     filters = [f.rstrip('/') for f in skip_include_paths]
 
     for arg in args:
         if arg.startswith('-I'):
             path = Path(arg[2:]).as_posix()
-            if any(
-                    path.endswith(f) or re.match(f, str(path))
-                    for f in filters):
+            if any(path.endswith(f) or re.match(f, str(path)) for f in filters):
                 yield '-isystem' + arg[2:]
+                continue
+        if arg.startswith('--sysroot'):
+            path = Path(arg[9:]).as_posix()
+            if any(path.endswith(f) or re.match(f, str(path)) for f in filters):
+                yield '-isysroot' + arg[9:]
                 continue
 
         yield arg
 
 
-def run_clang_tidy(clang_tidy: str, verbose: bool, source_file: Path,
-                   export_fixes: Optional[Path], skip_include_path: List[str],
-                   extra_args: List[str]) -> int:
+def run_clang_tidy(
+    clang_tidy: str,
+    verbose: bool,
+    source_file: Path,
+    export_fixes: Optional[Path],
+    skip_include_path: List[str],
+    extra_args: List[str],
+) -> int:
     """Executes clang_tidy via subprocess. Returns true if no failures."""
     command: List[Union[str, Path]] = [clang_tidy, source_file, '--use-color']
 
@@ -125,18 +152,23 @@ def run_clang_tidy(clang_tidy: str, verbose: bool, source_file: Path,
     if export_fixes is not None:
         command.extend(['--export-fixes', export_fixes])
 
-    # Append extra compilation flags. extra_args[0] is skipped as it contains
-    # the compiler binary name.
+    # Append extra compilation flags.  Extra args up to
+    # END_OF_INVOKER are skipped.
     command.append('--')
-    command.extend(_filter_include_paths(extra_args[1:], skip_include_path))
+    end_of_invoker = extra_args.index('END_OF_INVOKER')
+    command.extend(
+        _filter_include_paths(
+            extra_args[end_of_invoker + 1 :], skip_include_path
+        )
+    )
 
     process = subprocess.run(
         command,
         stdout=subprocess.PIPE,
         # clang-tidy prints regular information on
         # stderr, even with the option --quiet.
-        stderr=subprocess.PIPE)
-
+        stderr=subprocess.PIPE,
+    )
     if process.returncode != 0:
         _LOG.warning('%s', ' '.join(shlex.quote(str(arg)) for arg in command))
 
@@ -172,10 +204,17 @@ def main(
             return 0
 
     source_file_path = source_file.resolve()
-    export_fixes_path = (export_fixes.resolve()
-                         if export_fixes is not None else None)
-    return run_clang_tidy(clang_tidy, verbose, source_file_path,
-                          export_fixes_path, skip_include_path, extra_args)
+    export_fixes_path = (
+        export_fixes.resolve() if export_fixes is not None else None
+    )
+    return run_clang_tidy(
+        clang_tidy,
+        verbose,
+        source_file_path,
+        export_fixes_path,
+        skip_include_path,
+        extra_args,
+    )
 
 
 if __name__ == '__main__':

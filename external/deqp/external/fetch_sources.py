@@ -24,17 +24,21 @@ import os
 import sys
 import shutil
 import tarfile
+import zipfile
 import hashlib
 import argparse
 import subprocess
 import ssl
 import stat
+import platform
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
-from build.common import *
+from ctsbuild.common import *
 
 EXTERNAL_DIR	= os.path.realpath(os.path.normpath(os.path.dirname(__file__)))
+
+SYSTEM_NAME		= platform.system()
 
 def computeChecksum (data):
 	return hashlib.sha256(data).hexdigest()
@@ -51,33 +55,45 @@ class Source:
 	def clean (self):
 		fullDstPath = os.path.join(EXTERNAL_DIR, self.baseDir, self.extractDir)
 		# Remove read-only first
-		readonlydir = os.path.join(fullDstPath, ".git", "objects", "pack")
+		readonlydir = os.path.join(fullDstPath, ".git")
 		if os.path.exists(readonlydir):
-			shutil.rmtree(readonlydir, onerror = onReadonlyRemoveError )
+			shutil.rmtree(readonlydir, onerror = onReadonlyRemoveError)
 		if os.path.exists(fullDstPath):
 			shutil.rmtree(fullDstPath, ignore_errors=False)
 
 class SourcePackage (Source):
-	def __init__(self, url, filename, checksum, baseDir, extractDir = "src", postExtract=None):
+	def __init__(self, url, checksum, baseDir, extractDir = "src", postExtract=None):
 		Source.__init__(self, baseDir, extractDir)
 		self.url			= url
-		self.filename		= filename
+		self.filename		= os.path.basename(self.url)
 		self.checksum		= checksum
 		self.archiveDir		= "packages"
 		self.postExtract	= postExtract
+
+		if SYSTEM_NAME == 'Windows' or SYSTEM_NAME.startswith('CYGWIN') or SYSTEM_NAME.startswith('MINGW'):
+			self.sysNdx = 0
+		elif SYSTEM_NAME == 'Linux':
+			self.sysNdx = 1
+		elif SYSTEM_NAME == 'Darwin':
+			self.sysNdx = 2
+		else:
+			self.sysNdx = -1  # unknown system
+
+		self.FFmpeg			= "FFmpeg" in url
 
 	def clean (self):
 		Source.clean(self)
 		self.removeArchives()
 
 	def update (self, cmdProtocol = None, force = False):
-		if not self.isArchiveUpToDate():
-			self.fetchAndVerifyArchive()
+		if self.sysNdx != 2:
+			if not self.isArchiveUpToDate():
+				self.fetchAndVerifyArchive()
 
-		if self.getExtractedChecksum() != self.checksum:
-			Source.clean(self)
-			self.extract()
-			self.storeExtractedChecksum(self.checksum)
+			if self.getExtractedChecksum() != self.checksum:
+				Source.clean(self)
+				self.extract()
+				self.storeExtractedChecksum(self.checksum)
 
 	def removeArchives (self):
 		archiveDir = os.path.join(EXTERNAL_DIR, pkg.baseDir, pkg.archiveDir)
@@ -145,7 +161,11 @@ class SourcePackage (Source):
 		srcPath	= os.path.join(EXTERNAL_DIR, self.baseDir, self.archiveDir, self.filename)
 		tmpPath	= os.path.join(EXTERNAL_DIR, ".extract-tmp-%s" % self.baseDir)
 		dstPath	= os.path.join(EXTERNAL_DIR, self.baseDir, self.extractDir)
-		archive	= tarfile.open(srcPath)
+
+		if self.filename.endswith(".zip"):
+			archive	= zipfile.ZipFile(srcPath)
+		else:
+			archive	= tarfile.open(srcPath)
 
 		if os.path.exists(tmpPath):
 			shutil.rmtree(tmpPath, ignore_errors=False)
@@ -229,54 +249,15 @@ class SourceFile (Source):
 		writeBinaryFile(dstPath, data)
 
 class GitRepo (Source):
-	def __init__(self, httpsUrl, sshUrl, revision, baseDir, extractDir = "src", removeTags = []):
+	def __init__(self, httpsUrl, sshUrl, revision, baseDir, extractDir = "src", removeTags = [], patch = ""):
 		Source.__init__(self, baseDir, extractDir)
 		self.httpsUrl	= httpsUrl
 		self.sshUrl		= sshUrl
 		self.revision	= revision
 		self.removeTags	= removeTags
+		self.patch		= patch
 
-	def detectProtocol(self, cmdProtocol = None):
-		# reuse parent repo protocol
-		proc = subprocess.Popen(['git', 'ls-remote', '--get-url', 'origin'], stdout=subprocess.PIPE, universal_newlines=True)
-		(stdout, stderr) = proc.communicate()
-
-		if proc.returncode != 0:
-			raise Exception("Failed to execute 'git ls-remote origin', got %d" % proc.returncode)
-		if (stdout[:3] == 'ssh') or (stdout[:3] == 'git'):
-			protocol = 'ssh'
-		else:
-			# remote 'origin' doesn't exist, assume 'https' as checkout protocol
-			protocol = 'https'
-		return protocol
-
-	def selectUrl(self, cmdProtocol = None):
-		try:
-			if cmdProtocol == None:
-				protocol = self.detectProtocol(cmdProtocol)
-			else:
-				protocol = cmdProtocol
-		except:
-			# fallback to https on any issues
-			protocol = 'https'
-
-		if protocol == 'ssh':
-			if self.sshUrl != None:
-				url = self.sshUrl
-			else:
-				assert self.httpsUrl != None
-				url = self.httpsUrl
-		else:
-			assert protocol == 'https'
-			url = self.httpsUrl
-
-		assert url != None
-		return url
-
-	def update (self, cmdProtocol = None, force = False):
-		fullDstPath = os.path.join(EXTERNAL_DIR, self.baseDir, self.extractDir)
-
-		url = self.selectUrl(cmdProtocol)
+	def checkout(self, url, fullDstPath, force):
 		if not os.path.exists(os.path.join(fullDstPath, '.git')):
 			execute(["git", "clone", "--no-checkout", url, fullDstPath])
 
@@ -285,30 +266,66 @@ class GitRepo (Source):
 			for tag in self.removeTags:
 				proc = subprocess.Popen(['git', 'tag', '-l', tag], stdout=subprocess.PIPE)
 				(stdout, stderr) = proc.communicate()
-				if proc.returncode == 0:
+				if len(stdout) > 0:
 					execute(["git", "tag", "-d",tag])
 			force_arg = ['--force'] if force else []
 			execute(["git", "fetch"] + force_arg + ["--tags", url, "+refs/heads/*:refs/remotes/origin/*"])
 			execute(["git", "checkout"] + force_arg + [self.revision])
+
+			if(self.patch != ""):
+				patchFile = os.path.join(EXTERNAL_DIR, self.patch)
+				execute(["git", "reset", "--hard", "HEAD"])
+				execute(["git", "apply", patchFile])
 		finally:
 			popWorkingDir()
+
+	def update (self, cmdProtocol, force = False):
+		fullDstPath = os.path.join(EXTERNAL_DIR, self.baseDir, self.extractDir)
+		url         = self.httpsUrl
+		backupUrl   = self.sshUrl
+
+		# If url is none then start with ssh
+		if cmdProtocol == 'ssh' or url == None:
+			url       = self.sshUrl
+			backupUrl = self.httpsUrl
+
+		try:
+			self.checkout(url, fullDstPath, force)
+		except:
+			if backupUrl != None:
+				self.checkout(backupUrl, fullDstPath, force)
 
 def postExtractLibpng (path):
 	shutil.copy(os.path.join(path, "scripts", "pnglibconf.h.prebuilt"),
 				os.path.join(path, "pnglibconf.h"))
 
+if SYSTEM_NAME == 'Windows' or SYSTEM_NAME.startswith('CYGWIN') or SYSTEM_NAME.startswith('MINGW'):
+    ffmpeg_url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-05-31-12-34/ffmpeg-n4.4.2-1-g8e98dfc57f-win64-lgpl-shared-4.4.zip"
+    ffmpeg_hash_value = "670df8e9d2ddd5e761459b3538f64b8826566270ef1ed13bcbfc63e73aab3fd9"
+elif SYSTEM_NAME == 'Linux':
+    ffmpeg_url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2022-05-31-12-34/ffmpeg-n4.4.2-1-g8e98dfc57f-linux64-gpl-shared-4.4.tar.xz"
+    ffmpeg_hash_value = "817f8c93ff1ef7ede3dad15b20415d5e366bcd6848844d55046111fd3de827d0"
+elif SYSTEM_NAME == 'Darwin':
+    ffmpeg_url = ""
+    ffmpeg_hash_value = ""
+else:
+    ffmpeg_url = None
+    ffmpeg_hash_value = None
+
 PACKAGES = [
 	SourcePackage(
-		"http://zlib.net/zlib-1.2.12.tar.gz",
-		"zlib-1.2.12.tar.gz",
-		"91844808532e5ce316b3c010929493c0244f3d37593afd6de04f71821d5136d9",
+		"http://zlib.net/fossils/zlib-1.2.13.tar.gz",
+		"b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30",
 		"zlib"),
 	SourcePackage(
 		"http://prdownloads.sourceforge.net/libpng/libpng-1.6.27.tar.gz",
-		"libpng-1.6.27.tar.gz",
 		"c9d164ec247f426a525a7b89936694aefbc91fb7a50182b198898b8fc91174b4",
 		"libpng",
 		postExtract = postExtractLibpng),
+	SourcePackage(
+		ffmpeg_url,
+		ffmpeg_hash_value,
+		"ffmpeg"),
 	SourceFile(
 		"https://raw.githubusercontent.com/baldurk/renderdoc/v1.1/renderdoc/api/app/renderdoc_app.h",
 		"renderdoc_app.h",
@@ -316,30 +333,40 @@ PACKAGES = [
 		"renderdoc"),
 	GitRepo(
 		"https://github.com/KhronosGroup/SPIRV-Tools.git",
-		None,
-		"20b122b2e0d43fcc322a383354d1a3f4514e3757",
+		"git@github.com:KhronosGroup/SPIRV-Tools.git",
+		"f98473ceeb1d33700d01e20910433583e5256030",
 		"spirv-tools"),
 	GitRepo(
 		"https://github.com/KhronosGroup/glslang.git",
-		None,
-		"43d585d8636ebf765e567cef197b4580af8518fb",
+		"git@github.com:KhronosGroup/glslang.git",
+		"a0ad0d7067521fff880e36acfb8ce453421c3f25",
 		"glslang",
 		removeTags = ["master-tot"]),
 	GitRepo(
 		"https://github.com/KhronosGroup/SPIRV-Headers.git",
-		None,
-		"b42ba6d92faf6b4938e6f22ddd186dbdacc98d78",
+		"git@github.com:KhronosGroup/SPIRV-Headers.git",
+		"87d5b782bec60822aa878941e6b13c0a9a954c9b",
 		"spirv-headers"),
 	GitRepo(
 		"https://github.com/KhronosGroup/Vulkan-Docs.git",
-		None,
-		"ee155139142a2a71b56238419bf0a6859f7b0a93",
+		"git@github.com:KhronosGroup/Vulkan-Docs.git",
+		"9a2e576a052a1e65a5d41b593e693ff02745604b",
 		"vulkan-docs"),
 	GitRepo(
 		"https://github.com/google/amber.git",
-		None,
-		"615ab4863f7d2e31d3037d0c6a0f641fd6fc0d07",
+		"git@github.com:google/amber.git",
+		"8b145a6c89dcdb4ec28173339dd176fb7b6f43ed",
 		"amber"),
+	GitRepo(
+		"https://github.com/open-source-parsers/jsoncpp.git",
+		"git@github.com:open-source-parsers/jsoncpp.git",
+		"9059f5cad030ba11d37818847443a53918c327b1",
+		"jsoncpp"),
+	GitRepo(
+		"https://github.com/nvpro-samples/vk_video_samples.git",
+		None,
+		"7d68747d3524842afaf050c5e00a10f5b8c07904",
+		"video-parser"),
 ]
 
 def parseArgs ():
@@ -352,7 +379,7 @@ def parseArgs ():
 	parser.add_argument('--insecure', dest='insecure', action='store_true', default=False,
 						help="Disable certificate check for external sources."
 						" Minimum python version required " + versionsForInsecureStr)
-	parser.add_argument('--protocol', dest='protocol', default=None, choices=['ssh', 'https'],
+	parser.add_argument('--protocol', dest='protocol', default='https', choices=['ssh', 'https'],
 						help="Select protocol to checkout git repositories.")
 	parser.add_argument('--force', dest='force', action='store_true', default=False,
 						help="Pass --force to git fetch and checkout commands")
@@ -369,11 +396,42 @@ def parseArgs ():
 
 	return args
 
-if __name__ == "__main__":
-	args = parseArgs()
+def run(*popenargs, **kwargs):
+	process = subprocess.Popen(*popenargs, **kwargs)
 
-	for pkg in PACKAGES:
-		if args.clean:
-			pkg.clean()
+	try:
+		stdout, stderr = process.communicate(None)
+	except:
+		process.kill()
+		process.wait()
+		raise
+
+	retcode = process.poll()
+
+	if retcode:
+		raise subprocess.CalledProcessError(retcode, process.args, output=stdout, stderr=stderr)
+
+	return retcode, stdout, stderr
+
+if __name__ == "__main__":
+	# Rerun script with python3 as python2 does not have lzma (xz) decompression support
+	if sys.version_info < (3, 0):
+		if SYSTEM_NAME == 'Windows' or SYSTEM_NAME.startswith('CYGWIN') or SYSTEM_NAME.startswith('MINGW'):
+			cmd = ['py', '-3']
+		elif SYSTEM_NAME == 'Linux':
+			cmd = ['python3']
+		elif SYSTEM_NAME == 'Darwin':
+			cmd = ['python3']
 		else:
-			pkg.update(args.protocol, args.force)
+			cmd = None  # unknown system
+
+		cmd = cmd + sys.argv
+		run(cmd)
+	else:
+		args = parseArgs()
+
+		for pkg in PACKAGES:
+			if args.clean:
+				pkg.clean()
+			else:
+				pkg.update(args.protocol, args.force)

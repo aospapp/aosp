@@ -7,15 +7,26 @@
 
 #include "vrend_iov.h"
 
+#include "vkr_context.h"
+
 void
 vkr_cs_encoder_set_stream(struct vkr_cs_encoder *enc,
-                          const struct iovec *iov,
-                          int iov_count,
+                          const struct vkr_resource_attachment *att,
                           size_t offset,
                           size_t size)
 {
-   enc->stream.iov = iov;
-   enc->stream.iov_count = iov_count;
+   if (!att) {
+      memset(&enc->stream, 0, sizeof(enc->stream));
+      enc->remaining_size = 0;
+      enc->next_iov = 0;
+      enc->cur = NULL;
+      enc->end = NULL;
+      return;
+   }
+
+   enc->stream.attachment = att;
+   enc->stream.iov = att->iov;
+   enc->stream.iov_count = att->iov_count;
    enc->stream.offset = offset;
    enc->stream.size = size;
    /* clear cache */
@@ -88,6 +99,7 @@ vkr_cs_encoder_seek_stream(struct vkr_cs_encoder *enc, size_t pos)
    size_t iov_offset;
    if (pos > enc->stream.size ||
        !vkr_cs_encoder_translate_stream_offset(enc, offset, &iov_index, &iov_offset)) {
+      vkr_log("failed to seek the reply stream to %zu", pos);
       vkr_cs_encoder_set_fatal(enc);
       return;
    }
@@ -147,6 +159,7 @@ vkr_cs_encoder_write_internal(struct vkr_cs_encoder *enc,
       size_t ptr_size;
       uint8_t *ptr = vkr_cs_encoder_get_ptr(enc, val_size, &ptr_size);
       if (unlikely(!ptr)) {
+         vkr_log("failed to write value to the reply stream");
          vkr_cs_encoder_set_fatal(enc);
          return;
       }
@@ -160,6 +173,7 @@ vkr_cs_encoder_write_internal(struct vkr_cs_encoder *enc,
       size_t ptr_size;
       const void *ptr = vkr_cs_encoder_get_ptr(enc, pad_size, &ptr_size);
       if (unlikely(!ptr)) {
+         vkr_log("failed to write padding to the reply stream");
          vkr_cs_encoder_set_fatal(enc);
          return;
       }
@@ -168,8 +182,7 @@ vkr_cs_encoder_write_internal(struct vkr_cs_encoder *enc,
 }
 
 void
-vkr_cs_decoder_init(struct vkr_cs_decoder *dec,
-                    const struct util_hash_table_u64 *object_table)
+vkr_cs_decoder_init(struct vkr_cs_decoder *dec, const struct hash_table *object_table)
 {
    memset(dec, 0, sizeof(*dec));
    dec->object_table = object_table;

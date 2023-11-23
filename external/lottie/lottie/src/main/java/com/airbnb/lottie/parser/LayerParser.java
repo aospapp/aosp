@@ -4,16 +4,17 @@ import android.graphics.Color;
 import android.graphics.Rect;
 
 import com.airbnb.lottie.LottieComposition;
-import com.airbnb.lottie.parser.moshi.JsonReader;
-import com.airbnb.lottie.value.Keyframe;
 import com.airbnb.lottie.model.animatable.AnimatableFloatValue;
 import com.airbnb.lottie.model.animatable.AnimatableTextFrame;
 import com.airbnb.lottie.model.animatable.AnimatableTextProperties;
 import com.airbnb.lottie.model.animatable.AnimatableTransform;
+import com.airbnb.lottie.model.content.BlurEffect;
 import com.airbnb.lottie.model.content.ContentModel;
 import com.airbnb.lottie.model.content.Mask;
 import com.airbnb.lottie.model.layer.Layer;
+import com.airbnb.lottie.parser.moshi.JsonReader;
 import com.airbnb.lottie.utils.Utils;
+import com.airbnb.lottie.value.Keyframe;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -22,7 +23,8 @@ import java.util.List;
 
 public class LayerParser {
 
-  private LayerParser() {}
+  private LayerParser() {
+  }
 
   private static final JsonReader.Options NAMES = JsonReader.Options.of(
       "nm", // 0
@@ -57,7 +59,7 @@ public class LayerParser {
         Layer.LayerType.PRE_COMP, -1, null, Collections.<Mask>emptyList(),
         new AnimatableTransform(), 0, 0, 0, 0, 0,
         bounds.width(), bounds.height(), null, null, Collections.<Keyframe<Float>>emptyList(),
-        Layer.MatteType.NONE, null, false);
+        Layer.MatteType.NONE, null, false, null, null);
   }
 
   private static final JsonReader.Options TEXT_NAMES = JsonReader.Options.of(
@@ -65,7 +67,10 @@ public class LayerParser {
       "a"
   );
 
-  private static final JsonReader.Options EFFECTS_NAMES = JsonReader.Options.of("nm");
+  private static final JsonReader.Options EFFECTS_NAMES = JsonReader.Options.of(
+      "ty",
+      "nm"
+  );
 
   public static Layer parse(JsonReader reader, LottieComposition composition) throws IOException {
     // This should always be set by After Effects. However, if somebody wants to minify
@@ -86,6 +91,8 @@ public class LayerParser {
     float outFrame = 0f;
     String cl = null;
     boolean hidden = false;
+    BlurEffect blurEffect = null;
+    DropShadowEffect dropShadowEffect = null;
 
     Layer.MatteType matteType = Layer.MatteType.NONE;
     AnimatableTransform transform = null;
@@ -132,7 +139,20 @@ public class LayerParser {
           transform = AnimatableTransformParser.parse(reader, composition);
           break;
         case 9:
-          matteType = Layer.MatteType.values()[reader.nextInt()];
+          int matteTypeIndex = reader.nextInt();
+          if (matteTypeIndex >= Layer.MatteType.values().length) {
+            composition.addWarning("Unsupported matte type: " + matteTypeIndex);
+            break;
+          }
+          matteType = Layer.MatteType.values()[matteTypeIndex];
+          switch (matteType) {
+            case LUMA:
+              composition.addWarning("Unsupported matte type: Luma");
+              break;
+            case LUMA_INVERTED:
+              composition.addWarning("Unsupported matte type: Luma Inverted");
+              break;
+          }
           composition.incrementMatteOrMaskCount(1);
           break;
         case 10:
@@ -185,7 +205,16 @@ public class LayerParser {
             while (reader.hasNext()) {
               switch (reader.selectName(EFFECTS_NAMES)) {
                 case 0:
-                  effectNames.add(reader.nextString());
+                  int type = reader.nextInt();
+                  if (type == 29) {
+                    blurEffect = BlurEffectParser.parse(reader, composition);
+                  } else if (type == 25) {
+                    dropShadowEffect = new DropShadowEffectParser().parse(reader, composition);
+                  }
+                  break;
+                case 1:
+                  String effectName = reader.nextString();
+                  effectNames.add(effectName);
                   break;
                 default:
                   reader.skipName();
@@ -234,12 +263,6 @@ public class LayerParser {
     }
     reader.endObject();
 
-    // Bodymovin pre-scales the in frame and out frame by the time stretch. However, that will
-    // cause the stretch to be double counted since the in out animation gets treated the same
-    // as all other animations and will have stretch applied to it again.
-    inFrame /= timeStretch;
-    outFrame /= timeStretch;
-
     List<Keyframe<Float>> inOutKeyframes = new ArrayList<>();
     // Before the in frame
     if (inFrame > 0) {
@@ -264,6 +287,6 @@ public class LayerParser {
     return new Layer(shapes, composition, layerName, layerId, layerType, parentId, refId,
         masks, transform, solidWidth, solidHeight, solidColor, timeStretch, startFrame,
         preCompWidth, preCompHeight, text, textProperties, inOutKeyframes, matteType,
-        timeRemapping, hidden);
+        timeRemapping, hidden, blurEffect, dropShadowEffect);
   }
 }

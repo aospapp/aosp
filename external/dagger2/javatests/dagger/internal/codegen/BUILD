@@ -18,6 +18,7 @@
 load("@io_bazel_rules_kotlin//kotlin:kotlin.bzl", "kt_jvm_library")
 load("//:build_defs.bzl", "DOCLINT_HTML_AND_SYNTAX")
 load("//:test_defs.bzl", "GenJavaTests")
+load("//java/dagger/testing/compile:macros.bzl", "compiler_test")
 
 package(default_visibility = ["//:src"])
 
@@ -43,10 +44,19 @@ java_library(
     deps = [
         "//java/dagger/internal/codegen:package_info",
         "//java/dagger/internal/codegen:processor",
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
+        "//third_party/java/compile_testing",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
         "@com_google_auto_value_auto_value//jar",
-        "@google_bazel_common//third_party/java/compile_testing",
+    ],
+)
+
+java_library(
+    name = "InvalidInjectConstructor",
+    srcs = ["InvalidInjectConstructor.java"],
+    # Note: We purposely leave off the dagger processor here.
+    deps = [
+        "//third_party/java/jsr330_inject",
     ],
 )
 
@@ -58,12 +68,15 @@ GenJavaTests(
             "CompilerMode.java",
             "Compilers.java",
             "JavaFileBuilder.java",
+            "ComponentValidationKtTest.java",
+            "InvalidInjectConstructor.java",
         ],
     ),
     functional = False,
     javacopts = DOCLINT_HTML_AND_SYNTAX,
     plugins = ["//java/dagger/internal/codegen/bootstrap"],
     deps = [
+        ":InvalidInjectConstructor",
         ":compilers",
         ":kotlin_sources",
         "//java/dagger:core",
@@ -73,26 +86,54 @@ GenJavaTests(
         "//java/dagger/internal/codegen/binding",
         "//java/dagger/internal/codegen/bindinggraphvalidation",
         "//java/dagger/internal/codegen/compileroption",
+        "//java/dagger/internal/codegen/javac",
         "//java/dagger/internal/codegen/javapoet",
         "//java/dagger/internal/codegen/kotlin",
         "//java/dagger/internal/codegen/langmodel",
         "//java/dagger/internal/codegen/validation",
         "//java/dagger/internal/codegen/writing",
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
-        "//java/dagger/internal/guava:concurrent",
+        "//java/dagger/internal/codegen/xprocessing",
         "//java/dagger/model/testing",
         "//java/dagger/producers",
         "//java/dagger/spi",
+        "//third_party/java/auto:common",
+        "//third_party/java/auto:value",
+        "//third_party/java/compile_testing",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
+        "//third_party/java/guava/util/concurrent",
+        "//third_party/java/javapoet",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/junit",
+        "//third_party/java/mockito",
+        "//third_party/java/truth",
         "@com_google_auto_value_auto_value//jar",
-        "@google_bazel_common//third_party/java/auto:value",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/javapoet",
-        "@google_bazel_common//third_party/java/jsr250_annotations",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/mockito",
-        "@google_bazel_common//third_party/java/truth",
-        "@maven//:com_google_auto_auto_common",
+    ],
+)
+
+compiler_test(
+    name = "ComponentValidationKtTest",
+    srcs = ["ComponentValidationKtTest.java"],
+    compiler_deps = [
+        "//java/dagger:core",
+        "//java/dagger/internal/codegen:package_info",
+        "//java/dagger/internal/codegen:processor",
+        "//java/dagger/internal/codegen/base",
+        "//java/dagger/internal/codegen/binding",
+        "//java/dagger/internal/codegen/bindinggraphvalidation",
+        "//java/dagger/internal/codegen/compileroption",
+        "//java/dagger/internal/codegen/javapoet",
+        "//java/dagger/internal/codegen/langmodel",
+        "//java/dagger/internal/codegen/validation",
+        "//java/dagger/internal/codegen/writing",
+        "//java/dagger/model/testing",
+        "//java/dagger/producers",
+        "//java/dagger/spi",
+    ],
+    deps = [
+        "//third_party/java/guava/collect",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
+        "@maven//:com_github_tschuchortdev_kotlin_compile_testing",
     ],
 )

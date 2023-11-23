@@ -8,6 +8,7 @@ ATTRIBUTES = 'suite:bluetooth_wifi_coex'
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 This test uses netperf to measure the maximal receiving and transmitting

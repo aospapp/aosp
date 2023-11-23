@@ -1,5 +1,7 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
+from __future__ import division
+from __future__ import print_function
 __author__ = "raphtee@google.com (Travis Miller)"
 
 import mock, mock_demo_MUT
@@ -51,34 +53,34 @@ class E(D):
 
 # say we want to test that do_stuff is doing what we think it is doing
 def do_stuff(a, b, func):
-    print b.method1()
-    print b.method3(10)
-    print func("how many")
-    print a.method2(5)
-    print b.method1()
-    print b.method4(1, 4)
-    print b.method2(3)
-    print b.method2("hello")
+    print(b.method1())
+    print(b.method3(10))
+    print(func("how many"))
+    print(a.method2(5))
+    print(b.method1())
+    print(b.method4(1, 4))
+    print(b.method2(3))
+    print(b.method2("hello"))
 
 
 def do_more_stuff(d):
-    print d.method6(False)
+    print(d.method6(False))
     try:
         d.method6(True)
     except:
-        print "caught error"
+        print("caught error")
 
 
 def main():
     god = mock.mock_god()
 
     m1 = god.create_mock_class(A, "A")
-    print m1.var
+    print(m1.var)
     m2 = god.create_mock_class(B, "B")
     f = god.create_mock_function("func")
 
-    print dir(m1)
-    print dir(m2)
+    print(dir(m1))
+    print(dir(m2))
 
     # sets up the "recording"
     m2.method1.expect_call().and_return(1)
@@ -92,7 +94,7 @@ def main():
 
     # check the recording order
     for func_call in god.recording:
-        print func_call
+        print(func_call)
 
     # once we start making calls into the methods we are in
     # playback mode
@@ -115,7 +117,7 @@ def main():
     answer = c.method5.run_original_function()
 
     # check playback
-    print "answer = %s" % (answer)
+    print("answer = %s" % (answer))
     god.check_playback()
 
     # check exception returns too

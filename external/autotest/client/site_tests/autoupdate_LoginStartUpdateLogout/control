@@ -9,6 +9,7 @@ TEST_CLASS = "platform"
 TEST_TYPE = "client"
 PURPOSE = "Tests logging in and out during an update."
 TIME = "SHORT"
+PY_VERSION = 3
 DOC = """ Tests logging in and out during an update. """
 
 job.run_test('autoupdate_LoginStartUpdateLogout')

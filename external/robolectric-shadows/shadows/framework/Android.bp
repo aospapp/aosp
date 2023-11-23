@@ -32,4 +32,11 @@ java_library_host {
     javacflags: ["-Aorg.robolectric.annotation.processing.shadowPackage=org.robolectric"],
     srcs: ["src/main/java/**/*.java"],
     java_resource_dirs: ["src/main/resources"],
+    errorprone: {
+        javacflags: [
+            "-Xep:XorPower:WARN",
+            "-Xep:EmptyTopLevelDeclaration:WARN",
+            "-Xep:ReturnValueIgnored:WARN",
+        ],
+    },
 }

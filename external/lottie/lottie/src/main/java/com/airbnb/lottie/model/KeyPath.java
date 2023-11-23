@@ -11,36 +11,44 @@ import java.util.List;
 /**
  * Defines which content to target.
  * The keypath can contain wildcards ('*') with match exactly 1 item.
- * or globstars ('**') which match 0 or more items.
- *
+ * or globstars ('**') which match 0 or more items. or KeyPath.COMPOSITION
+ * to represent the root composition layer.
+ * <p>
  * For example, if your content were arranged like this:
  * Gabriel (Shape Layer)
- *     Body (Shape Group)
- *         Left Hand (Shape)
- *             Fill (Fill)
- *             Transform (Transform)
- *         ...
+ * Body (Shape Group)
+ * Left Hand (Shape)
+ * Fill (Fill)
+ * Transform (Transform)
+ * ...
  * Brandon (Shape Layer)
- *     Body (Shape Group)
- *         Left Hand (Shape)
- *             Fill (Fill)
- *             Transform (Transform)
- *         ...
- *
- *
+ * Body (Shape Group)
+ * Left Hand (Shape)
+ * Fill (Fill)
+ * Transform (Transform)
+ * ...
+ * <p>
+ * <p>
  * You could:
- *     Match Gabriel left hand fill:
- *        new KeyPath("Gabriel", "Body", "Left Hand", "Fill");
- *     Match Gabriel and Brandon's left hand fill:
- *        new KeyPath("*", "Body", Left Hand", "Fill");
- *     Match anything with the name Fill:
- *        new KeyPath("**", "Fill");
- *
- *
+ * Match Gabriel left hand fill:
+ * new KeyPath("Gabriel", "Body", "Left Hand", "Fill");
+ * Match Gabriel and Brandon's left hand fill:
+ * new KeyPath("*", "Body", Left Hand", "Fill");
+ * Match anything with the name Fill:
+ * new KeyPath("**", "Fill");
+ * Target the the root composition layer:
+ * KeyPath.COMPOSITION
+ * <p>
+ * <p>
  * NOTE: Content that are part of merge paths or repeaters cannot currently be resolved with
  * a {@link KeyPath}. This may be fixed in the future.
  */
 public class KeyPath {
+  /**
+   * A singleton KeyPath that targets on the root composition layer.
+   * This is useful if you want to apply transformer to the animation as a whole.
+   */
+  public final static KeyPath COMPOSITION = new KeyPath("COMPOSITION");
 
   private final List<String> keys;
   @Nullable private KeyPathElement resolvedElement;
@@ -116,7 +124,7 @@ public class KeyPath {
   /**
    * For a given key and depth, returns how much the depth should be incremented by when
    * resolving a keypath to children.
-   *
+   * <p>
    * This can be 0 or 2 when there is a globstar and the next key either matches or doesn't match
    * the current key.
    */
@@ -205,6 +213,28 @@ public class KeyPath {
 
   public String keysToString() {
     return keys.toString();
+  }
+
+  @Override public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    KeyPath keyPath = (KeyPath) o;
+
+    if (!keys.equals(keyPath.keys)) {
+      return false;
+    }
+    return resolvedElement != null ? resolvedElement.equals(keyPath.resolvedElement) : keyPath.resolvedElement == null;
+  }
+
+  @Override public int hashCode() {
+    int result = keys.hashCode();
+    result = 31 * result + (resolvedElement != null ? resolvedElement.hashCode() : 0);
+    return result;
   }
 
   @Override public String toString() {

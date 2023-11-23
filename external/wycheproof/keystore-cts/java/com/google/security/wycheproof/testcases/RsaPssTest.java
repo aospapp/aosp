@@ -15,11 +15,10 @@ package com.google.security.wycheproof;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.security.wycheproof.WycheproofRunner.NoPresubmitTest;
-import com.google.security.wycheproof.WycheproofRunner.ProviderType;
 import java.lang.reflect.Constructor;
 import java.math.BigInteger;
 import java.security.AlgorithmParameters;
@@ -27,6 +26,7 @@ import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.Signature;
@@ -38,21 +38,23 @@ import java.security.spec.RSAKeyGenParameterSpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.HashSet;
 import java.util.Set;
+import org.junit.After;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.Ignore;
+import android.util.Log;
 
 /**
  * Tests for RSA-PSS.
  */
-@RunWith(JUnit4.class)
 public class RsaPssTest {
+  private static final String TAG = "RsaPssTest";
+  private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
 
   /**
    * Returns an AlgorithmParameterSpec for generating a RSASSA-PSS key,
    * which include the PSSParameters.
    * Requires jdk11.
-   * 
+   *
    * @param keySizeInBits the size of the modulus in bits.
    * @param sha the name of the hash function for hashing the input (e.g. "SHA-256")
    * @param mgf the name of the mask generating function (typically "MGF1")
@@ -85,55 +87,37 @@ public class RsaPssTest {
 
   /**
    * Tries encoding and decoding of RSASSA-PSS keys generated with RSASSA-PSS.
-   * 
+   *
    * RSASSA-PSS keys contain the PSSParameters, hence their encodings are
    * somewhat different than plain RSA keys.
    */
-  @NoPresubmitTest(
-    providers = {ProviderType.OPENJDK},
-    bugs = {"b/120406853"}
-  )
   @Test
+  @Ignore //TODO Reverify after b/215319125 is fixed.
   public void testEncodeDecodePublic() throws Exception {
     int keySizeInBits = 2048;
-    PublicKey pub;
-    try {
-      KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSASSA-PSS");
-      keyGen.initialize(keySizeInBits);
-      KeyPair keypair = keyGen.genKeyPair();
-      pub = keypair.getPublic();
-    } catch (NoSuchAlgorithmException ex) {
-      System.out.println("Key generation for RSASSA-PSS is not supported.");
-      return;
-    }
+    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSASSA-PSS", EXPECTED_PROVIDER_NAME);
+    keyGen.initialize(keySizeInBits);
+    KeyPair keypair = keyGen.genKeyPair();
+    PublicKey pub = keypair.getPublic();
     byte[] encoded = pub.getEncoded();
     assertEquals(
         "The test assumes that the public key is in X.509 format", "X.509", pub.getFormat());
-    System.out.println("Generated RSA-PSS key");
-    System.out.println(TestUtil.bytesToHex(encoded));    
     KeyFactory kf = KeyFactory.getInstance("RSASSA-PSS");
     X509EncodedKeySpec spec = new X509EncodedKeySpec(encoded);
     kf.generatePublic(spec);
-    
+
     // Tries to generate another pair or keys. This time the generator is given an
     // RSAKeyGenParameterSpec containing the key size an the PSS parameters.
     String sha = "SHA-256";
     String mgf = "MGF1";
     int saltLength = 20;
-    try {
-      RSAKeyGenParameterSpec params =
-          getPssAlgorithmParameters(keySizeInBits, sha, mgf, sha, saltLength);
-      KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSASSA-PSS");
-      keyGen.initialize(params);
-      KeyPair keypair = keyGen.genKeyPair();
-      pub = keypair.getPublic();
-    } catch (NoSuchAlgorithmException | NoSuchMethodException ex) {
-      System.out.println("Key generation for RSASSA-PSS is not supported.");
-      return;
-    }
+    RSAKeyGenParameterSpec params =
+        getPssAlgorithmParameters(keySizeInBits, sha, mgf, sha, saltLength);
+    KeyPairGenerator keyGen1 = KeyPairGenerator.getInstance("RSASSA-PSS", EXPECTED_PROVIDER_NAME);
+    keyGen1.initialize(params);
+    KeyPair keypair1 = keyGen1.genKeyPair();
+    pub = keypair1.getPublic();
     byte[] encoded2 = pub.getEncoded();
-    System.out.println("Generated RSA-PSS key with PSS parameters");
-    System.out.println(TestUtil.bytesToHex(encoded2));
     X509EncodedKeySpec spec2 = new X509EncodedKeySpec(encoded2);
     kf.generatePublic(spec2);
   }
@@ -171,14 +155,8 @@ public class RsaPssTest {
     kf = KeyFactory.getInstance("RSA");
     X509EncodedKeySpec x509keySpec = new X509EncodedKeySpec(TestUtil.hexToBytes(pubKey));
     PublicKey key = kf.generatePublic(x509keySpec);
-    Signature verifier;
-    try {
-      verifier = Signature.getInstance(algorithm);
-      verifier.initVerify(key);
-    } catch (NoSuchAlgorithmException ex) {
-      System.out.println("Unsupported algorithm:" + algorithm);
-      return;
-    }
+    Signature verifier = Signature.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
+    verifier.initVerify(key);
     AlgorithmParameters params = verifier.getParameters();
     if (params == null) {
       // No defaults are specified. This is a good choice since this avoid
@@ -234,6 +212,7 @@ public class RsaPssTest {
    * PSSParameters explicitly, and does not default to weak behaviour.
    */
   @Test
+  @Ignore //TODO Reverify after b/215319125 is fixed.
   public void testDefaults() throws Exception {
     testDefaultForAlgorithm("SHA1withRSAandMGF1", "SHA-1", "MGF1", "SHA-1", 20, 1);
     testDefaultForAlgorithm("SHA224withRSAandMGF1", "SHA-224", "MGF1", "SHA-224", 28, 1);
@@ -249,7 +228,7 @@ public class RsaPssTest {
     testDefaultForAlgorithm("SHA3-384withRSAandMGF1", "SHA3-384", "MGF1", "SHA3-384", 48, 1);
     testDefaultForAlgorithm("SHA3-512withRSAandMGF1", "SHA3-512", "MGF1", "SHA3-512", 64, 1);
   }
-    
+
   /** Convenience mehtod to get a String from a JsonObject */
   protected static String getString(JsonObject object, String name) throws Exception {
     return object.get(name).getAsString();
@@ -265,7 +244,7 @@ public class RsaPssTest {
    * Oracle previously specified that algorithm names for RSA-PSS are strings like
    * "SHA256WITHRSAandMGF1".
    * See http://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html
-   * These algorithm names fail to specify the hash function for the MGF. A cleaner solution 
+   * These algorithm names fail to specify the hash function for the MGF. A cleaner solution
    * in jdk11 is to use the algorithm name "RSASSA-PSS" and specify the parameters separately.
    * This function simply attempts to return an algorithm name that works.
    *
@@ -275,7 +254,7 @@ public class RsaPssTest {
    */
   protected static String getAlgorithmName(JsonObject group) throws Exception {
     try {
-      Signature.getInstance("RSASSA-PSS");
+      Signature.getInstance("RSASSA-PSS", EXPECTED_PROVIDER_NAME);
       return "RSASSA-PSS";
     } catch (NoSuchAlgorithmException ex) {
       // RSASSA-PSS is not known. Try the other option.
@@ -385,15 +364,14 @@ public class RsaPssTest {
     // the minor number if only the test vectors (but not the format) changes.
     // Versions meant for distribution have no status.
     final String expectedVersion = "0.6";
-    JsonObject test = JsonUtil.getTestVectors(filename); 
+    JsonObject test = JsonUtil.getTestVectors(this.getClass(), filename);
     String generatorVersion = getString(test, "generatorVersion");
-    if (!generatorVersion.equals(expectedVersion)) {
-      System.out.println(
+    assertFalse(
           "Expecting test vectors with version "
               + expectedVersion
               + " found vectors with version "
-              + generatorVersion);
-    }
+              + generatorVersion,
+          generatorVersion.equals(expectedVersion));
     int numTests = test.get("numberOfTests").getAsInt();
     int cntTests = 0;
     int errors = 0;
@@ -407,9 +385,9 @@ public class RsaPssTest {
       Signature verifier = null;
       try {
         key = getPublicKey(group, paramsIncluded);
-        verifier = Signature.getInstance(algorithm);
+        verifier = Signature.getInstance(algorithm, EXPECTED_PROVIDER_NAME);
         if (!paramsIncluded) {
-          PSSParameterSpec pssParams = getPSSParams(group);    
+          PSSParameterSpec pssParams = getPSSParams(group);
           verifier.setParameter(pssParams);
         }
       } catch (GeneralSecurityException ex) {
@@ -417,10 +395,10 @@ public class RsaPssTest {
           skippedKeys++;
           skippedAlgorithms.add(algorithm);
         } else {
-          System.out.println("Failed to generate verifier for " + algorithm + ex);
+          Log.e(TAG, "Failed to generate verifier for " + algorithm + ex);
           errors++;
         }
-        continue;
+        throw ex;
       }
       for (JsonElement t : group.getAsJsonArray("tests")) {
         cntTests++;
@@ -444,7 +422,7 @@ public class RsaPssTest {
         } catch (Exception ex) {
           // Other exceptions (i.e. unchecked exceptions) are considered as error
           // since a third party should never be able to cause such exceptions.
-          System.out.println(
+          Log.e(TAG,
               "Signature verification throws "
                   + ex.toString()
                   + " "
@@ -461,7 +439,7 @@ public class RsaPssTest {
           if (reason != null) {
             comment = " exception:" + reason;
           }
-          System.out.println(
+          Log.e(TAG,
               "Valid signature not verified. "
                   + filename
                   + " tcId:"
@@ -471,7 +449,7 @@ public class RsaPssTest {
                   + comment);
           errors++;
         } else if (verified && result.equals("invalid")) {
-          System.out.println(
+          Log.e(TAG,
               "Invalid signature verified. "
                   + filename
                   + " tcId:"
@@ -488,7 +466,7 @@ public class RsaPssTest {
     // Prints some information if tests were skipped. This avoids giving
     // the impression that algorithms are supported.
     if (skippedKeys > 0 || verifiedTests == 0) {
-      System.out.println(
+      Log.d(TAG,
           "File:"
               + filename
               + " number of skipped keys:"
@@ -496,7 +474,7 @@ public class RsaPssTest {
               + " verified signatures:"
               + verifiedTests);
       for (String s : skippedAlgorithms) {
-        System.out.println("Skipped algorithms " + s);
+        Log.d(TAG, "Skipped algorithms " + s);
       }
     }
 
@@ -509,47 +487,50 @@ public class RsaPssTest {
   }
 
   @Test
+  @Ignore //TODO Reverify after b/215319125 is fixed.
   public void testRsaPss2048Sha256() throws Exception {
-    testRsaPss("rsa_pss_2048_sha256_mgf1_32_test.json", true, false);
+    testRsaPss("rsa_pss_2048_sha256_mgf1_32_test.json", false, false);
   }
 
-  @NoPresubmitTest(
-    providers = {ProviderType.BOUNCY_CASTLE},
-    bugs = {"b/111634359"}
-  )
   @Test
+  @Ignore //TODO Reverify after b/215319125 is fixed.
   public void testRsaPss3072Sha256() throws Exception {
-    testRsaPss("rsa_pss_3072_sha256_mgf1_32_test.json", true, false);
+    testRsaPss("rsa_pss_3072_sha256_mgf1_32_test.json", false, false);
   }
 
   @Test
+  @Ignore //TODO Reverify after b/215319125 is fixed.
   public void testRsaPss4096Sha256() throws Exception {
-    testRsaPss("rsa_pss_4096_sha256_mgf1_32_test.json", true, false);
+    testRsaPss("rsa_pss_4096_sha256_mgf1_32_test.json", false, false);
   }
 
   @Test
+  @Ignore //TODO Reverify after b/215319125 is fixed.
   public void testRsaPss4096Sha512() throws Exception {
-    testRsaPss("rsa_pss_4096_sha512_mgf1_32_test.json", true, false);
+    testRsaPss("rsa_pss_4096_sha512_mgf1_32_test.json", false, false);
   }
 
   @Test
+  @Ignore //TODO Reverify after b/215319125 is fixed.
   public void testRsaPss2048Sha256NoSalt() throws Exception {
-    testRsaPss("rsa_pss_2048_sha256_mgf1_0_test.json", true, false);
+    testRsaPss("rsa_pss_2048_sha256_mgf1_0_test.json", false, false);
   }
 
   @Test
+  @Ignore //TODO Reverify after b/215319125 is fixed.
   public void testRsaPss2048Sha512_224() throws Exception {
-    testRsaPss("rsa_pss_2048_sha512_256_mgf1_28_test.json", true, false);
+    testRsaPss("rsa_pss_2048_sha512_256_mgf1_28_test.json", false, false);
   }
 
   @Test
+  @Ignore //TODO Reverify after b/215319125 is fixed.
   public void testRsaPss2048Sha512_256() throws Exception {
-    testRsaPss("rsa_pss_2048_sha512_256_mgf1_32_test.json", true, false);
+    testRsaPss("rsa_pss_2048_sha512_256_mgf1_32_test.json", false, false);
   }
 
   // BouncyCastle and Conscrypt do not support RSA-PSS Parameters in the
   // encoding of the key. jdk11 should support this, but as long as
-  // testEncodeDecodePublic fails it makes no sense to try this test. 
+  // testEncodeDecodePublic fails it makes no sense to try this test.
   /*
   @ExcludedTest(
     providers = {ProviderType.BOUNCY_CASTLE, ProviderType.CONSCRYPT},

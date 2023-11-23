@@ -35,7 +35,8 @@ bool CpuFeatures_IsHwCapsSet(const HardwareCapabilities hwcaps_mask,
 #ifdef CPU_FEATURES_TEST
 // In test mode, hwcaps_for_testing will define the following functions.
 HardwareCapabilities CpuFeatures_GetHardwareCapabilities(void);
-PlatformType CpuFeatures_GetPlatformType(void);
+const char* CpuFeatures_GetPlatformPointer(void);
+const char* CpuFeatures_GetBasePlatformPointer(void);
 #else
 
 // Debug facilities
@@ -67,13 +68,7 @@ static unsigned long GetElfHwcapFromGetauxval(uint32_t hwcap_type) {
 #elif defined(HAVE_DLFCN_H)
 // On Android we probe the system's C library for a 'getauxval' function and
 // call it if it exits, or return 0 for failure. This function is available
-// since API level 20.
-//
-// This code does *NOT* check for '__ANDROID_API__ >= 20' to support the edge
-// case where some NDK developers use headers for a platform that is newer than
-// the one really targetted by their application. This is typically done to use
-// newer native APIs only when running on more recent Android versions, and
-// requires careful symbol management.
+// since API level 18.
 //
 // Note that getauxval() can't really be re-implemented here, because its
 // implementation does not parse /proc/self/auxv. Instead it depends on values
@@ -163,20 +158,12 @@ HardwareCapabilities CpuFeatures_GetHardwareCapabilities(void) {
   return capabilities;
 }
 
-PlatformType kEmptyPlatformType;
+const char *CpuFeatures_GetPlatformPointer(void) {
+  return (const char *)GetHardwareCapabilitiesFor(AT_PLATFORM);
+}
 
-PlatformType CpuFeatures_GetPlatformType(void) {
-  PlatformType type = kEmptyPlatformType;
-  char *platform = (char *)GetHardwareCapabilitiesFor(AT_PLATFORM);
-  char *base_platform = (char *)GetHardwareCapabilitiesFor(AT_BASE_PLATFORM);
-
-  if (platform != NULL)
-    CpuFeatures_StringView_CopyString(str(platform), type.platform,
-                                      sizeof(type.platform));
-  if (base_platform != NULL)
-    CpuFeatures_StringView_CopyString(str(base_platform), type.base_platform,
-                                      sizeof(type.base_platform));
-  return type;
+const char *CpuFeatures_GetBasePlatformPointer(void) {
+  return (const char *)GetHardwareCapabilitiesFor(AT_BASE_PLATFORM);
 }
 
 #endif  // CPU_FEATURES_TEST

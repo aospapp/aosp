@@ -40,6 +40,7 @@
 // #[cfg(test)]
 // ANDROID: Unconditionally use std to allow building as a dylib.
 // #[macro_use]
+#[cfg(android_dylib)]
 extern crate std;
 
 #[cfg(feature = "bench")]

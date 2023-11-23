@@ -17,22 +17,40 @@ import {produce} from 'immer';
 import {assertExists} from '../base/logging';
 import {Actions} from '../common/actions';
 import {ConversionJobStatus} from '../common/conversion_jobs';
-import {createEmptyState} from '../common/empty_state';
-import {State} from '../common/state';
+import {
+  createEmptyNonSerializableState,
+  createEmptyState,
+} from '../common/empty_state';
+import {EngineConfig, ObjectById, State} from '../common/state';
 import {STATE_VERSION} from '../common/state';
 import {
   BUCKET_NAME,
+  buggyToSha256,
+  deserializeStateObject,
   saveState,
   saveTrace,
-  toSha256
+  toSha256,
 } from '../common/upload_utils';
+import {globals} from '../frontend/globals';
 import {publishConversionJobStatusUpdate} from '../frontend/publish';
 import {Router} from '../frontend/router';
 
 import {Controller} from './controller';
-import {globals} from './globals';
 import {RecordConfig, recordConfigValidator} from './record_config_types';
 import {runValidator} from './validators';
+
+interface MultiEngineState {
+  currentEngineId?: string;
+  engines: ObjectById<EngineConfig>
+}
+
+function isMultiEngineState(state: State|
+                            MultiEngineState): state is MultiEngineState {
+  if ((state as MultiEngineState).engines !== undefined) {
+    return true;
+  }
+  return false;
+}
 
 export class PermalinkController extends Controller<'main'> {
   private lastRequestId?: string;
@@ -60,7 +78,7 @@ export class PermalinkController extends Controller<'main'> {
       });
 
       PermalinkController.createPermalink(isRecordingConfig)
-          .then(hash => {
+          .then((hash) => {
             globals.dispatch(Actions.setPermalink({requestId, hash}));
           })
           .finally(() => {
@@ -74,7 +92,7 @@ export class PermalinkController extends Controller<'main'> {
 
     // Otherwise, this is a request to load the permalink.
     PermalinkController.loadState(globals.state.permalink.hash)
-        .then(stateOrConfig => {
+        .then((stateOrConfig) => {
           if (PermalinkController.isRecordConfig(stateOrConfig)) {
             // This permalink state only contains a RecordConfig. Show the
             // recording page with the config, but keep other state as-is.
@@ -93,24 +111,41 @@ export class PermalinkController extends Controller<'main'> {
   private static upgradeState(state: State): State {
     if (state.version !== STATE_VERSION) {
       const newState = createEmptyState();
-      // Copy the URL of the trace into the empty state.
-      for (const cfg of Object.values(state.engines)) {
-        newState
-            .engines[cfg.id] = {id: cfg.id, ready: false, source: cfg.source};
+      // Old permalinks from state versions prior to version 24
+      // have multiple engines of which only one is identified as the
+      // current engine via currentEngineId. Handle this case:
+      if (isMultiEngineState(state)) {
+        const engineId = state.currentEngineId;
+        if (engineId !== undefined) {
+          newState.engine = state.engines[engineId];
+        }
+      } else {
+        newState.engine = state.engine;
       }
+
+      if (newState.engine !== undefined) {
+        newState.engine.ready = false;
+      }
+
       const message = `Unable to parse old state version. Discarding state ` +
           `and loading trace.`;
       console.warn(message);
       PermalinkController.updateStatus(message);
       return newState;
+    } else {
+      // Loaded state is presumed to be compatible with the State type
+      // definition in the app. However, a non-serializable part has to be
+      // recreated.
+      state.nonSerializableState = createEmptyNonSerializableState();
     }
     return state;
   }
 
   private static isRecordConfig(stateOrConfig: State|
                                 RecordConfig): stateOrConfig is RecordConfig {
-    return ['STOP_WHEN_FULL', 'RING_BUFFER', 'LONG_TRACE'].includes(
-        stateOrConfig.mode);
+    const mode = (stateOrConfig as {mode?: string}).mode;
+    return mode !== undefined &&
+        ['STOP_WHEN_FULL', 'RING_BUFFER', 'LONG_TRACE'].includes(mode);
   }
 
   private static async createPermalink(isRecordingConfig: boolean):
@@ -120,7 +155,7 @@ export class PermalinkController extends Controller<'main'> {
     if (isRecordingConfig) {
       uploadState = globals.state.recordConfig;
     } else {
-      const engine = assertExists(Object.values(globals.state.engines)[0]);
+      const engine = assertExists(globals.getCurrentEngine());
       let dataToUpload: File|ArrayBuffer|undefined = undefined;
       let traceName = `trace ${engine.id}`;
       if (engine.source.type === 'FILE') {
@@ -136,8 +171,8 @@ export class PermalinkController extends Controller<'main'> {
         PermalinkController.updateStatus(`Uploading ${traceName}`);
         const url = await saveTrace(dataToUpload);
         // Convert state to use URLs and remove permalink.
-        uploadState = produce(globals.state, draft => {
-          draft.engines[engine.id].source = {type: 'URL', url};
+        uploadState = produce(globals.state, (draft) => {
+          assertExists(draft.engine).source = {type: 'URL', url};
           draft.permalink = {};
         });
       }
@@ -161,9 +196,16 @@ export class PermalinkController extends Controller<'main'> {
     }
     const text = await response.text();
     const stateHash = await toSha256(text);
-    const state = JSON.parse(text);
+    const state = deserializeStateObject(text);
     if (stateHash !== id) {
-      throw new Error(`State hash does not match ${id} vs. ${stateHash}`);
+      // Old permalinks incorrectly dropped some digits from the
+      // hexdigest of the SHA256. We don't want to invalidate those
+      // links so we also compute the old string and try that here
+      // also.
+      const buggyStateHash = await buggyToSha256(text);
+      if (buggyStateHash !== id) {
+        throw new Error(`State hash does not match ${id} vs. ${stateHash}`);
+      }
     }
     if (!this.isRecordConfig(state)) {
       return this.upgradeState(state);

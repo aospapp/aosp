@@ -1,0 +1,13 @@
+diff --git a/Android.bp b/Android.bp
+index bbd9e06..6dae9e8 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -61,7 +61,7 @@ rust_library_rlib {
+         "use_spin",
+     ],
+     rustlibs: [
+-        "libspin",
++        "libspin_nostd",
+     ],
+     apex_available: [
+         "//apex_available:platform",

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,26 +10,35 @@ extern crate data_model;
 #[path = "dwl.rs"]
 mod dwl;
 
-use dwl::*;
-
-use crate::{
-    DisplayT, EventDeviceKind, GpuDisplayError, GpuDisplayEvents, GpuDisplayFramebuffer,
-    GpuDisplayImport, GpuDisplayResult, GpuDisplaySurface, SurfaceType,
-};
-
-use linux_input_sys::virtio_input_event;
 use std::cell::Cell;
 use std::cmp::max;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
+use std::ffi::CString;
 use std::mem::zeroed;
 use std::path::Path;
 use std::ptr::null;
 
-use base::{
-    error, round_up_to_page_size, AsRawDescriptor, MemoryMapping, MemoryMappingBuilder,
-    RawDescriptor, SharedMemory,
-};
+use base::error;
+use base::round_up_to_page_size;
+use base::AsRawDescriptor;
+use base::MemoryMapping;
+use base::MemoryMappingBuilder;
+use base::RawDescriptor;
+use base::SharedMemory;
 use data_model::VolatileMemory;
+use dwl::*;
+use linux_input_sys::virtio_input_event;
+
+use crate::DisplayT;
+use crate::EventDeviceKind;
+use crate::GpuDisplayError;
+use crate::GpuDisplayEvents;
+use crate::GpuDisplayFramebuffer;
+use crate::GpuDisplayImport;
+use crate::GpuDisplayResult;
+use crate::GpuDisplaySurface;
+use crate::SurfaceType;
+use crate::SysDisplayT;
 
 const BUFFER_COUNT: usize = 3;
 const BYTES_PER_PIXEL: u32 = 4;
@@ -331,7 +340,7 @@ impl DisplayT for DisplayWl {
         let row_size = width * BYTES_PER_PIXEL;
         let fb_size = row_size * height;
         let buffer_size = round_up_to_page_size(fb_size as usize * BUFFER_COUNT);
-        let buffer_shm = SharedMemory::named("GpuDisplaySurface", buffer_size as u64)?;
+        let buffer_shm = SharedMemory::new("GpuDisplaySurface", buffer_size as u64)?;
         let buffer_mem = MemoryMappingBuilder::new(buffer_size)
             .from_shared_memory(&buffer_shm)
             .build()
@@ -407,9 +416,11 @@ impl DisplayT for DisplayWl {
     }
 }
 
+impl SysDisplayT for DisplayWl {}
+
 impl AsRawDescriptor for DisplayWl {
     fn as_raw_descriptor(&self) -> RawDescriptor {
         // Safe given that the context pointer is valid.
-        unsafe { dwl_context_fd(self.ctx.0) }
+        self.ctx.as_raw_descriptor()
     }
 }

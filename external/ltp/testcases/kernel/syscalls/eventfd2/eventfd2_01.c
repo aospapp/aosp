@@ -53,7 +53,6 @@
 /*              Ported to LTP                                                 */
 /*                      - Jan 08 2009 - Subrata <subrata@linux.vnet.ibm.com>  */
 /******************************************************************************/
-#include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -86,13 +85,9 @@ int main(int argc, char *argv[])
 
 	tst_parse_opts(argc, argv, NULL, NULL);
 
-	if ((tst_kvercmp(2, 6, 27)) < 0) {
-		tst_brkm(TCONF, NULL,
-			 "This test can only run on kernels that are 2.6.27 and higher");
-	}
 	setup();
 
-	fd = ltp_syscall(__NR_eventfd2, 1, 0);
+	fd = tst_syscall(__NR_eventfd2, 1, 0);
 	if (fd == -1) {
 		tst_brkm(TFAIL, cleanup, "eventfd2(0) failed");
 	}
@@ -105,7 +100,7 @@ int main(int argc, char *argv[])
 	}
 	close(fd);
 
-	fd = ltp_syscall(__NR_eventfd2, 1, EFD_CLOEXEC);
+	fd = tst_syscall(__NR_eventfd2, 1, EFD_CLOEXEC);
 	if (fd == -1) {
 		tst_brkm(TFAIL, cleanup, "eventfd2(EFD_CLOEXEC) failed");
 	}

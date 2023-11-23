@@ -34,13 +34,20 @@ declare_args() {
 #   report_deps: Report card targets on which documentation depends.
 #   other_deps: Dependencies on any other types of targets.
 template("pw_doc_group") {
-  assert(defined(invoker.sources), "pw_doc_group requires a list of sources")
+  if (defined(invoker.sources)) {
+    _sources = invoker.sources
+  } else {
+    _sources = []
+  }
 
   if (defined(invoker.inputs)) {
     _inputs = invoker.inputs
   } else {
     _inputs = []
   }
+
+  assert(defined(invoker.sources) || defined(invoker.inputs),
+         "pw_doc_group requires at least one of sources or inputs")
 
   _all_deps = []
   if (defined(invoker.group_deps)) {
@@ -57,11 +64,11 @@ template("pw_doc_group") {
   # rebuilt on file modifications.
   pw_input_group(target_name) {
     metadata = {
-      pw_doc_sources = rebase_path(invoker.sources, root_build_dir)
+      pw_doc_sources = rebase_path(_sources, root_build_dir)
       pw_doc_inputs = rebase_path(_inputs, root_build_dir)
     }
     deps = _all_deps
-    inputs = invoker.sources + _inputs
+    inputs = _sources + _inputs
   }
 }
 
@@ -122,11 +129,19 @@ template("pw_doc_gen") {
 
   _script_args += rebase_path(invoker.sources, root_build_dir)
 
+  # Required to set the PYTHONPATH for any automodule/class/function RST
+  # directives.
+  _python_metadata_deps = [ "$dir_pw_docgen/py" ]
+  if (defined(invoker.python_metadata_deps)) {
+    _python_metadata_deps += invoker.python_metadata_deps
+  }
+
   if (pw_docgen_BUILD_DOCS) {
     pw_python_action(target_name) {
       script = "$dir_pw_docgen/py/pw_docgen/docgen.py"
       args = _script_args
       deps = [ ":$_metadata_file_target" ]
+      python_metadata_deps = _python_metadata_deps
       inputs = [ invoker.conf ]
       inputs += invoker.sources
       stamp = true

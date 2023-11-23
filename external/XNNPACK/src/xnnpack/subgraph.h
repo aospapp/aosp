@@ -9,14 +9,30 @@
 #include <stdint.h>
 
 #include <xnnpack.h>
+#include <xnnpack/common.h>
+#include <xnnpack/cache.h>
+#include <xnnpack/node-type.h>
 
-#define XNN_MAX_INPUTS 3
-#define XNN_MAX_OUTPUTS 2
+#if defined(EMSCRIPTEN)
+#include <emscripten/emscripten.h>
+#elif XNN_PLATFORM_WINDOWS
+#include <windows.h>
+#else
+#include <time.h>
+#endif
 
-#define XNN_MAX_RUNTIME_INPUTS 2
-#define XNN_MAX_RUNTIME_OUTPUTS 2
+#define XNN_MAX_INPUTS 4
+#define XNN_MAX_OUTPUTS 4
+
+#define XNN_MAX_RUNTIME_INPUTS 4
+#define XNN_MAX_RUNTIME_OUTPUTS 4
 
 #define XNN_INVALID_NODE_ID UINT32_MAX
+
+#define XNN_MAX_OPERATOR_OBJECTS 4
+
+/// Disable fusion of nodes in subgraph. Fusion is enabled by default, set this flag to turn it off.
+#define XNN_FLAG_NO_OPERATOR_FUSION 0x80000000
 
 #ifdef __cplusplus
 extern "C" {
@@ -93,12 +109,35 @@ struct xnn_value {
   uint32_t fp32_id;
 };
 
+
+XNN_INLINE bool xnn_value_is_external(const struct xnn_value* value) {
+  return (value->flags & (XNN_VALUE_FLAG_EXTERNAL_INPUT | XNN_VALUE_FLAG_EXTERNAL_OUTPUT)) != 0;
+}
+
+XNN_INLINE bool xnn_value_is_external_output(const struct xnn_value* value) {
+  return (value->flags & XNN_VALUE_FLAG_EXTERNAL_OUTPUT) != 0;
+}
+
+XNN_INLINE bool xnn_value_is_external_input(const struct xnn_value* value) {
+  return (value->flags & XNN_VALUE_FLAG_EXTERNAL_INPUT) != 0;
+}
+
+enum xnn_allocation_type {
+  xnn_allocation_type_invalid = 0,
+  /// Static data that is provided by caller, needs to outlive the xnn_runtime.
+  xnn_allocation_type_static,
+  /// Lives in XNNPACK-managed internal workspace.
+  xnn_allocation_type_workspace,
+  /// Non-static data that is external to the runtime, provided by caller, specified in xnn_setup_runtime.
+  xnn_allocation_type_external,
+};
+
 struct xnn_blob {
   /// Size in bytes.
   size_t size;
   /// Data pointer.
   void* data;
-  bool external;
+  enum xnn_allocation_type allocation_type;
 };
 
 struct xnn_node;
@@ -108,7 +147,8 @@ typedef enum xnn_status (*xnn_create_operator_fn)(
   const struct xnn_node* node,
   const struct xnn_value* values,
   size_t num_values,
-  struct xnn_operator_data* opdata);
+  struct xnn_operator_data* opdata,
+  const struct xnn_caches* caches);
 
 typedef enum xnn_status (*xnn_setup_operator_fn)(
   const struct xnn_operator_data* opdata,
@@ -129,45 +169,6 @@ enum xnn_compute_type {
   xnn_compute_type_fp16_to_fp32,
   xnn_compute_type_qs8_to_fp32,
   xnn_compute_type_qu8_to_fp32,
-};
-
-enum xnn_node_type {
-  xnn_node_type_invalid = 0,
-  xnn_node_type_abs,
-  xnn_node_type_add2,
-  xnn_node_type_argmax_pooling_2d,
-  xnn_node_type_average_pooling_2d,
-  xnn_node_type_bankers_rounding,
-  xnn_node_type_ceiling,
-  xnn_node_type_clamp,
-  xnn_node_type_convert,
-  xnn_node_type_convolution_2d,
-  xnn_node_type_deconvolution_2d,
-  xnn_node_type_depthwise_convolution_2d,
-  xnn_node_type_depth_to_space,
-  xnn_node_type_divide,
-  xnn_node_type_elu,
-  xnn_node_type_fully_connected,
-  xnn_node_type_floor,
-  xnn_node_type_global_average_pooling_2d,
-  xnn_node_type_hardswish,
-  xnn_node_type_leaky_relu,
-  xnn_node_type_max_pooling_2d,
-  xnn_node_type_maximum2,
-  xnn_node_type_minimum2,
-  xnn_node_type_multiply2,
-  xnn_node_type_negate,
-  xnn_node_type_prelu,
-  xnn_node_type_sigmoid,
-  xnn_node_type_softmax,
-  xnn_node_type_static_constant_pad,
-  xnn_node_type_static_reshape,
-  xnn_node_type_static_resize_bilinear_2d,
-  xnn_node_type_square,
-  xnn_node_type_square_root,
-  xnn_node_type_squared_difference,
-  xnn_node_type_subtract,
-  xnn_node_type_unpooling_2d,
 };
 
 struct xnn_node {
@@ -255,6 +256,16 @@ struct xnn_node {
       size_t new_height;
       size_t new_width;
     } static_resize;
+    struct {
+      size_t axis;
+    } concatenate;
+    struct {
+      size_t axis;
+    } even_split;
+    struct {
+      size_t perm[XNN_MAX_TENSOR_DIMS];
+      size_t num_dims;
+    } transpose;
   } params;
   struct {
     float output_min;
@@ -281,8 +292,18 @@ struct xnn_node {
   xnn_setup_operator_fn setup;
 };
 
+#ifdef __MACH__
+typedef uint64_t xnn_timestamp;
+#elif __EMSCRIPTEN__
+typedef double xnn_timestamp;
+#elif XNN_PLATFORM_WINDOWS
+typedef LARGE_INTEGER xnn_timestamp;
+#else
+typedef struct timespec xnn_timestamp;
+#endif
+
 struct xnn_operator_data {
-  xnn_operator_t operator_object;
+  xnn_operator_t operator_objects[XNN_MAX_OPERATOR_OBJECTS];
   xnn_setup_operator_fn setup;
   size_t batch_size;
   size_t input_height;
@@ -297,6 +318,7 @@ struct xnn_operator_data {
   uint32_t adjustment_width;
   uint32_t inputs[XNN_MAX_RUNTIME_INPUTS];
   uint32_t outputs[XNN_MAX_RUNTIME_OUTPUTS];
+  xnn_timestamp end_ts[XNN_MAX_OPERATOR_OBJECTS];
 };
 
 struct xnn_subgraph {
@@ -325,9 +347,18 @@ struct xnn_runtime {
   struct xnn_blob* blobs;
   size_t num_blobs;
 
-  void* workspace;
+  struct xnn_workspace* workspace;
+  struct xnn_runtime* next_workspace_user;
+
+#if XNN_PLATFORM_JIT
+  struct xnn_code_cache code_cache;
+#endif // XNN_PLATFORM_JIT
 
   pthreadpool_t threadpool;
+
+  bool profiling;
+  // The start timestamp of the first operator in the subgraph. This is set when profiling is true.
+  xnn_timestamp start_ts;
 };
 
 struct xnn_value* xnn_subgraph_new_internal_value(xnn_subgraph_t subgraph);
@@ -344,6 +375,10 @@ size_t xnn_tensor_get_size(
 size_t xnn_shape_multiply_all_dims(
   const struct xnn_shape shape[1]);
 
+// Product of all shape dimensions, except for the specified number of the last dimensions
+size_t xnn_shape_multiply_batch_dims(
+  const struct xnn_shape shape[1], size_t num_nonbatch_dims);
+
 // Product of all shape dimensions, except for the last (channel) one
 size_t xnn_shape_multiply_non_channel_dims(
   const struct xnn_shape shape[1]);
@@ -351,6 +386,8 @@ size_t xnn_shape_multiply_non_channel_dims(
 enum xnn_status xnn_subgraph_optimize(xnn_subgraph_t subgraph, uint32_t flags);
 
 void xnn_subgraph_rewrite_for_nchw(xnn_subgraph_t subgraph);
+// Rewrites subgraph for FP16, returns true if success, false if rewrite failed.
+bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph);
 
 void xnn_node_clear(struct xnn_node* node);
 void xnn_value_clear(struct xnn_value* value);
@@ -363,6 +400,14 @@ void xnn_init_convert_node(
   uint32_t input_id,
   uint32_t output_id,
   uint32_t flags);
+
+struct xnn_workspace {
+  void* data;
+  size_t size;
+  struct xnn_runtime* first_user;
+  // Workspace will be destroyed in xnn_delete_runtime or xnn_delete_workspace if num_users reaches 0.
+  size_t ref_count;
+};
 
 #ifdef __cplusplus
 }  // extern "C"

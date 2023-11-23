@@ -89,7 +89,7 @@ public final class StaticTest {
     testUtilities.setRunningOnPersonalProfile();
     testUtilities.setRequestsPermissions(INTERACT_ACROSS_USERS);
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
   }
 
   @Test
@@ -113,7 +113,7 @@ public final class StaticTest {
   @Test
   public void staticCrossProfileMethod_fake_blocking_other_works() throws Exception {
     fakeConnector.turnOnWorkProfile();
-    fakeConnector.startConnecting();
+    fakeConnector.addConnectionHolder(this);
 
     assertThat(fakeType.other().staticIdentityStringMethod(STRING)).isEqualTo(STRING);
   }
@@ -126,7 +126,7 @@ public final class StaticTest {
   @Test
   public void staticCrossProfileMethod_fake_blocking_both_works() {
     fakeConnector.turnOnWorkProfile();
-    fakeConnector.startConnecting();
+    fakeConnector.addConnectionHolder(this);
 
     Map<Profile, String> result = fakeType.both().staticIdentityStringMethod(STRING);
 

@@ -9,11 +9,11 @@ third_party {
     type: GIT
     value: "https://github.com/google/cpu_features.git"
   }
-  version: "v0.6.0"
+  version: "v0.7.0"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2020
-    month: 10
-    day: 15
+    year: 2022
+    month: 3
+    day: 8
   }
 }

@@ -20,9 +20,6 @@
 
 namespace perfetto {
 
-// static
-constexpr size_t AlignedBufferTest::kNumPages;
-
 void AlignedBufferTest::SetUp() {
   page_size_ = GetParam();
   buf_.reset(new TestSharedMemory(page_size_ * kNumPages));

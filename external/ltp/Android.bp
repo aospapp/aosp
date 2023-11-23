@@ -141,6 +141,7 @@ cc_defaults {
     name: "ltp_test_defaults",
     defaults: ["ltp_defaults"],
     gtest: false,
+    cflags: ["-Wno-gnu-variable-sized-type-not-at-end"],
     no_named_install_directory: true,
     relative_install_path: "ltp/testcases/bin",
 }

@@ -22,24 +22,55 @@ import com.google.clearsilver.jsilver.resourceloader.ClassResourceLoader;
 import com.google.clearsilver.jsilver.resourceloader.CompositeResourceLoader;
 import com.google.clearsilver.jsilver.resourceloader.FileSystemResourceLoader;
 import com.google.clearsilver.jsilver.resourceloader.ResourceLoader;
-
-import com.sun.javadoc.*;
-
-import java.util.*;
-import java.util.jar.JarFile;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.io.*;
-import java.lang.reflect.Proxy;
+import com.google.doclava.javadoc.RootDocImpl;
+import com.sun.javadoc.ClassDoc;
+import com.sun.javadoc.Doc;
+import com.sun.javadoc.MemberDoc;
+import com.sun.javadoc.RootDoc;
+import com.sun.javadoc.Type;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.jar.JarFile;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import javax.lang.model.SourceVersion;
+import jdk.javadoc.doclet.Doclet;
+import jdk.javadoc.doclet.DocletEnvironment;
+import jdk.javadoc.doclet.Reporter;
 
-public class Doclava {
+public class Doclava implements Doclet {
+
   private static final String SDK_CONSTANT_ANNOTATION = "android.annotation.SdkConstant";
   private static final String SDK_CONSTANT_TYPE_ACTIVITY_ACTION =
       "android.annotation.SdkConstant.SdkConstantType.ACTIVITY_INTENT_ACTION";
@@ -139,9 +170,1353 @@ public class Doclava {
   private static boolean samplesRef = false;
   private static boolean sac = false;
 
-  public static boolean checkLevel(int level) {
-    return (showLevel & level) == level;
-  }
+    private static ArrayList<String> knownTagsFiles = new ArrayList<>();
+    private static String keepListFile;
+    private static String proguardFile;
+    private static String proofreadFile;
+    private static String todoFile;
+    private static String stubsDir;
+    private static HashSet<String> stubPackages;
+    private static HashSet<String> stubImportPackages;
+    private static boolean stubSourceOnly;
+    private static boolean keepStubComments;
+    private static String sdkValuePath;
+    private static String apiFile;
+    private static String dexApiFile;
+    private static String removedApiFile;
+    private static String removedDexApiFile;
+    private static String exactApiFile;
+    private static String privateApiFile;
+    private static String privateDexApiFile;
+    private static String apiMappingFile;
+    private static boolean offlineMode;
+
+    @Override
+    public void init(Locale locale, Reporter reporter) {
+        keepListFile = null;
+        proguardFile = null;
+        proofreadFile = null;
+        todoFile = null;
+        sdkValuePath = null;
+        stubsDir = null;
+        // Create the dependency graph for the stubs  directory
+        offlineMode = false;
+        apiFile = null;
+        dexApiFile = null;
+        removedApiFile = null;
+        removedDexApiFile = null;
+        exactApiFile = null;
+        privateApiFile = null;
+        privateDexApiFile = null;
+        apiMappingFile = null;
+        stubPackages = null;
+        stubImportPackages = null;
+        stubSourceOnly = false;
+        keepStubComments = false;
+    }
+
+    @Override
+    public String getName() {
+        return "Doclava";
+    }
+
+    /**
+     * @implNote
+     * {@code -overview} option used to be a built-in parameter in javadoc
+     * tool, and with new Doclet APIs it was moved to
+     * {@link jdk.javadoc.doclet.StandardDoclet}, so we have to implement this
+     * functionality by ourselves.
+     */
+    @Override
+    public Set<? extends Option> getSupportedOptions() {
+        Set<Doclet.Option> options = new HashSet<>();
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-overview");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() {
+                        return "Pick overview documentation from HTML file";
+                    }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        // TODO(nikitai): implement "overview" file inclusion.
+                        //  This used to be built in javadoc tool but in new Doclet APIs it was
+                        //  removed from default functionality and moved to StandardDoclet
+                        //  implementation. In our case we need to implement this on our own.
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-d");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() {
+                        return "Destination directory for output files";
+                    }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<directory>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        outputPathBase = outputPathHtmlDirs = ClearPage.outputDir
+                                = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-templatedir");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() {
+                        return "Templates for jSilver template engine used to generate docs";
+                    }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<directory>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        ClearPage.addTemplateDir(arguments.get(0));
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-hdf");
+                    @Override public int          getArgumentCount() { return 2; }
+                    @Override public String       getDescription() {
+                        return """
+                                Doclava uses the jSilver template engine to render docs. This
+                                option adds a key-value pair to the global data holder object which
+                                is passed to all render calls. Think of it as a list of default
+                                parameters for jSilver.""";
+                    }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<key> <value>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        mHDFData.add(new String[] { arguments.get(0), arguments.get(1) });
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-knowntags");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() {
+                        return """
+                                List of non-standard tags used in sources.
+                                Example: ${ANDROID_BUILD_TOP}/libcore/known_oj_tags.txt""";
+                    }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        knownTagsFiles.add(arguments.get(0));
+                        return true; }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-apidocsdir");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() {
+                        return """
+                                Javadoc output directory path relative to root, which is specified \
+                                with '-d root'
+                                
+                                Default value: 'reference/'""";
+                    }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<path>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        javadocDir = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-toroot");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() {
+                        return """
+                                Relative path to documentation root.
+                                If set, use <path> as a (relative or absolute) link to \
+                                documentation root in .html pages.
+                                
+                                If not set, an auto-generated path traversal links will be used, \
+                                e.g. “../../../”.
+                                """;
+                    }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<path>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        ClearPage.toroot = arguments.get(0);
+                        return true; }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-samplecode");
+                    @Override public int          getArgumentCount() { return 3; }
+                    @Override public String       getDescription() {
+                        return """
+                                Adds a browsable sample code project from <source> directory under \
+                                <dest> path relative to root (specified with '-d' <directory>) and \
+                                named <title>.
+                                """;
+                    }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() {
+                        return "<source> <dest> <title>";
+                    }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        sampleCodes.add(new SampleCode(arguments.get(0), arguments.get(1), arguments.get(2)));
+                        samplesRef = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-samplegroup");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() {
+                        return "Add a sample code project group";
+                    }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<group>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        sampleCodeGroups.add(new SampleCode(null, null, arguments.get(0)));
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-samplesdir");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() {
+                        return """
+                                Directory where to look for samples. Android uses \
+                                ${ANDROID_BUILD_TOP}/development/samples/browseable.
+                                """;
+                    }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<directory>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        samplesRef = true;
+                        getSampleProjects(new File(arguments.get(0)));
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-htmldir");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<path>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        inputPathHtmlDirs.add(arguments.get(0));
+                        ClearPage.htmlDirs = inputPathHtmlDirs;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-htmldir2");
+                    @Override public int          getArgumentCount() { return 2; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() {
+                        return "<input_path> <output_path>";
+                    }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        if (arguments.get(1).equals("default")) {
+                            inputPathHtmlDir2.add(arguments.get(0));
+                        } else {
+                            inputPathHtmlDir2.add(arguments.get(0));
+                            outputPathHtmlDir2 = arguments.get(1);
+                        }
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-resourcesdir");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<path>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        inputPathResourcesDir = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-resourcesoutdir");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<path>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        outputPathResourcesDir = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-title");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<title>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        Doclava.title = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-werror");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        // b/270335911: disable warnings as errors until new findings are addressed.
+                        // Errors.setWarningsAreErrors(true);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-lerror");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        // b/270335653: disable lint warnings as errors until new findings are addressed.
+                        // Errors.setLintsAreErrors(true);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-error");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<code_value>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        try {
+                            int level = Integer.parseInt(arguments.get(0));
+                            Errors.setErrorLevel(level, Errors.ERROR);
+                            return true;
+                        } catch (NumberFormatException e) {
+                            return false;
+                        }
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-warning");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<code_value>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        try {
+                            int level = Integer.parseInt(arguments.get(0));
+                            Errors.setErrorLevel(level, Errors.WARNING);
+                            return true;
+                        } catch (NumberFormatException e) {
+                            return false;
+                        }
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-lint");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<code_value>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        try {
+                            int level = Integer.parseInt(arguments.get(0));
+                            Errors.setErrorLevel(level, Errors.LINT);
+                            return true;
+                        } catch (NumberFormatException e) {
+                            return false;
+                        }
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-hide");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<code_value>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        try {
+                            int level = Integer.parseInt(arguments.get(0));
+                            Errors.setErrorLevel(level, Errors.HIDDEN);
+                            return true;
+                        } catch (NumberFormatException e) {
+                            return false;
+                        }
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-keeplist");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<list>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        keepListFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-showUnannotated");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        showUnannotated = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-showAnnotation");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<annotation>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        showAnnotations.add(arguments.get(0));
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-hideAnnotation");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<annotation>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        hideAnnotations.add(arguments.get(0));
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-showAnnotationOverridesVisibility");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        showAnnotationOverridesVisibility = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-hidePackage");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<package>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        hiddenPackages.add(arguments.get(0));
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-proguard");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<arg>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        proguardFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-proofread");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<arg>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        proofreadFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-todo");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        todoFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-public");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        showLevel = SHOW_PUBLIC;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-protected");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        showLevel = SHOW_PROTECTED;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-package");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        showLevel = SHOW_PACKAGE;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-private");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        showLevel = SHOW_PRIVATE;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-hidden");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        showLevel = SHOW_HIDDEN;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-stubs");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<stubs>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        stubsDir = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-stubpackages");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<packages>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        stubPackages = new HashSet<>();
+                        stubPackages.addAll(Arrays.asList(arguments.get(0).split(":")));
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-stubimportpackages");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<packages>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        stubImportPackages = new HashSet<>();
+                        for (String pkg : arguments.get(0).split(":")) {
+                            stubImportPackages.add(pkg);
+                            hiddenPackages.add(pkg);
+                        }
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-stubsourceonly");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        stubSourceOnly = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-keepstubcomments");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        keepStubComments = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-sdkvalues");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<path>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        sdkValuePath = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-api");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        apiFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-dexApi");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        dexApiFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-removedApi");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        removedApiFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-removedDexApi");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        removedDexApiFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-exactApi");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        exactApiFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-privateApi");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        privateApiFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-privateDexApi");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        privateDexApiFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-apiMapping");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        apiMappingFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-nodocs");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        generateDocs = false;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-noassets");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        includeAssets = false;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-nodefaultassets");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        includeDefaultAssets = false;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-parsecomments");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        parseComments = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-metalavaApiSince");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        METALAVA_API_SINCE = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-since");
+                    @Override public int          getArgumentCount() { return 2; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<major> <minor>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        sinceTagger.addVersion(arguments.get(0), arguments.get(1));
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-artifact");
+                    @Override public int          getArgumentCount() { return 2; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<arg1> <arg2>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        artifactTagger.addArtifact(arguments.get(0), arguments.get(1));
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-offlinemode");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        // TODO(nikitai): This option is not used anywhere, consider removing.
+                        offlineMode = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-metadataDebug");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        META_DBG = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-includePreview");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        INCLUDE_PREVIEW = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-ignoreJdLinks");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        if (DEVSITE_STATIC_ONLY) {
+                            DEVSITE_IGNORE_JDLINKS = true;
+                        }
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-federate");
+                    @Override public int          getArgumentCount() { return 2; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<name> <URL>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        try {
+                            String name = arguments.get(0);
+                            URL federationURL = new URL(arguments.get(1));
+                            federationTagger.addSiteUrl(name, federationURL);
+                        } catch (MalformedURLException e) {
+                            System.err.println("Could not parse URL for federation: " + arguments.get(0));
+                            return false;
+                        }
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-federationapi");
+                    @Override public int          getArgumentCount() { return 2; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<name> <file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        String name = arguments.get(0);
+                        String file = arguments.get(1);
+                        federationTagger.addSiteApi(name, file);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-gmsref");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        gmsRef = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-gcmref");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        gcmRef = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-yaml");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        yamlNavFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-dac_libraryroot");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<library_root>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        libraryRoot = ensureSlash(arguments.get(0));
+                        mHDFData.add(new String[] {"library.root", arguments.get(0)});
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-dac_dataname");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<data_name>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        mHDFData.add(new String[] {"dac_dataname", arguments.get(0)});
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-documentannotations");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<path>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        documentAnnotations = true;
+                        documentAnnotationsPath = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-referenceonly");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        referenceOnly = true;
+                        mHDFData.add(new String[] {"referenceonly", "1"});
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-staticonly");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        staticOnly = true;
+                        mHDFData.add(new String[] {"staticonly", "1"});
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-navtreeonly");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        NAVTREE_ONLY = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-atLinksNavtree");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        AT_LINKS_NAVTREE = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-yamlV2");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        yamlV2 = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-devsite");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        devsite = true;
+                        // Don't copy any assets to devsite output
+                        includeAssets = false;
+                        USE_DEVSITE_LOCALE_OUTPUT_PATHS = true;
+                        mHDFData.add(new String[] {"devsite", "1"});
+                        if (staticOnly) {
+                            DEVSITE_STATIC_ONLY = true;
+                            System.out.println("  ... Generating static html only for devsite");
+                        }
+                        if (yamlNavFile == null) {
+                            // Use _toc.yaml as default to avoid clobbering possible manual _book.yaml files
+                            yamlNavFile = "_toc.yaml";
+                        }
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-android");
+                    @Override public int          getArgumentCount() { return 0; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return ""; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        auxSource = new AndroidAuxSource();
+                        linter = new AndroidLinter();
+                        android = true;
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-manifest");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<file>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        manifestFile = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        options.add(
+                new Option() {
+                    private final List<String> names = List.of("-compatconfig");
+                    @Override public int          getArgumentCount() { return 1; }
+                    @Override public String       getDescription() { return ""; }
+                    @Override public Option.Kind  getKind() { return Option.Kind.STANDARD; }
+                    @Override public List<String> getNames() { return names; }
+                    @Override public String       getParameters() { return "<config>"; }
+                    @Override public boolean      process(String opt, List<String> arguments) {
+                        compatConfig = arguments.get(0);
+                        return true;
+                    }
+                }
+        );
+
+        return options;
+    }
+
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+        return SourceVersion.latest();
+    }
+
+    @Override
+    public boolean run(DocletEnvironment environment) {
+        return start(environment);
+    }
+
+    public static boolean checkLevel(int level) {
+        return (showLevel & level) == level;
+    }
 
   /**
    * Returns true if we should parse javadoc comments,
@@ -172,242 +1547,11 @@ public class Doclava {
   }
 
   public static void main(String[] args) {
-    System.exit(com.sun.tools.javadoc.Main.execute(args));
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
-  public static boolean start(RootDoc r) {
-    String keepListFile = null;
-    String proguardFile = null;
-    String proofreadFile = null;
-    String todoFile = null;
-    String sdkValuePath = null;
-    String stubsDir = null;
-    // Create the dependency graph for the stubs  directory
-    boolean offlineMode = false;
-    String apiFile = null;
-    String dexApiFile = null;
-    String removedApiFile = null;
-    String removedDexApiFile = null;
-    String exactApiFile = null;
-    String privateApiFile = null;
-    String privateDexApiFile = null;
-    String debugStubsFile = "";
-    String apiMappingFile = null;
-    HashSet<String> stubPackages = null;
-    HashSet<String> stubImportPackages = null;
-    boolean stubSourceOnly = false;
-    boolean keepStubComments = false;
-    ArrayList<String> knownTagsFiles = new ArrayList<String>();
-
-    root = r;
-
-    String[][] options = r.options();
-    for (String[] a : options) {
-      if (a[0].equals("-d")) {
-        outputPathBase = outputPathHtmlDirs = ClearPage.outputDir = a[1];
-      } else if (a[0].equals("-templatedir")) {
-        ClearPage.addTemplateDir(a[1]);
-      } else if (a[0].equals("-hdf")) {
-        mHDFData.add(new String[] {a[1], a[2]});
-      } else if (a[0].equals("-knowntags")) {
-        knownTagsFiles.add(a[1]);
-      } else if (a[0].equals("-apidocsdir")) {
-        javadocDir = a[1];
-      } else if (a[0].equals("-toroot")) {
-        ClearPage.toroot = a[1];
-      } else if (a[0].equals("-samplecode")) {
-        sampleCodes.add(new SampleCode(a[1], a[2], a[3]));
-      } else if (a[0].equals("-samplegroup")) {
-        sampleCodeGroups.add(new SampleCode(null, null, a[1]));
-      } else if (a[0].equals("-samplesdir")) {
-        getSampleProjects(new File(a[1]));
-      //the destination output path for main htmldir
-      } else if (a[0].equals("-htmldir")) {
-        inputPathHtmlDirs.add(a[1]);
-        ClearPage.htmlDirs = inputPathHtmlDirs;
-      //the destination output path for additional htmldir
-      } else if (a[0].equals("-htmldir2")) {
-        if (a[2].equals("default")) {
-          inputPathHtmlDir2.add(a[1]);
-        } else {
-          inputPathHtmlDir2.add(a[1]);
-          outputPathHtmlDir2 = a[2];
-        }
-      //the destination output path for additional resources (images)
-      } else if (a[0].equals("-resourcesdir")) {
-        inputPathResourcesDir = a[1];
-      } else if (a[0].equals("-resourcesoutdir")) {
-        outputPathResourcesDir = a[1];
-      } else if (a[0].equals("-title")) {
-        Doclava.title = a[1];
-      } else if (a[0].equals("-werror")) {
-        Errors.setWarningsAreErrors(true);
-      } else if (a[0].equals("-lerror")) {
-        Errors.setLintsAreErrors(true);
-      } else if (a[0].equals("-error") || a[0].equals("-warning") || a[0].equals("-lint")
-          || a[0].equals("-hide")) {
-        try {
-          int level = -1;
-          if (a[0].equals("-error")) {
-            level = Errors.ERROR;
-          } else if (a[0].equals("-warning")) {
-            level = Errors.WARNING;
-          } else if (a[0].equals("-lint")) {
-            level = Errors.LINT;
-          } else if (a[0].equals("-hide")) {
-            level = Errors.HIDDEN;
-          }
-          Errors.setErrorLevel(Integer.parseInt(a[1]), level);
-        } catch (NumberFormatException e) {
-          // already printed below
-          return false;
-        }
-      } else if (a[0].equals("-keeplist")) {
-        keepListFile = a[1];
-      } else if (a[0].equals("-showUnannotated")) {
-        showUnannotated = true;
-      } else if (a[0].equals("-showAnnotation")) {
-        showAnnotations.add(a[1]);
-      } else if (a[0].equals("-hideAnnotation")) {
-        hideAnnotations.add(a[1]);
-      } else if (a[0].equals("-showAnnotationOverridesVisibility")) {
-        showAnnotationOverridesVisibility = true;
-      } else if (a[0].equals("-hidePackage")) {
-        hiddenPackages.add(a[1]);
-      } else if (a[0].equals("-proguard")) {
-        proguardFile = a[1];
-      } else if (a[0].equals("-proofread")) {
-        proofreadFile = a[1];
-      } else if (a[0].equals("-todo")) {
-        todoFile = a[1];
-      } else if (a[0].equals("-public")) {
-        showLevel = SHOW_PUBLIC;
-      } else if (a[0].equals("-protected")) {
-        showLevel = SHOW_PROTECTED;
-      } else if (a[0].equals("-package")) {
-        showLevel = SHOW_PACKAGE;
-      } else if (a[0].equals("-private")) {
-        showLevel = SHOW_PRIVATE;
-      } else if (a[0].equals("-hidden")) {
-        showLevel = SHOW_HIDDEN;
-      } else if (a[0].equals("-stubs")) {
-        stubsDir = a[1];
-      } else if (a[0].equals("-stubpackages")) {
-        stubPackages = new HashSet<String>();
-        for (String pkg : a[1].split(":")) {
-          stubPackages.add(pkg);
-        }
-      } else if (a[0].equals("-stubimportpackages")) {
-        stubImportPackages = new HashSet<String>();
-        for (String pkg : a[1].split(":")) {
-          stubImportPackages.add(pkg);
-          hiddenPackages.add(pkg);
-        }
-      } else if (a[0].equals("-stubsourceonly")) {
-        stubSourceOnly = true;
-      } else if (a[0].equals("-keepstubcomments")) {
-        keepStubComments = true;
-      } else if (a[0].equals("-sdkvalues")) {
-        sdkValuePath = a[1];
-      } else if (a[0].equals("-api")) {
-        apiFile = a[1];
-      } else if (a[0].equals("-dexApi")) {
-        dexApiFile = a[1];
-      } else if (a[0].equals("-removedApi")) {
-        removedApiFile = a[1];
-      } else if (a[0].equals("-removedDexApi")) {
-        removedDexApiFile = a[1];
-      } else if (a[0].equals("-exactApi")) {
-        exactApiFile = a[1];
-      } else if (a[0].equals("-privateApi")) {
-        privateApiFile = a[1];
-      } else if (a[0].equals("-privateDexApi")) {
-        privateDexApiFile = a[1];
-      } else if (a[0].equals("-apiMapping")) {
-        apiMappingFile = a[1];
-      } else if (a[0].equals("-nodocs")) {
-        generateDocs = false;
-      } else if (a[0].equals("-noassets")) {
-        includeAssets = false;
-      } else if (a[0].equals("-nodefaultassets")) {
-        includeDefaultAssets = false;
-      } else if (a[0].equals("-parsecomments")) {
-        parseComments = true;
-      } else if (a[0].equals("-metalavaApiSince")) {
-        METALAVA_API_SINCE = true;
-      } else if (a[0].equals("-since")) {
-        sinceTagger.addVersion(a[1], a[2]);
-      } else if (a[0].equals("-artifact")) {
-        artifactTagger.addArtifact(a[1], a[2]);
-      } else if (a[0].equals("-offlinemode")) {
-        offlineMode = true;
-      } else if (a[0].equals("-metadataDebug")) {
-        META_DBG = true;
-      } else if (a[0].equals("-includePreview")) {
-        INCLUDE_PREVIEW = true;
-      } else if (a[0].equals("-ignoreJdLinks")) {
-        if (DEVSITE_STATIC_ONLY) {
-          DEVSITE_IGNORE_JDLINKS = true;
-        }
-      } else if (a[0].equals("-federate")) {
-        try {
-          String name = a[1];
-          URL federationURL = new URL(a[2]);
-          federationTagger.addSiteUrl(name, federationURL);
-        } catch (MalformedURLException e) {
-          System.err.println("Could not parse URL for federation: " + a[1]);
-          return false;
-        }
-      } else if (a[0].equals("-federationapi")) {
-        String name = a[1];
-        String file = a[2];
-        federationTagger.addSiteApi(name, file);
-      } else if (a[0].equals("-yaml")) {
-        yamlNavFile = a[1];
-      } else if (a[0].equals("-dac_libraryroot")) {
-        libraryRoot = ensureSlash(a[1]);
-        mHDFData.add(new String[] {"library.root", a[1]});
-      } else if (a[0].equals("-dac_dataname")) {
-        mHDFData.add(new String[] {"dac_dataname", a[1]});
-      } else if (a[0].equals("-documentannotations")) {
-        documentAnnotations = true;
-        documentAnnotationsPath = a[1];
-      } else if (a[0].equals("-referenceonly")) {
-        referenceOnly = true;
-        mHDFData.add(new String[] {"referenceonly", "1"});
-      } else if (a[0].equals("-staticonly")) {
-        staticOnly = true;
-        mHDFData.add(new String[] {"staticonly", "1"});
-      } else if (a[0].equals("-navtreeonly")) {
-        NAVTREE_ONLY = true;
-      } else if (a[0].equals("-atLinksNavtree")) {
-        AT_LINKS_NAVTREE = true;
-      } else if (a[0].equals("-yamlV2")) {
-        yamlV2 = true;
-      } else if (a[0].equals("-devsite")) {
-        devsite = true;
-        // Don't copy any assets to devsite output
-        includeAssets = false;
-        USE_DEVSITE_LOCALE_OUTPUT_PATHS = true;
-        mHDFData.add(new String[] {"devsite", "1"});
-        if (staticOnly) {
-          DEVSITE_STATIC_ONLY = true;
-          System.out.println("  ... Generating static html only for devsite");
-        }
-        if (yamlNavFile == null) {
-          // Use _toc.yaml as default to avoid clobbering possible manual _book.yaml files
-          yamlNavFile = "_toc.yaml";
-        }
-      } else if (a[0].equals("-android")) {
-        auxSource = new AndroidAuxSource();
-        linter = new AndroidLinter();
-        android = true;
-      } else if (a[0].equals("-manifest")) {
-        manifestFile = a[1];
-      } else if (a[0].equals("-compatconfig")) {
-        compatConfig = a[1];
-      }
-    }
+  public static boolean start(DocletEnvironment environment) {
+    root = new RootDocImpl(environment);
 
     // If the caller has not explicitly requested that unannotated classes and members should be
     // shown in the output then only show them if no annotations were provided.
@@ -423,7 +1567,7 @@ public class Doclava {
     }
 
     // Set up the data structures
-    Converter.makeInfo(r);
+    Converter.makeInfo(root);
 
     if (generateDocs) {
       ClearPage.addBundledTemplateDir("assets/customizations");
@@ -734,256 +1878,6 @@ public class Doclava {
       s += " - " + Doclava.title;
     }
     data.setValue("page.title", s);
-  }
-
-
-  public static LanguageVersion languageVersion() {
-    return LanguageVersion.JAVA_1_5;
-  }
-
-
-  public static int optionLength(String option) {
-    if (option.equals("-d")) {
-      return 2;
-    }
-    if (option.equals("-templatedir")) {
-      return 2;
-    }
-    if (option.equals("-hdf")) {
-      return 3;
-    }
-    if (option.equals("-knowntags")) {
-      return 2;
-    }
-    if (option.equals("-apidocsdir")) {
-      return 2;
-    }
-    if (option.equals("-toroot")) {
-      return 2;
-    }
-    if (option.equals("-samplecode")) {
-      samplesRef = true;
-      return 4;
-    }
-    if (option.equals("-samplegroup")) {
-      return 2;
-    }
-    if (option.equals("-samplesdir")) {
-      samplesRef = true;
-      return 2;
-    }
-    if (option.equals("-devsite")) {
-      return 1;
-    }
-    if (option.equals("-yamlV2")) {
-      return 1;
-    }
-    if (option.equals("-dac_libraryroot")) {
-      return 2;
-    }
-    if (option.equals("-dac_dataname")) {
-      return 2;
-    }
-    if (option.equals("-ignoreJdLinks")) {
-      return 1;
-    }
-    if (option.equals("-htmldir")) {
-      return 2;
-    }
-    if (option.equals("-htmldir2")) {
-      return 3;
-    }
-    if (option.equals("-resourcesdir")) {
-      return 2;
-    }
-    if (option.equals("-resourcesoutdir")) {
-      return 2;
-    }
-    if (option.equals("-title")) {
-      return 2;
-    }
-    if (option.equals("-werror")) {
-      return 1;
-    }
-    if (option.equals("-lerror")) {
-      return 1;
-    }
-    if (option.equals("-hide")) {
-      return 2;
-    }
-    if (option.equals("-warning")) {
-      return 2;
-    }
-    if (option.equals("-error")) {
-      return 2;
-    }
-    if (option.equals("-keeplist")) {
-      return 2;
-    }
-    if (option.equals("-showUnannotated")) {
-      return 1;
-    }
-    if (option.equals("-showAnnotation")) {
-      return 2;
-    }
-    if (option.equals("-hideAnnotation")) {
-      return 2;
-    }
-    if (option.equals("-showAnnotationOverridesVisibility")) {
-      return 1;
-    }
-    if (option.equals("-hidePackage")) {
-      return 2;
-    }
-    if (option.equals("-proguard")) {
-      return 2;
-    }
-    if (option.equals("-proofread")) {
-      return 2;
-    }
-    if (option.equals("-todo")) {
-      return 2;
-    }
-    if (option.equals("-public")) {
-      return 1;
-    }
-    if (option.equals("-protected")) {
-      return 1;
-    }
-    if (option.equals("-package")) {
-      return 1;
-    }
-    if (option.equals("-private")) {
-      return 1;
-    }
-    if (option.equals("-hidden")) {
-      return 1;
-    }
-    if (option.equals("-stubs")) {
-      return 2;
-    }
-    if (option.equals("-stubpackages")) {
-      return 2;
-    }
-    if (option.equals("-stubimportpackages")) {
-      return 2;
-    }
-    if (option.equals("-stubsourceonly")) {
-      return 1;
-    }
-    if (option.equals("-keepstubcomments")) {
-      return 1;
-    }
-    if (option.equals("-sdkvalues")) {
-      return 2;
-    }
-    if (option.equals("-api")) {
-      return 2;
-    }
-    if (option.equals("-dexApi")) {
-      return 2;
-    }
-    if (option.equals("-removedApi")) {
-      return 2;
-    }
-    if (option.equals("-removedDexApi")) {
-      return 2;
-    }
-    if (option.equals("-exactApi")) {
-      return 2;
-    }
-    if (option.equals("-privateApi")) {
-      return 2;
-    }
-    if (option.equals("-privateDexApi")) {
-      return 2;
-    }
-    if (option.equals("-apiMapping")) {
-      return 2;
-    }
-    if (option.equals("-nodocs")) {
-      return 1;
-    }
-    if (option.equals("-nodefaultassets")) {
-      return 1;
-    }
-    if (option.equals("-parsecomments")) {
-      return 1;
-    }
-    if (option.equals("-metalavaApiSince")) {
-      return 1;
-    }
-    if (option.equals("-since")) {
-      return 3;
-    }
-    if (option.equals("-artifact")) {
-      return 3;
-    }
-    if (option.equals("-offlinemode")) {
-      return 1;
-    }
-    if (option.equals("-federate")) {
-      return 3;
-    }
-    if (option.equals("-federationapi")) {
-      return 3;
-    }
-    if (option.equals("-yaml")) {
-      return 2;
-    }
-    if (option.equals("-gmsref")) {
-      gmsRef = true;
-      return 1;
-    }
-    if (option.equals("-gcmref")) {
-      gcmRef = true;
-      return 1;
-    }
-    if (option.equals("-metadataDebug")) {
-      return 1;
-    }
-    if (option.equals("-includePreview")) {
-      return 1;
-    }
-    if (option.equals("-documentannotations")) {
-      return 2;
-    }
-    if (option.equals("-referenceonly")) {
-      return 1;
-    }
-    if (option.equals("-staticonly")) {
-      return 1;
-    }
-    if (option.equals("-navtreeonly")) {
-      return 1;
-    }
-    if (option.equals("-atLinksNavtree")) {
-      return 1;
-    }
-    if (option.equals("-android")) {
-      return 1;
-    }
-    if (option.equals("-manifest")) {
-      return 2;
-    }
-    if (option.equals("-compatconfig")) {
-      return 2;
-    }
-    return 0;
-  }
-  public static boolean validOptions(String[][] options, DocErrorReporter r) {
-    for (String[] a : options) {
-      if (a[0].equals("-error") || a[0].equals("-warning") || a[0].equals("-hide")) {
-        try {
-          Integer.parseInt(a[1]);
-        } catch (NumberFormatException e) {
-          r.printError("bad -" + a[0] + " value must be a number: " + a[1]);
-          return false;
-        }
-      }
-    }
-
-    return true;
   }
 
   public static Data makeHDF() {

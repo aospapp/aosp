@@ -38,7 +38,7 @@ int bpf_map_create(union bpf_attr *const attr)
 		if (errno == EPERM) {
 			tst_res(TCONF, "Hint: check also /proc/sys/kernel/unprivileged_bpf_disabled");
 			tst_brk(TCONF | TERRNO,
-				"bpf() requires CAP_SYS_ADMIN on this system");
+				"bpf() requires CAP_SYS_ADMIN or CAP_BPF on this system");
 		} else {
 			tst_brk(TBROK | TERRNO, "Failed to create array map");
 		}
@@ -118,8 +118,10 @@ int bpf_load_prog(union bpf_attr *const attr, const char *const log)
 	if (ret != -1)
 		tst_brk(TBROK, "Invalid bpf() return value: %d", ret);
 
-	if (log[0] != 0)
-		tst_brk(TBROK | TERRNO, "Failed verification: %s", log);
+	if (log[0] != 0) {
+		tst_printf("%s\n", log);
+		tst_brk(TBROK | TERRNO, "Failed verification");
+	}
 
 	tst_brk(TBROK | TERRNO, "Failed to load program");
 	return ret;
@@ -134,7 +136,7 @@ void bpf_run_prog(const int prog_fd,
 	SAFE_SETSOCKOPT(sk[1], SOL_SOCKET, SO_ATTACH_BPF,
 			&prog_fd, sizeof(prog_fd));
 
-	SAFE_WRITE(1, sk[0], msg, msg_len);
+	SAFE_WRITE(SAFE_WRITE_ALL, sk[0], msg, msg_len);
 
 	SAFE_CLOSE(sk[0]);
 	SAFE_CLOSE(sk[1]);

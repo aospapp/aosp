@@ -21,6 +21,7 @@ import com.squareup.okhttp.internal.framed.Settings;
 import com.squareup.okhttp.ws.WebSocketListener;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.concurrent.TimeUnit;
 import okio.Buffer;
 
@@ -38,6 +39,7 @@ public final class MockResponse implements Cloneable {
   private TimeUnit throttlePeriodUnit = TimeUnit.SECONDS;
 
   private SocketPolicy socketPolicy = SocketPolicy.KEEP_OPEN;
+  private Consumer<SocketPolicy> socketShutdownListener = null;
 
   private long bodyDelayAmount = 0;
   private TimeUnit bodyDelayUnit = TimeUnit.MILLISECONDS;
@@ -192,6 +194,28 @@ public final class MockResponse implements Cloneable {
   public MockResponse setSocketPolicy(SocketPolicy socketPolicy) {
     this.socketPolicy = socketPolicy;
     return this;
+  }
+
+  /**
+   * Sets a listener that can wait until a socket is closed. This is important if the
+   * {@link SocketPolicy} gets set to something that shuts down the socket after a transaction and
+   * that socket may get reused in subsequent calls if they happen too fast.
+   *
+   * @param listener The listener that will be notified when a socket is closed. This could be an
+   *                 instance of {@link SocketShutdownListener}.
+   *
+   * @see SocketPolicy
+   * @see SocketShutdownListener
+   */
+  public MockResponse setSocketShutdownListener(Consumer<SocketPolicy> listener) {
+      this.socketShutdownListener = listener;
+      return this;
+  }
+
+  void notifyShutdown(SocketPolicy reason) {
+      if (socketShutdownListener != null) {
+          socketShutdownListener.accept(reason);
+      }
   }
 
   /**

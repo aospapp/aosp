@@ -9,11 +9,11 @@ CRITERIA = """
 This test will fail if one of the following conditions occur:
   - Cellular modem does not provide an identifier
 """
-ATTRIBUTES = "suite:cellular_pseudomodem"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
+PY_VERSION = 3
 DOC = """
   Tests that a cellular modem provides correct identification information
 

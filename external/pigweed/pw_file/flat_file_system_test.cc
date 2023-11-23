@@ -17,7 +17,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <span>
 #include <string_view>
 
 #include "gtest/gtest.h"
@@ -25,6 +24,7 @@
 #include "pw_file/file.pwpb.h"
 #include "pw_protobuf/decoder.h"
 #include "pw_rpc/raw/test_method_context.h"
+#include "pw_span/span.h"
 #include "pw_status/status.h"
 #include "pw_status/status_with_size.h"
 
@@ -36,7 +36,7 @@ class FakeFile : public FlatFileSystemService::Entry {
   constexpr FakeFile(std::string_view file_name, size_t size, uint32_t file_id)
       : name_(file_name), size_(size), file_id_(file_id) {}
 
-  StatusWithSize Name(std::span<char> dest) override {
+  StatusWithSize Name(span<char> dest) override {
     if (name_.empty()) {
       return StatusWithSize(Status::NotFound(), 0);
     }
@@ -84,7 +84,7 @@ void ComparePathToEntry(ConstByteSpan serialized_path,
   protobuf::Decoder decoder(serialized_path);
   while (decoder.Next().ok()) {
     switch (decoder.FieldNumber()) {
-      case static_cast<uint32_t>(pw::file::Path::Fields::PATH): {
+      case static_cast<uint32_t>(pw::file::pwpb::Path::Fields::kPath): {
         std::string_view serialized_name;
         EXPECT_EQ(OkStatus(), decoder.ReadString(&serialized_name));
         size_t name_bytes_to_read =
@@ -96,7 +96,7 @@ void ComparePathToEntry(ConstByteSpan serialized_path,
         break;
       }
 
-      case static_cast<uint32_t>(pw::file::Path::Fields::PERMISSIONS): {
+      case static_cast<uint32_t>(pw::file::pwpb::Path::Fields::kPermissions): {
         uint32_t seralized_permissions;
         EXPECT_EQ(OkStatus(), decoder.ReadUint32(&seralized_permissions));
         EXPECT_EQ(static_cast<uint32_t>(entry->Permissions()),
@@ -104,7 +104,7 @@ void ComparePathToEntry(ConstByteSpan serialized_path,
         break;
       }
 
-      case static_cast<uint32_t>(pw::file::Path::Fields::SIZE_BYTES): {
+      case static_cast<uint32_t>(pw::file::pwpb::Path::Fields::kSizeBytes): {
         uint32_t serialized_file_size;
         EXPECT_EQ(OkStatus(), decoder.ReadUint32(&serialized_file_size));
         EXPECT_EQ(static_cast<uint32_t>(entry->SizeBytes()),
@@ -112,7 +112,7 @@ void ComparePathToEntry(ConstByteSpan serialized_path,
         break;
       }
 
-      case static_cast<uint32_t>(pw::file::Path::Fields::FILE_ID): {
+      case static_cast<uint32_t>(pw::file::pwpb::Path::Fields::kFileId): {
         uint32_t serialized_file_id;
         EXPECT_EQ(OkStatus(), decoder.ReadUint32(&serialized_file_id));
         EXPECT_EQ(static_cast<uint32_t>(entry->FileId()), serialized_file_id);
@@ -121,14 +121,14 @@ void ComparePathToEntry(ConstByteSpan serialized_path,
 
       default:
         // unexpected result.
-        // TODO something here.
+        // TODO(amontanez) something here.
         break;
     }
   }
 }
 
 size_t ValidateExpectedPaths(
-    std::span<FlatFileSystemService::Entry*> flat_file_system,
+    span<FlatFileSystemService::Entry*> flat_file_system,
     const rpc::PayloadsView& results) {
   size_t serialized_path_entry_count = 0;
   size_t file_system_index = 0;
@@ -136,7 +136,7 @@ size_t ValidateExpectedPaths(
     protobuf::Decoder decoder(response);
     while (decoder.Next().ok()) {
       constexpr uint32_t kListResponsePathsFieldNumber =
-          static_cast<uint32_t>(pw::file::ListResponse::Fields::PATHS);
+          static_cast<uint32_t>(pw::file::pwpb::ListResponse::Fields::kPaths);
       EXPECT_EQ(decoder.FieldNumber(), kListResponsePathsFieldNumber);
       if (decoder.FieldNumber() != kListResponsePathsFieldNumber) {
         return 0;
@@ -172,7 +172,7 @@ TEST(FlatFileSystem, EncodingBufferSizeBytes) {
 
 TEST(FlatFileSystem, List_NoFiles) {
   PW_RAW_TEST_METHOD_CONTEXT(FlatFileSystemServiceWithBuffer<1>, List)
-  ctx{std::span<FlatFileSystemService::Entry*>()};
+  ctx{span<FlatFileSystemService::Entry*>()};
   ctx.call(ConstByteSpan());
 
   EXPECT_TRUE(ctx.done());

@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -47,8 +48,16 @@ public final class FileUtilities {
         return openReader(dir, filename, "UTF-8");
     }
 
+    public static BufferedReader openUTF8Reader(File file) throws IOException {
+        return openReader(file, "UTF-8");
+    }
+
     public static BufferedReader openReader(String dir, String filename, String encoding) throws IOException {
         File file = dir.length() == 0 ? new File(filename) : new File(dir, filename);
+        return openReader(file, encoding);
+    }
+
+    private static BufferedReader openReader(File file, String encoding) throws UnsupportedEncodingException, FileNotFoundException {
         if (SHOW_FILES && log != null) {
             log.println("Opening File: "
                 + getNormalizedPathString(file));
@@ -68,8 +77,21 @@ public final class FileUtilities {
         return openWriter(dir, filename, StandardCharsets.UTF_8);
     }
 
+    public static PrintWriter openUTF8Writer(File file) throws IOException {
+        return openWriter(file, StandardCharsets.UTF_8);
+    }
+
     public static PrintWriter openWriter(File dir, String filename, Charset encoding) throws IOException {
-        File file = new File(dir, filename);
+        File file;
+        if (dir == null) {
+            file = new File(filename);
+        } else {
+            file = new File(dir, filename);
+        }
+        return openWriter(file, encoding);
+    }
+
+    private static PrintWriter openWriter(File file, Charset encoding) throws IOException {
         if (SHOW_FILES && log != null) {
             log.println("Creating File: " + getNormalizedPathString(file));
         }
@@ -271,7 +293,11 @@ public final class FileUtilities {
 
     public static BufferedReader openFile(String directory, String file, Charset charset) {
         try {
-            return new BufferedReader(new InputStreamReader(new FileInputStream(new File(directory, file)), charset));
+            if (directory.equals("")) {
+                return new BufferedReader(new InputStreamReader(new FileInputStream(new File(file)), charset));
+            } else {
+                return new BufferedReader(new InputStreamReader(new FileInputStream(new File(directory, file)), charset));
+            }
         } catch (FileNotFoundException e) {
             throw new ICUUncheckedIOException(e); // handle dang'd checked exception
         }

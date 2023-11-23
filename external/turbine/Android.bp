@@ -55,4 +55,10 @@ java_library_host {
     proto: {
         type: "full",
     },
+
+    errorprone: {
+        javacflags: [
+            "-Xep:NoCanIgnoreReturnValueOnClasses:WARN",
+        ],
+    },
 }

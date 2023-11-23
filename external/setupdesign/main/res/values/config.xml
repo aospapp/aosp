@@ -23,6 +23,9 @@
     <!-- Whether to use tablet layout -->
     <bool name="sudUseTabletLayout">false</bool>
 
+    <!-- Whether to make the footer button in footer bar align end -->
+    <bool name="suc_footer_bar_button_align_end">false</bool>
+
     <!-- Secondary font for use with headings, title, and other non-body text -->
     <string name="sudFontSecondary" translatable="false">google-sans</string>
     <string name="sudFontSecondaryText" translatable="false">google-sans-text</string>

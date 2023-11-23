@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -170,5 +171,3 @@ class network_WiFi_AssocConfigPerformance(wifi_cell_test_base.WiFiCellTestBase):
                     descript=prefix + '_total',
                     perf_times=total_times,
                     graph_description=graph_descript)
-
-

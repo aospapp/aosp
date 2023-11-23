@@ -23,6 +23,15 @@
       "path": "external/rust/crates/crossbeam-utils"
     },
     {
+      "path": "external/rust/crates/flate2"
+    },
+    {
+      "path": "external/rust/crates/hashbrown"
+    },
+    {
+      "path": "external/rust/crates/hashlink"
+    },
+    {
       "path": "external/rust/crates/mio"
     },
     {
@@ -45,19 +54,49 @@
     },
     {
       "path": "external/rust/crates/tokio"
+    },
+    {
+      "path": "external/rust/crates/zerocopy"
+    },
+    {
+      "path": "external/uwb/src"
+    },
+    {
+      "path": "packages/modules/Virtualization/apkdmverity"
+    },
+    {
+      "path": "packages/modules/Virtualization/authfs"
+    },
+    {
+      "path": "packages/modules/Virtualization/avmd"
+    },
+    {
+      "path": "packages/modules/Virtualization/encryptedstore"
+    },
+    {
+      "path": "packages/modules/Virtualization/libs/devicemapper"
+    },
+    {
+      "path": "packages/modules/Virtualization/microdroid_manager"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
+    },
+    {
+      "path": "packages/modules/Virtualization/vm"
+    },
+    {
+      "path": "packages/modules/Virtualization/zipfuse"
+    },
+    {
+      "path": "system/security/keystore2"
+    },
+    {
+      "path": "system/security/keystore2/legacykeystore"
     }
   ],
   "presubmit": [
     {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "apkdmverity.test"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
       "name": "getrandom_test_src_lib"
     },
     {
@@ -65,34 +104,10 @@
     },
     {
       "name": "getrandom_test_tests_rdrand"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "keystore2_test_utils_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ],
   "presubmit-rust": [
     {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "apkdmverity.test"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
       "name": "getrandom_test_src_lib"
     },
     {
@@ -100,21 +115,6 @@
     },
     {
       "name": "getrandom_test_tests_rdrand"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "keystore2_test_utils_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ]
 }

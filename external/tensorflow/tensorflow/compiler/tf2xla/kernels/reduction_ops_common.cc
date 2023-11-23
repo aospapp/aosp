@@ -40,7 +40,7 @@ XlaReductionOp::XlaReductionOp(OpKernelConstruction* ctx,
 xla::XlaOp XlaReductionOp::BuildFinalizer(
     xla::XlaBuilder* /*builder*/, const xla::XlaOp& /*input*/,
     const xla::XlaOp& reduce_output,
-    const std::vector<int64>& /*dimensions_to_reduce*/) {
+    const std::vector<int64_t>& /*dimensions_to_reduce*/) {
   return XlaHelpers::ConvertElementType(reduce_output, input_type(0));
 }
 
@@ -63,7 +63,7 @@ void XlaReductionOp::Compile(XlaOpKernelContext* ctx) {
                   axes_tensor_shape.DebugString()));
 
   // Evaluate the constant, reshaping to a 1-vector if it is a scalar.
-  std::vector<int64> axes;
+  std::vector<int64_t> axes;
   xla::Literal axes_literal;
   OP_REQUIRES_OK(ctx, ctx->ConstantInputReshapedToIntVector(1, &axes));
 
@@ -71,8 +71,10 @@ void XlaReductionOp::Compile(XlaOpKernelContext* ctx) {
   VLOG(1) << "axes      : " << absl::StrJoin(axes, ",");
 
   absl::InlinedVector<bool, 4> bitmap(data_shape.dims(), false);
-  std::vector<int64> xla_axes;
-  for (int64_t i = 0; i < axes_tensor_shape.num_elements(); ++i) {
+  std::vector<int64_t> xla_axes;
+  auto num_elements = axes_tensor_shape.num_elements();
+  xla_axes.reserve(num_elements);
+  for (int64_t i = 0; i < num_elements; ++i) {
     int64_t index = axes[i];
     OP_REQUIRES(ctx,
                 !(index < -data_shape.dims() || index >= data_shape.dims()),
@@ -89,7 +91,7 @@ void XlaReductionOp::Compile(XlaOpKernelContext* ctx) {
     xla_axes.push_back(index);
   }
 
-  std::vector<int64> final_shape;
+  std::vector<int64_t> final_shape;
   for (int i = 0; i < data_shape.dims(); ++i) {
     if (!bitmap[i]) {
       // If we are not reducing along dimension i.
@@ -119,7 +121,7 @@ void XlaReductionOp::Compile(XlaOpKernelContext* ctx) {
   auto ry = xla::Parameter(&r, 1, xla::ShapeUtil::MakeShape(type, {}), "y");
   // Call virtual method to build the reduction lambda.
   BuildReducer(&r, rx, ry);
-  xla::XlaComputation reduction_computation = r.Build().ConsumeValueOrDie();
+  xla::XlaComputation reduction_computation = r.Build().value();
 
   auto reduce = xla::Reduce(data, initial, reduction_computation, xla_axes);
   auto finalized = BuildFinalizer(b, data, reduce, xla_axes);

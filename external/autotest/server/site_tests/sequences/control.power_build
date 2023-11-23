@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "Power per-build tests"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
@@ -10,6 +10,7 @@ TEST_CLASS = "suite"
 ATTRIBUTES = "suite:power_build"
 TEST_TYPE = "server"
 DEPENDENCIES = "rpm"
+PY_VERSION = 3
 
 DOC = """
 This test suite runs automated power tests that should all pass. These

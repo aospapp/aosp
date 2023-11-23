@@ -31,16 +31,21 @@ namespace android {
 
 class DrmFbImporter;
 class DrmPlane;
+class ResourceManager;
 
 class DrmDevice {
  public:
-  DrmDevice();
   ~DrmDevice() = default;
 
-  auto Init(const char *path) -> int;
+  static auto CreateInstance(std::string const &path, ResourceManager *res_man)
+      -> std::unique_ptr<DrmDevice>;
 
   auto GetFd() const {
     return fd_.Get();
+  }
+
+  auto &GetResMan() {
+    return *res_man_;
   }
 
   auto GetConnectors() -> const std::vector<std::unique_ptr<DrmConnector>> &;
@@ -69,8 +74,6 @@ class DrmDevice {
     return *drm_fb_importer_;
   }
 
-  static auto IsKMSDev(const char *path) -> bool;
-
   auto FindCrtcById(uint32_t id) const -> DrmCrtc * {
     for (const auto &crtc : crtcs_) {
       if (crtc->GetId() == id) {
@@ -95,6 +98,11 @@ class DrmDevice {
                   DrmProperty *property) const;
 
  private:
+  explicit DrmDevice(ResourceManager *res_man);
+  auto Init(const char *path) -> int;
+
+  static auto IsKMSDev(const char *path) -> bool;
+
   UniqueFd fd_;
 
   std::vector<std::unique_ptr<DrmConnector>> connectors_;
@@ -109,6 +117,8 @@ class DrmDevice {
   bool HasAddFb2ModifiersSupport_{};
 
   std::unique_ptr<DrmFbImporter> drm_fb_importer_;
+
+  ResourceManager *const res_man_;
 };
 }  // namespace android
 

@@ -43,7 +43,7 @@ set -e
 TMP_FILE=$(mktemp /tmp/atx_generator.XXXXXXXXXX)
 trap "rm -f '${TMP_FILE}'" EXIT
 
-AVBTOOL=$(dirname "$0")/../avbtool
+AVBTOOL=$(dirname "$0")/../avbtool.py
 
 echo AVBTOOL = ${AVBTOOL}
 

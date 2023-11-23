@@ -15,18 +15,19 @@
 #include "VkMemory.hpp"
 
 #include "VkConfig.hpp"
+#include "System/Debug.hpp"
 #include "System/Memory.hpp"
 
 namespace vk {
 
 void *allocateDeviceMemory(size_t bytes, size_t alignment)
 {
-	// TODO(b/140991626): Use allocateZeroOrPoison() instead of allocateZero() to detect MemorySanitizer errors.
+	ASSERT(bytes <= vk::MAX_MEMORY_ALLOCATION_SIZE);
+
 #if defined(SWIFTSHADER_ZERO_INITIALIZE_DEVICE_MEMORY)
-	return sw::allocateZero(bytes, alignment);
-#else
-	// TODO(b/140991626): Use allocateUninitialized() instead of allocateZeroOrPoison() to improve startup peformance.
 	return sw::allocateZeroOrPoison(bytes, alignment);
+#else
+	return sw::allocate(bytes, alignment);
 #endif
 }
 
@@ -37,13 +38,15 @@ void freeDeviceMemory(void *ptr)
 
 void *allocateHostMemory(size_t bytes, size_t alignment, const VkAllocationCallbacks *pAllocator, VkSystemAllocationScope allocationScope)
 {
+	ASSERT(bytes <= vk::MAX_MEMORY_ALLOCATION_SIZE);
+
 	if(pAllocator)
 	{
 		return pAllocator->pfnAllocation(pAllocator->pUserData, bytes, alignment, allocationScope);
 	}
 	else
 	{
-		// TODO(b/140991626): Use allocateUninitialized() instead of allocateZeroOrPoison() to improve startup peformance.
+		// TODO(b/140991626): Use allocate() instead of allocateZeroOrPoison() to improve startup performance.
 		return sw::allocateZeroOrPoison(bytes, alignment);
 	}
 }

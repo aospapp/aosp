@@ -1,99 +1,65 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) International Business Machines  Corp., 2001
- *
- * This program is free software;  you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY;  without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
- * the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program;  if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ *               03/2001 - Written by Wayne Boyer
+ * Copyright (c) 2022 SUSE LLC Avinesh Kumar <avinesh.kumar@suse.com>
  */
 
-/*
-  HISTORY
-  03/2001 - Written by Wayne Boyer
+/*\
+ * [Description]
+ *
+ * Check that getitimer() call fails:
+ *
+ * 1. EFAULT with invalid itimerval pointer
+ * 2. EINVAL when called with an invalid first argument
+ */
 
-  TEST ITEMS:
-  Check that a getitimer() call fails as expected
-  with an incorrect second argument.
-*/
-
-
-#include "test.h"
-
+#include <stdlib.h>
 #include <errno.h>
 #include <sys/time.h>
+#include "tst_test.h"
+#include "lapi/syscalls.h"
 
-char *TCID = "getitimer02";
-int TST_TOTAL = 1;
+static struct itimerval *value;
+static struct itimerval *invalid;
 
-#if !defined(UCLINUX)
+static struct tcase {
+       int which;
+       struct itimerval **val;
+       int exp_errno;
+} tcases[] = {
+       {ITIMER_REAL,    &invalid, EFAULT},
+       {ITIMER_VIRTUAL, &invalid, EFAULT},
+       {-ITIMER_PROF,   &value,   EINVAL},
+};
 
-static void cleanup(void);
-static void setup(void);
-
-int main(int ac, char **av)
+static int sys_getitimer(int which, void *curr_value)
 {
-	int lc;
-
-	tst_parse_opts(ac, av, NULL, NULL);
-
-	setup();
-
-	for (lc = 0; TEST_LOOPING(lc); lc++) {
-		tst_count = 0;
-
-		/* call with a bad address */
-		TEST(getitimer(ITIMER_REAL, (struct itimerval *)-1));
-
-		if (TEST_RETURN == 0) {
-			tst_resm(TFAIL, "call failed to produce "
-				 "expected error - errno = %d - %s",
-				 TEST_ERRNO, strerror(TEST_ERRNO));
-			continue;
-		}
-
-		switch (TEST_ERRNO) {
-		case EFAULT:
-			tst_resm(TPASS, "expected failure - errno = %d - %s",
-				 TEST_ERRNO, strerror(TEST_ERRNO));
-			break;
-		default:
-			tst_resm(TFAIL, "call failed to produce "
-				 "expected error - errno = %d - %s",
-				 TEST_ERRNO, strerror(TEST_ERRNO));
-		}
-	}
-
-	cleanup();
-
-	tst_exit();
+        return tst_syscall(__NR_getitimer, which, curr_value);
 }
 
 static void setup(void)
 {
-	tst_sig(NOFORK, DEF_HANDLER, cleanup);
+        value = SAFE_MALLOC(sizeof(struct itimerval));
+        invalid = (struct itimerval *)-1;
+}
 
-	TEST_PAUSE;
+static void verify_getitimer(unsigned int i)
+{
+        struct tcase *tc = &tcases[i];
+
+        TST_EXP_FAIL(sys_getitimer(tc->which, *(tc->val)), tc->exp_errno);
 }
 
 static void cleanup(void)
 {
+        free(value);
+        value = NULL;
 }
 
-#else
-
-int main(void)
-{
-	tst_resm(TINFO, "test is not available on uClinux");
-	tst_exit();
-}
-
-#endif /* if !defined(UCLINUX) */
+static struct tst_test test = {
+        .tcnt = ARRAY_SIZE(tcases),
+        .test = verify_getitimer,
+        .setup = setup,
+        .cleanup = cleanup,
+};

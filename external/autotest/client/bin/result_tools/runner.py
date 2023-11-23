@@ -19,7 +19,7 @@ from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils as client_utils
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = client_utils.metrics_mock
 
@@ -52,18 +52,12 @@ def _deploy_result_tools(host):
             'chromeos/autotest/job/send_result_tools_duration',
             fields={'dut_host_name': host.hostname}) as fields:
         try:
-            result = host.run('test -f %s' %
-                      (_SUMMARY_CMD % DEFAULT_AUTOTEST_DIR),
-                   timeout=_FIND_DIR_SUMMARY_TIMEOUT,
-                   ignore_status=True)
-            if result.exit_status == 0:
-                logging.debug('result tools are already deployed to %s.',
-                        host.hostname)
-            else:
-                logging.debug('Deploy result utilities to %s', host.hostname)
-                result_tools_dir = os.path.dirname(__file__)
-                host.send_file(result_tools_dir, DEFAULT_AUTOTEST_DIR,
-                               excludes = _EXCLUDES)
+            logging.debug('Always Deploying result utilities to %s',
+                          host.hostname)
+            result_tools_dir = os.path.dirname(__file__)
+            host.send_file(result_tools_dir,
+                           DEFAULT_AUTOTEST_DIR,
+                           excludes=_EXCLUDES)
             fields['success'] = True
         except error.AutotestHostRunError:
             logging.debug('Failed to deploy result tools using `excludes`. Try '
@@ -106,7 +100,7 @@ def run_on_client(host, client_results_dir, cleanup_only=False):
                                            host.job.max_result_size_KB)
                     except AttributeError:
                         # In case host job is not set, skip throttling.
-                        logging.warn('host object does not have job attribute, '
+                        logging.warning('host object does not have job attribute, '
                                      'skipping result throttling.')
                 cmd = (_BUILD_DIR_SUMMARY_CMD %
                        (DEFAULT_AUTOTEST_DIR, client_results_dir,

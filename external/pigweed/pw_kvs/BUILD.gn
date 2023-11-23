@@ -65,9 +65,9 @@ pw_source_set("pw_kvs") {
     dir_pw_assert,
     dir_pw_bytes,
     dir_pw_containers,
+    dir_pw_span,
     dir_pw_status,
     dir_pw_stream,
-    dir_pw_string,
   ]
   deps = [
     ":config",
@@ -88,6 +88,7 @@ pw_source_set("crc16") {
   public_deps = [
     ":pw_kvs",
     dir_pw_checksum,
+    dir_pw_span,
   ]
 }
 
@@ -299,6 +300,7 @@ pw_source_set("key_value_store_initialized_test") {
     ":crc16",
     ":flash_test_partition",
     ":pw_kvs",
+    "$dir_pw_string:builder",
     dir_pw_bytes,
     dir_pw_checksum,
     dir_pw_log,
@@ -309,9 +311,11 @@ pw_source_set("key_value_store_initialized_test") {
 
 pw_source_set("key_value_store_fuzz_test") {
   deps = [
+    ":config",
     ":crc16",
     ":flash_test_partition",
     ":pw_kvs",
+    "$dir_pw_string:builder",
     dir_pw_bytes,
     dir_pw_checksum,
     dir_pw_log,
@@ -324,6 +328,7 @@ pw_source_set("test_key_value_store_test") {
   deps = [
     ":pw_kvs",
     ":test_key_value_store",
+    "$dir_pw_string:builder",
     "$dir_pw_sync:borrow",
     dir_pw_unit_test,
   ]
@@ -353,7 +358,7 @@ pw_test_group("tests") {
 
   if (defined(pw_toolchain_SCOPE.is_host_toolchain) &&
       pw_toolchain_SCOPE.is_host_toolchain) {
-    # TODO(pwbug/196): KVS tests are not compatible with device builds as they
+    # TODO(b/234883746): KVS tests are not compatible with device builds as they
     # use features such as std::map and are computationally expensive. Solving
     # this requires a more complex capabilities-based build and configuration
     # system which allowing enabling specific tests for targets that support
@@ -479,9 +484,11 @@ pw_test("flash_partition_256_write_size_test") {
 
 pw_test("key_value_store_test") {
   deps = [
+    ":config",
     ":crc16",
     ":fake_flash",
     ":pw_kvs",
+    "$dir_pw_string:builder",
     dir_pw_bytes,
     dir_pw_checksum,
     dir_pw_log,
@@ -566,6 +573,7 @@ pw_test("key_value_store_map_test") {
     ":fake_flash",
     ":pw_kvs",
     ":test_partition",
+    "$dir_pw_string:builder",
     dir_pw_checksum,
   ]
   sources = [ "key_value_store_map_test.cc" ]
@@ -599,12 +607,8 @@ pw_doc_group("docs") {
   report_deps = [ ":kvs_size" ]
 }
 
-pw_size_report("kvs_size") {
+pw_size_diff("kvs_size") {
   title = "Pigweed KVS size report"
-
-  # To see all the symbols, uncomment the following:
-  # Note: The size report RST table won't be generated when full_report = true.
-  # full_report = true
 
   binaries = [
     {

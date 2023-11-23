@@ -11,7 +11,7 @@ third_party {
     type: GIT
     value: "https://github.com/google/dagger"
   }
-  version: "dagger-2.19.1"
-  last_upgrade_date { year: 2020 month: 11 day: 18 }
+  version: "dagger-2.41"
+  last_upgrade_date { year: 2022 month: 04 day: 04 }
   license_type: NOTICE
 }

@@ -16,10 +16,8 @@
 
 package dagger.android.processor;
 
-import static com.google.auto.common.AnnotationMirrors.getAnnotatedAnnotations;
 import static com.google.auto.common.AnnotationMirrors.getAnnotationValue;
-import static com.google.auto.common.MoreElements.getAnnotationMirror;
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static dagger.internal.codegen.langmodel.DaggerElements.getAnnotatedAnnotations;
 import static java.util.stream.Collectors.toList;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 
@@ -27,16 +25,13 @@ import com.google.auto.common.MoreElements;
 import com.google.auto.common.MoreTypes;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
-import dagger.Module;
-import dagger.android.ContributesAndroidInjector;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.processing.Messager;
-import javax.inject.Qualifier;
-import javax.inject.Scope;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
@@ -47,24 +42,24 @@ import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import javax.tools.Diagnostic.Kind;
 
 /**
- * A descriptor of a generated {@link Module} and {@link dagger.Subcomponent} to be generated from a
- * {@link ContributesAndroidInjector} method.
+ * A descriptor of a generated {@link dagger.Module} and {@link dagger.Subcomponent} to be generated
+ * from a {@code ContributesAndroidInjector} method.
  */
 @AutoValue
 abstract class AndroidInjectorDescriptor {
-  /** The type to be injected; the return type of the {@link ContributesAndroidInjector} method. */
+  /** The type to be injected; the return type of the {@code ContributesAndroidInjector} method. */
   abstract ClassName injectedType();
 
   /** Scopes to apply to the generated {@link dagger.Subcomponent}. */
   abstract ImmutableSet<AnnotationSpec> scopes();
 
-  /** @see ContributesAndroidInjector#modules() */
+  /** See {@code ContributesAndroidInjector#modules()} */
   abstract ImmutableSet<ClassName> modules();
 
-  /** The {@link Module} that contains the {@link ContributesAndroidInjector} method. */
+  /** The {@link dagger.Module} that contains the {@code ContributesAndroidInjector} method. */
   abstract ClassName enclosingModule();
 
-  /** The method annotated with {@link ContributesAndroidInjector}. */
+  /** The method annotated with {@code ContributesAndroidInjector}. */
   abstract ExecutableElement method();
 
   @AutoValue.Builder
@@ -90,7 +85,7 @@ abstract class AndroidInjectorDescriptor {
     }
 
     /**
-     * Validates a {@link ContributesAndroidInjector} method, returning an {@link
+     * Validates a {@code ContributesAndroidInjector} method, returning an {@link
      * AndroidInjectorDescriptor} if it is valid, or {@link Optional#empty()} otherwise.
      */
     Optional<AndroidInjectorDescriptor> createIfValid(ExecutableElement method) {
@@ -107,7 +102,7 @@ abstract class AndroidInjectorDescriptor {
       AndroidInjectorDescriptor.Builder builder =
           new AutoValue_AndroidInjectorDescriptor.Builder().method(method);
       TypeElement enclosingElement = MoreElements.asType(method.getEnclosingElement());
-      if (!isAnnotationPresent(enclosingElement, Module.class)) {
+      if (!MoreDaggerElements.isAnnotationPresent(enclosingElement, TypeNames.MODULE)) {
         reporter.reportError("@ContributesAndroidInjector methods must be in a @Module");
       }
       builder.enclosingModule(ClassName.get(enclosingElement));
@@ -121,21 +116,26 @@ abstract class AndroidInjectorDescriptor {
       }
 
       AnnotationMirror annotation =
-          getAnnotationMirror(method, ContributesAndroidInjector.class).get();
+          MoreDaggerElements.getAnnotationMirror(method, TypeNames.CONTRIBUTES_ANDROID_INJECTOR)
+              .get();
       for (TypeMirror module :
           getAnnotationValue(annotation, "modules").accept(new AllTypesVisitor(), null)) {
-        if (isAnnotationPresent(MoreTypes.asElement(module), Module.class)) {
+        if (MoreDaggerElements.isAnnotationPresent(MoreTypes.asElement(module), TypeNames.MODULE)) {
           builder.modulesBuilder().add((ClassName) TypeName.get(module));
         } else {
           reporter.reportError(String.format("%s is not a @Module", module), annotation);
         }
       }
 
-      for (AnnotationMirror scope : getAnnotatedAnnotations(method, Scope.class)) {
+      for (AnnotationMirror scope : Sets.union(
+          getAnnotatedAnnotations(method, TypeNames.SCOPE),
+          getAnnotatedAnnotations(method, TypeNames.SCOPE_JAVAX))) {
         builder.scopesBuilder().add(AnnotationSpec.get(scope));
       }
 
-      for (AnnotationMirror qualifier : getAnnotatedAnnotations(method, Qualifier.class)) {
+      for (AnnotationMirror qualifier : Sets.union(
+          getAnnotatedAnnotations(method, TypeNames.QUALIFIER),
+          getAnnotatedAnnotations(method, TypeNames.QUALIFIER_JAVAX))) {
         reporter.reportError(
             "@ContributesAndroidInjector methods cannot have qualifiers", qualifier);
       }

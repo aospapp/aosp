@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2021 Unicode, Inc.
+<!-- Copyright © 1991-2022 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 SPDX-License-Identifier: Unicode-DFS-2016
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -37,6 +37,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="am">Αμχαρικά</language>
 			<language type="an">Αραγονικά</language>
 			<language type="ang">Παλαιά Αγγλικά</language>
+			<language type="ann">Ομπόλο</language>
 			<language type="anp">Ανγκικά</language>
 			<language type="ar">Αραβικά</language>
 			<language type="ar_001">Σύγχρονα Τυπικά Αραβικά</language>
@@ -48,6 +49,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="as">Ασαμικά</language>
 			<language type="asa">Άσου</language>
 			<language type="ast">Αστουριανά</language>
+			<language type="atj">Ατικαμέκ</language>
 			<language type="av">Αβαρικά</language>
 			<language type="awa">Αγουαντί</language>
 			<language type="ay">Αϊμάρα</language>
@@ -107,13 +109,21 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ckb">Κεντρικά Κουρδικά</language>
 			<language type="ckb" alt="menu">Κουρδικά, Κεντρικά</language>
 			<language type="ckb" alt="variant">Κουρδικά, Σοράνι</language>
+			<language type="clc">Τσιλκότιν</language>
 			<language type="co">Κορσικανικά</language>
 			<language type="cop">Κοπτικά</language>
 			<language type="cr">Κρι</language>
+			<language type="crg">Μίτσιφ</language>
 			<language type="crh">Τουρκικά Κριμαίας</language>
+			<language type="crj">Νοτιοανατολικά Κρι</language>
+			<language type="crk">Κρι πεδιάδας</language>
+			<language type="crl">Βορειοανατολικά Κρι</language>
+			<language type="crm">Μους Κρι</language>
+			<language type="crr">Καρολίνα Αλγκονκιάν</language>
 			<language type="crs">Κρεολικά Γαλλικά Σεϋχελλών</language>
 			<language type="cs">Τσεχικά</language>
 			<language type="csb">Κασούμπιαν</language>
+			<language type="csw">Κρι Βάλτου</language>
 			<language type="cu">Εκκλησιαστικά Σλαβικά</language>
 			<language type="cv">Τσουβασικά</language>
 			<language type="cy">Ουαλικά</language>
@@ -206,8 +216,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ha">Χάουσα</language>
 			<language type="hai">Χάιντα</language>
 			<language type="haw">Χαβαϊκά</language>
+			<language type="hax">Βόρεια Χάιντα</language>
 			<language type="he">Εβραϊκά</language>
 			<language type="hi">Χίντι</language>
+			<language type="hi_Latn">Χίντι (Λατινικό)</language>
+			<language type="hi_Latn" alt="variant">Hinglish</language>
 			<language type="hil">Χιλιγκαϊνόν</language>
 			<language type="hit">Χιτίτε</language>
 			<language type="hmn">Χμονγκ</language>
@@ -217,6 +230,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ht">Αϊτιανά</language>
 			<language type="hu">Ουγγρικά</language>
 			<language type="hup">Χούπα</language>
+			<language type="hur">Χαλκομελέμ</language>
 			<language type="hy">Αρμενικά</language>
 			<language type="hz">Χερέρο</language>
 			<language type="ia">Ιντερλίνγκουα</language>
@@ -227,6 +241,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ig">Ίγκμπο</language>
 			<language type="ii">Σίτσουαν Γι</language>
 			<language type="ik">Ινουπιάκ</language>
+			<language type="ikt">Ινουκτιτούτ Δυτικού Καναδά</language>
 			<language type="ilo">Ιλόκο</language>
 			<language type="inh">Ινγκούς</language>
 			<language type="io">Ίντο</language>
@@ -254,6 +269,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="kea">Γλώσσα του Πράσινου Ακρωτηρίου</language>
 			<language type="kfo">Κόρο</language>
 			<language type="kg">Κονγκό</language>
+			<language type="kgp">Κάινγκανγκ</language>
 			<language type="kha">Κάσι</language>
 			<language type="kho">Κοτανικά</language>
 			<language type="khq">Κόιρα Τσίνι</language>
@@ -284,6 +300,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="kut">Κουτενάι</language>
 			<language type="kv">Κόμι</language>
 			<language type="kw">Κορνουαλικά</language>
+			<language type="kwk">Κουακουάλα</language>
 			<language type="ky">Κιργιζικά</language>
 			<language type="la">Λατινικά</language>
 			<language type="lad">Λαδίνο</language>
@@ -294,6 +311,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="lez">Λεζγκικά</language>
 			<language type="lg">Γκάντα</language>
 			<language type="li">Λιμβουργιανά</language>
+			<language type="lil">Λιλουέτ</language>
 			<language type="lkt">Λακότα</language>
 			<language type="ln">Λινγκάλα</language>
 			<language type="lo">Λαοτινά</language>
@@ -301,6 +319,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="lou">Κρεολικά (Λουιζιάνα)</language>
 			<language type="loz">Λόζι</language>
 			<language type="lrc">Βόρεια Λούρι</language>
+			<language type="lsm">Σαάμια</language>
 			<language type="lt">Λιθουανικά</language>
 			<language type="lu">Λούμπα-Κατάνγκα</language>
 			<language type="lua">Λούμπα-Λουλούα</language>
@@ -336,6 +355,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="mn">Μογγολικά</language>
 			<language type="mnc">Μαντσού</language>
 			<language type="mni">Μανιπούρι</language>
+			<language type="moe">Ινου-αϊμούν</language>
 			<language type="moh">Μοχόκ</language>
 			<language type="mos">Μόσι</language>
 			<language type="mr">Μαραθικά</language>
@@ -383,6 +403,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="nzi">Νζίμα</language>
 			<language type="oc">Οξιτανικά</language>
 			<language type="oj">Οζιβίγουα</language>
+			<language type="ojb">Βορειοδυτικά Οζιβίγουα</language>
+			<language type="ojc">Κεντρικά Οτζίμπουα</language>
+			<language type="ojs">Ότζι-Κρι</language>
+			<language type="ojw">Δυτικά Οζιβίγουα</language>
+			<language type="oka">Οκανάγκαν</language>
 			<language type="om">Ορόμο</language>
 			<language type="or">Όντια</language>
 			<language type="os">Οσετικά</language>
@@ -398,8 +423,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="peo">Αρχαία Περσικά</language>
 			<language type="phn">Φοινικικά</language>
 			<language type="pi">Πάλι</language>
+			<language type="pis">Πιτζίν</language>
 			<language type="pl">Πολωνικά</language>
 			<language type="pon">Πομπηικά</language>
+			<language type="pqm">Μαλισιτ-Πασσαμακουόντ</language>
 			<language type="prg">Πρωσικά</language>
 			<language type="pro">Παλαιά Προβανσάλ</language>
 			<language type="ps">Πάστο</language>
@@ -411,7 +438,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="raj">Ραζασθάνι</language>
 			<language type="rap">Ραπανούι</language>
 			<language type="rar">Ραροτονγκάν</language>
-			<language type="rhg" draft="contributed">Ροχίνγκια</language>
+			<language type="rhg">Ροχίνγκια</language>
 			<language type="rm">Ρομανικά</language>
 			<language type="rn">Ρούντι</language>
 			<language type="ro">Ρουμανικά</language>
@@ -451,6 +478,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="sid">Σιντάμο</language>
 			<language type="sk">Σλοβακικά</language>
 			<language type="sl">Σλοβενικά</language>
+			<language type="slh">Νότια Λάσουτσιντ</language>
 			<language type="sm">Σαμοανά</language>
 			<language type="sma">Νότια Σάμι</language>
 			<language type="smj">Λούλε Σάμι</language>
@@ -467,6 +495,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ss">Σουάτι</language>
 			<language type="ssy">Σάχο</language>
 			<language type="st">Νότια Σόθο</language>
+			<language type="str">Στρέιτς Σαλίς</language>
 			<language type="su">Σουνδανικά</language>
 			<language type="suk">Σουκούμα</language>
 			<language type="sus">Σούσου</language>
@@ -478,13 +507,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="syc">Κλασικά Συριακά</language>
 			<language type="syr">Συριακά</language>
 			<language type="ta">Ταμιλικά</language>
+			<language type="tce">Νότια Τουτσόνε</language>
 			<language type="te">Τελούγκου</language>
 			<language type="tem">Τίμνε</language>
 			<language type="teo">Τέσο</language>
 			<language type="ter">Τερένο</language>
 			<language type="tet">Τέτουμ</language>
 			<language type="tg">Τατζικικά</language>
+			<language type="tgx">Τατζίς</language>
 			<language type="th">Ταϊλανδικά</language>
+			<language type="tht">Ταλτάν</language>
 			<language type="ti">Τιγκρινικά</language>
 			<language type="tig">Τίγκρε</language>
 			<language type="tiv">Τιβ</language>
@@ -497,12 +529,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="tn">Τσουάνα</language>
 			<language type="to">Τονγκανικά</language>
 			<language type="tog">Νιάσα Τόνγκα</language>
+			<language type="tok">Τόκι Πόνα</language>
 			<language type="tpi">Τοκ Πισίν</language>
 			<language type="tr">Τουρκικά</language>
 			<language type="trv">Ταρόκο</language>
 			<language type="ts">Τσόνγκα</language>
 			<language type="tsi">Τσίμσιαν</language>
 			<language type="tt">Ταταρικά</language>
+			<language type="ttm">Βόρεια Τουτσόνε</language>
 			<language type="tum">Τουμπούκα</language>
 			<language type="tvl">Τουβαλού</language>
 			<language type="tw">Τούι</language>
@@ -542,6 +576,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ybb">Γιέμπα</language>
 			<language type="yi">Γίντις</language>
 			<language type="yo">Γιορούμπα</language>
+			<language type="yrl">Νινγκατού</language>
 			<language type="yue">Καντονέζικα</language>
 			<language type="yue" alt="menu">Κινεζικά, Καντονέζικα</language>
 			<language type="za">Ζουάνγκ</language>
@@ -561,9 +596,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="zza">Ζάζα</language>
 		</languages>
 		<scripts>
+			<script type="Adlm">Άντλαμ</script>
 			<script type="Arab">Αραβικό</script>
 			<script type="Arab" alt="variant">Περσικό-Αραβικό</script>
-			<script type="Aran" draft="contributed">Νασταλίκ</script>
+			<script type="Aran">Νασταλίκ</script>
 			<script type="Armi">Αυτοκρατορικό Αραμαϊκό</script>
 			<script type="Armn">Αρμενικό</script>
 			<script type="Avst">Αβεστάν</script>
@@ -659,6 +695,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<script type="Plrd">Φωνητικό Πόλαρντ</script>
 			<script type="Prti">Επιγραφικό Παρθιάν</script>
 			<script type="Rjng">Ρετζάνγκ</script>
+			<script type="Rohg">Χανίφι</script>
 			<script type="Roro">Ρονγκορόνγκο</script>
 			<script type="Runr">Ρουνίκ</script>
 			<script type="Samr">Σαμαριτικό</script>
@@ -911,12 +948,13 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<territory type="NF">Νήσος Νόρφολκ</territory>
 			<territory type="NG">Νιγηρία</territory>
 			<territory type="NI">Νικαράγουα</territory>
-			<territory type="NL">Ολλανδία</territory>
+			<territory type="NL">Κάτω Χώρες</territory>
 			<territory type="NO">Νορβηγία</territory>
 			<territory type="NP">Νεπάλ</territory>
 			<territory type="NR">Ναουρού</territory>
 			<territory type="NU">Νιούε</territory>
 			<territory type="NZ">Νέα Ζηλανδία</territory>
+			<territory type="NZ" alt="variant">Αοτεαρόα Νέα Ζηλανδία</territory>
 			<territory type="OM">Ομάν</territory>
 			<territory type="PA">Παναμάς</territory>
 			<territory type="PE">Περού</territory>
@@ -976,6 +1014,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<territory type="TN">Τυνησία</territory>
 			<territory type="TO">Τόνγκα</territory>
 			<territory type="TR">Τουρκία</territory>
+			<territory type="TR" alt="variant">Τουρκία</territory>
 			<territory type="TT">Τρινιντάντ και Τομπάγκο</territory>
 			<territory type="TV">Τουβαλού</territory>
 			<territory type="TW">Ταϊβάν</territory>
@@ -1071,10 +1110,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<types>
 			<type key="calendar" type="buddhist">Βουδιστικό ημερολόγιο</type>
 			<type key="calendar" type="chinese">Κινεζικό ημερολόγιο</type>
-			<type key="calendar" type="coptic" draft="contributed">Κοπτικό ημερολόγιο</type>
+			<type key="calendar" type="coptic">Κοπτικό ημερολόγιο</type>
 			<type key="calendar" type="dangi">Κορεατικό ημερολόγιο ντάνγκι</type>
 			<type key="calendar" type="ethiopic">Αιθιοπικό ημερολόγιο</type>
-			<type key="calendar" type="ethiopic-amete-alem" draft="contributed">Αιθιοπικό ημερολόγιο Άμετ Άλεμ</type>
+			<type key="calendar" type="ethiopic-amete-alem">Αιθιοπικό ημερολόγιο Άμετ Άλεμ</type>
 			<type key="calendar" type="gregorian">Γρηγοριανό ημερολόγιο</type>
 			<type key="calendar" type="hebrew">Εβραϊκό ημερολόγιο</type>
 			<type key="calendar" type="indian">Ινδικό εθνικό ημερολόγιο</type>
@@ -1082,7 +1121,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="calendar" type="islamic-civil">Ισλαμικό ημερολόγιο (σε μορφή πίνακα, αστικό εποχής)</type>
 			<type key="calendar" type="islamic-rgsa" draft="contributed">Ισλαμικό ημερολόγιο (Σαουδική Αραβία, θέαση)</type>
 			<type key="calendar" type="islamic-tbla" draft="contributed">Ισλαμικό ημερολόγιο (δομημένο, αστρονομική εποχή)</type>
-			<type key="calendar" type="islamic-umalqura" draft="contributed">Ισλαμικό ημερολόγιο (Umm al-Qura)</type>
+			<type key="calendar" type="islamic-umalqura">Ισλαμικό ημερολόγιο (Umm al-Qura)</type>
 			<type key="calendar" type="iso8601">Ημερολόγιο ISO-8601</type>
 			<type key="calendar" type="japanese">Ιαπωνικό ημερολόγιο</type>
 			<type key="calendar" type="persian">Περσικό ημερολόγιο</type>
@@ -1099,21 +1138,22 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="colCaseLevel" type="no" draft="contributed">Ταξινόμηση με διάκριση χαρακτήρων</type>
 			<type key="colCaseLevel" type="yes" draft="contributed">Ταξινόμηση χαρακτήρων διάκρισης</type>
 			<type key="collation" type="big5han">Σειρά ταξινόμησης Παραδοσιακών Κινεζικών - Big5</type>
-			<type key="collation" type="compat" draft="contributed">Προηγούμενη σειρά ταξινόμησης, για συμβατότητα</type>
-			<type key="collation" type="dictionary" draft="contributed">Σειρά ταξινόμησης ημερολογίου</type>
+			<type key="collation" type="compat">Προηγούμενη σειρά ταξινόμησης, για συμβατότητα</type>
+			<type key="collation" type="dictionary">Σειρά ταξινόμησης λεξικού</type>
 			<type key="collation" type="ducet">Προεπιλεγμένη σειρά ταξινόμησης Unicode</type>
 			<type key="collation" type="eor" draft="contributed">Ευρωπαϊκοί κανόνες ταξινόμησης</type>
-			<type key="collation" type="gb2312han">Σειρά ταξινόμησης Απλουστευμένων Κινεζικών - GB2312</type>
+			<type key="collation" type="gb2312han">Σειρά ταξινόμησης Απλοποιημένων Κινεζικών - GB2312</type>
 			<type key="collation" type="phonebook">Σειρά ταξινόμησης τηλεφωνικού καταλόγου</type>
-			<type key="collation" type="phonetic" draft="contributed">Φωνητική σειρά ταξινόμησης</type>
+			<type key="collation" type="phonetic">Φωνητική σειρά ταξινόμησης</type>
 			<type key="collation" type="pinyin">Σειρά ταξινόμησης Πινγίν</type>
-			<type key="collation" type="reformed" draft="contributed">Ανασχηματισμένη σειρά ταξινόμησης</type>
+			<type key="collation" type="reformed">Ανασχηματισμένη σειρά ταξινόμησης</type>
 			<type key="collation" type="search">Αναζήτηση γενικού τύπου</type>
 			<type key="collation" type="searchjl" draft="contributed">Αναζήτηση κατά αρχικό σύμφωνο Χανγκούλ</type>
 			<type key="collation" type="standard">Τυπική σειρά ταξινόμησης</type>
 			<type key="collation" type="stroke">Σειρά ταξινόμησης κινήσεων</type>
 			<type key="collation" type="traditional">Παραδοσιακή σειρά ταξινόμησης</type>
-			<type key="collation" type="unihan" draft="contributed">Σειρά ταξινόμησης ριζικής αρίθμησης</type>
+			<type key="collation" type="unihan">Σειρά ταξινόμησης ριζικής αρίθμησης</type>
+			<type key="collation" type="zhuyin">Σειρά ταξινόμησης Τζουγίν</type>
 			<type key="colNormalization" type="no" draft="contributed">Ταξινόμηση χωρίς κανονικοποίηση</type>
 			<type key="colNormalization" type="yes" draft="contributed">Κανονικοποιημένη ταξινόμηση Unicode</type>
 			<type key="colNumeric" type="no" draft="contributed">Μεμονωμένη ταξινόμηση ψηφίων</type>
@@ -1143,6 +1183,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="armn">Αρμενικά αριθμητικά</type>
 			<type key="numbers" type="armnlow">Πεζά αρμενικά αριθμητικά</type>
 			<type key="numbers" type="beng">Βεγγαλικά ψηφία</type>
+			<type key="numbers" type="cakm">Ψηφία Τσάκμα</type>
 			<type key="numbers" type="deva">Ψηφία Ντεβαναγκάρι</type>
 			<type key="numbers" type="ethi">Αιθιοπικά αριθμητικά</type>
 			<type key="numbers" type="finance" draft="contributed">Οικονομικά αριθμητικά</type>
@@ -1158,6 +1199,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="hant">Παραδοσιακά κινεζικά αριθμητικά</type>
 			<type key="numbers" type="hantfin">Παραδοσιακά κινεζικά οικονομικά αριθμητικά</type>
 			<type key="numbers" type="hebr">Εβραϊκά αριθμητικά</type>
+			<type key="numbers" type="java">Ιαβαϊκά ψηφία</type>
 			<type key="numbers" type="jpan">Ιαπωνικά αριθμητικά</type>
 			<type key="numbers" type="jpanfin">Ιαπωνικά οικονομικά αριθμητικά</type>
 			<type key="numbers" type="khmr">Ψηφία Χμερ</type>
@@ -1166,8 +1208,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="latn">Ψηφία της Δύσης</type>
 			<type key="numbers" type="mlym">Μαλαγιαλαμικά ψηφία</type>
 			<type key="numbers" type="mong" draft="contributed">Μογγολικά ψηφία</type>
+			<type key="numbers" type="mtei">Ψηφία Μεϊτεί Μαγιέκ</type>
 			<type key="numbers" type="mymr">Ψηφία Μιανμάρ</type>
-			<type key="numbers" type="native" draft="contributed">Εγγενή ψηφία</type>
+			<type key="numbers" type="native">Εγγενή ψηφία</type>
+			<type key="numbers" type="olck">Ψηφία Ολ Τσίκι</type>
 			<type key="numbers" type="orya">Οριγικά ψηφία</type>
 			<type key="numbers" type="roman">Λατινικά αριθμητικά</type>
 			<type key="numbers" type="romanlow">Πεζά λατινικά αριθμητικά</type>
@@ -1177,7 +1221,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="thai">Ταϊλανδικά ψηφία</type>
 			<type key="numbers" type="tibt">Θιβετανικά ψηφία</type>
 			<type key="numbers" type="traditional" draft="contributed">Παραδοσιακά αριθμητικά</type>
-			<type key="numbers" type="vaii" draft="contributed">Ψηφία Βάι</type>
+			<type key="numbers" type="vaii">Ψηφία Βάι</type>
 		</types>
 		<measurementSystemNames>
 			<measurementSystemName type="metric">Μετρικό</measurementSystemName>
@@ -1335,33 +1379,33 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="d" draft="contributed">d–d</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a – h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a – h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hm">
-							<greatestDifference id="a" draft="contributed">h:mm a – h:mm a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h:mm–h:mm a</greatestDifference>
-							<greatestDifference id="m" draft="contributed">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h:mm a – h:mm a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="m" draft="contributed">h:mm–h:mm a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hm">
 							<greatestDifference id="H" draft="contributed">HH:mm–HH:mm</greatestDifference>
 							<greatestDifference id="m" draft="contributed">HH:mm–HH:mm</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hmv">
-							<greatestDifference id="a" draft="contributed">h:mm a – h:mm a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h:mm–h:mm a v</greatestDifference>
-							<greatestDifference id="m" draft="contributed">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h:mm a – h:mm a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="m" draft="contributed">h:mm–h:mm a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hmv">
 							<greatestDifference id="H" draft="contributed">HH:mm–HH:mm v</greatestDifference>
 							<greatestDifference id="m" draft="contributed">HH:mm–HH:mm v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a" draft="contributed">h a – h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a – h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -1622,20 +1666,32 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateTimeFormat>
 							<pattern>{1} - {0}</pattern>
 						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>{1} στις {0}</pattern>
+						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="long">
 						<dateTimeFormat>
 							<pattern>{1} - {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>{1} στις {0}</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="medium">
 						<dateTimeFormat>
 							<pattern>{1}, {0}</pattern>
 						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
+						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="short">
 						<dateTimeFormat>
 							<pattern>{1}, {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<availableFormats>
@@ -1647,20 +1703,20 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateFormatItem id="EBhm">E h:mm B</dateFormatItem>
 						<dateFormatItem id="EBhms">E h:mm:ss B</dateFormatItem>
 						<dateFormatItem id="Ed">E d</dateFormatItem>
-						<dateFormatItem id="Ehm">E h:mm a</dateFormatItem>
+						<dateFormatItem id="Ehm">E h:mm a</dateFormatItem>
 						<dateFormatItem id="EHm">E HH:mm</dateFormatItem>
-						<dateFormatItem id="Ehms">E h:mm:ss a</dateFormatItem>
+						<dateFormatItem id="Ehms">E h:mm:ss a</dateFormatItem>
 						<dateFormatItem id="EHms">E HH:mm:ss</dateFormatItem>
 						<dateFormatItem id="Gy">y G</dateFormatItem>
-						<dateFormatItem id="GyMd" draft="contributed">d/M/y GGGGG</dateFormatItem>
+						<dateFormatItem id="GyMd">d/M/y GGGGG</dateFormatItem>
 						<dateFormatItem id="GyMMM">MMM y G</dateFormatItem>
 						<dateFormatItem id="GyMMMd">d MMM y G</dateFormatItem>
 						<dateFormatItem id="GyMMMEd">E, d MMM y G</dateFormatItem>
-						<dateFormatItem id="h">h a</dateFormatItem>
+						<dateFormatItem id="h">h a</dateFormatItem>
 						<dateFormatItem id="H">HH</dateFormatItem>
-						<dateFormatItem id="hm">h:mm a</dateFormatItem>
+						<dateFormatItem id="hm">h:mm a</dateFormatItem>
 						<dateFormatItem id="Hm">HH:mm</dateFormatItem>
-						<dateFormatItem id="hms">h:mm:ss a</dateFormatItem>
+						<dateFormatItem id="hms">h:mm:ss a</dateFormatItem>
 						<dateFormatItem id="Hms">HH:mm:ss</dateFormatItem>
 						<dateFormatItem id="M">L</dateFormatItem>
 						<dateFormatItem id="Md">d/M</dateFormatItem>
@@ -1736,33 +1792,33 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="y">E d MMM y – E d MMM y G</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a">h a – h a</greatestDifference>
-							<greatestDifference id="h">h–h a</greatestDifference>
+							<greatestDifference id="a">h a – h a</greatestDifference>
+							<greatestDifference id="h">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hm">
-							<greatestDifference id="a">h:mm a – h:mm a</greatestDifference>
-							<greatestDifference id="h">h:mm–h:mm a</greatestDifference>
-							<greatestDifference id="m">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="a">h:mm a – h:mm a</greatestDifference>
+							<greatestDifference id="h">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="m">h:mm–h:mm a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hm">
 							<greatestDifference id="H">HH:mm–HH:mm</greatestDifference>
 							<greatestDifference id="m">HH:mm–HH:mm</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hmv">
-							<greatestDifference id="a">h:mm a – h:mm a v</greatestDifference>
-							<greatestDifference id="h">h:mm–h:mm a v</greatestDifference>
-							<greatestDifference id="m">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="a">h:mm a – h:mm a v</greatestDifference>
+							<greatestDifference id="h">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="m">h:mm–h:mm a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hmv">
 							<greatestDifference id="H">HH:mm–HH:mm v</greatestDifference>
 							<greatestDifference id="m">HH:mm–HH:mm v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a">h a – h a v</greatestDifference>
-							<greatestDifference id="h">h–h a v</greatestDifference>
+							<greatestDifference id="a">h a – h a v</greatestDifference>
+							<greatestDifference id="h">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H">HH–HH v</greatestDifference>
@@ -2135,25 +2191,25 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<timeFormats>
 					<timeFormatLength type="full">
 						<timeFormat>
-							<pattern>h:mm:ss a zzzz</pattern>
+							<pattern>h:mm:ss a zzzz</pattern>
 							<datetimeSkeleton>ahmmsszzzz</datetimeSkeleton>
 						</timeFormat>
 					</timeFormatLength>
 					<timeFormatLength type="long">
 						<timeFormat>
-							<pattern>h:mm:ss a z</pattern>
+							<pattern>h:mm:ss a z</pattern>
 							<datetimeSkeleton>ahmmssz</datetimeSkeleton>
 						</timeFormat>
 					</timeFormatLength>
 					<timeFormatLength type="medium">
 						<timeFormat>
-							<pattern>h:mm:ss a</pattern>
+							<pattern>h:mm:ss a</pattern>
 							<datetimeSkeleton>ahmmss</datetimeSkeleton>
 						</timeFormat>
 					</timeFormatLength>
 					<timeFormatLength type="short">
 						<timeFormat>
-							<pattern>h:mm a</pattern>
+							<pattern>h:mm a</pattern>
 							<datetimeSkeleton>ahmm</datetimeSkeleton>
 						</timeFormat>
 					</timeFormatLength>
@@ -2163,20 +2219,32 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateTimeFormat>
 							<pattern>{1} - {0}</pattern>
 						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>{1} στις {0}</pattern>
+						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="long">
 						<dateTimeFormat>
 							<pattern>{1} - {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>{1} στις {0}</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="medium">
 						<dateTimeFormat>
 							<pattern>{1}, {0}</pattern>
 						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
+						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="short">
 						<dateTimeFormat>
 							<pattern>{1}, {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<availableFormats>
@@ -2188,24 +2256,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateFormatItem id="EBhm">E h:mm B</dateFormatItem>
 						<dateFormatItem id="EBhms">E h:mm:ss B</dateFormatItem>
 						<dateFormatItem id="Ed">E d</dateFormatItem>
-						<dateFormatItem id="Ehm">E h:mm a</dateFormatItem>
+						<dateFormatItem id="Ehm">E h:mm a</dateFormatItem>
 						<dateFormatItem id="EHm">E HH:mm</dateFormatItem>
-						<dateFormatItem id="Ehms">E h:mm:ss a</dateFormatItem>
+						<dateFormatItem id="Ehms">E h:mm:ss a</dateFormatItem>
 						<dateFormatItem id="EHms">E HH:mm:ss</dateFormatItem>
 						<dateFormatItem id="Gy">y G</dateFormatItem>
 						<dateFormatItem id="GyMd">d/M/y GGGGG</dateFormatItem>
 						<dateFormatItem id="GyMMM">LLL y G</dateFormatItem>
 						<dateFormatItem id="GyMMMd">d MMM y G</dateFormatItem>
 						<dateFormatItem id="GyMMMEd">E d MMM y G</dateFormatItem>
-						<dateFormatItem id="h">h a</dateFormatItem>
+						<dateFormatItem id="h">h a</dateFormatItem>
 						<dateFormatItem id="H">HH</dateFormatItem>
-						<dateFormatItem id="hm">h:mm a</dateFormatItem>
+						<dateFormatItem id="hm">h:mm a</dateFormatItem>
 						<dateFormatItem id="Hm">HH:mm</dateFormatItem>
-						<dateFormatItem id="hms">h:mm:ss a</dateFormatItem>
+						<dateFormatItem id="hms">h:mm:ss a</dateFormatItem>
 						<dateFormatItem id="Hms">HH:mm:ss</dateFormatItem>
-						<dateFormatItem id="hmsv">h:mm:ss a v</dateFormatItem>
+						<dateFormatItem id="hmsv">h:mm:ss a v</dateFormatItem>
 						<dateFormatItem id="Hmsv">HH:mm:ss v</dateFormatItem>
-						<dateFormatItem id="hmv">h:mm a v</dateFormatItem>
+						<dateFormatItem id="hmv">h:mm a v</dateFormatItem>
 						<dateFormatItem id="Hmv">HH:mm v</dateFormatItem>
 						<dateFormatItem id="M">L</dateFormatItem>
 						<dateFormatItem id="Md">d/M</dateFormatItem>
@@ -2287,33 +2355,33 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="y">E d MMM y – E d MMM y G</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a">h a – h a</greatestDifference>
-							<greatestDifference id="h">h–h a</greatestDifference>
+							<greatestDifference id="a">h a – h a</greatestDifference>
+							<greatestDifference id="h">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hm">
-							<greatestDifference id="a">h:mm a – h:mm a</greatestDifference>
-							<greatestDifference id="h">h:mm–h:mm a</greatestDifference>
-							<greatestDifference id="m">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="a">h:mm a – h:mm a</greatestDifference>
+							<greatestDifference id="h">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="m">h:mm–h:mm a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hm">
 							<greatestDifference id="H">HH:mm–HH:mm</greatestDifference>
 							<greatestDifference id="m">HH:mm–HH:mm</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hmv">
-							<greatestDifference id="a">h:mm a – h:mm a v</greatestDifference>
-							<greatestDifference id="h">h:mm–h:mm a v</greatestDifference>
-							<greatestDifference id="m">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="a">h:mm a – h:mm a v</greatestDifference>
+							<greatestDifference id="h">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="m">h:mm–h:mm a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hmv">
 							<greatestDifference id="H">HH:mm–HH:mm v</greatestDifference>
 							<greatestDifference id="m">HH:mm–HH:mm v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a">h a – h a v</greatestDifference>
-							<greatestDifference id="h">h–h a v</greatestDifference>
+							<greatestDifference id="a">h a – h a v</greatestDifference>
+							<greatestDifference id="h">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H">HH–HH v</greatestDifference>
@@ -4057,6 +4125,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<zone type="Pacific/Enderbury">
 				<exemplarCity>Έντερμπερι</exemplarCity>
 			</zone>
+			<zone type="Pacific/Kanton">
+				<exemplarCity>Καντών</exemplarCity>
+			</zone>
 			<zone type="Pacific/Kiritimati">
 				<exemplarCity>Κιριτιμάτι</exemplarCity>
 			</zone>
@@ -4209,6 +4280,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</zone>
 			<zone type="America/Hermosillo">
 				<exemplarCity>Ερμοσίγιο</exemplarCity>
+			</zone>
+			<zone type="America/Ciudad_Juarez">
+				<exemplarCity>Σιουδάδ Χουάρες</exemplarCity>
 			</zone>
 			<zone type="America/Mazatlan">
 				<exemplarCity>Μαζατλάν</exemplarCity>
@@ -5758,9 +5832,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<currencyFormatLength>
 				<currencyFormat type="standard">
 					<pattern>#,##0.00 ¤</pattern>
+					<pattern alt="noCurrency" draft="provisional">#,##0.00</pattern>
 				</currencyFormat>
 				<currencyFormat type="accounting">
 					<pattern>#,##0.00 ¤</pattern>
+					<pattern alt="noCurrency">#,##0.00</pattern>
 				</currencyFormat>
 			</currencyFormatLength>
 			<currencyFormatLength type="short">
@@ -5791,6 +5867,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 					<pattern type="100000000000000" count="other">000 τρισ'.' ¤</pattern>
 				</currencyFormat>
 			</currencyFormatLength>
+			<currencyPatternAppendISO>↑↑↑</currencyPatternAppendISO>
 			<unitPattern count="one">{0} {1}</unitPattern>
 			<unitPattern count="other">{0} {1}</unitPattern>
 		</currencyFormats>
@@ -6354,7 +6431,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<displayName count="other">λάρι Γεωργίας</displayName>
 				<symbol>GEL</symbol>
 				<symbol alt="narrow">₾</symbol>
-				<symbol alt="variant">₾</symbol>
 			</currency>
 			<currency type="GHC">
 				<displayName>Σέντι Γκάνας (1979–2007)</displayName>
@@ -7641,9 +7717,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">{0} δυνάμεων επιτάχυνσης</unitPattern>
 			</unit>
 			<unit type="acceleration-meter-per-square-second">
+				<gender>neuter</gender>
 				<displayName>μέτρα ανά τετραγωνικό δευτερόλεπτο</displayName>
 				<unitPattern count="one">{0} μέτρο ανά τετραγωνικό δευτερόλεπτο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} μέτρου ανά τετραγωνικό δευτερόλεπτο</unitPattern>
 				<unitPattern count="other">{0} μέτρα ανά τετραγωνικό δευτερόλεπτο</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} μέτρων ανά τετραγωνικό δευτερόλεπτο</unitPattern>
 			</unit>
 			<unit type="angle-revolution">
 				<gender>feminine</gender>
@@ -7696,9 +7777,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">{0} δευτερολέπτων του τόξου</unitPattern>
 			</unit>
 			<unit type="area-square-kilometer">
+				<gender>neuter</gender>
 				<displayName>τετραγωνικά χιλιόμετρα</displayName>
 				<unitPattern count="one">{0} τετραγωνικό χιλιόμετρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} τετραγωνικού χιλιομέτρου</unitPattern>
 				<unitPattern count="other">{0} τετραγωνικά χιλιόμετρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} τετραγωνικών χιλιομέτρων</unitPattern>
 				<perUnitPattern>{0}/τετραγωνικό χιλιόμετρο</perUnitPattern>
 			</unit>
 			<unit type="area-hectare">
@@ -7712,15 +7798,25 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">{0} εκτάριων</unitPattern>
 			</unit>
 			<unit type="area-square-meter">
+				<gender>neuter</gender>
 				<displayName>τετραγωνικά μέτρα</displayName>
 				<unitPattern count="one">{0} τετραγωνικό μέτρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} τετραγωνικού μέτρου</unitPattern>
 				<unitPattern count="other">{0} τετραγωνικά μέτρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} τετραγωνικών μέτρων</unitPattern>
 				<perUnitPattern>{0}/τετραγωνικό μέτρο</perUnitPattern>
 			</unit>
 			<unit type="area-square-centimeter">
+				<gender>neuter</gender>
 				<displayName>τετραγωνικά εκατοστά</displayName>
 				<unitPattern count="one">{0} τετραγωνικό εκατοστό</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} τετραγωνικού εκατοστού</unitPattern>
 				<unitPattern count="other">{0} τετραγωνικά εκατοστά</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} τετραγωνικών εκατοστών</unitPattern>
 				<perUnitPattern>{0}/τετραγωνικό εκατοστό</perUnitPattern>
 			</unit>
 			<unit type="area-square-mile">
@@ -7771,14 +7867,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} χιλιοστόγραμμα ανά δεκατόλιτρο</unitPattern>
 			</unit>
 			<unit type="concentr-millimole-per-liter">
+				<gender>neuter</gender>
 				<displayName>χιλιοστογραμμομόρια ανά λίτρο</displayName>
 				<unitPattern count="one">{0} χιλιοστογραμμομόριο ανά λίτρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} χιλιοστογραμμομορίου ανά λίτρο</unitPattern>
 				<unitPattern count="other">{0} χιλιοστογραμμομόρια ανά λίτρο</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} χιλιοστογραμμομορίων ανά λίτρο</unitPattern>
 			</unit>
 			<unit type="concentr-item">
+				<gender>neuter</gender>
 				<displayName>στοιχείο</displayName>
 				<unitPattern count="one">{0} στοιχείο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} στοιχείου</unitPattern>
 				<unitPattern count="other">{0} στοιχεία</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} στοιχείων</unitPattern>
 			</unit>
 			<unit type="concentr-permillion">
 				<gender>neuter</gender>
@@ -7831,14 +7937,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="consumption-liter-per-kilometer">
+				<gender>neuter</gender>
 				<displayName>λίτρα ανά χιλιόμετρο</displayName>
 				<unitPattern count="one">{0} λίτρο ανά χιλιόμετρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} λίτρου ανά χιλιόμετρο</unitPattern>
 				<unitPattern count="other">{0} λίτρα ανά χιλιόμετρο</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} λίτρων ανά χιλιόμετρο</unitPattern>
 			</unit>
 			<unit type="consumption-liter-per-100-kilometer">
+				<gender>neuter</gender>
 				<displayName>λίτρα ανά 100 χιλιόμετρα</displayName>
 				<unitPattern count="one">{0} λίτρο ανά 100 χιλιόμετρα</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} λίτρου ανά 100 χιλιόμετρα</unitPattern>
 				<unitPattern count="other">{0} λίτρα ανά 100 χιλιόμετρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} λίτρων ανά 100 χιλιόμετρα</unitPattern>
 			</unit>
 			<unit type="consumption-mile-per-gallon">
 				<displayName>μίλια ανά γαλόνι</displayName>
@@ -7851,49 +7967,94 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} μίλια ανά αγγλοσαξονικό γαλόνι</unitPattern>
 			</unit>
 			<unit type="digital-petabyte">
+				<gender>neuter</gender>
 				<displayName>petabyte</displayName>
 				<unitPattern count="one">{0} petabyte</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} petabyte</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-terabyte">
+				<gender>neuter</gender>
 				<displayName>terabyte</displayName>
 				<unitPattern count="one">{0} terabyte</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} terabyte</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-terabit">
+				<gender>neuter</gender>
 				<displayName>terabit</displayName>
 				<unitPattern count="one">{0} terabit</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} terabit</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-gigabyte">
+				<gender>neuter</gender>
 				<displayName>gigabyte</displayName>
 				<unitPattern count="one">{0} gigabyte</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} gigabyte</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-gigabit">
+				<gender>neuter</gender>
 				<displayName>gigabit</displayName>
 				<unitPattern count="one">{0} gigabit</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} gigabit</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-megabyte">
+				<gender>neuter</gender>
 				<displayName>megabyte</displayName>
 				<unitPattern count="one">{0} megabyte</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} megabyte</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-megabit">
+				<gender>neuter</gender>
 				<displayName>megabit</displayName>
 				<unitPattern count="one">{0} megabit</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} megabit</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-kilobyte">
+				<gender>neuter</gender>
 				<displayName>kilobyte</displayName>
 				<unitPattern count="one">{0} kilobyte</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} kilobyte</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-kilobit">
+				<gender>neuter</gender>
 				<displayName>kilobit</displayName>
 				<unitPattern count="one">{0} kilobit</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} kilobit</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-byte">
 				<gender draft="contributed">neuter</gender>
@@ -7916,7 +8077,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="duration-century">
-				<gender draft="contributed">masculine</gender>
+				<gender>masculine</gender>
 				<displayName>αιώνες</displayName>
 				<unitPattern count="one">{0} αιώνας</unitPattern>
 				<unitPattern count="one" case="accusative">{0} αιώνα</unitPattern>
@@ -7926,7 +8087,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">{0} αιώνων</unitPattern>
 			</unit>
 			<unit type="duration-decade">
-				<gender draft="contributed">feminine</gender>
+				<gender>feminine</gender>
 				<displayName>δεκαετίες</displayName>
 				<unitPattern count="one">{0} δεκαετία</unitPattern>
 				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
@@ -7945,6 +8106,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
 				<unitPattern count="other" case="genitive">{0} ετών</unitPattern>
 				<perUnitPattern>{0} ανά έτος</perUnitPattern>
+			</unit>
+			<unit type="duration-quarter">
+				<gender>neuter</gender>
+				<displayName>τέταρτα</displayName>
+				<unitPattern count="one">{0} τέταρτο</unitPattern>
+				<unitPattern count="one" case="accusative">{0} τέταρτο</unitPattern>
+				<unitPattern count="one" case="genitive">{0} τέταρτου</unitPattern>
+				<unitPattern count="other">{0} τέταρτα</unitPattern>
+				<unitPattern count="other" case="accusative">{0} τέταρτα</unitPattern>
+				<unitPattern count="other" case="genitive">{0} τέταρτων</unitPattern>
+				<perUnitPattern>{0}/τέτ.</perUnitPattern>
 			</unit>
 			<unit type="duration-month">
 				<gender draft="contributed">masculine</gender>
@@ -7969,7 +8141,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0} ανά εβδομάδα</perUnitPattern>
 			</unit>
 			<unit type="duration-day">
-				<gender draft="contributed">feminine</gender>
+				<gender>feminine</gender>
 				<displayName>ημέρες</displayName>
 				<unitPattern count="one">{0} ημέρα</unitPattern>
 				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
@@ -7980,7 +8152,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0} ανά ημέρα</perUnitPattern>
 			</unit>
 			<unit type="duration-day-person">
-				<gender draft="contributed">feminine</gender>
+				<gender>feminine</gender>
 				<unitPattern count="one">↑↑↑</unitPattern>
 				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
 				<unitPattern count="one" case="genitive">{0} ημέρας</unitPattern>
@@ -8022,19 +8194,34 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0} ανά δευτερόλεπτο</perUnitPattern>
 			</unit>
 			<unit type="duration-millisecond">
+				<gender>neuter</gender>
 				<displayName>χιλιοστά του δευτερολέπτου</displayName>
 				<unitPattern count="one">{0} χιλιοστό του δευτερολέπτου</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} χιλιοστού του δευτερολέπτου</unitPattern>
 				<unitPattern count="other">{0} χιλιοστά του δευτερολέπτου</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} χιλιοστών του δευτερολέπτου</unitPattern>
 			</unit>
 			<unit type="duration-microsecond">
+				<gender>neuter</gender>
 				<displayName>μικροδευτερόλεπτα</displayName>
 				<unitPattern count="one">{0} μικροδευτερόλεπτο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">μικροδευτερόλεπτου</unitPattern>
 				<unitPattern count="other">{0} μικροδευτερόλεπτα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} μικροδευτερόλεπτων</unitPattern>
 			</unit>
 			<unit type="duration-nanosecond">
+				<gender>neuter</gender>
 				<displayName>νανοδευτερόλεπτα</displayName>
 				<unitPattern count="one">{0} νανοδευτερόλεπτο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} νανοδευτερόλεπτου</unitPattern>
 				<unitPattern count="other">{0} νανοδευτερόλεπτα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} νανοδευτερόλεπτων</unitPattern>
 			</unit>
 			<unit type="electric-ampere">
 				<gender>neuter</gender>
@@ -8047,9 +8234,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="electric-milliampere">
+				<gender>neuter</gender>
 				<displayName>μιλιαμπέρ</displayName>
 				<unitPattern count="one">{0} μιλιαμπέρ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} μιλιαμπέρ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="electric-ohm">
 				<gender>neuter</gender>
@@ -8092,9 +8284,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} θερμίδες</unitPattern>
 			</unit>
 			<unit type="energy-kilojoule">
+				<gender>neuter</gender>
 				<displayName>κιλοτζάουλ</displayName>
 				<unitPattern count="one">{0} κιλοτζάουλ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} κιλοτζάουλ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-joule">
 				<gender>neuter</gender>
@@ -8107,9 +8304,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-kilowatt-hour">
+				<gender>feminine</gender>
 				<displayName>κιλοβατώρες</displayName>
 				<unitPattern count="one">{0} κιλοβατώρα</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} κιλοβατώρας</unitPattern>
 				<unitPattern count="other">{0} κιλοβατώρες</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} κιλοβατωρών</unitPattern>
 			</unit>
 			<unit type="energy-electronvolt">
 				<displayName>ηλεκτρονιοβόλτ</displayName>
@@ -8142,24 +8344,44 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="force-kilowatt-hour-per-100-kilometer">
+				<gender>feminine</gender>
 				<displayName>κιλοβατώρες ανά 100 χιλιόμετρα</displayName>
 				<unitPattern count="one">{0} κιλοβατώρα ανά 100 χιλιόμετρα</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} κιλοβατώρας ανά 100 χιλιόμετρα</unitPattern>
 				<unitPattern count="other">{0} κιλοβατώρες ανά 100 χιλιόμετρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} κιλοβατωρών ανά 100 χιλιόμετρα</unitPattern>
 			</unit>
 			<unit type="frequency-gigahertz">
+				<gender>neuter</gender>
 				<displayName>γιγαχέρτζ</displayName>
 				<unitPattern count="one">{0} γιγαχέρτζ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} γιγαχέρτζ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-megahertz">
+				<gender>neuter</gender>
 				<displayName>μεγαχέρτζ</displayName>
 				<unitPattern count="one">{0} μεγαχέρτζ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} μεγαχέρτζ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-kilohertz">
+				<gender>neuter</gender>
 				<displayName>κιλοχέρτζ</displayName>
 				<unitPattern count="one">{0} κιλοχέρτζ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} κιλοχέρτζ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-hertz">
 				<gender>neuter</gender>
@@ -8182,7 +8404,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">{0} τυπογραφικών em</unitPattern>
 			</unit>
 			<unit type="graphics-pixel">
-				<gender draft="contributed">neuter</gender>
+				<gender>neuter</gender>
 				<displayName>pixel</displayName>
 				<unitPattern count="one">{0} pixel</unitPattern>
 				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
@@ -8192,14 +8414,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="graphics-megapixel">
+				<gender>neuter</gender>
 				<displayName>megapixel</displayName>
 				<unitPattern count="one">{0} megapixel</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} megapixel</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="graphics-pixel-per-centimeter">
+				<gender>neuter</gender>
 				<displayName>pixel ανά εκατοστό</displayName>
 				<unitPattern count="one">{0} pixel ανά εκατοστό</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} pixel ανά εκατοστό</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="graphics-pixel-per-inch">
 				<displayName>pixel ανά ίντσα</displayName>
@@ -8227,9 +8459,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} ακτίνες της Γης</unitPattern>
 			</unit>
 			<unit type="length-kilometer">
+				<gender>neuter</gender>
 				<displayName>χιλιόμετρα</displayName>
 				<unitPattern count="one">{0} χιλιόμετρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">χιλιομέτρου</unitPattern>
 				<unitPattern count="other">{0} χιλιόμετρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} χιλιομέτρων</unitPattern>
 				<perUnitPattern>{0} ανά χιλιόμετρο</perUnitPattern>
 			</unit>
 			<unit type="length-meter">
@@ -8244,35 +8481,65 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0} ανά μέτρο</perUnitPattern>
 			</unit>
 			<unit type="length-decimeter">
+				<gender>neuter</gender>
 				<displayName>δεκατόμετρα</displayName>
 				<unitPattern count="one">{0} δεκατόμετρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} δεκατομέτρου</unitPattern>
 				<unitPattern count="other">{0} δεκατόμετρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} δεκατόμετρων</unitPattern>
 			</unit>
 			<unit type="length-centimeter">
+				<gender>neuter</gender>
 				<displayName>εκατοστά</displayName>
 				<unitPattern count="one">{0} εκατοστό</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} εκατοστού</unitPattern>
 				<unitPattern count="other">{0} εκατοστά</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} εκατοστών</unitPattern>
 				<perUnitPattern>{0} ανά εκατοστό</perUnitPattern>
 			</unit>
 			<unit type="length-millimeter">
+				<gender>neuter</gender>
 				<displayName>χιλιοστόμετρα</displayName>
 				<unitPattern count="one">{0} χιλιοστόμετρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} χιλιοστόμετρου</unitPattern>
 				<unitPattern count="other">{0} χιλιοστόμετρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} χιλιοστόμετρων</unitPattern>
 			</unit>
 			<unit type="length-micrometer">
+				<gender>neuter</gender>
 				<displayName>↑↑↑</displayName>
 				<unitPattern count="one">{0} μικρόμετρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} μικρομέτρου</unitPattern>
 				<unitPattern count="other">{0} μικρόμετρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} μικρομέτρων</unitPattern>
 			</unit>
 			<unit type="length-nanometer">
+				<gender>neuter</gender>
 				<displayName>νανόμετρα</displayName>
 				<unitPattern count="one">{0} νανόμετρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} νανομέτρου</unitPattern>
 				<unitPattern count="other">{0} νανόμετρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} νανομέτρων</unitPattern>
 			</unit>
 			<unit type="length-picometer">
+				<gender>neuter</gender>
 				<displayName>πικόμετρα</displayName>
 				<unitPattern count="one">{0} πικόμετρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} πικόμετρου</unitPattern>
 				<unitPattern count="other">{0} πικόμετρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} πικόμετρων</unitPattern>
 			</unit>
 			<unit type="length-mile">
 				<displayName>μίλια</displayName>
@@ -8381,7 +8648,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="one">{0} ηλιακή φωτεινότητα</unitPattern>
 				<unitPattern count="other">{0} ηλιακές φωτεινότητες</unitPattern>
 			</unit>
-			<unit type="mass-metric-ton">
+			<unit type="mass-tonne">
 				<gender>masculine</gender>
 				<displayName>τόνοι</displayName>
 				<unitPattern count="one">{0} τόνος</unitPattern>
@@ -8414,14 +8681,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0} ανά γραμμάριο</perUnitPattern>
 			</unit>
 			<unit type="mass-milligram">
+				<gender>neuter</gender>
 				<displayName>χιλιοστόγραμμα</displayName>
 				<unitPattern count="one">{0} χιλιοστόγραμμο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} χιλιοστόγραμμου</unitPattern>
 				<unitPattern count="other">{0} χιλιοστόγραμμα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} χιλιοστόγραμμων</unitPattern>
 			</unit>
 			<unit type="mass-microgram">
+				<gender>neuter</gender>
 				<displayName>μικρογραμμάρια</displayName>
 				<unitPattern count="one">{0} μικρογραμμάριο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} μικρογραμμάριου</unitPattern>
 				<unitPattern count="other">{0} μικρογραμμάρια</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} μικρογραμμαρίων</unitPattern>
 			</unit>
 			<unit type="mass-ton">
 				<displayName>τόνοι ΗΠΑ</displayName>
@@ -8481,19 +8758,34 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} κόκκοι</unitPattern>
 			</unit>
 			<unit type="power-gigawatt">
+				<gender>neuter</gender>
 				<displayName>γιγαβάτ</displayName>
 				<unitPattern count="one">{0} γιγαβάτ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} γιγαβάτ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-megawatt">
+				<gender>neuter</gender>
 				<displayName>μεγαβάτ</displayName>
 				<unitPattern count="one">{0} μεγαβάτ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} μεγαβάτ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-kilowatt">
+				<gender>neuter</gender>
 				<displayName>κιλοβάτ</displayName>
 				<unitPattern count="one">{0} κιλοβάτ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} κιλοβάτ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-watt">
 				<gender>neuter</gender>
@@ -8506,9 +8798,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-milliwatt">
+				<gender>neuter</gender>
 				<displayName>μιλιβάτ</displayName>
 				<unitPattern count="one">{0} μιλιβάτ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} μιλιβάτ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-horsepower">
 				<displayName>ίπποι</displayName>
@@ -8541,9 +8838,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-millibar">
+				<gender>neuter</gender>
 				<displayName>μιλιμπάρ</displayName>
 				<unitPattern count="one">{0} μιλιμπάρ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} μιλιμπάρ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-atmosphere">
 				<gender>feminine</gender>
@@ -8566,29 +8868,54 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-hectopascal">
+				<gender>neuter</gender>
 				<displayName>εκτοπασκάλ</displayName>
 				<unitPattern count="one">{0} εκτοπασκάλ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} εκτοπασκάλ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-kilopascal">
+				<gender>neuter</gender>
 				<displayName>κιλοπασκάλ</displayName>
 				<unitPattern count="one">{0} κιλοπασκάλ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} κιλοπασκάλ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-megapascal">
+				<gender>neuter</gender>
 				<displayName>μεγαπασκάλ</displayName>
 				<unitPattern count="one">{0} μεγαπασκάλ</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} μεγαπασκάλ</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 			</unit>
 			<unit type="speed-kilometer-per-hour">
+				<gender>neuter</gender>
 				<displayName>χιλιόμετρα ανά ώρα</displayName>
 				<unitPattern count="one">{0} χιλιόμετρο ανά ώρα</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} χιλιόμετρου ανά ώρα</unitPattern>
 				<unitPattern count="other">{0} χιλιόμετρα ανά ώρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} χιλιομέτρων ανά ώρα</unitPattern>
 			</unit>
 			<unit type="speed-meter-per-second">
+				<gender>neuter</gender>
 				<displayName>μέτρα ανά δευτερόλεπτο</displayName>
 				<unitPattern count="one">{0} μέτρο ανά δευτερόλεπτο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} μέτρου ανά δευτερόλεπτο</unitPattern>
 				<unitPattern count="other">{0} μέτρα ανά δευτερόλεπτο</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} μέτρων ανά δευτερόλεπτο</unitPattern>
 			</unit>
 			<unit type="speed-mile-per-hour">
 				<displayName>μίλια ανά ώρα</displayName>
@@ -8641,25 +8968,45 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} λίβρες-πόδια</unitPattern>
 			</unit>
 			<unit type="torque-newton-meter">
+				<gender>neuter</gender>
 				<displayName>νιουτόμετρα</displayName>
 				<unitPattern count="one">{0} νιουτόμετρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} νιουτόμετρου</unitPattern>
 				<unitPattern count="other">{0} νιουτόμετρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} νιουτόμετρων</unitPattern>
 			</unit>
 			<unit type="volume-cubic-kilometer">
+				<gender>neuter</gender>
 				<displayName>κυβικά χιλιόμετρα</displayName>
 				<unitPattern count="one">{0} κυβικό χιλιόμετρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} κυβικού χιλιομέτρου</unitPattern>
 				<unitPattern count="other">{0} κυβικά χιλιόμετρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} κυβικών χιλιομέτρων</unitPattern>
 			</unit>
 			<unit type="volume-cubic-meter">
+				<gender>neuter</gender>
 				<displayName>κυβικά μέτρα</displayName>
 				<unitPattern count="one">{0} κυβικό μέτρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} κυβικού μέτρου</unitPattern>
 				<unitPattern count="other">{0} κυβικά μέτρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} κυβικών μέτρων</unitPattern>
 				<perUnitPattern>{0} ανά κυβικό μέτρο</perUnitPattern>
 			</unit>
 			<unit type="volume-cubic-centimeter">
+				<gender>neuter</gender>
 				<displayName>κυβικά εκατοστά</displayName>
 				<unitPattern count="one">{0} κυβικό εκατοστό</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} κυβικού εκατοστού</unitPattern>
 				<unitPattern count="other">{0} κυβικά εκατοστά</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} κυβικών εκατοστών</unitPattern>
 				<perUnitPattern>{0} ανά κυβικό εκατοστό</perUnitPattern>
 			</unit>
 			<unit type="volume-cubic-mile">
@@ -8683,14 +9030,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} κυβικές ίντσες</unitPattern>
 			</unit>
 			<unit type="volume-megaliter">
+				<gender>neuter</gender>
 				<displayName>μεγαλίτρα</displayName>
 				<unitPattern count="one">{0} μεγαλίτρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} μεγαλίτρου</unitPattern>
 				<unitPattern count="other">{0} μεγαλίτρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} μεγαλίτρων</unitPattern>
 			</unit>
 			<unit type="volume-hectoliter">
+				<gender>neuter</gender>
 				<displayName>εκτόλιτρα</displayName>
 				<unitPattern count="one">{0} εκτόλιτρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} εκτόλιτρου</unitPattern>
 				<unitPattern count="other">{0} εκτόλιτρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} εκτόλιτρων</unitPattern>
 			</unit>
 			<unit type="volume-liter">
 				<gender>neuter</gender>
@@ -8704,19 +9061,34 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0} ανά λίτρο</perUnitPattern>
 			</unit>
 			<unit type="volume-deciliter">
+				<gender>neuter</gender>
 				<displayName>δεκατόλιτρα</displayName>
 				<unitPattern count="one">{0} δεκατόλιτρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} δεκατόλιτρου</unitPattern>
 				<unitPattern count="other">{0} δεκατόλιτρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} δεκατόλιτρων</unitPattern>
 			</unit>
 			<unit type="volume-centiliter">
+				<gender>neuter</gender>
 				<displayName>εκατοστόλιτρα</displayName>
 				<unitPattern count="one">{0} εκατοστόλιτρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} εκατοστόλιτρου</unitPattern>
 				<unitPattern count="other">{0} εκατοστόλιτρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} εκατοστόλιτρων</unitPattern>
 			</unit>
 			<unit type="volume-milliliter">
+				<gender>neuter</gender>
 				<displayName>χιλιοστόλιτρα</displayName>
 				<unitPattern count="one">{0} χιλιοστόλιτρο</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} χιλιοστόλιτρου</unitPattern>
 				<unitPattern count="other">{0} χιλιοστόλιτρα</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} χιλιοστόλιτρων</unitPattern>
 			</unit>
 			<unit type="volume-pint-metric">
 				<gender>feminine</gender>
@@ -9170,6 +9542,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} έτ.</unitPattern>
 				<perUnitPattern>{0}/έτ.</perUnitPattern>
 			</unit>
+			<unit type="duration-quarter">
+				<displayName>τετ.</displayName>
+				<unitPattern count="one">{0} τέτ.</unitPattern>
+				<unitPattern count="other">{0} τέτ/α</unitPattern>
+				<perUnitPattern>{0}/τέτ.</perUnitPattern>
+			</unit>
 			<unit type="duration-month">
 				<displayName>μήνες</displayName>
 				<unitPattern count="one">{0} μήν.</unitPattern>
@@ -9496,7 +9874,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="one">{0} L☉</unitPattern>
 				<unitPattern count="other">{0} L☉</unitPattern>
 			</unit>
-			<unit type="mass-metric-ton">
+			<unit type="mass-tonne">
 				<displayName>τ.</displayName>
 				<unitPattern count="one">{0} τ.</unitPattern>
 				<unitPattern count="other">{0} τ.</unitPattern>
@@ -10215,6 +10593,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} έ</unitPattern>
 				<perUnitPattern>{0}/έ</perUnitPattern>
 			</unit>
+			<unit type="duration-quarter">
+				<displayName draft="contributed">↑↑↑</displayName>
+				<unitPattern count="one">{0} τέτ.</unitPattern>
+				<unitPattern count="other">{0} τέτ.</unitPattern>
+				<perUnitPattern>{0}/τέτ.</perUnitPattern>
+			</unit>
 			<unit type="duration-month">
 				<displayName>μήνας</displayName>
 				<unitPattern count="one">{0} μ</unitPattern>
@@ -10541,7 +10925,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="one">↑↑↑</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
-			<unit type="mass-metric-ton">
+			<unit type="mass-tonne">
 				<displayName>↑↑↑</displayName>
 				<unitPattern count="one">↑↑↑</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
@@ -11178,4 +11562,159 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<featureName type="tnum">αριθμοί σε πίνακα</featureName>
 		<featureName type="zero">μηδέν με γραμμή</featureName>
 	</typographicNames>
+	<personNames>
+		<nameOrderLocales order="givenFirst">und el</nameOrderLocales>
+		<nameOrderLocales order="surnameFirst">ko vi yue zh</nameOrderLocales>
+		<foreignSpaceReplacement xml:space="preserve">↑↑↑</foreignSpaceReplacement>
+		<initialPattern type="initial">↑↑↑</initialPattern>
+		<initialPattern type="initialSequence">↑↑↑</initialPattern>
+		<personName order="givenFirst" length="long" usage="referring" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="referring" formality="informal">
+			<namePattern>{given-informal} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="monogram" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="monogram" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="referring" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="referring" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="addressing" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="addressing" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="monogram" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="monogram" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="referring" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="referring" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="addressing" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="addressing" formality="informal">
+			<namePattern>{given}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="monogram" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="monogram" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="referring" formality="formal">
+			<namePattern>{surname} {given} {given2} {suffix}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="referring" formality="informal">
+			<namePattern>{surname} {given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="monogram" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="monogram" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="referring" formality="formal">
+			<namePattern>{surname} {given} {given2-initial} {suffix}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="referring" formality="informal">
+			<namePattern>{surname} {given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="monogram" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="monogram" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="referring" formality="formal">
+			<namePattern>{surname} {given-initial} {given2-initial}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="referring" formality="informal">
+			<namePattern>{surname} {given-initial}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="monogram" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="monogram" formality="informal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="sorting" length="long" usage="referring" formality="formal">
+			<namePattern>{surname-core}, {surname-prefix} {given} {given2}</namePattern>
+		</personName>
+		<personName order="sorting" length="long" usage="referring" formality="informal">
+			<namePattern>{surname}, {given-informal}</namePattern>
+		</personName>
+		<personName order="sorting" length="medium" usage="referring" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="sorting" length="medium" usage="referring" formality="informal">
+			<namePattern>{surname}, {given-informal}</namePattern>
+		</personName>
+		<personName order="sorting" length="short" usage="referring" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="sorting" length="short" usage="referring" formality="informal">
+			<namePattern>{surname}, {given-informal}</namePattern>
+		</personName>
+		<sampleName item="givenOnly">
+			<nameField type="given">Δημήτρης</nameField>
+		</sampleName>
+		<sampleName item="givenSurnameOnly">
+			<nameField type="given">Ειρήνη</nameField>
+			<nameField type="surname">Πολίτη</nameField>
+		</sampleName>
+		<sampleName item="given12Surname">
+			<nameField type="given">Πέτρος</nameField>
+			<nameField type="given2">Νικόλαος</nameField>
+			<nameField type="surname">Καρατζής</nameField>
+		</sampleName>
+		<sampleName item="full">
+			<nameField type="prefix">Καθ. δρ.</nameField>
+			<nameField type="given">Άννα Μαρία</nameField>
+			<nameField type="given-informal">Σωτήρης</nameField>
+			<nameField type="given2">Βεατρίκη Μαρίνα</nameField>
+			<nameField type="surname-prefix">φαν ντεν</nameField>
+			<nameField type="surname-core">Δεληγιάννης</nameField>
+			<nameField type="surname2">Δημητρίου Αργυρακάκης</nameField>
+			<nameField type="suffix">M.D. Ph.D.</nameField>
+		</sampleName>
+	</personNames>
 </ldml>

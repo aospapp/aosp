@@ -87,7 +87,7 @@ GEN_SERVICE_SOURCE = GEN_SERVICE + " --nos-client-cpp_out=source:$(genDir) "
 GEN_SERVICE_HEADER = GEN_SERVICE + " --nos-client-cpp_out=header:$(genDir) "
 GEN_SERVICE_MOCK = GEN_SERVICE + " --nos-client-cpp_out=mock:$(genDir) "
 
-// A special target to be statically linkeed into recovery which is a system
+// A special target to be statically linked into recovery which is a system
 // (not vendor) component.
 cc_library_static {
     name: "libnos_for_recovery",
@@ -100,7 +100,6 @@ cc_library_static {
     export_include_dirs: [
         "nugget/include",
         "libnos/include",
-        "libnos_datagram/include",
         "libnos_transport/include",
     ],
     srcs: [
@@ -113,7 +112,7 @@ cc_library_static {
     ],
 }
 
-// A special target to be statically linkeed into fastboot hal.
+// A special target to be statically linked into fastboot hal.
 cc_library_static {
     name: "libnos_for_fastboot",
     recovery: true,
@@ -126,7 +125,6 @@ cc_library_static {
     export_include_dirs: [
         "nugget/include",
         "libnos/include",
-        "libnos_datagram/include",
         "libnos_transport/include",
     ],
     srcs: [
@@ -139,7 +137,7 @@ cc_library_static {
     ],
 }
 
-// A special target to be statically linkeed into recovery which is a system
+// A special target to be statically linked into recovery which is a system
 // (not vendor) component.
 cc_library_static {
     name: "libnos_citadel_for_recovery",
@@ -150,14 +148,17 @@ cc_library_static {
     ],
     srcs: [
         ":libnos_client",
-        "libnos_datagram/citadel.c",
+        "libnos_datagram/citadel.cpp",
     ],
     static_libs: [
         "libnos_for_recovery",
     ],
+    shared_libs: [
+        "libbase",
+    ],
 }
 
-// A special target to be statically linkeed into fastboot hal.
+// A special target to be statically linked into fastboot hal.
 cc_library_static {
     name: "libnos_citadel_for_fastboot",
     recovery: true,
@@ -168,10 +169,13 @@ cc_library_static {
     ],
     srcs: [
         ":libnos_client",
-        "libnos_datagram/citadel.c",
+        "libnos_datagram/citadel.cpp",
     ],
     static_libs: [
         "libnos_for_fastboot",
+    ],
+    shared_libs: [
+        "libbase",
     ],
 }
 
@@ -215,5 +219,7 @@ cc_library {
         "libnos_client_defaults",
         "nos_cc_defaults",
     ],
-    shared_libs: ["libnos_datagram_citadel"],
+    shared_libs: [
+        "libnos_datagram_citadel",
+    ],
 }

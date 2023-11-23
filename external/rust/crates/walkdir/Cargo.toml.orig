@@ -1,6 +1,6 @@
 [package]
 name = "walkdir"
-version = "2.3.2"  #:version
+version = "2.3.3"  #:version
 authors = ["Andrew Gallant <jamslam@gmail.com>"]
 description = "Recursively walk a directory."
 documentation = "https://docs.rs/walkdir/"
@@ -22,10 +22,6 @@ members = ["walkdir-list"]
 
 [dependencies]
 same-file = "1.0.1"
-
-[target.'cfg(windows)'.dependencies.winapi]
-version = "0.3"
-features = ["std", "winnt"]
 
 [target.'cfg(windows)'.dependencies.winapi-util]
 version = "0.1.1"

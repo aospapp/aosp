@@ -17,6 +17,8 @@
 #include "config.h"
 #include "numa_helper.h"
 #include "tst_test.h"
+#include "tst_numa.h"
+#include "lapi/numaif.h"
 
 #ifdef HAVE_NUMA_V2
 
@@ -32,6 +34,7 @@ static struct bitmask *nodemask, *getnodemask, *empty_nodemask;
 static void test_default(unsigned int i, char *p);
 static void test_none(unsigned int i, char *p);
 static void test_invalid_nodemask(unsigned int i, char *p);
+static void check_policy_pref_or_local(int);
 
 struct test_case {
 	int policy;
@@ -39,6 +42,7 @@ struct test_case {
 	unsigned flags;
 	int ret;
 	int err;
+	void (*check_policy)(int);
 	void (*test)(unsigned int, char *);
 	struct bitmask **exp_nodemask;
 };
@@ -88,6 +92,7 @@ static struct test_case tcase[] = {
 		.ret = 0,
 		.err = 0,
 		.test = test_none,
+		.check_policy = check_policy_pref_or_local,
 	},
 	{
 		POLICY_DESC(MPOL_PREFERRED),
@@ -95,6 +100,20 @@ static struct test_case tcase[] = {
 		.err = 0,
 		.test = test_default,
 		.exp_nodemask = &nodemask,
+	},
+	{
+		POLICY_DESC(MPOL_LOCAL),
+		.ret = 0,
+		.err = 0,
+		.test = test_none,
+		.exp_nodemask = &empty_nodemask,
+		.check_policy = check_policy_pref_or_local,
+	},
+	{
+		POLICY_DESC_TEXT(MPOL_LOCAL, "target exists"),
+		.ret = -1,
+		.err = EINVAL,
+		.test = test_default,
 	},
 	{
 		POLICY_DESC(UNKNOWN_POLICY),
@@ -116,6 +135,15 @@ static struct test_case tcase[] = {
 		.test = test_invalid_nodemask,
 	},
 };
+
+static void check_policy_pref_or_local(int policy)
+{
+	if (policy != MPOL_PREFERRED && policy != MPOL_LOCAL) {
+		tst_res(TFAIL, "Wrong policy: %s(%d), "
+			"expected MPOL_PREFERRED or MPOL_LOCAL",
+			tst_mempolicy_mode_name(policy), policy);
+	}
+}
 
 static void test_default(unsigned int i, char *p)
 {
@@ -168,6 +196,11 @@ static void do_test(unsigned int i)
 
 	tst_res(TINFO, "case %s", tc->desc);
 
+	if (tc->policy == MPOL_LOCAL) {
+		if ((tst_kvercmp(5, 14, 0)) >= 0)
+			tc->check_policy = NULL;
+	}
+
 	setup_node();
 
 	p = SAFE_MMAP(NULL, MEM_LENGTH, PROT_READ | PROT_WRITE, MAP_PRIVATE |
@@ -183,9 +216,13 @@ static void do_test(unsigned int i)
 			tst_res(TFAIL | TTERRNO, "get_mempolicy failed");
 			return;
 		}
-		if (tc->policy != policy) {
-			tst_res(TFAIL, "Wrong policy: %d, expected: %d",
-				tc->policy, policy);
+
+		if (tc->check_policy)
+			tc->check_policy(policy);
+		else if (tc->policy != policy) {
+			tst_res(TFAIL, "Wrong policy: %s(%d), expected: %s(%d)",
+				tst_mempolicy_mode_name(policy), policy,
+				tst_mempolicy_mode_name(tc->policy), tc->policy);
 			fail = 1;
 		}
 		if (tc->exp_nodemask) {

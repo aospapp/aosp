@@ -1,3 +1,5 @@
+use crate::runtime::context;
+
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -33,7 +35,6 @@ use std::task::{Context, Poll};
 /// which order the runtime polls your tasks in.
 ///
 /// [`tokio::select!`]: macro@crate::select
-#[must_use = "yield_now does nothing unless polled/`await`-ed"]
 #[cfg_attr(docsrs, doc(cfg(feature = "rt")))]
 pub async fn yield_now() {
     /// Yield implementation
@@ -50,7 +51,17 @@ pub async fn yield_now() {
             }
 
             self.yielded = true;
-            cx.waker().wake_by_ref();
+
+            let defer = context::with_defer(|rt| {
+                rt.defer(cx.waker().clone());
+            });
+
+            if defer.is_none() {
+                //  Not currently in a runtime, just notify ourselves
+                //  immediately.
+                cx.waker().wake_by_ref();
+            }
+
             Poll::Pending
         }
     }

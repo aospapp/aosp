@@ -22,6 +22,7 @@
 #include <aidl/android/hardware/wifi/supplicant/NetworkResponseEapSimUmtsAuthParams.h>
 #include <aidl/android/hardware/wifi/supplicant/SaeH2eMode.h>
 #include <aidl/android/hardware/wifi/supplicant/DppConnectionKeys.h>
+#include <aidl/android/hardware/wifi/supplicant/TlsVersion.h>
 
 extern "C"
 {
@@ -84,6 +85,8 @@ public:
 		const std::vector<uint8_t>& in_identity) override;
 	::ndk::ScopedAStatus setEapEncryptedImsiIdentity(
 		const std::vector<uint8_t>& in_identity) override;
+	::ndk::ScopedAStatus setStrictConservativePeerMode(
+		bool in_enable) override;
 	::ndk::ScopedAStatus setEapAnonymousIdentity(
 		const std::vector<uint8_t>& in_identity) override;
 	::ndk::ScopedAStatus setEapPassword(
@@ -173,6 +176,8 @@ public:
 	::ndk::ScopedAStatus enableSaePkOnlyMode(bool in_enable) override;
 	::ndk::ScopedAStatus setRoamingConsortiumSelection(
 		const std::vector<uint8_t>& in_selectedRcoi) override;
+	::ndk::ScopedAStatus setMinimumTlsVersionEapPhase1Param(
+		TlsVersion in_tlsVersion) override;
 
 private:
 	// Corresponding worker functions for the AIDL methods.
@@ -209,6 +214,8 @@ private:
 		const std::vector<uint8_t>& identity);
 	ndk::ScopedAStatus setEapEncryptedImsiIdentityInternal(
 		const std::vector<uint8_t>& identity);
+	ndk::ScopedAStatus setStrictConservativePeerModeInternal(
+		bool enable);
 	ndk::ScopedAStatus setEapAnonymousIdentityInternal(
 		const std::vector<uint8_t>& identity);
 	ndk::ScopedAStatus setEapPasswordInternal(
@@ -302,6 +309,7 @@ private:
 	ndk::ScopedAStatus enableSaePkOnlyModeInternal(bool enable);
 	ndk::ScopedAStatus setRoamingConsortiumSelectionInternal(
 		const std::vector<uint8_t>& selectedRcoi);
+	ndk::ScopedAStatus setMinimumTlsVersionEapPhase1ParamInternal(TlsVersion tlsVersion);
 
 	struct wpa_ssid* retrieveNetworkPtr();
 	struct wpa_supplicant* retrieveIfacePtr();
@@ -331,6 +339,8 @@ private:
 		const uint8_t* value, const size_t value_len,
 		uint8_t** to_update_field, size_t* to_update_field_len,
 		const char* hexdump_prefix, bool resetState);
+	void setTlsFlagsFor192BitMode(bool);
+	void generateTlsParams();
 
 	// Reference to the global wpa_struct. This is assumed to be valid
 	// for the lifetime of the process.
@@ -340,6 +350,7 @@ private:
 	// Id of the network this aidl object controls.
 	const int network_id_;
 	bool is_valid_;
+	int tlsFlags;
 
 	DISALLOW_COPY_AND_ASSIGN(StaNetwork);
 };

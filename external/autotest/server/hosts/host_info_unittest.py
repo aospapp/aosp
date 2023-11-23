@@ -131,7 +131,7 @@ class HostInfoTest(unittest.TestCase):
 
 
     def test_str(self):
-        """Sanity checks the __str__ implementation."""
+        """Checks the __str__ implementation."""
         info = host_info.HostInfo(labels=['a'], attributes={'b': 2})
         self.assertEqual(str(info),
                          "HostInfo[Labels: ['a'], Attributes: {'b': 2}, StableVersions: {}]")
@@ -294,7 +294,7 @@ class InMemoryHostInfoStoreTest(unittest.TestCase):
 
 
     def test_str(self):
-        """Sanity tests __str__ implementation."""
+        """Tests __str__ implementation."""
         self.store.info = host_info.HostInfo(['label1'],
                                              {'attrib1': {'key1': 'data1'}})
         self.assertEqual(str(self.store),
@@ -328,7 +328,7 @@ class CachingHostInfoStoreErrorTest(unittest.TestCase):
 
 
     def test_failed_refresh_cleans_cache(self):
-        """Sanity checks return values when refresh raises."""
+        """Checks return values when refresh raises."""
         with self.assertRaises(host_info.StoreError):
             self.store.get()
         # Since |get| hit an error, a subsequent get should again hit the store.

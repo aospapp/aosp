@@ -14,7 +14,7 @@ class firmware_InvalidUSB(FirmwareTest):
     """
     Servo based booting an invalid USB image test.
 
-    This test requires a USB disk plugged-in, which contains a Chrome OS test
+    This test requires a USB disk plugged-in, which contains a ChromeOS test
     image (built by "build_image --test"). On runtime, this test corrupts the
     USB image and tries to boot into it. A failure is expected. It then
     restores the USB image and boots into it again.

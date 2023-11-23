@@ -16,6 +16,7 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_XLA_SERVICE_CPU_PARALLEL_TASK_ASSIGNMENT_H_
 #define TENSORFLOW_COMPILER_XLA_SERVICE_CPU_PARALLEL_TASK_ASSIGNMENT_H_
 
+#include "absl/container/flat_hash_map.h"
 #include "tensorflow/compiler/xla/service/cpu/target_machine_features.h"
 #include "tensorflow/compiler/xla/service/hlo_cost_analysis.h"
 #include "tensorflow/compiler/xla/service/hlo_module.h"
@@ -28,7 +29,7 @@ namespace cpu {
 class ParallelCostModel {
  public:
   virtual ~ParallelCostModel() = default;
-  virtual int64 GetParallelTaskCount(HloInstruction* instruction) = 0;
+  virtual int64_t GetParallelTaskCount(HloInstruction* instruction) = 0;
 };
 
 // ParallelTaskAssignment computes parallel task counts for HLOs in 'module'.
@@ -45,7 +46,7 @@ class ParallelTaskAssignment {
   ~ParallelTaskAssignment() {}
 
   // Computes and returns the target parallel task count for 'instruction'.
-  int64 GetTargetParallelTaskCount(HloInstruction* instruction);
+  int64_t GetTargetParallelTaskCount(HloInstruction* instruction);
 
  private:
   std::unique_ptr<ParallelCostModel> cost_model_;
@@ -77,12 +78,17 @@ class ParallelTaskAssigner : public HloModulePass {
     return "cpu-parallel-task-assigner";
   }
 
-  // Run parallel task assigner on 'module'.
-  // Returns true if the computation was changed, false otherwise.
-  StatusOr<bool> Run(HloModule* module) override;
+  // Run parallel task assigner on computations with specified
+  // `execution_threads` in 'module'. By default, all `execution_threads` are
+  // included. Returns true if the computation was changed, false otherwise.
+  using HloPassInterface::Run;
+  StatusOr<bool> Run(
+      HloModule* module,
+      const absl::flat_hash_set<absl::string_view>& execution_threads) override;
 
  private:
-  using HloToParallelTasks = std::unordered_map<const HloInstruction*, int64>;
+  using HloToParallelTasks =
+      absl::flat_hash_map<const HloInstruction*, int64_t>;
 
   // Assigns target parallel tasks from 'hlo_to_parallel_tasks' to HLOs in
   // 'module'.
@@ -98,7 +104,7 @@ class ParallelTaskAssigner : public HloModulePass {
   void ComputeTargetParallelTasks(HloModule* module,
                                   HloToParallelTasks* hlo_to_parallel_tasks);
 
-  int64 max_parallelism_;
+  int64_t max_parallelism_;
   HloCostAnalysis::ShapeSizeFunction shape_size_function_;
   const TargetMachineFeatures& target_machine_features_;
 };

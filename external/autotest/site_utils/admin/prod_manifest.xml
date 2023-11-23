@@ -6,8 +6,8 @@
   <remote  name="cros-internal"
            fetch="https://chrome-internal-review.googlesource.com"
            review="chrome-internal-review.googlesource.com" />
-<!--  We track master branch now because we build Docker images and use those to track testing and release rather than the prod ref.-->
-  <default revision="refs/heads/master"
+<!--  We track 'main' branch now because we build Docker images and use those to track testing and release rather than the prod ref.-->
+  <default revision="refs/heads/main"
            remote="cros" />
 
   <project path="autotest"

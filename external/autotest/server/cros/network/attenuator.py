@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -40,8 +41,8 @@ class Attenuator(object):
         if config_str.startswith("MN="):
             config_str = config_str[len("MN="):]
 
-        self.properties = dict(zip(['model', 'max_freq', 'max_atten'],
-                                   config_str.split("-", 2)))
+        self.properties = dict(list(zip(['model', 'max_freq', 'max_atten'],
+                                   config_str.split("-", 2))))
         self.max_atten = float(self.properties['max_atten'])
         self.min_atten = 0
 

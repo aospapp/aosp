@@ -7,6 +7,7 @@ NAME = 'network_DhcpNegotiationTimeout'
 ATTRIBUTES = "suite:network_nightly"
 TIME = 'SHORT'
 TEST_TYPE = 'client'
+PY_VERSION = 3
 
 DOC = """
   Tests that shill handles DHCP timeout in a reasonable way. In particular,

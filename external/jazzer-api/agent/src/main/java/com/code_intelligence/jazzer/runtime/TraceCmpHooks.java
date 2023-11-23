@@ -18,6 +18,7 @@ import com.code_intelligence.jazzer.api.HookType;
 import com.code_intelligence.jazzer.api.MethodHook;
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
+import java.util.ConcurrentModificationException;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -77,6 +78,18 @@ final public class TraceCmpHooks {
       // The precise value of the result of the comparison is not used by libFuzzer as long as it is
       // non-zero.
       TraceDataFlowNativeCallbacks.traceStrcmp(thisObject, (String) arguments[0], 1, hookId);
+    }
+  }
+
+  @MethodHook(type = HookType.AFTER, targetClassName = "java.lang.Object", targetMethod = "equals")
+  @MethodHook(
+      type = HookType.AFTER, targetClassName = "java.lang.CharSequence", targetMethod = "equals")
+  @MethodHook(type = HookType.AFTER, targetClassName = "java.lang.Number", targetMethod = "equals")
+  public static void
+  genericEquals(
+      MethodHandle method, Object thisObject, Object[] arguments, int hookId, Boolean returnValue) {
+    if (!returnValue && arguments[0] != null && thisObject.getClass() == arguments[0].getClass()) {
+      TraceDataFlowNativeCallbacks.traceGenericCmp(thisObject, arguments[0], hookId);
     }
   }
 
@@ -193,9 +206,9 @@ final public class TraceCmpHooks {
   replace(
       MethodHandle method, Object thisObject, Object[] arguments, int hookId, String returnValue) {
     String original = (String) thisObject;
-    String target = arguments[0].toString();
     // Report only if the replacement was not successful.
     if (original.equals(returnValue)) {
+      String target = arguments[0].toString();
       TraceDataFlowNativeCallbacks.traceStrstr(original, target, hookId);
     }
   }
@@ -205,11 +218,11 @@ final public class TraceCmpHooks {
   public static void
   arraysEquals(
       MethodHandle method, Object thisObject, Object[] arguments, int hookId, Boolean returnValue) {
+    if (returnValue)
+      return;
     byte[] first = (byte[]) arguments[0];
     byte[] second = (byte[]) arguments[1];
-    if (!returnValue) {
-      TraceDataFlowNativeCallbacks.traceMemcmp(first, second, 1, hookId);
-    }
+    TraceDataFlowNativeCallbacks.traceMemcmp(first, second, 1, hookId);
   }
 
   @MethodHook(type = HookType.AFTER, targetClassName = "java.util.Arrays", targetMethod = "equals",
@@ -217,13 +230,13 @@ final public class TraceCmpHooks {
   public static void
   arraysEqualsRange(
       MethodHandle method, Object thisObject, Object[] arguments, int hookId, Boolean returnValue) {
+    if (returnValue)
+      return;
     byte[] first =
         Arrays.copyOfRange((byte[]) arguments[0], (int) arguments[1], (int) arguments[2]);
     byte[] second =
         Arrays.copyOfRange((byte[]) arguments[3], (int) arguments[4], (int) arguments[5]);
-    if (!returnValue) {
-      TraceDataFlowNativeCallbacks.traceMemcmp(first, second, 1, hookId);
-    }
+    TraceDataFlowNativeCallbacks.traceMemcmp(first, second, 1, hookId);
   }
 
   @MethodHook(type = HookType.AFTER, targetClassName = "java.util.Arrays", targetMethod = "compare",
@@ -233,11 +246,11 @@ final public class TraceCmpHooks {
   public static void
   arraysCompare(
       MethodHandle method, Object thisObject, Object[] arguments, int hookId, Integer returnValue) {
+    if (returnValue == 0)
+      return;
     byte[] first = (byte[]) arguments[0];
     byte[] second = (byte[]) arguments[1];
-    if (returnValue != 0) {
-      TraceDataFlowNativeCallbacks.traceMemcmp(first, second, returnValue, hookId);
-    }
+    TraceDataFlowNativeCallbacks.traceMemcmp(first, second, returnValue, hookId);
   }
 
   @MethodHook(type = HookType.AFTER, targetClassName = "java.util.Arrays", targetMethod = "compare",
@@ -247,34 +260,22 @@ final public class TraceCmpHooks {
   public static void
   arraysCompareRange(
       MethodHandle method, Object thisObject, Object[] arguments, int hookId, Integer returnValue) {
+    if (returnValue == 0)
+      return;
     byte[] first =
         Arrays.copyOfRange((byte[]) arguments[0], (int) arguments[1], (int) arguments[2]);
     byte[] second =
         Arrays.copyOfRange((byte[]) arguments[3], (int) arguments[4], (int) arguments[5]);
-    if (returnValue != 0) {
-      TraceDataFlowNativeCallbacks.traceMemcmp(first, second, returnValue, hookId);
-    }
+    TraceDataFlowNativeCallbacks.traceMemcmp(first, second, returnValue, hookId);
   }
 
   // The maximal number of elements of a non-TreeMap Map that will be sorted and searched for the
   // key closest to the current lookup key in the mapGet hook.
   private static final int MAX_NUM_KEYS_TO_ENUMERATE = 100;
 
-  @MethodHook(type = HookType.AFTER, targetClassName = "com.google.common.collect.ImmutableMap",
-      targetMethod = "get")
-  @MethodHook(
-      type = HookType.AFTER, targetClassName = "java.util.AbstractMap", targetMethod = "get")
-  @MethodHook(type = HookType.AFTER, targetClassName = "java.util.EnumMap", targetMethod = "get")
-  @MethodHook(type = HookType.AFTER, targetClassName = "java.util.HashMap", targetMethod = "get")
-  @MethodHook(
-      type = HookType.AFTER, targetClassName = "java.util.LinkedHashMap", targetMethod = "get")
+  @SuppressWarnings({"rawtypes", "unchecked"})
   @MethodHook(type = HookType.AFTER, targetClassName = "java.util.Map", targetMethod = "get")
-  @MethodHook(type = HookType.AFTER, targetClassName = "java.util.SortedMap", targetMethod = "get")
-  @MethodHook(type = HookType.AFTER, targetClassName = "java.util.TreeMap", targetMethod = "get")
-  @MethodHook(type = HookType.AFTER, targetClassName = "java.util.concurrent.ConcurrentMap",
-      targetMethod = "get")
-  public static void
-  mapGet(
+  public static void mapGet(
       MethodHandle method, Object thisObject, Object[] arguments, int hookId, Object returnValue) {
     if (returnValue != null)
       return;
@@ -291,31 +292,47 @@ final public class TraceCmpHooks {
     // https://github.com/llvm/llvm-project/blob/318942de229beb3b2587df09e776a50327b5cef0/compiler-rt/lib/fuzzer/FuzzerTracePC.cpp#L564
     Object lowerBoundKey = null;
     Object upperBoundKey = null;
-    if (map instanceof TreeMap) {
-      final TreeMap treeMap = (TreeMap) map;
-      lowerBoundKey = treeMap.floorKey(currentKey);
-      upperBoundKey = treeMap.ceilingKey(currentKey);
-    } else if (currentKey instanceof Comparable) {
-      final Comparable comparableKey = (Comparable) currentKey;
-      // Find two keys that bracket currentKey.
-      // Note: This is not deterministic if map.size() > MAX_NUM_KEYS_TO_ENUMERATE.
-      int enumeratedKeys = 0;
-      for (Object validKey : map.keySet()) {
-        if (validKey == null)
-          continue;
-        // If the key sorts lower than the non-existing key, but higher than the current lower
-        // bound, update the lower bound and vice versa for the upper bound.
-        if (comparableKey.compareTo(validKey) > 0
-            && (lowerBoundKey == null || ((Comparable) validKey).compareTo(lowerBoundKey) > 0)) {
-          lowerBoundKey = validKey;
+    try {
+      if (map instanceof TreeMap) {
+        final TreeMap treeMap = (TreeMap) map;
+        try {
+          lowerBoundKey = treeMap.floorKey(currentKey);
+          upperBoundKey = treeMap.ceilingKey(currentKey);
+        } catch (ClassCastException ignored) {
+          // Can be thrown by floorKey and ceilingKey if currentKey is of a type that can't be
+          // compared to the maps keys.
         }
-        if (comparableKey.compareTo(validKey) < 0
-            && (upperBoundKey == null || ((Comparable) validKey).compareTo(upperBoundKey) < 0)) {
-          upperBoundKey = validKey;
+      } else if (currentKey instanceof Comparable) {
+        final Comparable comparableCurrentKey = (Comparable) currentKey;
+        // Find two keys that bracket currentKey.
+        // Note: This is not deterministic if map.size() > MAX_NUM_KEYS_TO_ENUMERATE.
+        int enumeratedKeys = 0;
+        for (Object validKey : map.keySet()) {
+          if (!(validKey instanceof Comparable))
+            continue;
+          final Comparable comparableValidKey = (Comparable) validKey;
+          // If the key sorts lower than the non-existing key, but higher than the current lower
+          // bound, update the lower bound and vice versa for the upper bound.
+          try {
+            if (comparableValidKey.compareTo(comparableCurrentKey) < 0
+                && (lowerBoundKey == null || comparableValidKey.compareTo(lowerBoundKey) > 0)) {
+              lowerBoundKey = validKey;
+            }
+            if (comparableValidKey.compareTo(comparableCurrentKey) > 0
+                && (upperBoundKey == null || comparableValidKey.compareTo(upperBoundKey) < 0)) {
+              upperBoundKey = validKey;
+            }
+          } catch (ClassCastException ignored) {
+            // Can be thrown by floorKey and ceilingKey if currentKey is of a type that can't be
+            // compared to the maps keys.
+          }
+          if (enumeratedKeys++ > MAX_NUM_KEYS_TO_ENUMERATE)
+            break;
         }
-        if (enumeratedKeys++ > MAX_NUM_KEYS_TO_ENUMERATE)
-          break;
       }
+    } catch (ConcurrentModificationException ignored) {
+      // map was modified by another thread, skip this invocation
+      return;
     }
     // Modify the hook ID so that compares against distinct valid keys are traced separately.
     if (lowerBoundKey != null) {

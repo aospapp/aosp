@@ -9,6 +9,10 @@
 
 #include "libANGLE/renderer/vulkan/linux/wayland/WindowSurfaceVkWayland.h"
 
+#include "libANGLE/Context.h"
+#include "libANGLE/Display.h"
+#include "libANGLE/renderer/vulkan/ContextVk.h"
+#include "libANGLE/renderer/vulkan/DisplayVk.h"
 #include "libANGLE/renderer/vulkan/RendererVk.h"
 
 #include <wayland-egl-backend.h>
@@ -20,8 +24,15 @@ void WindowSurfaceVkWayland::ResizeCallback(wl_egl_window *eglWindow, void *payl
 {
     WindowSurfaceVkWayland *windowSurface = reinterpret_cast<WindowSurfaceVkWayland *>(payload);
 
-    windowSurface->mExtents.width  = eglWindow->width;
-    windowSurface->mExtents.height = eglWindow->height;
+    if (windowSurface->mExtents.width != eglWindow->width ||
+        windowSurface->mExtents.height != eglWindow->height)
+    {
+        windowSurface->mExtents.width  = eglWindow->width;
+        windowSurface->mExtents.height = eglWindow->height;
+
+        // Trigger swapchain resize
+        windowSurface->mResized = true;
+    }
 }
 
 WindowSurfaceVkWayland::WindowSurfaceVkWayland(const egl::SurfaceState &surfaceState,
@@ -62,6 +73,35 @@ angle::Result WindowSurfaceVkWayland::getCurrentWindowSize(vk::Context *context,
 {
     *extentsOut = mExtents;
     return angle::Result::Continue;
+}
+
+egl::Error WindowSurfaceVkWayland::getUserWidth(const egl::Display *display, EGLint *value) const
+{
+    *value = getWidth();
+    return egl::NoError();
+}
+
+egl::Error WindowSurfaceVkWayland::getUserHeight(const egl::Display *display, EGLint *value) const
+{
+    *value = getHeight();
+    return egl::NoError();
+}
+
+angle::Result WindowSurfaceVkWayland::getAttachmentRenderTarget(
+    const gl::Context *context,
+    GLenum binding,
+    const gl::ImageIndex &imageIndex,
+    GLsizei samples,
+    FramebufferAttachmentRenderTarget **rtOut)
+{
+    if (mResized)
+    {
+        // A wl_egl_window_resize() should take effect on the next operation which provokes a
+        // backbuffer to be pulled
+        ANGLE_TRY(doDeferredAcquireNextImage(context, true));
+        mResized = false;
+    }
+    return WindowSurfaceVk::getAttachmentRenderTarget(context, binding, imageIndex, samples, rtOut);
 }
 
 }  // namespace rx

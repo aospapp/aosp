@@ -14,6 +14,7 @@ import os
 import six
 from six.moves import map
 from six.moves import range
+import sys
 
 
 # TODO: This is a quick workaround; some of our arm devices so far only
@@ -78,8 +79,12 @@ class Edid(object):
 
         for start in range(0, data_len, Edid.BLOCK_SIZE):
             # Each block (128-byte) has a checksum at the last byte.
-            checksum = reduce(operator.add,
+            if sys.version_info.major < 3:
+                checksum = reduce(operator.add,
                               list(map(ord, data[start:start+Edid.BLOCK_SIZE])))
+            else:
+                checksum = reduce(operator.add,
+                                  list(data[start:start+Edid.BLOCK_SIZE]))
             if checksum % 256 != 0:
                 logging.debug('Wrong checksum in the block %d of EDID',
                               start // Edid.BLOCK_SIZE)
@@ -103,7 +108,7 @@ class Edid(object):
             data = reduce(operator.add,
                           [codecs.decode(s.strip(), 'hex') for s in open(filename).readlines()])
         else:
-            data = open(filename).read()
+            data = open(filename, 'rb').read()
         return cls(data, skip_verify)
 
 

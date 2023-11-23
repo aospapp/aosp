@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium OS Authors. All rights reserved.
+// Copyright 2022 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -12,12 +12,16 @@
 //!
 //! The implementation is provided in `cros_async::audio_streams_async`.
 
+use std::io::Result;
+#[cfg(unix)]
+use std::os::unix::io::RawFd as RawDescriptor;
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
+#[cfg(windows)]
+use std::os::windows::io::RawHandle;
+use std::time::Duration;
 
 use async_trait::async_trait;
-use std::io::Result;
-use std::time::Duration;
 
 #[async_trait(?Send)]
 pub trait ReadAsync {
@@ -45,6 +49,13 @@ pub trait WriteAsync {
     ) -> Result<(usize, Vec<u8>)>;
 }
 
+/// Trait to wrap around EventAsync, because audio_streams can't depend on anything in `base` or
+/// `cros_async`.
+#[async_trait(?Send)]
+pub trait EventAsyncWrapper {
+    async fn wait(&self) -> Result<u64>;
+}
+
 pub trait ReadWriteAsync: ReadAsync + WriteAsync {}
 
 pub type AsyncStream = Box<dyn ReadWriteAsync + Send>;
@@ -56,8 +67,23 @@ pub trait AudioStreamsExecutor {
     #[cfg(unix)]
     fn async_unix_stream(&self, f: UnixStream) -> Result<AsyncStream>;
 
+    /// Wraps an event that will be triggered when the audio backend is ready to read more audio
+    /// data.
+    ///
+    /// # Safety
+    /// Callers needs to make sure the `RawHandle` is an Event, or at least a valid Handle for
+    /// their use case.
+    #[cfg(windows)]
+    unsafe fn async_event(&self, event: RawHandle) -> Result<Box<dyn EventAsyncWrapper>>;
+
     /// Returns a future that resolves after the specified time.
     async fn delay(&self, dur: Duration) -> Result<()>;
+
+    // Returns a future that resolves after the provided descriptor is readable.
+    #[cfg(unix)]
+    async fn wait_fd_readable(&self, _fd: RawDescriptor) -> Result<()> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -78,6 +104,15 @@ pub mod test {
             // Simulates the delay by blocking to satisfy behavior expected in unit tests.
             std::thread::sleep(dur);
             return Ok(());
+        }
+        #[cfg(windows)]
+        unsafe fn async_event(&self, _event: RawHandle) -> Result<Box<dyn EventAsyncWrapper>> {
+            unimplemented!("async_event is not yet implemented on windows");
+        }
+
+        #[cfg(unix)]
+        async fn wait_fd_readable(&self, _fd: RawDescriptor) -> Result<()> {
+            panic!("Not Implemented");
         }
     }
 }

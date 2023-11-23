@@ -52,7 +52,7 @@ rust_library_host {
         "syn",
         "syn-error",
     ],
-    cfgs: ["use_fallback"],
+    cfgs: ["skip_ui_tests"],
     rustlibs: [
         "libproc_macro2",
         "libquote",
@@ -60,4 +60,6 @@ rust_library_host {
     ],
     proc_macros: ["libproc_macro_error_attr"],
     compile_multilib: "first",
+    product_available: true,
+    vendor_available: true,
 }

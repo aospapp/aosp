@@ -13,10 +13,9 @@
 // the License.
 #pragma once
 
-#include <span>
-
 #include "FreeRTOS.h"
 #include "pw_protobuf/encoder.h"
+#include "pw_span/span.h"
 #include "pw_status/status.h"
 #include "pw_thread/snapshot.h"
 #include "pw_thread_protos/thread.pwpb.h"
@@ -38,7 +37,7 @@ namespace pw::thread::freertos {
 //    void* stack_ptr = 0;
 //    asm volatile("mrs %0, psp\n" : "=r"(stack_ptr));
 //    pw::thread::ProcessThreadStackCallback cb =
-//        [](pw::thread::Thread::StreamEncoder& encoder,
+//        [](pw::thread::proto::Thread::StreamEncoder& encoder,
 //           pw::ConstByteSpan stack) -> pw::Status {
 //      return encoder.WriteRawStack(stack);
 //    };
@@ -48,7 +47,7 @@ namespace pw::thread::freertos {
 // Warning: This is only safe to use when the scheduler and interrupts are
 // disabled.
 Status SnapshotThreads(void* running_thread_stack_pointer,
-                       SnapshotThreadInfo::StreamEncoder& encoder,
+                       proto::SnapshotThreadInfo::StreamEncoder& encoder,
                        ProcessThreadStackCallback& thread_stack_callback);
 
 // Captures only the provided thread handle as a pw::thread::Thread proto
@@ -76,7 +75,7 @@ Status SnapshotThreads(void* running_thread_stack_pointer,
 Status SnapshotThread(TaskHandle_t thread,
                       eTaskState thread_state,
                       void* running_thread_stack_pointer,
-                      Thread::StreamEncoder& encoder,
+                      proto::Thread::StreamEncoder& encoder,
                       ProcessThreadStackCallback& thread_stack_callback);
 
 }  // namespace pw::thread::freertos

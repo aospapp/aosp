@@ -8,12 +8,13 @@ AUTHOR = 'chromeos-bluetooth'
 NAME = 'bluetooth_AdapterCLHealth.cl_page_scan_during_inquiry'
 PURPOSE = ('Test controller page scan is working during inquiry.')
 CRITERIA = 'Connection attempt during inquiry should succeed.'
-ATTRIBUTES = 'suite:bluetooth_flaky'
+ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_e2e'
 TIME = 'SHORT'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1'
+PY_VERSION = 3
 
 DOC = """
 Verify that the DUT could accept a connection during inquiry.

@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,7 +6,9 @@ use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 
-use crate::fdt::{Error, FdtWriter, Result};
+use cros_fdt::Error;
+use cros_fdt::FdtWriter;
+use cros_fdt::Result;
 
 fn parse_fstab_line(line: &str) -> Result<Vec<String>> {
     let vec: Vec<&str> = line.split_whitespace().collect();

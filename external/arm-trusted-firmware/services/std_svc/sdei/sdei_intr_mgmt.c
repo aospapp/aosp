@@ -5,6 +5,8 @@
  */
 
 #include <assert.h>
+#include <inttypes.h>
+#include <stdint.h>
 #include <string.h>
 
 #include <arch_helpers.h>
@@ -459,8 +461,8 @@ int sdei_intr_handler(uint32_t intr_raw, uint32_t flags, void *handle,
 		 * Interrupts received while this PE was masked can't be
 		 * dispatched.
 		 */
-		SDEI_LOG("interrupt %u on %llx while PE masked\n", map->intr,
-				mpidr);
+		SDEI_LOG("interrupt %u on %" PRIx64 " while PE masked\n",
+			 map->intr, mpidr);
 		if (is_event_shared(map))
 			sdei_map_lock(map);
 
@@ -531,8 +533,8 @@ int sdei_intr_handler(uint32_t intr_raw, uint32_t flags, void *handle,
 	if (is_event_shared(map))
 		sdei_map_unlock(map);
 
-	SDEI_LOG("ACK %llx, ev:%d ss:%d spsr:%lx ELR:%lx\n", mpidr, map->ev_num,
-			sec_state, read_spsr_el3(), read_elr_el3());
+	SDEI_LOG("ACK %" PRIx64 ", ev:0x%x ss:%d spsr:%lx ELR:%lx\n",
+		 mpidr, map->ev_num, sec_state, read_spsr_el3(), read_elr_el3());
 
 	ctx = handle;
 
@@ -568,7 +570,7 @@ int sdei_intr_handler(uint32_t intr_raw, uint32_t flags, void *handle,
 	 * interrupt.
 	 */
 	if ((map->ev_num != SDEI_EVENT_0) && !is_map_bound(map)) {
-		ERROR("Invalid SDEI mapping: ev=%u\n", map->ev_num);
+		ERROR("Invalid SDEI mapping: ev=0x%x\n", map->ev_num);
 		panic();
 	}
 	plat_ic_end_of_interrupt(intr_raw);

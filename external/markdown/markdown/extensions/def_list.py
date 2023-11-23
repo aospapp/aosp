@@ -1,61 +1,71 @@
-#!/usr/bin/env Python
 """
 Definition List Extension for Python-Markdown
 =============================================
 
-Added parsing of Definition Lists to Python-Markdown.
+Adds parsing of Definition Lists to Python-Markdown.
 
-A simple example:
+See <https://Python-Markdown.github.io/extensions/definition_lists>
+for documentation.
 
-    Apple
-    :   Pomaceous fruit of plants of the genus Malus in 
-        the family Rosaceae.
-    :   An american computer company.
+Original code Copyright 2008 [Waylan Limberg](http://achinghead.com)
 
-    Orange
-    :   The fruit of an evergreen tree of the genus Citrus.
+All changes Copyright 2008-2014 The Python Markdown Project
 
-Copyright 2008 - [Waylan Limberg](http://achinghead.com)
+License: [BSD](https://opensource.org/licenses/bsd-license.php)
 
 """
 
-import markdown, re
-from markdown import etree
+from . import Extension
+from ..blockprocessors import BlockProcessor, ListIndentProcessor
+import xml.etree.ElementTree as etree
+import re
 
 
-class DefListProcessor(markdown.blockprocessors.BlockProcessor):
+class DefListProcessor(BlockProcessor):
     """ Process Definition Lists. """
 
     RE = re.compile(r'(^|\n)[ ]{0,3}:[ ]{1,3}(.*?)(\n|$)')
+    NO_INDENT_RE = re.compile(r'^[ ]{0,3}[^ :]')
 
     def test(self, parent, block):
         return bool(self.RE.search(block))
 
     def run(self, parent, blocks):
-        block = blocks.pop(0)
-        m = self.RE.search(block)
-        terms = [l.strip() for l in block[:m.start()].split('\n') if l.strip()]
-        d, theRest = self.detab(block[m.end():])
+
+        raw_block = blocks.pop(0)
+        m = self.RE.search(raw_block)
+        terms = [term.strip() for term in
+                 raw_block[:m.start()].split('\n') if term.strip()]
+        block = raw_block[m.end():]
+        no_indent = self.NO_INDENT_RE.match(block)
+        if no_indent:
+            d, theRest = (block, None)
+        else:
+            d, theRest = self.detab(block)
         if d:
-            d = '%s\n%s' % (m.group(2), d)
+            d = '{}\n{}'.format(m.group(2), d)
         else:
             d = m.group(2)
-        #import ipdb; ipdb.set_trace()
         sibling = self.lastChild(parent)
+        if not terms and sibling is None:
+            # This is not a definition item. Most likely a paragraph that
+            # starts with a colon at the beginning of a document or list.
+            blocks.insert(0, raw_block)
+            return False
         if not terms and sibling.tag == 'p':
             # The previous paragraph contains the terms
             state = 'looselist'
             terms = sibling.text.split('\n')
             parent.remove(sibling)
-            # Aquire new sibling
+            # Acquire new sibling
             sibling = self.lastChild(parent)
         else:
             state = 'list'
 
-        if sibling and sibling.tag == 'dl':
+        if sibling is not None and sibling.tag == 'dl':
             # This is another item on an existing list
             dl = sibling
-            if len(dl) and dl[-1].tag == 'dd' and len(dl[-1]):
+            if not terms and len(dl) and dl[-1].tag == 'dd' and len(dl[-1]):
                 state = 'looselist'
         else:
             # This is a new list
@@ -73,32 +83,29 @@ class DefListProcessor(markdown.blockprocessors.BlockProcessor):
         if theRest:
             blocks.insert(0, theRest)
 
-class DefListIndentProcessor(markdown.blockprocessors.ListIndentProcessor):
+
+class DefListIndentProcessor(ListIndentProcessor):
     """ Process indented children of definition list items. """
 
-    ITEM_TYPES = ['dd']
-    LIST_TYPES = ['dl']
+    # Definition lists need to be aware of all list types
+    ITEM_TYPES = ['dd', 'li']
+    LIST_TYPES = ['dl', 'ol', 'ul']
 
-    def create_item(parent, block):
-        """ Create a new dd and parse the block with it as the parent. """
-        dd = markdown.etree.SubElement(parent, 'dd')
+    def create_item(self, parent, block):
+        """ Create a new dd or li (depending on parent) and parse the block with it as the parent. """
+
+        dd = etree.SubElement(parent, 'dd')
         self.parser.parseBlocks(dd, [block])
- 
 
 
-class DefListExtension(markdown.Extension):
+class DefListExtension(Extension):
     """ Add definition lists to Markdown. """
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self, md):
         """ Add an instance of DefListProcessor to BlockParser. """
-        md.parser.blockprocessors.add('defindent',
-                                      DefListIndentProcessor(md.parser),
-                                      '>indent')
-        md.parser.blockprocessors.add('deflist', 
-                                      DefListProcessor(md.parser),
-                                      '>ulist')
+        md.parser.blockprocessors.register(DefListIndentProcessor(md.parser), 'defindent', 85)
+        md.parser.blockprocessors.register(DefListProcessor(md.parser), 'deflist', 25)
 
 
-def makeExtension(configs={}):
-    return DefListExtension(configs=configs)
-
+def makeExtension(**kwargs):  # pragma: no cover
+    return DefListExtension(**kwargs)

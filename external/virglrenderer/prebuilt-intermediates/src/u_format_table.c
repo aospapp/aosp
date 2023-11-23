@@ -69,7 +69,7 @@ util_format_b8g8r8a8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24},	/* x = b */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = g */
@@ -84,7 +84,7 @@ util_format_b8g8r8a8_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Z,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -113,7 +113,7 @@ util_format_b8g8r8x8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24},	/* x = b */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = g */
@@ -128,7 +128,7 @@ util_format_b8g8r8x8_unorm_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Z,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -157,7 +157,7 @@ util_format_a8r8g8b8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = r */
@@ -172,7 +172,7 @@ util_format_a8r8g8b8_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24}	/* w = b */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -201,7 +201,7 @@ util_format_x8r8g8b8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24},	/* x = x */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = r */
@@ -216,7 +216,7 @@ util_format_x8r8g8b8_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24}	/* w = b */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -245,7 +245,7 @@ util_format_a8b8g8r8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = b */
@@ -260,7 +260,7 @@ util_format_a8b8g8r8_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24}	/* w = r */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -289,7 +289,7 @@ util_format_x8b8g8r8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24},	/* x = x */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = b */
@@ -304,7 +304,7 @@ util_format_x8b8g8r8_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24}	/* w = r */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -333,7 +333,7 @@ util_format_r8g8b8x8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = g */
@@ -348,7 +348,7 @@ util_format_r8g8b8x8_unorm_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -377,7 +377,7 @@ util_format_b5g5r5x1_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 1, 15},	/* x = x */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 10},	/* y = r */
@@ -392,7 +392,7 @@ util_format_b5g5r5x1_unorm_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 1, 15}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -421,7 +421,7 @@ util_format_b5g5r5a1_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 1, 15},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 10},	/* y = r */
@@ -436,7 +436,7 @@ util_format_b5g5r5a1_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 1, 15}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -465,7 +465,7 @@ util_format_b4g4r4a4_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 12},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 8},	/* y = r */
@@ -480,7 +480,7 @@ util_format_b4g4r4a4_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 12}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -509,7 +509,7 @@ util_format_b4g4r4x4_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 4, 12},	/* x = x */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 8},	/* y = r */
@@ -524,7 +524,7 @@ util_format_b4g4r4x4_unorm_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 4, 12}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -553,7 +553,7 @@ util_format_a4b4g4r4_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 12},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 8},	/* y = g */
@@ -568,7 +568,7 @@ util_format_a4b4g4r4_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 12}	/* w = r */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -597,7 +597,7 @@ util_format_b5g6r5_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 11},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 6, 5},	/* y = g */
@@ -612,7 +612,7 @@ util_format_b5g6r5_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -641,7 +641,7 @@ util_format_r10g10b10a2_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 2, 30},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 10, 20},	/* y = b */
@@ -656,7 +656,7 @@ util_format_r10g10b10a2_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 2, 30}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -685,7 +685,7 @@ util_format_r10g10b10x2_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 2, 30},	/* x = x */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 10, 20},	/* y = b */
@@ -700,7 +700,7 @@ util_format_r10g10b10x2_unorm_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 2, 30}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -729,7 +729,7 @@ util_format_b10g10r10a2_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 2, 30},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 10, 20},	/* y = r */
@@ -744,7 +744,7 @@ util_format_b10g10r10a2_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 2, 30}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -773,7 +773,7 @@ util_format_b2g3r3_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 3, 5},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 3, 2},	/* y = g */
@@ -788,7 +788,7 @@ util_format_b2g3r3_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -895,7 +895,7 @@ util_format_l4a4_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 4},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 0},	/* y = rgb */
@@ -910,7 +910,7 @@ util_format_l4a4_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -939,7 +939,7 @@ util_format_l8a8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 8},	/* x = rgb */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 0},	/* y = a */
@@ -954,7 +954,7 @@ util_format_l8a8_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -1061,7 +1061,7 @@ util_format_l16a16_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 16},	/* x = rgb */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 0},	/* y = a */
@@ -1076,7 +1076,7 @@ util_format_l16a16_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -1157,7 +1157,7 @@ util_format_l8a8_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 8},	/* x = rgb */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 0},	/* y = a */
@@ -1172,7 +1172,7 @@ util_format_l8a8_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -1279,7 +1279,7 @@ util_format_l16a16_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 16},	/* x = rgb */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 0},	/* y = a */
@@ -1294,7 +1294,7 @@ util_format_l16a16_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -1401,7 +1401,7 @@ util_format_l16a16_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 16},	/* x = rgb */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 0},	/* y = a */
@@ -1416,7 +1416,7 @@ util_format_l16a16_float_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -1523,7 +1523,7 @@ util_format_l32a32_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 32},	/* x = rgb */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 0},	/* y = a */
@@ -1538,7 +1538,7 @@ util_format_l32a32_float_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -1645,7 +1645,7 @@ util_format_l8a8_srgb_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 8},	/* x = rgb */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 0},	/* y = a */
@@ -1660,7 +1660,7 @@ util_format_l8a8_srgb_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* sr */
       UTIL_FORMAT_SWIZZLE_X,	/* sg */
@@ -1689,7 +1689,7 @@ util_format_r8g8b8_srgb_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 8},	/* y = g */
@@ -1704,7 +1704,7 @@ util_format_r8g8b8_srgb_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* sr */
       UTIL_FORMAT_SWIZZLE_Y,	/* sg */
@@ -1733,7 +1733,7 @@ util_format_r8g8b8a8_srgb_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = g */
@@ -1748,7 +1748,7 @@ util_format_r8g8b8a8_srgb_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* sr */
       UTIL_FORMAT_SWIZZLE_Y,	/* sg */
@@ -1777,7 +1777,7 @@ util_format_a8b8g8r8_srgb_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = b */
@@ -1792,7 +1792,7 @@ util_format_a8b8g8r8_srgb_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24}	/* w = r */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* sr */
       UTIL_FORMAT_SWIZZLE_Z,	/* sg */
@@ -1821,7 +1821,7 @@ util_format_x8b8g8r8_srgb_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24},	/* x = x */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = b */
@@ -1836,7 +1836,7 @@ util_format_x8b8g8r8_srgb_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24}	/* w = r */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* sr */
       UTIL_FORMAT_SWIZZLE_Z,	/* sg */
@@ -1865,7 +1865,7 @@ util_format_b8g8r8a8_srgb_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24},	/* x = b */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = g */
@@ -1880,7 +1880,7 @@ util_format_b8g8r8a8_srgb_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Z,	/* sr */
       UTIL_FORMAT_SWIZZLE_Y,	/* sg */
@@ -1909,7 +1909,7 @@ util_format_b8g8r8x8_srgb_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24},	/* x = b */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = g */
@@ -1924,7 +1924,7 @@ util_format_b8g8r8x8_srgb_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Z,	/* sr */
       UTIL_FORMAT_SWIZZLE_Y,	/* sg */
@@ -1953,7 +1953,7 @@ util_format_a8r8g8b8_srgb_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = r */
@@ -1968,7 +1968,7 @@ util_format_a8r8g8b8_srgb_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24}	/* w = b */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* sr */
       UTIL_FORMAT_SWIZZLE_Z,	/* sg */
@@ -1997,7 +1997,7 @@ util_format_x8r8g8b8_srgb_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24},	/* x = x */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = r */
@@ -2012,7 +2012,7 @@ util_format_x8r8g8b8_srgb_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24}	/* w = b */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* sr */
       UTIL_FORMAT_SWIZZLE_Z,	/* sg */
@@ -2041,7 +2041,7 @@ util_format_r8sg8sb8ux8u_norm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    TRUE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 16},	/* y = g */
@@ -2056,7 +2056,7 @@ util_format_r8sg8sb8ux8u_norm_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -2085,7 +2085,7 @@ util_format_r10sg10sb10sa2u_norm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    TRUE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 2, 30},	/* x = a */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 10, 20},	/* y = b */
@@ -2100,7 +2100,7 @@ util_format_r10sg10sb10sa2u_norm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 2, 30}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -2129,7 +2129,7 @@ util_format_r5sg5sb6u_norm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    TRUE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 6, 10},	/* x = b */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 5, 5},	/* y = g */
@@ -2144,7 +2144,7 @@ util_format_r5sg5sb6u_norm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Z,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -2277,7 +2277,7 @@ util_format_z24_unorm_s8_uint_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    TRUE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 24},	/* x = s */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 24, 0},	/* y = z */
@@ -2292,7 +2292,7 @@ util_format_z24_unorm_s8_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* z */
       UTIL_FORMAT_SWIZZLE_X,	/* s */
@@ -2321,7 +2321,7 @@ util_format_s8_uint_z24_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    TRUE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 24, 8},	/* x = z */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 0},	/* y = s */
@@ -2336,7 +2336,7 @@ util_format_s8_uint_z24_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* z */
       UTIL_FORMAT_SWIZZLE_Y,	/* s */
@@ -2365,7 +2365,7 @@ util_format_x24s8_uint_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 24},	/* x = s */
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 24, 0},	/* y = x */
@@ -2380,7 +2380,7 @@ util_format_x24s8_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_NONE,	/* z */
       UTIL_FORMAT_SWIZZLE_X,	/* s */
@@ -2409,7 +2409,7 @@ util_format_s8x24_uint_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 24, 8},	/* x = x */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 0},	/* y = s */
@@ -2424,7 +2424,7 @@ util_format_s8x24_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_NONE,	/* z */
       UTIL_FORMAT_SWIZZLE_Y,	/* s */
@@ -2453,7 +2453,7 @@ util_format_z24x8_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24},	/* x = x */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 24, 0},	/* y = z */
@@ -2468,7 +2468,7 @@ util_format_z24x8_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* z */
       UTIL_FORMAT_SWIZZLE_NONE,	/* s */
@@ -2497,7 +2497,7 @@ util_format_x8z24_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 24, 8},	/* x = z */
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 0},	/* y = x */
@@ -2512,7 +2512,7 @@ util_format_x8z24_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* z */
       UTIL_FORMAT_SWIZZLE_NONE,	/* s */
@@ -2541,7 +2541,7 @@ util_format_z32_float_s8x24_uint_description = {
    FALSE,	/* is_array */
    FALSE,	/* is_bitmask */
    TRUE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 32},	/* x = z */
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 24, 8},	/* y = x */
@@ -2556,7 +2556,7 @@ util_format_z32_float_s8x24_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* z */
       UTIL_FORMAT_SWIZZLE_Z,	/* s */
@@ -2585,7 +2585,7 @@ util_format_x32_s8x24_uint_description = {
    FALSE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 32, 32},	/* x = x */
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 24, 8},	/* y = x */
@@ -2600,7 +2600,7 @@ util_format_x32_s8x24_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_NONE,	/* z */
       UTIL_FORMAT_SWIZZLE_Z,	/* s */
@@ -2863,7 +2863,7 @@ util_format_r8g8bx_snorm_description = {
    FALSE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 8},	/* x = x */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 0},	/* y = y */
@@ -2878,7 +2878,7 @@ util_format_r8g8bx_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -3479,7 +3479,7 @@ util_format_r64g64_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 64, 64},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 64, 0},	/* y = g */
@@ -3494,7 +3494,7 @@ util_format_r64g64_float_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -3523,7 +3523,7 @@ util_format_r64g64b64_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 64, 128},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 64, 64},	/* y = g */
@@ -3538,7 +3538,7 @@ util_format_r64g64b64_float_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -3567,7 +3567,7 @@ util_format_r64g64b64a64_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 64, 192},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 64, 128},	/* y = g */
@@ -3582,7 +3582,7 @@ util_format_r64g64b64a64_float_description = {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 64, 192}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -3637,7 +3637,7 @@ util_format_r32g32_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 0},	/* y = g */
@@ -3652,7 +3652,7 @@ util_format_r32g32_float_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -3681,7 +3681,7 @@ util_format_r32g32b32_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 64},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 32},	/* y = g */
@@ -3696,7 +3696,7 @@ util_format_r32g32b32_float_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -3725,7 +3725,7 @@ util_format_r32g32b32a32_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 96},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 64},	/* y = g */
@@ -3740,7 +3740,7 @@ util_format_r32g32b32a32_float_description = {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 96}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -3795,7 +3795,7 @@ util_format_r32g32_unorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 32, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 32, 0},	/* y = g */
@@ -3810,7 +3810,7 @@ util_format_r32g32_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -3839,7 +3839,7 @@ util_format_r32g32b32_unorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 32, 64},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 32, 32},	/* y = g */
@@ -3854,7 +3854,7 @@ util_format_r32g32b32_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -3883,7 +3883,7 @@ util_format_r32g32b32a32_unorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 32, 96},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 32, 64},	/* y = g */
@@ -3898,7 +3898,7 @@ util_format_r32g32b32a32_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 32, 96}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -3953,7 +3953,7 @@ util_format_r32g32_uscaled_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 32, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 32, 0},	/* y = g */
@@ -3968,7 +3968,7 @@ util_format_r32g32_uscaled_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -3997,7 +3997,7 @@ util_format_r32g32b32_uscaled_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 32, 64},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 32, 32},	/* y = g */
@@ -4012,7 +4012,7 @@ util_format_r32g32b32_uscaled_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4041,7 +4041,7 @@ util_format_r32g32b32a32_uscaled_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 32, 96},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 32, 64},	/* y = g */
@@ -4056,7 +4056,7 @@ util_format_r32g32b32a32_uscaled_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 32, 96}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4111,7 +4111,7 @@ util_format_r32g32_snorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 32, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 32, 0},	/* y = g */
@@ -4126,7 +4126,7 @@ util_format_r32g32_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4155,7 +4155,7 @@ util_format_r32g32b32_snorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 32, 64},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 32, 32},	/* y = g */
@@ -4170,7 +4170,7 @@ util_format_r32g32b32_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4199,7 +4199,7 @@ util_format_r32g32b32a32_snorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 32, 96},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 32, 64},	/* y = g */
@@ -4214,7 +4214,7 @@ util_format_r32g32b32a32_snorm_description = {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 32, 96}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4269,7 +4269,7 @@ util_format_r32g32_sscaled_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 32, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 32, 0},	/* y = g */
@@ -4284,7 +4284,7 @@ util_format_r32g32_sscaled_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4313,7 +4313,7 @@ util_format_r32g32b32_sscaled_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 32, 64},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 32, 32},	/* y = g */
@@ -4328,7 +4328,7 @@ util_format_r32g32b32_sscaled_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4357,7 +4357,7 @@ util_format_r32g32b32a32_sscaled_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 32, 96},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 32, 64},	/* y = g */
@@ -4372,7 +4372,7 @@ util_format_r32g32b32a32_sscaled_description = {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 32, 96}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4427,7 +4427,7 @@ util_format_r16g16_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 0},	/* y = g */
@@ -4442,7 +4442,7 @@ util_format_r16g16_float_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4471,7 +4471,7 @@ util_format_r16g16b16_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 16},	/* y = g */
@@ -4486,7 +4486,7 @@ util_format_r16g16b16_float_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4515,7 +4515,7 @@ util_format_r16g16b16a16_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 48},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 32},	/* y = g */
@@ -4530,7 +4530,7 @@ util_format_r16g16b16a16_float_description = {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 48}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4585,7 +4585,7 @@ util_format_r16g16_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 0},	/* y = g */
@@ -4600,7 +4600,7 @@ util_format_r16g16_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4629,7 +4629,7 @@ util_format_r16g16b16_unorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 16},	/* y = g */
@@ -4644,7 +4644,7 @@ util_format_r16g16b16_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4673,7 +4673,7 @@ util_format_r16g16b16a16_unorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 48},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 32},	/* y = g */
@@ -4688,7 +4688,7 @@ util_format_r16g16b16a16_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 48}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4743,7 +4743,7 @@ util_format_r16g16_uscaled_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 16, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 16, 0},	/* y = g */
@@ -4758,7 +4758,7 @@ util_format_r16g16_uscaled_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4787,7 +4787,7 @@ util_format_r16g16b16_uscaled_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 16, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 16, 16},	/* y = g */
@@ -4802,7 +4802,7 @@ util_format_r16g16b16_uscaled_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4831,7 +4831,7 @@ util_format_r16g16b16a16_uscaled_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 16, 48},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 16, 32},	/* y = g */
@@ -4846,7 +4846,7 @@ util_format_r16g16b16a16_uscaled_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 16, 48}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4901,7 +4901,7 @@ util_format_r16g16_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 0},	/* y = g */
@@ -4916,7 +4916,7 @@ util_format_r16g16_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4945,7 +4945,7 @@ util_format_r16g16b16_snorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 16},	/* y = g */
@@ -4960,7 +4960,7 @@ util_format_r16g16b16_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -4989,7 +4989,7 @@ util_format_r16g16b16a16_snorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 48},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 32},	/* y = g */
@@ -5004,7 +5004,7 @@ util_format_r16g16b16a16_snorm_description = {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 48}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5059,7 +5059,7 @@ util_format_r16g16_sscaled_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 16, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 16, 0},	/* y = g */
@@ -5074,7 +5074,7 @@ util_format_r16g16_sscaled_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5103,7 +5103,7 @@ util_format_r16g16b16_sscaled_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 16, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 16, 16},	/* y = g */
@@ -5118,7 +5118,7 @@ util_format_r16g16b16_sscaled_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5147,7 +5147,7 @@ util_format_r16g16b16a16_sscaled_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 16, 48},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 16, 32},	/* y = g */
@@ -5162,7 +5162,7 @@ util_format_r16g16b16a16_sscaled_description = {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 16, 48}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5217,7 +5217,7 @@ util_format_r8g8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 8},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 0},	/* y = g */
@@ -5232,7 +5232,7 @@ util_format_r8g8_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5261,7 +5261,7 @@ util_format_r8g8b8_unorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 8},	/* y = g */
@@ -5276,7 +5276,7 @@ util_format_r8g8b8_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5305,7 +5305,7 @@ util_format_r8g8b8a8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = g */
@@ -5320,7 +5320,7 @@ util_format_r8g8b8a8_unorm_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5375,7 +5375,7 @@ util_format_r8g8_uscaled_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 8, 8},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 8, 0},	/* y = g */
@@ -5390,7 +5390,7 @@ util_format_r8g8_uscaled_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5419,7 +5419,7 @@ util_format_r8g8b8_uscaled_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 8, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 8, 8},	/* y = g */
@@ -5434,7 +5434,7 @@ util_format_r8g8b8_uscaled_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5463,7 +5463,7 @@ util_format_r8g8b8a8_uscaled_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 8, 16},	/* y = g */
@@ -5478,7 +5478,7 @@ util_format_r8g8b8a8_uscaled_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 8, 24}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5533,7 +5533,7 @@ util_format_r8g8_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 8},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 0},	/* y = g */
@@ -5548,7 +5548,7 @@ util_format_r8g8_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5577,7 +5577,7 @@ util_format_r8g8b8_snorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 8},	/* y = g */
@@ -5592,7 +5592,7 @@ util_format_r8g8b8_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5621,7 +5621,7 @@ util_format_r8g8b8a8_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 16},	/* y = g */
@@ -5636,7 +5636,7 @@ util_format_r8g8b8a8_snorm_description = {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 24}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5691,7 +5691,7 @@ util_format_r8g8_sscaled_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 8, 8},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 8, 0},	/* y = g */
@@ -5706,7 +5706,7 @@ util_format_r8g8_sscaled_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5735,7 +5735,7 @@ util_format_r8g8b8_sscaled_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 8, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 8, 8},	/* y = g */
@@ -5750,7 +5750,7 @@ util_format_r8g8b8_sscaled_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5779,7 +5779,7 @@ util_format_r8g8b8a8_sscaled_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 8, 16},	/* y = g */
@@ -5794,7 +5794,7 @@ util_format_r8g8b8a8_sscaled_description = {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 8, 24}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5849,7 +5849,7 @@ util_format_r32g32_fixed_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FIXED, FALSE, FALSE, 32, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_FIXED, FALSE, FALSE, 32, 0},	/* y = g */
@@ -5864,7 +5864,7 @@ util_format_r32g32_fixed_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5893,7 +5893,7 @@ util_format_r32g32b32_fixed_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FIXED, FALSE, FALSE, 32, 64},	/* x = r */
       {UTIL_FORMAT_TYPE_FIXED, FALSE, FALSE, 32, 32},	/* y = g */
@@ -5908,7 +5908,7 @@ util_format_r32g32b32_fixed_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5937,7 +5937,7 @@ util_format_r32g32b32a32_fixed_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FIXED, FALSE, FALSE, 32, 96},	/* x = r */
       {UTIL_FORMAT_TYPE_FIXED, FALSE, FALSE, 32, 64},	/* y = g */
@@ -5952,7 +5952,7 @@ util_format_r32g32b32a32_fixed_description = {
       {UTIL_FORMAT_TYPE_FIXED, FALSE, FALSE, 32, 96}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -5981,7 +5981,7 @@ util_format_r10g10b10x2_uscaled_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 2, 30},	/* x = x */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 10, 20},	/* y = b */
@@ -5996,7 +5996,7 @@ util_format_r10g10b10x2_uscaled_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 2, 30}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -6025,7 +6025,7 @@ util_format_r10g10b10x2_snorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 2, 30},	/* x = x */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 10, 20},	/* y = b */
@@ -6040,7 +6040,7 @@ util_format_r10g10b10x2_snorm_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 2, 30}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -6069,7 +6069,7 @@ util_format_yv12_description = {
    FALSE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24},	/* x = x */
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 16},	/* y = y */
@@ -6084,7 +6084,7 @@ util_format_yv12_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = w */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* y */
       UTIL_FORMAT_SWIZZLE_Y,	/* u */
@@ -6113,7 +6113,7 @@ util_format_yv16_description = {
    FALSE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24},	/* x = x */
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 16},	/* y = y */
@@ -6128,7 +6128,7 @@ util_format_yv16_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = w */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* y */
       UTIL_FORMAT_SWIZZLE_Y,	/* u */
@@ -6157,7 +6157,7 @@ util_format_iyuv_description = {
    FALSE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24},	/* x = x */
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 16},	/* y = y */
@@ -6172,7 +6172,7 @@ util_format_iyuv_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = w */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* y */
       UTIL_FORMAT_SWIZZLE_Y,	/* u */
@@ -6201,7 +6201,7 @@ util_format_nv12_description = {
    FALSE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24},	/* x = x */
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 16},	/* y = y */
@@ -6216,7 +6216,7 @@ util_format_nv12_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = w */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* y */
       UTIL_FORMAT_SWIZZLE_Y,	/* u */
@@ -6245,7 +6245,7 @@ util_format_nv21_description = {
    FALSE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24},	/* x = x */
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 16},	/* y = y */
@@ -6260,7 +6260,7 @@ util_format_nv21_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = w */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* y */
       UTIL_FORMAT_SWIZZLE_Y,	/* u */
@@ -6289,7 +6289,7 @@ util_format_a4r4_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 4},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 0},	/* y = a */
@@ -6304,7 +6304,7 @@ util_format_a4r4_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -6333,7 +6333,7 @@ util_format_r4a4_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 4},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 4, 0},	/* y = r */
@@ -6348,7 +6348,7 @@ util_format_r4a4_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -6377,7 +6377,7 @@ util_format_r8a8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 8},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 0},	/* y = a */
@@ -6392,7 +6392,7 @@ util_format_r8a8_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -6421,7 +6421,7 @@ util_format_a8r8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 8},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 0},	/* y = r */
@@ -6436,7 +6436,7 @@ util_format_a8r8_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -6465,7 +6465,7 @@ util_format_r10g10b10a2_uscaled_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 2, 30},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 10, 20},	/* y = b */
@@ -6480,7 +6480,7 @@ util_format_r10g10b10a2_uscaled_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 2, 30}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -6509,7 +6509,7 @@ util_format_r10g10b10a2_sscaled_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 2, 30},	/* x = a */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 10, 20},	/* y = b */
@@ -6524,7 +6524,7 @@ util_format_r10g10b10a2_sscaled_description = {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 2, 30}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -6553,7 +6553,7 @@ util_format_r10g10b10a2_snorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 2, 30},	/* x = a */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 10, 20},	/* y = b */
@@ -6568,7 +6568,7 @@ util_format_r10g10b10a2_snorm_description = {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 2, 30}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -6597,7 +6597,7 @@ util_format_b10g10r10a2_uscaled_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 2, 30},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 10, 20},	/* y = r */
@@ -6612,7 +6612,7 @@ util_format_b10g10r10a2_uscaled_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, FALSE, 2, 30}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -6641,7 +6641,7 @@ util_format_b10g10r10a2_sscaled_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 2, 30},	/* x = a */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 10, 20},	/* y = r */
@@ -6656,7 +6656,7 @@ util_format_b10g10r10a2_sscaled_description = {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, FALSE, 2, 30}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -6685,7 +6685,7 @@ util_format_b10g10r10a2_snorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 2, 30},	/* x = a */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 10, 20},	/* y = r */
@@ -6700,7 +6700,7 @@ util_format_b10g10r10a2_snorm_description = {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 2, 30}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -6755,7 +6755,7 @@ util_format_r8g8_uint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 8},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 0},	/* y = g */
@@ -6770,7 +6770,7 @@ util_format_r8g8_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -6799,7 +6799,7 @@ util_format_r8g8b8_uint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 8},	/* y = g */
@@ -6814,7 +6814,7 @@ util_format_r8g8b8_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -6843,7 +6843,7 @@ util_format_r8g8b8a8_uint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 16},	/* y = g */
@@ -6858,7 +6858,7 @@ util_format_r8g8b8a8_uint_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 24}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -6913,7 +6913,7 @@ util_format_r8g8_sint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 8},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 0},	/* y = g */
@@ -6928,7 +6928,7 @@ util_format_r8g8_sint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -6957,7 +6957,7 @@ util_format_r8g8b8_sint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 8},	/* y = g */
@@ -6972,7 +6972,7 @@ util_format_r8g8b8_sint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7001,7 +7001,7 @@ util_format_r8g8b8a8_sint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 16},	/* y = g */
@@ -7016,7 +7016,7 @@ util_format_r8g8b8a8_sint_description = {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 24}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7071,7 +7071,7 @@ util_format_r16g16_uint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 0},	/* y = g */
@@ -7086,7 +7086,7 @@ util_format_r16g16_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7115,7 +7115,7 @@ util_format_r16g16b16_uint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 16},	/* y = g */
@@ -7130,7 +7130,7 @@ util_format_r16g16b16_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7159,7 +7159,7 @@ util_format_r16g16b16a16_uint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 48},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 32},	/* y = g */
@@ -7174,7 +7174,7 @@ util_format_r16g16b16a16_uint_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 48}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7229,7 +7229,7 @@ util_format_r16g16_sint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 0},	/* y = g */
@@ -7244,7 +7244,7 @@ util_format_r16g16_sint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7273,7 +7273,7 @@ util_format_r16g16b16_sint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 16},	/* y = g */
@@ -7288,7 +7288,7 @@ util_format_r16g16b16_sint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7317,7 +7317,7 @@ util_format_r16g16b16a16_sint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 48},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 32},	/* y = g */
@@ -7332,7 +7332,7 @@ util_format_r16g16b16a16_sint_description = {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 48}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7387,7 +7387,7 @@ util_format_r32g32_uint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 0},	/* y = g */
@@ -7402,7 +7402,7 @@ util_format_r32g32_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7431,7 +7431,7 @@ util_format_r32g32b32_uint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 64},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 32},	/* y = g */
@@ -7446,7 +7446,7 @@ util_format_r32g32b32_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7475,7 +7475,7 @@ util_format_r32g32b32a32_uint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 96},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 64},	/* y = g */
@@ -7490,7 +7490,7 @@ util_format_r32g32b32a32_uint_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 96}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7545,7 +7545,7 @@ util_format_r32g32_sint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 0},	/* y = g */
@@ -7560,7 +7560,7 @@ util_format_r32g32_sint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7589,7 +7589,7 @@ util_format_r32g32b32_sint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 64},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 32},	/* y = g */
@@ -7604,7 +7604,7 @@ util_format_r32g32b32_sint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7633,7 +7633,7 @@ util_format_r32g32b32a32_sint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 96},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 64},	/* y = g */
@@ -7648,7 +7648,7 @@ util_format_r32g32b32a32_sint_description = {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 96}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -7755,7 +7755,7 @@ util_format_l8a8_uint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 8},	/* x = rgb */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 0},	/* y = a */
@@ -7770,7 +7770,7 @@ util_format_l8a8_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -7877,7 +7877,7 @@ util_format_l8a8_sint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 8},	/* x = rgb */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 0},	/* y = a */
@@ -7892,7 +7892,7 @@ util_format_l8a8_sint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -7999,7 +7999,7 @@ util_format_l16a16_uint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 16},	/* x = rgb */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 0},	/* y = a */
@@ -8014,7 +8014,7 @@ util_format_l16a16_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -8121,7 +8121,7 @@ util_format_l16a16_sint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 16},	/* x = rgb */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 0},	/* y = a */
@@ -8136,7 +8136,7 @@ util_format_l16a16_sint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -8243,7 +8243,7 @@ util_format_l32a32_uint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 32},	/* x = rgb */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 0},	/* y = a */
@@ -8258,7 +8258,7 @@ util_format_l32a32_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -8365,7 +8365,7 @@ util_format_l32a32_sint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 32},	/* x = rgb */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 0},	/* y = a */
@@ -8380,7 +8380,7 @@ util_format_l32a32_sint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -8409,7 +8409,7 @@ util_format_b10g10r10a2_uint_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 2, 30},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 10, 20},	/* y = r */
@@ -8424,7 +8424,7 @@ util_format_b10g10r10a2_uint_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 2, 30}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -8453,7 +8453,7 @@ util_format_r8g8b8x8_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 16},	/* y = g */
@@ -8468,7 +8468,7 @@ util_format_r8g8b8x8_snorm_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -8497,7 +8497,7 @@ util_format_r8g8b8x8_srgb_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 16},	/* y = g */
@@ -8512,7 +8512,7 @@ util_format_r8g8b8x8_srgb_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* sr */
       UTIL_FORMAT_SWIZZLE_Y,	/* sg */
@@ -8541,7 +8541,7 @@ util_format_r8g8b8x8_uint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 16},	/* y = g */
@@ -8556,7 +8556,7 @@ util_format_r8g8b8x8_uint_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -8585,7 +8585,7 @@ util_format_r8g8b8x8_sint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 24},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 16},	/* y = g */
@@ -8600,7 +8600,7 @@ util_format_r8g8b8x8_sint_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -8629,7 +8629,7 @@ util_format_b10g10r10x2_unorm_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 2, 30},	/* x = x */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 10, 20},	/* y = r */
@@ -8644,7 +8644,7 @@ util_format_b10g10r10x2_unorm_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 2, 30}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -8673,7 +8673,7 @@ util_format_r16g16b16x16_unorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 48},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 32},	/* y = g */
@@ -8688,7 +8688,7 @@ util_format_r16g16b16x16_unorm_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 16, 48}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -8717,7 +8717,7 @@ util_format_r16g16b16x16_snorm_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 48},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 32},	/* y = g */
@@ -8732,7 +8732,7 @@ util_format_r16g16b16x16_snorm_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 16, 48}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -8761,7 +8761,7 @@ util_format_r16g16b16x16_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 48},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 32},	/* y = g */
@@ -8776,7 +8776,7 @@ util_format_r16g16b16x16_float_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 16, 48}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -8805,7 +8805,7 @@ util_format_r16g16b16x16_uint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 48},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 32},	/* y = g */
@@ -8820,7 +8820,7 @@ util_format_r16g16b16x16_uint_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 16, 48}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -8849,7 +8849,7 @@ util_format_r16g16b16x16_sint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 48},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 32},	/* y = g */
@@ -8864,7 +8864,7 @@ util_format_r16g16b16x16_sint_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 16, 48}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -8893,7 +8893,7 @@ util_format_r32g32b32x32_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 96},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 64},	/* y = g */
@@ -8908,7 +8908,7 @@ util_format_r32g32b32x32_float_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 32, 96}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -8937,7 +8937,7 @@ util_format_r32g32b32x32_uint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 96},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 64},	/* y = g */
@@ -8952,7 +8952,7 @@ util_format_r32g32b32x32_uint_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 32, 96}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -8981,7 +8981,7 @@ util_format_r32g32b32x32_sint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 96},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 64},	/* y = g */
@@ -8996,7 +8996,7 @@ util_format_r32g32b32x32_sint_description = {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 32, 96}	/* w = x */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -9025,7 +9025,7 @@ util_format_r8a8_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 8},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 0},	/* y = a */
@@ -9040,7 +9040,7 @@ util_format_r8a8_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -9069,7 +9069,7 @@ util_format_r16a16_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 0},	/* y = a */
@@ -9084,7 +9084,7 @@ util_format_r16a16_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -9113,7 +9113,7 @@ util_format_r16a16_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 0},	/* y = a */
@@ -9128,7 +9128,7 @@ util_format_r16a16_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -9157,7 +9157,7 @@ util_format_r16a16_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 16, 0},	/* y = a */
@@ -9172,7 +9172,7 @@ util_format_r16a16_float_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -9201,7 +9201,7 @@ util_format_r32a32_float_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_FLOAT, FALSE, FALSE, 32, 0},	/* y = a */
@@ -9216,7 +9216,7 @@ util_format_r32a32_float_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -9245,7 +9245,7 @@ util_format_r8a8_uint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 8},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 8, 0},	/* y = a */
@@ -9260,7 +9260,7 @@ util_format_r8a8_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -9289,7 +9289,7 @@ util_format_r8a8_sint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 8},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 8, 0},	/* y = a */
@@ -9304,7 +9304,7 @@ util_format_r8a8_sint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -9333,7 +9333,7 @@ util_format_r16a16_uint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 16, 0},	/* y = a */
@@ -9348,7 +9348,7 @@ util_format_r16a16_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -9377,7 +9377,7 @@ util_format_r16a16_sint_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 16},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 16, 0},	/* y = a */
@@ -9392,7 +9392,7 @@ util_format_r16a16_sint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -9421,7 +9421,7 @@ util_format_r32a32_uint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 32, 0},	/* y = a */
@@ -9436,7 +9436,7 @@ util_format_r32a32_uint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -9465,7 +9465,7 @@ util_format_r32a32_sint_description = {
    TRUE,	/* is_array */
    FALSE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 32},	/* x = r */
       {UTIL_FORMAT_TYPE_SIGNED, FALSE, TRUE, 32, 0},	/* y = a */
@@ -9480,7 +9480,7 @@ util_format_r32a32_sint_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* r */
       UTIL_FORMAT_SWIZZLE_0,	/* g */
@@ -9509,7 +9509,7 @@ util_format_r10g10b10a2_uint_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 2, 30},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 10, 20},	/* y = b */
@@ -9524,7 +9524,7 @@ util_format_r10g10b10a2_uint_description = {
       {UTIL_FORMAT_TYPE_UNSIGNED, FALSE, TRUE, 2, 30}	/* w = a */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -9553,7 +9553,7 @@ util_format_b5g6r5_srgb_description = {
    FALSE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 5, 11},	/* x = r */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 6, 5},	/* y = g */
@@ -9568,7 +9568,7 @@ util_format_b5g6r5_srgb_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_X,	/* sr */
       UTIL_FORMAT_SWIZZLE_Y,	/* sg */
@@ -9597,7 +9597,7 @@ util_format_a8l8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 8},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 0},	/* y = rgb */
@@ -9612,7 +9612,7 @@ util_format_a8l8_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -9641,7 +9641,7 @@ util_format_a8l8_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 8},	/* x = a */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 0},	/* y = rgb */
@@ -9656,7 +9656,7 @@ util_format_a8l8_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -9685,7 +9685,7 @@ util_format_a8l8_srgb_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 8},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 0},	/* y = rgb */
@@ -9700,7 +9700,7 @@ util_format_a8l8_srgb_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* sr */
       UTIL_FORMAT_SWIZZLE_Y,	/* sg */
@@ -9729,7 +9729,7 @@ util_format_a16l16_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 16},	/* x = a */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 0},	/* y = rgb */
@@ -9744,7 +9744,7 @@ util_format_a16l16_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_Y,	/* g */
@@ -9773,7 +9773,7 @@ util_format_g8r8_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 8},	/* x = g */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 8, 0},	/* y = r */
@@ -9788,7 +9788,7 @@ util_format_g8r8_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -9817,7 +9817,7 @@ util_format_g8r8_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 8},	/* x = g */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 0},	/* y = r */
@@ -9832,7 +9832,7 @@ util_format_g8r8_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -9861,7 +9861,7 @@ util_format_g16r16_unorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 16},	/* x = g */
       {UTIL_FORMAT_TYPE_UNSIGNED, TRUE, FALSE, 16, 0},	/* y = r */
@@ -9876,7 +9876,7 @@ util_format_g16r16_unorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -9905,7 +9905,7 @@ util_format_g16r16_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 16},	/* x = g */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 16, 0},	/* y = r */
@@ -9920,7 +9920,7 @@ util_format_g16r16_snorm_description = {
       {0, 0, 0, 0, 0}
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_Y,	/* r */
       UTIL_FORMAT_SWIZZLE_X,	/* g */
@@ -9949,7 +9949,7 @@ util_format_a8b8g8r8_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 24},	/* x = a */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 16},	/* y = b */
@@ -9964,7 +9964,7 @@ util_format_a8b8g8r8_snorm_description = {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 24}	/* w = r */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */
@@ -9993,7 +9993,7 @@ util_format_x8b8g8r8_snorm_description = {
    TRUE,	/* is_array */
    TRUE,	/* is_bitmask */
    FALSE,	/* is_mixed */
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       {UTIL_FORMAT_TYPE_VOID, FALSE, FALSE, 8, 24},	/* x = x */
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 16},	/* y = b */
@@ -10008,7 +10008,7 @@ util_format_x8b8g8r8_snorm_description = {
       {UTIL_FORMAT_TYPE_SIGNED, TRUE, FALSE, 8, 24}	/* w = r */
    },
 #endif
-#ifdef PIPE_ARCH_BIG_ENDIAN
+#if UTIL_ARCH_BIG_ENDIAN
    {
       UTIL_FORMAT_SWIZZLE_W,	/* r */
       UTIL_FORMAT_SWIZZLE_Z,	/* g */

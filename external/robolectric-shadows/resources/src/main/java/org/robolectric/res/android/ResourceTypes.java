@@ -340,7 +340,7 @@ public class ResourceTypes {
     }
 
     public Res_value(byte dataType, int data) {
-      this.size = 0;
+      this.size = SIZEOF;
 //      this.res0 = 0;
       this.dataType = dataType;
       this.data = data;
@@ -1167,6 +1167,11 @@ public static class ResTable_ref
     // Mark any types that use this with a v26 qualifier to prevent runtime issues on older
     // platforms.
     public static final int FLAG_SPARSE = 0x01;
+
+    // If set, the offsets to the entries are encoded in 16-bit, real_offset = offset * 4u
+    // An 16-bit offset of 0xffffu means a NO_ENTRY
+    public static final int FLAG_OFFSET16 = 0x02;
+
     //    };
     final byte flags;
 
@@ -1208,13 +1213,21 @@ public static class ResTable_ref
     int entryOffset(int entryIndex) {
       ByteBuffer byteBuffer = myBuf();
       int offset = myOffset();
-
+      boolean isOffset16 = (flags & ResTable_type.FLAG_OFFSET16) == ResTable_type.FLAG_OFFSET16;
+      if (isOffset16) {
+        short off16 = byteBuffer.getShort(offset + header.headerSize + entryIndex * 2);
+        if (off16 == -1) {
+          return -1;
+        }
+        return dtohs(off16) == 0xffff ? ResTable_type.NO_ENTRY : dtohs(off16) * 4;
+      } else {
+        return byteBuffer.getInt(offset + header.headerSize + entryIndex * 4);
+      }
       // from ResTable cpp:
 //            const uint32_t* const eindex = reinterpret_cast<const uint32_t*>(
 //            reinterpret_cast<const uint8_t*>(thisType) + dtohs(thisType->header.headerSize));
 //
 //        uint32_t thisOffset = dtohl(eindex[realEntryIndex]);
-      return byteBuffer.getInt(offset + header.headerSize + entryIndex * 4);
     }
 
     private int entryNameIndex(int entryIndex) {
@@ -1246,12 +1259,13 @@ public static class ResTable_ref
    * An entry in a ResTable_type with the flag `FLAG_SPARSE` set.
    */
   static class ResTable_sparseTypeEntry extends WithOffset {
-    public static final int SIZEOF = 6;
+    public static final int SIZEOF = 4;
 
     // Holds the raw uint32_t encoded value. Do not read this.
     int entry;
 
-    short idxOrOffset;
+    short idx;
+    short offset;
 //    struct {
       // The index of the entry.
 //      uint16_t idx;
@@ -1263,8 +1277,8 @@ public static class ResTable_ref
     public ResTable_sparseTypeEntry(ByteBuffer buf, int offset) {
       super(buf, offset);
 
-      entry = buf.getInt(offset);
-      idxOrOffset = buf.getShort(offset + 4);
+      this.idx = buf.getShort(offset);
+      this.offset = buf.getShort(offset + 2);
     }
   };
 
@@ -1281,7 +1295,7 @@ public static class ResTable_ref
     public static final int SIZEOF = 4 + ResStringPool_ref.SIZEOF;
 
     // Number of bytes in this structure.
-    final short size;
+    short size;
 
     //enum {
     // If set, this is a complex entry, holding a set of name/value
@@ -1294,18 +1308,41 @@ public static class ResTable_ref
     // resources of the same name/type. This is only useful during
     // linking with other resource tables.
     public static final int FLAG_WEAK = 0x0004;
+
+    public static final int FLAG_COMPACT = 0x0008;
     //    };
     final short flags;
 
     // Reference into ResTable_package::keyStrings identifying this entry.
-    final ResStringPool_ref key;
+    ResStringPool_ref key;
+
+    int compactData;
+    short compactKey;
 
     ResTable_entry(ByteBuffer buf, int offset) {
       super(buf, offset);
 
-      size = buf.getShort(offset);
       flags = buf.getShort(offset + 2);
-      key = new ResStringPool_ref(buf, offset + 4);
+
+      if (isCompact()) {
+        compactKey = buf.getShort(offset);
+        compactData = buf.getInt(offset + 4);
+      } else {
+        size = buf.getShort(offset);
+        key = new ResStringPool_ref(buf, offset + 4);
+      }
+    }
+
+    public boolean isCompact() {
+      return (flags & FLAG_COMPACT) == FLAG_COMPACT;
+    }
+
+    public int getKeyIndex() {
+      if (isCompact()) {
+        return dtohs(compactKey);
+      } else {
+        return key.index;
+      }
     }
 
     public Res_value getResValue() {
@@ -1314,7 +1351,12 @@ public static class ResTable_ref
       // final Res_value device_value = reinterpret_cast<final Res_value>(
       //     reinterpret_cast<final byte*>(entry) + dtohs(entry.size));
 
-      return new Res_value(myBuf(), myOffset() + dtohs(size));
+      if (isCompact()) {
+        byte type = (byte)(dtohs(flags) >> 8);
+        return new Res_value((byte)(dtohs(flags) >> 8), compactData);
+      } else {
+       return new Res_value(myBuf(), myOffset() + dtohs(size));
+      }
     }
   }
 

@@ -53,10 +53,14 @@ struct Renderer11DeviceCaps
     bool supportsConstantBufferOffsets;           // Support for Constant buffer offset
     bool supportsVpRtIndexWriteFromVertexShader;  // VP/RT can be selected in the Vertex Shader
                                                   // stage.
-    bool supportsMultisampledDepthStencilSRVs;  // D3D feature level 10.0 no longer allows creation
-                                                // of textures with both the bind SRV and DSV flags
-                                                // when multisampled.  Textures will need to be
-                                                // resolved before reading. crbug.com/656989
+    bool supportsMultisampledDepthStencilSRVs;   // D3D feature level 10.0 no longer allows creation
+                                                 // of textures with both the bind SRV and DSV flags
+                                                 // when multisampled.  Textures will need to be
+                                                 // resolved before reading. crbug.com/656989
+    bool supportsTypedUAVLoadAdditionalFormats;  //
+    // https://learn.microsoft.com/en-us/windows/win32/direct3d11/typed-unordered-access-view-loads
+    bool supportsUAVLoadStoreCommonFormats;  // Do the common additional formats support load/store?
+    bool supportsRasterizerOrderViews;
     bool allowES3OnFL10_0;
     UINT B5G6R5support;     // Bitfield of D3D11_FORMAT_SUPPORT values for DXGI_FORMAT_B5G6R5_UNORM
     UINT B5G6R5maxSamples;  // Maximum number of samples supported by DXGI_FORMAT_B5G6R5_UNORM
@@ -243,27 +247,27 @@ class Renderer11 : public RendererD3D
                                                  const egl::Stream::GLTextureDescription &desc,
                                                  const std::string &label) override;
     TextureStorage *createTextureStorage2D(GLenum internalformat,
-                                           bool renderTarget,
+                                           BindFlags bindFlags,
                                            GLsizei width,
                                            GLsizei height,
                                            int levels,
                                            const std::string &label,
                                            bool hintLevelZeroOnly) override;
     TextureStorage *createTextureStorageCube(GLenum internalformat,
-                                             bool renderTarget,
+                                             BindFlags bindFlags,
                                              int size,
                                              int levels,
                                              bool hintLevelZeroOnly,
                                              const std::string &label) override;
     TextureStorage *createTextureStorage3D(GLenum internalformat,
-                                           bool renderTarget,
+                                           BindFlags bindFlags,
                                            GLsizei width,
                                            GLsizei height,
                                            GLsizei depth,
                                            int levels,
                                            const std::string &label) override;
     TextureStorage *createTextureStorage2DArray(GLenum internalformat,
-                                                bool renderTarget,
+                                                BindFlags bindFlags,
                                                 GLsizei width,
                                                 GLsizei height,
                                                 GLsizei depth,
@@ -276,6 +280,10 @@ class Renderer11 : public RendererD3D
                                                       int samples,
                                                       bool fixedSampleLocations,
                                                       const std::string &label) override;
+
+    TextureStorage *createTextureStorageBuffer(const gl::OffsetBindingPointer<gl::Buffer> &buffer,
+                                               GLenum internalFormat,
+                                               const std::string &label) override;
     TextureStorage *createTextureStorage2DMultisampleArray(GLenum internalformat,
                                                            GLsizei width,
                                                            GLsizei height,
@@ -293,12 +301,12 @@ class Renderer11 : public RendererD3D
                                                        const egl::AttributeMap &attribs) override;
 
     // D3D11-renderer specific methods
-    ID3D11Device *getDevice() { return mDevice; }
-    ID3D11Device1 *getDevice1() { return mDevice1; }
+    ID3D11Device *getDevice() { return mDevice.Get(); }
+    ID3D11Device1 *getDevice1() { return mDevice1.Get(); }
     void *getD3DDevice() override;
-    ID3D11DeviceContext *getDeviceContext() { return mDeviceContext; }
-    ID3D11DeviceContext1 *getDeviceContext1IfSupported() { return mDeviceContext1; }
-    IDXGIFactory *getDxgiFactory() { return mDxgiFactory; }
+    ID3D11DeviceContext *getDeviceContext() { return mDeviceContext.Get(); }
+    ID3D11DeviceContext1 *getDeviceContext1IfSupported() { return mDeviceContext1.Get(); }
+    IDXGIFactory *getDxgiFactory() { return mDxgiFactory.Get(); }
 
     angle::Result getBlendState(const gl::Context *context,
                                 const d3d11::BlendStateKey &key,
@@ -317,7 +325,7 @@ class Renderer11 : public RendererD3D
 
     Blit11 *getBlitter() { return mBlit; }
     Clear11 *getClearer() { return mClear; }
-    gl::DebugAnnotator *getAnnotator();
+    DebugAnnotatorContext11 *getDebugAnnotatorContext();
 
     // Buffer-to-texture and Texture-to-buffer copies
     bool supportsFastCopyBufferToTexture(GLenum internalFormat) const override;
@@ -361,6 +369,8 @@ class Renderer11 : public RendererD3D
     angle::Result blitRenderbufferRect(const gl::Context *context,
                                        const gl::Rectangle &readRect,
                                        const gl::Rectangle &drawRect,
+                                       UINT readLayer,
+                                       UINT drawLayer,
                                        RenderTargetD3D *readRenderTarget,
                                        RenderTargetD3D *drawRenderTarget,
                                        GLenum filter,
@@ -497,9 +507,12 @@ class Renderer11 : public RendererD3D
     void generateCaps(gl::Caps *outCaps,
                       gl::TextureCapsMap *outTextureCaps,
                       gl::Extensions *outExtensions,
-                      gl::Limitations *outLimitations) const override;
+                      gl::Limitations *outLimitations,
+                      ShPixelLocalStorageOptions *outPLSOptions) const override;
 
     void initializeFeatures(angle::FeaturesD3D *features) const override;
+
+    void initializeFrontendFeatures(angle::FrontendFeatures *features) const override;
 
     angle::Result drawLineLoop(const gl::Context *context,
                                GLuint count,
@@ -548,6 +561,7 @@ class Renderer11 : public RendererD3D
 
     // Make sure that the raw buffer is the latest buffer.
     angle::Result markRawBufferUsage(const gl::Context *context);
+    angle::Result markTypedBufferUsage(const gl::Context *context);
     angle::Result markTransformFeedbackUsage(const gl::Context *context);
     angle::Result drawWithGeometryShaderAndTransformFeedback(Context11 *context11,
                                                              gl::PrimitiveMode mode,
@@ -593,23 +607,23 @@ class Renderer11 : public RendererD3D
     angle::ComPtr<ID3D12Device> mDevice12;
     angle::ComPtr<ID3D12CommandQueue> mCommandQueue;
 
-    ID3D11Device *mDevice;
-    ID3D11Device1 *mDevice1;
+    angle::ComPtr<ID3D11Device> mDevice;
+    angle::ComPtr<ID3D11Device1> mDevice1;
     Renderer11DeviceCaps mRenderer11DeviceCaps;
-    ID3D11DeviceContext *mDeviceContext;
-    ID3D11DeviceContext1 *mDeviceContext1;
-    ID3D11DeviceContext3 *mDeviceContext3;
-    IDXGIAdapter *mDxgiAdapter;
+    angle::ComPtr<ID3D11DeviceContext> mDeviceContext;
+    angle::ComPtr<ID3D11DeviceContext1> mDeviceContext1;
+    angle::ComPtr<ID3D11DeviceContext3> mDeviceContext3;
+    angle::ComPtr<IDXGIAdapter> mDxgiAdapter;
     DXGI_ADAPTER_DESC mAdapterDescription;
     char mDescription[128];
-    IDXGIFactory *mDxgiFactory;
-    ID3D11Debug *mDebug;
+    angle::ComPtr<IDXGIFactory> mDxgiFactory;
+    angle::ComPtr<ID3D11Debug> mDebug;
 
     std::vector<GLuint> mScratchIndexDataBuffer;
 
     angle::ScratchBuffer mScratchMemoryBuffer;
 
-    DebugAnnotator11 mAnnotator;
+    DebugAnnotatorContext11 mAnnotatorContext;
 
     mutable Optional<bool> mSupportsShareHandles;
     ResourceManager11 mResourceManager11;

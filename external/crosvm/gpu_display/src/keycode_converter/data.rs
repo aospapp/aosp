@@ -1,3 +1,7 @@
+// Copyright 2022 The ChromiumOS Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 #[derive(Debug, Clone, Copy)]
 pub struct MapEntry {
     pub linux_keycode: u16,
@@ -7,7 +11,7 @@ pub struct MapEntry {
 }
 
 // Based on Chromium's chromium/chromium/ui/events/keycodes/dom/keycode_converter_data.inc.
-pub const KEYCODE_MAP: [MapEntry; 88] = [
+pub const KEYCODE_MAP: [MapEntry; 104] = [
     MapEntry {
         linux_keycode: 30,
         xkb: 0x0026,
@@ -297,7 +301,7 @@ pub const KEYCODE_MAP: [MapEntry; 88] = [
         mac: 0x0027,
     },
     MapEntry {
-        linux_keycode: 399,
+        linux_keycode: 41,
         xkb: 0x0031,
         win: 0x0029,
         mac: 0x0032,
@@ -535,5 +539,101 @@ pub const KEYCODE_MAP: [MapEntry; 88] = [
         xkb: 0x0086,
         win: 0xe05c,
         mac: 0x0036,
+    },
+    MapEntry {
+        linux_keycode: 55,
+        xkb: 0x003f,
+        win: 0x0037,
+        mac: 0x0043,
+    },
+    MapEntry {
+        linux_keycode: 83,
+        xkb: 0x005b,
+        win: 0x0053,
+        mac: 0x0041,
+    },
+    MapEntry {
+        linux_keycode: 74,
+        xkb: 0x0052,
+        win: 0x004a,
+        mac: 0x004e,
+    },
+    MapEntry {
+        linux_keycode: 59,
+        xkb: 0x0043,
+        win: 0x003b,
+        mac: 0x007a,
+    },
+    MapEntry {
+        linux_keycode: 60,
+        xkb: 0x0044,
+        win: 0x003c,
+        mac: 0x0078,
+    },
+    MapEntry {
+        linux_keycode: 61,
+        xkb: 0x0045,
+        win: 0x003d,
+        mac: 0x0063,
+    },
+    MapEntry {
+        linux_keycode: 62,
+        xkb: 0x0046,
+        win: 0x003e,
+        mac: 0x0076,
+    },
+    MapEntry {
+        linux_keycode: 63,
+        xkb: 0x0047,
+        win: 0x003f,
+        mac: 0x0060,
+    },
+    MapEntry {
+        linux_keycode: 64,
+        xkb: 0x0048,
+        win: 0x0040,
+        mac: 0x0061,
+    },
+    MapEntry {
+        linux_keycode: 65,
+        xkb: 0x0049,
+        win: 0x0041,
+        mac: 0x0062,
+    },
+    MapEntry {
+        linux_keycode: 66,
+        xkb: 0x004a,
+        win: 0x0042,
+        mac: 0x0064,
+    },
+    MapEntry {
+        linux_keycode: 67,
+        xkb: 0x004b,
+        win: 0x0043,
+        mac: 0x0065,
+    },
+    MapEntry {
+        linux_keycode: 68,
+        xkb: 0x004c,
+        win: 0x0044,
+        mac: 0x006d,
+    },
+    MapEntry {
+        linux_keycode: 87,
+        xkb: 0x005f,
+        win: 0x0057,
+        mac: 0x0067,
+    },
+    MapEntry {
+        linux_keycode: 88,
+        xkb: 0x0060,
+        win: 0x0058,
+        mac: 0x006f,
+    },
+    MapEntry {
+        linux_keycode: 117,
+        xkb: 0x007d,
+        win: 0x0059,
+        mac: 0x0051,
     },
 ];

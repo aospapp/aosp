@@ -52,6 +52,7 @@ extern int optind;
 
 #include "support/nls-enable.h"
 #include "support/plausible.h"
+#include "support/quotaio.h"
 #include "../version.h"
 
 #define QCOW_OFLAG_COPIED     (1ULL << 63)
@@ -942,7 +943,7 @@ static errcode_t initialize_qcow2_image(int fd, ext2_filsys fs,
 	header->refcount_table_clusters =
 		ext2fs_cpu_to_be32(image->refcount.refcount_table_clusters);
 	offset += image->cluster_size;
-	offset += image->refcount.refcount_table_clusters <<
+	offset += (blk64_t) image->refcount.refcount_table_clusters <<
 		image->cluster_bits;
 
 	/* Make space for L2 tables */
@@ -1262,7 +1263,7 @@ static void output_qcow2_meta_data_blocks(ext2_filsys fs, int fd)
 			offset += img->cluster_size;
 		}
 	}
-	update_refcount(fd, img, offset, offset);
+	(void) update_refcount(fd, img, offset, offset);
 	flush_l2_cache(img);
 	sync_refcount(fd, img);
 
@@ -1305,7 +1306,7 @@ static void write_raw_image_file(ext2_filsys fs, int fd, int type, int flags,
 	}
 
 	if (superblock) {
-		int j;
+		unsigned int j;
 
 		ext2fs_mark_block_bitmap2(meta_block_map, superblock);
 		meta_blocks_count++;
@@ -1365,9 +1366,11 @@ static void write_raw_image_file(ext2_filsys fs, int fd, int type, int flags,
 		pb.ino = ino;
 		pb.is_dir = LINUX_S_ISDIR(inode.i_mode);
 		if (LINUX_S_ISDIR(inode.i_mode) ||
-		    (LINUX_S_ISLNK(inode.i_mode) &&
-		     ext2fs_inode_has_valid_blocks2(fs, &inode)) ||
-		    ino == fs->super->s_journal_inum) {
+		    LINUX_S_ISLNK(inode.i_mode) ||
+		    ino == fs->super->s_journal_inum ||
+		    ino == quota_type2inum(USRQUOTA, fs->super) ||
+		    ino == quota_type2inum(GRPQUOTA, fs->super) ||
+		    ino == quota_type2inum(PRJQUOTA, fs->super)) {
 			retval = ext2fs_block_iterate3(fs, ino,
 					BLOCK_FLAG_READ_ONLY, block_buf,
 					process_dir_block, &pb);
@@ -1514,6 +1517,8 @@ int main (int argc, char ** argv)
 		 E2FSPROGS_DATE);
 	if (argc && *argv)
 		program_name = *argv;
+	else
+		usage();
 	add_error_table(&et_ext2_error_table);
 	while ((c = getopt(argc, argv, "b:B:nrsIQafo:O:pc")) != EOF)
 		switch (c) {

@@ -38,11 +38,11 @@ kt_jvm_library(
         "//java/dagger/hilt/processor/internal:classnames",
         "//java/dagger/hilt/processor/internal:processor_errors",
         "//java/dagger/hilt/processor/internal:processors",
-        "//java/dagger/internal/guava:collect",
-        "@google_bazel_common//third_party/java/auto:service",
-        "@google_bazel_common//third_party/java/incap",
-        "@google_bazel_common//third_party/java/javapoet",
-        "@maven//:com_google_auto_auto_common",
+        "//third_party/java/auto:common",
+        "//third_party/java/auto:service",
+        "//third_party/java/guava/collect",
+        "//third_party/java/incap",
+        "//third_party/java/javapoet",
     ],
 )
 
@@ -60,10 +60,10 @@ kt_jvm_library(
         "//:spi",
         "//java/dagger/hilt/android/processor/internal:android_classnames",
         "//java/dagger/hilt/processor/internal:processors",
-        "//java/dagger/internal/guava:graph",
-        "@google_bazel_common//third_party/java/auto:service",
-        "@google_bazel_common//third_party/java/javapoet",
-        "@maven//:com_google_auto_auto_common",
+        "//third_party/java/auto:common",
+        "//third_party/java/auto:service",
+        "//third_party/java/guava/graph",
+        "//third_party/java/javapoet",
     ],
 )
 

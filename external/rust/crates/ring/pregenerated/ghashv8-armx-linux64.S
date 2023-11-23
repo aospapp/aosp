@@ -10,15 +10,16 @@
 
 #if !defined(OPENSSL_NO_ASM)
 #if defined(__aarch64__)
-#include <GFp/arm_arch.h>
+#include "ring_core_generated/prefix_symbols_asm.h"
+#include <ring-core/arm_arch.h>
 
 .text
 .arch	armv8-a+crypto
-.globl	GFp_gcm_init_clmul
-.hidden	GFp_gcm_init_clmul
-.type	GFp_gcm_init_clmul,%function
+.globl	gcm_init_clmul
+.hidden	gcm_init_clmul
+.type	gcm_init_clmul,%function
 .align	4
-GFp_gcm_init_clmul:
+gcm_init_clmul:
 	AARCH64_VALID_CALL_TARGET
 	ld1	{v17.2d},[x1]		//load input H
 	movi	v19.16b,#0xe1
@@ -65,12 +66,12 @@ GFp_gcm_init_clmul:
 	st1	{v21.2d,v22.2d},[x0]		//store Htable[1..2]
 
 	ret
-.size	GFp_gcm_init_clmul,.-GFp_gcm_init_clmul
-.globl	GFp_gcm_gmult_clmul
-.hidden	GFp_gcm_gmult_clmul
-.type	GFp_gcm_gmult_clmul,%function
+.size	gcm_init_clmul,.-gcm_init_clmul
+.globl	gcm_gmult_clmul
+.hidden	gcm_gmult_clmul
+.type	gcm_gmult_clmul,%function
 .align	4
-GFp_gcm_gmult_clmul:
+gcm_gmult_clmul:
 	AARCH64_VALID_CALL_TARGET
 	ld1	{v17.2d},[x0]		//load Xi
 	movi	v19.16b,#0xe1
@@ -108,12 +109,12 @@ GFp_gcm_gmult_clmul:
 	st1	{v0.2d},[x0]		//write out Xi
 
 	ret
-.size	GFp_gcm_gmult_clmul,.-GFp_gcm_gmult_clmul
-.globl	GFp_gcm_ghash_clmul
-.hidden	GFp_gcm_ghash_clmul
-.type	GFp_gcm_ghash_clmul,%function
+.size	gcm_gmult_clmul,.-gcm_gmult_clmul
+.globl	gcm_ghash_clmul
+.hidden	gcm_ghash_clmul
+.type	gcm_ghash_clmul,%function
 .align	4
-GFp_gcm_ghash_clmul:
+gcm_ghash_clmul:
 	AARCH64_VALID_CALL_TARGET
 	ld1	{v0.2d},[x0]		//load [rotated] Xi
 						//"[rotated]" means that
@@ -240,7 +241,7 @@ GFp_gcm_ghash_clmul:
 	st1	{v0.2d},[x0]		//write out Xi
 
 	ret
-.size	GFp_gcm_ghash_clmul,.-GFp_gcm_ghash_clmul
+.size	gcm_ghash_clmul,.-gcm_ghash_clmul
 .byte	71,72,65,83,72,32,102,111,114,32,65,82,77,118,56,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121,32,60,97,112,112,114,111,64,111,112,101,110,115,115,108,46,111,114,103,62,0
 .align	2
 .align	2

@@ -38,8 +38,8 @@ class FlashPartitionWithStats : public FlashPartition {
 
   Status Erase(Address address, size_t num_sectors) override;
 
-  std::span<size_t> sector_erase_counters() {
-    return std::span(sector_counters_.data(), sector_counters_.size());
+  span<size_t> sector_erase_counters() {
+    return span(sector_counters_.data(), sector_counters_.size());
   }
 
   size_t min_erase_count() const {
@@ -73,13 +73,13 @@ class FlashPartitionWithStats : public FlashPartition {
   FlashPartitionWithStats(
       Vector<size_t>& sector_counters,
       FlashMemory* flash,
-      uint32_t start_sector_index,
-      uint32_t sector_count,
+      uint32_t flash_start_sector_index,
+      uint32_t flash_sector_count,
       uint32_t alignment_bytes = 0,  // Defaults to flash alignment
       PartitionPermission permission = PartitionPermission::kReadAndWrite)
       : FlashPartition(flash,
-                       start_sector_index,
-                       sector_count,
+                       flash_start_sector_index,
+                       flash_sector_count,
                        alignment_bytes,
                        permission),
         sector_counters_(sector_counters) {
@@ -95,14 +95,14 @@ class FlashPartitionWithStatsBuffer : public FlashPartitionWithStats {
  public:
   FlashPartitionWithStatsBuffer(
       FlashMemory* flash,
-      uint32_t start_sector_index,
-      uint32_t sector_count,
+      uint32_t flash_start_sector_index,
+      uint32_t flash_sector_count,
       uint32_t alignment_bytes = 0,  // Defaults to flash alignment
       PartitionPermission permission = PartitionPermission::kReadAndWrite)
       : FlashPartitionWithStats(sector_counters_,
                                 flash,
-                                start_sector_index,
-                                sector_count,
+                                flash_start_sector_index,
+                                flash_sector_count,
                                 alignment_bytes,
                                 permission) {}
 

@@ -93,9 +93,8 @@ static void xfrm_sp_free_data(struct nl_object *c)
 	xfrmnl_sel_put (sp->sel);
 	xfrmnl_ltime_cfg_put (sp->lft);
 
-	if(sp->sec_ctx)
-	{
-		free (sp->sec_ctx);
+	if (sp->sec_ctx) {
+		free(sp->sec_ctx);
 	}
 
 	nl_list_for_each_entry_safe(utmpl, tmp, &sp->usertmpl_list, utmpl_list) {
@@ -106,33 +105,38 @@ static void xfrm_sp_free_data(struct nl_object *c)
 
 static int xfrm_sp_clone(struct nl_object *_dst, struct nl_object *_src)
 {
-	struct xfrmnl_sp*       dst = nl_object_priv(_dst);
-	struct xfrmnl_sp*       src = nl_object_priv(_src);
-	uint32_t                len = 0;
-	struct xfrmnl_user_tmpl *utmpl, *new;
+	struct xfrmnl_sp*        dst = nl_object_priv(_dst);
+	struct xfrmnl_sp*        src = nl_object_priv(_src);
+	struct xfrmnl_user_tmpl *utmpl;
+	struct xfrmnl_user_tmpl *new;
 
-	if (src->sel)
+	dst->sel = NULL;
+	dst->lft = NULL;
+	dst->sec_ctx = NULL;
+	nl_init_list_head(&dst->usertmpl_list);
+
+	if (src->sel) {
 		if ((dst->sel = xfrmnl_sel_clone (src->sel)) == NULL)
 			return -NLE_NOMEM;
-
-	if (src->lft)
-		if ((dst->lft = xfrmnl_ltime_cfg_clone (src->lft)) == NULL)
-			return -NLE_NOMEM;
-
-	if(src->sec_ctx)
-	{
-		len =   sizeof (struct xfrmnl_user_sec_ctx) + src->sec_ctx->ctx_len;
-		if ((dst->sec_ctx = calloc (1, len)) == NULL)
-			return -NLE_NOMEM;
-		memcpy ((void *)dst->sec_ctx, (void *)src->sec_ctx, len);
 	}
 
-	nl_init_list_head(&dst->usertmpl_list);
+	if (src->lft) {
+		if ((dst->lft = xfrmnl_ltime_cfg_clone (src->lft)) == NULL)
+			return -NLE_NOMEM;
+	}
+
+	if (src->sec_ctx) {
+		uint32_t len =   sizeof (struct xfrmnl_user_sec_ctx) + src->sec_ctx->ctx_len;
+
+		if ((dst->sec_ctx = malloc (len)) == NULL)
+			return -NLE_NOMEM;
+		memcpy(dst->sec_ctx, src->sec_ctx, len);
+	}
+
 	nl_list_for_each_entry(utmpl, &src->usertmpl_list, utmpl_list) {
 		new = xfrmnl_user_tmpl_clone (utmpl);
 		if (!new)
 			return -NLE_NOMEM;
-
 		xfrmnl_sp_add_usertemplate(dst, new);
 	}
 
@@ -357,15 +361,25 @@ static void xfrm_sp_dump_line(struct nl_object *a, struct nl_dump_params *p)
 		sprintf (share, "INF");
 	else
 		sprintf (share, "%" PRIu64, sp->lft->hard_packet_limit);
-	nl_dump_line(p, "\t\tsoft limit: %s (bytes), %s (packets) \n", dir, action);
-	nl_dump_line(p, "\t\thard limit: %s (bytes), %s (packets) \n", flags, share);
-	nl_dump_line(p, "\t\tsoft add_time: %llu (seconds), soft use_time: %llu (seconds) \n",
-	             sp->lft->soft_add_expires_seconds, sp->lft->soft_use_expires_seconds);
-	nl_dump_line(p, "\t\thard add_time: %llu (seconds), hard use_time: %llu (seconds) \n",
-	             sp->lft->hard_add_expires_seconds, sp->lft->hard_use_expires_seconds);
+	nl_dump_line(p, "\t\tsoft limit: %s (bytes), %s (packets) \n", dir,
+		     action);
+	nl_dump_line(p, "\t\thard limit: %s (bytes), %s (packets) \n", flags,
+		     share);
+	nl_dump_line(
+		p,
+		"\t\tsoft add_time: %llu (seconds), soft use_time: %llu (seconds) \n",
+		(long long unsigned)sp->lft->soft_add_expires_seconds,
+		(long long unsigned)sp->lft->soft_use_expires_seconds);
+	nl_dump_line(
+		p,
+		"\t\thard add_time: %llu (seconds), hard use_time: %llu (seconds) \n",
+		(long long unsigned)sp->lft->hard_add_expires_seconds,
+		(long long unsigned)sp->lft->hard_use_expires_seconds);
 
 	nl_dump_line(p, "\tlifetime current: \n");
-	nl_dump_line(p, "\t\t%llu bytes, %llu packets\n", sp->curlft.bytes, sp->curlft.packets);
+	nl_dump_line(p, "\t\t%llu bytes, %llu packets\n",
+		     (long long unsigned)sp->curlft.bytes,
+		     (long long unsigned)sp->curlft.packets);
 
 	if (sp->curlft.add_time != 0)
 	{
@@ -508,11 +522,7 @@ static struct nla_policy xfrm_sp_policy[XFRMA_MAX+1] = {
 
 static int xfrm_sp_request_update(struct nl_cache *c, struct nl_sock *h)
 {
-	struct xfrm_userpolicy_id sp_id;
-
-	memset (&sp_id, 0, sizeof (sp_id));
-	return nl_send_simple (h, XFRM_MSG_GETPOLICY, NLM_F_DUMP,
-	                       &sp_id, sizeof (sp_id));
+	return nl_send_simple (h, XFRM_MSG_GETPOLICY, NLM_F_DUMP, NULL, 0);
 }
 
 int xfrmnl_sp_parse(struct nlmsghdr *n, struct xfrmnl_sp **result)
@@ -1090,16 +1100,16 @@ int xfrmnl_sp_set_lifetime_cfg (struct xfrmnl_sp* sp, struct xfrmnl_ltime_cfg* l
 	return 0;
 }
 
-int xfrmnl_sp_get_curlifetime (struct xfrmnl_sp* sa, unsigned long long int* curr_bytes,
+int xfrmnl_sp_get_curlifetime (struct xfrmnl_sp* sp, unsigned long long int* curr_bytes,
                                unsigned long long int* curr_packets, unsigned long long int* curr_add_time, unsigned long long int* curr_use_time)
 {
-	if (sa == NULL || curr_bytes == NULL || curr_packets == NULL || curr_add_time == NULL || curr_use_time == NULL)
+	if (sp == NULL || curr_bytes == NULL || curr_packets == NULL || curr_add_time == NULL || curr_use_time == NULL)
 		return -1;
 
-	*curr_bytes     =   sa->curlft.bytes;
-	*curr_packets   =   sa->curlft.packets;
-	*curr_add_time  =   sa->curlft.add_time;
-	*curr_use_time  =   sa->curlft.use_time;
+	*curr_bytes     =   sp->curlft.bytes;
+	*curr_packets   =   sp->curlft.packets;
+	*curr_add_time  =   sp->curlft.add_time;
+	*curr_use_time  =   sp->curlft.use_time;
 
 	return 0;
 }

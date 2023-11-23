@@ -1,39 +1,52 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
 // Based heavily on GCE VMM's pit.cc.
 
 use std::io::Error as IoError;
 use std::sync::Arc;
-use std::thread;
 use std::time::Duration;
+use std::time::Instant;
 
-use base::{
-    error, warn, AsRawDescriptor, Descriptor, Error as SysError, Event, PollToken, WaitContext,
-};
+use anyhow::Context;
+use base::error;
+use base::warn;
+use base::Error as SysError;
+use base::EventToken;
+use base::WaitContext;
 use bit_field::BitField1;
 use bit_field::*;
-use hypervisor::{PitChannelState, PitRWMode, PitRWState, PitState};
+use hypervisor::PitChannelState;
+use hypervisor::PitRWMode;
+use hypervisor::PitRWState;
+use hypervisor::PitState;
 use remain::sorted;
 use sync::Mutex;
 use thiserror::Error;
 
-#[cfg(not(test))]
-use base::Clock;
-#[cfg(test)]
-use base::FakeClock as Clock;
+cfg_if::cfg_if! {
+    if #[cfg(test)] {
+        use base::FakeClock as Clock;
+        use base::FakeTimer as Timer;
+    } else {
+        use base::Clock;
+        use base::Timer;
+    }
+}
 
-#[cfg(test)]
-use base::FakeTimer as Timer;
-#[cfg(not(test))]
-use base::Timer;
+use base::WorkerThread;
 
 use crate::bus::BusAccessInfo;
+use crate::pci::CrosvmDeviceId;
 use crate::BusDevice;
+use crate::DeviceId;
+use crate::IrqEdgeEvent;
+use crate::Suspendable;
 
 // Bitmask for areas of standard (non-ReadBack) Control Word Format. Constant
 // names are kept the same as Intel PIT data sheet.
-#[derive(Debug, Clone, Copy, PartialEq, enumn::N)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, enumn::N)]
 enum CommandBit {
     CommandBCD = 0x01,  // Binary/BCD input. x86 only uses binary mode.
     CommandMode = 0x0e, // Operating Mode (mode 0-5).
@@ -46,7 +59,7 @@ enum CommandBit {
 // command is a "Read-Back", which can latch count and/or status of the
 // counters selected in the lower bits. See Intel 8254 data sheet for details.
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, enumn::N)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, enumn::N)]
 enum CommandCounter {
     CommandCounter0 = 0x00, // Select counter 0.
     CommandCounter1 = 0x40, // Select counter 1.
@@ -55,7 +68,7 @@ enum CommandCounter {
 }
 
 // Used for both CommandRW and ReadBackAccess.
-#[derive(Debug, Clone, Copy, PartialEq, enumn::N)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, enumn::N)]
 enum CommandAccess {
     CommandLatch = 0x00,   // Latch specified counter.
     CommandRWLeast = 0x10, // Read/Write least significant byte.
@@ -67,7 +80,7 @@ enum CommandAccess {
 // For mode 2 & 3, bit 3 is don't care bit (does not matter to be 0 or 1) but
 // per 8254 spec, should be 0 to insure compatibility with future Intel
 // products.
-#[derive(Debug, Clone, Copy, PartialEq, enumn::N)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, enumn::N)]
 enum CommandMode {
     // NOTE:  No h/w modes are currently implemented.
     CommandInterrupt = 0x00,     // Mode 0, interrupt on terminal count.
@@ -79,7 +92,7 @@ enum CommandMode {
 }
 
 // Bitmask for the latch portion of the ReadBack command.
-#[derive(Debug, Clone, Copy, PartialEq, enumn::N)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, enumn::N)]
 #[rustfmt::skip]  // rustfmt mangles comment indentation for trailing line comments.
 enum CommandReadBackLatch {
     CommandRBLatchBits = 0x30,   // Mask bits that determine latching.
@@ -91,7 +104,7 @@ enum CommandReadBackLatch {
 }
 
 // Bitmask for the counter portion of the ReadBack command.
-#[derive(Debug, Clone, Copy, PartialEq, enumn::N)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, enumn::N)]
 enum CommandReadBackCounters {
     //CommandRBCounters = 0x0e, // Counters for which to provide ReadBack info.
     CommandRBCounter2 = 0x08,
@@ -100,7 +113,7 @@ enum CommandReadBackCounters {
 }
 
 // Bitmask for the ReadBack status command.
-#[derive(Debug, Clone, Copy, PartialEq, enumn::N)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, enumn::N)]
 #[rustfmt::skip]  // rustfmt mangles comment indentation for last line of this enum.
 enum ReadBackData {
     // Output format for ReadBack command.
@@ -110,7 +123,7 @@ enum ReadBackData {
 }
 
 // I/O Port mappings in I/O bus.
-#[derive(Debug, Clone, Copy, PartialEq, enumn::N)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, enumn::N)]
 enum PortIOSpace {
     PortCounter0Data = 0x40, // Read/write.
     PortCounter1Data = 0x41, // Read/write.
@@ -120,7 +133,7 @@ enum PortIOSpace {
 }
 
 #[bitfield]
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct SpeakerPortFields {
     // This field is documented in the chipset spec as NMI status and control
     // register.  Bits 2, 3, 6, 7 and low level hardware bits that need no
@@ -147,6 +160,14 @@ const NUM_OF_COUNTERS: usize = 3;
 const NANOS_PER_SEC: u64 = 1_000_000_000;
 
 const MAX_TIMER_FREQ: u32 = 65536;
+
+#[derive(EventToken)]
+enum Token {
+    // The timer expired.
+    TimerExpire,
+    // The parent thread requested an exit.
+    Kill,
+}
 
 #[sorted]
 #[derive(Error, Debug)]
@@ -179,32 +200,17 @@ pub struct Pit {
     // Worker thread to update counter 0's state asynchronously. Counter 0 needs to send interrupts
     // when timers expire, so it needs asynchronous updates. All other counters need only update
     // when queried directly by the guest.
-    worker_thread: Option<thread::JoinHandle<PitResult<()>>>,
-    kill_evt: Event,
-}
-
-impl Drop for Pit {
-    fn drop(&mut self) {
-        if let Err(e) = self.kill_evt.write(1) {
-            error!("failed to kill PIT worker threads: {}", e);
-            return;
-        }
-        if let Some(thread) = self.worker_thread.take() {
-            match thread.join() {
-                Ok(r) => {
-                    if let Err(e) = r {
-                        error!("pit worker thread exited with error: {}", e)
-                    }
-                }
-                Err(e) => error!("pit worker thread panicked: {:?}", e),
-            }
-        }
-    }
+    worker_thread: Option<WorkerThread<PitResult<()>>>,
+    activated: bool,
 }
 
 impl BusDevice for Pit {
     fn debug_label(&self) -> String {
         "userspace PIT".to_string()
+    }
+
+    fn device_id(&self) -> DeviceId {
+        CrosvmDeviceId::Pit.into()
     }
 
     fn write(&mut self, info: BusAccessInfo, data: &[u8]) {
@@ -252,7 +258,7 @@ impl BusDevice for Pit {
 }
 
 impl Pit {
-    pub fn new(interrupt_evt: Event, clock: Arc<Mutex<Clock>>) -> PitResult<Pit> {
+    pub fn new(interrupt_evt: IrqEdgeEvent, clock: Arc<Mutex<Clock>>) -> PitResult<Pit> {
         let mut counters = Vec::new();
         let mut interrupt = Some(interrupt_evt);
         for i in 0..NUM_OF_COUNTERS {
@@ -268,12 +274,10 @@ impl Pit {
         // may not make sense to continue operation.
         assert_eq!(counters.len(), NUM_OF_COUNTERS);
 
-        let kill_evt = Event::new().map_err(PitError::CreateEvent)?;
-
         Ok(Pit {
             counters,
             worker_thread: None,
-            kill_evt,
+            activated: false,
         })
     }
 
@@ -287,19 +291,22 @@ impl Pit {
     }
 
     fn start(&mut self) -> PitResult<()> {
-        let mut worker = Worker {
-            pit_counter: self.counters[0].clone(),
-            fd: Descriptor(self.counters[0].lock().timer.as_raw_descriptor()),
-        };
-        let evt = self.kill_evt.try_clone().map_err(PitError::CloneEvent)?;
+        let pit_counter = self.counters[0].clone();
+        self.worker_thread = Some(WorkerThread::start("pit counter worker", move |kill_evt| {
+            let wait_ctx: WaitContext<Token> = WaitContext::build_with(&[
+                (&pit_counter.lock().timer, Token::TimerExpire),
+                (&kill_evt, Token::Kill),
+            ])
+            .map_err(PitError::CreateWaitContext)?;
 
-        self.worker_thread = Some(
-            thread::Builder::new()
-                .name("pit counter worker".to_string())
-                .spawn(move || worker.run(evt))
-                .map_err(PitError::SpawnThread)?,
-        );
+            let mut worker = Worker {
+                pit_counter,
+                wait_ctx,
+            };
 
+            worker.run()
+        }));
+        self.activated = true;
         Ok(())
     }
 
@@ -352,11 +359,31 @@ impl Pit {
     }
 }
 
+impl Suspendable for Pit {
+    fn sleep(&mut self) -> anyhow::Result<()> {
+        if let Some(thread) = self.worker_thread.take() {
+            thread
+                .stop()
+                .context("pit worker thread exited with error")?;
+        }
+        Ok(())
+    }
+
+    fn wake(&mut self) -> anyhow::Result<()> {
+        if self.activated {
+            if let Err(e) = self.start() {
+                error!("failed to start PIT: {}", e);
+            }
+        }
+        Ok(())
+    }
+}
+
 // Each instance of this represents one of the PIT counters. They are used to
 // implement one-shot and repeating timer alarms. An 8254 has three counters.
 struct PitCounter {
     // Event to write when asserting an interrupt.
-    interrupt_evt: Option<Event>,
+    interrupt_evt: Option<IrqEdgeEvent>,
     // Stores the value with which the counter was initialized. Counters are 16-
     // bit values with an effective range of 1-65536 (65536 represented by 0).
     reload_value: u16,
@@ -368,11 +395,11 @@ struct PitCounter {
     status: u8,
     // Stores time of starting timer. Used for calculating remaining count, if an alarm is
     // scheduled.
-    start: Option<Clock>,
+    start: Option<Instant>,
     // Current time.
     clock: Arc<Mutex<Clock>>,
     // Time when object was created. Used for a 15us counter.
-    creation_time: Clock,
+    creation_time: Instant,
     // The number of the counter. The behavior for each counter is slightly different.
     // Note that once a PitCounter is created, this value should never change.
     counter_id: usize,
@@ -401,7 +428,7 @@ impl Drop for PitCounter {
             // This should not fail - timer.clear() only fails if timerfd_settime fails, which
             // only happens due to invalid arguments or bad file descriptors. The arguments to
             // timerfd_settime are constant, so its arguments won't be invalid, and it manages
-            // the file descriptor safely (we don't use the unsafe FromRawFd) so its file
+            // the file descriptor safely (we don't use the unsafe FromRawDescriptor) so its file
             // descriptor will be valid.
             self.timer.clear().unwrap();
         }
@@ -417,25 +444,10 @@ fn adjust_count(count: u32) -> u32 {
     }
 }
 
-/// Get the current monotonic time of host in nanoseconds
-fn get_monotonic_time() -> u64 {
-    let mut time = libc::timespec {
-        tv_sec: 0,
-        tv_nsec: 0,
-    };
-    // Safe because time struct is local to this function and we check the returncode
-    let ret = unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut time) };
-    if ret != 0 {
-        0
-    } else {
-        time.tv_sec as u64 * 1_000_000_000u64 + time.tv_nsec as u64
-    }
-}
-
 impl PitCounter {
     fn new(
         counter_id: usize,
-        interrupt_evt: Option<Event>,
+        interrupt_evt: Option<IrqEdgeEvent>,
         clock: Arc<Mutex<Clock>>,
     ) -> PitResult<PitCounter> {
         #[cfg(not(test))]
@@ -467,11 +479,8 @@ impl PitCounter {
     }
 
     fn get_channel_state(&self) -> PitChannelState {
-        // Crosvm Pit stores start as an Instant. We do our best to convert to the host's
-        // monotonic clock by taking the current monotonic time and subtracting the elapsed
-        // time since self.start.
         let load_time = match &self.start {
-            Some(t) => get_monotonic_time() - t.elapsed().as_nanos() as u64,
+            Some(t) => t.saturating_duration_since(self.creation_time).as_nanos() as u64,
             None => 0,
         };
 
@@ -548,16 +557,9 @@ impl PitCounter {
         self.read_low_byte = state.read_state == PitRWState::Word1;
         self.wrote_low_byte = state.write_state == PitRWState::Word1;
 
-        // To convert the count_load_time to an instant we have to convert it to a
-        // duration by comparing it to get_monotonic_time.  Then subtract that duration from
-        // a "now" instant.
         self.start = self
-            .clock
-            .lock()
-            .now()
-            .checked_sub(std::time::Duration::from_nanos(
-                get_monotonic_time() - state.count_load_time,
-            ));
+            .creation_time
+            .checked_add(Duration::from_nanos(state.count_load_time));
     }
 
     fn get_access_mode(&self) -> Option<CommandAccess> {
@@ -657,7 +659,7 @@ impl PitCounter {
             .clock
             .lock()
             .now()
-            .duration_since(&self.creation_time)
+            .duration_since(self.creation_time)
             .subsec_micros();
         let refresh_clock = us % 15 == 0;
         let mut speaker = SpeakerPortFields::new();
@@ -711,9 +713,9 @@ impl PitCounter {
             Some(CommandMode::CommandInterrupt)
             | Some(CommandMode::CommandHWOneShot)
             | Some(CommandMode::CommandSWStrobe)
-            | Some(CommandMode::CommandHWStrobe) => Duration::new(0, 0),
+            | Some(CommandMode::CommandHWStrobe) => None,
             Some(CommandMode::CommandRateGen) | Some(CommandMode::CommandSquareWaveGen) => {
-                timer_len
+                Some(timer_len)
             }
             // Don't arm timer if invalid mode.
             None => {
@@ -797,7 +799,7 @@ impl PitCounter {
     }
 
     fn timer_handler(&mut self) {
-        if let Err(e) = self.timer.wait() {
+        if let Err(e) = self.timer.mark_waited() {
             // Under the current Timer implementation (as of Jan 2019), this failure shouldn't
             // happen but implementation details may change in the future, and the failure
             // cases are complex to reason about. Because of this, avoid unwrap().
@@ -817,22 +819,22 @@ impl PitCounter {
         // and the code is simpler without the special case.
         if let Some(interrupt) = &mut self.interrupt_evt {
             // This is safe because the file descriptor is nonblocking and we're writing 1.
-            interrupt.write(1).unwrap();
+            interrupt.trigger().unwrap();
         }
     }
 
-    fn safe_arm_timer(&mut self, mut due: Duration, period: Duration) {
+    fn safe_arm_timer(&mut self, mut due: Duration, period: Option<Duration>) {
         if due == Duration::new(0, 0) {
             due = Duration::from_nanos(1);
         }
 
-        if let Err(e) = self.timer.reset(due, Some(period)) {
+        if let Err(e) = self.timer.reset(due, period) {
             error!("failed to reset timer: {}", e);
         }
     }
 
     fn get_ticks_passed(&self) -> u64 {
-        match &self.start {
+        match self.start {
             None => 0,
             Some(t) => {
                 let dur = self.clock.lock().now().duration_since(t);
@@ -878,25 +880,13 @@ impl PitCounter {
 
 struct Worker {
     pit_counter: Arc<Mutex<PitCounter>>,
-    fd: Descriptor,
+    wait_ctx: WaitContext<Token>,
 }
 
 impl Worker {
-    fn run(&mut self, kill_evt: Event) -> PitResult<()> {
-        #[derive(PollToken)]
-        enum Token {
-            // The timer expired.
-            TimerExpire,
-            // The parent thread requested an exit.
-            Kill,
-        }
-
-        let wait_ctx: WaitContext<Token> =
-            WaitContext::build_with(&[(&self.fd, Token::TimerExpire), (&kill_evt, Token::Kill)])
-                .map_err(PitError::CreateWaitContext)?;
-
+    fn run(&mut self) -> PitResult<()> {
         loop {
-            let events = wait_ctx.wait().map_err(PitError::WaitError)?;
+            let events = self.wait_ctx.wait().map_err(PitError::WaitError)?;
             for event in events.iter().filter(|e| e.is_readable) {
                 match event.token {
                     Token::TimerExpire => {
@@ -912,7 +902,10 @@ impl Worker {
 
 #[cfg(test)]
 mod tests {
+    use base::Event;
+
     use super::*;
+
     struct TestData {
         pit: Pit,
         irqfd: Event,
@@ -998,11 +991,11 @@ mod tests {
     }
 
     fn set_up() -> TestData {
-        let irqfd = Event::new().unwrap();
+        let evt = IrqEdgeEvent::new().unwrap();
         let clock = Arc::new(Mutex::new(Clock::new()));
         TestData {
-            pit: Pit::new(irqfd.try_clone().unwrap(), clock.clone()).unwrap(),
-            irqfd,
+            irqfd: evt.get_trigger().try_clone().unwrap(),
+            pit: Pit::new(evt, clock.clone()).unwrap(),
             clock,
         }
     }
@@ -1172,7 +1165,7 @@ mod tests {
         write_counter(&mut data.pit, 0, 0xffff, CommandAccess::CommandRWBoth);
         // Advance clock enough to trigger interrupt.
         advance_by_ticks(&mut data, 0xffff);
-        assert_eq!(data.irqfd.read().unwrap(), 1);
+        data.irqfd.wait().unwrap();
     }
 
     /// Tests that Rate Generator mode (mode 2) handls the interrupt properly when the timer
@@ -1189,15 +1182,15 @@ mod tests {
         write_counter(&mut data.pit, 0, 0xffff, CommandAccess::CommandRWBoth);
         // Repatedly advance clock and expect interrupt.
         advance_by_ticks(&mut data, 0xffff);
-        assert_eq!(data.irqfd.read().unwrap(), 1);
+        data.irqfd.wait().unwrap();
 
         // Repatedly advance clock and expect interrupt.
         advance_by_ticks(&mut data, 0xffff);
-        assert_eq!(data.irqfd.read().unwrap(), 1);
+        data.irqfd.wait().unwrap();
 
         // Repatedly advance clock and expect interrupt.
         advance_by_ticks(&mut data, 0xffff);
-        assert_eq!(data.irqfd.read().unwrap(), 1);
+        data.irqfd.wait().unwrap();
     }
 
     /// Tests that square wave mode advances the counter correctly.

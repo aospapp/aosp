@@ -30,14 +30,6 @@ python_library {
         "tz/*.py",
         "zoneinfo/*.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     libs: [
         "py-six",
     ],

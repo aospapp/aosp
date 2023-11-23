@@ -1,13 +1,12 @@
+# Lint as: python2, python3
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import glob
 import logging
-import os
 
 from autotest_lib.client.bin import test
-from autotest_lib.client.common_lib import error, utils
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros.power import power_status, power_utils
 
 class power_ProbeDriver(test.test):

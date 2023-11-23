@@ -21,7 +21,7 @@ public:
     EncodedDataHelper(const std::string& file_path, VideoCodecType type);
     ~EncodedDataHelper();
 
-    // A fragment will contain the bytes of one AU (H264) or frame (VP8/9) in
+    // A fragment will contain the bytes of one AU (H264/HEVC) or frame (VP8/9) in
     // |data|, and |csd_flag| indicator for input buffer flag CODEC_CONFIG.
     struct Fragment {
         std::string data;
@@ -41,17 +41,25 @@ public:
 private:
     // NALU type enumeration as defined in H264 Annex-B. Only interested ones are
     // listed here.
-    enum NALUType : uint8_t {
+    enum H264NALUType : uint8_t {
         NON_IDR_SLICE = 0x1,
         IDR_SLICE = 0x5,
         SPS = 0x7,
         PPS = 0x8,
     };
 
+    // NALU type enumeration for ranges for VCL and CSD NALUs for HEVC.
+    enum HEVCNALUType : uint8_t {
+        VCL_NALU_MIN = 0,
+        VCL_NALU_MAX = 31,
+        CSD_NALU_MIN = 32,  // VPS, SPS, PPS
+        CSD_NALU_MAX = 34,
+    };
+
     // Slice input stream into fragments. This should be done in constructor.
     void SliceToFragments(const std::string& data);
 
-    // For H264, parse csd_flag from |fragment| data and store inside. Return true
+    // For H264/HEVC, parse csd_flag from |fragment| data and store inside. Return true
     // if this fragment is in interest; false otherwise (fragment will be
     // discarded.)
     bool ParseAUFragmentType(Fragment* fragment);

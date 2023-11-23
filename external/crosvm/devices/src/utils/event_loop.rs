@@ -1,17 +1,24 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use super::error::{Error, Result};
-use base::{
-    error, warn, AsRawDescriptor, Descriptor, EpollContext, EpollEvents, Event, RawDescriptor,
-    WatchingEvents,
-};
 use std::collections::BTreeMap;
 use std::mem::drop;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
+use std::sync::Weak;
 use std::thread;
+
+use base::error;
+use base::warn;
+use base::AsRawDescriptor;
+use base::Descriptor;
+use base::Event;
+use base::EventType;
+use base::WaitContext;
 use sync::Mutex;
+
+use super::error::Error;
+use super::error::Result;
 
 /// A fail handle will do the clean up when we cannot recover from some error.
 pub trait FailHandle: Send + Sync {
@@ -37,12 +44,12 @@ impl FailHandle for Option<Arc<dyn FailHandle>> {
     }
 }
 
-/// EpollEventLoop is an event loop blocked on a set of fds. When a monitered events is triggered,
+/// EventLoop is an event loop blocked on a set of fds. When a monitered events is triggered,
 /// event loop will invoke the mapped handler.
 pub struct EventLoop {
     fail_handle: Option<Arc<dyn FailHandle>>,
-    poll_ctx: Arc<EpollContext<Descriptor>>,
-    handlers: Arc<Mutex<BTreeMap<RawDescriptor, Weak<dyn EventHandler>>>>,
+    poll_ctx: Arc<WaitContext<Descriptor>>,
+    handlers: Arc<Mutex<BTreeMap<Descriptor, Weak<dyn EventHandler>>>>,
     stop_evt: Event,
 }
 
@@ -61,9 +68,9 @@ impl EventLoop {
             .and_then(|e| Ok((e.try_clone()?, e)))
             .map_err(Error::CreateEvent)?;
 
-        let fd_callbacks: Arc<Mutex<BTreeMap<RawDescriptor, Weak<dyn EventHandler>>>> =
+        let fd_callbacks: Arc<Mutex<BTreeMap<Descriptor, Weak<dyn EventHandler>>>> =
             Arc::new(Mutex::new(BTreeMap::new()));
-        let poll_ctx: EpollContext<Descriptor> = EpollContext::new()
+        let poll_ctx: WaitContext<Descriptor> = WaitContext::new()
             .and_then(|pc| {
                 pc.add(&stop_evt, Descriptor(stop_evt.as_raw_descriptor()))
                     .and(Ok(pc))
@@ -81,28 +88,27 @@ impl EventLoop {
         let handle = thread::Builder::new()
             .name(name)
             .spawn(move || {
-                let event_loop = EpollEvents::new();
                 loop {
                     if fail_handle.failed() {
                         error!("xhci controller already failed, stopping event ring");
                         return;
                     }
-                    let events = match poll_ctx.wait(&event_loop) {
+                    let events = match poll_ctx.wait() {
                         Ok(events) => events,
                         Err(e) => {
-                            error!("cannot poll {:?}", e);
+                            error!("cannot wait on events {:?}", e);
                             fail_handle.fail();
                             return;
                         }
                     };
                     for event in &events {
-                        let fd = event.token().as_raw_descriptor();
+                        let fd = event.token.as_raw_descriptor();
                         if fd == stop_evt.as_raw_descriptor() {
                             return;
                         }
 
                         let mut locked = fd_callbacks.lock();
-                        let weak_handler = match locked.get(&fd) {
+                        let weak_handler = match locked.get(&Descriptor(fd)) {
                             Some(cb) => cb.clone(),
                             None => {
                                 warn!("callback for fd {} already removed", fd);
@@ -112,7 +118,7 @@ impl EventLoop {
 
                         // If the file descriptor is hung up, remove it after calling the handler
                         // one final time.
-                        let mut remove = event.hungup();
+                        let mut remove = event.is_hungup;
 
                         if let Some(handler) = weak_handler.upgrade() {
                             // Drop lock before triggering the event.
@@ -128,8 +134,8 @@ impl EventLoop {
                         }
 
                         if remove {
-                            let _ = poll_ctx.delete(&event.token());
-                            let _ = locked.remove(&fd);
+                            let _ = poll_ctx.delete(&event.token);
+                            let _ = locked.remove(&Descriptor(fd));
                         }
                     }
                 }
@@ -148,7 +154,7 @@ impl EventLoop {
     pub fn add_event(
         &self,
         descriptor: &dyn AsRawDescriptor,
-        events: WatchingEvents,
+        event_type: EventType,
         handler: Weak<dyn EventHandler>,
     ) -> Result<()> {
         if self.fail_handle.failed() {
@@ -156,12 +162,12 @@ impl EventLoop {
         }
         self.handlers
             .lock()
-            .insert(descriptor.as_raw_descriptor(), handler);
+            .insert(Descriptor(descriptor.as_raw_descriptor()), handler);
         // This might fail due to epoll syscall. Check epoll_ctl(2).
         self.poll_ctx
-            .add_fd_with_events(
+            .add_for_event(
                 descriptor,
-                events,
+                event_type,
                 Descriptor(descriptor.as_raw_descriptor()),
             )
             .map_err(Error::WaitContextAddDescriptor)
@@ -170,7 +176,7 @@ impl EventLoop {
     /// Removes event for this `descriptor`. This function returns false if it fails.
     ///
     /// EventLoop does not guarantee all events for `descriptor` is handled.
-    pub fn remove_event_for_fd(&self, descriptor: &dyn AsRawDescriptor) -> Result<()> {
+    pub fn remove_event_for_descriptor(&self, descriptor: &dyn AsRawDescriptor) -> Result<()> {
         if self.fail_handle.failed() {
             return Err(Error::EventLoopAlreadyFailed);
         }
@@ -178,13 +184,15 @@ impl EventLoop {
         self.poll_ctx
             .delete(descriptor)
             .map_err(Error::WaitContextDeleteDescriptor)?;
-        self.handlers.lock().remove(&descriptor.as_raw_descriptor());
+        self.handlers
+            .lock()
+            .remove(&Descriptor(descriptor.as_raw_descriptor()));
         Ok(())
     }
 
     /// Stops this event loop asynchronously. Previous events might not be handled.
     pub fn stop(&self) {
-        match self.stop_evt.write(1) {
+        match self.stop_evt.signal() {
             Ok(_) => {}
             Err(_) => {
                 error!("fail to send event loop stop event, it might already stopped");
@@ -195,9 +203,13 @@ impl EventLoop {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+    use std::sync::Condvar;
+    use std::sync::Mutex;
+
     use base::Event;
-    use std::sync::{Arc, Condvar, Mutex};
+
+    use super::*;
 
     struct EventLoopTestHandler {
         val: Mutex<u8>,
@@ -207,7 +219,7 @@ mod tests {
 
     impl EventHandler for EventLoopTestHandler {
         fn on_event(&self) -> anyhow::Result<()> {
-            self.evt.read().unwrap();
+            self.evt.wait().unwrap();
             *self.val.lock().unwrap() += 1;
             self.cvar.notify_one();
             Ok(())
@@ -230,13 +242,9 @@ mod tests {
             evt,
         });
         let t: Arc<dyn EventHandler> = h.clone();
-        l.add_event(
-            &h.evt,
-            WatchingEvents::empty().set_read(),
-            Arc::downgrade(&t),
-        )
-        .unwrap();
-        self_evt.write(1).unwrap();
+        l.add_event(&h.evt, EventType::Read, Arc::downgrade(&t))
+            .unwrap();
+        self_evt.signal().unwrap();
         {
             let mut val = h.val.lock().unwrap();
             while *val < 1 {

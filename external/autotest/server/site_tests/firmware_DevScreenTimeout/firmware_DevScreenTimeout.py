@@ -29,7 +29,8 @@ class firmware_DevScreenTimeout(FirmwareTest):
     # If the margin is too small and firmware initialization is too fast,
     # the test will fail incorrectly.
     TIMEOUT_MARGIN = 5
-    RUN_SHELL_READY_TIME_MARGIN = 5
+    # Time for the concerned files to be added to the filesystem.
+    RUN_SHELL_READY_TIME_MARGIN = 10
 
     fw_time_record = {}
 
@@ -61,11 +62,23 @@ class firmware_DevScreenTimeout(FirmwareTest):
         @param tag: A tag about this boot.
         @raise TestError: If the firmware-boot-time file does not exist.
         """
-        time.sleep(self.RUN_SHELL_READY_TIME_MARGIN)
-        [fw_time] = self.faft_client.system.run_shell_command_get_output(
-                'cat /tmp/firmware-boot-time')
-        logging.info('Got firmware boot time [%s]: %s', tag, fw_time)
-        if fw_time:
+        elapsed_time = 0
+        fw_time = 0
+        # Try getting the firmware boot time for 10 seconds at 1 second retry
+        # interval. This is required to allow the send_boot_metrics upstart job
+        # to create that file.
+        while elapsed_time < self.RUN_SHELL_READY_TIME_MARGIN:
+            time.sleep(1)
+            status = self.faft_client.system.run_shell_command_get_status(
+                    '[ -s /tmp/firmware-boot-time ]')
+            if status == 0:
+                [fw_time] = self.faft_client.system.run_shell_command_get_output(
+                        'cat /tmp/firmware-boot-time')
+                break
+            elapsed_time += 1
+
+        if fw_time and elapsed_time < self.RUN_SHELL_READY_TIME_MARGIN:
+            logging.info('Got firmware boot time [%s]: %s', tag, fw_time)
             self.fw_time_record[tag] = float(fw_time)
         else:
             raise error.TestError('Failed to get the firmware boot time.')

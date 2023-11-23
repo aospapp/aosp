@@ -7,6 +7,7 @@ import logging
 import os
 
 import django.core
+import six
 try:
     from django.db import models as dbmodels, connection
 except django.core.exceptions.ImproperlyConfigured:
@@ -505,7 +506,7 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
         self.shard = Shard.deserialize(data)
 
 
-    # Note: Only specify foreign keys here, specify all native host columns in
+    # Note: Only specify foreign keys here, specify host columns in
     # rdb_model_extensions instead.
     Protection = host_protections.Protection
     labels = dbmodels.ManyToManyField(Label, blank=True,
@@ -1470,7 +1471,7 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
         self.shard = Shard.deserialize(data)
 
 
-    def sanity_check_update_from_shard(self, shard, updated_serialized):
+    def _check_update_from_shard(self, shard, updated_serialized):
         # If the job got aborted on the main after the client fetched it
         # no shard_id will be set. The shard might still push updates though,
         # as the job might complete before the abort bit syncs to the shard.
@@ -1504,8 +1505,8 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
         'AUTOTEST_WEB', 'parse_failed_repair_default', type=bool, default=False)
     FETCH_READONLY_JOBS = global_config.global_config.get_config_value(
         'AUTOTEST_WEB','readonly_heartbeat', type=bool, default=False)
-    SKIP_JOBS_CREATED_BEFORE = global_config.global_config.get_config_value(
-        'SHARD', 'skip_jobs_created_before', type=int, default=0)
+    # TODO(ayatane): Deprecated, not removed due to difficulty untangling imports
+    SKIP_JOBS_CREATED_BEFORE = 0
 
 
 
@@ -1635,7 +1636,7 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
         job.dependency_labels = options['dependencies']
 
         if options.get('keyvals'):
-            for key, value in options['keyvals'].iteritems():
+            for key, value in six.iteritems(options['keyvals']):
                 # None (or NULL) is not acceptable by DB, so change it to an
                 # empty string in case.
                 JobKeyval.objects.create(job=job, key=key,
@@ -1924,7 +1925,7 @@ class HostQueueEntry(dbmodels.Model, model_logic.ModelExtensions):
         self.meta_host = Label.deserialize(data)
 
 
-    def sanity_check_update_from_shard(self, shard, updated_serialized,
+    def _check_update_from_shard(self, shard, updated_serialized,
                                        job_ids_sent):
         if self.job_id not in job_ids_sent:
             raise error.IgnorableUnallowedRecordsSentToMain(

@@ -1,12 +1,14 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::error::Error;
-use std::os::unix::io::RawFd;
+//! Power monitoring abstraction layer.
 
-pub trait PowerMonitor {
-    fn poll_fd(&self) -> RawFd;
+use std::error::Error;
+
+use base::ReadNotifier;
+
+pub trait PowerMonitor: ReadNotifier {
     fn read_message(&mut self) -> std::result::Result<Option<PowerData>, Box<dyn Error>>;
 }
 
@@ -47,3 +49,8 @@ impl<T> CreatePowerMonitorFn for T where
 
 #[cfg(feature = "powerd")]
 pub mod powerd;
+
+mod protos {
+    // ANDROID: b/259142784 - we remove protos subdir b/c cargo2android
+    include!(concat!(env!("OUT_DIR"), "/generated.rs"));
+}

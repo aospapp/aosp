@@ -9,7 +9,7 @@ PKG_LIBS_FAKEGUDEV := $(shell ${PKG_CONFIG} --libs $(PKGS_FAKEGUDEV))
 PKGS_FAKESYSCALLS := glib-2.0
 PKG_CFLAGS_FAKESYSCALLS := $(shell ${PKG_CONFIG} --cflags $(PKGS_FAKESYSCALLS))
 PKG_LIBS_FAKESYSCALLS := $(shell ${PKG_CONFIG} --libs $(PKGS_FAKESYSCALLS))
-WARN := -Werror -Wall
+WARN := -Werror -Wall -Wno-deprecated-non-prototype
 DEBUG := -g -DFAKE_G_UDEV_DEBUG -DFAKE_SYSCALLS_DEBUG
 OPT := -O2
 

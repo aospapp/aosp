@@ -38,7 +38,7 @@ int startc = 0;
 int showchar[] = { 124, 47, 45, 92, 124, 47, 45, 92 };
 
 int nullFileHandle;
-int openlog[2] = { 0, 0 };
+static int openlog[2] = { 0, 0 };
 
 int cFileCount, dFileCount, errorCount;
 static int disk_space_pool = 0;
@@ -391,7 +391,7 @@ int LTP_fs_open_block_device()
 {
 	dev_t devt;
 	struct stat statbuf;
-	int rc;
+	int rc = 0;
 
 	if (ltp_block_dev_handle == 0) {
 

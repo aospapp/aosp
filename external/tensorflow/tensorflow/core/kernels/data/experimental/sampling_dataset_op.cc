@@ -72,7 +72,7 @@ class SamplingDatasetOp::Dataset : public DatasetBase {
 
   Status InputDatasets(std::vector<const DatasetBase*>* inputs) const override {
     inputs->push_back(input_);
-    return Status::OK();
+    return OkStatus();
   }
 
   Status CheckExternalState() const override {
@@ -93,7 +93,7 @@ class SamplingDatasetOp::Dataset : public DatasetBase {
     TF_RETURN_IF_ERROR(b->AddScalar(seeds_.second, &seed2));
     TF_RETURN_IF_ERROR(
         b->AddDataset(this, {input_graph_node, rate, seed, seed2}, output));
-    return Status::OK();
+    return OkStatus();
   }
 
  private:
@@ -118,7 +118,7 @@ class SamplingDatasetOp::Dataset : public DatasetBase {
           tf_shared_lock l(mu_);
           if (!input_impl_) {
             *end_of_sequence = true;
-            return Status::OK();
+            return OkStatus();
           }
           TF_RETURN_IF_ERROR(
               input_impl_->GetNext(ctx, out_tensors, end_of_sequence));
@@ -126,7 +126,7 @@ class SamplingDatasetOp::Dataset : public DatasetBase {
         if (*end_of_sequence) {
           mutex_lock l(mu_);
           input_impl_.reset();
-          return Status::OK();
+          return OkStatus();
         }
 
         // generate a number from random uniform [0, 1)
@@ -138,7 +138,7 @@ class SamplingDatasetOp::Dataset : public DatasetBase {
         }
       } while (!rand_val_hit);
       *end_of_sequence = false;
-      return Status::OK();
+      return OkStatus();
     }
 
    protected:
@@ -167,7 +167,7 @@ class SamplingDatasetOp::Dataset : public DatasetBase {
         TF_RETURN_IF_ERROR(
             writer->WriteScalar(full_name("input_impl_empty"), ""));
       }
-      return Status::OK();
+      return OkStatus();
     }
 
     Status RestoreInternal(IteratorContext* ctx,
@@ -188,11 +188,11 @@ class SamplingDatasetOp::Dataset : public DatasetBase {
       } else {
         input_impl_.reset();
       }
-      return Status::OK();
+      return OkStatus();
     }
 
     mutex mu_;
-    std::pair<int64, int64> seeds_ TF_GUARDED_BY(mu_);
+    std::pair<int64_t, int64_t> seeds_ TF_GUARDED_BY(mu_);
 
    private:
     std::unique_ptr<IteratorBase> input_impl_ TF_GUARDED_BY(mu_);
@@ -211,11 +211,11 @@ class SamplingDatasetOp::Dataset : public DatasetBase {
     random::PhiloxRandom parent_generator_ TF_GUARDED_BY(mu_);
     random::SingleSampleAdapter<random::PhiloxRandom> generator_
         TF_GUARDED_BY(mu_);
-    int64 num_random_samples_ TF_GUARDED_BY(mu_) = 0;
+    int64_t num_random_samples_ TF_GUARDED_BY(mu_) = 0;
   };
 
   const float rate_;
-  const std::pair<int64, int64> seeds_;
+  const std::pair<int64_t, int64_t> seeds_;
   const DatasetBase* const input_;
 };  // SamplingDatasetOp::Dataset
 
@@ -229,8 +229,8 @@ void SamplingDatasetOp::MakeDataset(OpKernelContext* ctx, DatasetBase* input,
   int64_t seed;
   int64_t seed2;
   OP_REQUIRES_OK(ctx, ParseScalarArgument<float>(ctx, kRate, &rate));
-  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, kSeed, &seed));
-  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, kSeed2, &seed2));
+  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64_t>(ctx, kSeed, &seed));
+  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64_t>(ctx, kSeed2, &seed2));
 
   *output = new Dataset(ctx, rate, seed, seed2, input);
 }

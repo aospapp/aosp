@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -25,36 +25,21 @@ import base64
 import httplib2
 import logging
 import sys
-import os
 import random
 from email.mime.text import MIMEText
 
 import common
-from autotest_lib.client.bin import utils
-from autotest_lib.client.common_lib import global_config
 from autotest_lib.server import site_utils
 
 try:
-  from apiclient.discovery import build as apiclient_build
-  from apiclient import errors as apiclient_errors
-  from oauth2client import file as oauth_client_fileio
+    from apiclient.discovery import build as apiclient_build
+    from apiclient import errors as apiclient_errors
+    from oauth2client import file as oauth_client_fileio
 except ImportError as e:
-  apiclient_build = None
-  logging.debug("API client for gmail disabled. %s", e)
-
-# Note: These imports needs to come after the apiclient imports, because
-# of a sys.path war between chromite and autotest crbug.com/622988
-from autotest_lib.server import utils as server_utils
-from chromite.lib import retry_util
-
-try:
-    from chromite.lib import metrics
-except ImportError:
-    metrics = utils.metrics_mock
+    apiclient_build = None
+    logging.debug("API client for gmail disabled. %s", e)
 
 
-DEFAULT_CREDS_FILE = global_config.global_config.get_config_value(
-        'NOTIFICATIONS', 'gmail_api_credentials', default=None)
 RETRY_DELAY = 5
 RETRY_BACKOFF_FACTOR = 1.5
 MAX_RETRY = 10
@@ -141,48 +126,8 @@ def send_email(to, subject, message_text, retry=True, creds_path=None):
     @param creds_path: The credential path for gmail account, if None,
                        will use DEFAULT_CREDS_FILE.
     """
-    auth_creds = server_utils.get_creds_abspath(
-        creds_path or DEFAULT_CREDS_FILE)
-    if not auth_creds or not os.path.isfile(auth_creds):
-        logging.error('Failed to send email to %s: Credential file does not '
-                      'exist: %s. If this is a prod server, puppet should '
-                      'install it. If you need to be able to send email, '
-                      'find the credential file from chromeos-admin repo and '
-                      'copy it to %s', to, auth_creds, auth_creds)
-        return
-    client = GmailApiClient(oauth_credentials=auth_creds)
-    m = Message(to, subject, message_text)
-    retry_count = MAX_RETRY if retry else 0
-
-    def _run():
-        """Send the message."""
-        client.send_message(m, ignore_error=False)
-
-    def handler(exc):
-        """Check if exc is an HttpError and is retriable.
-
-        @param exc: An exception.
-
-        @return: True if is an retriable HttpError.
-        """
-        if not isinstance(exc, apiclient_errors.HttpError):
-            return False
-
-        error_msg = str(exc)
-        should_retry = any([msg in error_msg for msg in RETRIABLE_MSGS])
-        if should_retry:
-            logging.warning('Will retry error %s', exc)
-        return should_retry
-
-    success = False
-    try:
-        retry_util.GenericRetry(
-                handler, retry_count, _run, sleep=RETRY_DELAY,
-                backoff_factor=RETRY_BACKOFF_FACTOR)
-        success = True
-    finally:
-        metrics.Counter('chromeos/autotest/send_email/count').increment(
-                fields={'success': success})
+    # TODO(ayatane): Deprecated, not untangling imports now
+    pass
 
 
 if __name__ == '__main__':

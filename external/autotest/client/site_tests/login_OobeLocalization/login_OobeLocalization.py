@@ -1,9 +1,15 @@
+# Lint as: python2, python3
 # Copyright 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import json
 import logging
+from six.moves import map
 
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
@@ -14,17 +20,17 @@ class login_OobeLocalization(test.test):
     """Tests different region configurations at OOBE."""
     version = 1
 
-    _LANGUAGE_SELECT = 'language-select'
-    _KEYBOARD_SELECT = 'keyboard-select'
+    _LANGUAGE_SELECT = "document.getElementById('connect').$.languageSelect.$.select"
+    _KEYBOARD_SELECT = "document.getElementById('connect').$.keyboardSelect.$.select"
+    _KEYBOARD_ITEMS = "document.getElementById('connect').$.keyboardSelect.items"
     _FALLBACK_KEYBOARD = 'xkb:us::eng'
 
+    _VPD_CACHE_DIR = '/mnt/stateful_partition/unencrypted/cache/vpd'
     # dump_vpd_log reads the VPD cache in lieu of running `vpd -l`.
-    _VPD_FILENAME = '/var/cache/vpd/full-v2.txt'
+    _VPD_FILENAME = _VPD_CACHE_DIR + '/full-v2.txt'
     # The filtered cache is created from the cache by dump_vpd_log. It is read
-    # at startup if the device is not owned. (Otherwise /tmp/machine-info is
-    # created by dump_vpd_log and read. See
-    # /platform/login_manager/init/machine-info.conf.)
-    _FILTERED_VPD_FILENAME = '/var/log/vpd_2.0.txt'
+    # by Chrome to load region information.
+    _FILTERED_VPD_FILENAME = _VPD_CACHE_DIR + '/filtered.txt'
     # cros-regions.json has information for each region (locale, input method,
     # etc.) in JSON format.
     _REGIONS_FILENAME = '/usr/share/misc/cros-regions.json'
@@ -49,6 +55,10 @@ class login_OobeLocalization(test.test):
                              region['region_code'])
                 continue
 
+            # TODO(https://crbug.com/1256723): Reenable when the bug is fixed.
+            if region['region_code'] == 'kz':
+                continue
+
             # TODO(hungte) When OOBE supports cros-regions.json
             # (crosbug.com/p/34536) we can remove initial_locale,
             # initial_timezone, and keyboard_layout.
@@ -64,13 +74,22 @@ class login_OobeLocalization(test.test):
         cros_ui.stop()
         utils.run('rm /home/chronos/Local\ State', ignore_status=True)
         utils.run('dump_vpd_log --clean')
+        utils.run('dump_vpd_log')
 
 
     def _run_with_chrome(self, func, *args):
-        with chrome.Chrome(auto_login=False) as self._chrome:
-            utils.poll_for_condition(
-                    self._is_oobe_ready,
-                    exception=error.TestFail('OOBE not ready'))
+        with chrome.Chrome(
+                auto_login=False,
+                extra_browser_args=[
+                        "--disable-hid-detection-on-oobe",
+                        "--force-hwid-check-result-for-test=success",
+                        "--vmodule=login_display_host_webui=1"
+                ]) as self._chrome:
+            self._chrome.browser.oobe.WaitForJavaScriptCondition(
+                    "typeof Oobe == 'function' && "
+                    "typeof OobeAPI == 'object' && "
+                    "OobeAPI.screens.WelcomeScreen.isVisible()",
+                    timeout=30)
             return func(*args)
 
 
@@ -84,12 +103,12 @@ class login_OobeLocalization(test.test):
                 initial_locale,
                 alternate_values = self._resolve_language(initial_locale),
                 check_separator = True):
-            raise error.TestFail(
-                    'Language not found for region "%s".\n'
-                    'Actual value of %s:\n%s' % (
-                            region['region_code'],
-                            self._LANGUAGE_SELECT,
-                            self._dump_options(self._LANGUAGE_SELECT)))
+            raise error.TestFail('Language not found for region "%s".\n'
+                                 'Expected: %s\n.'
+                                 'Actual value of %s:\n%s' %
+                                 (region['region_code'], initial_locale,
+                                  self._LANGUAGE_SELECT,
+                                  self._dump_options(self._LANGUAGE_SELECT)))
 
         # We expect to see only login keyboards at OOBE.
         keyboards = region['keyboards']
@@ -116,7 +135,7 @@ class login_OobeLocalization(test.test):
         # Check that the fallback keyboard is present.
         if self._FALLBACK_KEYBOARD not in keyboards:
             if not self._verify_option_exists(
-                    self._KEYBOARD_SELECT,
+                    self._KEYBOARD_ITEMS,
                     self._comp_ime_prefix + self._FALLBACK_KEYBOARD):
                 raise error.TestFail(
                         'Fallback keyboard layout not found for region "%s".\n'
@@ -138,6 +157,7 @@ class login_OobeLocalization(test.test):
             for line in vpd_log:
                 # Extract "key"="value" pair.
                 key, _, value = line.replace('"', '').partition('=')
+                value = value.rstrip("\n")
                 vpd[key] = value
 
             vpd.update(vpd_settings);
@@ -177,7 +197,7 @@ class login_OobeLocalization(test.test):
         """
         js_expression = """
                 (function () {
-                  var select = document.querySelector('#%s');
+                  var select = %s;
                   if (!select || select.selectedIndex)
                     return false;
                   var values = '%s'.split(',');
@@ -193,9 +213,7 @@ class login_OobeLocalization(test.test):
                         'OPTGROUP';
                   }
                   return true;
-                })()""" % (select_id,
-                           values,
-                           alternate_values,
+                })()""" % (select_id, values, alternate_values,
                            check_separator)
 
         return self._chrome.browser.oobe.EvaluateJavaScript(js_expression)
@@ -213,8 +231,7 @@ class login_OobeLocalization(test.test):
         """
         js_expression = """
                 (function () {
-                  return !!document.querySelector(
-                      '#%s option[value=\\'%s\\']');
+                  return !!%s.find(el => el.value == '%s');
                 })()""" % (select_id, value)
 
         return self._chrome.browser.oobe.EvaluateJavaScript(js_expression)
@@ -234,7 +251,6 @@ class login_OobeLocalization(test.test):
 
 
     def _get_regions(self):
-        regions = {}
         with open(self._REGIONS_FILENAME, 'r') as regions_file:
             return json.load(regions_file).values()
 
@@ -243,8 +259,9 @@ class login_OobeLocalization(test.test):
         """Finds the xkb values' component extension id prefix, if any.
         @returns the prefix if found, or an empty string
         """
-        return self._chrome.browser.oobe.EvaluateJavaScript("""
-                var value = document.getElementById('%s').value;
+        return self._chrome.browser.oobe.EvaluateJavaScript(
+                """
+                var value = %s.value;
                 value.substr(0, value.lastIndexOf('xkb:'))""" %
                 self._KEYBOARD_SELECT)
 
@@ -274,23 +291,13 @@ class login_OobeLocalization(test.test):
         return ''
 
 
-    def _is_oobe_ready(self):
-        return (self._chrome.browser.oobe and
-                self._chrome.browser.oobe.EvaluateJavaScript(
-                        "var select = document.getElementById('%s');"
-                        "select && select.children.length >= 2" %
-                                self._LANGUAGE_SELECT))
-
-
     def _dump_options(self, select_id):
         js_expression = """
                 (function () {
-                  var selector = '#%s';
                   var divider = ',';
-                  var select = document.querySelector(selector);
+                  var select = %s
                   if (!select)
-                    return 'document.querySelector(\\'' + selector +
-                        '\\') failed.';
+                    return 'selector failed.';
                   var dumpOptgroup = function(group) {
                     var result = '';
                     for (var i = 0; i < group.children.length; i++) {

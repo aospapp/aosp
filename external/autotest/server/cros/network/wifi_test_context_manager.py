@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -189,7 +190,8 @@ class WiFiTestContextManager(object):
             self.client.start_capture(ap_config.frequency,
                                       snaplen=self._packet_capture_snaplen)
         if self._enable_packet_captures:
-           self.capture_host.start_capture(ap_config.frequency,
+            self.capture_host.start_capture(
+                    ap_config.frequency,
                     width_type=ap_config.packet_capture_mode,
                     snaplen=self._packet_capture_snaplen)
 
@@ -357,7 +359,8 @@ class WiFiTestContextManager(object):
             ap_num = 0
         if ping_config is None:
             ping_ip = self.router.get_wifi_ip(ap_num=ap_num)
-            ping_config = ping_runner.PingConfig(ping_ip)
+            wifi_if = self.client.wifi_if
+            ping_config = ping_runner.PingConfig(ping_ip, source_iface=wifi_if)
         self.client.ping(ping_config)
 
 
@@ -393,6 +396,16 @@ class WiFiTestContextManager(object):
             ap_num = 0
         desired_subnet = self.router.get_wifi_ip_subnet(ap_num)
         wifi_ip = self.router.get_wifi_ip(ap_num)
-        return self.client.wait_for_connection(
-                ssid, timeout_seconds=timeout_seconds, freq=freq,
-                ping_ip=wifi_ip, desired_subnet=desired_subnet)
+        wifi_if = self.client.wifi_if
+
+        # ping command used for verifying WiFi connection should bind to
+        # WiFi interface, so that ping packets won't go through Ethernet
+        # interface in some scenarios.
+        # See b/199940334: autotest: wifi_client's wait_for_connection
+        # does not consider NUD state
+        return self.client.wait_for_connection(ssid,
+                                               timeout_seconds=timeout_seconds,
+                                               freq=freq,
+                                               ping_ip=wifi_ip,
+                                               desired_subnet=desired_subnet,
+                                               source_iface=wifi_if)

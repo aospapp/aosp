@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,8 +24,12 @@
 //! Developers should feel free to use sync::Mutex anywhere in crosvm that they
 //! would otherwise be using std::sync::Mutex.
 
-use std::fmt::{self, Debug, Display};
-use std::sync::{Mutex as StdMutex, MutexGuard, TryLockError};
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::sync::Mutex as StdMutex;
+use std::sync::MutexGuard;
+use std::sync::TryLockError;
 
 /// A mutual exclusion primitive useful for protecting shared data.
 #[derive(Default)]

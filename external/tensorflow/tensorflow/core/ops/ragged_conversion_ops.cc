@@ -84,7 +84,7 @@ tensorflow::Status ValidateRowPartitionTypesAndShapes(
       }
     }
   }
-  return tensorflow::Status::OK();
+  return OkStatus();
 }
 
 }  // namespace
@@ -118,6 +118,7 @@ REGISTER_OP("RaggedTensorToVariant")
     .Attr("Tvalues: type")
     .Attr("Tsplits: {int32, int64} = DT_INT64")
     .Attr("batched_input: bool")
+    .SetTypeConstructor(full_type::Unary(TFT_RAGGED, "Tvalues"))
     .SetShapeFn(RaggedTensorToVariantShapeFn);
 
 REGISTER_OP("RaggedTensorFromVariant")
@@ -158,7 +159,7 @@ REGISTER_OP("RaggedTensorToTensor")
 
 Status RaggedTensorToSparseShapeFn(InferenceContext* c) {
   int64_t num_splits;
-  TF_RETURN_IF_ERROR(c->GetAttr<int64>("RAGGED_RANK", &num_splits));
+  TF_RETURN_IF_ERROR(c->GetAttr<int64_t>("RAGGED_RANK", &num_splits));
   // TODO(b/112274756): Allow ragged_rank to be 0.
   if (num_splits < 1) {
     return errors::InvalidArgument("Requires RAGGED_RANK>0");
@@ -182,12 +183,12 @@ Status RaggedTensorToSparseShapeFn(InferenceContext* c) {
   c->set_output(1, c->Vector(num_values));              // values
   c->set_output(2, c->Vector(dense_dims));              // dense_shape
 
-  return Status::OK();
+  return OkStatus();
 }
 
 Status RaggedTensorToVariantShapeFn(InferenceContext* c) {
   int64_t num_splits;
-  TF_RETURN_IF_ERROR(c->GetAttr<int64>("RAGGED_RANK", &num_splits));
+  TF_RETURN_IF_ERROR(c->GetAttr<int64_t>("RAGGED_RANK", &num_splits));
   bool batched;
   TF_RETURN_IF_ERROR(c->GetAttr<bool>("batched_input", &batched));
   shape_inference::ShapeHandle rt_dense_values = c->input(num_splits);
@@ -204,11 +205,7 @@ Status RaggedTensorToVariantShapeFn(InferenceContext* c) {
   } else {
     c->set_output(0, c->Scalar());
   }
-  if (batched && num_splits == 0) {
-    return errors::InvalidArgument(
-        "ragged_rank=0 is not currently supported when batched_input=true.");
-  }
-  return Status::OK();
+  return OkStatus();
 }
 
 Status RaggedTensorToVariantGradientShapeFn(InferenceContext* c) {
@@ -216,16 +213,16 @@ Status RaggedTensorToVariantGradientShapeFn(InferenceContext* c) {
   TF_RETURN_IF_ERROR(
       c->MakeShapeFromShapeTensorTreatScalarAsUnknownShape(2, &shape));
   c->set_output(0, shape);
-  return Status::OK();
+  return OkStatus();
 }
 
 Status RaggedTensorFromVariantShapeFn(InferenceContext* c) {
   int64_t input_ragged_rank;
   TF_RETURN_IF_ERROR(
-      c->GetAttr<int64>("input_ragged_rank", &input_ragged_rank));
+      c->GetAttr<int64_t>("input_ragged_rank", &input_ragged_rank));
   int64_t output_ragged_rank;
   TF_RETURN_IF_ERROR(
-      c->GetAttr<int64>("output_ragged_rank", &output_ragged_rank));
+      c->GetAttr<int64_t>("output_ragged_rank", &output_ragged_rank));
   shape_inference::ShapeHandle encoded_ragged = c->input(0);
   if (c->RankKnown(encoded_ragged) && input_ragged_rank >= 0) {
     shape_inference::ShapeHandle unused;
@@ -236,7 +233,7 @@ Status RaggedTensorFromVariantShapeFn(InferenceContext* c) {
     c->set_output(i, c->UnknownShapeOfRank(1));
   }
   c->set_output(output_ragged_rank, c->UnknownShape());
-  return Status::OK();
+  return OkStatus();
 }
 
 tensorflow::Status RaggedTensorToTensorShapeFn(InferenceContext* c) {
@@ -279,7 +276,7 @@ tensorflow::Status RaggedTensorToTensorShapeFn(InferenceContext* c) {
   TF_RETURN_IF_ERROR(
       c->MakeShapeFromShapeProto(output_shape, &output_shape_handle));
   c->set_output(0, output_shape_handle);
-  return Status::OK();
+  return OkStatus();
 }
 
 }  // namespace tensorflow

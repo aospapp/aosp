@@ -2,13 +2,11 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# The names of expected mount-points, devices, magic files, etc on chrome os.
+# The names of expected mount-points, devices, magic files, etc on ChromeOS.
 
 # Constants used by other constants.
 USER_DATA_DIR = '/home/chronos'
-# TODO b:169251326 terms below are set outside of this codebase
-# and should be updated when possible. ("whitelist" -> "allowlist")
-ALLOWLIST_DIR = '/var/lib/whitelist'
+DEVICESETTINGS_DIR = '/var/lib/devicesettings'
 LOG_DIR = '/var/log'
 
 # Rest of constants.
@@ -46,9 +44,17 @@ CREDENTIALS = {
 SHADOW_ROOT = '/home/.shadow'
 
 CRYPTOHOME_DEV_REGEX_ANY = r'.*'
+CRYPTOHOME_DEV_REGEX_REGULAR_USER_DMCRYPT_DEVICE = r'^/dev/mapper/.*$'
+CRYPTOHOME_DEV_REGEX_REGULAR_USER_LOOP_DEVICE = r'^/dev/(?!loop[0-9]+$)[^/]*$'
 CRYPTOHOME_DEV_REGEX_REGULAR_USER_SHADOW = r'^/home/\.shadow/.*/vault$'
-CRYPTOHOME_DEV_REGEX_REGULAR_USER_DEVICE = r'^/dev/(?!loop[0-9]+$)[^/]*$'
 CRYPTOHOME_DEV_REGEX_REGULAR_USER_EPHEMERAL = r'^ephemeralfs/.*$'
+
+
+# Cryptohome mounts are either backed by a dm-crypt or a loop device.
+CRYPTOHOME_DEV_REGEX_REGULAR_USER_DEVICE = r'(%s|%s)' % (
+        CRYPTOHOME_DEV_REGEX_REGULAR_USER_DMCRYPT_DEVICE,
+        CRYPTOHOME_DEV_REGEX_REGULAR_USER_LOOP_DEVICE)
+
 # Ecryptfs-based user home directory mounts the SHADOW encrypted directory,
 # while ext4-crypto based user home is a bind-mount to an encrypted directory
 # part of a ext4 filesystem that mounts the main disk device. Both can be
@@ -110,7 +116,7 @@ OAUTH2_WRAP_BRIDGE_NEW_URL = '/OAuthWrapBridge'
 OAUTH2_GET_AUTH_CODE_URL = '/o/oauth2/programmatic_auth'
 OAUTH2_GET_TOKEN_URL = '/o/oauth2/token'
 
-OWNER_KEY_FILE = ALLOWLIST_DIR + '/owner.key'
+OWNER_KEY_FILE = DEVICESETTINGS_DIR + '/owner.key'
 
 SERVICE_LOGIN_URL = '/accounts/ServiceLogin'
 SERVICE_LOGIN_NEW_URL = '/ServiceLogin'
@@ -118,7 +124,7 @@ SERVICE_LOGIN_AUTH_URL = '/ServiceLoginAuth'
 SERVICE_LOGIN_AUTH_ERROR = 'The username or password you entered is incorrect.'
 
 SESSION_MANAGER = 'session_manager'
-SIGNED_POLICY_FILE = ALLOWLIST_DIR + '/policy'
+SIGNED_POLICY_FILE = DEVICESETTINGS_DIR + '/policy'
 SPECIAL_CASE_DOMAIN = 'gmail.com'
 USER_POLICY_DIR = '/run/user_policy'
 USER_POLICY_KEY_FILENAME = 'policy.pub'
@@ -153,7 +159,7 @@ SHILL_XMLRPC_SERVER_READY_METHOD = 'ready'
 BLUETOOTH_DEVICE_XMLRPC_SERVER_PORT = 9990
 BLUETOOTH_DEVICE_XMLRPC_SERVER_COMMAND = (
         'cd /usr/local/autotest/cros/bluetooth; '
-        './bluetooth_device_xmlrpc_server.py')
+        './bluetooth_device_xmlrpc_server.py --py_version=3')
 BLUETOOTH_DEVICE_XMLRPC_SERVER_CLEANUP_PATTERN = (
         'bluetooth_device_xmlrpc_server')
 BLUETOOTH_DEVICE_XMLRPC_SERVER_READY_METHOD = 'ready'

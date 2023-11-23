@@ -1,25 +1,37 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import dbus
 import dbus.service
 import dbus.types
-import gobject
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 import logging
 import random
 
-import bearer
-import dbus_std_ifaces
-import messaging
-import modem_simple
-import pm_constants
-import pm_errors
-import sms_handler
-import state_machine_factory as smf
-import utils
+import six
 
 import common
+
+from autotest_lib.client.cros.cellular.pseudomodem import bearer
+from autotest_lib.client.cros.cellular.pseudomodem import dbus_std_ifaces
+from autotest_lib.client.cros.cellular.pseudomodem import messaging
+from autotest_lib.client.cros.cellular.pseudomodem import modem_simple
+from autotest_lib.client.cros.cellular.pseudomodem import pm_constants
+from autotest_lib.client.cros.cellular.pseudomodem import pm_errors
+from autotest_lib.client.cros.cellular.pseudomodem import sms_handler
+from autotest_lib.client.cros.cellular.pseudomodem import state_machine_factory as smf
+from autotest_lib.client.cros.cellular.pseudomodem import utils
+
 from autotest_lib.client.cros.cellular import mm1_constants
 from autotest_lib.client.cros.cellular import net_interface
 
@@ -474,7 +486,7 @@ class Modem(dbus_std_ifaces.DBusProperties,
         @raises: MMCoreError, if one or more properties are invalid.
 
         """
-        for key in properties.iterkeys():
+        for key in six.iterkeys(properties):
             if key not in ALLOWED_BEARER_PROPERTIES:
                 raise pm_errors.MMCoreError(
                         pm_errors.MMCoreError.INVALID_ARGS,
@@ -674,10 +686,10 @@ class Modem(dbus_std_ifaces.DBusProperties,
                         self.Enable(True)
                     return False
 
-                gobject.timeout_add(1000, _DelayedEnable)
+                GObject.timeout_add(1000, _DelayedEnable)
                 return False
 
-            gobject.timeout_add(2000, _DelayedReappear)
+            GObject.timeout_add(2000, _DelayedReappear)
 
         def _ErrorCallback(error):
             raise error
@@ -686,7 +698,7 @@ class Modem(dbus_std_ifaces.DBusProperties,
                 mm1_constants.MM_MODEM_STATE_CONNECTED):
             self.Disconnect('/', _ResetFunc, _ErrorCallback)
         else:
-            gobject.idle_add(_ResetFunc)
+            GObject.idle_add(_ResetFunc)
 
 
     @utils.log_dbus_method()
@@ -858,6 +870,6 @@ class Modem(dbus_std_ifaces.DBusProperties,
 
         """
         bearers = dbus.Array(
-                [dbus.types.ObjectPath(key) for key in self.bearers.iterkeys()],
+                [dbus.types.ObjectPath(key) for key in six.iterkeys(self.bearers)],
                 signature='o')
         self.Set(mm1_constants.I_MODEM, 'Bearers', bearers)

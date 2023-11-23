@@ -17,14 +17,14 @@
 package dagger.internal.codegen;
 
 import static dagger.internal.codegen.Compilers.compilerWithOptions;
-import static dagger.internal.codegen.binding.ComponentCreatorKind.FACTORY;
+import static dagger.internal.codegen.base.ComponentCreatorKind.FACTORY;
 import static dagger.internal.codegen.binding.ErrorMessages.creatorMessagesFor;
 import static java.util.stream.Collectors.joining;
 
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
-import dagger.internal.codegen.binding.ComponentCreatorAnnotation;
-import dagger.internal.codegen.binding.ComponentCreatorKind;
+import dagger.internal.codegen.base.ComponentCreatorAnnotation;
+import dagger.internal.codegen.base.ComponentCreatorKind;
 import dagger.internal.codegen.binding.ErrorMessages;
 import java.util.Arrays;
 import java.util.stream.Stream;
@@ -67,7 +67,7 @@ abstract class ComponentCreatorTestHelper {
               line ->
                   line.replace("Builder", "Factory")
                       .replace("builder", "factory")
-                      .replace("build", "create"));
+                      .replace("build", "createComponent"));
     }
     return stream.collect(joining("\n"));
   }

@@ -50,7 +50,7 @@ cleanup() {
     ip link del veth-tap 2>/dev/null || true
 
     for ns in hv-1 hv-2 vm-1 vm-2; do
-        ip netns del $ns || true
+        ip netns del $ns 2>/dev/null || true
     done
 }
 
@@ -100,6 +100,8 @@ setup-vm() {
     ip link set veth-tap netns hv-$id
     ip -netns hv-$id link set veth-tap master br0
     ip -netns hv-$id link set veth-tap up
+
+    ip link set veth-hv address 02:1d:8d:dd:0c:6$id
 
     ip link set veth-hv netns vm-$id
     ip -netns vm-$id addr add 10.0.0.$id/24 dev veth-hv

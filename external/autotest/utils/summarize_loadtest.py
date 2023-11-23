@@ -1,10 +1,14 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Load generator for devserver."""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import argparse
 import itertools
@@ -141,14 +145,13 @@ def main(argv):
     # - Ignore non-provisions.
     # - Filter via the specified FILTER_ARGS arguments.
     # - Filter via explicit filter request.
-    entries = filter(lambda x: x['name'] != 'Runner', all_entries)
+    entries = [x for x in all_entries if x['name'] != 'Runner']
     for arg in FILTER_ARGS:
         if options.__dict__.get(arg):
-            entries = filter(lambda x: x[arg] in
-                                       options.__dict__[arg].split(','),
-                             entries)
+            entries = [x for x in entries if x[arg] in
+                       options.__dict__[arg].split(',')]
     if options.filter:
-        entries = filter(lambda x: eval(options.filter, {'re': re}, x), entries)
+        entries = [x for x in entries if eval(options.filter, {'re': re}, x)]
 
     # Group the entries based on specified keys.
     groups = group_entries(options.group.split(',') if options.group else None,

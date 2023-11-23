@@ -6,7 +6,7 @@ use crate::report::BenchmarkId as InternalBenchmarkId;
 use crate::report::Report;
 use crate::report::ReportContext;
 use crate::routine::{Function, Routine};
-use crate::{Bencher, Criterion, DurationExt, Mode, PlotConfiguration, SamplingMode, Throughput};
+use crate::{Bencher, Criterion, Mode, PlotConfiguration, SamplingMode, Throughput};
 use std::time::Duration;
 
 /// Structure used to group together a set of related benchmarks, along with custom configuration
@@ -107,7 +107,7 @@ impl<'a, M: Measurement> BenchmarkGroup<'a, M> {
     ///
     /// Panics if the input duration is zero
     pub fn warm_up_time(&mut self, dur: Duration) -> &mut Self {
-        assert!(dur.to_nanos() > 0);
+        assert!(dur.as_nanos() > 0);
 
         self.partial_config.warm_up_time = Some(dur);
         self
@@ -125,7 +125,7 @@ impl<'a, M: Measurement> BenchmarkGroup<'a, M> {
     ///
     /// Panics if the input duration is zero
     pub fn measurement_time(&mut self, dur: Duration) -> &mut Self {
-        assert!(dur.to_nanos() > 0);
+        assert!(dur.as_nanos() > 0);
 
         self.partial_config.measurement_time = Some(dur);
         self
@@ -145,7 +145,7 @@ impl<'a, M: Measurement> BenchmarkGroup<'a, M> {
     pub fn nresamples(&mut self, n: usize) -> &mut Self {
         assert!(n > 0);
         if n <= 1000 {
-            println!("\nWarning: It is not recommended to reduce nresamples below 1000.");
+            eprintln!("\nWarning: It is not recommended to reduce nresamples below 1000.");
         }
 
         self.partial_config.nresamples = Some(n);
@@ -182,7 +182,7 @@ impl<'a, M: Measurement> BenchmarkGroup<'a, M> {
     pub fn confidence_level(&mut self, cl: f64) -> &mut Self {
         assert!(cl > 0.0 && cl < 1.0);
         if cl < 0.5 {
-            println!("\nWarning: It is not recommended to reduce confidence level below 0.5.");
+            eprintln!("\nWarning: It is not recommended to reduce confidence level below 0.5.");
         }
 
         self.partial_config.confidence_level = Some(cl);
@@ -290,7 +290,8 @@ impl<'a, M: Measurement> BenchmarkGroup<'a, M> {
 
         assert!(
             !self.all_ids.contains(&id),
-            "Benchmark IDs must be unique within a group."
+            "Benchmark IDs must be unique within a group. Encountered duplicated benchmark ID {}",
+            &id
         );
 
         id.ensure_directory_name_unique(&self.criterion.all_directories);
@@ -304,7 +305,7 @@ impl<'a, M: Measurement> BenchmarkGroup<'a, M> {
         self.any_matched |= do_run;
         let mut func = Function::new(f);
 
-        match self.criterion.mode {
+        match &self.criterion.mode {
             Mode::Benchmark => {
                 if let Some(conn) = &self.criterion.connection {
                     if do_run {
@@ -340,7 +341,7 @@ impl<'a, M: Measurement> BenchmarkGroup<'a, M> {
                     self.criterion.report.test_pass(&id, &report_context);
                 }
             }
-            Mode::Profile(duration) => {
+            &Mode::Profile(duration) => {
                 if do_run {
                     func.profile(
                         &self.criterion.measurement,
@@ -486,9 +487,10 @@ impl IntoBenchmarkId for BenchmarkId {
 impl<S: Into<String>> IntoBenchmarkId for S {
     fn into_benchmark_id(self) -> BenchmarkId {
         let function_name = self.into();
-        if function_name.is_empty() {
-            panic!("Function name must not be empty.");
-        }
+        assert!(
+            !function_name.is_empty(),
+            "Function name must not be empty."
+        );
 
         BenchmarkId {
             function_name: Some(function_name),

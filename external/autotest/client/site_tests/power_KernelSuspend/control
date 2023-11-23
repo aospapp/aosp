@@ -4,13 +4,14 @@
 
 from autotest_lib.client.common_lib import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_KernelSuspend"
 ATTRIBUTES = "suite:jailed_build"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 Simple system suspend. This is the most basic suspend test.

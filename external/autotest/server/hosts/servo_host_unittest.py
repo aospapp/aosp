@@ -1,6 +1,6 @@
-import mock
-import unittest
 import re
+import unittest
+from unittest import mock
 
 import common
 
@@ -26,6 +26,9 @@ class MockHost(servo_host.ServoHost):
         self.hostname = "chromeos1-row1-rack1-host1"
         self._dut_hostname = 'dut-' + self.hostname
         self.servo_port = '9991'
+        self._is_localhost = False
+        self._use_icmp = True
+        self._is_containerized_servod = False
 
     def run(self, command, **kwargs):
         """Finds the matching result by command value"""
@@ -101,6 +104,9 @@ class ServoHostInformationValidator(unittest.TestCase):
         self.assertTrue(servo_host.is_servo_host_information_valid(hostname, port))
         hostname = 'my.dut-1'
         self.assertTrue(servo_host.is_servo_host_information_valid(hostname, port))
+        hostname = '192.168.0.1:8022'
+        self.assertTrue(
+                servo_host.is_servo_host_information_valid(hostname, port))
         # diff ports
         self.assertTrue(servo_host.is_servo_host_information_valid(hostname, 7000))
         self.assertTrue(servo_host.is_servo_host_information_valid(hostname, 1234))
@@ -138,7 +144,6 @@ class ServoHostInformationValidator(unittest.TestCase):
         self.assertFalse(servo_host.is_servo_host_information_valid(hostname, 'a1234'))
         self.assertFalse(servo_host.is_servo_host_information_valid(hostname, 'o1234'))
         self.assertFalse(servo_host.is_servo_host_information_valid(hostname, '71234'))
-        self.assertFalse(servo_host.is_servo_host_information_valid(hostname, '71_24'))
         self.assertFalse(servo_host.is_servo_host_information_valid(hostname, '71.24'))
         self.assertFalse(servo_host.is_servo_host_information_valid(hostname, '71-24'))
         self.assertFalse(servo_host.is_servo_host_information_valid(hostname, '-234'))

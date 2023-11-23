@@ -3,11 +3,6 @@
  * Copyright 2006 Rob Landley <rob@landley.net>
  */
 
-struct ptr_len {
-  void *ptr;
-  long len;
-};
-
 // llist.c
 
 // All these list types can be handled by the same code because first element
@@ -29,10 +24,9 @@ struct double_list {
   char *data;
 };
 
-struct num_cache {
-  struct num_cache *next;
-  long long num;
-  char data[];
+struct dev_ino {
+  dev_t dev;
+  ino_t ino;
 };
 
 void llist_free_arg(void *node);
@@ -44,9 +38,6 @@ void *dlist_lpop(void *list); // also struct double_list **list
 void dlist_add_nomalloc(struct double_list **list, struct double_list *new);
 struct double_list *dlist_add(struct double_list **list, char *data);
 void *dlist_terminate(void *list);
-struct num_cache *get_num_cache(struct num_cache *cache, long long num);
-struct num_cache *add_num_cache(struct num_cache **cache, long long num,
-  void *data, int len);
 
 // args.c
 #define FLAGS_NODASH (1LL<<63)
@@ -139,6 +130,7 @@ int xpclose_both(pid_t pid, int *pipes);
 pid_t xpopen(char **argv, int *pipe, int isstdout);
 pid_t xpclose(pid_t pid, int pipe);
 int xrun(char **argv);
+char *xrunread(char *argv[], char *to_stdin);
 int xpspawn(char **argv, int*pipes);
 void xaccess(char *path, int flags);
 void xunlink(char *path);
@@ -153,7 +145,7 @@ int xopenro(char *path);
 void xpipe(int *pp);
 void xclose(int fd);
 int xdup(int fd);
-int notstdio(int fd);
+int xnotstdio(int fd);
 FILE *xfdopen(int fd, char *mode);
 FILE *xfopen(char *path, char *mode);
 size_t xread(int fd, void *buf, size_t len);
@@ -239,6 +231,8 @@ int unescape2(char **c, int echo);
 char *strend(char *str, char *suffix);
 int strstart(char **a, char *b);
 int strcasestart(char **a, char *b);
+int same_file(struct stat *st1, struct stat *st2);
+int same_dev_ino(struct stat *st, struct dev_ino *di);
 off_t fdlength(int fd);
 void loopfiles_rw(char **argv, int flags, int permissions,
   void (*function)(int fd, char *name));
@@ -277,6 +271,8 @@ void loggit(int priority, char *format, ...);
 unsigned tar_cksum(void *data);
 int is_tar_header(void *pkt);
 char *elf_arch_name(int type);
+void octal_deslash(char *s);
+int smemcmp(char *one, char *two, unsigned long len);
 
 #define HR_SPACE  1 // Space between number and units
 #define HR_B      2 // Use "B" for single byte units
@@ -356,6 +352,8 @@ int pollinate(int in1, int in2, int out1, int out2, int timeout, int shutdown_ti
 char *ntop(struct sockaddr *sa);
 void xsendto(int sockfd, void *buf, size_t len, struct sockaddr *dest);
 int xrecvwait(int fd, char *buf, int len, union socksaddr *sa, int timeout);
+char *escape_url(char *str, char *and);
+char *unescape_url(char *str, int do_cut);
 
 // password.c
 int get_salt(char *salt, char * algo);
@@ -373,6 +371,8 @@ int comma_remove(char *optlist, char *opt);
 
 long long gzip_fd(int infd, int outfd);
 long long gunzip_fd(int infd, int outfd);
+long long gunzip_fd_preload(int infd, int outfd, char *buf, unsigned len);
+
 
 // getmountlist.c
 struct mtab_list {
@@ -399,7 +399,8 @@ mode_t string_to_mode(char *mode_str, mode_t base);
 void mode_to_string(mode_t mode, char *buf);
 char *getbasename(char *name);
 char *fileunderdir(char *file, char *dir);
-char *relative_path(char *from, char *to);
+void *mepcpy(void *from, void *to, unsigned long len);
+char *relative_path(char *from, char *to, int abs);
 void names_to_pid(char **names, int (*callback)(pid_t pid, char *name),
     int scripts);
 

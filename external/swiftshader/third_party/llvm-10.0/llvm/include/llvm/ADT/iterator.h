@@ -64,9 +64,7 @@ namespace llvm {
 template <typename DerivedT, typename IteratorCategoryT, typename T,
           typename DifferenceTypeT = std::ptrdiff_t, typename PointerT = T *,
           typename ReferenceT = T &>
-class iterator_facade_base
-    : public std::iterator<IteratorCategoryT, T, DifferenceTypeT, PointerT,
-                           ReferenceT> {
+class iterator_facade_base {
 protected:
   enum {
     IsRandomAccess = std::is_base_of<std::random_access_iterator_tag,
@@ -92,6 +90,12 @@ protected:
   };
 
 public:
+  using iterator_category = IteratorCategoryT;
+  using value_type = T;
+  using difference_type = DifferenceTypeT;
+  using pointer = PointerT;
+  using reference = ReferenceT;
+
   DerivedT operator+(DifferenceTypeT n) const {
     static_assert(std::is_base_of<iterator_facade_base, DerivedT>::value,
                   "Must pass the derived type to this template!");
@@ -142,28 +146,30 @@ public:
     return tmp;
   }
 
+#ifndef __cpp_impl_three_way_comparison
   bool operator!=(const DerivedT &RHS) const {
-    return !static_cast<const DerivedT *>(this)->operator==(RHS);
+    return !(static_cast<const DerivedT &>(*this) == RHS);
   }
+#endif
 
   bool operator>(const DerivedT &RHS) const {
     static_assert(
         IsRandomAccess,
         "Relational operators are only defined for random access iterators.");
-    return !static_cast<const DerivedT *>(this)->operator<(RHS) &&
-           !static_cast<const DerivedT *>(this)->operator==(RHS);
+    return !(static_cast<const DerivedT &>(*this) < RHS) &&
+           !(static_cast<const DerivedT &>(*this) == RHS);
   }
   bool operator<=(const DerivedT &RHS) const {
     static_assert(
         IsRandomAccess,
         "Relational operators are only defined for random access iterators.");
-    return !static_cast<const DerivedT *>(this)->operator>(RHS);
+    return !(static_cast<const DerivedT &>(*this) > RHS);
   }
   bool operator>=(const DerivedT &RHS) const {
     static_assert(
         IsRandomAccess,
         "Relational operators are only defined for random access iterators.");
-    return !static_cast<const DerivedT *>(this)->operator<(RHS);
+   return !(static_cast<const DerivedT &>(*this) < RHS);
   }
 
   PointerT operator->() { return &static_cast<DerivedT *>(this)->operator*(); }
@@ -260,12 +266,16 @@ public:
     return *static_cast<DerivedT *>(this);
   }
 
-  bool operator==(const DerivedT &RHS) const { return I == RHS.I; }
-  bool operator<(const DerivedT &RHS) const {
+  friend bool operator==(const iterator_adaptor_base &LHS,
+                         const iterator_adaptor_base &RHS) {
+    return LHS.I == RHS.I;
+  }
+  friend bool operator<(const iterator_adaptor_base &LHS,
+                        const iterator_adaptor_base &RHS) {
     static_assert(
         BaseT::IsRandomAccess,
         "Relational operators are only defined for random access iterators.");
-    return I < RHS.I;
+    return LHS.I < RHS.I;
   }
 
   ReferenceT operator*() const { return *I; }

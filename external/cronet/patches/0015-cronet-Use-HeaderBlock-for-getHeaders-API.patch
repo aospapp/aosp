@@ -1,0 +1,37 @@
+From 117d5c767d5155aeefb5e981442f4a13915aba26 Mon Sep 17 00:00:00 2001
+From: Motomu Utsumi <motomuman@google.com>
+Date: Wed, 8 Mar 2023 16:05:01 +0900
+Subject: [PATCH 1/1] cronet: Use HeaderBlock for getHeaders API
+
+Bug: 265674359
+Test: TH
+Change-Id: I93c0d6d5aae4a5e970720a356c04f02fe5ccce8b
+---
+ components/cronet/android/BUILD.gn            |  2 +
+ 14 files changed, 142 insertions(+), 106 deletions(-)
+ create mode 100644 components/cronet/android/api/src/android/net/http/HeaderBlock.java
+ create mode 100644 components/cronet/android/java/src/org/chromium/net/impl/HeaderBlockImpl.java
+
+diff --git a/components/cronet/android/BUILD.gn b/components/cronet/android/BUILD.gn
+index 84ddf5514..58df5bdf1 100644
+--- a/components/cronet/android/BUILD.gn
++++ b/components/cronet/android/BUILD.gn
+@@ -235,6 +235,7 @@ android_library("cronet_api_java") {
+     "api/src/android/net/http/ExperimentalBidirectionalStream.java",
+     "api/src/android/net/http/ExperimentalHttpEngine.java",
+     "api/src/android/net/http/ExperimentalUrlRequest.java",
++    "api/src/android/net/http/HeaderBlock.java",
+     "api/src/android/net/http/IHttpEngineBuilder.java",
+     "api/src/android/net/http/InlineExecutionProhibitedException.java",
+     "api/src/android/net/http/NetworkException.java",
+@@ -290,6 +291,7 @@ android_library("cronet_impl_common_base_java") {
+     "java/src/org/chromium/net/impl/CronetLogger.java",
+     "java/src/org/chromium/net/impl/CronetLoggerFactory.java",
+     "java/src/org/chromium/net/impl/CronetManifest.java",
++    "java/src/org/chromium/net/impl/HeaderBlockImpl.java",
+     "java/src/org/chromium/net/impl/NetworkExceptionImpl.java",
+     "java/src/org/chromium/net/impl/NoOpLogger.java",
+     "java/src/org/chromium/net/impl/Preconditions.java",
+-- 
+2.40.0.rc1.284.g88254d51c5-goog
+

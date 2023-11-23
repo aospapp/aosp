@@ -19,8 +19,10 @@
 #include <string.h>
 #include "procs.h"
 #include "harness/testHarness.h"
+#include "CL/cl_half.h"
 
 MTdata gMTdata;
+cl_half_rounding_mode g_rounding_mode;
 
 test_definition test_list[] = {
     ADD_TEST_VERSION(sub_group_info_ext, Version(2, 0)),
@@ -39,7 +41,8 @@ test_definition test_list[] = {
     ADD_TEST(subgroup_functions_ballot),
     ADD_TEST(subgroup_functions_clustered_reduce),
     ADD_TEST(subgroup_functions_shuffle),
-    ADD_TEST(subgroup_functions_shuffle_relative)
+    ADD_TEST(subgroup_functions_shuffle_relative),
+    ADD_TEST(subgroup_functions_rotate),
 };
 
 const int test_num = ARRAY_SIZE(test_list);
@@ -65,6 +68,22 @@ static test_status InitCL(cl_device_id device)
         {
             ret = TEST_SKIP;
         }
+    }
+    // Determine the rounding mode to be used in float to half conversions in
+    // init and reference code
+    const cl_device_fp_config fpConfig = get_default_rounding_mode(device);
+
+    if (fpConfig == CL_FP_ROUND_TO_NEAREST)
+    {
+        g_rounding_mode = CL_HALF_RTE;
+    }
+    else if (fpConfig == CL_FP_ROUND_TO_ZERO && gIsEmbedded)
+    {
+        g_rounding_mode = CL_HALF_RTZ;
+    }
+    else
+    {
+        assert(false && "Unreachable");
     }
     return ret;
 }

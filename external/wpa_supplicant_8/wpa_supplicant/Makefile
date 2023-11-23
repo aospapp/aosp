@@ -1,23 +1,34 @@
 BINALL=wpa_supplicant wpa_cli
 
-ifndef CONFIG_NO_WPA_PASSPHRASE
-BINALL += wpa_passphrase
-endif
-
 ALL = $(BINALL)
 ALL += systemd/wpa_supplicant.service
 ALL += systemd/wpa_supplicant@.service
 ALL += systemd/wpa_supplicant-nl80211@.service
 ALL += systemd/wpa_supplicant-wired@.service
 ALL += dbus/fi.w1.wpa_supplicant1.service
-ifdef CONFIG_BUILD_WPA_CLIENT_SO
-ALL += libwpa_client.so
-endif
 
 EXTRA_TARGETS=dynamic_eap_methods
 
 CONFIG_FILE=.config
 include ../src/build.rules
+
+ifdef CONFIG_BUILD_PASN_SO
+# add the dependency this way to allow CONFIG_BUILD_PASN_SO
+# being set in the config which is read by build.rules
+_all: libpasn.so
+endif
+
+ifdef CONFIG_BUILD_WPA_CLIENT_SO
+# add the dependency this way to allow CONFIG_BUILD_WPA_CLIENT_SO
+# being set in the config which is read by build.rules
+_all: libwpa_client.so
+endif
+
+ifndef CONFIG_NO_WPA_PASSPHRASE
+# add the dependency this way to allow CONFIG_NO_WPA_PASSPHRASE
+# being set in the config which is read by build.rules
+_all: wpa_passphrase
+endif
 
 ifdef LIBS
 # If LIBS is set with some global build system defaults, clone those for
@@ -68,6 +79,14 @@ $(DESTDIR)$(BINDIR)/%: %
 
 install: $(addprefix $(DESTDIR)$(BINDIR)/,$(BINALL))
 	$(MAKE) -C ../src install
+ifndef CONFIG_NO_WPA_PASSPHRASE
+	install -D wpa_passphrase $(DESTDIR)/$(BINDIR)/wpa_passphrase
+endif
+
+ifdef CONFIG_BUILD_PASN_SO
+	install -m 0644 -D libpasn.so $(DESTDIR)/$(LIBDIR)/libpasn.so
+endif
+
 ifdef CONFIG_BUILD_WPA_CLIENT_SO
 	install -m 0644 -D libwpa_client.so $(DESTDIR)/$(LIBDIR)/libwpa_client.so
 	install -m 0644 -D ../src/common/wpa_ctrl.h $(DESTDIR)/$(INCDIR)/wpa_ctrl.h
@@ -79,7 +98,6 @@ endif
 
 ifdef CONFIG_FIPS
 CONFIG_NO_RANDOM_POOL=
-CONFIG_OPENSSL_CMAC=y
 endif
 
 OBJS = config.o
@@ -259,6 +277,7 @@ CFLAGS += -DCONFIG_SAE
 OBJS += ../src/common/sae.o
 ifdef CONFIG_SAE_PK
 CFLAGS += -DCONFIG_SAE_PK
+NEED_AES_SIV=y
 OBJS += ../src/common/sae_pk.o
 endif
 NEED_ECC=y
@@ -410,6 +429,7 @@ NEED_HMAC_SHA384_KDF=y
 NEED_SHA256=y
 NEED_SHA384=y
 OBJS += ../src/common/ptksa_cache.o
+OBJS += ../src/pasn/pasn_initiator.o
 OBJS += pasn_supplicant.o
 endif
 
@@ -484,6 +504,9 @@ OBJS += ../src/eap_peer/eap_tls.o
 endif
 TLS_FUNCS=y
 CONFIG_IEEE8021X_EAPOL=y
+ifdef CONFIG_EAP_TLSV1_3
+CFLAGS += -DEAP_TLSV1_3
+endif
 endif
 
 ifdef CONFIG_EAP_UNAUTH_TLS
@@ -750,6 +773,7 @@ OBJS += ../src/eap_peer/eap_pwd.o ../src/eap_common/eap_pwd_common.o
 CONFIG_IEEE8021X_EAPOL=y
 NEED_ECC=y
 NEED_DRAGONFLY=y
+MS_FUNCS=y
 endif
 
 ifdef CONFIG_EAP_EKE
@@ -939,6 +963,9 @@ endif
 ifdef CONFIG_IEEE80211AX
 OBJS += ../src/ap/ieee802_11_he.o
 endif
+ifdef CONFIG_IEEE80211BE
+OBJS += ../src/ap/ieee802_11_eht.o
+endif
 ifdef CONFIG_WNM_AP
 CFLAGS += -DCONFIG_WNM_AP
 OBJS += ../src/ap/wnm_ap.o
@@ -961,6 +988,10 @@ OBJS += ../src/eap_server/eap_server_methods.o
 ifdef CONFIG_IEEE80211AC
 CFLAGS += -DCONFIG_IEEE80211AC
 endif
+ifdef CONFIG_IEEE80211BE
+CONFIG_IEEE80211AX=y
+CFLAGS += -DCONFIG_IEEE80211BE
+endif
 ifdef CONFIG_IEEE80211AX
 CFLAGS += -DCONFIG_IEEE80211AX
 endif
@@ -968,6 +999,8 @@ endif
 ifdef NEED_AP_MLME
 OBJS += ../src/ap/wmm.o
 OBJS += ../src/ap/ap_list.o
+OBJS += ../src/ap/comeback_token.o
+OBJS += ../src/pasn/pasn_responder.o
 OBJS += ../src/ap/ieee802_11.o
 OBJS += ../src/ap/hw_features.o
 OBJS += ../src/ap/dfs.o
@@ -1107,6 +1140,7 @@ LIBS_p += -lwolfssl -lm
 endif
 
 ifeq ($(CONFIG_TLS), openssl)
+CFLAGS += -DCRYPTO_RSA_OAEP_SHA256
 ifdef TLS_FUNCS
 CFLAGS += -DEAP_TLS_OPENSSL
 OBJS += ../src/crypto/tls_openssl.o
@@ -1358,9 +1392,7 @@ ifdef NEED_AES_ENCBLOCK
 AESOBJS += ../src/crypto/aes-encblock.o
 endif
 NEED_AES_ENC=y
-ifdef CONFIG_OPENSSL_CMAC
-CFLAGS += -DCONFIG_OPENSSL_CMAC
-else
+ifneq ($(CONFIG_TLS), openssl)
 ifneq ($(CONFIG_TLS), linux)
 ifneq ($(CONFIG_TLS), wolfssl)
 AESOBJS += ../src/crypto/aes-omac1.o
@@ -1471,6 +1503,17 @@ ifdef CONFIG_INTERNAL_RC4
 ifndef CONFIG_NO_RC4
 OBJS += ../src/crypto/rc4.o
 endif
+endif
+endif
+
+ifdef CONFIG_SAE
+ifdef NEED_SHA384
+# Need to add HMAC-SHA384 KDF as well, if SHA384 was enabled.
+NEED_HMAC_SHA384_KDF=y
+endif
+ifdef NEED_SHA512
+# Need to add HMAC-SHA512 KDF as well, if SHA512 was enabled.
+NEED_HMAC_SHA512_KDF=y
 endif
 endif
 
@@ -2064,6 +2107,157 @@ lcov-html: $(call BUILDOBJ,wpa_supplicant.gcda)
 	lcov -c -d $(BUILDDIR) > lcov.info
 	genhtml lcov.info --output-directory lcov-html
 
+PASN_CFLAGS := $(CFLAGS)
+PASN_CFLAGS += -DCONFIG_PASN
+
+LIBPASNSO := ../src/utils/$(CONFIG_ELOOP).c
+LIBPASNSO += ../src/utils/wpa_debug.c
+LIBPASNSO += ../src/utils/wpabuf.c
+LIBPASNSO += ../src/utils/os_$(CONFIG_OS).c
+LIBPASNSO += ../src/utils/config.c
+LIBPASNSO += ../src/utils/common.c
+
+ifdef NEED_BASE64
+LIBPASNSO += ../src/utils/base64.c
+endif
+
+ifdef CONFIG_WPA_TRACE
+LIBPASNSO += ../src/utils/trace.c
+endif
+
+ifdef CONFIG_EXT_PASSWORD_FILE
+LIBPASNSO += ../src/utils/ext_password_file.c
+endif
+
+ifdef CONFIG_EXT_PASSWORD_TEST
+LIBPASNSO += ../src/utils/ext_password_test.c
+endif
+
+ifdef NEED_EXT_PASSWORD
+LIBPASNSO += ../src/utils/ext_password.c
+endif
+
+ifdef CONFIG_SAE
+LIBPASNSO += ../src/common/sae.c
+endif
+
+ifdef CONFIG_SAE_PK
+LIBPASNSO += ../src/common/sae_pk.c
+endif
+
+ifndef CONFIG_NO_WPA
+LIBPASNSO += ../src/common/wpa_common.c
+endif
+
+LIBPASNSO += ../src/common/ieee802_11_common.c
+
+ifdef NEED_DRAGONFLY
+LIBPASNSO += ../src/common/dragonfly.c
+endif
+
+LIBPASNSO += ../src/common/ptksa_cache.c
+
+ifndef CONFIG_NO_WPA
+LIBPASNSO += ../src/rsn_supp/pmksa_cache.c
+LIBPASNSO += ../src/rsn_supp/wpa_ie.c
+endif
+
+LIBPASNSO += ../src/ap/comeback_token.c
+LIBPASNSO += ../src/ap/pmksa_cache_auth.c
+
+ifdef NEED_EAP_COMMON
+LIBPASNSO += ../src/eap_common/eap_common.c
+endif
+
+ifdef CHAP
+LIBPASNSO += ../src/eap_common/chap.c
+endif
+
+ifdef CONFIG_IEEE8021X_EAPOL
+LIBPASNSO += ../src/eap_peer/eap.c
+LIBPASNSO += ../src/eap_peer/eap_methods.c
+LIBPASNSO += ../src/eapol_supp/eapol_supp_sm.c
+endif
+
+ifeq ($(CONFIG_TLS), wolfssl)
+LIBPASNSO += ../src/crypto/crypto_wolfssl.c
+ifdef TLS_FUNCS
+LIBPASNSO += ../src/crypto/tls_wolfssl.c
+NEED_TLS_PRF_SHA256=y
+LIBPASNSO += -lwolfssl -lm
+endif
+endif
+
+ifeq ($(CONFIG_TLS), openssl)
+LIBPASNSO += ../src/crypto/crypto_openssl.c
+ifdef TLS_FUNCS
+LIBPASNSO += ../src/crypto/tls_openssl.c
+LIBPASNSO += -lssl -lcrypto
+NEED_TLS_PRF_SHA256=y
+endif
+endif
+
+ifeq ($(CONFIG_TLS), gnutls)
+LIBPASNSO += ../src/crypto/crypto_$(CONFIG_CRYPTO).c
+ifdef TLS_FUNCS
+LIBPASNSO += ../src/crypto/tls_gnutls.c
+LIBPASNSO += -lgnutls -lgpg-error
+LIBPASNSO += -lgcrypt
+endif
+endif
+
+ifdef NEED_TLS_PRF_SHA256
+LIBPASNSO += ../src/crypto/sha256-tlsprf.c
+endif
+
+ifdef NEED_SHA512
+LIBPASNSO += ../src/crypto/sha512-prf.c
+endif
+
+ifdef NEED_SHA384
+LIBPASNSO += ../src/crypto/sha384-prf.c
+endif
+
+LIBPASNSO += ../src/crypto/sha256-prf.c
+
+ifdef NEED_HMAC_SHA512_KDF
+LIBPASNSO += ../src/crypto/sha512-kdf.c
+endif
+
+ifdef NEED_HMAC_SHA384_KDF
+LIBPASNSO += ../src/crypto/sha384-kdf.c
+endif
+
+ifdef NEED_HMAC_SHA256_KDF
+LIBPASNSO += ../src/crypto/sha256-kdf.c
+endif
+
+ifdef NEED_DH_GROUPS
+LIBPASNSO += ../src/crypto/dh_groups.c
+endif
+
+ifdef NEED_AES_SIV
+LIBPASNSO += ../src/crypto/aes-siv.c
+endif
+
+ifdef NEED_AES_CTR
+LIBPASNSO += ../src/crypto/aes-ctr.c
+endif
+
+ifdef NEED_SHA1
+LIBPASNSO += ../src/crypto/sha1-prf.c
+ifdef NEED_TLS_PRF
+LIBPASNSO += ../src/crypto/sha1-tlsprf.c
+endif
+endif
+
+LIBPASNSO += ../src/pasn/pasn_initiator.c
+LIBPASNSO += ../src/pasn/pasn_responder.c
+
+libpasn.so: $(LIBPASNSO)
+	@$(E) "  CC  $@ ($^)"
+	$(Q)$(CC) $(LDFLAGS) -o $@ $(PASN_CFLAGS) -shared -fPIC -lcrypto $^
+
 clean: common-clean
 	$(MAKE) -C ../src clean
 	$(MAKE) -C dbus clean
@@ -2074,5 +2268,7 @@ clean: common-clean
 	rm -f lcov.info
 	rm -rf lcov-html
 	rm -f libwpa_client.a
+	rm -f libpasn.so
 	rm -f libwpa_client.so
 	rm -f libwpa_test1 libwpa_test2
+	rm -f wpa_passphrase

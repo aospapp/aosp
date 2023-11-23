@@ -152,24 +152,46 @@ func (*bzlLibraryLang) Resolve(c *config.Config, ix *resolve.RuleIndex, rc *repo
 
 	deps := make([]string, 0, len(imports))
 	for _, imp := range imports {
-		if strings.HasPrefix(imp, "@") || !c.IndexLibraries {
+		impLabel, err := label.Parse(imp)
+		if err != nil {
+			log.Printf("%s: import of %q is invalid: %v", from.String(), imp, err)
+			continue
+		}
+
+		// the index only contains absolute labels, not relative
+		impLabel = impLabel.Abs(from.Repo, from.Pkg)
+
+		if impLabel.Repo == "bazel_tools" {
+			// The @bazel_tools repo is tricky because it is a part of the "shipped
+			// with bazel" core library for interacting with the outside world.
+			// This means that it can not depend on skylib. Fortunately there is a
+			// fairly simple workaround for this, which is that you can add those
+			// bzl files as `deps` entries.
+			deps = append(deps, imp)
+			continue
+		}
+
+		if impLabel.Repo != "" || !c.IndexLibraries {
 			// This is a dependency that is external to the current repo, or indexing
 			// is disabled so take a guess at what hte target name should be.
 			deps = append(deps, strings.TrimSuffix(imp, fileType))
-		} else {
-			res := resolve.ImportSpec{
-				Lang: languageName,
-				Imp:  imp,
-			}
-			matches := ix.FindRulesByImport(res, languageName)
+			continue
+		}
 
-			if len(matches) == 0 {
-				log.Printf("%s: %q was not found in dependency index. Skipping. This may result in an incomplete deps section and require manual BUILD file intervention.\n", from.String(), imp)
-			}
+		res := resolve.ImportSpec{
+			Lang: languageName,
+			Imp:  impLabel.String(),
+		}
+		matches := ix.FindRulesByImport(res, languageName)
 
-			for _, m := range matches {
-				deps = append(deps, m.Label.String())
-			}
+		if len(matches) == 0 {
+			log.Printf("%s: %q (%s) was not found in dependency index. Skipping. This may result in an incomplete deps section and require manual BUILD file intervention.\n", from.String(), imp, impLabel.String())
+		}
+
+		for _, m := range matches {
+			depLabel := m.Label
+			depLabel = depLabel.Rel(from.Repo, from.Pkg)
+			deps = append(deps, depLabel.String())
 		}
 	}
 
@@ -211,11 +233,10 @@ func (*bzlLibraryLang) GenerateRules(args language.GenerateArgs) language.Genera
 
 		r.SetAttr("srcs", []string{f})
 
-		if args.File == nil || !args.File.HasDefaultVisibility() {
-			inPrivateDir := pathtools.Index(args.Rel, "private") >= 0
-			if !inPrivateDir {
-				r.SetAttr("visibility", []string{"//visibility:public"})
-			}
+		shouldSetVisibility := args.File == nil || !args.File.HasDefaultVisibility()
+		if shouldSetVisibility {
+			vis := checkInternalVisibility(args.Rel, "//visibility:public")
+			r.SetAttr("visibility", []string{vis})
 		}
 
 		fullPath := filepath.Join(args.Dir, f)
@@ -312,4 +333,17 @@ func (s srcsList) Contains(m string) bool {
 		}
 	}
 	return false
+}
+
+// checkInternalVisibility overrides the given visibility if the package is
+// internal.
+func checkInternalVisibility(rel, visibility string) string {
+	if i := pathtools.Index(rel, "internal"); i > 0 {
+		visibility = fmt.Sprintf("//%s:__subpackages__", rel[:i-1])
+	} else if i := pathtools.Index(rel, "private"); i > 0 {
+		visibility = fmt.Sprintf("//%s:__subpackages__", rel[:i-1])
+	} else if pathtools.HasPrefix(rel, "internal") || pathtools.HasPrefix(rel, "private") {
+		visibility = "//:__subpackages__"
+	}
+	return visibility
 }

@@ -2,7 +2,6 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-
 AUTHOR = "milleral, chromeos-lab-infrastructure"
 NAME = "provision_QuickProvision"
 PURPOSE = "Provision a system to the correct OS version."
@@ -10,6 +9,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "System"
 TEST_CLASS = "provision"
 TEST_TYPE = "Server"
+PY_VERSION = 3
 
 DOC = """
 This is a test used by the provision control segment in autoserv to set the

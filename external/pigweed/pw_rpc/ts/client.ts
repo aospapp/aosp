@@ -1,4 +1,4 @@
-// Copyright 2021 The Pigweed Authors
+// Copyright 2022 The Pigweed Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
 // use this file except in compliance with the License. You may obtain a copy of
@@ -14,13 +14,13 @@
 
 /** Provides a pw_rpc client for TypeScript. */
 
-import {ProtoCollection} from '@pigweed/pw_protobuf_compiler';
-import {Status} from '@pigweed/pw_status';
+import {ProtoCollection} from 'pigweedjs/pw_protobuf_compiler';
+import {Status} from 'pigweedjs/pw_status';
 import {Message} from 'google-protobuf';
 import {
   PacketType,
   RpcPacket,
-} from 'packet_proto_tspb/packet_proto_tspb_pb/pw_rpc/internal/packet_pb';
+} from 'pigweedjs/protos/pw_rpc/internal/packet_pb';
 
 import {Channel, Service} from './descriptors';
 import {MethodStub, methodStubFactory} from './method';
@@ -33,7 +33,7 @@ import {PendingCalls, Rpc} from './rpc_classes';
 export class ServiceClient {
   private service: Service;
   private methods: MethodStub[] = [];
-  private methodsByName = new Map<string, MethodStub>();
+  methodsByName = new Map<string, MethodStub>();
 
   constructor(client: Client, channel: Channel, service: Service) {
     this.service = service;
@@ -52,6 +52,10 @@ export class ServiceClient {
   get id(): number {
     return this.service.id;
   }
+
+  get name(): string {
+    return this.service.name;
+  }
 }
 
 /**
@@ -59,7 +63,7 @@ export class ServiceClient {
  */
 export class ChannelClient {
   readonly channel: Channel;
-  private services = new Map<string, ServiceClient>();
+  services = new Map<string, ServiceClient>();
 
   constructor(client: Client, channel: Channel, services: Service[]) {
     this.channel = channel;

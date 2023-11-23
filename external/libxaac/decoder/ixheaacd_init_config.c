@@ -23,12 +23,13 @@
 #include <assert.h>
 
 #include "ixheaacd_type_def.h"
-
+#include "ixheaacd_constants.h"
 #include "ixheaacd_bitbuffer.h"
 
 #include "ixheaacd_defines.h"
 #include "ixheaacd_memory_standards.h"
 #include "ixheaacd_sbrdecsettings.h"
+#include "ixheaacd_sbr_scale.h"
 #include "ixheaacd_env_extr_part.h"
 #include "ixheaacd_aac_rom.h"
 #include "ixheaacd_common_rom.h"
@@ -41,27 +42,33 @@
 #include "ixheaacd_drc_dec.h"
 
 #include "ixheaacd_lt_predict.h"
-
+#include "ixheaacd_cnst.h"
+#include "ixheaacd_ec_defines.h"
+#include "ixheaacd_ec_struct_def.h"
 #include "ixheaacd_channelinfo.h"
 #include "ixheaacd_channel.h"
-#include "ixheaacd_channelinfo.h"
 #include "ixheaacd_sbrdecoder.h"
 #include "ixheaacd_audioobjtypes.h"
 #include "ixheaacd_latmdemux.h"
 #include "ixheaacd_aacdec.h"
 #include "ixheaacd_sbr_common.h"
 
+#include "ixheaacd_hybrid.h"
+#include "ixheaacd_ps_dec.h"
+#include "ixheaacd_qmf_dec.h"
+#include "ixheaacd_mps_macro_def.h"
+#include "ixheaacd_mps_struct_def.h"
+#include "ixheaacd_mps_res_rom.h"
+#include "ixheaacd_mps_aac_struct.h"
 #include "ixheaacd_mps_polyphase.h"
 #include "ixheaacd_config.h"
 #include "ixheaacd_mps_dec.h"
-
 #include "ixheaacd_struct_def.h"
 
 #include "ixheaacd_config.h"
 #include "ixheaacd_interface.h"
 #include "ixheaacd_info.h"
 #include "ixheaacd_struct.h"
-#include "ixheaacd_constants.h"
 #include "ixheaacd_error_standards.h"
 
 #include "ixheaacd_error_codes.h"
@@ -176,8 +183,9 @@ VOID ixheaacd_read_escape_value(ia_bit_buf_struct *it_bit_buff,
   *ext_ele_value = value;
 }
 
-static VOID ixheaacd_get_usac_chan_conf(ia_usac_config_struct *pstr_usac_config,
-                                        UWORD32 ch_config_index) {
+static IA_ERRORCODE ixheaacd_get_usac_chan_conf(ia_usac_config_struct *pstr_usac_config,
+                        UWORD32 ch_config_index, ia_bit_buf_struct *it_bit_buff, WORD32 ec_flag)
+{
   switch (ch_config_index) {
     case 1:
       pstr_usac_config->num_out_channels = 1;
@@ -195,9 +203,14 @@ static VOID ixheaacd_get_usac_chan_conf(ia_usac_config_struct *pstr_usac_config,
       break;
 
     default:
-      assert(0);
+      if (ec_flag)
+        longjmp(*(it_bit_buff->xaac_jmp_buf),
+            IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+      else
+        return IA_FATAL_ERROR;
       break;
   }
+  return IA_NO_ERROR;
 }
 
 VOID ixheaacd_sbr_config(ia_bit_buf_struct *it_bit_buff,
@@ -377,9 +390,10 @@ IA_ERRORCODE ixheaacd_cpe_config(
 WORD32 ixheaacd_decoder_config(
     ia_bit_buf_struct *it_bit_buff,
     ia_usac_decoder_config_struct *pstr_usac_decoder_config,
-    WORD32 sbr_ratio_index, UINT32 *chan) {
+    WORD32 sbr_ratio_index, UINT32 *chan, WORD32 ec_flag) {
   UWORD32 elem_idx = 0;
   UWORD32 err = 0;
+  WORD32 num_channels = 0;
 
   ixheaacd_read_escape_value(
       it_bit_buff, &(pstr_usac_decoder_config->num_elements), 4, 8, 16);
@@ -387,7 +401,12 @@ WORD32 ixheaacd_decoder_config(
   pstr_usac_decoder_config->preroll_flag = 0;
 
   if (pstr_usac_decoder_config->num_elements > USAC_MAX_ELEMENTS) {
-    return -1;
+    if (ec_flag) {
+      pstr_usac_decoder_config->num_elements = USAC_MAX_ELEMENTS;
+      longjmp(*(it_bit_buff->xaac_jmp_buf), IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+    } else {
+      return IA_FATAL_ERROR;
+    }
   }
 
   for (elem_idx = 0; elem_idx < pstr_usac_decoder_config->num_elements;
@@ -400,7 +419,7 @@ WORD32 ixheaacd_decoder_config(
 
     switch (pstr_usac_decoder_config->usac_element_type[elem_idx]) {
       case ID_USAC_SCE:
-
+        num_channels++;
         pstr_usac_element_config->tw_mdct =
             ixheaacd_read_bits_buf(it_bit_buff, 1);
         pstr_usac_element_config->noise_filling =
@@ -413,16 +432,28 @@ WORD32 ixheaacd_decoder_config(
         break;
 
       case ID_USAC_CPE:
-        if (ixheaacd_cpe_config(it_bit_buff, pstr_usac_element_config,
-                                sbr_ratio_index) != IA_NO_ERROR)
-          return IA_FATAL_ERROR;
-        if (pstr_usac_element_config->stereo_config_index > 1 && *chan < 2)
-          return -1;
-
+        num_channels += 2;
+        if (ixheaacd_cpe_config(it_bit_buff, pstr_usac_element_config, sbr_ratio_index) !=
+            IA_NO_ERROR) {
+          if (ec_flag) {
+            longjmp(*(it_bit_buff->xaac_jmp_buf),
+                    IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+          } else {
+            return IA_FATAL_ERROR;
+          }
+        }
+        if (pstr_usac_element_config->stereo_config_index > 1 && *chan < 2) {
+          if (ec_flag) {
+            longjmp(*(it_bit_buff->xaac_jmp_buf),
+                    IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+          } else {
+            return IA_FATAL_ERROR;
+          }
+        }
         break;
 
       case ID_USAC_LFE:
-
+        num_channels++;
         pstr_usac_element_config->tw_mdct = 0;
         pstr_usac_element_config->noise_filling = 0;
         pstr_usac_element_config->stereo_config_index = 0;
@@ -440,19 +471,38 @@ WORD32 ixheaacd_decoder_config(
         } else {
           pstr_usac_decoder_config->usac_ext_ele_payload_present[elem_idx] = 0;
         }
-        if (err != 0) return -1;
+        if (err != 0) {
+          if (ec_flag) {
+            longjmp(*(it_bit_buff->xaac_jmp_buf),
+                    IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+          } else {
+            return IA_FATAL_ERROR;
+          }
+        }
         break;
       default:
-        return -1;
+        if (ec_flag) {
+          longjmp(*(it_bit_buff->xaac_jmp_buf),
+                  IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+        } else {
+          return IA_FATAL_ERROR;
+        }
         break;
+    }
+    if (num_channels > 2) {
+      if (ec_flag) {
+        longjmp(*(it_bit_buff->xaac_jmp_buf),
+                IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+      } else {
+        return IA_FATAL_ERROR;
+      }
     }
   }
   return err;
 }
 
-WORD32 ixheaacd_config_extension(
-    ia_bit_buf_struct *it_bit_buff,
-    ia_usac_decoder_config_struct *pstr_usac_decoder_config) {
+WORD32 ixheaacd_config_extension(ia_bit_buf_struct *it_bit_buff,
+    ia_usac_decoder_config_struct *pstr_usac_decoder_config, WORD32 ec_flag) {
   UWORD32 i, j;
   UWORD32 num_config_extensions;
   UWORD32 usac_config_ext_type, usac_config_ext_len;
@@ -460,7 +510,11 @@ WORD32 ixheaacd_config_extension(
   ixheaacd_read_escape_value(it_bit_buff, &(num_config_extensions), 2, 4, 8);
   num_config_extensions += 1;
   if (USAC_MAX_CONFIG_EXTENSIONS < num_config_extensions) {
-    return -1;
+    if (ec_flag) {
+      longjmp(*(it_bit_buff->xaac_jmp_buf), IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+    } else {
+      return IA_FATAL_ERROR;
+    }
   }
 
   pstr_usac_decoder_config->num_config_extensions = num_config_extensions;
@@ -470,24 +524,42 @@ WORD32 ixheaacd_config_extension(
          USAC_MAX_CONFIG_EXTENSIONS * sizeof(WORD32));
 
   for (j = 0; j < num_config_extensions; j++) {
-    UWORD32 tmp;
     UWORD32 fill_byte_val = 0xa5;
 
     ixheaacd_read_escape_value(it_bit_buff, &(usac_config_ext_type), 4, 8, 16);
     ixheaacd_read_escape_value(it_bit_buff, &(usac_config_ext_len), 4, 8, 16);
 
-    if (usac_config_ext_len > 768) return IA_FATAL_ERROR;
+    if (usac_config_ext_len > 768) {
+      if (ec_flag) {
+        longjmp(*(it_bit_buff->xaac_jmp_buf),
+                IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+      } else {
+        return IA_FATAL_ERROR;
+      }
+    }
 
     switch (usac_config_ext_type) {
       case ID_CONFIG_EXT_FILL:
         for (i = 0; i < usac_config_ext_len; i++) {
           fill_byte_val = ixheaacd_read_bits_buf(it_bit_buff, 8);
-          if (fill_byte_val != 0xa5) return -1;
+          if (fill_byte_val != 0xa5) {
+            if (ec_flag) {
+              longjmp(*(it_bit_buff->xaac_jmp_buf),
+                      IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+            } else {
+              return IA_FATAL_ERROR;
+            }
+          }
         }
         break;
       default:
         if ((WORD32)usac_config_ext_len > (it_bit_buff->cnt_bits >> 3)) {
-          return -1;
+          if (ec_flag) {
+            longjmp(*(it_bit_buff->xaac_jmp_buf),
+                    IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+          } else {
+            return IA_FATAL_ERROR;
+          }
         }
         if (ID_CONFIG_EXT_LOUDNESS_INFO == usac_config_ext_type) {
           for (i = 0; i < usac_config_ext_len; i++) {
@@ -499,7 +571,7 @@ WORD32 ixheaacd_config_extension(
           pstr_usac_decoder_config->usac_cfg_ext_info_present[j] = 1;
         } else {
           for (i = 0; i < usac_config_ext_len; i++)
-            tmp = ixheaacd_read_bits_buf(it_bit_buff, 8);
+            ixheaacd_read_bits_buf(it_bit_buff, 8);
         }
         break;
     }
@@ -508,8 +580,8 @@ WORD32 ixheaacd_config_extension(
   return 0;
 }
 
-WORD32 ixheaacd_config(ia_bit_buf_struct *it_bit_buff,
-                       ia_usac_config_struct *pstr_usac_conf, UINT32 *chan) {
+WORD32 ixheaacd_config(ia_bit_buf_struct *it_bit_buff, ia_usac_config_struct *pstr_usac_conf,
+                       UINT32 *chan, WORD32 ec_flag) {
   WORD32 tmp, err;
   err = 0;
 
@@ -521,7 +593,12 @@ WORD32 ixheaacd_config(ia_bit_buf_struct *it_bit_buff,
         ixheaacd_read_bits_buf(it_bit_buff, 24);
 
     if (pstr_usac_conf->usac_sampling_frequency > USAC_MAX_SAMPLE_RATE) {
-      return IA_FATAL_ERROR;
+      if (ec_flag) {
+        longjmp(*(it_bit_buff->xaac_jmp_buf),
+                IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+      } else {
+        return IA_FATAL_ERROR;
+      }
     }
 
   } else {
@@ -529,17 +606,34 @@ WORD32 ixheaacd_config(ia_bit_buf_struct *it_bit_buff,
         sampling_rate_tbl[pstr_usac_conf->usac_sampling_frequency_index];
   }
 
+  if (pstr_usac_conf->usac_sampling_frequency == 0) {
+    if (ec_flag) {
+      longjmp(*(it_bit_buff->xaac_jmp_buf), IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+    } else {
+      return IA_FATAL_ERROR;
+    }
+  }
   pstr_usac_conf->core_sbr_framelength_index =
       ixheaacd_read_bits_buf(it_bit_buff, 3);
 
-  if (pstr_usac_conf->core_sbr_framelength_index > MAX_CORE_SBR_FRAME_LEN_IDX)
-    return -1;
+  if (pstr_usac_conf->core_sbr_framelength_index > MAX_CORE_SBR_FRAME_LEN_IDX) {
+    if (ec_flag) {
+      longjmp(*(it_bit_buff->xaac_jmp_buf), IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+    } else {
+      return IA_FATAL_ERROR;
+    }
+  }
 
   pstr_usac_conf->channel_configuration_index =
       ixheaacd_read_bits_buf(it_bit_buff, 5);
   if ((pstr_usac_conf->channel_configuration_index >= 3) &&
-      (pstr_usac_conf->channel_configuration_index != 8))
-    return -1;
+      (pstr_usac_conf->channel_configuration_index != 8)) {
+    if (ec_flag) {
+      longjmp(*(it_bit_buff->xaac_jmp_buf), IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+    } else {
+      return IA_FATAL_ERROR;
+    }
+  }
 
   if (pstr_usac_conf->channel_configuration_index == 0) {
     UWORD32 i;
@@ -548,27 +642,32 @@ WORD32 ixheaacd_config(ia_bit_buf_struct *it_bit_buff,
                                (UWORD32 *)(&(pstr_usac_conf->num_out_channels)),
                                5, 8, 16);
     if (BS_MAX_NUM_OUT_CHANNELS < pstr_usac_conf->num_out_channels) {
-      return IA_ENHAACPLUS_DEC_INIT_FATAL_STREAM_CHAN_GT_MAX;
+      return IA_XHEAAC_DEC_INIT_FATAL_STREAM_CHAN_GT_MAX;
     }
     for (i = 0; i < pstr_usac_conf->num_out_channels; i++)
       pstr_usac_conf->output_channel_pos[i] =
           ixheaacd_read_bits_buf(it_bit_buff, 5);
 
+    if (ec_flag) {
+      longjmp(*(it_bit_buff->xaac_jmp_buf), IA_XHEAAC_DEC_EXE_NONFATAL_INSUFFICIENT_INPUT_BYTES);
+    }
   } else {
-    ixheaacd_get_usac_chan_conf(pstr_usac_conf,
-                                pstr_usac_conf->channel_configuration_index);
+    err = ixheaacd_get_usac_chan_conf(pstr_usac_conf, pstr_usac_conf->channel_configuration_index,
+                                      it_bit_buff, ec_flag);
+    if (err != 0)
+      return err;
   }
 
   err = ixheaacd_decoder_config(
       it_bit_buff, &(pstr_usac_conf->str_usac_dec_config),
-      ixheaacd_sbr_ratio(pstr_usac_conf->core_sbr_framelength_index), chan);
-  if (err != 0) return -1;
+      ixheaacd_sbr_ratio(pstr_usac_conf->core_sbr_framelength_index), chan, ec_flag);
+  if (err != 0) return err;
 
   tmp = ixheaacd_read_bits_buf(it_bit_buff, 1);
 
   if (tmp) {
     err = ixheaacd_config_extension(it_bit_buff,
-                                    &pstr_usac_conf->str_usac_dec_config);
+                                    &pstr_usac_conf->str_usac_dec_config, ec_flag);
     if (err != 0) return -1;
   }
 

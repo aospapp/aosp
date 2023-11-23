@@ -8,6 +8,7 @@ TIME = 'SHORT'
 TEST_TYPE = 'Server'
 ATTRIBUTES = "suite:wifi_flaky"
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 This test verifies that DUT can reconnect to an open 802.11a network

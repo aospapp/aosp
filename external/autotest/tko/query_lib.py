@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 """
 This library provides a bunch of miscellaneous parameter parsing,
 sql generating and list cleanup library functions that are used

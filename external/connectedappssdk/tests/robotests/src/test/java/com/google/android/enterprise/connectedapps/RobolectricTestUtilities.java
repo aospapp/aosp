@@ -19,6 +19,7 @@ import static android.Manifest.permission.INTERACT_ACROSS_PROFILES;
 import static android.os.Looper.getMainLooper;
 import static com.google.android.enterprise.connectedapps.SharedTestUtilities.INTERACT_ACROSS_USERS;
 import static com.google.android.enterprise.connectedapps.SharedTestUtilities.INTERACT_ACROSS_USERS_FULL;
+import static com.google.android.enterprise.connectedapps.SharedTestUtilities.getUserHandleForUserId;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -61,9 +62,8 @@ public class RobolectricTestUtilities {
   private static final int PER_USER_RANGE = 100000;
 
   private final UserHandle personalProfileUserHandle =
-      SharedTestUtilities.getUserHandleForUserId(PERSONAL_PROFILE_USER_ID);
-  private final UserHandle workProfileUserHandle =
-      SharedTestUtilities.getUserHandleForUserId(WORK_PROFILE_USER_ID);
+      getUserHandleForUserId(PERSONAL_PROFILE_USER_ID);
+  private final UserHandle workProfileUserHandle = getUserHandleForUserId(WORK_PROFILE_USER_ID);
   private static final int WORK_UID = PER_USER_RANGE * WORK_PROFILE_USER_ID;
   private static final int PERSONAL_UID = PER_USER_RANGE * PERSONAL_PROFILE_USER_ID;
   private final Application context;
@@ -109,16 +109,22 @@ public class RobolectricTestUtilities {
   public void initTests() {
     TestCrossProfileType.voidMethodCalls = 0;
     CrossProfileSDKUtilities.clearCache();
+    CrossProfileSender.clearStaticState();
     createPersonalUser();
   }
 
-  public void startConnectingAndWait() {
-    connector.startConnecting();
+  public void addDefaultConnectionHolderAndWait() {
+    connector.addConnectionHolder(this);
+    advanceTimeBySeconds(1);
+  }
+
+  public void addDefaultConnectionHolderAndWait(UserConnector connector, UserHandle handle) {
+    connector.addConnectionHolder(handle, this);
     advanceTimeBySeconds(1);
   }
 
   public void disconnect() {
-    connector.stopManualConnectionManagement();
+    connector.clearConnectionHolders();
     advanceTimeBySeconds(31); // Give time to timeout connection
   }
 
@@ -136,6 +142,13 @@ public class RobolectricTestUtilities {
     shadowOf(userManager).addProfile(WORK_PROFILE_USER_ID, WORK_PROFILE_USER_ID, "Work Profile", 0);
     shadowOf(userManager)
         .addProfile(WORK_PROFILE_USER_ID, PERSONAL_PROFILE_USER_ID, "Personal Profile", 0);
+  }
+
+  public UserHandle createCustomUser(int id) {
+    UserHandle handle = getUserHandleForUserId(id);
+    shadowOf(userManager).addUser(id, "Custom User", /* flags= */ 0);
+    shadowOf(userManager).setUserState(handle, UserState.STATE_RUNNING_UNLOCKED);
+    return handle;
   }
 
   public void turnOnWorkProfileWithoutUnlocking() {
@@ -169,7 +182,7 @@ public class RobolectricTestUtilities {
     advanceTimeBySeconds(10);
   }
 
-  private void tryAddTargetUserProfile(UserHandle userHandle) {
+  public void tryAddTargetUserProfile(UserHandle userHandle) {
     try {
       addTargetUserProfile(userHandle);
     } catch (IllegalArgumentException e) {
@@ -184,7 +197,7 @@ public class RobolectricTestUtilities {
     shadowOf(crossProfileApps).addTargetUserProfile(userHandle);
   }
 
-  private void tryRemoveTargetUserProfile(UserHandle userHandle) {
+  public void tryRemoveTargetUserProfile(UserHandle userHandle) {
     try {
       removeTargetUserProfile(userHandle);
     } catch (IllegalArgumentException e) {

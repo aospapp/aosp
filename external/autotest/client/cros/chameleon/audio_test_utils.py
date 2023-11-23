@@ -807,7 +807,7 @@ def check_and_set_chrome_active_node_types(audio_facade,
                                            input_type=None):
     """Check the target types are available, and set them to be active nodes.
 
-    @param audio_facade: An AudioFacadeNative or AudioFacadeAdapter object.
+    @param audio_facade: An AudioFacadeLocal or AudioFacadeAdapter object.
     @output_type: An output node type defined in cras_utils.CRAS_NODE_TYPES.
                  None to skip.
     @input_type: An input node type defined in cras_utils.CRAS_NODE_TYPES.

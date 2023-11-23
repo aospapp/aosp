@@ -24,7 +24,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.ByteStreams;
 import com.google.turbine.diag.SourceFile;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -232,7 +231,7 @@ public class TurbineFiler implements Filer {
 
     @Override
     public URI toUri() {
-      return URI.create("file://" + path);
+      return URI.create("file:///" + path);
     }
 
     @Override
@@ -309,7 +308,7 @@ public class TurbineFiler implements Filer {
 
     @Override
     public URI toUri() {
-      return URI.create("file://" + name + kind.extension);
+      return URI.create("file:///" + name + kind.extension);
     }
 
     @Override
@@ -380,7 +379,7 @@ public class TurbineFiler implements Filer {
 
     @Override
     public CharSequence getCharContent(boolean ignoreEncodingErrors) throws IOException {
-      return new String(ByteStreams.toByteArray(openInputStream()), UTF_8);
+      return new String(openInputStream().readAllBytes(), UTF_8);
     }
   }
 

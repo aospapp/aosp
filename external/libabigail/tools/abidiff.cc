@@ -78,6 +78,7 @@ struct options
   bool			no_default_supprs;
   bool			no_arch;
   bool			no_corpus;
+  bool			ignore_soname;
   bool			leaf_changes_only;
   bool			fail_no_debug_info;
   bool			show_hexadecimal_values;
@@ -100,7 +101,6 @@ struct options
   bool			show_harmful_changes;
   bool			show_harmless_changes;
   bool			show_redundant_changes;
-  bool			flag_indirect_changes;
   bool			show_symbols_not_referenced_by_debug_info;
   bool			show_impacted_interfaces;
   bool			dump_diff_tree;
@@ -126,6 +126,7 @@ struct options
       no_default_supprs(),
       no_arch(),
       no_corpus(),
+      ignore_soname(false),
       leaf_changes_only(),
       fail_no_debug_info(),
       show_hexadecimal_values(),
@@ -148,7 +149,6 @@ struct options
       show_harmful_changes(true),
       show_harmless_changes(),
       show_redundant_changes(),
-      flag_indirect_changes(),
       show_symbols_not_referenced_by_debug_info(true),
       show_impacted_interfaces(),
       dump_diff_tree(),
@@ -207,6 +207,7 @@ display_usage(const string& prog_name, ostream& out)
        "default suppression specification\n"
     << " --no-architecture  do not take architecture in account\n"
     << " --no-corpus-path  do not take the path to the corpora into account\n"
+    << " --ignore-soname  do not take the SONAMEs into account\n"
     << " --fail-no-debug-info  bail out if no debug info was found\n"
     << " --leaf-changes-only|-l  only show leaf changes, "
     "so no change impact analysis (implies --redundant)\n"
@@ -242,13 +243,13 @@ display_usage(const string& prog_name, ostream& out)
     << " --redundant  display redundant changes\n"
     << " --no-redundant  do not display redundant changes "
     "(this is the default)\n"
-    << " --flag-indirect  label class/union diffs as indirect when all members "
-    << "have the same names and type names (leaf mode only)\n"
     << " --impacted-interfaces  display interfaces impacted by leaf changes\n"
     << " --dump-diff-tree  emit a debug dump of the internal diff tree to "
     "the error output stream\n"
     <<  " --stats  show statistics about various internal stuff\n"
-    << "  --ctf use CTF instead of DWARF in ELF files\n"
+#ifdef WITH_CTF
+    << " --ctf use CTF instead of DWARF in ELF files\n"
+#endif
 #ifdef WITH_DEBUG_SELF_COMPARISON
     << " --debug debug the process of comparing an ABI corpus against itself"
 #endif
@@ -408,6 +409,8 @@ parse_command_line(int argc, char* argv[], options& opts)
 	opts.no_arch = true;
       else if (!strcmp(argv[i], "--no-corpus-path"))
 	opts.no_corpus = true;
+      else if (!strcmp(argv[i], "--ignore-soname"))
+	opts.ignore_soname = true;
       else if (!strcmp(argv[i], "--fail-no-debug-info"))
 	opts.fail_no_debug_info = true;
       else if (!strcmp(argv[i], "--leaf-changes-only")
@@ -587,8 +590,6 @@ parse_command_line(int argc, char* argv[], options& opts)
 	opts.show_redundant_changes = true;
       else if (!strcmp(argv[i], "--no-redundant"))
 	opts.show_redundant_changes = false;
-      else if (!strcmp(argv[i], "--flag-indirect"))
-	opts.flag_indirect_changes = true;
       else if (!strcmp(argv[i], "--impacted-interfaces"))
 	opts.show_impacted_interfaces = true;
       else if (!strcmp(argv[i], "--dump-diff-tree"))
@@ -705,6 +706,8 @@ set_diff_context_from_opts(diff_context_sptr ctxt,
   ctxt->show_added_vars(opts.show_all_vars || opts.show_added_vars);
   ctxt->show_linkage_names(opts.show_linkage_names);
   ctxt->show_locs(opts.show_locs);
+  // Intentional logic flip of ignore_soname
+  ctxt->show_soname_change(!opts.ignore_soname);
   // So when we are showing only leaf changes, we want to show
   // redundant changes because of this: Suppose several functions have
   // their return type changed from void* to int*.  We want them all
@@ -717,8 +720,7 @@ set_diff_context_from_opts(diff_context_sptr ctxt,
   // redundancy analysis pass altogether.  That could help save a
   // couple of CPU cycle here and there!
   ctxt->show_redundant_changes(opts.show_redundant_changes
-			       || opts.leaf_changes_only);
-  ctxt->flag_indirect_changes(opts.flag_indirect_changes);
+                               || opts.leaf_changes_only);
   ctxt->show_symbols_unreferenced_by_debug_info
     (opts.show_symbols_not_referenced_by_debug_info);
   ctxt->show_added_symbols_unreferenced_by_debug_info
@@ -1048,19 +1050,25 @@ handle_error(abigail::elf_reader::status status_code,
 ///
 /// @param file_path1 the first file path to consider.
 ///
+/// @param version1 the second version to consider.
+///
 /// @param file_path2 the second file path to consider.
+///
+/// @param version2 the second version to consider.
 ///
 /// @param prog_name the name of the current program.
 static void
 emit_incompatible_format_version_error_message(const string& file_path1,
+					       const string& version1,
 					       const string& file_path2,
+					       const string& version2,
 					       const string& prog_name)
 {
   emit_prefix(prog_name, cerr)
     << "incompatible format version between the two input files:\n"
-    << "'" << file_path1 << "'\n"
+    << "'" << file_path1 << "' (" << version1 << ")\n"
     << "and\n"
-    << "'" << file_path2 << "'\n" ;
+    << "'" << file_path2 << "' (" << version2 << ")\n";
 }
 
 int
@@ -1119,20 +1127,7 @@ main(int argc, char* argv[])
       abigail::tools_utils::file_type t1_type, t2_type;
 
       t1_type = guess_file_type(opts.file1);
-      if (t1_type == abigail::tools_utils::FILE_TYPE_UNKNOWN)
-	{
-	  emit_prefix(argv[0], cerr)
-	    << "Unknown content type for file " << opts.file1 << "\n";
-	  return abigail::tools_utils::ABIDIFF_ERROR;
-	}
-
       t2_type = guess_file_type(opts.file2);
-      if (t2_type == abigail::tools_utils::FILE_TYPE_UNKNOWN)
-	{
-	  emit_prefix(argv[0], cerr)
-	    << "Unknown content type for file " << opts.file2 << "\n";
-	  return abigail::tools_utils::ABIDIFF_ERROR;
-	}
 
       environment_sptr env(new environment);
 #ifdef WITH_DEBUG_SELF_COMPARISON
@@ -1178,6 +1173,7 @@ main(int argc, char* argv[])
               {
                 abigail::ctf_reader::read_context_sptr ctxt
                   = abigail::ctf_reader::create_read_context(opts.file1,
+                                                             opts.prepared_di_root_paths1,
                                                              env.get());
                 ABG_ASSERT(ctxt);
                 c1 = abigail::ctf_reader::read_corpus(ctxt.get(),
@@ -1261,6 +1257,7 @@ main(int argc, char* argv[])
               {
                 abigail::ctf_reader::read_context_sptr ctxt
                   = abigail::ctf_reader::create_read_context(opts.file2,
+                                                             opts.prepared_di_root_paths2,
                                                              env.get());
                 ABG_ASSERT(ctxt);
                 c2 = abigail::ctf_reader::read_corpus(ctxt.get(),
@@ -1361,11 +1358,14 @@ main(int argc, char* argv[])
 	      return abigail::tools_utils::ABIDIFF_OK;
 	    }
 
-	  if (c1->get_format_major_version_number()
-	      != c2->get_format_major_version_number())
+	  const auto c1_version = c1->get_format_major_version_number();
+	  const auto c2_version = c2->get_format_major_version_number();
+	  if (c1_version != c2_version)
 	    {
 	      emit_incompatible_format_version_error_message(opts.file1,
+							     c1_version,
 							     opts.file2,
+							     c2_version,
 							     argv[0]);
 	      return abigail::tools_utils::ABIDIFF_ERROR;
 	    }
@@ -1392,11 +1392,14 @@ main(int argc, char* argv[])
 	      return abigail::tools_utils::ABIDIFF_OK;
 	    }
 
-	  if (g1->get_format_major_version_number()
-	      != g2->get_format_major_version_number())
+	  const auto g1_version = g1->get_format_major_version_number();
+	  const auto g2_version = g2->get_format_major_version_number();
+	  if (g1_version != g2_version)
 	    {
 	      emit_incompatible_format_version_error_message(opts.file1,
+							     g1_version,
 							     opts.file2,
+							     g2_version,
 							     argv[0]);
 	      return abigail::tools_utils::ABIDIFF_ERROR;
 	    }

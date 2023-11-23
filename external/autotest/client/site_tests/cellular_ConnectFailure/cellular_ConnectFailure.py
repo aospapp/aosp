@@ -1,9 +1,16 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import dbus
 import logging
+
+from six.moves import range
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
@@ -93,7 +100,7 @@ class cellular_ConnectFailure(test.test):
     def run_once(self, test_env, connect_count=4):
         with test_env:
             self.test_env = test_env
-            for count in xrange(connect_count):
+            for count in range(connect_count):
                 logging.info('Connect attempt %d', count + 1)
                 self._connect_to_3g_network(config_timeout=
                         cellular_proxy.CellularProxy.SERVICE_CONNECT_TIMEOUT)

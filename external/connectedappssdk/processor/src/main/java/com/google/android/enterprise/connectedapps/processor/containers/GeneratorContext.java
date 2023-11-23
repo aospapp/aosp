@@ -55,9 +55,7 @@ public abstract class GeneratorContext extends Context {
             .map(
                 t ->
                     ProfileConnectorInfo.create(
-                        validatorContext.processingEnv(),
-                        t,
-                        validatorContext.globalSupportedTypes()))
+                        validatorContext, t, validatorContext.globalSupportedTypes()))
             .collect(toSet());
 
     Collection<UserConnectorInfo> generatedUserConnectors =
@@ -65,9 +63,7 @@ public abstract class GeneratorContext extends Context {
             .map(
                 t ->
                     UserConnectorInfo.create(
-                        validatorContext.processingEnv(),
-                        t,
-                        validatorContext.globalSupportedTypes()))
+                        validatorContext, t, validatorContext.globalSupportedTypes()))
             .collect(toSet());
 
     Collection<CrossProfileTestInfo> crossProfileTests =

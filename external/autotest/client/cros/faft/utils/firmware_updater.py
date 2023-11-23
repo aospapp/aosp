@@ -7,7 +7,9 @@ See FirmwareUpdater object below.
 """
 import array
 import json
+import logging
 import os
+import six
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chip_utils
@@ -168,13 +170,13 @@ class FirmwareUpdater(object):
 
     def stop_daemon(self):
         """Stop update-engine daemon."""
-        self.os_if.log('Stopping %s...' % self.DAEMON)
+        logging.info('Stopping %s...', self.DAEMON)
         cmd = 'status %s | grep stop || stop %s' % (self.DAEMON, self.DAEMON)
         self.os_if.run_shell_command(cmd)
 
     def start_daemon(self):
         """Start update-engine daemon."""
-        self.os_if.log('Starting %s...' % self.DAEMON)
+        logging.info('Starting %s...', self.DAEMON)
         cmd = 'status %s | grep start || start %s' % (self.DAEMON, self.DAEMON)
         self.os_if.run_shell_command(cmd)
 
@@ -203,7 +205,7 @@ class FirmwareUpdater(object):
         handler.new_image(image_path)
         fwid = handler.get_section_fwid(section)
         if fwid is not None:
-            return str(fwid)
+            return str(fwid, 'utf-8')
         else:
             return None
 
@@ -363,14 +365,11 @@ class FirmwareUpdater(object):
             work_path = self._work_path
         self.os_if.run_shell_command(
                 '/usr/share/vboot/bin/resign_firmwarefd.sh '
-                '%s %s %s %s %s %s %s %s' %
+                '%s %s %s %s %s %s' %
                 (os.path.join(work_path, self._bios_path),
                  os.path.join(self._temp_path, 'output.bin'),
                  os.path.join(self._keys_path, 'firmware_data_key.vbprivk'),
                  os.path.join(self._keys_path, 'firmware.keyblock'),
-                 os.path.join(self._keys_path,
-                              'dev_firmware_data_key.vbprivk'),
-                 os.path.join(self._keys_path, 'dev_firmware.keyblock'),
                  os.path.join(self._keys_path, 'kernel_subkey.vbpubk'),
                  ('%d' % version) if version is not None else ''))
         self.os_if.copy_file(
@@ -526,7 +525,7 @@ class FirmwareUpdater(object):
         def _has_emulate(option):
             return option == '--emulate' or option.startswith('--emulate=')
 
-        if self.os_if.test_mode and not filter(_has_emulate, options):
+        if self.os_if.test_mode and not list(filter(_has_emulate, options)):
             # if in test mode, forcibly use --emulate, if not already used.
             fake_bios = os.path.join(self._temp_path, 'rpc-test-fake-bios.bin')
             if not os.path.exists(fake_bios):
@@ -557,7 +556,7 @@ class FirmwareUpdater(object):
 
         Finds bios.bin on the DUT and sets up a temp dir to operate on
         bios.bin.  If a bios.bin was specified, it is copied to the DUT
-        and used instead of the native bios.bin.
+        and used instead of the built-in bios.bin.
 
         @return: The cbfs work directory path.
         """
@@ -633,8 +632,8 @@ class FirmwareUpdater(object):
         try:
             self.os_if.run_shell_command(extract_cmd)
             if not self.os_if.path_exists(local_filename):
-                self.os_if.log("Warning: file does not exist after extracting:"
-                               " %s" % local_filename)
+                logging.warning("File does not exist after extracting:"
+                                " %s", local_filename)
             return os.path.abspath(local_filename)
         except error.CmdError:
             # already logged by run_shell_command()
@@ -820,7 +819,7 @@ class FirmwareUpdater(object):
         @type filename: str
         @rtype: str
         """
-        if not isinstance(filename, basestring):
+        if not isinstance(filename, six.string_types):
             raise FirmwareUpdaterError("Filename must be a string: %s" %
                                        repr(filename))
         src_bios = os.path.join(self._work_path, self._bios_path)
@@ -880,4 +879,3 @@ class FirmwareUpdater(object):
             handler = self._get_handler('bios')
         handler.set_gbb_flags(flags)
         handler.dump_whole(filename)
-

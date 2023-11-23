@@ -1056,7 +1056,8 @@
     <type-decl name='long int' size-in-bits='32' id='bd54fe1a'/>
     <type-decl name='long long int' size-in-bits='64' id='1eb56b1e'/>
     <type-decl name='long long unsigned int' size-in-bits='64' id='3a47d82b'/>
-    <type-decl name='short int' size-in-bits='16' id='a2185560'/>
+    <type-decl name='long unsigned int' size-in-bits='32' id='cac2f49f'/>
+    <type-decl name='short' size-in-bits='16' id='ba226bd5'/>
     <type-decl name='signed char' size-in-bits='8' id='28577a57'/>
     <array-type-def dimensions='1' type-id='0ad725ff' size-in-bits='96' id='5da85797'>
       <subrange length='3' type-id='7ff19f0f' id='56f209d2'/>
@@ -1092,9 +1093,7 @@
     <array-type-def dimensions='1' type-id='807869d3' size-in-bits='512' id='ba25cd2e'>
       <subrange length='16' type-id='7ff19f0f' id='848d0938'/>
     </array-type-def>
-    <type-decl name='unsigned long int' size-in-bits='32' id='7359adad'/>
-    <type-decl name='unsigned short int' size-in-bits='16' id='8efea9e5'/>
-    <type-decl name='variadic parameter type' id='2c1145c5'/>
+    <type-decl name='unsigned short' size-in-bits='16' id='e280bb54'/>
     <type-decl name='wchar_t' size-in-bits='32' id='c523b9f1'/>
     <class-decl name='mbstate_t' size-in-bits='32' is-struct='yes' naming-typedef-id='3d7d8cbf' visibility='default' filepath='bionic/libc/include/bits/mbstate_t.h' line='42' column='1' id='a76d8e48'>
       <data-member access='public' layout-offset-in-bits='0'>
@@ -1113,8 +1112,8 @@
     <typedef-decl name='wctrans_t' type-id='eaa32e2f' filepath='bionic/libc/include/bits/wctype.h' line='60' column='1' id='183c72c3'/>
     <typedef-decl name='__int8_t' type-id='28577a57' filepath='bionic/libc/include/stdint.h' line='36' column='1' id='2171a512'/>
     <typedef-decl name='__uint8_t' type-id='002ac4a6' filepath='bionic/libc/include/stdint.h' line='37' column='1' id='c51d6389'/>
-    <typedef-decl name='__int16_t' type-id='a2185560' filepath='bionic/libc/include/stdint.h' line='38' column='1' id='03896e23'/>
-    <typedef-decl name='__uint16_t' type-id='8efea9e5' filepath='bionic/libc/include/stdint.h' line='39' column='1' id='253c2d2a'/>
+    <typedef-decl name='__int16_t' type-id='ba226bd5' filepath='bionic/libc/include/stdint.h' line='38' column='1' id='03896e23'/>
+    <typedef-decl name='__uint16_t' type-id='e280bb54' filepath='bionic/libc/include/stdint.h' line='39' column='1' id='253c2d2a'/>
     <typedef-decl name='__int32_t' type-id='95e97e5e' filepath='bionic/libc/include/stdint.h' line='40' column='1' id='33f57a65'/>
     <typedef-decl name='__uint32_t' type-id='f0981eeb' filepath='bionic/libc/include/stdint.h' line='41' column='1' id='62f1140c'/>
     <typedef-decl name='__int64_t' type-id='1eb56b1e' filepath='bionic/libc/include/stdint.h' line='46' column='1' id='0c9942d2'/>
@@ -13445,7 +13444,7 @@
       <parameter type-id='80f4b756'/>
       <parameter type-id='9b23c9ad'/>
       <parameter type-id='95e97e5e'/>
-      <return type-id='7359adad'/>
+      <return type-id='cac2f49f'/>
     </function-decl>
     <function-decl name='strtoull' filepath='bionic/libc/include/stdlib.h' line='78' column='1' visibility='default' binding='global' size-in-bits='32'>
       <parameter type-id='80f4b756'/>
@@ -13875,7 +13874,7 @@
       <parameter type-id='f077d3f8'/>
       <parameter type-id='01efdaf1'/>
       <parameter type-id='95e97e5e'/>
-      <return type-id='7359adad'/>
+      <return type-id='cac2f49f'/>
     </function-decl>
     <function-decl name='wcstoull' filepath='bionic/libc/include/wchar.h' line='108' column='1' visibility='default' binding='global' size-in-bits='32'>
       <parameter type-id='f077d3f8'/>
@@ -18281,7 +18280,7 @@
     <array-type-def dimensions='1' type-id='a84c031d' size-in-bits='112' id='f01a039e'>
       <subrange length='14' type-id='7ff19f0f' id='48882d96'/>
     </array-type-def>
-    <typedef-decl name='sa_family_t' type-id='8efea9e5' filepath='bionic/libc/include/bits/sa_family_t.h' line='39' column='1' id='376fda66'/>
+    <typedef-decl name='sa_family_t' type-id='e280bb54' filepath='bionic/libc/include/bits/sa_family_t.h' line='39' column='1' id='376fda66'/>
     <class-decl name='addrinfo' size-in-bits='256' is-struct='yes' visibility='default' filepath='bionic/libc/include/netdb.h' line='110' column='1' id='9194f5e2'>
       <data-member access='public' layout-offset-in-bits='0'>
         <var-decl name='ai_flags' type-id='95e97e5e' visibility='default' filepath='bionic/libc/include/netdb.h' line='111' column='1'/>
@@ -35189,10 +35188,10 @@
         <var-decl name='psvi' type-id='eaa32e2f' visibility='default' filepath='external/libxml2/include/libxml/tree.h' line='505' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='448'>
-        <var-decl name='line' type-id='8efea9e5' visibility='default' filepath='external/libxml2/include/libxml/tree.h' line='506' column='1'/>
+        <var-decl name='line' type-id='e280bb54' visibility='default' filepath='external/libxml2/include/libxml/tree.h' line='506' column='1'/>
       </data-member>
       <data-member access='public' layout-offset-in-bits='464'>
-        <var-decl name='extra' type-id='8efea9e5' visibility='default' filepath='external/libxml2/include/libxml/tree.h' line='507' column='1'/>
+        <var-decl name='extra' type-id='e280bb54' visibility='default' filepath='external/libxml2/include/libxml/tree.h' line='507' column='1'/>
       </data-member>
     </class-decl>
     <typedef-decl name='xmlDoc' type-id='226f124f' filepath='external/libxml2/include/libxml/tree.h' line='549' column='1' id='b82b342d'/>
@@ -35659,9 +35658,9 @@
     <qualified-type-def type-id='149c6638' const='yes' id='b01a5ac8'/>
     <reference-type-def kind='lvalue' type-id='b01a5ac8' size-in-bits='32' id='277d24aa'/>
     <pointer-type-def type-id='b01a5ac8' size-in-bits='32' id='1b7d11c6'/>
-    <qualified-type-def type-id='8efea9e5' const='yes' id='3beb2af4'/>
-    <reference-type-def kind='lvalue' type-id='3beb2af4' size-in-bits='32' id='25346896'/>
-    <pointer-type-def type-id='3beb2af4' size-in-bits='32' id='31347b7a'/>
+    <qualified-type-def type-id='e280bb54' const='yes' id='c2d00579'/>
+    <reference-type-def kind='lvalue' type-id='c2d00579' size-in-bits='32' id='0c78748d'/>
+    <pointer-type-def type-id='c2d00579' size-in-bits='32' id='007861a9'/>
     <qualified-type-def type-id='abde74e5' const='yes' id='9f02ba15'/>
     <pointer-type-def type-id='9f02ba15' size-in-bits='32' id='904b312d'/>
     <reference-type-def kind='lvalue' type-id='4847a5be' size-in-bits='32' id='f62d6e90'/>
@@ -35908,11 +35907,11 @@
     <pointer-type-def type-id='800440d7' size-in-bits='32' id='b4618c9f'/>
     <reference-type-def kind='rvalue' type-id='f31e8e90' size-in-bits='32' id='3ad99901'/>
     <pointer-type-def type-id='f31e8e90' size-in-bits='32' id='d3ffd4d9'/>
-    <reference-type-def kind='lvalue' type-id='8efea9e5' size-in-bits='32' id='dde53df9'/>
-    <pointer-type-def type-id='8efea9e5' size-in-bits='32' id='e9e550dd'/>
-    <qualified-type-def type-id='e9e550dd' const='yes' id='c22559b2'/>
-    <reference-type-def kind='lvalue' type-id='c22559b2' size-in-bits='32' id='34cc03fc'/>
-    <reference-type-def kind='lvalue' type-id='e9e550dd' size-in-bits='32' id='2efe7b21'/>
+    <reference-type-def kind='lvalue' type-id='e280bb54' size-in-bits='32' id='02a71476'/>
+    <pointer-type-def type-id='e280bb54' size-in-bits='32' id='0ea7275a'/>
+    <qualified-type-def type-id='0ea7275a' const='yes' id='cc9d7ba5'/>
+    <reference-type-def kind='lvalue' type-id='cc9d7ba5' size-in-bits='32' id='9ee96f39'/>
+    <reference-type-def kind='lvalue' type-id='0ea7275a' size-in-bits='32' id='8d232834'/>
     <pointer-type-def type-id='abde74e5' size-in-bits='32' id='9d21eaf0'/>
     <pointer-type-def type-id='b82b342d' size-in-bits='32' id='ac36d1a6'/>
     <pointer-type-def type-id='444bbd45' size-in-bits='32' id='18ae6bd8'/>
@@ -36463,7 +36462,7 @@
         </class-decl>
         <class-decl name='pointer_traits&lt;unsigned short *&gt;' size-in-bits='8' is-struct='yes' visibility='default' filepath='external/libcxx/include/memory' line='972' column='1' id='e406117b'>
           <member-type access='public'>
-            <typedef-decl name='pointer' type-id='e9e550dd' filepath='external/libcxx/include/memory' line='974' column='1' id='83fac65b'/>
+            <typedef-decl name='pointer' type-id='0ea7275a' filepath='external/libcxx/include/memory' line='974' column='1' id='83fac65b'/>
           </member-type>
           <member-type access='public'>
             <typedef-decl name='rebind&lt;const void&gt;' type-id='eaa32e2f' filepath='external/libcxx/include/memory' line='979' column='1' id='21fff813'/>
@@ -36925,16 +36924,16 @@
             <typedef-decl name='size_type' type-id='b59d7dce' filepath='external/libcxx/include/memory' line='1784' column='1' id='dcb035d4'/>
           </member-type>
           <member-type access='private'>
-            <typedef-decl name='pointer' type-id='e9e550dd' filepath='external/libcxx/include/memory' line='1786' column='1' id='25074d23'/>
+            <typedef-decl name='pointer' type-id='0ea7275a' filepath='external/libcxx/include/memory' line='1786' column='1' id='25074d23'/>
           </member-type>
           <member-type access='private'>
-            <typedef-decl name='const_pointer' type-id='31347b7a' filepath='external/libcxx/include/memory' line='1787' column='1' id='fde27303'/>
+            <typedef-decl name='const_pointer' type-id='007861a9' filepath='external/libcxx/include/memory' line='1787' column='1' id='fde27303'/>
           </member-type>
           <member-type access='private'>
-            <typedef-decl name='reference' type-id='dde53df9' filepath='external/libcxx/include/memory' line='1788' column='1' id='3ed59537'/>
+            <typedef-decl name='reference' type-id='02a71476' filepath='external/libcxx/include/memory' line='1788' column='1' id='3ed59537'/>
           </member-type>
           <member-type access='private'>
-            <typedef-decl name='const_reference' type-id='25346896' filepath='external/libcxx/include/memory' line='1789' column='1' id='39d9f417'/>
+            <typedef-decl name='const_reference' type-id='0c78748d' filepath='external/libcxx/include/memory' line='1789' column='1' id='39d9f417'/>
           </member-type>
           <member-function access='public'>
             <function-decl name='allocator' filepath='external/libcxx/include/memory' line='1798' column='1' visibility='default' binding='global' size-in-bits='32'>
@@ -37136,13 +37135,13 @@
         </class-decl>
         <class-decl name='__compressed_pair_elem&lt;unsigned short *, 0, false&gt;' size-in-bits='32' is-struct='yes' visibility='default' filepath='external/libcxx/include/memory' line='2134' column='1' id='cd2377eb'>
           <member-type access='public'>
-            <typedef-decl name='reference' type-id='2efe7b21' filepath='external/libcxx/include/memory' line='2136' column='1' id='883c3c8f'/>
+            <typedef-decl name='reference' type-id='8d232834' filepath='external/libcxx/include/memory' line='2136' column='1' id='883c3c8f'/>
           </member-type>
           <member-type access='public'>
-            <typedef-decl name='const_reference' type-id='34cc03fc' filepath='external/libcxx/include/memory' line='2137' column='1' id='785a001f'/>
+            <typedef-decl name='const_reference' type-id='9ee96f39' filepath='external/libcxx/include/memory' line='2137' column='1' id='785a001f'/>
           </member-type>
           <data-member access='private' layout-offset-in-bits='0'>
-            <var-decl name='__value_' type-id='e9e550dd' visibility='default' filepath='external/libcxx/include/memory' line='2168' column='1'/>
+            <var-decl name='__value_' type-id='0ea7275a' visibility='default' filepath='external/libcxx/include/memory' line='2168' column='1'/>
           </data-member>
           <member-function access='public'>
             <function-decl name='__compressed_pair_elem' filepath='external/libcxx/include/memory' line='2140' column='1' visibility='default' binding='global' size-in-bits='32'>
@@ -37685,7 +37684,7 @@
         </class-decl>
         <class-decl name='conditional&lt;false, std::__1::pointer_traits&lt;unsigned short *&gt;::__nat, unsigned short&gt;' size-in-bits='8' is-struct='yes' visibility='default' filepath='external/libcxx/include/type_traits' line='431' column='1' id='f36cee46'>
           <member-type access='public'>
-            <typedef-decl name='type' type-id='8efea9e5' filepath='external/libcxx/include/type_traits' line='431' column='1' id='1b9ea905'/>
+            <typedef-decl name='type' type-id='e280bb54' filepath='external/libcxx/include/type_traits' line='431' column='1' id='1b9ea905'/>
           </member-type>
         </class-decl>
         <class-decl name='remove_reference&lt;std::__1::allocator&lt;std::__1::pair&lt;unsigned int, float&gt; &gt; &amp;&gt;' size-in-bits='8' is-struct='yes' visibility='default' filepath='external/libcxx/include/type_traits' line='1113' column='1' id='bd0aae40'>
@@ -38151,7 +38150,7 @@
             <typedef-decl name='size_type' type-id='72254fcd' filepath='external/libcxx/include/vector' line='332' column='1' id='d7f2b6bc'/>
           </member-type>
           <member-type access='private'>
-            <typedef-decl name='value_type' type-id='8efea9e5' filepath='external/libcxx/include/vector' line='334' column='1' id='9485c0dc'/>
+            <typedef-decl name='value_type' type-id='e280bb54' filepath='external/libcxx/include/vector' line='334' column='1' id='9485c0dc'/>
           </member-type>
           <member-type access='private'>
             <typedef-decl name='reference' type-id='858a893f' filepath='external/libcxx/include/vector' line='335' column='1' id='a1567f2f'/>
@@ -38948,7 +38947,7 @@
         <class-decl name='vector&lt;unsigned short, std::__1::allocator&lt;unsigned short&gt; &gt;' size-in-bits='96' visibility='default' filepath='external/libcxx/include/vector' line='470' column='1' id='800440d7'>
           <base-class access='private' layout-offset-in-bits='0' type-id='dbb712c1'/>
           <member-type access='private'>
-            <typedef-decl name='value_type' type-id='8efea9e5' filepath='external/libcxx/include/vector' line='478' column='1' id='f31e8e90'/>
+            <typedef-decl name='value_type' type-id='e280bb54' filepath='external/libcxx/include/vector' line='478' column='1' id='f31e8e90'/>
           </member-type>
           <member-type access='private'>
             <typedef-decl name='allocator_type' type-id='540ab5d5' filepath='external/libcxx/include/vector' line='479' column='1' id='3d02ece8'/>

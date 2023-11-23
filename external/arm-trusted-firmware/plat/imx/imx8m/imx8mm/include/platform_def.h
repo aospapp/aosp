@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <arch.h>
 #include <common/tbbr/tbbr_img_def.h>
 
 #define PLATFORM_LINKER_FORMAT		"elf64-littleaarch64"
@@ -41,12 +42,12 @@
 #define BL2_LIMIT			U(0x940000)
 #define BL31_BASE			U(0x900000)
 #define BL31_LIMIT			U(0x920000)
-#define IMX8MM_FIP_BASE			U(0x40310000)
-#define IMX8MM_FIP_SIZE			U(0x000300000)
-#define IMX8MM_FIP_LIMIT		U(FIP_BASE + FIP_SIZE)
+#define IMX_FIP_BASE			U(0x40310000)
+#define IMX_FIP_SIZE			U(0x000300000)
+#define IMX_FIP_LIMIT			U(FIP_BASE + FIP_SIZE)
 
 /* Define FIP image location on eMMC */
-#define IMX8MM_FIP_MMC_BASE		U(0x100000)
+#define IMX_FIP_MMC_BASE		U(0x100000)
 
 #define PLAT_IMX8MM_BOOT_MMC_BASE	U(0x30B50000) /* SD */
 #else

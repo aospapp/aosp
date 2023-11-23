@@ -1,5 +1,7 @@
 # FAFT Code Overview
 
+_Self-link: [go/faft-code](https://goto.google.com/faft-code)_
+
 _Last updated: 2020/03/13_
 
 ## Introduction

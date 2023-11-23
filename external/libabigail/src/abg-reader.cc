@@ -102,6 +102,12 @@ public:
 
   typedef unordered_map<xmlNodePtr, decl_base_sptr> xml_node_decl_base_sptr_map;
 
+  friend vector<type_base_sptr>* get_types_from_type_id(read_context&,
+							const string&);
+
+  friend unordered_map<type_or_decl_base*, vector<type_or_decl_base*>>*
+	 get_artifact_used_by_relation_map(read_context& ctxt);
+
 private:
   string						m_path;
   environment*						m_env;
@@ -120,6 +126,10 @@ private:
   suppr::suppressions_type				m_supprs;
   bool							m_tracking_non_reachable_types;
   bool							m_drop_undefined_syms;
+#ifdef WITH_SHOW_TYPE_USE_IN_ABILINT
+  unordered_map<type_or_decl_base*,
+		vector<type_or_decl_base*>>		m_artifact_used_by_map;
+#endif
 
   read_context();
 
@@ -551,7 +561,7 @@ public:
   ///
   /// @return true upon successful completion.
   bool
-  key_type_decl(shared_ptr<type_base> type, const string& id)
+  key_type_decl(const type_base_sptr& type, const string& id)
   {
     if (!type)
       return false;
@@ -584,7 +594,7 @@ public:
     return true;
   }
 
-    /// Associate an ID to a class template.
+  /// Associate an ID to a class template.
   ///
   /// @param class_tmpl_decl the class template to consider.
   ///
@@ -606,6 +616,94 @@ public:
     m_class_tmpl_map[id] = class_tmpl_decl;
     return true;
   }
+
+#ifdef WITH_SHOW_TYPE_USE_IN_ABILINT
+  /// Record that an artifact is used by another one.
+  ///
+  /// If a type is "used" by another one (as in the type is a sub-type
+  /// of another one), this function records that relation.
+  ///
+  /// @param used the type that is used.
+  ///
+  /// @param user the type that uses @p used.
+  void
+  record_artifact_as_used_by(type_or_decl_base* used,
+			     type_or_decl_base* user)
+  {
+    if (m_artifact_used_by_map.find(used) == m_artifact_used_by_map.end())
+      {
+	vector<type_or_decl_base*> v;
+	m_artifact_used_by_map[used] = v;
+      }
+    m_artifact_used_by_map[used].push_back(user);
+  }
+
+  /// Record that an artifact is used by another one.
+  ///
+  /// If a type is "used" by another one (as in the type is a sub-type
+  /// of another one), this function records that relation.
+  ///
+  /// @param used the type that is used.
+  ///
+  /// @param user the type that uses @p used.
+  void
+  record_artifact_as_used_by(const type_or_decl_base_sptr& used,
+			     const type_or_decl_base_sptr& user)
+  {record_artifact_as_used_by(used.get(), user.get());}
+
+  /// Record the sub-types of a fn-decl as being used by the fn-decl.
+  ///
+  /// @param fn the function decl to consider.
+  void
+  record_artifacts_as_used_in_fn_decl(const function_decl *fn)
+  {
+    if (!fn)
+      return;
+
+    type_base_sptr t = fn->get_return_type();
+    record_artifact_as_used_by(t.get(), const_cast<function_decl*>(fn));
+
+    for (auto pit : fn->get_parameters())
+      {
+	type_base_sptr t = pit->get_type();
+	record_artifact_as_used_by(t.get(), const_cast<function_decl*>(fn));
+      }
+  }
+
+  /// Record the sub-types of a function decl as being used by it.
+  ///
+  /// @param fn the function decl to consider.
+  void
+  record_artifacts_as_used_in_fn_decl(const function_decl_sptr& fn)
+  {record_artifacts_as_used_in_fn_decl(fn.get());}
+
+  /// Record the sub-types of a function type as being used by it.
+  ///
+  /// @param fn_type the function decl to consider.
+  void
+  record_artifacts_as_used_in_fn_type(const function_type *fn_type)
+  {
+    if (!fn_type)
+      return;
+
+    type_base_sptr t = fn_type->get_return_type();
+    record_artifact_as_used_by(t.get(), const_cast<function_type*>(fn_type));
+
+    for (auto pit : fn_type->get_parameters())
+      {
+	type_base_sptr t = pit->get_type();
+	record_artifact_as_used_by(t.get(),
+				   const_cast<function_type*>(fn_type));
+      }
+  }
+
+  /// Record the sub-types of a function type as being used by it.
+  ///
+  /// @param fn_type the function decl to consider.
+  void
+  record_artifacts_as_used_in_fn_type(const function_type_sptr& fn_type)
+  {record_artifacts_as_used_in_fn_type(fn_type.get());}
+#endif
 
   /// This function must be called on each declaration that is created during
   /// the parsing.  It adds the declaration to the current scope, and updates
@@ -1138,10 +1236,8 @@ public:
 };// end class read_context
 
 static int	advance_cursor(read_context&);
-static bool
-read_translation_unit(read_context&, translation_unit&, xmlNodePtr);
-static translation_unit_sptr
-get_or_read_and_add_translation_unit(read_context&, xmlNodePtr);
+static bool read_translation_unit(read_context&, translation_unit&, xmlNodePtr);
+static translation_unit_sptr get_or_read_and_add_translation_unit(read_context&, xmlNodePtr);
 static translation_unit_sptr read_translation_unit_from_input(read_context&);
 static bool	read_symbol_db_from_input(read_context&,
 					  string_elf_symbols_map_sptr&,
@@ -1299,6 +1395,19 @@ static decl_base_sptr	handle_class_decl(read_context&, xmlNodePtr, bool);
 static decl_base_sptr	handle_union_decl(read_context&, xmlNodePtr, bool);
 static decl_base_sptr	handle_function_tdecl(read_context&, xmlNodePtr, bool);
 static decl_base_sptr	handle_class_tdecl(read_context&, xmlNodePtr, bool);
+
+#ifdef WITH_SHOW_TYPE_USE_IN_ABILINT
+#define RECORD_ARTIFACT_AS_USED_BY(ctxt, used, user) \
+  ctxt.record_artifact_as_used_by(used,user)
+#define RECORD_ARTIFACTS_AS_USED_IN_FN_DECL(ctxt, fn) \
+  ctxt.record_artifacts_as_used_in_fn_decl(fn)
+#define RECORD_ARTIFACTS_AS_USED_IN_FN_TYPE(ctxt, fn_type)\
+  ctxt.record_artifacts_as_used_in_fn_type(fn_type)
+#else
+#define RECORD_ARTIFACT_AS_USED_BY(ctxt, used, user)
+#define RECORD_ARTIFACTS_AS_USED_IN_FN_DECL(ctxt, fn)
+#define RECORD_ARTIFACTS_AS_USED_IN_FN_TYPE(ctxt, fn_type)
+#endif
 
 /// Get the IR node representing the scope for a given XML node.
 ///
@@ -1820,6 +1929,35 @@ consider_types_not_reachable_from_public_interfaces(read_context& ctxt,
 						    bool flag)
 {ctxt.tracking_non_reachable_types(flag);}
 
+#ifdef WITH_SHOW_TYPE_USE_IN_ABILINT
+/// Get the vector of types that have a given type-id.
+///
+/// This function is available only if the project has been configured
+/// with --enable-show-type-use-in-abilint.
+///
+/// @param ctxt the abixml text reader context to use.
+///
+/// @param type_id the type-id to consider.
+vector<type_base_sptr>*
+get_types_from_type_id(read_context& ctxt, const string& type_id)
+{
+  auto it = ctxt.m_types_map.find(type_id);
+  if (it == ctxt.m_types_map.end())
+    return nullptr;
+  return &it->second;
+}
+
+/// Get the map that associates an artififact to its users.
+///
+/// This function is available only if the project has been configured
+/// with --enable-show-type-use-in-abilint.
+///
+/// @param ctxt the abixml text reader context to use.
+unordered_map<type_or_decl_base*, vector<type_or_decl_base*>>*
+get_artifact_used_by_relation_map(read_context& ctxt)
+{return &ctxt.m_artifact_used_by_map;}
+#endif
+
 /// Read the "version" attribute from the current XML element which is
 /// supposed to be a corpus or a corpus group and set the format
 /// version to the corpus object accordingly.
@@ -2186,6 +2324,23 @@ read_translation_unit_from_buffer(const string&	buffer,
 				  environment*		env)
 {
   read_context ctxt(xml::new_reader_from_buffer(buffer), env);
+  translation_unit_sptr tu = read_translation_unit_from_input(ctxt);
+  ctxt.get_environment()->canonicalization_is_done(false);
+  ctxt.perform_late_type_canonicalizing();
+  ctxt.get_environment()->canonicalization_is_done(true);
+  return tu;
+}
+
+/// Parse a translation unit from an abixml input from a given
+/// context.
+///
+/// @param ctxt the @ref read_context to consider.
+///
+/// @return the constructed @ref translation_unit from the content of
+/// the input abixml.
+translation_unit_sptr
+read_translation_unit(read_context& ctxt)
+{
   translation_unit_sptr tu = read_translation_unit_from_input(ctxt);
   ctxt.get_environment()->canonicalization_is_done(false);
   ctxt.perform_late_type_canonicalizing();
@@ -3058,10 +3213,6 @@ build_elf_symbol(read_context& ctxt, const xmlNodePtr node,
 	is_default_version = true;
     }
 
-  uint64_t crc = 0;
-  if (xml_char_sptr s = XML_NODE_GET_ATTRIBUTE(node, "crc"))
-    crc = strtoull(CHAR_STR(s), NULL, 0);
-
   elf_symbol::type type = elf_symbol::NOTYPE_TYPE;
   read_elf_symbol_type(node, type);
 
@@ -3085,8 +3236,15 @@ build_elf_symbol(read_context& ctxt, const xmlNodePtr node,
 
   e->set_is_suppressed(is_suppressed);
 
-  if (crc != 0)
-    e->set_crc(crc);
+  if (xml_char_sptr s = XML_NODE_GET_ATTRIBUTE(node, "crc"))
+    e->set_crc(strtoull(CHAR_STR(s), NULL, 0));
+
+  if (xml_char_sptr s = XML_NODE_GET_ATTRIBUTE(node, "namespace"))
+    {
+      std::string ns;
+      xml::xml_char_sptr_to_string(s, ns);
+      e->set_namespace(ns);
+    }
 
   return e;
 }
@@ -3381,6 +3539,7 @@ build_function_decl(read_context&	ctxt,
 
   maybe_set_artificial_location(ctxt, node, fn_decl);
   ctxt.push_decl_to_current_scope(fn_decl, add_to_current_scope);
+  RECORD_ARTIFACTS_AS_USED_IN_FN_DECL(ctxt, fn_decl);
 
   elf_symbol_sptr sym = build_elf_symbol_from_reference(ctxt, node);
   if (sym)
@@ -3619,6 +3778,12 @@ build_var_decl(read_context&	ctxt,
     decl->set_symbol(sym);
 
   ctxt.push_decl_to_current_scope(decl, add_to_current_scope);
+  if (add_to_current_scope)
+    {
+      // This variable is really being kept in the IR, so let's record
+      // that it's using its type.
+      RECORD_ARTIFACT_AS_USED_BY(ctxt, underlying_type, decl);
+    }
 
   if (decl->get_symbol() && decl->get_symbol()->is_public())
     decl->set_is_in_public_symbol_table(true);
@@ -3787,6 +3952,7 @@ build_qualified_type_decl(read_context&	ctxt,
       decl.reset(new qualified_type_def(underlying_type, cv, loc));
       maybe_set_artificial_location(ctxt, node, decl);
       ctxt.push_and_key_type_decl(decl, id, add_to_current_scope);
+      RECORD_ARTIFACT_AS_USED_BY(ctxt, underlying_type, decl);
     }
 
   ctxt.map_xml_node_to_decl(node, decl);
@@ -3865,7 +4031,7 @@ build_pointer_type_def(read_context&	ctxt,
   ABG_ASSERT(pointed_to_type);
 
   t->set_pointed_to_type(pointed_to_type);
-
+  RECORD_ARTIFACT_AS_USED_BY(ctxt, pointed_to_type, t);
   return t;
 }
 
@@ -3944,6 +4110,7 @@ build_reference_type_def(read_context&		ctxt,
     ctxt.build_or_get_type_decl(type_id,/*add_to_current_scope=*/ true);
   ABG_ASSERT(pointed_to_type);
   t->set_pointed_to_type(pointed_to_type);
+  RECORD_ARTIFACT_AS_USED_BY(ctxt, pointed_to_type, t);
 
   return t;
 }
@@ -4008,6 +4175,7 @@ build_function_type(read_context&	ctxt,
 
   ctxt.get_translation_unit()->bind_function_type_life_time(fn_type);
   ctxt.key_type_decl(fn_type, id);
+  RECORD_ARTIFACTS_AS_USED_IN_FN_TYPE(ctxt, fn_type);
 
   for (xmlNodePtr n = xmlFirstElementChild(node);
        n;
@@ -4265,6 +4433,7 @@ build_array_type_def(read_context&	ctxt,
   maybe_set_artificial_location(ctxt, node, ar_type);
   if (ctxt.push_and_key_type_decl(ar_type, id, add_to_current_scope))
     ctxt.map_xml_node_to_decl(node, ar_type);
+  RECORD_ARTIFACT_AS_USED_BY(ctxt, type, ar_type);
 
   if (dimensions != ar_type->get_dimension_count()
       || (alignment_in_bits
@@ -4446,6 +4615,7 @@ build_enum_type_decl(read_context&	ctxt,
     {
       maybe_set_naming_typedef(ctxt, node, t);
       ctxt.map_xml_node_to_decl(node, t);
+      RECORD_ARTIFACT_AS_USED_BY(ctxt, underlying_type, t);
       return t;
     }
 
@@ -4508,6 +4678,7 @@ build_typedef_decl(read_context&	ctxt,
   maybe_set_artificial_location(ctxt, node, t);
   ctxt.push_and_key_type_decl(t, id, add_to_current_scope);
   ctxt.map_xml_node_to_decl(node, t);
+  RECORD_ARTIFACT_AS_USED_BY(ctxt, underlying_type, t);
 
   return t;
 }
@@ -4871,6 +5042,21 @@ build_class_decl(read_context&		ctxt,
 					    offset_in_bits);
 		      if (is_static)
 			ctxt.maybe_add_var_to_exported_decls(v.get());
+		      // Now let's record the fact that the data
+		      // member uses its type and that the class being
+		      // built uses the data member.
+		      if (is_anonymous_data_member(v))
+			// This data member is anonymous so recording
+			// that it uses its type is useless because we
+			// can't name it.  Rather, let's record that
+			// the class being built uses the type of the
+			// (anonymous) data member.
+			RECORD_ARTIFACT_AS_USED_BY(ctxt, v->get_type(), decl);
+		      else
+			{
+			  RECORD_ARTIFACT_AS_USED_BY(ctxt, v->get_type(), v);
+			  RECORD_ARTIFACT_AS_USED_BY(ctxt, v, decl);
+			}
 		    }
 		}
 	    }
@@ -5217,10 +5403,27 @@ build_union_decl(read_context& ctxt,
 		    }
 		  if (!is_static
 		      || !variable_is_suppressed(ctxt, decl.get(), *v))
-		    decl->add_data_member(v, access,
-					  is_laid_out,
-					  is_static,
-					  offset_in_bits);
+		    {
+		      decl->add_data_member(v, access,
+					    is_laid_out,
+					    is_static,
+					    offset_in_bits);
+		      // Now let's record the fact that the data
+		      // member uses its type and that the union being
+		      // built uses the data member.
+		      if (is_anonymous_data_member(v))
+			// This data member is anonymous so recording
+			// that it uses its type is useless because we
+			// can't name it.  Rather, let's record that
+			// the class being built uses the type of the
+			// (anonymous) data member.
+			RECORD_ARTIFACT_AS_USED_BY(ctxt, v->get_type(), decl);
+		      else
+			{
+			  RECORD_ARTIFACT_AS_USED_BY(ctxt, v->get_type(), v);
+			  RECORD_ARTIFACT_AS_USED_BY(ctxt, v, decl);
+			}
+		    }
 		}
 	    }
 	}
@@ -5499,7 +5702,6 @@ build_type_tparameter(read_context&		ctxt,
 
   return result;
 }
-
 
 /// Build a tmpl_parm_type_composition from a
 /// "template-parameter-type-composition" xml element node.

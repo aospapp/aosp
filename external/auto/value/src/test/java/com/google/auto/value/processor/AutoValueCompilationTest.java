@@ -21,6 +21,7 @@ import static com.google.testing.compile.CompilationSubject.compilations;
 import static com.google.testing.compile.Compiler.javac;
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.truth.Expect;
@@ -555,6 +556,50 @@ public class AutoValueCompilationTest {
   }
 
   @Test
+  public void autoValueMustBeClass() {
+    JavaFileObject javaFileObject =
+        JavaFileObjects.forSourceLines(
+            "foo.bar.Baz",
+            "package foo.bar;",
+            "",
+            "import com.google.auto.value.AutoValue;",
+            "",
+            "@AutoValue",
+            "public interface Baz {",
+            "  String buh();",
+            "}");
+    Compilation compilation =
+        javac().withProcessors(new AutoValueProcessor()).compile(javaFileObject);
+    assertThat(compilation)
+        .hadErrorContaining("@AutoValue only applies to classes")
+        .inFile(javaFileObject)
+        .onLineContaining("interface Baz");
+  }
+
+  @Test
+  public void autoValueMustNotBeFinal() {
+    JavaFileObject javaFileObject =
+        JavaFileObjects.forSourceLines(
+            "foo.bar.Baz",
+            "package foo.bar;",
+            "",
+            "import com.google.auto.value.AutoValue;",
+            "",
+            "@AutoValue",
+            "public final class Baz {",
+            "  public Baz create() {",
+            "    return new AutoValue_Baz();",
+            "  }",
+            "}");
+    Compilation compilation =
+        javac().withProcessors(new AutoValueProcessor()).compile(javaFileObject);
+    assertThat(compilation)
+        .hadErrorContaining("@AutoValue class must not be final")
+        .inFile(javaFileObject)
+        .onLineContaining("class Baz");
+  }
+
+  @Test
   public void autoValueMustBeStatic() {
     JavaFileObject javaFileObject =
         JavaFileObjects.forSourceLines(
@@ -581,7 +626,7 @@ public class AutoValueCompilationTest {
   }
 
   @Test
-  public void autoValueMustBeNotBePrivate() {
+  public void autoValueMustNotBePrivate() {
     JavaFileObject javaFileObject =
         JavaFileObjects.forSourceLines(
             "foo.bar.Baz",
@@ -632,6 +677,52 @@ public class AutoValueCompilationTest {
         .hadErrorContaining("@AutoValue class must not be nested in a private class")
         .inFile(javaFileObject)
         .onLineContaining("class Nested");
+  }
+
+  @Test
+  public void autoValueMustHaveNoArgConstructor() {
+    JavaFileObject javaFileObject =
+        JavaFileObjects.forSourceLines(
+            "foo.bar.Baz",
+            "package foo.bar;",
+            "",
+            "import com.google.auto.value.AutoValue;",
+            "",
+            "@AutoValue",
+            "public abstract class Baz {",
+            "  Baz(int buh) {}",
+            "",
+            "  public abstract int buh();",
+            "}");
+    Compilation compilation =
+        javac().withProcessors(new AutoValueProcessor()).compile(javaFileObject);
+    assertThat(compilation)
+        .hadErrorContaining("@AutoValue class must have a non-private no-arg constructor")
+        .inFile(javaFileObject)
+        .onLineContaining("class Baz");
+  }
+
+  @Test
+  public void autoValueMustHaveVisibleNoArgConstructor() {
+    JavaFileObject javaFileObject =
+        JavaFileObjects.forSourceLines(
+            "foo.bar.Baz",
+            "package foo.bar;",
+            "",
+            "import com.google.auto.value.AutoValue;",
+            "",
+            "@AutoValue",
+            "public abstract class Baz {",
+            "  private Baz() {}",
+            "",
+            "  public abstract int buh();",
+            "}");
+    Compilation compilation =
+        javac().withProcessors(new AutoValueProcessor()).compile(javaFileObject);
+    assertThat(compilation)
+        .hadErrorContaining("@AutoValue class must have a non-private no-arg constructor")
+        .inFile(javaFileObject)
+        .onLineContaining("class Baz");
   }
 
   @Test
@@ -1448,6 +1539,42 @@ public class AutoValueCompilationTest {
   }
 
   @Test
+  public void autoValueBuilderMustHaveNoArgConstructor() {
+    JavaFileObject javaFileObject =
+        JavaFileObjects.forSourceLines(
+            "foo.bar.Example",
+            "package foo.bar;",
+            "",
+            "import com.google.auto.value.AutoValue;",
+            "",
+            "class Example {",
+            "  @AutoValue",
+            "  abstract static class Baz {",
+            "    abstract int foo();",
+            "",
+            "    static Builder builder() {",
+            "      return new AutoValue_Example_Baz.Builder();",
+            "    }",
+            "",
+            "    @AutoValue.Builder",
+            "    abstract static class Builder {",
+            "      Builder(int defaultFoo) {}",
+            "      abstract Builder foo(int x);",
+            "      abstract Baz build();",
+            "    }",
+            "  }",
+            "}");
+    Compilation compilation =
+        javac()
+            .withProcessors(new AutoValueProcessor(), new AutoValueBuilderProcessor())
+            .compile(javaFileObject);
+    assertThat(compilation)
+        .hadErrorContaining("@AutoValue.Builder class must have a non-private no-arg constructor")
+        .inFile(javaFileObject)
+        .onLineContaining("class Builder");
+  }
+
+  @Test
   public void autoValueBuilderOnEnum() {
     JavaFileObject javaFileObject =
         JavaFileObjects.forSourceLines(
@@ -1850,6 +1977,8 @@ public class AutoValueCompilationTest {
 
   @Test
   public void autoValueBuilderSetterReturnType() {
+    // We do allow the return type of a setter to be a supertype of the builder type, to support
+    // step builders. But we don't allow it to be Object.
     JavaFileObject javaFileObject =
         JavaFileObjects.forSourceLines(
             "foo.bar.Baz",
@@ -1863,7 +1992,7 @@ public class AutoValueCompilationTest {
             "",
             "  @AutoValue.Builder",
             "  public interface Builder {",
-            "    void blim(int x);",
+            "    Object blim(int x);",
             "    Baz build();",
             "  }",
             "}");
@@ -1874,7 +2003,7 @@ public class AutoValueCompilationTest {
     assertThat(compilation)
         .hadErrorContaining("Setter methods must return foo.bar.Baz.Builder")
         .inFile(javaFileObject)
-        .onLineContaining("void blim(int x)");
+        .onLineContaining("Object blim(int x)");
   }
 
   @Test
@@ -2913,8 +3042,6 @@ public class AutoValueCompilationTest {
             "foo.bar.Bar",
             "package foo.bar;",
             "",
-            "import com.google.auto.value.AutoValue;",
-            "",
             "@" + Foo.class.getCanonicalName(),
             "public abstract class Bar {",
             "  public abstract BarFoo barFoo();",
@@ -2925,6 +3052,73 @@ public class AutoValueCompilationTest {
             .withOptions("-Xlint:-processing", "-implicit:none")
             .compile(bazFileObject, barFileObject);
     assertThat(compilation).succeededWithoutWarnings();
+  }
+
+  @Test
+  public void referencingGeneratedClassInAnnotation() {
+    // Test that ensures that a type that does not exist can be referenced by a copied annotation
+    // as long as it later does come into existence. The BarFoo type referenced here does not exist
+    // when the AutoValueProcessor runs on the first round, but the FooProcessor then generates it.
+    // That generation provokes a further round of annotation processing and AutoValueProcessor
+    // should succeed then.
+    // We test the three places that a class reference could appear: as the value of a Class
+    // element, as the value of a Class[] element, in a nested annotation.
+    JavaFileObject barFileObject =
+        JavaFileObjects.forSourceLines(
+            "foo.bar.Bar",
+            "package foo.bar;",
+            "",
+            "@" + Foo.class.getCanonicalName(),
+            "public abstract class Bar {",
+            "}");
+    JavaFileObject referenceClassFileObject =
+        JavaFileObjects.forSourceLines(
+            "foo.bar.ReferenceClass",
+            "package foo.bar;",
+            "",
+            "@interface ReferenceClass {",
+            "  Class<?> value() default Void.class;",
+            "  Class<?>[] values() default {};",
+            "  Nested nested() default @Nested;",
+            "  @interface Nested {",
+            "    Class<?>[] values() default {};",
+            "  }",
+            "}");
+    ImmutableList<String> annotations = ImmutableList.of(
+        "@ReferenceClass(BarFoo.class)",
+        "@ReferenceClass(values = {Void.class, BarFoo.class})",
+        "@ReferenceClass(nested = @ReferenceClass.Nested(values = {Void.class, BarFoo.class}))");
+    for (String annotation : annotations) {
+      JavaFileObject bazFileObject =
+          JavaFileObjects.forSourceLines(
+              "foo.bar.Baz",
+              "package foo.bar;",
+              "",
+              "import com.google.auto.value.AutoValue;",
+              "",
+              "@AutoValue",
+              "@AutoValue.CopyAnnotations",
+              annotation,
+              "public abstract class Baz {",
+              "  public abstract int foo();",
+              "",
+              "  public static Baz create(int foo) {",
+              "    return new AutoValue_Baz(foo);",
+              "  }",
+              "}");
+      Compilation compilation =
+          javac()
+              .withProcessors(new AutoValueProcessor(), new FooProcessor())
+              .withOptions("-Xlint:-processing", "-implicit:none")
+              .compile(bazFileObject, barFileObject, referenceClassFileObject);
+      expect.about(compilations()).that(compilation).succeededWithoutWarnings();
+      if (compilation.status().equals(Compilation.Status.SUCCESS)) {
+        expect.about(compilations()).that(compilation)
+            .generatedSourceFile("foo.bar.AutoValue_Baz")
+            .contentsAsUtf8String()
+            .contains(annotation);
+      }
+    }
   }
 
   @Test
@@ -3049,6 +3243,63 @@ public class AutoValueCompilationTest {
         .generatedSourceFile("foo.bar.AutoValue_Baz")
         .contentsAsUtf8String()
         .containsMatch("(?s:@Parent.ProtectedAnnotation\\s*@Override\\s*public String foo\\(\\))");
+  }
+
+  @Test
+  public void methodAnnotationsCopiedInLexicographicalOrder() {
+    JavaFileObject bazFileObject =
+        JavaFileObjects.forSourceLines(
+            "foo.bar.Baz",
+            "package foo.bar;",
+            "",
+            "import com.google.auto.value.AutoValue;",
+            "import com.package1.Annotation1;",
+            "import com.package2.Annotation0;",
+            "",
+            "@AutoValue",
+            "public abstract class Baz extends Parent {",
+            "  @Annotation0",
+            "  @Annotation1",
+            "  @Override",
+            "  public abstract String foo();",
+            "}");
+    JavaFileObject parentFileObject =
+        JavaFileObjects.forSourceLines(
+            "foo.bar.Parent",
+            "package foo.bar;",
+            "",
+            "public abstract class Parent {",
+            "  public abstract String foo();",
+            "}");
+    JavaFileObject annotation1FileObject =
+        JavaFileObjects.forSourceLines(
+            "com.package1.Annotation1",
+            "package com.package1;",
+            "",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "",
+            "@Target({ElementType.FIELD, ElementType.METHOD})",
+            "public @interface Annotation1 {}");
+    JavaFileObject annotation0FileObject =
+        JavaFileObjects.forSourceLines(
+            "com.package2.Annotation0",
+            "package com.package2;",
+            "",
+            "public @interface Annotation0 {}");
+    Compilation compilation =
+        javac()
+            .withProcessors(new AutoValueProcessor())
+            .withOptions("-Xlint:-processing", "-implicit:none")
+            .compile(bazFileObject, parentFileObject, annotation1FileObject, annotation0FileObject);
+    assertThat(compilation).succeededWithoutWarnings();
+    assertThat(compilation)
+        .generatedSourceFile("foo.bar.AutoValue_Baz")
+        .contentsAsUtf8String()
+        .containsMatch(
+            "(?s:@Annotation1\\s+@Annotation0\\s+@Override\\s+public String foo\\(\\))");
+    // @Annotation1 precedes @Annotation 0 because
+    // @com.package2.Annotation1 precedes @com.package1.Annotation0
   }
 
   @Test

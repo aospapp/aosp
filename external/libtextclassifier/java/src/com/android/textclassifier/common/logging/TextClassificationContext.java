@@ -18,6 +18,7 @@ package com.android.textclassifier.common.logging;
 
 import androidx.annotation.NonNull;
 import com.google.common.base.Preconditions;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Locale;
 import javax.annotation.Nullable;
 
@@ -91,6 +92,7 @@ public final class TextClassificationContext {
      *
      * @return this builder
      */
+    @CanIgnoreReturnValue
     public Builder setWidgetVersion(@Nullable String widgetVersion) {
       this.widgetVersion = widgetVersion;
       return this;

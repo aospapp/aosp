@@ -113,8 +113,11 @@ class autoserv_parser(object):
         self.parser.add_argument('--ssh-user', action='store',
                                  type=str, dest='ssh_user', default='root',
                                  help='specify the user for ssh connections')
-        self.parser.add_argument('--ssh-port', action='store',
-                                 type=int, dest='ssh_port', default=22,
+        self.parser.add_argument('--ssh-port',
+                                 action='store',
+                                 type=int,
+                                 dest='ssh_port',
+                                 default=None,
                                  help=('specify the port to use for ssh '
                                        'connections'))
         self.parser.add_argument('--ssh-pass', action='store',
@@ -163,13 +166,6 @@ class autoserv_parser(object):
                                  dest='no_use_packaging', default=False,
                                  help=('Disable install modes that use the '
                                        'packaging system.'))
-        self.parser.add_argument('--source_isolate', action='store',
-                                 type=str, default='',
-                                 dest='isolate',
-                                 help=('Hash for isolate containing build '
-                                       'contents needed for server-side '
-                                       'packaging. Takes precedence over '
-                                       'test_source_build, if present.'))
         self.parser.add_argument('--test_source_build', action='store',
                                  type=str, default='',
                                  dest='test_source_build',
@@ -192,6 +188,12 @@ class autoserv_parser(object):
         self.parser.add_argument('--lab', action='store', type=str,
                                  dest='lab', default='',
                                  help=argparse.SUPPRESS)
+        self.parser.add_argument('--CFT',
+                                 action='store_true',
+                                 dest='cft',
+                                 default=False,
+                                 help=('If running in, or mocking, '
+                                       'the CFT env.'))
         self.parser.add_argument('--cloud_trace_context', type=str, default='',
                                  action='store', dest='cloud_trace_context',
                                  help=('Global trace context to configure '
@@ -238,6 +240,35 @@ class autoserv_parser(object):
                      ' enabled. The default value is provided via the global'
                      ' config setting for AUTOSERV/container_base_name.'
         )
+        self.parser.add_argument(
+                '--image-storage-server',
+                action='store',
+                type=str,
+                default='',
+                help='The gs path to the image storage server to be used'
+                ' for this autoserv invocation. This overrides the'
+                ' default provided by CROS/image_storage_server.')
+        self.parser.add_argument('--py_version',
+                                 action='store',
+                                 dest='py_version',
+                                 default='2',
+                                 type=str,
+                                 choices=['2', '3'])
+        self.parser.add_argument('-ch',
+                                 action='store',
+                                 type=str,
+                                 dest='companion_hosts',
+                                 help='list of companion hosts for the test.')
+        self.parser.add_argument('--dut_servers',
+                                 action='store',
+                                 type=str,
+                                 dest='dut_servers',
+                                 help='list of DUT servers for the test.')
+        self.parser.add_argument('--force_full_log_collection',
+                                 action='store_true',
+                                 dest='force_full_log_collection',
+                                 default=False,
+                                 help='Force full log collection on tests.')
 
         #
         # Warning! Please read before adding any new arguments!
@@ -269,7 +300,7 @@ class autoserv_parser(object):
             if unknown_args:
                 removed_args.append(unknown_args.pop(0))
         if removed_args:
-            logging.warn('Unknown arguments are removed from the options: %s',
+            logging.warning('Unknown arguments are removed from the options: %s',
                          removed_args)
 
         self.args = unknown_args + shlex.split(self.options.args or '')
@@ -277,7 +308,7 @@ class autoserv_parser(object):
         self.options.host_attributes = ast.literal_eval(
                 self.options.host_attributes)
         if self.options.lab and self.options.host_attributes:
-            logging.warn(
+            logging.warning(
                     '--lab and --host-attributes are mutually exclusive. '
                     'Ignoring custom host attributes: %s',
                     str(self.options.host_attributes))

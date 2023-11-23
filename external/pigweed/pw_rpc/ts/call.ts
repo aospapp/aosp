@@ -12,10 +12,10 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-import {Status} from '@pigweed/pw_status';
+import {Status} from 'pigweedjs/pw_status';
 import {Message} from 'google-protobuf';
 
-import WaitQueue = require('wait-queue');
+import WaitQueue from "./queue";
 
 import {PendingCalls, Rpc} from './rpc_classes';
 

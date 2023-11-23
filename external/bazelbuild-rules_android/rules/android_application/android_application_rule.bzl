@@ -17,33 +17,33 @@
 load(":android_feature_module_rule.bzl", "get_feature_module_paths")
 load(":attrs.bzl", "ANDROID_APPLICATION_ATTRS")
 load(
-    "@rules_android//rules:aapt.bzl",
+    "//rules:aapt.bzl",
     _aapt = "aapt",
 )
 load(
-    "@rules_android//rules:bundletool.bzl",
+    "//rules:bundletool.bzl",
     _bundletool = "bundletool",
 )
 load(
-    "@rules_android//rules:busybox.bzl",
+    "//rules:busybox.bzl",
     _busybox = "busybox",
 )
 load(
-    "@rules_android//rules:common.bzl",
+    "//rules:common.bzl",
     _common = "common",
 )
 load(
-    "@rules_android//rules:java.bzl",
+    "//rules:java.bzl",
     _java = "java",
 )
 load(
-    "@rules_android//rules:providers.bzl",
+    "//rules:providers.bzl",
     "AndroidBundleInfo",
     "AndroidFeatureModuleInfo",
     "StarlarkAndroidResourcesInfo",
 )
 load(
-    "@rules_android//rules:utils.bzl",
+    "//rules:utils.bzl",
     "get_android_toolchain",
     _log = "log",
 )
@@ -57,7 +57,7 @@ def _verify_attrs(attrs, fqn):
         if hasattr(attrs, attr):
             _log.error("Unsupported attr: %s in android_application" % attr)
 
-    if not attrs.get("manifest_values", default = {}).get("applicationId"):
+    if not attrs.get("manifest_values", {}).get("applicationId"):
         _log.error("%s missing required applicationId in manifest_values" % fqn)
 
     for attr in ["deps"]:
@@ -140,7 +140,6 @@ def _process_feature_module(
         ctx,
         inputs = [filtered_res, native_libs],
         output = out,
-        exclude_build_data = True,
         java_toolchain = _common.get_java_toolchain(ctx),
     )
 
@@ -204,15 +203,16 @@ def _create_feature_manifest(
         progress_message = "Generating Priority AndroidManifest.xml for " + feature_target.label.name,
     )
 
-    _busybox.merge_manifests(
-        ctx,
-        out_file = manifest,
-        manifest = priority_manifest,
-        mergee_manifests = depset([info.manifest]),
-        java_package = java_package,
-        busybox = android_resources_busybox.files_to_run,
-        host_javabase = host_javabase,
-        manifest_values = {"MODULE_TITLE": "@string/" + info.title_id},
+    args = ctx.actions.args()
+    args.add("--main_manifest", priority_manifest.path)
+    args.add("--feature_manifest", info.manifest.path)
+    args.add("--feature_title", "@string/" + info.title_id)
+    args.add("--out", manifest.path)
+    ctx.actions.run(
+        executable = ctx.attr._merge_manifests.files_to_run,
+        inputs = [priority_manifest, info.manifest],
+        outputs = [manifest],
+        arguments = [args],
     )
 
     return manifest
@@ -284,11 +284,25 @@ def _impl(ctx):
     )
 
     # Create `blaze run` script
+    base_apk_info = ctx.attr.base_module[ApkInfo]
+    deploy_script_files = [base_apk_info.signing_keys[-1]]
     subs = {
         "%bundletool_path%": get_android_toolchain(ctx).bundletool.files_to_run.executable.short_path,
         "%aab%": ctx.outputs.unsigned_aab.short_path,
-        "%key%": ctx.attr.base_module[ApkInfo].signing_keys[0].short_path,
+        "%newest_key%": base_apk_info.signing_keys[-1].short_path,
     }
+    if base_apk_info.signing_lineage:
+        signer_properties = _common.create_signer_properties(ctx, base_apk_info.signing_keys[0])
+        subs["%oldest_signer_properties%"] = signer_properties.short_path
+        subs["%lineage%"] = base_apk_info.signing_lineage.short_path
+        subs["%min_rotation_api%"] = base_apk_info.signing_min_v3_rotation_api_version
+        deploy_script_files.extend(
+            [signer_properties, base_apk_info.signing_lineage, base_apk_info.signing_keys[0]],
+        )
+    else:
+        subs["%oldest_signer_properties%"] = ""
+        subs["%lineage%"] = ""
+        subs["%min_rotation_api%"] = ""
     ctx.actions.expand_template(
         template = ctx.file._bundle_deploy,
         output = ctx.outputs.deploy_script,
@@ -304,14 +318,14 @@ def _impl(ctx):
             executable = ctx.outputs.deploy_script,
             runfiles = ctx.runfiles([
                 ctx.outputs.unsigned_aab,
-                ctx.attr.base_module[ApkInfo].signing_keys[0],
                 get_android_toolchain(ctx).bundletool.files_to_run.executable,
-            ]),
+            ] + deploy_script_files),
         ),
     ]
 
 android_application = rule(
     attrs = ANDROID_APPLICATION_ATTRS,
+    cfg = android_common.android_platforms_transition,
     fragments = [
         "android",
         "java",
@@ -322,7 +336,7 @@ android_application = rule(
         "deploy_script": "%{name}.sh",
         "unsigned_aab": "%{name}_unsigned.aab",
     },
-    toolchains = ["@rules_android//toolchains/android:toolchain_type"],
+    toolchains = ["//toolchains/android:toolchain_type"],
     _skylark_testable = True,
 )
 
@@ -337,8 +351,8 @@ def android_application_macro(_android_binary, **attrs):
     fqn = "//%s:%s" % (native.package_name(), attrs["name"])
 
     # Must pop these because android_binary does not have these attributes.
-    app_integrity_config = attrs.pop("app_integrity_config", default = None)
-    rotation_config = attrs.pop("rotation_config", default = None)
+    app_integrity_config = attrs.pop("app_integrity_config", None)
+    rotation_config = attrs.pop("rotation_config", None)
 
     # Simply fall back to android_binary if no feature splits or bundle_config
     if not attrs.get("feature_modules", None) and not (attrs.get("bundle_config", None) or attrs.get("bundle_config_file", None)):
@@ -352,9 +366,9 @@ def android_application_macro(_android_binary, **attrs):
     base_split_name = "%s_base" % name
 
     # default to [] if feature_modules = None is passed
-    feature_modules = attrs.pop("feature_modules", default = []) or []
-    bundle_config = attrs.pop("bundle_config", default = None)
-    bundle_config_file = attrs.pop("bundle_config_file", default = None)
+    feature_modules = attrs.pop("feature_modules", []) or []
+    bundle_config = attrs.pop("bundle_config", None)
+    bundle_config_file = attrs.pop("bundle_config_file", None)
 
     # bundle_config is deprecated in favor of bundle_config_file
     # In the future bundle_config will accept a build rule rather than a raw file.
@@ -382,4 +396,5 @@ def android_application_macro(_android_binary, **attrs):
         transitive_configs = attrs.get("transitive_configs", []),
         feature_modules = feature_modules,
         application_id = attrs["manifest_values"]["applicationId"],
+        visibility = attrs.get("visibility", None),
     )

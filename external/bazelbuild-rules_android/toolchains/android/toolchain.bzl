@@ -66,12 +66,6 @@ _ATTRS = dict(
         cfg = "exec",
         executable = True,
     ),
-    android_archive_manifest_package_validator = attr.label(
-        allow_files = True,
-        default = "@androidsdk//:fail",
-        cfg = "exec",
-        executable = True,
-    ),
     android_archive_packages_validator = attr.label(
         allow_files = True,
         default = "@androidsdk//:fail",
@@ -102,9 +96,15 @@ _ATTRS = dict(
         default = "//tools/android:bundletool_deploy.jar",
         executable = True,
     ),
+    centralize_r_class_tool = attr.label(
+        allow_files = True,
+        cfg = "exec",
+        default = "@androidsdk//:fail",
+        executable = True,
+    ),
     data_binding_annotation_processor = attr.label(
         cfg = "exec",
-        default = "@//tools/android:compiler_annotation_processor",  # TODO: processor rules should be moved into rules_android
+        default = "//tools/android:compiler_annotation_processor",
     ),
     data_binding_annotation_template = attr.label(
         default = "//rules:data_binding_annotation_template.txt",
@@ -119,6 +119,12 @@ _ATTRS = dict(
         allow_files = True,
         cfg = "exec",
         default = "@bazel_tools//tools/android:desugar_java8_extra_bootclasspath",
+        executable = True,
+    ),
+    enforce_min_sdk_floor_tool = attr.label(
+        allow_files = True,
+        cfg = "exec",
+        default = "//src/tools/enforce_min_sdk_floor",
         executable = True,
     ),
     idlclass = attr.label(
@@ -146,6 +152,12 @@ _ATTRS = dict(
         cfg = "exec",
         # used in android_local_test
         default = "@androidsdk//:fail",  # TODO: "//src/tools/jdeps", needs Go
+        executable = True,
+    ),
+    object_method_rewriter = attr.label(
+        allow_files = True,
+        cfg = "exec",
+        default = "@androidsdk//:fail",
         executable = True,
     ),
     proguard_allowlister = attr.label(

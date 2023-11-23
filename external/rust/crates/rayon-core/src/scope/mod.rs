@@ -5,14 +5,15 @@
 //! [`in_place_scope()`]: fn.in_place_scope.html
 //! [`join()`]: ../join/join.fn.html
 
-use crate::job::{HeapJob, JobFifo};
+use crate::broadcast::BroadcastContext;
+use crate::job::{ArcJob, HeapJob, JobFifo, JobRef};
 use crate::latch::{CountLatch, CountLockLatch, Latch};
 use crate::registry::{global_registry, in_worker, Registry, WorkerThread};
 use crate::unwind;
 use std::any::Any;
 use std::fmt;
 use std::marker::PhantomData;
-use std::mem;
+use std::mem::ManuallyDrop;
 use std::ptr;
 use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::Arc;
@@ -38,7 +39,7 @@ pub struct ScopeFifo<'scope> {
     fifos: Vec<JobFifo>,
 }
 
-enum ScopeLatch {
+pub(super) enum ScopeLatch {
     /// A latch for scopes created on a rayon thread which will participate in work-
     /// stealing while it waits for completion. This thread is not necessarily part
     /// of the same registry as the scope itself!
@@ -127,7 +128,7 @@ struct ScopeBase<'scope> {
 /// Task execution potentially starts as soon as `spawn()` is called.
 /// The task will end sometime before `scope()` returns. Note that the
 /// *closure* given to scope may return much earlier. In general
-/// the lifetime of a scope created like `scope(body) goes something like this:
+/// the lifetime of a scope created like `scope(body)` goes something like this:
 ///
 /// - Scope begins when `scope(body)` is called
 /// - Scope body `body()` is invoked
@@ -241,7 +242,7 @@ struct ScopeBase<'scope> {
 ///     });
 ///
 ///     // That closure is fine, but now we can't use `ok` anywhere else,
-///     // since it is owend by the previous task:
+///     // since it is owned by the previous task:
 ///     // s.spawn(|_| println!("ok: {:?}", ok));
 /// });
 /// ```
@@ -495,7 +496,7 @@ impl<'scope> Scope<'scope> {
     /// the stack (if those variables outlive the scope) or
     /// communicate through shared channels.
     ///
-    /// (The intention is to eventualy integrate with Rust futures to
+    /// (The intention is to eventually integrate with Rust futures to
     /// support spawns of functions that compute a value.)
     ///
     /// # Examples
@@ -538,18 +539,37 @@ impl<'scope> Scope<'scope> {
     where
         BODY: FnOnce(&Scope<'scope>) + Send + 'scope,
     {
-        self.base.increment();
-        unsafe {
-            let job_ref = Box::new(HeapJob::new(move || {
-                self.base.execute_job(move || body(self))
-            }))
-            .as_job_ref();
+        let scope_ptr = ScopePtr(self);
+        let job = HeapJob::new(move || unsafe {
+            // SAFETY: this job will execute before the scope ends.
+            let scope = scope_ptr.as_ref();
+            ScopeBase::execute_job(&scope.base, move || body(scope))
+        });
+        let job_ref = self.base.heap_job_ref(job);
 
-            // Since `Scope` implements `Sync`, we can't be sure that we're still in a
-            // thread of this pool, so we can't just push to the local worker thread.
-            // Also, this might be an in-place scope.
-            self.base.registry.inject_or_push(job_ref);
-        }
+        // Since `Scope` implements `Sync`, we can't be sure that we're still in a
+        // thread of this pool, so we can't just push to the local worker thread.
+        // Also, this might be an in-place scope.
+        self.base.registry.inject_or_push(job_ref);
+    }
+
+    /// Spawns a job into every thread of the fork-join scope `self`. This job will
+    /// execute on each thread sometime before the fork-join scope completes.  The
+    /// job is specified as a closure, and this closure receives its own reference
+    /// to the scope `self` as argument, as well as a `BroadcastContext`.
+    pub fn spawn_broadcast<BODY>(&self, body: BODY)
+    where
+        BODY: Fn(&Scope<'scope>, BroadcastContext<'_>) + Send + Sync + 'scope,
+    {
+        let scope_ptr = ScopePtr(self);
+        let job = ArcJob::new(move || unsafe {
+            // SAFETY: this job will execute before the scope ends.
+            let scope = scope_ptr.as_ref();
+            let body = &body;
+            let func = move || BroadcastContext::with(move |ctx| body(scope, ctx));
+            ScopeBase::execute_job(&scope.base, func)
+        });
+        self.base.inject_broadcast(job)
     }
 }
 
@@ -579,23 +599,43 @@ impl<'scope> ScopeFifo<'scope> {
     where
         BODY: FnOnce(&ScopeFifo<'scope>) + Send + 'scope,
     {
-        self.base.increment();
-        unsafe {
-            let job_ref = Box::new(HeapJob::new(move || {
-                self.base.execute_job(move || body(self))
-            }))
-            .as_job_ref();
+        let scope_ptr = ScopePtr(self);
+        let job = HeapJob::new(move || unsafe {
+            // SAFETY: this job will execute before the scope ends.
+            let scope = scope_ptr.as_ref();
+            ScopeBase::execute_job(&scope.base, move || body(scope))
+        });
+        let job_ref = self.base.heap_job_ref(job);
 
-            // If we're in the pool, use our scope's private fifo for this thread to execute
-            // in a locally-FIFO order.  Otherwise, just use the pool's global injector.
-            match self.base.registry.current_thread() {
-                Some(worker) => {
-                    let fifo = &self.fifos[worker.index()];
-                    worker.push(fifo.push(job_ref));
-                }
-                None => self.base.registry.inject(&[job_ref]),
+        // If we're in the pool, use our scope's private fifo for this thread to execute
+        // in a locally-FIFO order. Otherwise, just use the pool's global injector.
+        match self.base.registry.current_thread() {
+            Some(worker) => {
+                let fifo = &self.fifos[worker.index()];
+                // SAFETY: this job will execute before the scope ends.
+                unsafe { worker.push(fifo.push(job_ref)) };
             }
+            None => self.base.registry.inject(job_ref),
         }
+    }
+
+    /// Spawns a job into every thread of the fork-join scope `self`. This job will
+    /// execute on each thread sometime before the fork-join scope completes.  The
+    /// job is specified as a closure, and this closure receives its own reference
+    /// to the scope `self` as argument, as well as a `BroadcastContext`.
+    pub fn spawn_broadcast<BODY>(&self, body: BODY)
+    where
+        BODY: Fn(&ScopeFifo<'scope>, BroadcastContext<'_>) + Send + Sync + 'scope,
+    {
+        let scope_ptr = ScopePtr(self);
+        let job = ArcJob::new(move || unsafe {
+            // SAFETY: this job will execute before the scope ends.
+            let scope = scope_ptr.as_ref();
+            let body = &body;
+            let func = move || BroadcastContext::with(move |ctx| body(scope, ctx));
+            ScopeBase::execute_job(&scope.base, func)
+        });
+        self.base.inject_broadcast(job)
     }
 }
 
@@ -619,13 +659,36 @@ impl<'scope> ScopeBase<'scope> {
         self.job_completed_latch.increment();
     }
 
+    fn heap_job_ref<FUNC>(&self, job: Box<HeapJob<FUNC>>) -> JobRef
+    where
+        FUNC: FnOnce() + Send + 'scope,
+    {
+        unsafe {
+            self.increment();
+            job.into_job_ref()
+        }
+    }
+
+    fn inject_broadcast<FUNC>(&self, job: Arc<ArcJob<FUNC>>)
+    where
+        FUNC: Fn() + Send + Sync + 'scope,
+    {
+        let n_threads = self.registry.num_threads();
+        let job_refs = (0..n_threads).map(|_| unsafe {
+            self.increment();
+            ArcJob::as_job_ref(&job)
+        });
+
+        self.registry.inject_broadcast(job_refs);
+    }
+
     /// Executes `func` as a job, either aborting or executing as
     /// appropriate.
     fn complete<FUNC, R>(&self, owner: Option<&WorkerThread>, func: FUNC) -> R
     where
         FUNC: FnOnce() -> R,
     {
-        let result = self.execute_job_closure(func);
+        let result = unsafe { Self::execute_job_closure(self, func) };
         self.job_completed_latch.wait(owner);
         self.maybe_propagate_panic();
         result.unwrap() // only None if `op` panicked, and that would have been propagated
@@ -633,28 +696,28 @@ impl<'scope> ScopeBase<'scope> {
 
     /// Executes `func` as a job, either aborting or executing as
     /// appropriate.
-    fn execute_job<FUNC>(&self, func: FUNC)
+    unsafe fn execute_job<FUNC>(this: *const Self, func: FUNC)
     where
         FUNC: FnOnce(),
     {
-        let _: Option<()> = self.execute_job_closure(func);
+        let _: Option<()> = Self::execute_job_closure(this, func);
     }
 
     /// Executes `func` as a job in scope. Adjusts the "job completed"
     /// counters and also catches any panic and stores it into
     /// `scope`.
-    fn execute_job_closure<FUNC, R>(&self, func: FUNC) -> Option<R>
+    unsafe fn execute_job_closure<FUNC, R>(this: *const Self, func: FUNC) -> Option<R>
     where
         FUNC: FnOnce() -> R,
     {
         match unwind::halt_unwinding(func) {
             Ok(r) => {
-                self.job_completed_latch.set();
+                Latch::set(&(*this).job_completed_latch);
                 Some(r)
             }
             Err(err) => {
-                self.job_panicked(err);
-                self.job_completed_latch.set();
+                (*this).job_panicked(err);
+                Latch::set(&(*this).job_completed_latch);
                 None
             }
         }
@@ -662,14 +725,20 @@ impl<'scope> ScopeBase<'scope> {
 
     fn job_panicked(&self, err: Box<dyn Any + Send + 'static>) {
         // capture the first error we see, free the rest
-        let nil = ptr::null_mut();
-        let mut err = Box::new(err); // box up the fat ptr
-        if self
-            .panic
-            .compare_exchange(nil, &mut *err, Ordering::Release, Ordering::Relaxed)
-            .is_ok()
-        {
-            mem::forget(err); // ownership now transferred into self.panic
+        if self.panic.load(Ordering::Relaxed).is_null() {
+            let nil = ptr::null_mut();
+            let mut err = ManuallyDrop::new(Box::new(err)); // box up the fat ptr
+            let err_ptr: *mut Box<dyn Any + Send + 'static> = &mut **err;
+            if self
+                .panic
+                .compare_exchange(nil, err_ptr, Ordering::Release, Ordering::Relaxed)
+                .is_ok()
+            {
+                // ownership now transferred into self.panic
+            } else {
+                // another panic raced in ahead of us, so drop ours
+                let _: Box<Box<_>> = ManuallyDrop::into_inner(err);
+            }
         }
     }
 
@@ -687,14 +756,18 @@ impl<'scope> ScopeBase<'scope> {
 
 impl ScopeLatch {
     fn new(owner: Option<&WorkerThread>) -> Self {
+        Self::with_count(1, owner)
+    }
+
+    pub(super) fn with_count(count: usize, owner: Option<&WorkerThread>) -> Self {
         match owner {
             Some(owner) => ScopeLatch::Stealing {
-                latch: CountLatch::new(),
+                latch: CountLatch::with_count(count),
                 registry: Arc::clone(owner.registry()),
                 worker_index: owner.index(),
             },
             None => ScopeLatch::Blocking {
-                latch: CountLockLatch::new(),
+                latch: CountLockLatch::with_count(count),
             },
         }
     }
@@ -706,18 +779,7 @@ impl ScopeLatch {
         }
     }
 
-    fn set(&self) {
-        match self {
-            ScopeLatch::Stealing {
-                latch,
-                registry,
-                worker_index,
-            } => latch.set_and_tickle_one(registry, *worker_index),
-            ScopeLatch::Blocking { latch } => latch.set(),
-        }
-    }
-
-    fn wait(&self, owner: Option<&WorkerThread>) {
+    pub(super) fn wait(&self, owner: Option<&WorkerThread>) {
         match self {
             ScopeLatch::Stealing {
                 latch,
@@ -730,6 +792,19 @@ impl ScopeLatch {
                 owner.wait_until(latch);
             },
             ScopeLatch::Blocking { latch } => latch.wait(),
+        }
+    }
+}
+
+impl Latch for ScopeLatch {
+    unsafe fn set(this: *const Self) {
+        match &*this {
+            ScopeLatch::Stealing {
+                latch,
+                registry,
+                worker_index,
+            } => CountLatch::set_and_tickle_one(latch, registry, *worker_index),
+            ScopeLatch::Blocking { latch } => Latch::set(latch),
         }
     }
 }
@@ -767,5 +842,24 @@ impl fmt::Debug for ScopeLatch {
                 .field(latch)
                 .finish(),
         }
+    }
+}
+
+/// Used to capture a scope `&Self` pointer in jobs, without faking a lifetime.
+///
+/// Unsafe code is still required to dereference the pointer, but that's fine in
+/// scope jobs that are guaranteed to execute before the scope ends.
+struct ScopePtr<T>(*const T);
+
+// SAFETY: !Send for raw pointers is not for safety, just as a lint
+unsafe impl<T: Sync> Send for ScopePtr<T> {}
+
+// SAFETY: !Sync for raw pointers is not for safety, just as a lint
+unsafe impl<T: Sync> Sync for ScopePtr<T> {}
+
+impl<T> ScopePtr<T> {
+    // Helper to avoid disjoint captures of `scope_ptr.0`
+    unsafe fn as_ref(&self) -> &T {
+        &*self.0
     }
 }

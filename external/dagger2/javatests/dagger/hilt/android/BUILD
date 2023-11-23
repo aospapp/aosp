@@ -30,6 +30,7 @@ android_library(
         "MultiTestRootExternalModules.java",
     ],
     exports_manifest = 1,
+    javacopts = ["-Adagger.hilt.shareTestComponents=true"],
     manifest = "AndroidManifest.xml",
     deps = [
         "//:android_local_test_exports",
@@ -42,7 +43,7 @@ android_library(
         "//java/dagger/hilt/android/testing:custom_test_application",
         "//java/dagger/hilt/android/testing:hilt_android_test",
         "//java/dagger/hilt/android/testing:uninstall_modules",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/truth",
         "@maven//:androidx_test_core",
         "@maven//:androidx_test_ext_junit",
         "@maven//:junit_junit",
@@ -91,6 +92,57 @@ android_local_test(
 )
 
 android_local_test(
+    name = "AliasOfMultipleScopesTest",
+    srcs = ["AliasOfMultipleScopesTest.java"],
+    manifest = "AndroidManifest.xml",
+    manifest_values = {
+        "minSdkVersion": "14",
+    },
+    deps = [
+        "//:android_local_test_exports",
+        "//java/dagger/hilt:define_component",
+        "//java/dagger/hilt:entry_point",
+        "//java/dagger/hilt:install_in",
+        "//java/dagger/hilt/android:android_entry_point",
+        "//java/dagger/hilt/android:package_info",
+        "//java/dagger/hilt/android/qualifiers",
+        "//java/dagger/hilt/android/scopes",
+        "//java/dagger/hilt/android/testing:hilt_android_rule",
+        "//java/dagger/hilt/android/testing:hilt_android_test",
+        "//java/dagger/hilt/migration:alias_of",
+        "//third_party/java/truth",
+    ],
+)
+
+android_library(
+    name = "custom_inject_classes",
+    srcs = ["CustomInjectClasses.java"],
+    deps = [
+        "//:dagger_with_compiler",
+        "//java/dagger/hilt:install_in",
+        "//java/dagger/hilt/android:hilt_android_app",
+        "//java/dagger/hilt/android:package_info",
+        "//java/dagger/hilt/android/migration:custom_inject",
+        "//third_party/java/jsr330_inject",
+    ],
+)
+
+android_local_test(
+    name = "CustomInjectTest",
+    size = "small",
+    srcs = ["CustomInjectTest.java"],
+    manifest_values = {
+        "minSdkVersion": "14",
+    },
+    deps = [
+        ":custom_inject_classes",
+        "//:android_local_test_exports",
+        "//java/dagger/hilt/android:package_info",
+        "//third_party/java/truth",
+    ],
+)
+
+android_local_test(
     name = "EarlyEntryPointHiltAndroidAppRuntimeTest",
     size = "small",
     srcs = ["EarlyEntryPointHiltAndroidAppRuntimeTest.java"],
@@ -103,7 +155,7 @@ android_local_test(
         "//java/dagger/hilt:entry_point",
         "//java/dagger/hilt/android:early_entry_point",
         "//java/dagger/hilt/android:package_info",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/truth",
         "@maven//:junit_junit",
     ],
 )
@@ -138,7 +190,7 @@ android_local_test(
         "//java/dagger/hilt/android:early_entry_point",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/truth",
     ],
 )
 
@@ -161,7 +213,7 @@ android_local_test(
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/testing:custom_test_application",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/truth",
     ],
 )
 
@@ -180,7 +232,27 @@ android_local_test(
         "//java/dagger/hilt/android:early_entry_point",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/truth",
+    ],
+)
+
+android_local_test(
+    name = "FragmentContextOnAttachTest",
+    size = "small",
+    srcs = ["FragmentContextOnAttachTest.java"],
+    manifest_values = {
+        "minSdkVersion": "14",
+    },
+    deps = [
+        "//:android_local_test_exports",
+        "//:dagger_with_compiler",
+        "//java/dagger/hilt:install_in",
+        "//java/dagger/hilt/android:android_entry_point",
+        "//java/dagger/hilt/android:package_info",
+        "//java/dagger/hilt/android/flags:fragment_get_context_fix",
+        "//java/dagger/hilt/android/testing:bind_value",
+        "//java/dagger/hilt/android/testing:hilt_android_test",
+        "//third_party/java/truth",
     ],
 )
 
@@ -203,11 +275,10 @@ android_local_test(
     },
     deps = [
         "//:android_local_test_exports",
-        "//:dagger_with_compiler",
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android:android_entry_point",
         "//java/dagger/hilt/android:package_info",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/truth",
     ],
 )
 
@@ -223,8 +294,8 @@ android_local_test(
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/truth",
     ],
 )
 
@@ -242,8 +313,8 @@ android_local_test(
         "//java/dagger/hilt/android:android_entry_point",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/truth",
     ],
 )
 
@@ -261,8 +332,8 @@ android_local_test(
         "//java/dagger/hilt/android:android_entry_point",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 
@@ -288,12 +359,11 @@ android_local_test(
     deps = [
         "//:android_local_test_exports",
         "//:dagger_with_compiler",
-        "//java/dagger/hilt:entry_point",
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/testing:hilt_android_test",
         "//javatests/dagger/hilt/testmodules",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/truth",
     ],
 )
 
@@ -307,15 +377,14 @@ android_local_test(
     deps = [
         "//:android_local_test_exports",
         "//:dagger_with_compiler",
-        "//java/dagger/hilt:entry_point",
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android:android_entry_point",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/lifecycle",
         "//java/dagger/hilt/android/testing:bind_value",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/truth",
         "@maven//:androidx_activity_activity",
         "@maven//:androidx_fragment_fragment",
         "@maven//:androidx_lifecycle_lifecycle_common",
@@ -339,8 +408,8 @@ android_local_test(
         "//java/dagger/hilt/android:android_entry_point",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/truth",
         "@maven//:androidx_activity_activity",
         "@maven//:androidx_fragment_fragment",
         "@maven//:androidx_lifecycle_lifecycle_common",
@@ -361,6 +430,75 @@ kt_android_library(
 )
 
 android_local_test(
+    name = "OptionalInjectWithHiltTest",
+    size = "small",
+    srcs = [
+        "OptionalInjectWithHiltTest.java",
+    ],
+    manifest = "AndroidManifest.xml",
+    manifest_values = {
+        "minSdkVersion": "14",
+    },
+    deps = [
+        ":OptionalInjectTestClasses",
+        "//:android_local_test_exports",
+        "//java/dagger/hilt/android:android_entry_point",
+        "//java/dagger/hilt/android:package_info",
+        "//java/dagger/hilt/android/migration:optional_inject",
+        "//java/dagger/hilt/android/testing:hilt_android_test",
+        "//third_party/java/truth",
+        "@maven//:androidx_activity_activity",
+        "@maven//:androidx_fragment_fragment",
+        "@maven//:androidx_lifecycle_lifecycle_common",
+        "@maven//:androidx_lifecycle_lifecycle_viewmodel",
+        "@maven//:androidx_lifecycle_lifecycle_viewmodel_savedstate",
+    ],
+)
+
+android_local_test(
+    name = "OptionalInjectWithoutHiltTest",
+    size = "small",
+    srcs = [
+        "OptionalInjectWithoutHiltTest.java",
+    ],
+    manifest = "AndroidManifest.xml",
+    manifest_values = {
+        "minSdkVersion": "14",
+    },
+    deps = [
+        ":OptionalInjectTestClasses",
+        "//:android_local_test_exports",
+        "//java/dagger/hilt/android:package_info",
+        "//java/dagger/hilt/android/migration:optional_inject",
+        "//third_party/java/truth",
+        "@maven//:androidx_activity_activity",
+        "@maven//:androidx_fragment_fragment",
+        "@maven//:androidx_lifecycle_lifecycle_common",
+        "@maven//:androidx_lifecycle_lifecycle_viewmodel",
+        "@maven//:androidx_lifecycle_lifecycle_viewmodel_savedstate",
+    ],
+)
+
+android_library(
+    name = "OptionalInjectTestClasses",
+    srcs = ["OptionalInjectTestClasses.java"],
+    manifest = "AndroidManifest.xml",
+    deps = [
+        "//:dagger_with_compiler",
+        "//java/dagger/hilt:install_in",
+        "//java/dagger/hilt/android:android_entry_point",
+        "//java/dagger/hilt/android:package_info",
+        "//java/dagger/hilt/android/migration:optional_inject",
+        "//third_party/java/jsr330_inject",
+        "@maven//:androidx_activity_activity",
+        "@maven//:androidx_fragment_fragment",
+        "@maven//:androidx_lifecycle_lifecycle_common",
+        "@maven//:androidx_lifecycle_lifecycle_viewmodel",
+        "@maven//:androidx_lifecycle_lifecycle_viewmodel_savedstate",
+    ],
+)
+
+android_local_test(
     name = "ActivityRetainedClearedListenerTest",
     srcs = ["ActivityRetainedClearedListenerTest.java"],
     manifest = "AndroidManifest.xml",
@@ -370,14 +508,13 @@ android_local_test(
     deps = [
         "//:android_local_test_exports",
         "//:dagger_with_compiler",
-        "//java/dagger/hilt:entry_point",
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android:activity_retained_lifecycle",
         "//java/dagger/hilt/android:android_entry_point",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/truth",
         "@maven//:androidx_activity_activity",
         "@maven//:androidx_fragment_fragment",
         "@maven//:androidx_lifecycle_lifecycle_common",
@@ -397,13 +534,12 @@ android_local_test(
     deps = [
         "//:android_local_test_exports",
         "//:dagger_with_compiler",
-        "//java/dagger/hilt:entry_point",
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android:android_entry_point",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/truth",
         "@maven//:androidx_activity_activity",
         "@maven//:androidx_fragment_fragment",
         "@maven//:androidx_lifecycle_lifecycle_common",
@@ -423,15 +559,14 @@ android_local_test(
     deps = [
         "//:android_local_test_exports",
         "//:dagger_with_compiler",
-        "//java/dagger/hilt:entry_point",
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android:android_entry_point",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/lifecycle",
         "//java/dagger/hilt/android/scopes",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/truth",
         "@maven//:androidx_activity_activity",
         "@maven//:androidx_fragment_fragment",
         "@maven//:androidx_lifecycle_lifecycle_common",
@@ -451,14 +586,13 @@ android_local_test(
     deps = [
         "//:android_local_test_exports",
         "//:dagger_with_compiler",
-        "//java/dagger/hilt:entry_point",
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android:android_entry_point",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/lifecycle",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/truth",
         "@maven//:androidx_activity_activity",
         "@maven//:androidx_fragment_fragment",
         "@maven//:androidx_lifecycle_lifecycle_common",
@@ -478,14 +612,12 @@ android_local_test(
     deps = [
         "//:android_local_test_exports",
         "//:dagger_with_compiler",
-        "//java/dagger/hilt:entry_point",
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android:android_entry_point",
         "//java/dagger/hilt/android:package_info",
         "//java/dagger/hilt/android/testing:hilt_android_test",
-        "//java/dagger/internal/guava:base-android",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/truth",
         "@maven//:junit_junit",
     ],
 )
@@ -502,7 +634,7 @@ android_library(
         "//java/dagger/hilt:entry_point",
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android/components",
-        "@google_bazel_common//third_party/java/jsr330_inject",
+        "//third_party/java/jsr330_inject",
     ],
 )
 
@@ -548,8 +680,8 @@ android_library(
         "//java/dagger/hilt/android/testing:custom_test_application",
         "//java/dagger/hilt/android/testing:hilt_android_test",
         "//java/dagger/hilt/android/testing:uninstall_modules",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/truth",
         "@maven//:androidx_test_core",
         "@maven//:androidx_test_ext_junit",
         "@maven//:junit_junit",
@@ -578,8 +710,8 @@ android_library(
         "//java/dagger/hilt/android/testing:bind_value",
         "//java/dagger/hilt/android/testing:hilt_android_test",
         "//java/dagger/hilt/testing:test_install_in",
-        "@google_bazel_common//third_party/java/jsr330_inject",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/jsr330_inject",
+        "//third_party/java/truth",
         "@maven//:androidx_test_core",
         "@maven//:androidx_test_ext_junit",
         "@maven//:junit_junit",

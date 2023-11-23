@@ -16,47 +16,28 @@
 from .vulkantypes import VulkanType, VulkanTypeInfo, VulkanCompoundType, VulkanAPI
 from collections import OrderedDict
 from copy import copy
+from pathlib import Path, PurePosixPath
 
 import os
 import sys
+import shutil
+import subprocess
 
-# Class capturing a .cpp file and a .h file (a "C++ module")
-class Module(object):
+# Class capturing a single file
 
-    def __init__(self, directory, basename, customAbsDir = None, suppress = False, implOnly = False):
+
+class SingleFileModule(object):
+    def __init__(self, suffix, directory, basename, customAbsDir=None, suppress=False):
         self.directory = directory
         self.basename = basename
-
-        self.headerPreamble = ""
-        self.implPreamble = ""
-
-        self.headerPostamble = ""
-        self.implPostamble = ""
-
-        self.headerFileHandle = ""
-        self.implFileHandle = ""
-
         self.customAbsDir = customAbsDir
+        self.suffix = suffix
+        self.file = None
+
+        self.preamble = ""
+        self.postamble = ""
 
         self.suppress = suppress
-
-        self.implOnly = implOnly
-
-    def getMakefileSrcEntry(self):
-        if self.customAbsDir:
-            return self.basename + ".cpp \\\n"
-        dirName = self.directory
-        baseName = self.basename
-        joined = os.path.join(dirName, baseName)
-        return "    " + joined + ".cpp \\\n"
-
-    def getCMakeSrcEntry(self):
-        if self.customAbsDir:
-            return "\n" + self.basename + ".cpp "
-        dirName = self.directory
-        baseName = self.basename
-        joined = os.path.join(dirName, baseName)
-        return "\n    " + joined + ".cpp "
 
     def begin(self, globalDir):
         if self.suppress:
@@ -70,62 +51,148 @@ class Module(object):
 
         filename = os.path.join(absDir, self.basename)
 
-        fpHeader = None
+        self.file = open(filename + self.suffix, "w", encoding="utf-8")
+        self.file.write(self.preamble)
 
-        if not self.implOnly:
-            fpHeader = open(filename + ".h", "w", encoding="utf-8")
-
-        fpImpl = open(filename + ".cpp", "w", encoding="utf-8")
-
-        self.headerFileHandle = fpHeader
-        self.implFileHandle = fpImpl
-
-        if not self.implOnly:
-            self.headerFileHandle.write(self.headerPreamble)
-
-        self.implFileHandle.write(self.implPreamble)
-
-    def appendHeader(self, toAppend):
+    def append(self, toAppend):
         if self.suppress:
             return
 
-        if not self.implOnly:
-            self.headerFileHandle.write(toAppend)
-
-    def appendImpl(self, toAppend):
-        if self.suppress:
-            return
-
-        self.implFileHandle.write(toAppend)
+        self.file.write(toAppend)
 
     def end(self):
         if self.suppress:
             return
 
-        if not self.implOnly:
-            self.headerFileHandle.write(self.headerPostamble)
-
-        self.implFileHandle.write(self.implPostamble)
-
-        if not self.implOnly:
-            self.headerFileHandle.close()
-
-        self.implFileHandle.close()
-
-# Class capturing a .proto protobuf definition file
-class Proto(object):
-
-    def __init__(self, directory, basename, customAbsDir = None, suppress = False):
-        self.directory = directory
-        self.basename = basename
-        self.customAbsDir = customAbsDir
-
-        self.preamble = ""
-        self.postamble = ""
-
-        self.suppress = suppress
+        self.file.write(self.postamble)
+        self.file.close()
 
     def getMakefileSrcEntry(self):
+        return ""
+
+    def getCMakeSrcEntry(self):
+        return ""
+
+# Class capturing a .cpp file and a .h file (a "C++ module")
+
+
+class Module(object):
+
+    def __init__(
+            self, directory, basename, customAbsDir=None, suppress=False, implOnly=False,
+            headerOnly=False, suppressFeatureGuards=False):
+        self._headerFileModule = SingleFileModule(
+            ".h", directory, basename, customAbsDir, suppress or implOnly)
+        self._implFileModule = SingleFileModule(
+            ".cpp", directory, basename, customAbsDir, suppress or headerOnly)
+
+        self._headerOnly = headerOnly
+        self._implOnly = implOnly
+
+        self.directory = directory
+        self.basename = basename
+        self._customAbsDir = customAbsDir
+
+        self.suppressFeatureGuards = suppressFeatureGuards
+
+    @property
+    def suppress(self):
+        raise AttributeError("suppress is write only")
+
+    @suppress.setter
+    def suppress(self, value: bool):
+        self._headerFileModule.suppress = self._implOnly or value
+        self._implFileModule.suppress = self._headerOnly or value
+
+    @property
+    def headerPreamble(self) -> str:
+        return self._headerFileModule.preamble
+
+    @headerPreamble.setter
+    def headerPreamble(self, value: str):
+        self._headerFileModule.preamble = value
+
+    @property
+    def headerPostamble(self) -> str:
+        return self._headerFileModule.postamble
+
+    @headerPostamble.setter
+    def headerPostamble(self, value: str):
+        self._headerFileModule.postamble = value
+
+    @property
+    def implPreamble(self) -> str:
+        return self._implFileModule.preamble
+
+    @implPreamble.setter
+    def implPreamble(self, value: str):
+        self._implFileModule.preamble = value
+
+    @property
+    def implPostamble(self) -> str:
+        return self._implFileModule.postamble
+
+    @implPostamble.setter
+    def implPostamble(self, value: str):
+        self._implFileModule.postamble = value
+
+    def getMakefileSrcEntry(self):
+        if self._customAbsDir:
+            return self.basename + ".cpp \\\n"
+        dirName = self.directory
+        baseName = self.basename
+        joined = os.path.join(dirName, baseName)
+        return "    " + joined + ".cpp \\\n"
+
+    def getCMakeSrcEntry(self):
+        if self._customAbsDir:
+            return "\n" + self.basename + ".cpp "
+        dirName = Path(self.directory)
+        baseName = Path(self.basename)
+        joined = PurePosixPath(dirName / baseName)
+        return "\n    " + str(joined) + ".cpp "
+
+    def begin(self, globalDir):
+        self._headerFileModule.begin(globalDir)
+        self._implFileModule.begin(globalDir)
+
+    def appendHeader(self, toAppend):
+        self._headerFileModule.append(toAppend)
+
+    def appendImpl(self, toAppend):
+        self._implFileModule.append(toAppend)
+
+    def end(self):
+        self._headerFileModule.end()
+        self._implFileModule.end()
+
+        clang_format_command = shutil.which('clang-format')
+        assert (clang_format_command is not None)
+
+        def formatFile(filename: Path):
+            assert (subprocess.call([clang_format_command, "-i",
+                    "--style=file", str(filename.resolve())]) == 0)
+
+        if not self._headerFileModule.suppress:
+            formatFile(Path(self._headerFileModule.file.name))
+
+        if not self._implFileModule.suppress:
+            formatFile(Path(self._implFileModule.file.name))
+
+
+class PyScript(SingleFileModule):
+    def __init__(self, directory, basename, customAbsDir=None, suppress=False):
+        super().__init__(".py", directory, basename, customAbsDir, suppress)
+
+
+# Class capturing a .proto protobuf definition file
+class Proto(SingleFileModule):
+
+    def __init__(self, directory, basename, customAbsDir=None, suppress=False):
+        super().__init__(".proto", directory, basename, customAbsDir, suppress)
+
+    def getMakefileSrcEntry(self):
+        super().getMakefileSrcEntry()
         if self.customAbsDir:
             return self.basename + ".proto \\\n"
         dirName = self.directory
@@ -134,6 +201,7 @@ class Proto(object):
         return "    " + joined + ".proto \\\n"
 
     def getCMakeSrcEntry(self):
+        super().getCMakeSrcEntry()
         if self.customAbsDir:
             return "\n" + self.basename + ".proto "
 
@@ -141,35 +209,6 @@ class Proto(object):
         baseName = self.basename
         joined = os.path.join(dirName, baseName)
         return "\n    " + joined + ".proto "
-
-    def begin(self, globalDir):
-        if self.suppress:
-            return
-
-        # Create subdirectory, if needed
-        if self.customAbsDir:
-            absDir = self.customAbsDir
-        else:
-            absDir = os.path.join(globalDir, self.directory)
-
-        filename = os.path.join(absDir, self.basename)
-
-        fpProto = open(filename + ".proto", "w", encoding="utf-8")
-        self.protoFileHandle = fpProto
-        self.protoFileHandle.write(self.preamble)
-
-    def append(self, toAppend):
-        if self.suppress:
-            return
-
-        self.protoFileHandle.write(toAppend)
-
-    def end(self):
-        if self.suppress:
-            return
-
-        self.protoFileHandle.write(self.postamble)
-        self.protoFileHandle.close()
 
 class CodeGen(object):
 
@@ -472,7 +511,7 @@ class CodeGen(object):
 
         deref = "->" if asPtr else "."
         lenAccessGuardExpr = "%s" % (
-            
+
             structVarName) if deref else None
         if lenExpr == "null-terminated":
             return "strlen(%s%s%s)" % (structVarName, deref,
@@ -577,7 +616,7 @@ class CodeGen(object):
     def generalLengthAccessGuard(self, vulkanType, parentVarName="parent"):
         return self.makeLengthAccess(vulkanType, parentVarName)[1]
 
-    def vkApiCall(self, api, customPrefix="", customParameters=None, retVarDecl=True):
+    def vkApiCall(self, api, customPrefix="", globalStatePrefix="", customParameters=None, checkForDeviceLost=False, checkForOutOfMemory=False):
         callLhs = None
 
         retTypeName = api.getRetTypeExpr()
@@ -585,8 +624,7 @@ class CodeGen(object):
 
         if retTypeName != "void":
             retVar = api.getRetVarExpr()
-            if retVarDecl:
-                self.stmt("%s %s = (%s)0" % (retTypeName, retVar, retTypeName))
+            self.stmt("%s %s = (%s)0" % (retTypeName, retVar, retTypeName))
             callLhs = retVar
 
         if customParameters is None:
@@ -595,6 +633,19 @@ class CodeGen(object):
         else:
             self.funcCall(
                 callLhs, customPrefix + api.name, customParameters)
+
+        if retTypeName == "VkResult" and checkForDeviceLost:
+            self.stmt("if ((%s) == VK_ERROR_DEVICE_LOST) %sDeviceLost()" % (callLhs, globalStatePrefix))
+
+        if retTypeName == "VkResult" and checkForOutOfMemory:
+            if api.name == "vkAllocateMemory":
+                self.stmt(
+                    "%sCheckOutOfMemory(%s, opcode, context, std::make_optional<uint64_t>(pAllocateInfo->allocationSize))"
+                    % (globalStatePrefix, callLhs))
+            else:
+                self.stmt(
+                    "%sCheckOutOfMemory(%s, opcode, context)"
+                    % (globalStatePrefix, callLhs))
 
         return (retTypeName, retVar)
 
@@ -843,9 +894,9 @@ class VulkanAPIWrapper(object):
 # VulkanAPIWrapper objects to make it easier to generate the code.
 class VulkanWrapperGenerator(object):
 
-    def __init__(self, module, typeInfo):
-        self.module = module
-        self.typeInfo = typeInfo
+    def __init__(self, module: Module, typeInfo: VulkanTypeInfo):
+        self.module: Module = module
+        self.typeInfo: VulkanTypeInfo = typeInfo
         self.extensionStructTypes = OrderedDict()
 
     def onBegin(self):
@@ -854,7 +905,10 @@ class VulkanWrapperGenerator(object):
     def onEnd(self):
         pass
 
-    def onBeginFeature(self, featureName):
+    def onBeginFeature(self, featureName, featureType):
+        pass
+
+    def onFeatureNewCmd(self, cmdName):
         pass
 
     def onEndFeature(self):
@@ -893,7 +947,7 @@ class VulkanWrapperGenerator(object):
         },
         "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT": {
             "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2": "VkPhysicalDeviceFragmentDensityMapPropertiesEXT",
-            "VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO": "VkImportPhysicalAddressGOOGLE",
+            "VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO": "VkCreateBlobGOOGLE",
             "default": "VkPhysicalDeviceFragmentDensityMapPropertiesEXT",
         },
         "VK_STRUCTURE_TYPE_RENDER_PASS_FRAGMENT_DENSITY_MAP_CREATE_INFO_EXT": {

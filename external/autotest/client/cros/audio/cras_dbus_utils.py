@@ -9,6 +9,12 @@ import logging
 import multiprocessing
 import pprint
 
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
+
 from autotest_lib.client.cros.audio import cras_utils
 
 
@@ -27,25 +33,6 @@ def _set_default_main_loop():
         raise
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
-
-def _get_gobject():
-    """Tries to import gobject.
-
-    @returns: The imported gobject module.
-
-    @raises: ImportError if gobject can not be imported.
-
-    """
-    try:
-        import gobject
-    except ImportError as e:
-        logging.exception(
-                'Can not import gobject: %s. This method should only be '
-                'called on Cros device.', e)
-        raise
-    return gobject
-
-
 class CrasDBusMonitorError(Exception):
     """Error in CrasDBusMonitor."""
     pass
@@ -58,7 +45,7 @@ class CrasDBusMonitor(object):
         # Acquires a new Cras interface through a new dbus.SystemBus instance
         # which has default main loop.
         self._iface = cras_utils.get_cras_control_interface(private=True)
-        self._loop = _get_gobject().MainLoop()
+        self._loop = GObject.MainLoop()
         self._count = 0
 
 
@@ -82,7 +69,7 @@ class CrasDBusSignalListener(CrasDBusMonitor):
         self._target_signal_count = target_signal_count
         signal_match = self._iface.connect_to_signal(
                 'NodesChanged', self._nodes_changed_handler)
-        _get_gobject().timeout_add(
+        GObject.timeout_add(
                 timeout_secs * 1000, self._timeout_quit_main_loop)
 
         # Blocks here until _nodes_changed_handler or _timeout_quit_main_loop
@@ -207,7 +194,7 @@ class CrasDBusCounter(CrasDBusMonitor):
 
         signal_match = self._iface.connect_to_signal(
                 self._signal_name, self._signal_handler)
-        _get_gobject().timeout_add(
+        GObject.timeout_add(
                  int(self._CHECK_QUIT_PERIOD_SECS * 1000),
                  self._check_quit_main_loop)
 

@@ -45,7 +45,7 @@ TEST_F(FileBackedProtoTest, SimpleReadWriteTest) {
       DocumentBuilder().SetKey("namespace", "google.com").Build();
 
   FileBackedProto<DocumentProto> file_proto(filesystem_, filename_);
-  ICING_ASSERT_OK(file_proto.Write(absl::make_unique<DocumentProto>(document)));
+  ICING_ASSERT_OK(file_proto.Write(std::make_unique<DocumentProto>(document)));
   EXPECT_THAT(file_proto.Read(), IsOkAndHolds(Pointee(EqualsProto(document))));
   // Multiple reads work.
   EXPECT_THAT(file_proto.Read(), IsOkAndHolds(Pointee(EqualsProto(document))));
@@ -61,7 +61,7 @@ TEST_F(FileBackedProtoTest, DataPersistsAcrossMultipleInstancesTest) {
     EXPECT_THAT(file_proto.Read(), Not(IsOk()));  // Nothing to read.
 
     ICING_ASSERT_OK(
-        file_proto.Write(absl::make_unique<DocumentProto>(document)));
+        file_proto.Write(std::make_unique<DocumentProto>(document)));
     EXPECT_THAT(file_proto.Read(),
                 IsOkAndHolds(Pointee(EqualsProto(document))));
   }
@@ -84,12 +84,12 @@ TEST_F(FileBackedProtoTest, MultipleUpdatesToProtoTest) {
   {
     FileBackedProto<DocumentProto> file_proto(filesystem_, filename_);
     ICING_ASSERT_OK(
-        file_proto.Write(absl::make_unique<DocumentProto>(googleProto)));
+        file_proto.Write(std::make_unique<DocumentProto>(googleProto)));
     EXPECT_THAT(file_proto.Read(),
                 IsOkAndHolds(Pointee(EqualsProto(googleProto))));
 
     ICING_ASSERT_OK(
-        file_proto.Write(absl::make_unique<DocumentProto>(youtubeProto)));
+        file_proto.Write(std::make_unique<DocumentProto>(youtubeProto)));
     EXPECT_THAT(file_proto.Read(),
                 IsOkAndHolds(Pointee(EqualsProto(youtubeProto))));
   }
@@ -100,12 +100,12 @@ TEST_F(FileBackedProtoTest, MultipleUpdatesToProtoTest) {
                 IsOkAndHolds(Pointee(EqualsProto(youtubeProto))));
 
     ICING_ASSERT_OK(
-        file_proto.Write(absl::make_unique<DocumentProto>(wazeProto)));
+        file_proto.Write(std::make_unique<DocumentProto>(wazeProto)));
     EXPECT_THAT(file_proto.Read(),
                 IsOkAndHolds(Pointee(EqualsProto(wazeProto))));
 
     ICING_ASSERT_OK(
-        file_proto.Write(absl::make_unique<DocumentProto>(googleProto)));
+        file_proto.Write(std::make_unique<DocumentProto>(googleProto)));
     EXPECT_THAT(file_proto.Read(),
                 IsOkAndHolds(Pointee(EqualsProto(googleProto))));
   }
@@ -117,7 +117,7 @@ TEST_F(FileBackedProtoTest, InvalidFilenameTest) {
 
   FileBackedProto<DocumentProto> file_proto(filesystem_, "");
   EXPECT_THAT(file_proto.Read(), Not(IsOk()));
-  EXPECT_THAT(file_proto.Write(absl::make_unique<DocumentProto>(document)),
+  EXPECT_THAT(file_proto.Write(std::make_unique<DocumentProto>(document)),
               Not(IsOk()));
 }
 
@@ -128,7 +128,7 @@ TEST_F(FileBackedProtoTest, FileCorruptionTest) {
   {
     FileBackedProto<DocumentProto> file_proto(filesystem_, filename_);
     ICING_ASSERT_OK(
-        file_proto.Write(absl::make_unique<DocumentProto>(document)));
+        file_proto.Write(std::make_unique<DocumentProto>(document)));
     EXPECT_THAT(file_proto.Read(),
                 IsOkAndHolds(Pointee(EqualsProto(document))));
   }

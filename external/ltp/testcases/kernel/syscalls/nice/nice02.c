@@ -4,10 +4,13 @@
  * Ported to LTP: Wayne Boyer
  * Copyright (c) 2016 Cyril Hrubis <chrubis@suse.cz>
  */
-/*
- *  Verify that any user can successfully increase the nice value of
- *  the process by passing a higher increment value (> max. applicable limits)
- *  to nice() system call.
+
+/*\
+ * [Description]
+ *
+ * Verify that any user can successfully increase the nice value of
+ * the process by passing a higher increment value (> max. applicable limits)
+ * to nice() system call.
  */
 #include <unistd.h>
 #include <errno.h>
@@ -47,7 +50,7 @@ static void verify_nice(void)
 
 	TEST(nice(DEFAULT_PRIO));
 	if (TST_ERR)
-		tst_brk(TBROK | TTERRNO, "nice(-NICEINC) failed");
+		tst_brk(TBROK | TTERRNO, "nice(%d) failed", DEFAULT_PRIO);
 }
 
 static struct tst_test test = {

@@ -89,15 +89,15 @@ genrule {
     tool_files: ["utils/generate_grammar_tables.py"],
     cmd:
         "$(location) --extinst-vendor-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.spv-amd-gcn-shader.grammar.json) --vendor-insts-output=$(location spv-amd-gcn-shader.insts.inc) --vendor-operand-kind-prefix=; "+
-        "$(location) --spirv-core-grammar=$(location :swiftshader_spirv_headers_unified1_spirv.core.grammar.json) --extinst-debuginfo-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.debuginfo.grammar.json) --extinst-cldebuginfo100-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.opencl.debuginfo.100.grammar.json) --core-insts-output=$(location core.insts-unified1.inc) --operand-kinds-output=$(location operand.kinds-unified1.inc); "+
+        "$(location) --spirv-core-grammar=$(location :swiftshader_spirv_headers_unified1_spirv.core.grammar.json) --extinst-debuginfo-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.debuginfo.grammar.json) --extinst-cldebuginfo100-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.opencl.debuginfo.100.grammar.json) --core-insts-output=$(location core.insts-unified1.inc) --operand-kinds-output=$(location operand.kinds-unified1.inc) --output-language=c++; "+
         "$(location) --extinst-vendor-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.debuginfo.grammar.json) --vendor-insts-output=$(location debuginfo.insts.inc) --vendor-operand-kind-prefix=; "+
         "$(location) --extinst-vendor-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.spv-amd-shader-ballot.grammar.json) --vendor-insts-output=$(location spv-amd-shader-ballot.insts.inc) --vendor-operand-kind-prefix=; "+
         "$(location) --extinst-vendor-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.spv-amd-shader-explicit-vertex-parameter.grammar.json) --vendor-insts-output=$(location spv-amd-shader-explicit-vertex-parameter.insts.inc) --vendor-operand-kind-prefix=; "+
         "$(location) --extinst-vendor-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.spv-amd-shader-trinary-minmax.grammar.json) --vendor-insts-output=$(location spv-amd-shader-trinary-minmax.insts.inc) --vendor-operand-kind-prefix=; "+
         "$(location) --extinst-vendor-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.opencl.debuginfo.100.grammar.json) --vendor-insts-output=$(location opencl.debuginfo.100.insts.inc) --vendor-operand-kind-prefix=CLDEBUG100_; "+
-        "$(location) --spirv-core-grammar=$(location :swiftshader_spirv_headers_unified1_spirv.core.grammar.json) --extinst-debuginfo-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.debuginfo.grammar.json) --extinst-cldebuginfo100-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.opencl.debuginfo.100.grammar.json) --extension-enum-output=$(location extension_enum.inc) --enum-string-mapping-output=$(location enum_string_mapping.inc); "+
-        "$(location) --extinst-opencl-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.opencl.std.100.grammar.json) --opencl-insts-output=$(location opencl.std.insts.inc); "+
-        "$(location) --extinst-glsl-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.glsl.std.450.grammar.json) --glsl-insts-output=$(location glsl.std.450.insts.inc); " +
+        "$(location) --spirv-core-grammar=$(location :swiftshader_spirv_headers_unified1_spirv.core.grammar.json) --extinst-debuginfo-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.debuginfo.grammar.json) --extinst-cldebuginfo100-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.opencl.debuginfo.100.grammar.json) --extension-enum-output=$(location extension_enum.inc) --enum-string-mapping-output=$(location enum_string_mapping.inc) --output-language=c++; "+
+        "$(location) --extinst-opencl-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.opencl.std.100.grammar.json) --opencl-insts-output=$(location opencl.std.insts.inc) --output-language=c++; "+
+        "$(location) --extinst-glsl-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.glsl.std.450.grammar.json) --glsl-insts-output=$(location glsl.std.450.insts.inc) --output-language=c++; " +
         "$(location) --extinst-vendor-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.nonsemantic.clspvreflection.grammar.json) --vendor-insts-output=$(location nonsemantic.clspvreflection.insts.inc) --vendor-operand-kind-prefix=; " +
         "$(location) --extinst-vendor-grammar=$(location :swiftshader_spirv_headers_unified1_extinst.nonsemantic.shader.debuginfo.100.grammar.json) --vendor-insts-output=$(location nonsemantic.shader.debuginfo.100.insts.inc) --vendor-operand-kind-prefix=SHDEBUG100_; "
 }
@@ -119,7 +119,7 @@ genrule { // FIXME this relies on `git` which is no good on build machines
     out: ["build-version.inc"],
     srcs: ["CHANGES"],
     tool_files: ["utils/update_build_version.py"],
-    cmd: "$(location) $$(dirname $(location CHANGES)) " +
+    cmd: "$(location) $(location CHANGES) " +
          "$(location build-version.inc)",
 }
 

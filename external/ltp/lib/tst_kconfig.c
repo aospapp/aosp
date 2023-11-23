@@ -15,6 +15,18 @@
 #include "tst_kconfig.h"
 #include "tst_bool_expr.h"
 
+static int kconfig_skip_check(void)
+{
+	char *skipped = getenv("KCONFIG_SKIP_CHECK");
+
+	if (skipped) {
+		tst_res(TINFO, "Skipping kernel config check as requested");
+		return 1;
+	}
+
+	return 0;
+}
+
 static const char *kconfig_path(char *path_buf, size_t path_buf_len)
 {
 	const char *path = getenv("KCONFIG_PATH");
@@ -31,6 +43,17 @@ static const char *kconfig_path(char *path_buf, size_t path_buf_len)
 		return "/proc/config.gz";
 
 	uname(&un);
+
+	/* Common install module path */
+	snprintf(path_buf, path_buf_len, "/lib/modules/%s/build/.config", un.release);
+
+	if (!access(path_buf, F_OK))
+		return path_buf;
+
+	snprintf(path_buf, path_buf_len, "/lib/modules/%s/config", un.release);
+
+	if (!access(path_buf, F_OK))
+		return path_buf;
 
 	/* Debian and derivatives */
 	snprintf(path_buf, path_buf_len, "/boot/config-%s", un.release);
@@ -392,6 +415,7 @@ static inline unsigned int populate_vars(struct tst_expr *exprs[],
 			strncpy(vars[cnt].id, j->tok, vars[cnt].id_len);
 			vars[cnt].id[vars[cnt].id_len] = 0;
 			vars[cnt].choice = 0;
+			vars[cnt].val = NULL;
 
 			var = find_var(vars, cnt, vars[cnt].id);
 
@@ -435,6 +459,9 @@ static int map(struct tst_expr_tok *expr)
 	if (choice != 'v')
 		return var->choice == choice;
 
+	if (var->choice != 'v')
+		return 0;
+
 	if (strlen(var->val) != len)
 		return 0;
 
@@ -468,12 +495,15 @@ static void dump_vars(const struct tst_expr *expr)
 	}
 }
 
-void tst_kconfig_check(const char *const kconfigs[])
+int tst_kconfig_check(const char *const kconfigs[])
 {
 	size_t expr_cnt = array_len(kconfigs);
 	struct tst_expr *exprs[expr_cnt];
 	unsigned int i, var_cnt;
-	int abort_test = 0;
+	int ret = 0;
+
+	if (kconfig_skip_check())
+		return 0;
 
 	for (i = 0; i < expr_cnt; i++) {
 		exprs[i] = tst_bool_expr_parse(kconfigs[i]);
@@ -496,8 +526,8 @@ void tst_kconfig_check(const char *const kconfigs[])
 		int val = tst_bool_expr_eval(exprs[i], map);
 
 		if (val != 1) {
-			abort_test = 1;
-			tst_res(TINFO, "Constrain '%s' not satisfied!", kconfigs[i]);
+			ret = 1;
+			tst_res(TINFO, "Constraint '%s' not satisfied!", kconfigs[i]);
 			dump_vars(exprs[i]);
 		}
 
@@ -509,13 +539,15 @@ void tst_kconfig_check(const char *const kconfigs[])
 			free(vars[i].val);
 	}
 
-	if (abort_test)
-		tst_brk(TCONF, "Aborting due to unsuitable kernel config, see above!");
+	return ret;
 }
 
 char tst_kconfig_get(const char *confname)
 {
 	struct tst_kconfig_var var;
+
+	if (kconfig_skip_check())
+		return 0;
 
 	var.id_len = strlen(confname);
 

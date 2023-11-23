@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2021 Unicode, Inc.
+<!-- Copyright © 1991-2022 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 SPDX-License-Identifier: Unicode-DFS-2016
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -40,6 +40,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="am">amharisk</language>
 			<language type="an">aragonsk</language>
 			<language type="ang">gammelengelsk</language>
+			<language type="ann">obolo</language>
 			<language type="anp">angika</language>
 			<language type="ar">arabisk</language>
 			<language type="ar_001">moderne standardarabisk</language>
@@ -49,7 +50,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="arp">arapaho</language>
 			<language type="arq">algerisk arabisk</language>
 			<language type="ars">najdi-arabisk</language>
-			<language type="ars" alt="menu">arabisk (najd)</language>
+			<language type="ars" alt="menu">arabisk (najdi)</language>
 			<language type="arw">arawak</language>
 			<language type="ary">marokkansk-arabisk</language>
 			<language type="arz">egyptisk arabisk</language>
@@ -57,6 +58,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="asa">asu</language>
 			<language type="ase">amerikansk tegnspråk</language>
 			<language type="ast">asturisk</language>
+			<language type="atj">atikamekw</language>
 			<language type="av">avarisk</language>
 			<language type="avk">kotava</language>
 			<language type="awa">avadhi</language>
@@ -110,7 +112,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="cch">atsam</language>
 			<language type="ccp">chakma</language>
 			<language type="ce">tsjetsjensk</language>
-			<language type="ceb">cebuansk</language>
+			<language type="ceb">cebuano</language>
 			<language type="cgg">kiga</language>
 			<language type="ch">chamorro</language>
 			<language type="chb">chibcha</language>
@@ -122,17 +124,25 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="chp">chipewiansk</language>
 			<language type="chr">cherokesisk</language>
 			<language type="chy">cheyenne</language>
-			<language type="ckb">kurdisk (sorani)</language>
+			<language type="ckb">sentralkurdisk</language>
 			<language type="ckb" alt="menu">kurdisk (sentral)</language>
 			<language type="ckb" alt="variant">↑↑↑</language>
+			<language type="clc">chilcotin</language>
 			<language type="co">korsikansk</language>
 			<language type="cop">koptisk</language>
 			<language type="cps">kapiz</language>
 			<language type="cr">cree</language>
+			<language type="crg">michif</language>
 			<language type="crh">krimtatarisk</language>
+			<language type="crj">sørlig østcree</language>
+			<language type="crk">prærie-cree</language>
+			<language type="crl">nordlig østcree</language>
+			<language type="crm">moose cree</language>
+			<language type="crr">carolinsk-algonkinsk</language>
 			<language type="crs">seselwa</language>
 			<language type="cs">tsjekkisk</language>
 			<language type="csb">kasjubisk</language>
+			<language type="csw">myr-cree</language>
 			<language type="cu">kirkeslavisk</language>
 			<language type="cv">tsjuvasjisk</language>
 			<language type="cy">walisisk</language>
@@ -238,8 +248,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="hai">haida</language>
 			<language type="hak">hakka</language>
 			<language type="haw">hawaiisk</language>
+			<language type="hax">sørlig haida</language>
 			<language type="he">hebraisk</language>
 			<language type="hi">hindi</language>
+			<language type="hi_Latn">↑↑↑</language>
+			<language type="hi_Latn" alt="variant">hinglish</language>
 			<language type="hif">fijiansk hindi</language>
 			<language type="hil">hiligaynon</language>
 			<language type="hit">hettittisk</language>
@@ -251,6 +264,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ht">haitisk</language>
 			<language type="hu">ungarsk</language>
 			<language type="hup">hupa</language>
+			<language type="hur">halkomelem</language>
 			<language type="hy">armensk</language>
 			<language type="hz">herero</language>
 			<language type="ia">interlingua</language>
@@ -261,6 +275,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ig">ibo</language>
 			<language type="ii">sichuan-yi</language>
 			<language type="ik">inupiak</language>
+			<language type="ikt">vestlig kanadisk inuktitut</language>
 			<language type="ilo">iloko</language>
 			<language type="inh">ingusjisk</language>
 			<language type="io">ido</language>
@@ -327,6 +342,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="kut">kutenai</language>
 			<language type="kv">komi</language>
 			<language type="kw">kornisk</language>
+			<language type="kwk">kwak̓wala</language>
 			<language type="ky">kirgisisk</language>
 			<language type="la">latin</language>
 			<language type="lad">ladinsk</language>
@@ -339,6 +355,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="lg">ganda</language>
 			<language type="li">limburgsk</language>
 			<language type="lij">ligurisk</language>
+			<language type="lil">lillooet</language>
 			<language type="liv">livisk</language>
 			<language type="lkt">lakota</language>
 			<language type="lmo">lombardisk</language>
@@ -348,6 +365,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="lou">louisianakreolsk</language>
 			<language type="loz">lozi</language>
 			<language type="lrc">nord-luri</language>
+			<language type="lsm">samia</language>
 			<language type="lt">litauisk</language>
 			<language type="ltg">latgallisk</language>
 			<language type="lu">luba-katanga</language>
@@ -386,6 +404,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="mn">mongolsk</language>
 			<language type="mnc">mandsju</language>
 			<language type="mni">manipuri</language>
+			<language type="moe">innu-aimun</language>
 			<language type="moh">mohawk</language>
 			<language type="mos">mossi</language>
 			<language type="mr">marathi</language>
@@ -438,6 +457,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="nzi">nzima</language>
 			<language type="oc">oksitansk</language>
 			<language type="oj">ojibwa</language>
+			<language type="ojb">nordvestlig ojibwa</language>
+			<language type="ojc">ojibwa (sentral)</language>
+			<language type="ojs">oji-cree</language>
+			<language type="ojw">vestlig ojibwa</language>
+			<language type="oka">okanagansk</language>
 			<language type="om">oromo</language>
 			<language type="or">odia</language>
 			<language type="os">ossetisk</language>
@@ -457,10 +481,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="pfl">palatintysk</language>
 			<language type="phn">fønikisk</language>
 			<language type="pi">pali</language>
+			<language type="pis">pijin</language>
 			<language type="pl">polsk</language>
 			<language type="pms">piemontesisk</language>
 			<language type="pnt">pontisk</language>
 			<language type="pon">ponapisk</language>
+			<language type="pqm">maliseet-passamaquoddy</language>
 			<language type="prg">prøyssisk</language>
 			<language type="pro">gammelprovençalsk</language>
 			<language type="ps">pashto</language>
@@ -523,6 +549,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="sid">sidamo</language>
 			<language type="sk">slovakisk</language>
 			<language type="sl">slovensk</language>
+			<language type="slh">sørlig lushootseed</language>
 			<language type="sli">lavschlesisk</language>
 			<language type="sly">selayar</language>
 			<language type="sm">samoansk</language>
@@ -542,6 +569,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ssy">saho</language>
 			<language type="st">sør-sotho</language>
 			<language type="stq">saterfrisisk</language>
+			<language type="str">straits-salish</language>
 			<language type="su">sundanesisk</language>
 			<language type="suk">sukuma</language>
 			<language type="sus">susu</language>
@@ -554,6 +582,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="syr">syriakisk</language>
 			<language type="szl">schlesisk</language>
 			<language type="ta">tamil</language>
+			<language type="tce">sørlig tutchone</language>
 			<language type="tcy">tulu</language>
 			<language type="te">telugu</language>
 			<language type="tem">temne</language>
@@ -561,7 +590,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ter">tereno</language>
 			<language type="tet">tetum</language>
 			<language type="tg">tadsjikisk</language>
+			<language type="tgx">tagish</language>
 			<language type="th">thai</language>
+			<language type="tht">tahltan</language>
 			<language type="ti">tigrinja</language>
 			<language type="tig">tigré</language>
 			<language type="tiv">tiv</language>
@@ -576,6 +607,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="tn">setswana</language>
 			<language type="to">tongansk</language>
 			<language type="tog">nyasa-tongansk</language>
+			<language type="tok">toki pona</language>
 			<language type="tpi">tok pisin</language>
 			<language type="tr">tyrkisk</language>
 			<language type="tru">turoyo</language>
@@ -584,6 +616,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="tsd">tsakonisk</language>
 			<language type="tsi">tsimshian</language>
 			<language type="tt">tatarisk</language>
+			<language type="ttm">nordlig tutchone</language>
 			<language type="ttt">muslimsk tat</language>
 			<language type="tum">tumbuka</language>
 			<language type="tvl">tuvalsk</language>
@@ -631,7 +664,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="yo">joruba</language>
 			<language type="yrl">nheengatu</language>
 			<language type="yue">kantonesisk</language>
-			<language type="yue" alt="menu">↑↑↑</language>
+			<language type="yue" alt="menu">kinesisk, kantonesisk</language>
 			<language type="za">zhuang</language>
 			<language type="zap">zapotekisk</language>
 			<language type="zbl">blissymboler</language>
@@ -650,12 +683,13 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="zza">zazaisk</language>
 		</languages>
 		<scripts>
+			<script type="Adlm">adlam</script>
 			<script type="Afak" draft="contributed">afaka</script>
 			<script type="Aghb" draft="contributed">kaukasus-albansk</script>
 			<script type="Ahom" draft="contributed">ahom</script>
 			<script type="Arab">arabisk</script>
 			<script type="Arab" alt="variant">persisk-arabisk</script>
-			<script type="Aran" draft="contributed">nastaliq</script>
+			<script type="Aran">nastaliq</script>
 			<script type="Armi">arameisk</script>
 			<script type="Armn">armensk</script>
 			<script type="Avst">avestisk</script>
@@ -776,6 +810,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<script type="Prti">inskripsjonsparthisk</script>
 			<script type="Qaag" draft="contributed">zawgyi</script>
 			<script type="Rjng">rejang</script>
+			<script type="Rohg">hanifi</script>
 			<script type="Roro">rongorongo</script>
 			<script type="Runr">runer</script>
 			<script type="Samr">samaritansk</script>
@@ -1044,6 +1079,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<territory type="NR">Nauru</territory>
 			<territory type="NU">Niue</territory>
 			<territory type="NZ">New Zealand</territory>
+			<territory type="NZ" alt="variant">Aotearoa New Zealand</territory>
 			<territory type="OM">Oman</territory>
 			<territory type="PA">Panama</territory>
 			<territory type="PE">Peru</territory>
@@ -1103,6 +1139,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<territory type="TN">Tunisia</territory>
 			<territory type="TO">Tonga</territory>
 			<territory type="TR">Tyrkia</territory>
+			<territory type="TR" alt="variant">Tyrkia</territory>
 			<territory type="TT">Trinidad og Tobago</territory>
 			<territory type="TV">Tuvalu</territory>
 			<territory type="TW">Taiwan</territory>
@@ -1212,7 +1249,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<key type="calendar">kalender</key>
 			<key type="cf">valutaformat</key>
 			<key type="colAlternate">Ignorer sortering etter symboler</key>
-			<key type="colBackwards">omvendt sortering etter aksent</key>
+			<key type="colBackwards">Omvendt sortering etter aksent</key>
 			<key type="colCaseFirst">Organisering av store og små bokstaver</key>
 			<key type="colCaseLevel">Sortering av store og små bokstaver</key>
 			<key type="collation">sorteringsrekkefølge</key>
@@ -1242,7 +1279,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="calendar" type="islamic-civil">islamsk kalender (tabell, sivil)</type>
 			<type key="calendar" type="islamic-rgsa">islamsk kalender (Saudi-Arabia, observasjon)</type>
 			<type key="calendar" type="islamic-tbla">islamsk kalender (tabell, astronomisk)</type>
-			<type key="calendar" type="islamic-umalqura" draft="contributed">islamsk kalender (Umm al-Qura)</type>
+			<type key="calendar" type="islamic-umalqura">islamsk kalender (Umm al-Qura)</type>
 			<type key="calendar" type="iso8601">ISO 8601-kalender</type>
 			<type key="calendar" type="japanese">japansk kalender</type>
 			<type key="calendar" type="persian">persisk kalender</type>
@@ -1259,14 +1296,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="colCaseLevel" type="no" draft="contributed">Sortér uavhengig av store og små bokstaver.</type>
 			<type key="colCaseLevel" type="yes" draft="contributed">Sortér med skille mellom små og store bokstaver</type>
 			<type key="collation" type="big5han">tradisjonell kinesisk sortering - Big 5</type>
-			<type key="collation" type="compat" draft="contributed">forrige sorteringsrekkefølge (for kompatibilitet)</type>
+			<type key="collation" type="compat">forrige sorteringsrekkefølge (for kompatibilitet)</type>
 			<type key="collation" type="dictionary">ordlistesortering</type>
 			<type key="collation" type="ducet">standard Unicode-sorteringsrekkefølge</type>
 			<type key="collation" type="emoji" draft="contributed">emoji-sorteringsrekkefølge</type>
 			<type key="collation" type="eor" draft="contributed">sorteringsrekkefølge for flerspråklige europeiske dokumenter</type>
 			<type key="collation" type="gb2312han">forenklet kinesisk sortering - GB2312</type>
 			<type key="collation" type="phonebook">telefonkatalogsortering</type>
-			<type key="collation" type="phonetic" draft="contributed">Fonetisk sorteringsrekkefølge</type>
+			<type key="collation" type="phonetic">fonetisk sortering</type>
 			<type key="collation" type="pinyin">pinyinsortering</type>
 			<type key="collation" type="reformed">reformert sortering</type>
 			<type key="collation" type="search">generelt søk</type>
@@ -1275,7 +1312,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="collation" type="stroke">streksortering</type>
 			<type key="collation" type="traditional">tradisjonell sortering</type>
 			<type key="collation" type="unihan">radikal-strek-sortering</type>
-			<type key="collation" type="zhuyin" draft="contributed">zhuyin-sortering</type>
+			<type key="collation" type="zhuyin">zhuyin-sortering</type>
 			<type key="colNormalization" type="no" draft="contributed">Sortér uten normalisering</type>
 			<type key="colNormalization" type="yes" draft="contributed">Sortér Unicode normalisert</type>
 			<type key="colNumeric" type="no" draft="contributed">Sortér sifre individuelt</type>
@@ -1307,7 +1344,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="bali" draft="contributed">baliske tall</type>
 			<type key="numbers" type="beng">bengalske sifre</type>
 			<type key="numbers" type="brah" draft="contributed">brahmiske tall</type>
-			<type key="numbers" type="cakm" draft="contributed">chakma-tall</type>
+			<type key="numbers" type="cakm">chakma-sifre</type>
 			<type key="numbers" type="cham" draft="contributed">cham-tall</type>
 			<type key="numbers" type="deva">devanagari-sifre</type>
 			<type key="numbers" type="ethi">etiopiske tall</type>
@@ -1324,7 +1361,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="hant">tradisjonell kinesisk-tall</type>
 			<type key="numbers" type="hantfin">tradisjonell kinesisk-finanstall</type>
 			<type key="numbers" type="hebr">hebraiske tall</type>
-			<type key="numbers" type="java" draft="contributed">java-tall</type>
+			<type key="numbers" type="java">javanesiske sifre</type>
 			<type key="numbers" type="jpan">japanske tall</type>
 			<type key="numbers" type="jpanfin">japanske finanstall</type>
 			<type key="numbers" type="kali" draft="contributed">kayah li-tall</type>
@@ -1338,12 +1375,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="limb" draft="contributed">limbu-tall</type>
 			<type key="numbers" type="mlym">malayalam-sifre</type>
 			<type key="numbers" type="mong">mongolske tall</type>
-			<type key="numbers" type="mtei" draft="contributed">meetei mayek-tall</type>
+			<type key="numbers" type="mtei">meetei mayek-sifre</type>
 			<type key="numbers" type="mymr">burmesiske sifre</type>
 			<type key="numbers" type="mymrshan" draft="contributed">myanmar shan-tall</type>
-			<type key="numbers" type="native" draft="contributed">Språkspesifikke sifre</type>
+			<type key="numbers" type="native">språkspesifikke sifre</type>
 			<type key="numbers" type="nkoo" draft="contributed">n’ko-tall</type>
-			<type key="numbers" type="olck" draft="contributed">ol chiki-tall</type>
+			<type key="numbers" type="olck">ol chiki-sifre</type>
 			<type key="numbers" type="orya">odia-sifre</type>
 			<type key="numbers" type="osma" draft="contributed">osmanya-tall</type>
 			<type key="numbers" type="roman">romertall</type>
@@ -1360,7 +1397,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="thai">thailandske sifre</type>
 			<type key="numbers" type="tibt">tibetanske sifre</type>
 			<type key="numbers" type="traditional" draft="contributed">Tradisjonelle tall</type>
-			<type key="numbers" type="vaii" draft="contributed">vai-sifre</type>
+			<type key="numbers" type="vaii">vai-sifre</type>
 		</types>
 		<measurementSystemNames>
 			<measurementSystemName type="metric">metrisk</measurementSystemName>
@@ -1387,7 +1424,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<exemplarCharacters type="auxiliary">[á ǎ ã č ç đ è ê í ń ñ ŋ š ŧ ú ü ž ä ö]</exemplarCharacters>
 		<exemplarCharacters type="index">[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z Æ Ø Å]</exemplarCharacters>
 		<exemplarCharacters type="numbers">[  , % ‰ + − 0 1 2 3 4 5 6 7 8 9]</exemplarCharacters>
-		<exemplarCharacters type="punctuation">[\- ‑ – , ; \: ! ? . ' &quot; « » ( ) \[ \] \{ \} § @ * / \\]</exemplarCharacters>
+		<exemplarCharacters type="punctuation">[\- ‑ – , ; \: ! ? ¿ . … ‘ ’ “ ” « » ( ) \[ \] \{ \} § @ * / \\ # † ‡ ′ ″]</exemplarCharacters>
 		<ellipsis type="final">{0}…</ellipsis>
 		<ellipsis type="initial">…{0}</ellipsis>
 		<ellipsis type="medial">{0}…{1}</ellipsis>
@@ -1522,15 +1559,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="d" draft="contributed">d.–d.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -2516,7 +2553,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateFormatItem id="GyMMM" draft="contributed">MMM r(U)</dateFormatItem>
 						<dateFormatItem id="GyMMMd" draft="contributed">d. MMM r</dateFormatItem>
 						<dateFormatItem id="GyMMMEd" draft="contributed">E d. MMM r(U)</dateFormatItem>
-						<dateFormatItem id="h" draft="contributed">h a</dateFormatItem>
+						<dateFormatItem id="h" draft="contributed">h a</dateFormatItem>
 						<dateFormatItem id="H" draft="contributed">HH</dateFormatItem>
 						<dateFormatItem id="M" draft="contributed">L.</dateFormatItem>
 						<dateFormatItem id="Md" draft="contributed">dd.MM</dateFormatItem>
@@ -2548,33 +2585,33 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="d" draft="contributed">d.–d.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hm">
-							<greatestDifference id="a" draft="contributed">h:mm a–h:mm a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h:mm–h:mm a</greatestDifference>
-							<greatestDifference id="m" draft="contributed">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h:mm a–h:mm a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="m" draft="contributed">h:mm–h:mm a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hm">
 							<greatestDifference id="H" draft="contributed">HH:mm–HH:mm</greatestDifference>
 							<greatestDifference id="m" draft="contributed">HH:mm–HH:mm</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hmv">
-							<greatestDifference id="a" draft="contributed">h:mm a–h:mm a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h:mm–h:mm a v</greatestDifference>
-							<greatestDifference id="m" draft="contributed">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h:mm a–h:mm a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="m" draft="contributed">h:mm–h:mm a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hmv">
 							<greatestDifference id="H" draft="contributed">HH:mm–HH:mm v</greatestDifference>
 							<greatestDifference id="m" draft="contributed">HH:mm–HH:mm v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -2832,15 +2869,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="d" draft="contributed">d.–d.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -3856,15 +3893,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="d" draft="contributed">d.–d.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -4116,15 +4153,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="d" draft="contributed">d.–d.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -4232,11 +4269,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<dateTimeFormats>
 					<dateTimeFormatLength type="full">
 						<dateTimeFormat>
+							<pattern>{1} {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
 							<pattern>{1} 'kl'. {0}</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="long">
 						<dateTimeFormat>
+							<pattern>{1} {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
 							<pattern>{1} 'kl'. {0}</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
@@ -4244,10 +4287,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateTimeFormat>
 							<pattern>{1} {0}</pattern>
 						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
+						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="short">
 						<dateTimeFormat>
 							<pattern>{1} {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<availableFormats>
@@ -4259,20 +4308,20 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateFormatItem id="EBhm">E h:mm B</dateFormatItem>
 						<dateFormatItem id="EBhms">E h:mm:ss B</dateFormatItem>
 						<dateFormatItem id="Ed">E d.</dateFormatItem>
-						<dateFormatItem id="Ehm">E h:mm a</dateFormatItem>
+						<dateFormatItem id="Ehm">E h:mm a</dateFormatItem>
 						<dateFormatItem id="EHm">E HH:mm</dateFormatItem>
-						<dateFormatItem id="Ehms">E h:mm:ss a</dateFormatItem>
+						<dateFormatItem id="Ehms">E h:mm:ss a</dateFormatItem>
 						<dateFormatItem id="EHms">E HH:mm:ss</dateFormatItem>
 						<dateFormatItem id="Gy">y G</dateFormatItem>
 						<dateFormatItem id="GyMd">dd.MM.y GGGGG</dateFormatItem>
 						<dateFormatItem id="GyMMM">MMM y G</dateFormatItem>
 						<dateFormatItem id="GyMMMd">d. MMM y G</dateFormatItem>
 						<dateFormatItem id="GyMMMEd">E d. MMM y G</dateFormatItem>
-						<dateFormatItem id="h">h a</dateFormatItem>
+						<dateFormatItem id="h">h a</dateFormatItem>
 						<dateFormatItem id="H">HH</dateFormatItem>
-						<dateFormatItem id="hm">h:mm a</dateFormatItem>
+						<dateFormatItem id="hm">h:mm a</dateFormatItem>
 						<dateFormatItem id="Hm">HH:mm</dateFormatItem>
-						<dateFormatItem id="hms">h:mm:ss a</dateFormatItem>
+						<dateFormatItem id="hms">h:mm:ss a</dateFormatItem>
 						<dateFormatItem id="Hms">HH:mm:ss</dateFormatItem>
 						<dateFormatItem id="M">L.</dateFormatItem>
 						<dateFormatItem id="Md">d.M.</dateFormatItem>
@@ -4349,33 +4398,33 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="y">E d. MMM y–E d. MMM y G</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a">h a – h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a">h a – h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hm">
-							<greatestDifference id="a">h:mm a – h:mm a</greatestDifference>
-							<greatestDifference id="h">h:mm–h:mm a</greatestDifference>
-							<greatestDifference id="m">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="a">h:mm a – h:mm a</greatestDifference>
+							<greatestDifference id="h">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="m">h:mm–h:mm a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hm">
 							<greatestDifference id="H">HH:mm–HH:mm</greatestDifference>
 							<greatestDifference id="m">HH:mm–HH:mm</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hmv">
-							<greatestDifference id="a">h:mm a – h:mm a v</greatestDifference>
-							<greatestDifference id="h">h:mm–h:mm a v</greatestDifference>
-							<greatestDifference id="m">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="a">h:mm a – h:mm a v</greatestDifference>
+							<greatestDifference id="h">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="m">h:mm–h:mm a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hmv">
 							<greatestDifference id="H">HH:mm–HH:mm v</greatestDifference>
 							<greatestDifference id="m">HH:mm–HH:mm v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a">h a – h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a">h a – h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -4446,11 +4495,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<monthWidth type="abbreviated">
 							<month type="1">jan.</month>
 							<month type="2">feb.</month>
-							<month type="3">mar.</month>
+							<month type="3">mars</month>
 							<month type="4">apr.</month>
 							<month type="5">mai</month>
-							<month type="6">jun.</month>
-							<month type="7">jul.</month>
+							<month type="6">juni</month>
+							<month type="7">juli</month>
 							<month type="8">aug.</month>
 							<month type="9">sep.</month>
 							<month type="10">okt.</month>
@@ -4800,11 +4849,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<dateTimeFormats>
 					<dateTimeFormatLength type="full">
 						<dateTimeFormat>
+							<pattern>{1}, {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
 							<pattern>{1} 'kl'. {0}</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="long">
 						<dateTimeFormat>
+							<pattern>{1}, {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
 							<pattern>{1} 'kl'. {0}</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
@@ -4812,10 +4867,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateTimeFormat>
 							<pattern>{1}, {0}</pattern>
 						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>{1}, {0}</pattern>
+						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="short">
 						<dateTimeFormat>
 							<pattern>{1}, {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<availableFormats>
@@ -4827,24 +4888,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateFormatItem id="EBhm">E h:mm B</dateFormatItem>
 						<dateFormatItem id="EBhms">E h:mm:ss B</dateFormatItem>
 						<dateFormatItem id="Ed">E d.</dateFormatItem>
-						<dateFormatItem id="Ehm">E h:mm a</dateFormatItem>
+						<dateFormatItem id="Ehm">E h:mm a</dateFormatItem>
 						<dateFormatItem id="EHm">E 'kl'. HH:mm</dateFormatItem>
-						<dateFormatItem id="Ehms">E h:mm:ss a</dateFormatItem>
+						<dateFormatItem id="Ehms">E h:mm:ss a</dateFormatItem>
 						<dateFormatItem id="EHms">E 'kl'. HH:mm:ss</dateFormatItem>
 						<dateFormatItem id="Gy">y G</dateFormatItem>
 						<dateFormatItem id="GyMd">dd.MM.y GGGGG</dateFormatItem>
 						<dateFormatItem id="GyMMM">MMM y G</dateFormatItem>
 						<dateFormatItem id="GyMMMd">d. MMM y G</dateFormatItem>
 						<dateFormatItem id="GyMMMEd">E d. MMM y G</dateFormatItem>
-						<dateFormatItem id="h">h a</dateFormatItem>
+						<dateFormatItem id="h">h a</dateFormatItem>
 						<dateFormatItem id="H">HH</dateFormatItem>
-						<dateFormatItem id="hm">h:mm a</dateFormatItem>
+						<dateFormatItem id="hm">h:mm a</dateFormatItem>
 						<dateFormatItem id="Hm">HH:mm</dateFormatItem>
-						<dateFormatItem id="hms">h:mm:ss a</dateFormatItem>
+						<dateFormatItem id="hms">h:mm:ss a</dateFormatItem>
 						<dateFormatItem id="Hms">HH:mm:ss</dateFormatItem>
-						<dateFormatItem id="hmsv">h:mm:ss a v</dateFormatItem>
+						<dateFormatItem id="hmsv">h:mm:ss a v</dateFormatItem>
 						<dateFormatItem id="Hmsv">HH:mm:ss v</dateFormatItem>
-						<dateFormatItem id="hmv">h:mm a v</dateFormatItem>
+						<dateFormatItem id="hmv">h:mm a v</dateFormatItem>
 						<dateFormatItem id="Hmv">HH:mm v</dateFormatItem>
 						<dateFormatItem id="M">L.</dateFormatItem>
 						<dateFormatItem id="Md">d.M.</dateFormatItem>
@@ -4927,33 +4988,33 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="y">E d. MMM y–E d. MMM y G</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a">h a–h a</greatestDifference>
-							<greatestDifference id="h">h–h a</greatestDifference>
+							<greatestDifference id="a">h a–h a</greatestDifference>
+							<greatestDifference id="h">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hm">
-							<greatestDifference id="a">h:mm a–h:mm a</greatestDifference>
-							<greatestDifference id="h">h:mm–h:mm a</greatestDifference>
-							<greatestDifference id="m">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="a">h:mm a–h:mm a</greatestDifference>
+							<greatestDifference id="h">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="m">h:mm–h:mm a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hm">
 							<greatestDifference id="H">HH:mm–HH:mm</greatestDifference>
 							<greatestDifference id="m">HH:mm–HH:mm</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hmv">
-							<greatestDifference id="a">h:mm a–h:mm a v</greatestDifference>
-							<greatestDifference id="h">h:mm–h:mm a v</greatestDifference>
-							<greatestDifference id="m">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="a">h:mm a–h:mm a v</greatestDifference>
+							<greatestDifference id="h">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="m">h:mm–h:mm a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hmv">
 							<greatestDifference id="H">HH:mm–HH:mm v</greatestDifference>
 							<greatestDifference id="m">HH:mm–HH:mm v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a">h a–h a v</greatestDifference>
-							<greatestDifference id="h">h–h a v</greatestDifference>
+							<greatestDifference id="a">h a–h a v</greatestDifference>
+							<greatestDifference id="h">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H">HH–HH v</greatestDifference>
@@ -5214,15 +5275,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="d" draft="contributed">d.–d.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -5471,15 +5532,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="d" draft="contributed">d.–d.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -5728,15 +5789,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="d" draft="contributed">d.–d.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -6368,15 +6429,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="d" draft="contributed">d.–d.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -6625,15 +6686,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="d" draft="contributed">d.–d.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -6794,15 +6855,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="d" draft="contributed">d.–d.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a–h a v</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H" draft="contributed">HH–HH v</greatestDifference>
@@ -8175,6 +8236,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<zone type="Pacific/Enderbury">
 				<exemplarCity>Enderbury</exemplarCity>
 			</zone>
+			<zone type="Pacific/Kanton">
+				<exemplarCity>Kantonøya</exemplarCity>
+			</zone>
 			<zone type="Pacific/Kiritimati">
 				<exemplarCity>Kiritimati</exemplarCity>
 			</zone>
@@ -8327,6 +8391,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</zone>
 			<zone type="America/Hermosillo">
 				<exemplarCity>Hermosillo</exemplarCity>
+			</zone>
+			<zone type="America/Ciudad_Juarez">
+				<exemplarCity>↑↑↑</exemplarCity>
 			</zone>
 			<zone type="America/Mazatlan">
 				<exemplarCity>Mazatlan</exemplarCity>
@@ -8674,7 +8741,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<exemplarCity>Uzjhorod</exemplarCity>
 			</zone>
 			<zone type="Europe/Kiev">
-				<exemplarCity>Kiev</exemplarCity>
+				<exemplarCity>↑↑↑</exemplarCity>
 			</zone>
 			<zone type="Europe/Simferopol">
 				<exemplarCity>Simferopol</exemplarCity>
@@ -11584,6 +11651,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				</currencyFormat>
 				<currencyFormat type="accounting">
 					<pattern>¤ #,##0.00;(¤ #,##0.00)</pattern>
+					<pattern alt="noCurrency">#,##0.00;(#,##0.00)</pattern>
 				</currencyFormat>
 			</currencyFormatLength>
 			<currencyFormatLength type="short">
@@ -11614,6 +11682,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 					<pattern type="100000000000000" count="other">¤ 000 bill'.'</pattern>
 				</currencyFormat>
 			</currencyFormatLength>
+			<currencyPatternAppendISO>↑↑↑</currencyPatternAppendISO>
 			<unitPattern count="one">{0} {1}</unitPattern>
 			<unitPattern count="other">{0} {1}</unitPattern>
 		</currencyFormats>
@@ -12516,7 +12585,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<displayName count="other">georgiske lari</displayName>
 				<symbol>GEL</symbol>
 				<symbol alt="narrow">₾</symbol>
-				<symbol alt="variant">₾</symbol>
 			</currency>
 			<currency type="GHC">
 				<displayName>ghanesisk cedi (1979–2007)</displayName>
@@ -13962,6 +14030,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<pluralMinimalPairs count="one">{0} dag</pluralMinimalPairs>
 			<pluralMinimalPairs count="other">{0} dager</pluralMinimalPairs>
 			<ordinalMinimalPairs ordinal="other">Ta {0}. sving til høyre.</ordinalMinimalPairs>
+			<caseMinimalPairs case="genitive">På {0} avstand</caseMinimalPairs>
+			<caseMinimalPairs case="nominative">Intervall på {0}</caseMinimalPairs>
+			<genderMinimalPairs gender="feminine">Det tar ei hel {0} å …</genderMinimalPairs>
 			<genderMinimalPairs gender="masculine">Min {0} den har tre kanter</genderMinimalPairs>
 			<genderMinimalPairs gender="neuter">Mitt {0} det har tre kanter</genderMinimalPairs>
 		</minimalPairs>
@@ -14058,16 +14129,32 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<compoundUnit type="power2">
 				<compoundUnitPattern1>kvadrat{0}</compoundUnitPattern1>
 				<compoundUnitPattern1 count="one">kvadrat{0}</compoundUnitPattern1>
+				<compoundUnitPattern1 count="one" case="genitive">↑↑↑</compoundUnitPattern1>
+				<compoundUnitPattern1 count="one" gender="feminine" draft="contributed">↑↑↑</compoundUnitPattern1>
+				<compoundUnitPattern1 count="one" gender="feminine" case="genitive" draft="contributed">↑↑↑</compoundUnitPattern1>
 				<compoundUnitPattern1 count="one" gender="masculine">↑↑↑</compoundUnitPattern1>
+				<compoundUnitPattern1 count="one" gender="masculine" case="genitive">↑↑↑</compoundUnitPattern1>
 				<compoundUnitPattern1 count="other">kvadrat{0}</compoundUnitPattern1>
+				<compoundUnitPattern1 count="other" case="genitive">↑↑↑</compoundUnitPattern1>
+				<compoundUnitPattern1 count="other" gender="feminine" draft="contributed">↑↑↑</compoundUnitPattern1>
+				<compoundUnitPattern1 count="other" gender="feminine" case="genitive" draft="contributed">↑↑↑</compoundUnitPattern1>
 				<compoundUnitPattern1 count="other" gender="masculine">↑↑↑</compoundUnitPattern1>
+				<compoundUnitPattern1 count="other" gender="masculine" case="genitive">↑↑↑</compoundUnitPattern1>
 			</compoundUnit>
 			<compoundUnit type="power3">
 				<compoundUnitPattern1>kubikk{0}</compoundUnitPattern1>
 				<compoundUnitPattern1 count="one">kubikk{0}</compoundUnitPattern1>
+				<compoundUnitPattern1 count="one" case="genitive">↑↑↑</compoundUnitPattern1>
+				<compoundUnitPattern1 count="one" gender="feminine" draft="contributed">↑↑↑</compoundUnitPattern1>
+				<compoundUnitPattern1 count="one" gender="feminine" case="genitive" draft="contributed">↑↑↑</compoundUnitPattern1>
 				<compoundUnitPattern1 count="one" gender="masculine">↑↑↑</compoundUnitPattern1>
+				<compoundUnitPattern1 count="one" gender="masculine" case="genitive">↑↑↑</compoundUnitPattern1>
 				<compoundUnitPattern1 count="other">kubikk{0}</compoundUnitPattern1>
+				<compoundUnitPattern1 count="other" case="genitive">↑↑↑</compoundUnitPattern1>
+				<compoundUnitPattern1 count="other" gender="feminine" draft="contributed">↑↑↑</compoundUnitPattern1>
+				<compoundUnitPattern1 count="other" gender="feminine" case="genitive" draft="contributed">↑↑↑</compoundUnitPattern1>
 				<compoundUnitPattern1 count="other" gender="masculine">↑↑↑</compoundUnitPattern1>
+				<compoundUnitPattern1 count="other" gender="masculine" case="genitive">↑↑↑</compoundUnitPattern1>
 			</compoundUnit>
 			<compoundUnit type="times">
 				<compoundUnitPattern>↑↑↑</compoundUnitPattern>
@@ -14076,75 +14163,98 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<gender>masculine</gender>
 				<displayName>g-kraft</displayName>
 				<unitPattern count="one">{0} g-kraft</unitPattern>
+				<unitPattern count="one" case="genitive">{0} g-krafts</unitPattern>
 				<unitPattern count="other">{0} g-kraft</unitPattern>
+				<unitPattern count="other" case="genitive">{0} g-krafts</unitPattern>
 			</unit>
 			<unit type="acceleration-meter-per-square-second">
 				<gender>masculine</gender>
 				<displayName>meter per sekund²</displayName>
 				<unitPattern count="one">{0} meter per sekund²</unitPattern>
+				<unitPattern count="one" case="genitive">{0} meter per kvadratsekunds</unitPattern>
 				<unitPattern count="other">{0} meter per sekund²</unitPattern>
+				<unitPattern count="other" case="genitive">{0} meter per kvadratsekunds</unitPattern>
 			</unit>
 			<unit type="angle-revolution">
 				<gender>masculine</gender>
 				<displayName>omdreininger</displayName>
 				<unitPattern count="one">{0} omdreining</unitPattern>
+				<unitPattern count="one" case="genitive">{0} omdreinings</unitPattern>
 				<unitPattern count="other">{0} omdreininger</unitPattern>
+				<unitPattern count="other" case="genitive">{0} omdreiningers</unitPattern>
 			</unit>
 			<unit type="angle-radian">
 				<gender>masculine</gender>
 				<displayName>radianer</displayName>
 				<unitPattern count="one">{0} radian</unitPattern>
+				<unitPattern count="one" case="genitive">{0} radians</unitPattern>
 				<unitPattern count="other">{0} radianer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} radianers</unitPattern>
 			</unit>
 			<unit type="angle-degree">
 				<gender>masculine</gender>
 				<displayName>grader</displayName>
 				<unitPattern count="one">{0} grad</unitPattern>
+				<unitPattern count="one" case="genitive">{0} grads</unitPattern>
 				<unitPattern count="other">{0} grader</unitPattern>
+				<unitPattern count="other" case="genitive">{0} graders</unitPattern>
 			</unit>
 			<unit type="angle-arc-minute">
 				<gender>neuter</gender>
 				<displayName>bueminutter</displayName>
 				<unitPattern count="one">{0} bueminutt</unitPattern>
+				<unitPattern count="one" case="genitive">{0} bueminutts</unitPattern>
 				<unitPattern count="other">{0} bueminutter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} bueminutters</unitPattern>
 			</unit>
 			<unit type="angle-arc-second">
 				<gender>neuter</gender>
 				<displayName>buesekunder</displayName>
 				<unitPattern count="one">{0} buesekund</unitPattern>
+				<unitPattern count="one" case="genitive">{0} buesekunds</unitPattern>
 				<unitPattern count="other">{0} buesekunder</unitPattern>
+				<unitPattern count="other" case="genitive">{0} buesekunders</unitPattern>
 			</unit>
 			<unit type="area-square-kilometer">
 				<gender>masculine</gender>
 				<displayName>kvadratkilometer</displayName>
 				<unitPattern count="one">{0} kvadratkilometer</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kvadratkilometers</unitPattern>
 				<unitPattern count="other">{0} kvadratkilometer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kvadratkilometers</unitPattern>
 				<perUnitPattern>{0} per kvadratkilometer</perUnitPattern>
 			</unit>
 			<unit type="area-hectare">
 				<gender>neuter</gender>
 				<displayName>hektar</displayName>
 				<unitPattern count="one">{0} hektar</unitPattern>
+				<unitPattern count="one" case="genitive">{0} hektars</unitPattern>
 				<unitPattern count="other">{0} hektar</unitPattern>
+				<unitPattern count="other" case="genitive">{0} hektars</unitPattern>
 			</unit>
 			<unit type="area-square-meter">
+				<gender>masculine</gender>
 				<displayName>kvadratmeter</displayName>
 				<unitPattern count="one">{0} kvadratmeter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kvadratmeters</unitPattern>
 				<unitPattern count="other">{0} kvadratmeter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kvadratmeters</unitPattern>
 				<perUnitPattern>{0} per kvadratmeter</perUnitPattern>
 			</unit>
 			<unit type="area-square-centimeter">
 				<gender>masculine</gender>
 				<displayName>kvadratcentimeter</displayName>
 				<unitPattern count="one">{0} kvadratcentimeter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kvadratcentimeters</unitPattern>
 				<unitPattern count="other">{0} kvadratcentimeter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kvadratcentimeters</unitPattern>
 				<perUnitPattern>{0} per kvadratcentimeter</perUnitPattern>
 			</unit>
 			<unit type="area-square-mile">
 				<gender>masculine</gender>
-				<displayName>engelske kvadratmil</displayName>
-				<unitPattern count="one">{0} engelsk kvadratmil</unitPattern>
-				<unitPattern count="other">{0} engelske kvadratmil</unitPattern>
+				<displayName>kvadratmile</displayName>
+				<unitPattern count="one">{0} kvadratmile</unitPattern>
+				<unitPattern count="other">{0} kvadratmile</unitPattern>
 				<perUnitPattern>{0} per engelsk kvadratmil</perUnitPattern>
 			</unit>
 			<unit type="area-acre">
@@ -14179,7 +14289,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<gender>masculine</gender>
 				<displayName>karat</displayName>
 				<unitPattern count="one">{0} karat</unitPattern>
+				<unitPattern count="one" case="genitive">{0} karats</unitPattern>
 				<unitPattern count="other">{0} karat</unitPattern>
+				<unitPattern count="other" case="genitive">{0} karats</unitPattern>
 			</unit>
 			<unit type="concentr-milligram-ofglucose-per-deciliter">
 				<displayName>milligram per desiliter</displayName>
@@ -14187,55 +14299,76 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} milligram per desiliter</unitPattern>
 			</unit>
 			<unit type="concentr-millimole-per-liter">
+				<gender>masculine</gender>
 				<displayName>millimol per liter</displayName>
 				<unitPattern count="one">{0} millimol per liter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} millimol per liters</unitPattern>
 				<unitPattern count="other">{0} millimol per liter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} millimol per liters</unitPattern>
 			</unit>
 			<unit type="concentr-item">
+				<gender>neuter</gender>
 				<displayName>↑↑↑</displayName>
 				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} items</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} items</unitPattern>
 			</unit>
 			<unit type="concentr-permillion">
 				<gender>masculine</gender>
 				<displayName>deler per million</displayName>
 				<unitPattern count="one">{0} del per million</unitPattern>
+				<unitPattern count="one" case="genitive">{0} milliondels</unitPattern>
 				<unitPattern count="other">{0} deler per million</unitPattern>
+				<unitPattern count="other" case="genitive">{0} milliondelers</unitPattern>
 			</unit>
 			<unit type="concentr-percent">
 				<gender>masculine</gender>
 				<displayName>prosent</displayName>
 				<unitPattern count="one">{0} prosent</unitPattern>
+				<unitPattern count="one" case="genitive">{0} prosents</unitPattern>
 				<unitPattern count="other">{0} prosent</unitPattern>
+				<unitPattern count="other" case="genitive">{0} prosents</unitPattern>
 			</unit>
 			<unit type="concentr-permille">
 				<gender>masculine</gender>
 				<displayName>promille</displayName>
 				<unitPattern count="one">{0} promille</unitPattern>
+				<unitPattern count="one" case="genitive">{0} promilles</unitPattern>
 				<unitPattern count="other">{0} promille</unitPattern>
+				<unitPattern count="other" case="genitive">{0} promilles</unitPattern>
 			</unit>
 			<unit type="concentr-permyriad">
 				<gender>masculine</gender>
 				<displayName>promyriade</displayName>
 				<unitPattern count="one">{0} promyriade</unitPattern>
+				<unitPattern count="one" case="genitive">{0} promyriades</unitPattern>
 				<unitPattern count="other">{0} promyriade</unitPattern>
+				<unitPattern count="other" case="genitive">{0} promyriades</unitPattern>
 			</unit>
 			<unit type="concentr-mole">
 				<gender>neuter</gender>
 				<displayName>↑↑↑</displayName>
 				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} mols</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} mols</unitPattern>
 			</unit>
 			<unit type="consumption-liter-per-kilometer">
+				<gender>masculine</gender>
 				<displayName>liter per kilometer</displayName>
 				<unitPattern count="one">{0} liter per kilometer</unitPattern>
+				<unitPattern count="one" case="genitive">{0} liter per kilometers</unitPattern>
 				<unitPattern count="other">{0} liter per kilometer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} liter per kilometers</unitPattern>
 			</unit>
 			<unit type="consumption-liter-per-100-kilometer">
 				<gender>masculine</gender>
 				<displayName>liter per 100 kilometer</displayName>
 				<unitPattern count="one">{0} liter per 100 kilometer</unitPattern>
+				<unitPattern count="one" case="genitive">{0} liter per 100 kilometers</unitPattern>
 				<unitPattern count="other">{0} liter per 100 kilometer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} liter per 100 kilometers</unitPattern>
 			</unit>
 			<unit type="consumption-mile-per-gallon">
 				<gender>masculine</gender>
@@ -14250,160 +14383,236 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} miles per britisk gallon</unitPattern>
 			</unit>
 			<unit type="digital-petabyte">
+				<gender>masculine</gender>
 				<displayName>petabyte</displayName>
 				<unitPattern count="one">{0} petabyte</unitPattern>
+				<unitPattern count="one" case="genitive">{0} petabytes</unitPattern>
 				<unitPattern count="other">{0} petabyte</unitPattern>
+				<unitPattern count="other" case="genitive">{0} petabytes</unitPattern>
 			</unit>
 			<unit type="digital-terabyte">
+				<gender>masculine</gender>
 				<displayName>terabyte</displayName>
 				<unitPattern count="one">{0} terabyte</unitPattern>
+				<unitPattern count="one" case="genitive">{0} terabytes</unitPattern>
 				<unitPattern count="other">{0} terabyte</unitPattern>
+				<unitPattern count="other" case="genitive">{0} terabytes</unitPattern>
 			</unit>
 			<unit type="digital-terabit">
+				<gender>masculine</gender>
 				<displayName>terabit</displayName>
 				<unitPattern count="one">{0} terabit</unitPattern>
+				<unitPattern count="one" case="genitive">{0} terabits</unitPattern>
 				<unitPattern count="other">{0} terabit</unitPattern>
+				<unitPattern count="other" case="genitive">{0} terabits</unitPattern>
 			</unit>
 			<unit type="digital-gigabyte">
+				<gender>masculine</gender>
 				<displayName>gigabyte</displayName>
 				<unitPattern count="one">{0} gigabyte</unitPattern>
+				<unitPattern count="one" case="genitive">{0} gigabytes</unitPattern>
 				<unitPattern count="other">{0} gigabyte</unitPattern>
+				<unitPattern count="other" case="genitive">{0} gigabytes</unitPattern>
 			</unit>
 			<unit type="digital-gigabit">
+				<gender>masculine</gender>
 				<displayName>gigabit</displayName>
 				<unitPattern count="one">{0} gigabit</unitPattern>
+				<unitPattern count="one" case="genitive">{0} gigabits</unitPattern>
 				<unitPattern count="other">{0} gigabit</unitPattern>
+				<unitPattern count="other" case="genitive">{0} gigabits</unitPattern>
 			</unit>
 			<unit type="digital-megabyte">
+				<gender>masculine</gender>
 				<displayName>megabyte</displayName>
 				<unitPattern count="one">{0} megabyte</unitPattern>
+				<unitPattern count="one" case="genitive">{0} megabytes</unitPattern>
 				<unitPattern count="other">{0} megabyte</unitPattern>
+				<unitPattern count="other" case="genitive">{0} megabytes</unitPattern>
 			</unit>
 			<unit type="digital-megabit">
+				<gender>masculine</gender>
 				<displayName>megabit</displayName>
 				<unitPattern count="one">{0} megabit</unitPattern>
+				<unitPattern count="one" case="genitive">{0} megabits</unitPattern>
 				<unitPattern count="other">{0} megabit</unitPattern>
+				<unitPattern count="other" case="genitive">{0} megabits</unitPattern>
 			</unit>
 			<unit type="digital-kilobyte">
+				<gender>masculine</gender>
 				<displayName>kilobyte</displayName>
 				<unitPattern count="one">{0} kilobyte</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kilobytes</unitPattern>
 				<unitPattern count="other">{0} kilobyte</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kilobytes</unitPattern>
 			</unit>
 			<unit type="digital-kilobit">
+				<gender>masculine</gender>
 				<displayName>kilobit</displayName>
 				<unitPattern count="one">{0} kilobit</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kilobits</unitPattern>
 				<unitPattern count="other">{0} kilobit</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kilobits</unitPattern>
 			</unit>
 			<unit type="digital-byte">
 				<gender>masculine</gender>
 				<displayName>byte</displayName>
 				<unitPattern count="one">{0} byte</unitPattern>
+				<unitPattern count="one" case="genitive">{0} bytes</unitPattern>
 				<unitPattern count="other">{0} byte</unitPattern>
+				<unitPattern count="other" case="genitive">{0} bytes</unitPattern>
 			</unit>
 			<unit type="digital-bit">
 				<gender>masculine</gender>
 				<displayName>bit</displayName>
 				<unitPattern count="one">{0} bit</unitPattern>
+				<unitPattern count="one" case="genitive">{0} bits</unitPattern>
 				<unitPattern count="other">{0} bit</unitPattern>
+				<unitPattern count="other" case="genitive">{0} bits</unitPattern>
 			</unit>
 			<unit type="duration-century">
 				<gender>neuter</gender>
 				<displayName>århundrer</displayName>
 				<unitPattern count="one">{0} århundre</unitPattern>
+				<unitPattern count="one" case="genitive">{0} århundres</unitPattern>
 				<unitPattern count="other">{0} århundrer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} århundrers</unitPattern>
 			</unit>
 			<unit type="duration-decade">
 				<gender>neuter</gender>
 				<displayName>tiår</displayName>
 				<unitPattern count="one">{0} tiår</unitPattern>
+				<unitPattern count="one" case="genitive">{0} tiårs</unitPattern>
 				<unitPattern count="other">{0} tiår</unitPattern>
+				<unitPattern count="other" case="genitive">{0} tiårs</unitPattern>
 			</unit>
 			<unit type="duration-year">
 				<gender>neuter</gender>
 				<displayName>år</displayName>
 				<unitPattern count="one">{0} år</unitPattern>
+				<unitPattern count="one" case="genitive">{0} års</unitPattern>
 				<unitPattern count="other">{0} år</unitPattern>
+				<unitPattern count="other" case="genitive">{0} års</unitPattern>
 				<perUnitPattern>{0} per år</perUnitPattern>
+			</unit>
+			<unit type="duration-quarter">
+				<gender>neuter</gender>
+				<displayName>kvartal</displayName>
+				<unitPattern count="one">{0} kvartal</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kvartals</unitPattern>
+				<unitPattern count="other">{0} kvartaler</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kvartalers</unitPattern>
+				<perUnitPattern>{0}/kvartal</perUnitPattern>
 			</unit>
 			<unit type="duration-month">
 				<gender>masculine</gender>
 				<displayName>måneder</displayName>
 				<unitPattern count="one">{0} måned</unitPattern>
+				<unitPattern count="one" case="genitive">{0} måneds</unitPattern>
 				<unitPattern count="other">{0} måneder</unitPattern>
+				<unitPattern count="other" case="genitive">{0} måneders</unitPattern>
 				<perUnitPattern>{0} per måned</perUnitPattern>
 			</unit>
 			<unit type="duration-week">
 				<gender>masculine</gender>
 				<displayName>uker</displayName>
 				<unitPattern count="one">{0} uke</unitPattern>
+				<unitPattern count="one" case="genitive">{0} ukes</unitPattern>
 				<unitPattern count="other">{0} uker</unitPattern>
+				<unitPattern count="other" case="genitive">{0} ukers</unitPattern>
 				<perUnitPattern>{0} per uke</perUnitPattern>
 			</unit>
 			<unit type="duration-day">
 				<gender>neuter</gender>
 				<displayName>døgn</displayName>
 				<unitPattern count="one">{0} døgn</unitPattern>
+				<unitPattern count="one" case="genitive">{0} døgns</unitPattern>
 				<unitPattern count="other">{0} døgn</unitPattern>
+				<unitPattern count="other" case="genitive">{0} døgns</unitPattern>
 				<perUnitPattern>{0} per døgn</perUnitPattern>
 			</unit>
 			<unit type="duration-hour">
 				<gender>masculine</gender>
 				<displayName>timer</displayName>
 				<unitPattern count="one">{0} time</unitPattern>
+				<unitPattern count="one" case="genitive">{0} times</unitPattern>
 				<unitPattern count="other">{0} timer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} timers</unitPattern>
 				<perUnitPattern>{0} per time</perUnitPattern>
 			</unit>
 			<unit type="duration-minute">
 				<gender>neuter</gender>
 				<displayName>minutter</displayName>
 				<unitPattern count="one">{0} minutt</unitPattern>
+				<unitPattern count="one" case="genitive">{0} minutts</unitPattern>
 				<unitPattern count="other">{0} minutter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} minutters</unitPattern>
 				<perUnitPattern>{0} per minutt</perUnitPattern>
 			</unit>
 			<unit type="duration-second">
 				<gender>neuter</gender>
 				<displayName>sekunder</displayName>
 				<unitPattern count="one">{0} sekund</unitPattern>
+				<unitPattern count="one" case="genitive">{0} sekunds</unitPattern>
 				<unitPattern count="other">{0} sekunder</unitPattern>
+				<unitPattern count="other" case="genitive">{0} sekunders</unitPattern>
 				<perUnitPattern>{0} per sekund</perUnitPattern>
 			</unit>
 			<unit type="duration-millisecond">
+				<gender>neuter</gender>
 				<displayName>millisekunder</displayName>
 				<unitPattern count="one">{0} millisekund</unitPattern>
+				<unitPattern count="one" case="genitive">{0} millisekunds</unitPattern>
 				<unitPattern count="other">{0} millisekunder</unitPattern>
+				<unitPattern count="other" case="genitive">{0} millisekunders</unitPattern>
 			</unit>
 			<unit type="duration-microsecond">
+				<gender>neuter</gender>
 				<displayName>mikrosekunder</displayName>
 				<unitPattern count="one">{0} mikrosekund</unitPattern>
+				<unitPattern count="one" case="genitive">{0} mikrosekunds</unitPattern>
 				<unitPattern count="other">{0} mikrosekunder</unitPattern>
+				<unitPattern count="other" case="genitive">{0} mikrosekunders</unitPattern>
 			</unit>
 			<unit type="duration-nanosecond">
+				<gender>neuter</gender>
 				<displayName>nanosekunder</displayName>
 				<unitPattern count="one">{0} nanosekund</unitPattern>
+				<unitPattern count="one" case="genitive">{0} nanosekunds</unitPattern>
 				<unitPattern count="other">{0} nanosekunder</unitPattern>
+				<unitPattern count="other" case="genitive">{0} nanosekunders</unitPattern>
 			</unit>
 			<unit type="electric-ampere">
 				<gender>masculine</gender>
 				<displayName>ampere</displayName>
 				<unitPattern count="one">{0} ampere</unitPattern>
+				<unitPattern count="one" case="genitive">{0} amperes</unitPattern>
 				<unitPattern count="other">{0} ampere</unitPattern>
+				<unitPattern count="other" case="genitive">{0} amperes</unitPattern>
 			</unit>
 			<unit type="electric-milliampere">
+				<gender>masculine</gender>
 				<displayName>milliampere</displayName>
 				<unitPattern count="one">{0} milliampere</unitPattern>
+				<unitPattern count="one" case="genitive">{0} milliamperes</unitPattern>
 				<unitPattern count="other">{0} milliampere</unitPattern>
+				<unitPattern count="other" case="genitive">{0} milliamperes</unitPattern>
 			</unit>
 			<unit type="electric-ohm">
 				<gender>masculine</gender>
 				<displayName>ohm</displayName>
 				<unitPattern count="one">{0} ohm</unitPattern>
+				<unitPattern count="one" case="genitive">{0} ohms</unitPattern>
 				<unitPattern count="other">{0} ohm</unitPattern>
+				<unitPattern count="other" case="genitive">{0} ohms</unitPattern>
 			</unit>
 			<unit type="electric-volt">
 				<gender>masculine</gender>
 				<displayName>volt</displayName>
 				<unitPattern count="one">{0} volt</unitPattern>
+				<unitPattern count="one" case="genitive">{0} volts</unitPattern>
 				<unitPattern count="other">{0} volt</unitPattern>
+				<unitPattern count="other" case="genitive">{0} volts</unitPattern>
 			</unit>
 			<unit type="energy-kilocalorie">
 				<gender>masculine</gender>
@@ -14415,7 +14624,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<gender>masculine</gender>
 				<displayName>kalorier</displayName>
 				<unitPattern count="one">{0} kalori</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kaloris</unitPattern>
 				<unitPattern count="other">{0} kalorier</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kaloriers</unitPattern>
 			</unit>
 			<unit type="energy-foodcalorie">
 				<gender>masculine</gender>
@@ -14424,20 +14635,28 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} kalorier</unitPattern>
 			</unit>
 			<unit type="energy-kilojoule">
+				<gender>masculine</gender>
 				<displayName>kilojoule</displayName>
 				<unitPattern count="one">{0} kilojoule</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kilojoules</unitPattern>
 				<unitPattern count="other">{0} kilojoule</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kilojoules</unitPattern>
 			</unit>
 			<unit type="energy-joule">
 				<gender>masculine</gender>
 				<displayName>joule</displayName>
 				<unitPattern count="one">{0} joule</unitPattern>
+				<unitPattern count="one" case="genitive">{0} joules</unitPattern>
 				<unitPattern count="other">{0} joule</unitPattern>
+				<unitPattern count="other" case="genitive">{0} joules</unitPattern>
 			</unit>
 			<unit type="energy-kilowatt-hour">
+				<gender>masculine</gender>
 				<displayName>kilowattimer</displayName>
 				<unitPattern count="one">{0} kilowattime</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kilowattimes</unitPattern>
 				<unitPattern count="other">{0} kilowattimer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kilowattimers</unitPattern>
 			</unit>
 			<unit type="energy-electronvolt">
 				<displayName>elektronvolt</displayName>
@@ -14463,55 +14682,81 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<gender>masculine</gender>
 				<displayName>newton</displayName>
 				<unitPattern count="one">{0} newton</unitPattern>
+				<unitPattern count="one" case="genitive">{0} newtons</unitPattern>
 				<unitPattern count="other">{0} newton</unitPattern>
+				<unitPattern count="other" case="genitive">{0} newtons</unitPattern>
 			</unit>
 			<unit type="force-kilowatt-hour-per-100-kilometer">
+				<gender>masculine</gender>
 				<displayName>kWh per 100 km</displayName>
 				<unitPattern count="one">{0} kWh per 100 km</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kWh per 100 kilometers</unitPattern>
 				<unitPattern count="other">{0} kWh per 100 km</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kWh per 100 kilometers</unitPattern>
 			</unit>
 			<unit type="frequency-gigahertz">
+				<gender>masculine</gender>
 				<displayName>gigahertz</displayName>
 				<unitPattern count="one">{0} gigahertz</unitPattern>
+				<unitPattern count="one" case="genitive">{0} gigahertz’</unitPattern>
 				<unitPattern count="other">{0} gigahertz</unitPattern>
+				<unitPattern count="other" case="genitive">{0} gigahertz’</unitPattern>
 			</unit>
 			<unit type="frequency-megahertz">
+				<gender>masculine</gender>
 				<displayName>megahertz</displayName>
 				<unitPattern count="one">{0} megahertz</unitPattern>
+				<unitPattern count="one" case="genitive">{0} megahertz’</unitPattern>
 				<unitPattern count="other">{0} megahertz</unitPattern>
+				<unitPattern count="other" case="genitive">{0} megahertz’</unitPattern>
 			</unit>
 			<unit type="frequency-kilohertz">
+				<gender>masculine</gender>
 				<displayName>kilohertz</displayName>
 				<unitPattern count="one">{0} kilohertz</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kilohertz’</unitPattern>
 				<unitPattern count="other">{0} kilohertz</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kilohertz’</unitPattern>
 			</unit>
 			<unit type="frequency-hertz">
 				<gender>masculine</gender>
 				<displayName>hertz</displayName>
 				<unitPattern count="one">{0} hertz</unitPattern>
+				<unitPattern count="one" case="genitive">{0} hertz’</unitPattern>
 				<unitPattern count="other">{0} hertz</unitPattern>
+				<unitPattern count="other" case="genitive">{0} hertz’</unitPattern>
 			</unit>
 			<unit type="graphics-em">
 				<gender>masculine</gender>
 				<displayName>gefirt</displayName>
 				<unitPattern count="one">{0} gefirt</unitPattern>
+				<unitPattern count="one" case="genitive">{0} gefirts</unitPattern>
 				<unitPattern count="other">{0} gefirt</unitPattern>
+				<unitPattern count="other" case="genitive">{0} gefirts</unitPattern>
 			</unit>
 			<unit type="graphics-pixel">
 				<gender>masculine</gender>
 				<displayName>piksler</displayName>
 				<unitPattern count="one">{0} piksel</unitPattern>
+				<unitPattern count="one" case="genitive">{0} piksels</unitPattern>
 				<unitPattern count="other">{0} piksler</unitPattern>
+				<unitPattern count="other" case="genitive">{0} pikslers</unitPattern>
 			</unit>
 			<unit type="graphics-megapixel">
+				<gender>masculine</gender>
 				<displayName>megapiksler</displayName>
 				<unitPattern count="one">{0} megapiksel</unitPattern>
+				<unitPattern count="one" case="genitive">{0} megapiksels</unitPattern>
 				<unitPattern count="other">{0} megapiksler</unitPattern>
+				<unitPattern count="other" case="genitive">{0} megapikslers</unitPattern>
 			</unit>
 			<unit type="graphics-pixel-per-centimeter">
+				<gender>masculine</gender>
 				<displayName>piksler per centimeter</displayName>
 				<unitPattern count="one">{0} piksel per centimeter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} piksel per centimeters</unitPattern>
 				<unitPattern count="other">{0} piksler per centimeter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} piksler per centimeters</unitPattern>
 			</unit>
 			<unit type="graphics-pixel-per-inch">
 				<displayName>piksler per tomme</displayName>
@@ -14542,50 +14787,68 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<gender>masculine</gender>
 				<displayName>kilometer</displayName>
 				<unitPattern count="one">{0} kilometer</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kilometers</unitPattern>
 				<unitPattern count="other">{0} kilometer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kilometers</unitPattern>
 				<perUnitPattern>{0} per kilometer</perUnitPattern>
 			</unit>
 			<unit type="length-meter">
 				<gender>masculine</gender>
 				<displayName>meter</displayName>
 				<unitPattern count="one">{0} meter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} meters</unitPattern>
 				<unitPattern count="other">{0} meter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} meters</unitPattern>
 				<perUnitPattern>{0} per meter</perUnitPattern>
 			</unit>
 			<unit type="length-decimeter">
 				<gender>masculine</gender>
 				<displayName>desimeter</displayName>
 				<unitPattern count="one">{0} desimeter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} desimeters</unitPattern>
 				<unitPattern count="other">{0} desimeter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} desimeters</unitPattern>
 			</unit>
 			<unit type="length-centimeter">
 				<gender>masculine</gender>
 				<displayName>centimeter</displayName>
 				<unitPattern count="one">{0} centimeter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} centimeters</unitPattern>
 				<unitPattern count="other">{0} centimeter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} centimeters</unitPattern>
 				<perUnitPattern>{0} per centimeter</perUnitPattern>
 			</unit>
 			<unit type="length-millimeter">
 				<gender>masculine</gender>
 				<displayName>millimeter</displayName>
 				<unitPattern count="one">{0} millimeter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} millimeters</unitPattern>
 				<unitPattern count="other">{0} millimeter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} millimeters</unitPattern>
 			</unit>
 			<unit type="length-micrometer">
+				<gender>masculine</gender>
 				<displayName>mikrometer</displayName>
 				<unitPattern count="one">{0} mikrometer</unitPattern>
+				<unitPattern count="one" case="genitive">{0} mikrometers</unitPattern>
 				<unitPattern count="other">{0} mikrometer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} mikrometers</unitPattern>
 			</unit>
 			<unit type="length-nanometer">
+				<gender>masculine</gender>
 				<displayName>nanometer</displayName>
 				<unitPattern count="one">{0} nanometer</unitPattern>
+				<unitPattern count="one" case="genitive">{0} nanometers</unitPattern>
 				<unitPattern count="other">{0} nanometer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} nanometers</unitPattern>
 			</unit>
 			<unit type="length-picometer">
 				<gender>masculine</gender>
 				<displayName>pikometer</displayName>
 				<unitPattern count="one">{0} pikometer</unitPattern>
+				<unitPattern count="one" case="genitive">{0} pikometers</unitPattern>
 				<unitPattern count="other">{0} pikometer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} pikometers</unitPattern>
 			</unit>
 			<unit type="length-mile">
 				<gender>masculine</gender>
@@ -14648,7 +14911,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<gender>masculine</gender>
 				<displayName>mil</displayName>
 				<unitPattern count="one">{0} mil</unitPattern>
+				<unitPattern count="one" case="genitive">{0} mils</unitPattern>
 				<unitPattern count="other">{0} mil</unitPattern>
+				<unitPattern count="other" case="genitive">{0} mils</unitPattern>
 			</unit>
 			<unit type="length-point">
 				<displayName>typografiske punkter</displayName>
@@ -14665,19 +14930,25 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<gender>masculine</gender>
 				<displayName>lux</displayName>
 				<unitPattern count="one">{0} lux</unitPattern>
+				<unitPattern count="one" case="genitive">{0} lux’</unitPattern>
 				<unitPattern count="other">{0} lux</unitPattern>
+				<unitPattern count="other" case="genitive">{0} lux’</unitPattern>
 			</unit>
 			<unit type="light-candela">
 				<gender>masculine</gender>
 				<displayName>candela</displayName>
 				<unitPattern count="one">{0} candela</unitPattern>
+				<unitPattern count="one" case="genitive">{0} candelas</unitPattern>
 				<unitPattern count="other">{0} candela</unitPattern>
+				<unitPattern count="other" case="genitive">{0} candelas</unitPattern>
 			</unit>
 			<unit type="light-lumen">
 				<gender>masculine</gender>
 				<displayName>lumen</displayName>
 				<unitPattern count="one">{0} lumen</unitPattern>
+				<unitPattern count="one" case="genitive">{0} lumens</unitPattern>
 				<unitPattern count="other">{0} lumen</unitPattern>
+				<unitPattern count="other" case="genitive">{0} lumens</unitPattern>
 			</unit>
 			<unit type="light-solar-luminosity">
 				<gender>masculine</gender>
@@ -14685,36 +14956,47 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="one">↑↑↑</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
-			<unit type="mass-metric-ton">
+			<unit type="mass-tonne">
 				<gender>neuter</gender>
 				<displayName>tonn</displayName>
 				<unitPattern count="one">{0} tonn</unitPattern>
+				<unitPattern count="one" case="genitive">{0} tonns</unitPattern>
 				<unitPattern count="other">{0} tonn</unitPattern>
+				<unitPattern count="other" case="genitive">{0} tonns</unitPattern>
 			</unit>
 			<unit type="mass-kilogram">
 				<gender>neuter</gender>
 				<displayName>kilogram</displayName>
 				<unitPattern count="one">{0} kilogram</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kilograms</unitPattern>
 				<unitPattern count="other">{0} kilogram</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kilograms</unitPattern>
 				<perUnitPattern>{0} per kilogram</perUnitPattern>
 			</unit>
 			<unit type="mass-gram">
 				<gender>neuter</gender>
 				<displayName>gram</displayName>
 				<unitPattern count="one">{0} gram</unitPattern>
+				<unitPattern count="one" case="genitive">{0} grams</unitPattern>
 				<unitPattern count="other">{0} gram</unitPattern>
+				<unitPattern count="other" case="genitive">{0} grams</unitPattern>
 				<perUnitPattern>{0} per gram</perUnitPattern>
 			</unit>
 			<unit type="mass-milligram">
 				<gender>neuter</gender>
 				<displayName>milligram</displayName>
 				<unitPattern count="one">{0} milligram</unitPattern>
+				<unitPattern count="one" case="genitive">{0} milligrams</unitPattern>
 				<unitPattern count="other">{0} milligram</unitPattern>
+				<unitPattern count="other" case="genitive">{0} milligrams</unitPattern>
 			</unit>
 			<unit type="mass-microgram">
+				<gender>neuter</gender>
 				<displayName>mikrogram</displayName>
 				<unitPattern count="one">{0} mikrogram</unitPattern>
+				<unitPattern count="one" case="genitive">{0} mikrograms</unitPattern>
 				<unitPattern count="other">{0} mikrogram</unitPattern>
+				<unitPattern count="other" case="genitive">{0} mikrograms</unitPattern>
 			</unit>
 			<unit type="mass-ton">
 				<displayName>amerikanske tonn</displayName>
@@ -14749,7 +15031,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<gender>masculine</gender>
 				<displayName>karat</displayName>
 				<unitPattern count="one">{0} karat</unitPattern>
+				<unitPattern count="one" case="genitive">{0} karats</unitPattern>
 				<unitPattern count="other">{0} karat</unitPattern>
+				<unitPattern count="other" case="genitive">{0} karats</unitPattern>
 			</unit>
 			<unit type="mass-dalton">
 				<gender>masculine</gender>
@@ -14776,30 +15060,44 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} grain</unitPattern>
 			</unit>
 			<unit type="power-gigawatt">
+				<gender>masculine</gender>
 				<displayName>gigawatt</displayName>
 				<unitPattern count="one">{0} gigawatt</unitPattern>
+				<unitPattern count="one" case="genitive">{0} gigawatts</unitPattern>
 				<unitPattern count="other">{0} gigawatt</unitPattern>
+				<unitPattern count="other" case="genitive">{0} gigawatts</unitPattern>
 			</unit>
 			<unit type="power-megawatt">
+				<gender>masculine</gender>
 				<displayName>megawatt</displayName>
 				<unitPattern count="one">{0} megawatt</unitPattern>
+				<unitPattern count="one" case="genitive">{0} megawatts</unitPattern>
 				<unitPattern count="other">{0} megawatt</unitPattern>
+				<unitPattern count="other" case="genitive">{0} megawatts</unitPattern>
 			</unit>
 			<unit type="power-kilowatt">
+				<gender>masculine</gender>
 				<displayName>kilowatt</displayName>
 				<unitPattern count="one">{0} kilowatt</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kilowatts</unitPattern>
 				<unitPattern count="other">{0} kilowatt</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kilowatts</unitPattern>
 			</unit>
 			<unit type="power-watt">
 				<gender>masculine</gender>
 				<displayName>watt</displayName>
 				<unitPattern count="one">{0} watt</unitPattern>
+				<unitPattern count="one" case="genitive">{0} watts</unitPattern>
 				<unitPattern count="other">{0} watt</unitPattern>
+				<unitPattern count="other" case="genitive">{0} watts</unitPattern>
 			</unit>
 			<unit type="power-milliwatt">
+				<gender>masculine</gender>
 				<displayName>milliwatt</displayName>
 				<unitPattern count="one">{0} milliwatt</unitPattern>
+				<unitPattern count="one" case="genitive">{0} milliwatts</unitPattern>
 				<unitPattern count="other">{0} milliwatt</unitPattern>
+				<unitPattern count="other" case="genitive">{0} milliwatts</unitPattern>
 			</unit>
 			<unit type="power-horsepower">
 				<displayName>hestekrefter</displayName>
@@ -14825,56 +15123,77 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<gender>masculine</gender>
 				<displayName>↑↑↑</displayName>
 				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} bars</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">{0} bars</unitPattern>
 			</unit>
 			<unit type="pressure-millibar">
+				<gender>masculine</gender>
 				<displayName>millibar</displayName>
 				<unitPattern count="one">{0} millibar</unitPattern>
+				<unitPattern count="one" case="genitive">{0} millibars</unitPattern>
 				<unitPattern count="other">{0} millibar</unitPattern>
+				<unitPattern count="other" case="genitive">{0} millibars</unitPattern>
 			</unit>
 			<unit type="pressure-atmosphere">
 				<gender>masculine</gender>
 				<displayName>atmosfærer</displayName>
 				<unitPattern count="one">{0} atmosfære</unitPattern>
+				<unitPattern count="one" case="genitive">{0} atmosfæres</unitPattern>
 				<unitPattern count="other">{0} atmosfærer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} atmosfærers</unitPattern>
 			</unit>
 			<unit type="pressure-pascal">
 				<gender>masculine</gender>
 				<displayName>pascal</displayName>
 				<unitPattern count="one">{0} pascal</unitPattern>
+				<unitPattern count="one" case="genitive">{0} pascals</unitPattern>
 				<unitPattern count="other">{0} pascal</unitPattern>
+				<unitPattern count="other" case="genitive">{0} pascals</unitPattern>
 			</unit>
 			<unit type="pressure-hectopascal">
+				<gender>masculine</gender>
 				<displayName>hektopascal</displayName>
 				<unitPattern count="one">{0} hektopascal</unitPattern>
+				<unitPattern count="one" case="genitive">{0} hektopascals</unitPattern>
 				<unitPattern count="other">{0} hektopascal</unitPattern>
+				<unitPattern count="other" case="genitive">{0} hektopascals</unitPattern>
 			</unit>
 			<unit type="pressure-kilopascal">
 				<gender>masculine</gender>
 				<displayName>kilopascal</displayName>
 				<unitPattern count="one">{0} kilopascal</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kilopascals</unitPattern>
 				<unitPattern count="other">{0} kilopascal</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kilopascals</unitPattern>
 			</unit>
 			<unit type="pressure-megapascal">
+				<gender>masculine</gender>
 				<displayName>megapascal</displayName>
 				<unitPattern count="one">{0} megapascal</unitPattern>
+				<unitPattern count="one" case="genitive">{0} megapascals</unitPattern>
 				<unitPattern count="other">{0} megapascal</unitPattern>
+				<unitPattern count="other" case="genitive">{0} megapascals</unitPattern>
 			</unit>
 			<unit type="speed-kilometer-per-hour">
 				<gender>masculine</gender>
 				<displayName>kilometer per time</displayName>
 				<unitPattern count="one">{0} kilometer per time</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kilometer per times</unitPattern>
 				<unitPattern count="other">{0} kilometer per time</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kilometer per times</unitPattern>
 			</unit>
 			<unit type="speed-meter-per-second">
 				<gender>masculine</gender>
 				<displayName>meter per sekund</displayName>
 				<unitPattern count="one">{0} meter per sekund</unitPattern>
+				<unitPattern count="one" case="genitive">{0} meter per sekunds</unitPattern>
 				<unitPattern count="other">{0} meter per sekund</unitPattern>
+				<unitPattern count="other" case="genitive">{0} meter per sekunds</unitPattern>
 			</unit>
 			<unit type="speed-mile-per-hour">
 				<gender>masculine</gender>
-				<displayName>engelske mil per time</displayName>
+				<displayName>mile per time</displayName>
 				<unitPattern count="one">{0} engelsk mil per time</unitPattern>
 				<unitPattern count="other">{0} engelske mil per time</unitPattern>
 			</unit>
@@ -14887,13 +15206,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<gender>masculine</gender>
 				<displayName>grader</displayName>
 				<unitPattern count="one">{0} grad</unitPattern>
+				<unitPattern count="one" case="genitive">{0} grads</unitPattern>
 				<unitPattern count="other">{0} grader</unitPattern>
+				<unitPattern count="other" case="genitive">{0} graders</unitPattern>
 			</unit>
 			<unit type="temperature-celsius">
 				<gender>masculine</gender>
 				<displayName>grader celsius</displayName>
 				<unitPattern count="one">{0} grad celsius</unitPattern>
+				<unitPattern count="one" case="genitive">{0} celsiusgrads</unitPattern>
 				<unitPattern count="other">{0} grader celsius</unitPattern>
+				<unitPattern count="other" case="genitive">{0} celsiusgraders</unitPattern>
 			</unit>
 			<unit type="temperature-fahrenheit">
 				<gender>masculine</gender>
@@ -14905,7 +15228,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<gender>masculine</gender>
 				<displayName>kelvin</displayName>
 				<unitPattern count="one">{0} kelvin</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kelvins</unitPattern>
 				<unitPattern count="other">{0} kelvin</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kelvins</unitPattern>
 			</unit>
 			<unit type="torque-pound-force-foot">
 				<displayName>pound-foot</displayName>
@@ -14913,35 +15238,44 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} pound-foot</unitPattern>
 			</unit>
 			<unit type="torque-newton-meter">
+				<gender>masculine</gender>
 				<displayName>newtonmeter</displayName>
-				<unitPattern count="one">{0} Nm</unitPattern>
-				<unitPattern count="other">{0} Nm</unitPattern>
+				<unitPattern count="one">{0} newtonmeter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} newtonmeters</unitPattern>
+				<unitPattern count="other">{0} newtonmeter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} newtonmeters</unitPattern>
 			</unit>
 			<unit type="volume-cubic-kilometer">
 				<gender>masculine</gender>
 				<displayName>kubikkilometer</displayName>
 				<unitPattern count="one">{0} kubikkilometer</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kubikkilometers</unitPattern>
 				<unitPattern count="other">{0} kubikkilometer</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kubikkilometers</unitPattern>
 			</unit>
 			<unit type="volume-cubic-meter">
 				<gender>masculine</gender>
 				<displayName>kubikkmeter</displayName>
 				<unitPattern count="one">{0} kubikkmeter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kubikkmeters</unitPattern>
 				<unitPattern count="other">{0} kubikkmeter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kubikkmeters</unitPattern>
 				<perUnitPattern>{0} per kubikkmeter</perUnitPattern>
 			</unit>
 			<unit type="volume-cubic-centimeter">
 				<gender>masculine</gender>
 				<displayName>kubikkcentimeter</displayName>
 				<unitPattern count="one">{0} kubikkcentimeter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} kubikkcentimeters</unitPattern>
 				<unitPattern count="other">{0} kubikkcentimeter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} kubikkcentimeters</unitPattern>
 				<perUnitPattern>{0} per kubikkcentimeter</perUnitPattern>
 			</unit>
 			<unit type="volume-cubic-mile">
 				<gender>masculine</gender>
-				<displayName>engelske kubikkmil</displayName>
-				<unitPattern count="one">{0} engelsk kubikkmil</unitPattern>
-				<unitPattern count="other">{0} engelske kubikkmil</unitPattern>
+				<displayName>kubikkmile</displayName>
+				<unitPattern count="one">{0} kubikkmile</unitPattern>
+				<unitPattern count="other">{0} kubikkmile</unitPattern>
 			</unit>
 			<unit type="volume-cubic-yard">
 				<displayName>kubikkyard</displayName>
@@ -14961,52 +15295,69 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} kubikktommer</unitPattern>
 			</unit>
 			<unit type="volume-megaliter">
+				<gender>masculine</gender>
 				<displayName>megaliter</displayName>
 				<unitPattern count="one">{0} megaliter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} megaliters</unitPattern>
 				<unitPattern count="other">{0} megaliter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} megaliters</unitPattern>
 			</unit>
 			<unit type="volume-hectoliter">
 				<gender>masculine</gender>
 				<displayName>hektoliter</displayName>
 				<unitPattern count="one">{0} hektoliter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} hektoliters</unitPattern>
 				<unitPattern count="other">{0} hektoliter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} hektoliters</unitPattern>
 			</unit>
 			<unit type="volume-liter">
 				<gender>masculine</gender>
 				<displayName>liter</displayName>
 				<unitPattern count="one">{0} liter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} liters</unitPattern>
 				<unitPattern count="other">{0} liter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} liters</unitPattern>
 				<perUnitPattern>{0} per liter</perUnitPattern>
 			</unit>
 			<unit type="volume-deciliter">
 				<gender>masculine</gender>
 				<displayName>desiliter</displayName>
 				<unitPattern count="one">{0} desiliter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} desiliters</unitPattern>
 				<unitPattern count="other">{0} desiliter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} desiliters</unitPattern>
 			</unit>
 			<unit type="volume-centiliter">
 				<gender>masculine</gender>
 				<displayName>centiliter</displayName>
 				<unitPattern count="one">{0} centiliter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} centiliters</unitPattern>
 				<unitPattern count="other">{0} centiliter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} centiliters</unitPattern>
 			</unit>
 			<unit type="volume-milliliter">
 				<gender>masculine</gender>
 				<displayName>milliliter</displayName>
 				<unitPattern count="one">{0} milliliter</unitPattern>
+				<unitPattern count="one" case="genitive">{0} milliliters</unitPattern>
 				<unitPattern count="other">{0} milliliter</unitPattern>
+				<unitPattern count="other" case="genitive">{0} milliliters</unitPattern>
 			</unit>
 			<unit type="volume-pint-metric">
 				<gender>masculine</gender>
 				<displayName>metriske pint</displayName>
 				<unitPattern count="one">{0} metrisk pint</unitPattern>
+				<unitPattern count="one" case="genitive">{0} metrisk pints</unitPattern>
 				<unitPattern count="other">{0} metriske pint</unitPattern>
+				<unitPattern count="other" case="genitive">{0} metriske pints</unitPattern>
 			</unit>
 			<unit type="volume-cup-metric">
 				<gender>masculine</gender>
 				<displayName>metriske kopper</displayName>
 				<unitPattern count="one">{0} metrisk kopp</unitPattern>
+				<unitPattern count="one" case="genitive">{0} metrisk kopps</unitPattern>
 				<unitPattern count="other">{0} metriske kopper</unitPattern>
+				<unitPattern count="other" case="genitive">{0} metriske koppers</unitPattern>
 			</unit>
 			<unit type="volume-acre-foot">
 				<displayName>acre-fot</displayName>
@@ -15016,7 +15367,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<unit type="volume-bushel">
 				<displayName>bushel</displayName>
 				<unitPattern count="one">{0} bushel</unitPattern>
-				<unitPattern count="other">{0} bushels</unitPattern>
+				<unitPattern count="other">{0} bushel</unitPattern>
 			</unit>
 			<unit type="volume-gallon">
 				<gender>masculine</gender>
@@ -15457,6 +15808,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} år</unitPattern>
 				<perUnitPattern>{0}/år</perUnitPattern>
 			</unit>
+			<unit type="duration-quarter">
+				<displayName>kvt</displayName>
+				<unitPattern count="one">{0} kvt</unitPattern>
+				<unitPattern count="other">{0} kvt</unitPattern>
+				<perUnitPattern>{0}/kvt</perUnitPattern>
+			</unit>
 			<unit type="duration-month">
 				<displayName>måneder</displayName>
 				<unitPattern count="one">{0} md.</unitPattern>
@@ -15783,7 +16140,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="one">↑↑↑</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
-			<unit type="mass-metric-ton">
+			<unit type="mass-tonne">
 				<displayName>tonn</displayName>
 				<unitPattern count="one">{0} tonn</unitPattern>
 				<unitPattern count="other">{0} tonn</unitPattern>
@@ -16108,7 +16465,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} k</unitPattern>
 			</unit>
 			<unit type="volume-fluid-ounce">
-				<displayName>væskeunse</displayName>
+				<displayName>fl oz</displayName>
 				<unitPattern count="one">{0} fl oz</unitPattern>
 				<unitPattern count="other">{0} fl oz</unitPattern>
 			</unit>
@@ -16287,9 +16644,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0}m/s²</unitPattern>
 			</unit>
 			<unit type="angle-revolution">
-				<displayName>↑↑↑</displayName>
-				<unitPattern count="one">{0}omdr.</unitPattern>
-				<unitPattern count="other">{0}omdr.</unitPattern>
+				<displayName>o</displayName>
+				<unitPattern count="one">{0} o</unitPattern>
+				<unitPattern count="other">{0} o</unitPattern>
 			</unit>
 			<unit type="angle-radian">
 				<displayName>rad</displayName>
@@ -16335,10 +16692,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0}/cm²</perUnitPattern>
 			</unit>
 			<unit type="area-square-mile">
-				<displayName draft="provisional">↑↑↑</displayName>
+				<displayName>mi²</displayName>
 				<unitPattern count="one">{0}mi²</unitPattern>
 				<unitPattern count="other">{0}mi²</unitPattern>
-				<perUnitPattern draft="provisional">↑↑↑</perUnitPattern>
+				<perUnitPattern draft="contributed">↑↑↑</perUnitPattern>
 			</unit>
 			<unit type="area-acre">
 				<displayName>↑↑↑</displayName>
@@ -16368,8 +16725,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="concentr-karat">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="concentr-milligram-ofglucose-per-deciliter">
 				<displayName>↑↑↑</displayName>
@@ -16383,8 +16740,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="concentr-item">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="concentr-permillion">
 				<displayName>ppm</displayName>
@@ -16397,7 +16754,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} %</unitPattern>
 			</unit>
 			<unit type="concentr-permille">
-				<displayName draft="provisional">↑↑↑</displayName>
+				<displayName>‰</displayName>
 				<unitPattern count="one">↑↑↑</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
@@ -16433,58 +16790,58 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="digital-petabyte">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}PB</unitPattern>
+				<unitPattern count="other">{0}PB</unitPattern>
 			</unit>
 			<unit type="digital-terabyte">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}TB</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-terabit">
 				<displayName>Tb</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}Tb</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-gigabyte">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}GB</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-gigabit">
 				<displayName>Gb</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}Gb</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-megabyte">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}MB</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-megabit">
 				<displayName>Mb</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}Mb</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-kilobyte">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}kB</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-kilobit">
 				<displayName>kb</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}kb</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-byte">
 				<displayName>B</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}B</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-bit">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}bit</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="duration-century">
 				<displayName>årh.</displayName>
@@ -16501,6 +16858,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="one">{0}å</unitPattern>
 				<unitPattern count="other">{0}å</unitPattern>
 				<perUnitPattern>{0}/år</perUnitPattern>
+			</unit>
+			<unit type="duration-quarter">
+				<displayName>kv</displayName>
+				<unitPattern count="one">{0} kv</unitPattern>
+				<unitPattern count="other">{0} kv</unitPattern>
+				<perUnitPattern>{0}/kv</perUnitPattern>
 			</unit>
 			<unit type="duration-month">
 				<displayName>måned</displayName>
@@ -16554,72 +16917,72 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0}ns</unitPattern>
 			</unit>
 			<unit type="electric-ampere">
-				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<displayName>A</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="electric-milliampere">
 				<displayName>mA</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="electric-ohm">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="electric-volt">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-kilocalorie">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-calorie">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-foodcalorie">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-kilojoule">
 				<displayName>kJ</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-joule">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-kilowatt-hour">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-electronvolt">
 				<displayName>eV</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-british-thermal-unit">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-therm-us">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="force-pound-force">
-				<displayName draft="provisional">↑↑↑</displayName>
+				<displayName>lbf</displayName>
 				<unitPattern count="one">{0}lbf</unitPattern>
 				<unitPattern count="other">{0}lbf</unitPattern>
 			</unit>
@@ -16635,23 +16998,23 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="frequency-gigahertz">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-megahertz">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-kilohertz">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-hertz">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="graphics-em">
 				<displayName>↑↑↑</displayName>
@@ -16815,8 +17178,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="light-candela">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="light-lumen">
 				<displayName>↑↑↑</displayName>
@@ -16824,12 +17187,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0}lm</unitPattern>
 			</unit>
 			<unit type="light-solar-luminosity">
-				<displayName>↑↑↑</displayName>
+				<displayName>L☉</displayName>
 				<unitPattern count="one">{0}L☉</unitPattern>
 				<unitPattern count="other">{0}L☉</unitPattern>
 			</unit>
-			<unit type="mass-metric-ton">
-				<displayName draft="provisional">↑↑↑</displayName>
+			<unit type="mass-tonne">
+				<displayName>t</displayName>
 				<unitPattern count="one">{0}t</unitPattern>
 				<unitPattern count="other">{0}t</unitPattern>
 			</unit>
@@ -16857,13 +17220,13 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="mass-ton">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">{0} am. tn.</unitPattern>
-				<unitPattern count="other" draft="provisional">{0} am. tn.</unitPattern>
+				<unitPattern count="one">{0} am. tn.</unitPattern>
+				<unitPattern count="other">{0} am. tn.</unitPattern>
 			</unit>
 			<unit type="mass-stone">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="mass-pound">
 				<displayName>pund</displayName>
@@ -16872,50 +17235,50 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0}/pund</perUnitPattern>
 			</unit>
 			<unit type="mass-ounce">
-				<displayName>unse</displayName>
-				<unitPattern count="one">{0} unse</unitPattern>
-				<unitPattern count="other">{0} unser</unitPattern>
+				<displayName>oz</displayName>
+				<unitPattern count="one">{0}oz</unitPattern>
+				<unitPattern count="other">{0}oz</unitPattern>
 				<perUnitPattern>{0}/unse</perUnitPattern>
 			</unit>
 			<unit type="mass-ounce-troy">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="mass-carat">
 				<displayName>karat</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="mass-dalton">
 				<displayName>Da</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="mass-earth-mass">
 				<displayName>M⊕</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="mass-solar-mass">
 				<displayName>M☉</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="mass-grain">
-				<displayName draft="provisional">↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-gigawatt">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-megawatt">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-kilowatt">
 				<displayName>↑↑↑</displayName>
@@ -16929,8 +17292,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="power-milliwatt">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-horsepower">
 				<displayName>↑↑↑</displayName>
@@ -16954,8 +17317,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="pressure-bar">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-millibar">
 				<displayName>↑↑↑</displayName>
@@ -16964,13 +17327,13 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="pressure-atmosphere">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-pascal">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-hectopascal">
 				<displayName>↑↑↑</displayName>
@@ -16979,13 +17342,13 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="pressure-kilopascal">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-megapascal">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="speed-kilometer-per-hour">
 				<displayName>km/t</displayName>
@@ -16998,7 +17361,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0}m/s</unitPattern>
 			</unit>
 			<unit type="speed-mile-per-hour">
-				<displayName draft="contributed">mile/t</displayName>
+				<displayName>mi/t</displayName>
 				<unitPattern count="one">{0}mi/t</unitPattern>
 				<unitPattern count="other">{0}mi/t</unitPattern>
 			</unit>
@@ -17055,22 +17418,22 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0}/cm³</perUnitPattern>
 			</unit>
 			<unit type="volume-cubic-mile">
-				<displayName draft="provisional">↑↑↑</displayName>
-				<unitPattern count="one">{0} eng mil³</unitPattern>
-				<unitPattern count="other">{0} eng mil³</unitPattern>
+				<displayName>mi³</displayName>
+				<unitPattern count="one">{0} mi³</unitPattern>
+				<unitPattern count="other">{0} mi³</unitPattern>
 			</unit>
 			<unit type="volume-cubic-yard">
-				<displayName draft="provisional">↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<displayName>yd³</displayName>
+				<unitPattern count="one">{0} yd³</unitPattern>
+				<unitPattern count="other">{0} yd³</unitPattern>
 			</unit>
 			<unit type="volume-cubic-foot">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">{0} fot³</unitPattern>
-				<unitPattern count="other" draft="provisional">{0} fot³</unitPattern>
+				<unitPattern count="one">{0} fot³</unitPattern>
+				<unitPattern count="other">{0} fot³</unitPattern>
 			</unit>
 			<unit type="volume-cubic-inch">
-				<displayName draft="provisional">↑↑↑</displayName>
+				<displayName>in³</displayName>
 				<unitPattern count="one">{0} in³</unitPattern>
 				<unitPattern count="other">{0} in³</unitPattern>
 			</unit>
@@ -17092,125 +17455,125 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="volume-deciliter">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}dl</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-centiliter">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}cl</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-milliliter">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">{0}ml</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-pint-metric">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-cup-metric">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">{0} mc</unitPattern>
-				<unitPattern count="other" draft="provisional">{0} mc</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other" draft="contributed">{0} mc</unitPattern>
 			</unit>
 			<unit type="volume-acre-foot">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-bushel">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-gallon">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 				<perUnitPattern>↑↑↑</perUnitPattern>
 			</unit>
 			<unit type="volume-gallon-imperial">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 				<perUnitPattern>↑↑↑</perUnitPattern>
 			</unit>
 			<unit type="volume-quart">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-pint">
 				<displayName>pt</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-cup">
 				<displayName>cup</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-fluid-ounce">
-				<displayName draft="provisional">↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-fluid-ounce-imperial">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">{0} fl oz Im</unitPattern>
-				<unitPattern count="other" draft="provisional">{0} fl oz Im</unitPattern>
+				<unitPattern count="one">{0} fl oz Im</unitPattern>
+				<unitPattern count="other">{0} fl oz Im</unitPattern>
 			</unit>
 			<unit type="volume-tablespoon">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">{0} ss</unitPattern>
-				<unitPattern count="other" draft="provisional">{0} ss</unitPattern>
+				<unitPattern count="one">{0} ss</unitPattern>
+				<unitPattern count="other">{0} ss</unitPattern>
 			</unit>
 			<unit type="volume-teaspoon">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">{0} ts</unitPattern>
-				<unitPattern count="other" draft="provisional">{0} ts</unitPattern>
+				<unitPattern count="one">{0} ts</unitPattern>
+				<unitPattern count="other">{0} ts</unitPattern>
 			</unit>
 			<unit type="volume-barrel">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-dessert-spoon">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-dessert-spoon-imperial">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-drop">
-				<displayName draft="provisional">↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<displayName>dr</displayName>
+				<unitPattern count="one">{0} dr</unitPattern>
+				<unitPattern count="other">{0} dr</unitPattern>
 			</unit>
 			<unit type="volume-dram">
-				<displayName draft="provisional">↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<displayName>dram fl</displayName>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-jigger">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-pinch">
-				<displayName draft="provisional">↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="provisional">↑↑↑</unitPattern>
+				<displayName draft="contributed">↑↑↑</displayName>
+				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
+				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-quart-imperial">
-				<displayName draft="provisional">↑↑↑</displayName>
-				<unitPattern count="one" draft="provisional">{0} qt. Imp.</unitPattern>
-				<unitPattern count="other" draft="provisional">{0} qt. Imp.</unitPattern>
+				<displayName>↑↑↑</displayName>
+				<unitPattern count="one">{0} qt. Imp.</unitPattern>
+				<unitPattern count="other">{0} qt. Imp.</unitPattern>
 			</unit>
 			<coordinateUnit>
 				<displayName>retning</displayName>
@@ -17467,4 +17830,159 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<featureName type="tnum">tabelltall</featureName>
 		<featureName type="zero">null med skråstrek</featureName>
 	</typographicNames>
+	<personNames>
+		<nameOrderLocales order="givenFirst">und no</nameOrderLocales>
+		<nameOrderLocales order="surnameFirst">ko vi yue zh</nameOrderLocales>
+		<foreignSpaceReplacement xml:space="preserve">↑↑↑</foreignSpaceReplacement>
+		<initialPattern type="initial">↑↑↑</initialPattern>
+		<initialPattern type="initialSequence">↑↑↑</initialPattern>
+		<personName order="givenFirst" length="long" usage="referring" formality="formal">
+			<namePattern>{given} {given2} {surname} {suffix}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="referring" formality="informal">
+			<namePattern>{given-informal} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="monogram" formality="formal">
+			<namePattern>{given-monogram-allCaps}{given2-monogram-allCaps}{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="monogram" formality="informal">
+			<namePattern>{given-informal-monogram-allCaps}{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="referring" formality="formal">
+			<namePattern>{given} {given2-initial} {surname} {suffix}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="referring" formality="informal">
+			<namePattern>{given-informal} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="monogram" formality="formal">
+			<namePattern>{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="monogram" formality="informal">
+			<namePattern>{given-informal-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="referring" formality="formal">
+			<namePattern>{given-initial} {given2-initial} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="referring" formality="informal">
+			<namePattern>{given-informal} {surname-initial}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="monogram" formality="formal">
+			<namePattern>{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="monogram" formality="informal">
+			<namePattern>{given-informal-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="referring" formality="formal">
+			<namePattern>{surname} {given} {given2} {suffix}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="referring" formality="informal">
+			<namePattern>{surname} {given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="monogram" formality="formal">
+			<namePattern>{surname-monogram-allCaps}{given-monogram-allCaps}{given2-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="monogram" formality="informal">
+			<namePattern>{surname-monogram-allCaps}{given-informal-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="referring" formality="formal">
+			<namePattern>{surname} {given} {given2-initial} {suffix}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="referring" formality="informal">
+			<namePattern>{surname} {given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="monogram" formality="formal">
+			<namePattern>{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="monogram" formality="informal">
+			<namePattern>{given-informal-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="referring" formality="formal">
+			<namePattern>{surname} {given-initial} {given2-initial}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="referring" formality="informal">
+			<namePattern>{surname} {given-initial}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="monogram" formality="formal">
+			<namePattern>{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="monogram" formality="informal">
+			<namePattern>{given-informal-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="sorting" length="long" usage="referring" formality="formal">
+			<namePattern>{surname}, {given} {given2} {suffix}</namePattern>
+		</personName>
+		<personName order="sorting" length="long" usage="referring" formality="informal">
+			<namePattern>{surname}, {given-informal}</namePattern>
+		</personName>
+		<personName order="sorting" length="medium" usage="referring" formality="formal">
+			<namePattern>{surname}, {given} {given2-initial} {suffix}</namePattern>
+		</personName>
+		<personName order="sorting" length="medium" usage="referring" formality="informal">
+			<namePattern>{surname}, {given-informal}</namePattern>
+		</personName>
+		<personName order="sorting" length="short" usage="referring" formality="formal">
+			<namePattern>{surname}, {given-initial} {given2-initial}</namePattern>
+		</personName>
+		<personName order="sorting" length="short" usage="referring" formality="informal">
+			<namePattern>{surname}, {given-informal}</namePattern>
+		</personName>
+		<sampleName item="givenOnly">
+			<nameField type="given">Harald</nameField>
+		</sampleName>
+		<sampleName item="givenSurnameOnly">
+			<nameField type="given">Irene</nameField>
+			<nameField type="surname">Andersen</nameField>
+		</sampleName>
+		<sampleName item="given12Surname">
+			<nameField type="given">Hans</nameField>
+			<nameField type="given2">Bernhard</nameField>
+			<nameField type="surname">Nilsen</nameField>
+		</sampleName>
+		<sampleName item="full">
+			<nameField type="prefix">Prof. Dr.</nameField>
+			<nameField type="given">Inger Marie</nameField>
+			<nameField type="given-informal">Inger</nameField>
+			<nameField type="given2">Adele Synnøve</nameField>
+			<nameField type="surname-prefix">van den</nameField>
+			<nameField type="surname-core">Wolf</nameField>
+			<nameField type="surname2">Meyer Hansen</nameField>
+			<nameField type="suffix">M.D. Ph.D.</nameField>
+		</sampleName>
+	</personNames>
 </ldml>

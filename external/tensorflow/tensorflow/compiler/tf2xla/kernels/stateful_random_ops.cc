@@ -16,6 +16,7 @@ limitations under the License.
 #include "tensorflow/core/kernels/stateful_random_ops.h"
 
 #include <cmath>
+#include <utility>
 
 #include "tensorflow/compiler/tf2xla/kernels/random_ops_util.h"
 #include "tensorflow/compiler/tf2xla/lib/random.h"
@@ -114,7 +115,7 @@ xla::RngOutput StatefulRngUniformFullInt(Algorithm alg, xla::XlaOp key,
 
 using SamplerReturnType = StatusOr<xla::RngOutput>;
 
-int64 GetMinStateSize(Algorithm alg) {
+int64_t GetMinStateSize(Algorithm alg) {
   if (alg == RNG_ALG_PHILOX) {
     return PHILOX_MIN_STATE_SIZE;
   }
@@ -132,7 +133,7 @@ Status CheckStateShape(Algorithm alg, const TensorShape& shape) {
     return errors::InvalidArgument("The size of the state must be at least ",
                                    min_state_size, "; got ", state_size);
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 std::pair<xla::XlaOp, xla::XlaOp> StateAndKeyFromVariable(Algorithm alg,
@@ -181,7 +182,7 @@ Status CompileImpl(
   }
   xla::Literal alg_literal;
   TF_RETURN_IF_ERROR(ctx->ConstantInput(alg_input_idx, &alg_literal));
-  Algorithm alg = Algorithm(alg_literal.Get<int64>({}));
+  Algorithm alg = Algorithm(alg_literal.Get<int64_t>({}));
   if (!(alg == RNG_ALG_THREEFRY || alg == RNG_ALG_PHILOX)) {
     return errors::InvalidArgument("Unsupported algorithm id: ", alg);
   }
@@ -200,7 +201,7 @@ Status CompileImpl(
   if (!status_or_value.ok()) {
     return status_or_value.status();
   }
-  xla::RngOutput value_state = status_or_value.ConsumeValueOrDie();
+  xla::RngOutput value_state = std::move(status_or_value).value();
   state = value_state.state;
   ctx->SetOutput(0, value_state.value);
   var = StateAndKeyToVariable(alg, state, key);
@@ -210,7 +211,7 @@ Status CompileImpl(
   var = BitcastConvertType(var, state_element_type);
   TF_RETURN_IF_ERROR(
       ctx->AssignVariable(state_input_idx, STATE_ELEMENT_DTYPE, var));
-  return Status::OK();
+  return OkStatus();
 }
 
 class StatefulUniformOp : public XlaOpKernel {
@@ -424,7 +425,7 @@ xla::XlaOp PadRight(xla::XlaOp a, int n) {
                   xla::MakeEdgePaddingConfig({{0, n}}));
 }
 
-template <typename AlgEnumType = int64, bool read_old_value = false>
+template <typename AlgEnumType = int64_t, bool read_old_value = false>
 class RngSkipOp : public XlaOpKernel {
  public:
   explicit RngSkipOp(OpKernelConstruction* ctx) : XlaOpKernel(ctx) {}

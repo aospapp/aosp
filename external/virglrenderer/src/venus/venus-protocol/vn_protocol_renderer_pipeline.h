@@ -72,15 +72,100 @@ vn_replace_VkSpecializationInfo_handle(VkSpecializationInfo *val)
     /* skip val->pData */
 }
 
-/* struct VkPipelineShaderStageCreateInfo chain */
+/* struct VkPipelineShaderStageRequiredSubgroupSizeCreateInfo chain */
 
 static inline void *
-vn_decode_VkPipelineShaderStageCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
+vn_decode_VkPipelineShaderStageRequiredSubgroupSizeCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
 {
     /* no known/supported struct */
     if (vn_decode_simple_pointer(dec))
         vn_cs_decoder_set_fatal(dec);
     return NULL;
+}
+
+static inline void
+vn_decode_VkPipelineShaderStageRequiredSubgroupSizeCreateInfo_self_temp(struct vn_cs_decoder *dec, VkPipelineShaderStageRequiredSubgroupSizeCreateInfo *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_uint32_t(dec, &val->requiredSubgroupSize);
+}
+
+static inline void
+vn_decode_VkPipelineShaderStageRequiredSubgroupSizeCreateInfo_temp(struct vn_cs_decoder *dec, VkPipelineShaderStageRequiredSubgroupSizeCreateInfo *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkPipelineShaderStageRequiredSubgroupSizeCreateInfo_pnext_temp(dec);
+    vn_decode_VkPipelineShaderStageRequiredSubgroupSizeCreateInfo_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkPipelineShaderStageRequiredSubgroupSizeCreateInfo_handle_self(VkPipelineShaderStageRequiredSubgroupSizeCreateInfo *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->requiredSubgroupSize */
+}
+
+static inline void
+vn_replace_VkPipelineShaderStageRequiredSubgroupSizeCreateInfo_handle(VkPipelineShaderStageRequiredSubgroupSizeCreateInfo *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO:
+            vn_replace_VkPipelineShaderStageRequiredSubgroupSizeCreateInfo_handle_self((VkPipelineShaderStageRequiredSubgroupSizeCreateInfo *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkPipelineShaderStageCreateInfo chain */
+
+static inline void *
+vn_decode_VkPipelineShaderStageCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
+{
+    VkBaseOutStructure *pnext;
+    VkStructureType stype;
+
+    if (!vn_decode_simple_pointer(dec))
+        return NULL;
+
+    vn_decode_VkStructureType(dec, &stype);
+    switch ((int32_t)stype) {
+    case VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkShaderModuleCreateInfo));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkPipelineShaderStageCreateInfo_pnext_temp(dec);
+            vn_decode_VkShaderModuleCreateInfo_self_temp(dec, (VkShaderModuleCreateInfo *)pnext);
+        }
+        break;
+    case VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkPipelineShaderStageRequiredSubgroupSizeCreateInfo));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkPipelineShaderStageCreateInfo_pnext_temp(dec);
+            vn_decode_VkPipelineShaderStageRequiredSubgroupSizeCreateInfo_self_temp(dec, (VkPipelineShaderStageRequiredSubgroupSizeCreateInfo *)pnext);
+        }
+        break;
+    default:
+        /* unexpected struct */
+        pnext = NULL;
+        vn_cs_decoder_set_fatal(dec);
+        break;
+    }
+
+    return pnext;
 }
 
 static inline void
@@ -144,6 +229,12 @@ vn_replace_VkPipelineShaderStageCreateInfo_handle(VkPipelineShaderStageCreateInf
         case VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO:
             vn_replace_VkPipelineShaderStageCreateInfo_handle_self((VkPipelineShaderStageCreateInfo *)pnext);
             break;
+        case VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO:
+            vn_replace_VkShaderModuleCreateInfo_handle_self((VkShaderModuleCreateInfo *)pnext);
+            break;
+        case VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO:
+            vn_replace_VkPipelineShaderStageRequiredSubgroupSizeCreateInfo_handle_self((VkPipelineShaderStageRequiredSubgroupSizeCreateInfo *)pnext);
+            break;
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -190,15 +281,122 @@ vn_replace_VkVertexInputAttributeDescription_handle(VkVertexInputAttributeDescri
     /* skip val->offset */
 }
 
-/* struct VkPipelineVertexInputStateCreateInfo chain */
+/* struct VkVertexInputBindingDivisorDescriptionEXT */
+
+static inline void
+vn_decode_VkVertexInputBindingDivisorDescriptionEXT_temp(struct vn_cs_decoder *dec, VkVertexInputBindingDivisorDescriptionEXT *val)
+{
+    vn_decode_uint32_t(dec, &val->binding);
+    vn_decode_uint32_t(dec, &val->divisor);
+}
+
+static inline void
+vn_replace_VkVertexInputBindingDivisorDescriptionEXT_handle(VkVertexInputBindingDivisorDescriptionEXT *val)
+{
+    /* skip val->binding */
+    /* skip val->divisor */
+}
+
+/* struct VkPipelineVertexInputDivisorStateCreateInfoEXT chain */
 
 static inline void *
-vn_decode_VkPipelineVertexInputStateCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
+vn_decode_VkPipelineVertexInputDivisorStateCreateInfoEXT_pnext_temp(struct vn_cs_decoder *dec)
 {
     /* no known/supported struct */
     if (vn_decode_simple_pointer(dec))
         vn_cs_decoder_set_fatal(dec);
     return NULL;
+}
+
+static inline void
+vn_decode_VkPipelineVertexInputDivisorStateCreateInfoEXT_self_temp(struct vn_cs_decoder *dec, VkPipelineVertexInputDivisorStateCreateInfoEXT *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_uint32_t(dec, &val->vertexBindingDivisorCount);
+    if (vn_peek_array_size(dec)) {
+        const uint32_t iter_count = vn_decode_array_size(dec, val->vertexBindingDivisorCount);
+        val->pVertexBindingDivisors = vn_cs_decoder_alloc_temp(dec, sizeof(*val->pVertexBindingDivisors) * iter_count);
+        if (!val->pVertexBindingDivisors) return;
+        for (uint32_t i = 0; i < iter_count; i++)
+            vn_decode_VkVertexInputBindingDivisorDescriptionEXT_temp(dec, &((VkVertexInputBindingDivisorDescriptionEXT *)val->pVertexBindingDivisors)[i]);
+    } else {
+        vn_decode_array_size(dec, val->vertexBindingDivisorCount);
+        val->pVertexBindingDivisors = NULL;
+    }
+}
+
+static inline void
+vn_decode_VkPipelineVertexInputDivisorStateCreateInfoEXT_temp(struct vn_cs_decoder *dec, VkPipelineVertexInputDivisorStateCreateInfoEXT *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_DIVISOR_STATE_CREATE_INFO_EXT)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkPipelineVertexInputDivisorStateCreateInfoEXT_pnext_temp(dec);
+    vn_decode_VkPipelineVertexInputDivisorStateCreateInfoEXT_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkPipelineVertexInputDivisorStateCreateInfoEXT_handle_self(VkPipelineVertexInputDivisorStateCreateInfoEXT *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->vertexBindingDivisorCount */
+    if (val->pVertexBindingDivisors) {
+       for (uint32_t i = 0; i < val->vertexBindingDivisorCount; i++)
+            vn_replace_VkVertexInputBindingDivisorDescriptionEXT_handle(&((VkVertexInputBindingDivisorDescriptionEXT *)val->pVertexBindingDivisors)[i]);
+    }
+}
+
+static inline void
+vn_replace_VkPipelineVertexInputDivisorStateCreateInfoEXT_handle(VkPipelineVertexInputDivisorStateCreateInfoEXT *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_DIVISOR_STATE_CREATE_INFO_EXT:
+            vn_replace_VkPipelineVertexInputDivisorStateCreateInfoEXT_handle_self((VkPipelineVertexInputDivisorStateCreateInfoEXT *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkPipelineVertexInputStateCreateInfo chain */
+
+static inline void *
+vn_decode_VkPipelineVertexInputStateCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
+{
+    VkBaseOutStructure *pnext;
+    VkStructureType stype;
+
+    if (!vn_decode_simple_pointer(dec))
+        return NULL;
+
+    vn_decode_VkStructureType(dec, &stype);
+    switch ((int32_t)stype) {
+    case VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_DIVISOR_STATE_CREATE_INFO_EXT:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkPipelineVertexInputDivisorStateCreateInfoEXT));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkPipelineVertexInputStateCreateInfo_pnext_temp(dec);
+            vn_decode_VkPipelineVertexInputDivisorStateCreateInfoEXT_self_temp(dec, (VkPipelineVertexInputDivisorStateCreateInfoEXT *)pnext);
+        }
+        break;
+    default:
+        /* unexpected struct */
+        pnext = NULL;
+        vn_cs_decoder_set_fatal(dec);
+        break;
+    }
+
+    return pnext;
 }
 
 static inline void
@@ -270,6 +468,9 @@ vn_replace_VkPipelineVertexInputStateCreateInfo_handle(VkPipelineVertexInputStat
         switch ((int32_t)pnext->sType) {
         case VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO:
             vn_replace_VkPipelineVertexInputStateCreateInfo_handle_self((VkPipelineVertexInputStateCreateInfo *)pnext);
+            break;
+        case VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_DIVISOR_STATE_CREATE_INFO_EXT:
+            vn_replace_VkPipelineVertexInputDivisorStateCreateInfoEXT_handle_self((VkPipelineVertexInputDivisorStateCreateInfoEXT *)pnext);
             break;
         default:
             /* ignore unknown/unsupported struct */
@@ -479,15 +680,92 @@ vn_replace_VkPipelineTessellationStateCreateInfo_handle(VkPipelineTessellationSt
     } while (pnext);
 }
 
-/* struct VkPipelineViewportStateCreateInfo chain */
+/* struct VkPipelineViewportDepthClipControlCreateInfoEXT chain */
 
 static inline void *
-vn_decode_VkPipelineViewportStateCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
+vn_decode_VkPipelineViewportDepthClipControlCreateInfoEXT_pnext_temp(struct vn_cs_decoder *dec)
 {
     /* no known/supported struct */
     if (vn_decode_simple_pointer(dec))
         vn_cs_decoder_set_fatal(dec);
     return NULL;
+}
+
+static inline void
+vn_decode_VkPipelineViewportDepthClipControlCreateInfoEXT_self_temp(struct vn_cs_decoder *dec, VkPipelineViewportDepthClipControlCreateInfoEXT *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_VkBool32(dec, &val->negativeOneToOne);
+}
+
+static inline void
+vn_decode_VkPipelineViewportDepthClipControlCreateInfoEXT_temp(struct vn_cs_decoder *dec, VkPipelineViewportDepthClipControlCreateInfoEXT *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_DEPTH_CLIP_CONTROL_CREATE_INFO_EXT)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkPipelineViewportDepthClipControlCreateInfoEXT_pnext_temp(dec);
+    vn_decode_VkPipelineViewportDepthClipControlCreateInfoEXT_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkPipelineViewportDepthClipControlCreateInfoEXT_handle_self(VkPipelineViewportDepthClipControlCreateInfoEXT *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->negativeOneToOne */
+}
+
+static inline void
+vn_replace_VkPipelineViewportDepthClipControlCreateInfoEXT_handle(VkPipelineViewportDepthClipControlCreateInfoEXT *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_DEPTH_CLIP_CONTROL_CREATE_INFO_EXT:
+            vn_replace_VkPipelineViewportDepthClipControlCreateInfoEXT_handle_self((VkPipelineViewportDepthClipControlCreateInfoEXT *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkPipelineViewportStateCreateInfo chain */
+
+static inline void *
+vn_decode_VkPipelineViewportStateCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
+{
+    VkBaseOutStructure *pnext;
+    VkStructureType stype;
+
+    if (!vn_decode_simple_pointer(dec))
+        return NULL;
+
+    vn_decode_VkStructureType(dec, &stype);
+    switch ((int32_t)stype) {
+    case VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_DEPTH_CLIP_CONTROL_CREATE_INFO_EXT:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkPipelineViewportDepthClipControlCreateInfoEXT));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkPipelineViewportStateCreateInfo_pnext_temp(dec);
+            vn_decode_VkPipelineViewportDepthClipControlCreateInfoEXT_self_temp(dec, (VkPipelineViewportDepthClipControlCreateInfoEXT *)pnext);
+        }
+        break;
+    default:
+        /* unexpected struct */
+        pnext = NULL;
+        vn_cs_decoder_set_fatal(dec);
+        break;
+    }
+
+    return pnext;
 }
 
 static inline void
@@ -560,6 +838,70 @@ vn_replace_VkPipelineViewportStateCreateInfo_handle(VkPipelineViewportStateCreat
         case VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO:
             vn_replace_VkPipelineViewportStateCreateInfo_handle_self((VkPipelineViewportStateCreateInfo *)pnext);
             break;
+        case VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_DEPTH_CLIP_CONTROL_CREATE_INFO_EXT:
+            vn_replace_VkPipelineViewportDepthClipControlCreateInfoEXT_handle_self((VkPipelineViewportDepthClipControlCreateInfoEXT *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkPipelineRasterizationConservativeStateCreateInfoEXT chain */
+
+static inline void *
+vn_decode_VkPipelineRasterizationConservativeStateCreateInfoEXT_pnext_temp(struct vn_cs_decoder *dec)
+{
+    /* no known/supported struct */
+    if (vn_decode_simple_pointer(dec))
+        vn_cs_decoder_set_fatal(dec);
+    return NULL;
+}
+
+static inline void
+vn_decode_VkPipelineRasterizationConservativeStateCreateInfoEXT_self_temp(struct vn_cs_decoder *dec, VkPipelineRasterizationConservativeStateCreateInfoEXT *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_VkFlags(dec, &val->flags);
+    vn_decode_VkConservativeRasterizationModeEXT(dec, &val->conservativeRasterizationMode);
+    vn_decode_float(dec, &val->extraPrimitiveOverestimationSize);
+}
+
+static inline void
+vn_decode_VkPipelineRasterizationConservativeStateCreateInfoEXT_temp(struct vn_cs_decoder *dec, VkPipelineRasterizationConservativeStateCreateInfoEXT *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkPipelineRasterizationConservativeStateCreateInfoEXT_pnext_temp(dec);
+    vn_decode_VkPipelineRasterizationConservativeStateCreateInfoEXT_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkPipelineRasterizationConservativeStateCreateInfoEXT_handle_self(VkPipelineRasterizationConservativeStateCreateInfoEXT *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->flags */
+    /* skip val->conservativeRasterizationMode */
+    /* skip val->extraPrimitiveOverestimationSize */
+}
+
+static inline void
+vn_replace_VkPipelineRasterizationConservativeStateCreateInfoEXT_handle(VkPipelineRasterizationConservativeStateCreateInfoEXT *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT:
+            vn_replace_VkPipelineRasterizationConservativeStateCreateInfoEXT_handle_self((VkPipelineRasterizationConservativeStateCreateInfoEXT *)pnext);
+            break;
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -627,6 +969,185 @@ vn_replace_VkPipelineRasterizationStateStreamCreateInfoEXT_handle(VkPipelineRast
     } while (pnext);
 }
 
+/* struct VkPipelineRasterizationDepthClipStateCreateInfoEXT chain */
+
+static inline void *
+vn_decode_VkPipelineRasterizationDepthClipStateCreateInfoEXT_pnext_temp(struct vn_cs_decoder *dec)
+{
+    /* no known/supported struct */
+    if (vn_decode_simple_pointer(dec))
+        vn_cs_decoder_set_fatal(dec);
+    return NULL;
+}
+
+static inline void
+vn_decode_VkPipelineRasterizationDepthClipStateCreateInfoEXT_self_temp(struct vn_cs_decoder *dec, VkPipelineRasterizationDepthClipStateCreateInfoEXT *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_VkFlags(dec, &val->flags);
+    vn_decode_VkBool32(dec, &val->depthClipEnable);
+}
+
+static inline void
+vn_decode_VkPipelineRasterizationDepthClipStateCreateInfoEXT_temp(struct vn_cs_decoder *dec, VkPipelineRasterizationDepthClipStateCreateInfoEXT *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkPipelineRasterizationDepthClipStateCreateInfoEXT_pnext_temp(dec);
+    vn_decode_VkPipelineRasterizationDepthClipStateCreateInfoEXT_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkPipelineRasterizationDepthClipStateCreateInfoEXT_handle_self(VkPipelineRasterizationDepthClipStateCreateInfoEXT *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->flags */
+    /* skip val->depthClipEnable */
+}
+
+static inline void
+vn_replace_VkPipelineRasterizationDepthClipStateCreateInfoEXT_handle(VkPipelineRasterizationDepthClipStateCreateInfoEXT *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT:
+            vn_replace_VkPipelineRasterizationDepthClipStateCreateInfoEXT_handle_self((VkPipelineRasterizationDepthClipStateCreateInfoEXT *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkPipelineRasterizationLineStateCreateInfoEXT chain */
+
+static inline void *
+vn_decode_VkPipelineRasterizationLineStateCreateInfoEXT_pnext_temp(struct vn_cs_decoder *dec)
+{
+    /* no known/supported struct */
+    if (vn_decode_simple_pointer(dec))
+        vn_cs_decoder_set_fatal(dec);
+    return NULL;
+}
+
+static inline void
+vn_decode_VkPipelineRasterizationLineStateCreateInfoEXT_self_temp(struct vn_cs_decoder *dec, VkPipelineRasterizationLineStateCreateInfoEXT *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_VkLineRasterizationModeEXT(dec, &val->lineRasterizationMode);
+    vn_decode_VkBool32(dec, &val->stippledLineEnable);
+    vn_decode_uint32_t(dec, &val->lineStippleFactor);
+    vn_decode_uint16_t(dec, &val->lineStipplePattern);
+}
+
+static inline void
+vn_decode_VkPipelineRasterizationLineStateCreateInfoEXT_temp(struct vn_cs_decoder *dec, VkPipelineRasterizationLineStateCreateInfoEXT *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkPipelineRasterizationLineStateCreateInfoEXT_pnext_temp(dec);
+    vn_decode_VkPipelineRasterizationLineStateCreateInfoEXT_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkPipelineRasterizationLineStateCreateInfoEXT_handle_self(VkPipelineRasterizationLineStateCreateInfoEXT *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->lineRasterizationMode */
+    /* skip val->stippledLineEnable */
+    /* skip val->lineStippleFactor */
+    /* skip val->lineStipplePattern */
+}
+
+static inline void
+vn_replace_VkPipelineRasterizationLineStateCreateInfoEXT_handle(VkPipelineRasterizationLineStateCreateInfoEXT *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT:
+            vn_replace_VkPipelineRasterizationLineStateCreateInfoEXT_handle_self((VkPipelineRasterizationLineStateCreateInfoEXT *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkPipelineRasterizationProvokingVertexStateCreateInfoEXT chain */
+
+static inline void *
+vn_decode_VkPipelineRasterizationProvokingVertexStateCreateInfoEXT_pnext_temp(struct vn_cs_decoder *dec)
+{
+    /* no known/supported struct */
+    if (vn_decode_simple_pointer(dec))
+        vn_cs_decoder_set_fatal(dec);
+    return NULL;
+}
+
+static inline void
+vn_decode_VkPipelineRasterizationProvokingVertexStateCreateInfoEXT_self_temp(struct vn_cs_decoder *dec, VkPipelineRasterizationProvokingVertexStateCreateInfoEXT *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_VkProvokingVertexModeEXT(dec, &val->provokingVertexMode);
+}
+
+static inline void
+vn_decode_VkPipelineRasterizationProvokingVertexStateCreateInfoEXT_temp(struct vn_cs_decoder *dec, VkPipelineRasterizationProvokingVertexStateCreateInfoEXT *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_PROVOKING_VERTEX_STATE_CREATE_INFO_EXT)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkPipelineRasterizationProvokingVertexStateCreateInfoEXT_pnext_temp(dec);
+    vn_decode_VkPipelineRasterizationProvokingVertexStateCreateInfoEXT_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkPipelineRasterizationProvokingVertexStateCreateInfoEXT_handle_self(VkPipelineRasterizationProvokingVertexStateCreateInfoEXT *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->provokingVertexMode */
+}
+
+static inline void
+vn_replace_VkPipelineRasterizationProvokingVertexStateCreateInfoEXT_handle(VkPipelineRasterizationProvokingVertexStateCreateInfoEXT *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_PROVOKING_VERTEX_STATE_CREATE_INFO_EXT:
+            vn_replace_VkPipelineRasterizationProvokingVertexStateCreateInfoEXT_handle_self((VkPipelineRasterizationProvokingVertexStateCreateInfoEXT *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
 /* struct VkPipelineRasterizationStateCreateInfo chain */
 
 static inline void *
@@ -640,12 +1161,44 @@ vn_decode_VkPipelineRasterizationStateCreateInfo_pnext_temp(struct vn_cs_decoder
 
     vn_decode_VkStructureType(dec, &stype);
     switch ((int32_t)stype) {
+    case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkPipelineRasterizationConservativeStateCreateInfoEXT));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkPipelineRasterizationStateCreateInfo_pnext_temp(dec);
+            vn_decode_VkPipelineRasterizationConservativeStateCreateInfoEXT_self_temp(dec, (VkPipelineRasterizationConservativeStateCreateInfoEXT *)pnext);
+        }
+        break;
     case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_STREAM_CREATE_INFO_EXT:
         pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkPipelineRasterizationStateStreamCreateInfoEXT));
         if (pnext) {
             pnext->sType = stype;
             pnext->pNext = vn_decode_VkPipelineRasterizationStateCreateInfo_pnext_temp(dec);
             vn_decode_VkPipelineRasterizationStateStreamCreateInfoEXT_self_temp(dec, (VkPipelineRasterizationStateStreamCreateInfoEXT *)pnext);
+        }
+        break;
+    case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkPipelineRasterizationDepthClipStateCreateInfoEXT));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkPipelineRasterizationStateCreateInfo_pnext_temp(dec);
+            vn_decode_VkPipelineRasterizationDepthClipStateCreateInfoEXT_self_temp(dec, (VkPipelineRasterizationDepthClipStateCreateInfoEXT *)pnext);
+        }
+        break;
+    case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkPipelineRasterizationLineStateCreateInfoEXT));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkPipelineRasterizationStateCreateInfo_pnext_temp(dec);
+            vn_decode_VkPipelineRasterizationLineStateCreateInfoEXT_self_temp(dec, (VkPipelineRasterizationLineStateCreateInfoEXT *)pnext);
+        }
+        break;
+    case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_PROVOKING_VERTEX_STATE_CREATE_INFO_EXT:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkPipelineRasterizationProvokingVertexStateCreateInfoEXT));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkPipelineRasterizationStateCreateInfo_pnext_temp(dec);
+            vn_decode_VkPipelineRasterizationProvokingVertexStateCreateInfoEXT_self_temp(dec, (VkPipelineRasterizationProvokingVertexStateCreateInfoEXT *)pnext);
         }
         break;
     default:
@@ -716,8 +1269,20 @@ vn_replace_VkPipelineRasterizationStateCreateInfo_handle(VkPipelineRasterization
         case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO:
             vn_replace_VkPipelineRasterizationStateCreateInfo_handle_self((VkPipelineRasterizationStateCreateInfo *)pnext);
             break;
+        case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT:
+            vn_replace_VkPipelineRasterizationConservativeStateCreateInfoEXT_handle_self((VkPipelineRasterizationConservativeStateCreateInfoEXT *)pnext);
+            break;
         case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_STREAM_CREATE_INFO_EXT:
             vn_replace_VkPipelineRasterizationStateStreamCreateInfoEXT_handle_self((VkPipelineRasterizationStateStreamCreateInfoEXT *)pnext);
+            break;
+        case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT:
+            vn_replace_VkPipelineRasterizationDepthClipStateCreateInfoEXT_handle_self((VkPipelineRasterizationDepthClipStateCreateInfoEXT *)pnext);
+            break;
+        case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT:
+            vn_replace_VkPipelineRasterizationLineStateCreateInfoEXT_handle_self((VkPipelineRasterizationLineStateCreateInfoEXT *)pnext);
+            break;
+        case VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_PROVOKING_VERTEX_STATE_CREATE_INFO_EXT:
+            vn_replace_VkPipelineRasterizationProvokingVertexStateCreateInfoEXT_handle_self((VkPipelineRasterizationProvokingVertexStateCreateInfoEXT *)pnext);
             break;
         default:
             /* ignore unknown/unsupported struct */
@@ -1084,15 +1649,213 @@ vn_replace_VkPipelineDynamicStateCreateInfo_handle(VkPipelineDynamicStateCreateI
     } while (pnext);
 }
 
-/* struct VkGraphicsPipelineCreateInfo chain */
+/* struct VkPipelineCreationFeedback */
+
+static inline void
+vn_decode_VkPipelineCreationFeedback_temp(struct vn_cs_decoder *dec, VkPipelineCreationFeedback *val)
+{
+    vn_decode_VkFlags(dec, &val->flags);
+    vn_decode_uint64_t(dec, &val->duration);
+}
+
+static inline void
+vn_replace_VkPipelineCreationFeedback_handle(VkPipelineCreationFeedback *val)
+{
+    /* skip val->flags */
+    /* skip val->duration */
+}
+
+/* struct VkPipelineCreationFeedbackCreateInfo chain */
 
 static inline void *
-vn_decode_VkGraphicsPipelineCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
+vn_decode_VkPipelineCreationFeedbackCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
 {
     /* no known/supported struct */
     if (vn_decode_simple_pointer(dec))
         vn_cs_decoder_set_fatal(dec);
     return NULL;
+}
+
+static inline void
+vn_decode_VkPipelineCreationFeedbackCreateInfo_self_temp(struct vn_cs_decoder *dec, VkPipelineCreationFeedbackCreateInfo *val)
+{
+    /* skip val->{sType,pNext} */
+    if (vn_decode_simple_pointer(dec)) {
+        val->pPipelineCreationFeedback = vn_cs_decoder_alloc_temp(dec, sizeof(*val->pPipelineCreationFeedback));
+        if (!val->pPipelineCreationFeedback) return;
+        vn_decode_VkPipelineCreationFeedback_temp(dec, val->pPipelineCreationFeedback);
+    } else {
+        val->pPipelineCreationFeedback = NULL;
+        vn_cs_decoder_set_fatal(dec);
+    }
+    vn_decode_uint32_t(dec, &val->pipelineStageCreationFeedbackCount);
+    if (vn_peek_array_size(dec)) {
+        const uint32_t iter_count = vn_decode_array_size(dec, val->pipelineStageCreationFeedbackCount);
+        val->pPipelineStageCreationFeedbacks = vn_cs_decoder_alloc_temp(dec, sizeof(*val->pPipelineStageCreationFeedbacks) * iter_count);
+        if (!val->pPipelineStageCreationFeedbacks) return;
+        for (uint32_t i = 0; i < iter_count; i++)
+            vn_decode_VkPipelineCreationFeedback_temp(dec, &val->pPipelineStageCreationFeedbacks[i]);
+    } else {
+        vn_decode_array_size(dec, val->pipelineStageCreationFeedbackCount);
+        val->pPipelineStageCreationFeedbacks = NULL;
+    }
+}
+
+static inline void
+vn_decode_VkPipelineCreationFeedbackCreateInfo_temp(struct vn_cs_decoder *dec, VkPipelineCreationFeedbackCreateInfo *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkPipelineCreationFeedbackCreateInfo_pnext_temp(dec);
+    vn_decode_VkPipelineCreationFeedbackCreateInfo_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkPipelineCreationFeedbackCreateInfo_handle_self(VkPipelineCreationFeedbackCreateInfo *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    if (val->pPipelineCreationFeedback)
+        vn_replace_VkPipelineCreationFeedback_handle(val->pPipelineCreationFeedback);
+    /* skip val->pipelineStageCreationFeedbackCount */
+    if (val->pPipelineStageCreationFeedbacks) {
+       for (uint32_t i = 0; i < val->pipelineStageCreationFeedbackCount; i++)
+            vn_replace_VkPipelineCreationFeedback_handle(&val->pPipelineStageCreationFeedbacks[i]);
+    }
+}
+
+static inline void
+vn_replace_VkPipelineCreationFeedbackCreateInfo_handle(VkPipelineCreationFeedbackCreateInfo *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO:
+            vn_replace_VkPipelineCreationFeedbackCreateInfo_handle_self((VkPipelineCreationFeedbackCreateInfo *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkPipelineRenderingCreateInfo chain */
+
+static inline void *
+vn_decode_VkPipelineRenderingCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
+{
+    /* no known/supported struct */
+    if (vn_decode_simple_pointer(dec))
+        vn_cs_decoder_set_fatal(dec);
+    return NULL;
+}
+
+static inline void
+vn_decode_VkPipelineRenderingCreateInfo_self_temp(struct vn_cs_decoder *dec, VkPipelineRenderingCreateInfo *val)
+{
+    /* skip val->{sType,pNext} */
+    vn_decode_uint32_t(dec, &val->viewMask);
+    vn_decode_uint32_t(dec, &val->colorAttachmentCount);
+    if (vn_peek_array_size(dec)) {
+        const size_t array_size = vn_decode_array_size(dec, val->colorAttachmentCount);
+        val->pColorAttachmentFormats = vn_cs_decoder_alloc_temp(dec, sizeof(*val->pColorAttachmentFormats) * array_size);
+        if (!val->pColorAttachmentFormats) return;
+        vn_decode_VkFormat_array(dec, (VkFormat *)val->pColorAttachmentFormats, array_size);
+    } else {
+        vn_decode_array_size_unchecked(dec);
+        val->pColorAttachmentFormats = NULL;
+    }
+    vn_decode_VkFormat(dec, &val->depthAttachmentFormat);
+    vn_decode_VkFormat(dec, &val->stencilAttachmentFormat);
+}
+
+static inline void
+vn_decode_VkPipelineRenderingCreateInfo_temp(struct vn_cs_decoder *dec, VkPipelineRenderingCreateInfo *val)
+{
+    VkStructureType stype;
+    vn_decode_VkStructureType(dec, &stype);
+    if (stype != VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO)
+        vn_cs_decoder_set_fatal(dec);
+
+    val->sType = stype;
+    val->pNext = vn_decode_VkPipelineRenderingCreateInfo_pnext_temp(dec);
+    vn_decode_VkPipelineRenderingCreateInfo_self_temp(dec, val);
+}
+
+static inline void
+vn_replace_VkPipelineRenderingCreateInfo_handle_self(VkPipelineRenderingCreateInfo *val)
+{
+    /* skip val->sType */
+    /* skip val->pNext */
+    /* skip val->viewMask */
+    /* skip val->colorAttachmentCount */
+    /* skip val->pColorAttachmentFormats */
+    /* skip val->depthAttachmentFormat */
+    /* skip val->stencilAttachmentFormat */
+}
+
+static inline void
+vn_replace_VkPipelineRenderingCreateInfo_handle(VkPipelineRenderingCreateInfo *val)
+{
+    struct VkBaseOutStructure *pnext = (struct VkBaseOutStructure *)val;
+
+    do {
+        switch ((int32_t)pnext->sType) {
+        case VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO:
+            vn_replace_VkPipelineRenderingCreateInfo_handle_self((VkPipelineRenderingCreateInfo *)pnext);
+            break;
+        default:
+            /* ignore unknown/unsupported struct */
+            break;
+        }
+        pnext = pnext->pNext;
+    } while (pnext);
+}
+
+/* struct VkGraphicsPipelineCreateInfo chain */
+
+static inline void *
+vn_decode_VkGraphicsPipelineCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
+{
+    VkBaseOutStructure *pnext;
+    VkStructureType stype;
+
+    if (!vn_decode_simple_pointer(dec))
+        return NULL;
+
+    vn_decode_VkStructureType(dec, &stype);
+    switch ((int32_t)stype) {
+    case VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkPipelineCreationFeedbackCreateInfo));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkGraphicsPipelineCreateInfo_pnext_temp(dec);
+            vn_decode_VkPipelineCreationFeedbackCreateInfo_self_temp(dec, (VkPipelineCreationFeedbackCreateInfo *)pnext);
+        }
+        break;
+    case VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkPipelineRenderingCreateInfo));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkGraphicsPipelineCreateInfo_pnext_temp(dec);
+            vn_decode_VkPipelineRenderingCreateInfo_self_temp(dec, (VkPipelineRenderingCreateInfo *)pnext);
+        }
+        break;
+    default:
+        /* unexpected struct */
+        pnext = NULL;
+        vn_cs_decoder_set_fatal(dec);
+        break;
+    }
+
+    return pnext;
 }
 
 static inline void
@@ -1108,7 +1871,7 @@ vn_decode_VkGraphicsPipelineCreateInfo_self_temp(struct vn_cs_decoder *dec, VkGr
         for (uint32_t i = 0; i < iter_count; i++)
             vn_decode_VkPipelineShaderStageCreateInfo_temp(dec, &((VkPipelineShaderStageCreateInfo *)val->pStages)[i]);
     } else {
-        vn_decode_array_size(dec, val->stageCount);
+        vn_decode_array_size_unchecked(dec);
         val->pStages = NULL;
     }
     if (vn_decode_simple_pointer(dec)) {
@@ -1145,7 +1908,6 @@ vn_decode_VkGraphicsPipelineCreateInfo_self_temp(struct vn_cs_decoder *dec, VkGr
         vn_decode_VkPipelineRasterizationStateCreateInfo_temp(dec, (VkPipelineRasterizationStateCreateInfo *)val->pRasterizationState);
     } else {
         val->pRasterizationState = NULL;
-        vn_cs_decoder_set_fatal(dec);
     }
     if (vn_decode_simple_pointer(dec)) {
         val->pMultisampleState = vn_cs_decoder_alloc_temp(dec, sizeof(*val->pMultisampleState));
@@ -1241,6 +2003,12 @@ vn_replace_VkGraphicsPipelineCreateInfo_handle(VkGraphicsPipelineCreateInfo *val
         case VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO:
             vn_replace_VkGraphicsPipelineCreateInfo_handle_self((VkGraphicsPipelineCreateInfo *)pnext);
             break;
+        case VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO:
+            vn_replace_VkPipelineCreationFeedbackCreateInfo_handle_self((VkPipelineCreationFeedbackCreateInfo *)pnext);
+            break;
+        case VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO:
+            vn_replace_VkPipelineRenderingCreateInfo_handle_self((VkPipelineRenderingCreateInfo *)pnext);
+            break;
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -1254,10 +2022,30 @@ vn_replace_VkGraphicsPipelineCreateInfo_handle(VkGraphicsPipelineCreateInfo *val
 static inline void *
 vn_decode_VkComputePipelineCreateInfo_pnext_temp(struct vn_cs_decoder *dec)
 {
-    /* no known/supported struct */
-    if (vn_decode_simple_pointer(dec))
+    VkBaseOutStructure *pnext;
+    VkStructureType stype;
+
+    if (!vn_decode_simple_pointer(dec))
+        return NULL;
+
+    vn_decode_VkStructureType(dec, &stype);
+    switch ((int32_t)stype) {
+    case VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO:
+        pnext = vn_cs_decoder_alloc_temp(dec, sizeof(VkPipelineCreationFeedbackCreateInfo));
+        if (pnext) {
+            pnext->sType = stype;
+            pnext->pNext = vn_decode_VkComputePipelineCreateInfo_pnext_temp(dec);
+            vn_decode_VkPipelineCreationFeedbackCreateInfo_self_temp(dec, (VkPipelineCreationFeedbackCreateInfo *)pnext);
+        }
+        break;
+    default:
+        /* unexpected struct */
+        pnext = NULL;
         vn_cs_decoder_set_fatal(dec);
-    return NULL;
+        break;
+    }
+
+    return pnext;
 }
 
 static inline void
@@ -1305,6 +2093,9 @@ vn_replace_VkComputePipelineCreateInfo_handle(VkComputePipelineCreateInfo *val)
         switch ((int32_t)pnext->sType) {
         case VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO:
             vn_replace_VkComputePipelineCreateInfo_handle_self((VkComputePipelineCreateInfo *)pnext);
+            break;
+        case VK_STRUCTURE_TYPE_PIPELINE_CREATION_FEEDBACK_CREATE_INFO:
+            vn_replace_VkPipelineCreationFeedbackCreateInfo_handle_self((VkPipelineCreationFeedbackCreateInfo *)pnext);
             break;
         default:
             /* ignore unknown/unsupported struct */

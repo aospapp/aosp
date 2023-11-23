@@ -1,4 +1,5 @@
-# Copyright 2020 The Chromium OS Authors. All rights reserved.
+# Lint as: python2, python3
+# # Copyright 2020 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -48,7 +49,7 @@ class power_WaitForCoolDown(power_test.power_Test):
             self.loop_sleep(i, loop_secs)
 
         max_temp = max(self._tlog.refresh())
-        logging.warn(
+        logging.warning(
             'Fail to cool down after %d seconds, temp: %.1fC, target: %dC',
             num_loop * loop_secs, max_temp, target_temp)
 

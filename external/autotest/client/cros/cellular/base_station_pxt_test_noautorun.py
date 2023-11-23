@@ -1,16 +1,22 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 
-import scpi
-import cellular_logging
-import unittest
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
+from autotest_lib.client.cros.cellular import scpi
+from autotest_lib.client.cros.cellular import cellular_logging
+
+import unittest
 import common
+
 from autotest_lib.client.cros.cellular import labconfig
-import base_station_pxt
-import prologix_scpi_driver
+from autotest_lib.client.cros.cellular import base_station_pxt
+from autotest_lib.client.cros.cellular import prologix_scpi_driver
 
 log = cellular_logging.SetupCellularLogging('base_station_pxt_test')
 
@@ -46,7 +52,7 @@ class test_pxt(unittest.TestCase):
         """Test this function on the PXT class"""
         self._call_box_init()
         self.call_box.SetTechnology('Technology:LTE')
-        print self.call_box.GetRatUeDataStatus()
+        print(self.call_box.GetRatUeDataStatus())
         self._call_box_close()
 
 

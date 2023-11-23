@@ -102,6 +102,11 @@
  */
 #define MAX_REF_CNT  32
 
+/**
+ *  Maximum number of CU info buffers
+ */
+#define MAX_CU_INFO_BUF_CNT  MAX_REF_CNT
+
 /*****************************************************************************/
 /* Num cores releated defs                                                   */
 /*****************************************************************************/

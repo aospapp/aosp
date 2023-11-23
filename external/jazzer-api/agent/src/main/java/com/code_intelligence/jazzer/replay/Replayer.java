@@ -29,8 +29,10 @@ public class Replayer {
   public static final int STATUS_OTHER_ERROR = 1;
 
   static {
+    System.setProperty("jazzer.is_replayer", "true");
     try {
-      RulesJni.loadLibrary("replay", Replayer.class);
+      RulesJni.loadLibrary(
+          "fuzzed_data_provider_standalone", "/com/code_intelligence/jazzer/driver");
     } catch (Throwable t) {
       t.printStackTrace();
       System.exit(STATUS_OTHER_ERROR);
@@ -104,7 +106,9 @@ public class Replayer {
     try {
       Method fuzzerTestOneInput =
           fuzzTarget.getMethod("fuzzerTestOneInput", FuzzedDataProvider.class);
-      fuzzerTestOneInput.invoke(null, makeFuzzedDataProvider(input));
+      try (FuzzedDataProviderImpl fuzzedDataProvider = FuzzedDataProviderImpl.withJavaData(input)) {
+        fuzzerTestOneInput.invoke(null, fuzzedDataProvider);
+      }
       return;
     } catch (Exception e) {
       handleInvokeException(e, fuzzTarget);
@@ -149,11 +153,4 @@ public class Replayer {
       }
     }
   }
-
-  private static FuzzedDataProvider makeFuzzedDataProvider(byte[] input) {
-    feedFuzzedDataProvider(input);
-    return new FuzzedDataProviderImpl();
-  }
-
-  private static native void feedFuzzedDataProvider(byte[] input);
 }

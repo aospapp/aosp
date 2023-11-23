@@ -19,6 +19,8 @@ const char* VideoCodecToString(VideoCodec codec) {
         return "VP8";
     case VideoCodec::VP9:
         return "VP9";
+    case VideoCodec::HEVC:
+        return "HEVC";
     }
 }
 

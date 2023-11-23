@@ -15,19 +15,23 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
-import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BACKGROUND_EXCEPTION_THROWER_CLASSNAME;
-import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BINDER_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.append;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.transformClassName;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BUNDLER_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BUNDLE_CALL_RECEIVER_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BUNDLE_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.BUNDLE_UTILITIES_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CONTEXT_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CROSS_PROFILE_CALLBACK_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CROSS_PROFILE_SENDER_CLASSNAME;
-import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PARCEL_CALL_RECEIVER_CLASSNAME;
+import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.EXCEPTION_THROWER_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PARCEL_CLASSNAME;
-import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PARCEL_UTILITIES_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.ServiceGenerator.getConnectedAppsServiceClassName;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.stream.Collectors.joining;
 
 import com.google.android.enterprise.connectedapps.annotations.CrossProfileConfiguration;
+import com.google.android.enterprise.connectedapps.annotations.UncaughtExceptionsPolicy;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileConfigurationInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.GeneratorContext;
 import com.google.android.enterprise.connectedapps.processor.containers.ProviderClassInfo;
@@ -84,17 +88,19 @@ final class DispatcherGenerator {
                     + "<p>This uses a {@link $T} to construct calls before passing the completed"
                     + " call\n"
                     + "to a provider.\n",
-                PARCEL_CALL_RECEIVER_CLASSNAME);
+                BUNDLE_CALL_RECEIVER_CLASSNAME);
 
     classBuilder.addField(
-        FieldSpec.builder(PARCEL_CALL_RECEIVER_CLASSNAME, "parcelCallReceiver")
+        FieldSpec.builder(BUNDLE_CALL_RECEIVER_CLASSNAME, "bundleCallReceiver")
             .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
-            .initializer("new $T()", PARCEL_CALL_RECEIVER_CLASSNAME)
+            .initializer("new $T()", BUNDLE_CALL_RECEIVER_CLASSNAME)
             .build());
 
     addCallMethod(classBuilder);
     addPrepareCallMethod(classBuilder);
+    addPrepareBundleMethod(classBuilder);
     addFetchResponseMethod(classBuilder);
+    addFetchResponseBundleMethod(classBuilder);
 
     generatorUtilities.writeClassToFile(className.packageName(), classBuilder);
   }
@@ -108,7 +114,7 @@ final class DispatcherGenerator {
             .addParameter(int.class, "blockId")
             .addParameter(int.class, "numBytes")
             .addParameter(ArrayTypeName.of(byte.class), "paramBytes")
-            .addStatement("parcelCallReceiver.prepareCall(callId, blockId, numBytes, paramBytes)")
+            .addStatement("bundleCallReceiver.prepareCall(callId, blockId, numBytes, paramBytes)")
             .addJavadoc(
                 "Store a block of bytes to be part of a future call to\n"
                     + "{@link #call(Context, long, int, long, int, byte[], ICrossProfileCallback)}."
@@ -127,7 +133,31 @@ final class DispatcherGenerator {
                     + " $1T#MAX_BYTES_PER_BLOCK} bytes.\n\n"
                     + "@see $2T#prepareCall(long, int, int, byte[])",
                 CROSS_PROFILE_SENDER_CLASSNAME,
-                PARCEL_CALL_RECEIVER_CLASSNAME)
+                BUNDLE_CALL_RECEIVER_CLASSNAME)
+            .build();
+    classBuilder.addMethod(prepareCallMethod);
+  }
+
+  private static void addPrepareBundleMethod(TypeSpec.Builder classBuilder) {
+    MethodSpec prepareCallMethod =
+        MethodSpec.methodBuilder("prepareBundle")
+            .addModifiers(Modifier.PUBLIC)
+            .addParameter(CONTEXT_CLASSNAME, "context")
+            .addParameter(long.class, "callId")
+            .addParameter(int.class, "bundleId")
+            .addParameter(BUNDLE_CLASSNAME, "bundle")
+            .addStatement("bundleCallReceiver.prepareBundle(callId, bundleId, bundle)")
+            .addJavadoc(
+                "Store a bundle to be part of a future call to\n"
+                    + "{@link #call(Context, long, int, long, int, byte[], ICrossProfileCallback)}."
+                    + "\n\n"
+                    + "@param callId Arbitrary identifier used to link together\n"
+                    + "    {@link #prepareCall(Context, long, int, int, byte[])} and\n    "
+                    + "{@link #call(Context, long, int, long, int, byte[], ICrossProfileCallback)}"
+                    + " calls.\n"
+                    + "@param bundleId The (zero indexed) number of this bundle.\n"
+                    + "@see $1T#prepareBundle(long, int, bundle)",
+                BUNDLE_CALL_RECEIVER_CLASSNAME)
             .build();
     classBuilder.addMethod(prepareCallMethod);
   }
@@ -140,7 +170,7 @@ final class DispatcherGenerator {
             .addParameter(long.class, "callId")
             .addParameter(int.class, "blockId")
             .returns(ArrayTypeName.of(byte.class))
-            .addStatement("return parcelCallReceiver.getPreparedResponse(callId, blockId)")
+            .addStatement("return bundleCallReceiver.getPreparedResponse(callId, blockId)")
             .addJavadoc(
                 "Fetch a response block if a previous call to\n {@link #call(Context, long, int,"
                     + " long, int, byte[], ICrossProfileCallback)} returned a\n byte array with"
@@ -149,7 +179,29 @@ final class DispatcherGenerator {
                     + " long, int, long, int, byte[], ICrossProfileCallback)}\n"
                     + "@param blockId The (zero indexed) number of the block to fetch.\n\n"
                     + "@see $1T#getPreparedResponse(long, int)\n",
-                PARCEL_CALL_RECEIVER_CLASSNAME)
+                BUNDLE_CALL_RECEIVER_CLASSNAME)
+            .build();
+    classBuilder.addMethod(prepareCallMethod);
+  }
+
+  private static void addFetchResponseBundleMethod(TypeSpec.Builder classBuilder) {
+    MethodSpec prepareCallMethod =
+        MethodSpec.methodBuilder("fetchResponseBundle")
+            .addModifiers(Modifier.PUBLIC)
+            .addParameter(CONTEXT_CLASSNAME, "context")
+            .addParameter(long.class, "callId")
+            .addParameter(int.class, "bundleId")
+            .returns(BUNDLE_CLASSNAME)
+            .addStatement("return bundleCallReceiver.getPreparedResponseBundle(callId, bundleId)")
+            .addJavadoc(
+                "Fetch a response bundle if a previous call to\n {@link #call(Context, long, int,"
+                    + " long, int, byte[], ICrossProfileCallback)} returned a\n byte array with"
+                    + " 2 as the first byte.\n\n"
+                    + "@param callId should be the same callId used with\n    {@link #call(Context,"
+                    + " long, int, long, int, byte[], ICrossProfileCallback)}\n"
+                    + "@param blockId The (zero indexed) number of the bundle to fetch.\n\n"
+                    + "@see $1T#getPreparedResponseBundle(long, int)\n",
+                BUNDLE_CALL_RECEIVER_CLASSNAME)
             .build();
     classBuilder.addMethod(prepareCallMethod);
   }
@@ -160,8 +212,8 @@ final class DispatcherGenerator {
     methodCode.beginControlFlow("try");
 
     methodCode.addStatement(
-        "$1T parcel = parcelCallReceiver.getPreparedCall(callId, blockId, paramBytes)",
-        PARCEL_CLASSNAME);
+        "$1T bundle = bundleCallReceiver.getPreparedCall(callId, blockId, paramBytes)",
+        BUNDLE_CLASSNAME);
 
     List<ProviderClassInfo> providers = configuration.providers().asList();
 
@@ -174,32 +226,42 @@ final class DispatcherGenerator {
         IllegalArgumentException.class);
 
     methodCode.nextControlFlow("catch ($T e)", RuntimeException.class);
-    // parcel is recycled in this method
-    methodCode.addStatement("$1T throwableParcel = $1T.obtain()", PARCEL_CLASSNAME);
-    methodCode.add("throwableParcel.writeInt(1); //errors\n");
     methodCode.addStatement(
-        "$T.writeThrowableToParcel(throwableParcel, e)", PARCEL_UTILITIES_CLASSNAME);
+        "$1T throwableBundle = new $1T($2T.class.getClassLoader())",
+        BUNDLE_CLASSNAME,
+        BUNDLER_CLASSNAME);
     methodCode.addStatement(
-        "$1T throwableBytes = parcelCallReceiver.prepareResponse(callId, throwableParcel)",
+        "$T.writeThrowableToBundle(throwableBundle, $S, e)",
+        BUNDLE_UTILITIES_CLASSNAME,
+        "throwable");
+    methodCode.addStatement(
+        "$1T throwableBytes = bundleCallReceiver.prepareResponse(callId, throwableBundle)",
         ArrayTypeName.of(byte.class));
-    methodCode.addStatement("throwableParcel.recycle()");
 
-    // methodCode.addStatement("$T.throwInBackground(e)", BACKGROUND_EXCEPTION_THROWER_CLASSNAME);
+    final UncaughtExceptionsPolicy exceptionsPolicy =
+        configuration.connectorInfo().uncaughtExceptionsPolicy();
+
+    if (exceptionsPolicy.rethrowExceptions) {
+      methodCode.addStatement("$T.delayThrow(e)", EXCEPTION_THROWER_CLASSNAME);
+    }
 
     methodCode.addStatement("return throwableBytes");
     methodCode.nextControlFlow("catch ($T e)", Error.class);
-
-    // parcel is recycled in this method
-    methodCode.addStatement("$1T throwableParcel = $1T.obtain()", PARCEL_CLASSNAME);
-    methodCode.add("throwableParcel.writeInt(1); //errors\n");
     methodCode.addStatement(
-            "$T.writeThrowableToParcel(throwableParcel, e)", PARCEL_UTILITIES_CLASSNAME);
+        "$1T throwableBundle = new $1T($2T.class.getClassLoader())",
+        BUNDLE_CLASSNAME,
+        BUNDLER_CLASSNAME);
     methodCode.addStatement(
-            "$1T throwableBytes = parcelCallReceiver.prepareResponse(callId, throwableParcel)",
-            ArrayTypeName.of(byte.class));
-    methodCode.addStatement("throwableParcel.recycle()");
+        "$T.writeThrowableToBundle(throwableBundle, $S, e)",
+        BUNDLE_UTILITIES_CLASSNAME,
+        "throwable");
+    methodCode.addStatement(
+        "$1T throwableBytes = bundleCallReceiver.prepareResponse(callId, throwableBundle)",
+        ArrayTypeName.of(byte.class));
 
-    // methodCode.addStatement("$T.throwInBackground(e)", BACKGROUND_EXCEPTION_THROWER_CLASSNAME);
+    if (exceptionsPolicy.rethrowExceptions) {
+      methodCode.addStatement("$T.delayThrow(e)", EXCEPTION_THROWER_CLASSNAME);
+    }
 
     methodCode.addStatement("return throwableBytes");
     methodCode.endControlFlow();
@@ -208,10 +270,11 @@ final class DispatcherGenerator {
         MethodSpec.methodBuilder("call")
             .addModifiers(Modifier.PUBLIC)
             .returns(ArrayTypeName.of(byte.class))
-            .addAnnotation(AnnotationSpec.builder(SuppressWarnings.class)
-                // Allow catching of RuntimeException
-                .addMember("value", "\"CatchSpecificExceptionsChecker\"")
-                .build())
+            .addAnnotation(
+                AnnotationSpec.builder(SuppressWarnings.class)
+                    // Allow catching of RuntimeException
+                    .addMember("value", "\"CatchSpecificExceptionsChecker\"")
+                    .build())
             .addParameter(CONTEXT_CLASSNAME, "context")
             .addParameter(long.class, "callId")
             .addParameter(int.class, "blockId")
@@ -222,8 +285,8 @@ final class DispatcherGenerator {
             .addCode(methodCode.build())
             .addJavadoc(
                 "Make a call, which will execute some annotated method and return a response.\n\n"
-                    + "<p>The parameters to the call should be contained in a {@link $1T}"
-                    + " marshalled into\n"
+                    + "<p>The parameters to the call should be contained in a {@link $4T} written"
+                    + " to a {@link $1T} and marshalled into\n"
                     + "a byte array. If the byte array is larger than {@link"
                     + " $2T#MAX_BYTES_PER_BLOCK},\n"
                     + "then it should be separated into blocks of {@link"
@@ -245,22 +308,27 @@ final class DispatcherGenerator {
                     + "    {@link #call(Context, long, int, long, int, byte[],"
                     + " ICrossProfileCallback)} calls.\n"
                     + "@param blockId The (zero indexed) number of this block. Each block should"
-                    + " be\n    {@link CrossProfileSender#MAX_BYTES_PER_BLOCK} bytes so the total"
-                    + " number of blocks is\n    {@code numBytes /"
-                    + " CrossProfileSender#MAX_BYTES_PER_BLOCK}.\n"
+                    + " be\n"
+                    + "    {@link CrossProfileSender#MAX_BYTES_PER_BLOCK} bytes so the total"
+                    + " number of blocks is\n"
+                    + "    {@code numBytes / CrossProfileSender#MAX_BYTES_PER_BLOCK}.\n"
                     + "@param crossProfileTypeIdentifier The generated identifier for the type"
-                    + " which contains the\n    method being called.\n"
+                    + " which contains the\n"
+                    + "    method being called.\n"
                     + "@param methodIdentifier The index of the method being called on the cross"
                     + " profile type.\n"
                     + "@param paramBytes The bytes for the final block, this will be merged with"
-                    + " any blocks\n    previously set by a call to"
-                    + " {@link #prepareCall(Context, long, int, int, byte[])}.\n"
+                    + " any blocks\n"
+                    + "    previously set by a call to {@link #prepareCall(Context, long, int,"
+                    + " int, byte[])}.\n"
                     + "@param callback A callback to be used if this is an asynchronous call."
-                    + " Otherwise this should be\n    {@code null}.\n\n"
+                    + " Otherwise this should be\n"
+                    + "    {@code null}.\n\n"
                     + "@see $3T#getPreparedCall(long, int, byte[])\n",
                 PARCEL_CLASSNAME,
                 CROSS_PROFILE_SENDER_CLASSNAME,
-                PARCEL_CALL_RECEIVER_CLASSNAME)
+                BUNDLE_CALL_RECEIVER_CLASSNAME,
+                BUNDLE_CLASSNAME)
             .build();
 
     classBuilder.addMethod(callMethod);
@@ -287,22 +355,20 @@ final class DispatcherGenerator {
 
     methodCode.beginControlFlow("if ($L)", condition);
     methodCode.addStatement(
-        "$1T returnParcel = $2T.instance().call(context.getApplicationContext(),"
-            + " crossProfileTypeIdentifier, methodIdentifier, parcel, callback)",
-        PARCEL_CLASSNAME,
+        "$1T returnBundle = $2T.instance().call(context.getApplicationContext(),"
+            + " crossProfileTypeIdentifier, methodIdentifier, bundle, callback)",
+        BUNDLE_CLASSNAME,
         InternalProviderClassGenerator.getInternalProviderClassName(generatorContext, provider));
     methodCode.addStatement(
-        "$1T returnBytes = parcelCallReceiver.prepareResponse(callId, returnParcel)",
+        "$1T returnBytes = bundleCallReceiver.prepareResponse(callId, returnBundle)",
         ArrayTypeName.of(byte.class));
-    methodCode.addStatement("parcel.recycle()");
-    methodCode.addStatement("returnParcel.recycle()");
     methodCode.addStatement("return returnBytes");
     methodCode.endControlFlow();
   }
 
   static ClassName getDispatcherClassName(
       GeneratorContext generatorContext, CrossProfileConfigurationInfo configuration) {
-    ClassName serviceName = getConnectedAppsServiceClassName(generatorContext, configuration);
-    return ClassName.get(serviceName.packageName(), serviceName.simpleName() + "_Dispatcher");
+    return transformClassName(
+        getConnectedAppsServiceClassName(generatorContext, configuration), append("_Dispatcher"));
   }
 }

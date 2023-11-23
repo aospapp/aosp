@@ -36,19 +36,12 @@ namespace angle
 {
 namespace
 {
-constexpr char kBatchId[]              = "--batch-id=";
-constexpr char kFilterFileArg[]        = "--filter-file=";
-constexpr char kFlakyRetries[]         = "--flaky-retries=";
-constexpr char kGTestListTests[]       = "--gtest_list_tests";
-constexpr char kHistogramJsonFileArg[] = "--histogram-json-file=";
-constexpr char kListTests[]            = "--list-tests";
-constexpr char kPrintTestStdout[]      = "--print-test-stdout";
-constexpr char kResultFileArg[]        = "--results-file=";
-constexpr char kTestTimeoutArg[]       = "--test-timeout=";
-constexpr char kDisableCrashHandler[]  = "--disable-crash-handler";
-constexpr char kIsolatedOutDir[]       = "--isolated-outdir=";
-constexpr char kMaxFailures[]          = "--max-failures=";
-constexpr char kRenderTestOutputDir[]  = "--render-test-output-dir=";
+constexpr char kBatchId[]             = "--batch-id";
+constexpr char kFilterFileArg[]       = "--filter-file";
+constexpr char kResultFileArg[]       = "--results-file";
+constexpr char kTestTimeoutArg[]      = "--test-timeout";
+constexpr char kDisableCrashHandler[] = "--disable-crash-handler";
+constexpr char kIsolatedOutDir[]      = "--isolated-outdir";
 
 constexpr char kStartedTestString[] = "[ RUN      ] ";
 constexpr char kPassedTestString[]  = "[       OK ] ";
@@ -68,97 +61,13 @@ constexpr int kDefaultTestTimeout  = 60;
 constexpr int kDefaultBatchTimeout = 300;
 #else
 constexpr int kDefaultTestTimeout  = 120;
-constexpr int kDefaultBatchTimeout = 600;
+constexpr int kDefaultBatchTimeout = 700;
 #endif
 constexpr int kSlowTestTimeoutScale  = 3;
 constexpr int kDefaultBatchSize      = 256;
 constexpr double kIdleMessageTimeout = 15.0;
 constexpr int kDefaultMaxProcesses   = 16;
 constexpr int kDefaultMaxFailures    = 100;
-
-const char *ParseFlagValue(const char *flag, const char *argument)
-{
-    if (strstr(argument, flag) == argument)
-    {
-        return argument + strlen(flag);
-    }
-
-    return nullptr;
-}
-
-bool ParseIntArg(const char *flag, const char *argument, int *valueOut)
-{
-    const char *value = ParseFlagValue(flag, argument);
-    if (!value)
-    {
-        return false;
-    }
-
-    char *end            = nullptr;
-    const long longValue = strtol(value, &end, 10);
-
-    if (*end != '\0')
-    {
-        printf("Error parsing integer flag value.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (longValue == LONG_MAX || longValue == LONG_MIN || static_cast<int>(longValue) != longValue)
-    {
-        printf("Overflow when parsing integer flag value.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    *valueOut = static_cast<int>(longValue);
-    return true;
-}
-
-bool ParseIntArgNoDelete(const char *flag, const char *argument, int *valueOut)
-{
-    ParseIntArg(flag, argument, valueOut);
-    return false;
-}
-
-bool ParseFlag(const char *expected, const char *actual, bool *flagOut)
-{
-    if (strcmp(expected, actual) == 0)
-    {
-        *flagOut = true;
-        return true;
-    }
-    return false;
-}
-
-bool ParseStringArg(const char *flag, const char *argument, std::string *valueOut)
-{
-    const char *value = ParseFlagValue(flag, argument);
-    if (!value)
-    {
-        return false;
-    }
-
-    *valueOut = value;
-    return true;
-}
-
-void DeleteArg(int *argc, char **argv, int argIndex)
-{
-    // Shift the remainder of the argv list left by one.  Note that argv has (*argc + 1) elements,
-    // the last one always being NULL.  The following loop moves the trailing NULL element as well.
-    for (int index = argIndex; index < *argc; ++index)
-    {
-        argv[index] = argv[index + 1];
-    }
-    (*argc)--;
-}
-
-void AddArg(int *argc, char **argv, const char *arg)
-{
-    // This unsafe const_cast is necessary to work around gtest limitations.
-    argv[*argc]     = const_cast<char *>(arg);
-    argv[*argc + 1] = nullptr;
-    (*argc)++;
-}
 
 const char *ResultTypeToString(TestResultType type)
 {
@@ -236,8 +145,7 @@ bool WriteJsonFile(const std::string &outputFile, js::Document *doc)
 // https://chromium.googlesource.com/chromium/src.git/+/main/docs/testing/json_test_results_format.md
 void WriteResultsFile(bool interrupted,
                       const TestResults &testResults,
-                      const std::string &outputFile,
-                      const char *testSuiteName)
+                      const std::string &outputFile)
 {
     time_t ltime;
     time(&ltime);
@@ -349,7 +257,7 @@ void WriteResultsFile(bool interrupted,
         jsResult.AddMember("times", times, allocator);
 
         char testName[500];
-        id.sprintfName(testName);
+        id.snprintfName(testName, sizeof(testName));
         js::Value jsName;
         jsName.SetString(testName, allocator);
 
@@ -380,9 +288,7 @@ void WriteResultsFile(bool interrupted,
     }
 }
 
-void WriteHistogramJson(const HistogramWriter &histogramWriter,
-                        const std::string &outputFile,
-                        const char *testSuiteName)
+void WriteHistogramJson(const HistogramWriter &histogramWriter, const std::string &outputFile)
 {
     js::Document doc;
     doc.SetArray();
@@ -394,24 +300,6 @@ void WriteHistogramJson(const HistogramWriter &histogramWriter,
     if (!WriteJsonFile(outputFile, &doc))
     {
         printf("Error writing histogram json file.\n");
-    }
-}
-
-void WriteOutputFiles(bool interrupted,
-                      const TestResults &testResults,
-                      const std::string &resultsFile,
-                      const HistogramWriter &histogramWriter,
-                      const std::string &histogramJsonOutputFile,
-                      const char *testSuiteName)
-{
-    if (!resultsFile.empty())
-    {
-        WriteResultsFile(interrupted, testResults, resultsFile, testSuiteName);
-    }
-
-    if (!histogramJsonOutputFile.empty())
-    {
-        WriteHistogramJson(histogramWriter, histogramJsonOutputFile, testSuiteName);
     }
 }
 
@@ -440,54 +328,6 @@ TestIdentifier GetTestIdentifier(const testing::TestInfo &testInfo)
 {
     return {testInfo.test_suite_name(), testInfo.name()};
 }
-
-class TestEventListener : public testing::EmptyTestEventListener
-{
-  public:
-    // Note: TestResults is owned by the TestSuite. It should outlive TestEventListener.
-    TestEventListener(const std::string &resultsFile,
-                      const std::string &histogramJsonFile,
-                      const char *testSuiteName,
-                      TestResults *testResults,
-                      HistogramWriter *histogramWriter)
-        : mResultsFile(resultsFile),
-          mHistogramJsonFile(histogramJsonFile),
-          mTestSuiteName(testSuiteName),
-          mTestResults(testResults),
-          mHistogramWriter(histogramWriter)
-    {}
-
-    void OnTestStart(const testing::TestInfo &testInfo) override
-    {
-        std::lock_guard<std::mutex> guard(mTestResults->currentTestMutex);
-        mTestResults->currentTest = GetTestIdentifier(testInfo);
-        mTestResults->currentTestTimer.start();
-    }
-
-    void OnTestEnd(const testing::TestInfo &testInfo) override
-    {
-        std::lock_guard<std::mutex> guard(mTestResults->currentTestMutex);
-        mTestResults->currentTestTimer.stop();
-        const testing::TestResult &resultIn = *testInfo.result();
-        UpdateCurrentTestResult(resultIn, mTestResults);
-        mTestResults->currentTest = TestIdentifier();
-    }
-
-    void OnTestProgramEnd(const testing::UnitTest &testProgramInfo) override
-    {
-        std::lock_guard<std::mutex> guard(mTestResults->currentTestMutex);
-        mTestResults->allDone = true;
-        WriteOutputFiles(false, *mTestResults, mResultsFile, *mHistogramWriter, mHistogramJsonFile,
-                         mTestSuiteName);
-    }
-
-  private:
-    std::string mResultsFile;
-    std::string mHistogramJsonFile;
-    const char *mTestSuiteName;
-    TestResults *mTestResults;
-    HistogramWriter *mHistogramWriter;
-};
 
 bool IsTestDisabled(const testing::TestInfo &testInfo)
 {
@@ -565,37 +405,11 @@ std::string GetTestFilter(const std::vector<TestIdentifier> &tests)
             filterStream << ":";
         }
 
-        filterStream << tests[testIndex];
+        filterStream << ReplaceDashesWithQuestionMark(tests[testIndex].testSuiteName) << "."
+                     << ReplaceDashesWithQuestionMark(tests[testIndex].testName);
     }
 
     return filterStream.str();
-}
-
-std::string ParseTestSuiteName(const char *executable)
-{
-    const char *baseNameStart = strrchr(executable, GetPathSeparator());
-    if (!baseNameStart)
-    {
-        baseNameStart = executable;
-    }
-    else
-    {
-        baseNameStart++;
-    }
-
-    const char *suffix = GetExecutableExtension();
-    size_t suffixLen   = strlen(suffix);
-    if (suffixLen == 0)
-    {
-        return baseNameStart;
-    }
-
-    if (!EndsWith(baseNameStart, suffix))
-    {
-        return baseNameStart;
-    }
-
-    return std::string(baseNameStart, baseNameStart + strlen(baseNameStart) - suffixLen);
 }
 
 bool GetTestArtifactsFromJSON(const js::Value::ConstObject &obj,
@@ -614,7 +428,7 @@ bool GetTestArtifactsFromJSON(const js::Value::ConstObject &obj,
         return false;
     }
 
-    const js::Value::ConstObject &artifacts = jsArtifacts.GetObject();
+    const js::Value::ConstObject &artifacts = jsArtifacts.GetObj();
     for (const auto &artifactMember : artifacts)
     {
         const js::Value &artifact = artifactMember.value;
@@ -743,7 +557,7 @@ bool GetTestResultsFromJSON(const js::Document &document, TestResults *resultsOu
         return false;
     }
 
-    const js::Value::ConstObject &tests = document["tests"].GetObject();
+    const js::Value::ConstObject &tests = document["tests"].GetObj();
     for (const auto &testMember : tests)
     {
         // Get test identifier.
@@ -762,7 +576,7 @@ bool GetTestResultsFromJSON(const js::Document &document, TestResults *resultsOu
             return false;
         }
 
-        const js::Value::ConstObject &obj = value.GetObject();
+        const js::Value::ConstObject &obj = value.GetObj();
 
         if (BeginsWith(name.GetString(), kArtifactsFakeTestName))
         {
@@ -993,6 +807,61 @@ bool UsesExternalBatching()
 }
 }  // namespace
 
+void MetricWriter::enable(const std::string &testArtifactDirectory)
+{
+    mPath = testArtifactDirectory + GetPathSeparator() + "angle_metrics";
+}
+
+void MetricWriter::writeInfo(const std::string &name,
+                             const std::string &backend,
+                             const std::string &story,
+                             const std::string &metric,
+                             const std::string &units)
+{
+    if (mPath.empty())
+    {
+        return;
+    }
+
+    if (mFile == nullptr)
+    {
+        mFile = fopen(mPath.c_str(), "w");
+    }
+    ASSERT(mFile != nullptr);
+
+    fprintf(mFile, "{\"name\":\"%s\",", name.c_str());
+    fprintf(mFile, "\"backend\":\"%s\",", backend.c_str());
+    fprintf(mFile, "\"story\":\"%s\",", story.c_str());
+    fprintf(mFile, "\"metric\":\"%s\",", metric.c_str());
+    fprintf(mFile, "\"units\":\"%s\",", units.c_str());
+    // followed by writing value, so no closing bracket yet
+}
+
+void MetricWriter::writeDoubleValue(double value)
+{
+    if (mFile != nullptr)
+    {
+        fprintf(mFile, "\"value\":\"%lf\"}\n", value);
+    }
+}
+
+void MetricWriter::writeIntegerValue(size_t value)
+{
+    if (mFile != nullptr)
+    {
+        fprintf(mFile, "\"value\":\"%zu\"}\n", value);
+    }
+}
+
+void MetricWriter::close()
+{
+    if (mFile != nullptr)
+    {
+        fclose(mFile);
+        mFile = nullptr;
+    }
+}
+
 // static
 TestSuite *TestSuite::mInstance = nullptr;
 
@@ -1008,9 +877,9 @@ TestIdentifier::~TestIdentifier() = default;
 
 TestIdentifier &TestIdentifier::operator=(const TestIdentifier &other) = default;
 
-void TestIdentifier::sprintfName(char *outBuffer) const
+void TestIdentifier::snprintfName(char *outBuffer, size_t maxLen) const
 {
-    sprintf(outBuffer, "%s.%s", testSuiteName.c_str(), testName.c_str());
+    snprintf(outBuffer, maxLen, "%s.%s", testSuiteName.c_str(), testName.c_str());
 }
 
 // static
@@ -1051,7 +920,42 @@ ProcessInfo::ProcessInfo(ProcessInfo &&other)
     *this = std::move(other);
 }
 
-TestSuite::TestSuite(int *argc, char **argv)
+class TestSuite::TestEventListener : public testing::EmptyTestEventListener
+{
+  public:
+    // Note: TestResults is owned by the TestSuite. It should outlive TestEventListener.
+    TestEventListener(TestSuite *testSuite) : mTestSuite(testSuite) {}
+
+    void OnTestStart(const testing::TestInfo &testInfo) override
+    {
+        std::lock_guard<std::mutex> guard(mTestSuite->mTestResults.currentTestMutex);
+        mTestSuite->mTestResults.currentTest = GetTestIdentifier(testInfo);
+        mTestSuite->mTestResults.currentTestTimer.start();
+    }
+
+    void OnTestEnd(const testing::TestInfo &testInfo) override
+    {
+        std::lock_guard<std::mutex> guard(mTestSuite->mTestResults.currentTestMutex);
+        mTestSuite->mTestResults.currentTestTimer.stop();
+        const testing::TestResult &resultIn = *testInfo.result();
+        UpdateCurrentTestResult(resultIn, &mTestSuite->mTestResults);
+        mTestSuite->mTestResults.currentTest = TestIdentifier();
+    }
+
+    void OnTestProgramEnd(const testing::UnitTest &testProgramInfo) override
+    {
+        std::lock_guard<std::mutex> guard(mTestSuite->mTestResults.currentTestMutex);
+        mTestSuite->mTestResults.allDone = true;
+        mTestSuite->writeOutputFiles(false);
+    }
+
+  private:
+    TestSuite *mTestSuite;
+};
+
+TestSuite::TestSuite(int *argc, char **argv) : TestSuite(argc, argv, []() {}) {}
+
+TestSuite::TestSuite(int *argc, char **argv, std::function<void()> registerTestsCallback)
     : mShardCount(-1),
       mShardIndex(-1),
       mBotMode(false),
@@ -1095,17 +999,15 @@ TestSuite::TestSuite(int *argc, char **argv)
     }
 
     mTestExecutableName = argv[0];
-    mTestSuiteName      = ParseTestSuiteName(mTestExecutableName.c_str());
 
     for (int argIndex = 1; argIndex < *argc;)
     {
-        if (parseSingleArg(argv[argIndex]))
+        if (parseSingleArg(argc, argv, argIndex))
         {
-            DeleteArg(argc, argv, argIndex);
             continue;
         }
 
-        if (ParseFlagValue("--gtest_filter=", argv[argIndex]))
+        if (strstr(argv[argIndex], "--gtest_filter=") == argv[argIndex])
         {
             filterArgIndex = argIndex;
         }
@@ -1122,6 +1024,19 @@ TestSuite::TestSuite(int *argc, char **argv)
         ++argIndex;
     }
 
+    if (mTestArtifactDirectory.empty())
+    {
+        mTestArtifactDirectory = GetEnvironmentVar("ISOLATED_OUTDIR");
+    }
+
+#if defined(ANGLE_PLATFORM_FUCHSIA)
+    if (mBotMode)
+    {
+        printf("Note: Bot mode is not available on Fuchsia. See http://anglebug.com/7312\n");
+        mBotMode = false;
+    }
+#endif
+
     if (UsesExternalBatching() && mBotMode)
     {
         printf("Bot mode is mutually exclusive with external batching.\n");
@@ -1130,20 +1045,14 @@ TestSuite::TestSuite(int *argc, char **argv)
 
     mTestResults.currentTestTimeout = mTestTimeout;
 
-#if defined(ANGLE_PLATFORM_ANDROID)
-    // Workaround for the Android test runner requiring a GTest test list.
-    if (mListTests && filterArgIndex.valid())
-    {
-        DeleteArg(argc, argv, filterArgIndex.value());
-    }
-#endif  // defined(ANGLE_PLATFORM_ANDROID)
-
     if (!mDisableCrashHandler)
     {
         // Note that the crash callback must be owned and not use global constructors.
         mCrashCallback = [this]() { onCrashOrTimeout(TestResultType::Crash); };
         InitCrashHandler(&mCrashCallback);
     }
+
+    registerTestsCallback();
 
     std::string envShardIndex = angle::GetEnvironmentVar("GTEST_SHARD_INDEX");
     if (!envShardIndex.empty())
@@ -1224,15 +1133,8 @@ TestSuite::TestSuite(int *argc, char **argv)
             exit(EXIT_FAILURE);
         }
 
-        uint32_t fileSize = 0;
-        if (!GetFileSize(mFilterFile.c_str(), &fileSize))
-        {
-            printf("Error getting filter file size: %s\n", mFilterFile.c_str());
-            exit(EXIT_FAILURE);
-        }
-
-        std::vector<char> fileContents(fileSize + 1, 0);
-        if (!ReadEntireFileToString(mFilterFile.c_str(), fileContents.data(), fileSize))
+        std::string fileContents;
+        if (!ReadEntireFileToString(mFilterFile.c_str(), &fileContents))
         {
             printf("Error loading filter file: %s\n", mFilterFile.c_str());
             exit(EXIT_FAILURE);
@@ -1336,12 +1238,15 @@ TestSuite::TestSuite(int *argc, char **argv)
         mResultsFile = resultFileName.str();
     }
 
+    if (!mTestArtifactDirectory.empty())
+    {
+        mMetricWriter.enable(mTestArtifactDirectory);
+    }
+
     if (!mBotMode)
     {
         testing::TestEventListeners &listeners = testing::UnitTest::GetInstance()->listeners();
-        listeners.Append(new TestEventListener(mResultsFile, mHistogramJsonFile,
-                                               mTestSuiteName.c_str(), &mTestResults,
-                                               &mHistogramWriter));
+        listeners.Append(new TestEventListener(this));
 
         for (const TestIdentifier &id : testSet)
         {
@@ -1365,35 +1270,40 @@ TestSuite::~TestSuite()
     TerminateCrashHandler();
 }
 
-bool TestSuite::parseSingleArg(const char *argument)
+bool TestSuite::parseSingleArg(int *argc, char **argv, int argIndex)
 {
     // Note: Flags should be documented in README.md.
-    return (ParseIntArg("--shard-count=", argument, &mShardCount) ||
-            ParseIntArg("--shard-index=", argument, &mShardIndex) ||
-            ParseIntArg("--batch-size=", argument, &mBatchSize) ||
-            ParseIntArg("--max-processes=", argument, &mMaxProcesses) ||
-            ParseIntArg(kTestTimeoutArg, argument, &mTestTimeout) ||
-            ParseIntArg("--batch-timeout=", argument, &mBatchTimeout) ||
-            ParseIntArg(kFlakyRetries, argument, &mFlakyRetries) ||
-            ParseIntArg(kMaxFailures, argument, &mMaxFailures) ||
-            // Other test functions consume the batch ID, so keep it in the list.
-            ParseIntArgNoDelete(kBatchId, argument, &mBatchId) ||
-            ParseStringArg("--results-directory=", argument, &mResultsDirectory) ||
-            ParseStringArg(kResultFileArg, argument, &mResultsFile) ||
-            ParseStringArg("--isolated-script-test-output=", argument, &mResultsFile) ||
-            ParseStringArg(kFilterFileArg, argument, &mFilterFile) ||
-            ParseStringArg(kHistogramJsonFileArg, argument, &mHistogramJsonFile) ||
-            // We need these overloads to work around technical debt in the Android test runner.
-            ParseStringArg("--isolated-script-test-perf-output=", argument, &mHistogramJsonFile) ||
-            ParseStringArg("--isolated_script_test_perf_output=", argument, &mHistogramJsonFile) ||
-            ParseStringArg(kRenderTestOutputDir, argument, &mTestArtifactDirectory) ||
-            ParseStringArg(kIsolatedOutDir, argument, &mTestArtifactDirectory) ||
-            ParseFlag("--bot-mode", argument, &mBotMode) ||
-            ParseFlag("--debug-test-groups", argument, &mDebugTestGroups) ||
-            ParseFlag(kGTestListTests, argument, &mGTestListTests) ||
-            ParseFlag(kListTests, argument, &mListTests) ||
-            ParseFlag(kPrintTestStdout, argument, &mPrintTestStdout) ||
-            ParseFlag(kDisableCrashHandler, argument, &mDisableCrashHandler));
+    return ParseIntArg("--shard-count", argc, argv, argIndex, &mShardCount) ||
+           ParseIntArg("--shard-index", argc, argv, argIndex, &mShardIndex) ||
+           ParseIntArg("--batch-size", argc, argv, argIndex, &mBatchSize) ||
+           ParseIntArg("--max-processes", argc, argv, argIndex, &mMaxProcesses) ||
+           ParseIntArg(kTestTimeoutArg, argc, argv, argIndex, &mTestTimeout) ||
+           ParseIntArg("--batch-timeout", argc, argv, argIndex, &mBatchTimeout) ||
+           ParseIntArg("--flaky-retries", argc, argv, argIndex, &mFlakyRetries) ||
+           ParseIntArg("--max-failures", argc, argv, argIndex, &mMaxFailures) ||
+           // Other test functions consume the batch ID, so keep it in the list.
+           ParseIntArgWithHandling(kBatchId, argc, argv, argIndex, &mBatchId,
+                                   ArgHandling::Preserve) ||
+           ParseStringArg("--results-directory", argc, argv, argIndex, &mResultsDirectory) ||
+           ParseStringArg(kResultFileArg, argc, argv, argIndex, &mResultsFile) ||
+           ParseStringArg("--isolated-script-test-output", argc, argv, argIndex, &mResultsFile) ||
+           ParseStringArg(kFilterFileArg, argc, argv, argIndex, &mFilterFile) ||
+           ParseStringArg("--histogram-json-file", argc, argv, argIndex, &mHistogramJsonFile) ||
+           // We need these overloads to work around technical debt in the Android test runner.
+           ParseStringArg("--isolated-script-test-perf-output", argc, argv, argIndex,
+                          &mHistogramJsonFile) ||
+           ParseStringArg("--isolated_script_test_perf_output", argc, argv, argIndex,
+                          &mHistogramJsonFile) ||
+           ParseStringArg("--render-test-output-dir", argc, argv, argIndex,
+                          &mTestArtifactDirectory) ||
+           ParseStringArg("--isolated-outdir", argc, argv, argIndex, &mTestArtifactDirectory) ||
+           ParseFlag("--test-launcher-bot-mode", argc, argv, argIndex, &mBotMode) ||
+           ParseFlag("--bot-mode", argc, argv, argIndex, &mBotMode) ||
+           ParseFlag("--debug-test-groups", argc, argv, argIndex, &mDebugTestGroups) ||
+           ParseFlag("--gtest_list_tests", argc, argv, argIndex, &mGTestListTests) ||
+           ParseFlag("--list-tests", argc, argv, argIndex, &mListTests) ||
+           ParseFlag("--print-test-stdout", argc, argv, argIndex, &mPrintTestStdout) ||
+           ParseFlag(kDisableCrashHandler, argc, argv, argIndex, &mDisableCrashHandler);
 }
 
 void TestSuite::onCrashOrTimeout(TestResultType crashOrTimeout)
@@ -1412,25 +1322,22 @@ void TestSuite::onCrashOrTimeout(TestResultType crashOrTimeout)
         return;
     }
 
-    WriteOutputFiles(true, mTestResults, mResultsFile, mHistogramWriter, mHistogramJsonFile,
-                     mTestSuiteName.c_str());
+    writeOutputFiles(true);
 }
 
 bool TestSuite::launchChildTestProcess(uint32_t batchId,
                                        const std::vector<TestIdentifier> &testsInBatch)
 {
-    constexpr uint32_t kMaxPath = 1000;
-
     // Create a temporary file to store the test list
     ProcessInfo processInfo;
 
-    char filterBuffer[kMaxPath] = {};
-    if (!CreateTemporaryFile(filterBuffer, kMaxPath))
+    Optional<std::string> filterBuffer = CreateTemporaryFile();
+    if (!filterBuffer.valid())
     {
         std::cerr << "Error creating temporary file for test list.\n";
         return false;
     }
-    processInfo.filterFileName.assign(filterBuffer);
+    processInfo.filterFileName.assign(filterBuffer.value());
 
     std::string filterString = GetTestFilter(testsInBatch);
 
@@ -1445,18 +1352,18 @@ bool TestSuite::launchChildTestProcess(uint32_t batchId,
 
     processInfo.filterString = filterString;
 
-    std::string filterFileArg = kFilterFileArg + processInfo.filterFileName;
+    std::string filterFileArg = kFilterFileArg + std::string("=") + processInfo.filterFileName;
 
     // Create a temporary file to store the test output.
-    char resultsBuffer[kMaxPath] = {};
-    if (!CreateTemporaryFile(resultsBuffer, kMaxPath))
+    Optional<std::string> resultsBuffer = CreateTemporaryFile();
+    if (!resultsBuffer.valid())
     {
         std::cerr << "Error creating temporary file for test list.\n";
         return false;
     }
-    processInfo.resultsFileName.assign(resultsBuffer);
+    processInfo.resultsFileName.assign(resultsBuffer.value());
 
-    std::string resultsFileArg = kResultFileArg + processInfo.resultsFileName;
+    std::string resultsFileArg = kResultFileArg + std::string("=") + processInfo.resultsFileName;
 
     // Construct command line for child process.
     std::vector<const char *> args;
@@ -1466,7 +1373,7 @@ bool TestSuite::launchChildTestProcess(uint32_t batchId,
     args.push_back(resultsFileArg.c_str());
 
     std::stringstream batchIdStream;
-    batchIdStream << kBatchId << batchId;
+    batchIdStream << kBatchId << "=" << batchId;
     std::string batchIdString = batchIdStream.str();
     args.push_back(batchIdString.c_str());
 
@@ -1484,7 +1391,7 @@ bool TestSuite::launchChildTestProcess(uint32_t batchId,
     if (mTestTimeout != kDefaultTestTimeout)
     {
         std::stringstream timeoutStream;
-        timeoutStream << kTestTimeoutArg << mTestTimeout;
+        timeoutStream << kTestTimeoutArg << "=" << mTestTimeout;
         timeoutStr = timeoutStream.str();
         args.push_back(timeoutStr.c_str());
     }
@@ -1493,7 +1400,7 @@ bool TestSuite::launchChildTestProcess(uint32_t batchId,
     if (!mTestArtifactDirectory.empty())
     {
         std::stringstream artifactsDirStream;
-        artifactsDirStream << kIsolatedOutDir << mTestArtifactDirectory;
+        artifactsDirStream << kIsolatedOutDir << "=" << mTestArtifactDirectory;
         artifactsDir = artifactsDirStream.str();
         args.push_back(artifactsDir.c_str());
     }
@@ -1807,13 +1714,14 @@ int TestSuite::run()
                     SplitString(batchStdout, "\r\n", WhitespaceHandling::TRIM_WHITESPACE,
                                 SplitResult::SPLIT_WANT_NONEMPTY);
                 constexpr size_t kKeepLines = 10;
-                printf("Batch timeout! Last %d lines of batch stdout:\n",
-                       static_cast<int>(kKeepLines));
+                printf("\nBatch timeout! Last %zu lines of batch stdout:\n", kKeepLines);
+                printf("---------------------------------------------\n");
                 for (size_t lineNo = lines.size() - std::min(lines.size(), kKeepLines);
                      lineNo < lines.size(); ++lineNo)
                 {
                     printf("%s\n", lines[lineNo].c_str());
                 }
+                printf("---------------------------------------------\n\n");
 
                 for (const TestIdentifier &testIdentifier : processInfo.testsInBatch)
                 {
@@ -1867,8 +1775,7 @@ int TestSuite::run()
     }
     else
     {
-        WriteOutputFiles(false, mTestResults, mResultsFile, mHistogramWriter, mHistogramJsonFile,
-                         mTestSuiteName.c_str());
+        writeOutputFiles(false);
     }
 
     totalRunTime.stop();
@@ -2074,6 +1981,21 @@ int TestSuite::getSlowTestTimeout() const
     return mTestTimeout * kSlowTestTimeoutScale;
 }
 
+void TestSuite::writeOutputFiles(bool interrupted)
+{
+    if (!mResultsFile.empty())
+    {
+        WriteResultsFile(interrupted, mTestResults, mResultsFile);
+    }
+
+    if (!mHistogramJsonFile.empty())
+    {
+        WriteHistogramJson(mHistogramWriter, mHistogramJsonFile);
+    }
+
+    mMetricWriter.close();
+}
+
 const char *TestResultTypeToString(TestResultType type)
 {
     switch (type)
@@ -2094,5 +2016,15 @@ const char *TestResultTypeToString(TestResultType type)
         default:
             return "Unknown";
     }
+}
+
+// This code supports using "-" in test names, which happens often in dEQP. GTest uses as a marker
+// for the beginning of the exclusion filter. Work around this by replacing "-" with "?" which
+// matches any single character.
+std::string ReplaceDashesWithQuestionMark(std::string dashesString)
+{
+    std::string noDashesString = dashesString;
+    ReplaceAllSubstrings(&noDashesString, "-", "?");
+    return noDashesString;
 }
 }  // namespace angle

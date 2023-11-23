@@ -13,14 +13,24 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
-#ifndef ANDROID_WINDOWS_HOST
+#include <f2fs_fs.h>
+
+#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
+#endif
+#ifdef HAVE_SYS_MOUNT_H
 #include <sys/mount.h>
 #endif
 #include <time.h>
-#include <uuid.h>
 
-#include "f2fs_fs.h"
+#ifdef HAVE_UUID_UUID_H
+#include <uuid/uuid.h>
+#endif
+#ifndef HAVE_LIBUUID
+#define uuid_parse(a, b) -1
+#define uuid_generate(a)
+#endif
+
 #include "quota.h"
 #include "f2fs_format_utils.h"
 
@@ -199,18 +209,18 @@ static void verify_cur_segs(void)
 
 static int f2fs_prepare_super_block(void)
 {
-	u_int32_t blk_size_bytes;
-	u_int32_t log_sectorsize, log_sectors_per_block;
-	u_int32_t log_blocksize, log_blks_per_seg;
-	u_int32_t segment_size_bytes, zone_size_bytes;
-	u_int32_t sit_segments, nat_segments;
-	u_int32_t blocks_for_sit, blocks_for_nat, blocks_for_ssa;
-	u_int32_t total_valid_blks_available;
-	u_int64_t zone_align_start_offset, diff;
-	u_int64_t total_meta_zones, total_meta_segments;
-	u_int32_t sit_bitmap_size, max_sit_bitmap_size;
-	u_int32_t max_nat_bitmap_size, max_nat_segments;
-	u_int32_t total_zones, avail_zones;
+	uint32_t blk_size_bytes;
+	uint32_t log_sectorsize, log_sectors_per_block;
+	uint32_t log_blocksize, log_blks_per_seg;
+	uint32_t segment_size_bytes, zone_size_bytes;
+	uint32_t sit_segments, nat_segments;
+	uint32_t blocks_for_sit, blocks_for_nat, blocks_for_ssa;
+	uint32_t total_valid_blks_available;
+	uint64_t zone_align_start_offset, diff;
+	uint64_t total_meta_zones, total_meta_segments;
+	uint32_t sit_bitmap_size, max_sit_bitmap_size;
+	uint32_t max_nat_bitmap_size, max_nat_segments;
+	uint32_t total_zones, avail_zones;
 	enum quota_type qtype;
 	int i;
 
@@ -243,10 +253,10 @@ static int f2fs_prepare_super_block(void)
 	set_sb(block_count, c.total_sectors >> log_sectors_per_block);
 
 	zone_align_start_offset =
-		((u_int64_t) c.start_sector * DEFAULT_SECTOR_SIZE +
+		((uint64_t) c.start_sector * DEFAULT_SECTOR_SIZE +
 		2 * F2FS_BLKSIZE + zone_size_bytes - 1) /
 		zone_size_bytes * zone_size_bytes -
-		(u_int64_t) c.start_sector * DEFAULT_SECTOR_SIZE;
+		(uint64_t) c.start_sector * DEFAULT_SECTOR_SIZE;
 
 	if (c.feature & cpu_to_le32(F2FS_FEATURE_RO))
 		zone_align_start_offset = 8192;
@@ -363,7 +373,7 @@ static int f2fs_prepare_super_block(void)
 		/* use cp_payload if free space of f2fs_checkpoint is not enough */
 		if (max_sit_bitmap_size + max_nat_bitmap_size >
 						MAX_BITMAP_SIZE_IN_CKPT) {
-			u_int32_t diff =  max_sit_bitmap_size +
+			uint32_t diff =  max_sit_bitmap_size +
 						max_nat_bitmap_size -
 						MAX_BITMAP_SIZE_IN_CKPT;
 			set_sb(cp_payload, F2FS_BLK_ALIGN(diff));
@@ -444,7 +454,7 @@ static int f2fs_prepare_super_block(void)
 		 * not overlap to metadata area.
 		 */
 		for (i = 1; i < c.ndevs; i++) {
-			if (c.devices[i].zoned_model == F2FS_ZONED_HM &&
+			if (c.devices[i].zoned_model != F2FS_ZONED_NONE &&
 				c.devices[i].start_blkaddr < get_sb(main_blkaddr)) {
 				MSG(0, "\tError: Conventional device %s is too small,"
 					" (%"PRIu64" MiB needed).\n", c.devices[0].path,
@@ -457,7 +467,8 @@ static int f2fs_prepare_super_block(void)
 
 	total_zones = get_sb(segment_count) / (c.segs_per_zone) -
 							total_meta_zones;
-
+	if (total_zones == 0)
+		goto too_small;
 	set_sb(section_count, total_zones * c.secs_per_zone);
 
 	set_sb(segment_count_main, get_sb(section_count) * c.segs_per_sec);
@@ -473,7 +484,7 @@ static int f2fs_prepare_super_block(void)
 		c.overprovision = get_best_overprovision(sb);
 
 	c.reserved_segments =
-			(2 * (100 / c.overprovision + 1) + NR_CURSEG_TYPE) *
+			(100 / c.overprovision + 1 + NR_CURSEG_TYPE) *
 			round_up(f2fs_get_usable_segments(sb), get_sb(section_count));
 
 	if (c.feature & cpu_to_le32(F2FS_FEATURE_RO)) {
@@ -487,8 +498,7 @@ static int f2fs_prepare_super_block(void)
 			c.sector_size < zone_align_start_offset) ||
 		(get_sb(segment_count_main) - NR_CURSEG_TYPE) <
 						c.reserved_segments) {
-		MSG(0, "\tError: Device size is not sufficient for F2FS volume\n");
-		return -1;
+		goto too_small;
 	}
 
 	if (c.vol_uuid) {
@@ -534,10 +544,10 @@ static int f2fs_prepare_super_block(void)
 	}
 
 	if (c.feature & cpu_to_le32(F2FS_FEATURE_RO)) {
-		c.cur_seg[CURSEG_HOT_NODE] = 0;
+		c.cur_seg[CURSEG_HOT_NODE] = last_section(last_zone(total_zones));
 		c.cur_seg[CURSEG_WARM_NODE] = 0;
 		c.cur_seg[CURSEG_COLD_NODE] = 0;
-		c.cur_seg[CURSEG_HOT_DATA] = 1;
+		c.cur_seg[CURSEG_HOT_DATA] = 0;
 		c.cur_seg[CURSEG_COLD_DATA] = 0;
 		c.cur_seg[CURSEG_WARM_DATA] = 0;
 	} else if (c.heap) {
@@ -602,19 +612,23 @@ static int f2fs_prepare_super_block(void)
 	}
 
 	return 0;
+
+too_small:
+	MSG(0, "\tError: Device size is not sufficient for F2FS volume\n");
+	return -1;
 }
 
 static int f2fs_init_sit_area(void)
 {
-	u_int32_t blk_size, seg_size;
-	u_int32_t index = 0;
-	u_int64_t sit_seg_addr = 0;
-	u_int8_t *zero_buf = NULL;
+	uint32_t blk_size, seg_size;
+	uint32_t index = 0;
+	uint64_t sit_seg_addr = 0;
+	uint8_t *zero_buf = NULL;
 
 	blk_size = 1 << get_sb(log_blocksize);
 	seg_size = (1 << get_sb(log_blocks_per_seg)) * blk_size;
 
-	zero_buf = calloc(sizeof(u_int8_t), seg_size);
+	zero_buf = calloc(sizeof(uint8_t), seg_size);
 	if(zero_buf == NULL) {
 		MSG(1, "\tError: Calloc Failed for sit_zero_buf!!!\n");
 		return -1;
@@ -640,15 +654,15 @@ static int f2fs_init_sit_area(void)
 
 static int f2fs_init_nat_area(void)
 {
-	u_int32_t blk_size, seg_size;
-	u_int32_t index = 0;
-	u_int64_t nat_seg_addr = 0;
-	u_int8_t *nat_buf = NULL;
+	uint32_t blk_size, seg_size;
+	uint32_t index = 0;
+	uint64_t nat_seg_addr = 0;
+	uint8_t *nat_buf = NULL;
 
 	blk_size = 1 << get_sb(log_blocksize);
 	seg_size = (1 << get_sb(log_blocks_per_seg)) * blk_size;
 
-	nat_buf = calloc(sizeof(u_int8_t), seg_size);
+	nat_buf = calloc(sizeof(uint8_t), seg_size);
 	if (nat_buf == NULL) {
 		MSG(1, "\tError: Calloc Failed for nat_zero_blk!!!\n");
 		return -1;
@@ -676,11 +690,11 @@ static int f2fs_write_check_point_pack(void)
 {
 	struct f2fs_summary_block *sum = NULL;
 	struct f2fs_journal *journal;
-	u_int32_t blk_size_bytes;
-	u_int32_t nat_bits_bytes, nat_bits_blocks;
+	uint32_t blk_size_bytes;
+	uint32_t nat_bits_bytes, nat_bits_blocks;
 	unsigned char *nat_bits = NULL, *empty_nat_bits;
-	u_int64_t cp_seg_blk = 0;
-	u_int32_t crc = 0, flags;
+	uint64_t cp_seg_blk = 0;
+	uint32_t crc = 0, flags;
 	unsigned int i;
 	char *cp_payload = NULL;
 	char *sum_compact, *sum_compact_p;
@@ -750,8 +764,12 @@ static int f2fs_write_check_point_pack(void)
 	set_cp(overprov_segment_count, (f2fs_get_usable_segments(sb) -
 			get_cp(rsvd_segment_count)) *
 			c.overprovision / 100);
+
+	if (get_cp(overprov_segment_count) < get_cp(rsvd_segment_count))
+		set_cp(overprov_segment_count, get_cp(rsvd_segment_count));
+
 	set_cp(overprov_segment_count, get_cp(overprov_segment_count) +
-			get_cp(rsvd_segment_count));
+			2 * get_sb(segs_per_sec));
 
 	if (f2fs_get_usable_segments(sb) <= get_cp(overprov_segment_count)) {
 		MSG(0, "\tError: Not enough segments to create F2FS Volume\n");
@@ -1114,7 +1132,7 @@ free_cp:
 static int f2fs_write_super_block(void)
 {
 	int index;
-	u_int8_t *zero_buff;
+	uint8_t *zero_buff;
 
 	zero_buff = calloc(F2FS_BLKSIZE, 1);
 	if (zero_buff == NULL) {
@@ -1141,11 +1159,11 @@ static int f2fs_write_super_block(void)
 static int f2fs_discard_obsolete_dnode(void)
 {
 	struct f2fs_node *raw_node;
-	u_int64_t next_blkaddr = 0, offset;
+	uint64_t next_blkaddr = 0, offset;
 	u64 end_blkaddr = (get_sb(segment_count_main) <<
 			get_sb(log_blocks_per_seg)) + get_sb(main_blkaddr);
-	u_int64_t start_inode_pos = get_sb(main_blkaddr);
-	u_int64_t last_inode_pos;
+	uint64_t start_inode_pos = get_sb(main_blkaddr);
+	uint64_t last_inode_pos;
 
 	if (c.zoned_mode || c.feature & cpu_to_le32(F2FS_FEATURE_RO))
 		return 0;
@@ -1196,8 +1214,8 @@ static int f2fs_discard_obsolete_dnode(void)
 static int f2fs_write_root_inode(void)
 {
 	struct f2fs_node *raw_node = NULL;
-	u_int64_t blk_size_bytes, data_blk_nor;
-	u_int64_t main_area_node_seg_blk_offset = 0;
+	uint64_t blk_size_bytes, data_blk_nor;
+	uint64_t main_area_node_seg_blk_offset = 0;
 
 	raw_node = calloc(F2FS_BLKSIZE, 1);
 	if (raw_node == NULL) {
@@ -1356,8 +1374,8 @@ static int f2fs_write_default_quota(int qtype, unsigned int blkaddr,
 static int f2fs_write_qf_inode(int qtype, int offset)
 {
 	struct f2fs_node *raw_node = NULL;
-	u_int64_t data_blk_nor;
-	u_int64_t main_area_node_seg_blk_offset = 0;
+	uint64_t data_blk_nor;
+	uint64_t main_area_node_seg_blk_offset = 0;
 	__le32 raw_id;
 	int i;
 
@@ -1419,7 +1437,7 @@ static int f2fs_write_qf_inode(int qtype, int offset)
 static int f2fs_update_nat_root(void)
 {
 	struct f2fs_nat_block *nat_blk = NULL;
-	u_int64_t nat_seg_blk_offset = 0;
+	uint64_t nat_seg_blk_offset = 0;
 	enum quota_type qtype;
 	int i;
 
@@ -1515,7 +1533,7 @@ static block_t f2fs_add_default_dentry_lpf(void)
 static int f2fs_write_lpf_inode(void)
 {
 	struct f2fs_node *raw_node;
-	u_int64_t blk_size_bytes, main_area_node_seg_blk_offset;
+	uint64_t blk_size_bytes, main_area_node_seg_blk_offset;
 	block_t data_blk_nor;
 	int err = 0;
 
@@ -1609,7 +1627,7 @@ exit:
 static int f2fs_add_default_dentry_root(void)
 {
 	struct f2fs_dentry_block *dent_blk = NULL;
-	u_int64_t data_blk_offset = 0;
+	uint64_t data_blk_offset = 0;
 
 	dent_blk = calloc(F2FS_BLKSIZE, 1);
 	if(dent_blk == NULL) {
@@ -1643,7 +1661,7 @@ static int f2fs_add_default_dentry_root(void)
 		dent_blk->dentry[2].file_type = F2FS_FT_DIR;
 		memcpy(dent_blk->filename[2], LPF, F2FS_SLOT_LEN);
 
-		memcpy(dent_blk->filename[3], LPF + F2FS_SLOT_LEN,
+		memcpy(dent_blk->filename[3], &LPF[F2FS_SLOT_LEN],
 				len - F2FS_SLOT_LEN);
 
 		test_and_set_bit_le(2, dent_blk->dentry_bitmap);

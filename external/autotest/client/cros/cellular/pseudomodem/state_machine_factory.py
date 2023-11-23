@@ -2,15 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import cdma_activate_machine
-import connect_cdma_machine
-import connect_machine
-import disable_machine
-import disconnect_machine
-import enable_machine
-import pm_constants
-import register_cdma_machine
-import register_machine
+from . import cdma_activate_machine
+from . import connect_cdma_machine
+from . import connect_machine
+from . import disable_machine
+from . import disconnect_machine
+from . import enable_machine
+from . import pm_constants
+from . import register_cdma_machine
+from . import register_machine
 
 class StateMachineFactory(object):
     """

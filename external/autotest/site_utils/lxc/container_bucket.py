@@ -22,7 +22,7 @@ from autotest_lib.site_utils.lxc.container import Container
 from autotest_lib.site_utils.lxc.container_factory import ContainerFactory
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
     from infra_libs import ts_mon
 except ImportError:
     import mock
@@ -34,8 +34,11 @@ class ContainerBucket(object):
     """A wrapper class to interact with containers in a specific container path.
     """
 
-    def __init__(self, container_path=constants.DEFAULT_CONTAINER_PATH,
-                 base_name=constants.BASE, container_factory=None):
+    def __init__(self,
+                 container_path=constants.DEFAULT_CONTAINER_PATH,
+                 base_name=constants.BASE,
+                 container_factory=None,
+                 base_container_path=constants.DEFAULT_BASE_CONTAINER_PATH):
         """Initialize a ContainerBucket.
 
         @param container_path: Path to the directory used to store containers.
@@ -46,6 +49,9 @@ class ContainerBucket(object):
                           arguments. Defaults to value set via
                           AUTOSERV/container_base_name in global config.
         @param container_factory: A factory for creating Containers.
+        @param base_container_path: Path to the directory used for the base container.
+                                    Default is AUTOSERV/base_container_path in
+                                    global config.
         """
         self.container_path = os.path.realpath(container_path)
         if container_factory is not None:
@@ -56,7 +62,7 @@ class ContainerBucket(object):
             # fall back to using the default container path).
             try:
                 base_image_ok = True
-                container = BaseImage(self.container_path, base_name).get()
+                container = BaseImage(base_container_path, base_name).get()
             except error.ContainerError:
                 base_image_ok = False
                 raise
@@ -86,16 +92,21 @@ class ContainerBucket(object):
         logging.debug("Fetching all extant LXC containers")
         info_collection = lxc.get_container_info(self.container_path)
         if force_update:
-          logging.debug("Clearing cached container info")
+            logging.debug("Clearing cached container info")
         containers = {} if force_update else self.container_cache
         for info in info_collection:
-            if info["name"] in containers:
-                continue
+            # The keys of `containers` are container.ContainerId object, not a
+            # string.
+            for k in containers:
+                if str(k) == info['name']:
+                    continue
             container = Container.create_from_existing_dir(self.container_path,
                                                            **info)
             # Active containers have an ID.  Zygotes and base containers, don't.
             if container.id is not None:
                 containers[container.id] = container
+        logging.debug('All containers found: %s',
+                      [(repr(k), str(k)) for k in containers])
         self.container_cache = containers
         return containers
 
@@ -114,9 +125,24 @@ class ContainerBucket(object):
             return self.container_cache[container_id]
 
         container = self.get_all().get(container_id, None)
-        if None == container:
-          logging.debug("Could not find container %s", container_id)
-        return container
+        if container:
+            return container
+
+        logging.debug(
+                "Could not find container by container id object: %s (%s)",
+                container_id, repr(container_id))
+        # When load container Ids from disk, we cast job_id from NoneType to a
+        # string 'None' (crrev/c/1056366). This causes problems if the input id
+        # has not been casted.
+        logging.debug('Try to get container by the id string: %s',
+                      container_id)
+        for k, v in self.get_all().items():
+            if str(k) == str(container_id):
+                return v
+
+        logging.debug('Could not find container by id string: %s',
+                      container_id)
+        return None
 
 
     def exist(self, container_id):
@@ -160,12 +186,15 @@ class ContainerBucket(object):
             "Force-destroying container %s if it exists, with timeout %s sec",
             name, timeout)
         try:
-          result = lxc_utils.destroy(
-              self.container_path, name,
-              force=True, snapshots=True, ignore_status=True, timeout=timeout
-          )
+            result = lxc_utils.destroy(self.container_path,
+                                       name,
+                                       force=True,
+                                       snapshots=True,
+                                       ignore_status=True,
+                                       timeout=timeout)
         except error.CmdTimeoutError:
-          logging.warning("Force-destruction of container %s timed out.", name)
+            logging.warning("Force-destruction of container %s timed out.",
+                            name)
         logging.debug("Force-destruction exit code %s", result.exit_status)
         return result
 
@@ -174,9 +203,15 @@ class ContainerBucket(object):
     @metrics.SecondsTimerDecorator(
         '%s/setup_test_duration' % constants.STATS_KEY)
     @cleanup_if_fail()
-    def setup_test(self, container_id, job_id, server_package_url, result_path,
-                   control=None, skip_cleanup=False, job_folder=None,
-                   dut_name=None, isolate_hash=None):
+    def setup_test(self,
+                   container_id,
+                   job_id,
+                   server_package_url,
+                   result_path,
+                   control=None,
+                   skip_cleanup=False,
+                   job_folder=None,
+                   dut_name=None):
         """Setup test container for the test job to run.
 
         The setup includes:
@@ -200,9 +235,6 @@ class ContainerBucket(object):
         @param job_folder: Folder name of the job, e.g., 123-debug_user.
         @param dut_name: Name of the dut to run test, used as the hostname of
                          the container. Default is None.
-        @param isolate_hash: String key to look up the isolate package needed
-                             to run test. Default is None, supersedes
-                             server_package_url if present.
         @return: A Container object for the test container.
 
         @raise ContainerError: If container does not exist, or not running.
@@ -230,10 +262,7 @@ class ContainerBucket(object):
         container = self._factory.create_container(container_id)
 
         # Deploy server side package
-        if isolate_hash:
-          container.install_ssp_isolate(isolate_hash)
-        else:
-          container.install_ssp(server_package_url)
+        container.install_ssp(server_package_url)
 
         deploy_config_manager = lxc_config.DeployConfigManager(container)
         deploy_config_manager.deploy_pre_start()
@@ -271,7 +300,7 @@ class ContainerBucket(object):
         utils.run('sudo chown -R root "%s"' % autotest_path)
         utils.run('sudo chgrp -R root "%s"' % autotest_path)
 
-        container.start(wait_for_network=True)
+        container.start(wait_for_network=True, log_dir=result_path)
         deploy_config_manager.deploy_post_start()
 
         # Update the hostname of the test container to be `dut-name`.

@@ -35,6 +35,7 @@ android {
             java.srcDirs = [file('../src/main/java')]
             java.includes = [
                     "com/google/android/enterprise/connectedapps/testapp/CustomRuntimeException.java",
+                    "com/google/android/enterprise/connectedapps/testapp/CustomError.java",
                     "com/google/android/enterprise/connectedapps/testapp/CustomWrapper.java",
                     "com/google/android/enterprise/connectedapps/testapp/CustomWrapper2.java",
                     "com/google/android/enterprise/connectedapps/testapp/NonSimpleCallbackListener.java",
@@ -48,6 +49,8 @@ android {
                     "com/google/android/enterprise/connectedapps/testapp/TestNotReallySerializableObjectCallbackListener.java",
                     "com/google/android/enterprise/connectedapps/testapp/TestStringCallbackListener.java",
                     "com/google/android/enterprise/connectedapps/testapp/TestVoidCallbackListener.java",
+                    "com/google/android/enterprise/connectedapps/testapp/TestParcelableCallbackListener.java",
+                    "com/google/android/enterprise/connectedapps/testapp/ParcelableContainingBinder.java"
             ]
             manifest.srcFile 'AndroidManifest.xml'
         }

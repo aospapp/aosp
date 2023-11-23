@@ -16,6 +16,8 @@
 
 #include <cstdint>
 
+#include "pw_assert/check.h"
+
 namespace pw::base64 {
 namespace {
 
@@ -156,8 +158,7 @@ extern "C" bool pw_Base64IsValid(const char* base64_data, size_t base64_size) {
   return true;
 }
 
-size_t Encode(std::span<const std::byte> binary,
-              std::span<char> output_buffer) {
+size_t Encode(span<const std::byte> binary, span<char> output_buffer) {
   const size_t required_size = EncodedSize(binary.size_bytes());
   if (output_buffer.size_bytes() < required_size) {
     return 0;
@@ -166,12 +167,24 @@ size_t Encode(std::span<const std::byte> binary,
   return required_size;
 }
 
-size_t Decode(std::string_view base64, std::span<std::byte> output_buffer) {
+size_t Decode(std::string_view base64, span<std::byte> output_buffer) {
   if (output_buffer.size_bytes() < MaxDecodedSize(base64.size()) ||
       !IsValid(base64)) {
     return 0;
   }
   return Decode(base64, output_buffer.data());
+}
+
+void Encode(span<const std::byte> binary, InlineString<>& output) {
+  const size_t initial_size = output.size();
+  const size_t final_size = initial_size + EncodedSize(binary.size());
+
+  PW_CHECK(final_size <= output.capacity());
+
+  output.resize_and_overwrite([&](char* data, size_t) {
+    Encode(binary, data + initial_size);
+    return final_size;
+  });
 }
 
 }  // namespace pw::base64

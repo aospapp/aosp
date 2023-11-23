@@ -1,31 +1,33 @@
-// Copyright 2021 The Chromium OS Authors. All rights reserved.
+// Copyright 2021 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#[cfg_attr(windows, path = "windows/net.rs")]
-#[cfg_attr(not(windows), path = "unix/net.rs")]
-mod net;
+pub mod sys;
 
-// Only Windows exposes public symbols, but the module level use is used on both platforms.
-#[allow(unused_imports)]
-pub use net::*;
-
-use std::sync::Arc;
-
-use anyhow::{anyhow, bail, Context};
-use base::{error, Event};
-use cros_async::{EventAsync, Executor, IntoAsync};
-use data_model::DataInit;
+use anyhow::anyhow;
+use anyhow::bail;
+use anyhow::Context;
+use base::error;
+use base::Event;
+use cros_async::EventAsync;
+use cros_async::Executor;
+use cros_async::IntoAsync;
 use futures::future::AbortHandle;
 use net_util::TapT;
 use once_cell::sync::OnceCell;
-use sync::Mutex;
+pub use sys::start_device as run_net_device;
+pub use sys::Options;
 use vm_memory::GuestMemory;
 use vmm_vhost::message::VhostUserProtocolFeatures;
+use zerocopy::AsBytes;
 
 use crate::virtio;
-use crate::virtio::net::{build_config, process_ctrl, process_tx, virtio_features_to_tap_offload};
-use crate::virtio::vhost::user::device::handler::{Doorbell, VhostUserBackend};
+use crate::virtio::net::build_config;
+use crate::virtio::net::process_ctrl;
+use crate::virtio::net::process_tx;
+use crate::virtio::net::virtio_features_to_tap_offload;
+use crate::virtio::vhost::user::device::handler::sys::Doorbell;
+use crate::virtio::vhost::user::device::handler::VhostUserBackend;
 
 thread_local! {
     pub(crate) static NET_EXECUTOR: OnceCell<Executor> = OnceCell::new();
@@ -34,13 +36,12 @@ thread_local! {
 // TODO(b/188947559): Come up with better way to include these constants. Compiler errors happen
 // if they are kept in the trait.
 const MAX_QUEUE_NUM: usize = 3; /* rx, tx, ctrl */
-const MAX_VRING_LEN: u16 = 256;
 
 async fn run_tx_queue<T: TapT>(
     mut queue: virtio::Queue,
     mem: GuestMemory,
     mut tap: T,
-    doorbell: Arc<Mutex<Doorbell>>,
+    doorbell: Doorbell,
     kick_evt: EventAsync,
 ) {
     loop {
@@ -57,7 +58,7 @@ async fn run_ctrl_queue<T: TapT>(
     mut queue: virtio::Queue,
     mem: GuestMemory,
     mut tap: T,
-    doorbell: Arc<Mutex<Doorbell>>,
+    doorbell: Doorbell,
     kick_evt: EventAsync,
     acked_features: u64,
     vq_pairs: u16,
@@ -98,7 +99,7 @@ where
     T: TapT + IntoAsync,
 {
     fn max_vq_pairs() -> usize {
-        Self::MAX_QUEUE_NUM / 2
+        MAX_QUEUE_NUM / 2
     }
 }
 
@@ -106,10 +107,9 @@ impl<T: 'static> VhostUserBackend for NetBackend<T>
 where
     T: TapT + IntoAsync,
 {
-    const MAX_QUEUE_NUM: usize = MAX_QUEUE_NUM; /* rx, tx, ctrl */
-    const MAX_VRING_LEN: u16 = MAX_VRING_LEN;
-
-    type Error = anyhow::Error;
+    fn max_queue_num(&self) -> usize {
+        MAX_QUEUE_NUM
+    }
 
     fn features(&self) -> u64 {
         self.avail_features
@@ -151,8 +151,8 @@ where
     }
 
     fn read_config(&self, offset: u64, data: &mut [u8]) {
-        let config_space = build_config(Self::max_vq_pairs() as u16, self.mtu);
-        virtio::copy_config(data, 0, config_space.as_slice(), offset);
+        let config_space = build_config(Self::max_vq_pairs() as u16, self.mtu, None);
+        virtio::copy_config(data, 0, config_space.as_bytes(), offset);
     }
 
     fn reset(&mut self) {}
@@ -162,10 +162,10 @@ where
         idx: usize,
         queue: virtio::Queue,
         mem: GuestMemory,
-        doorbell: Arc<Mutex<Doorbell>>,
+        doorbell: Doorbell,
         kick_evt: Event,
     ) -> anyhow::Result<()> {
-        net::start_queue(self, idx, queue, mem, doorbell, kick_evt)
+        sys::start_queue(self, idx, queue, mem, doorbell, kick_evt)
     }
 
     fn stop_queue(&mut self, idx: usize) {
@@ -173,9 +173,4 @@ where
             handle.abort();
         }
     }
-}
-
-/// Starts a vhost-user net device.
-pub fn run_net_device(program_name: &str, args: &[&str]) -> anyhow::Result<()> {
-    start_device(program_name, args)
 }

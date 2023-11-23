@@ -35,13 +35,16 @@ const char *tst_decode_fd(const int fd)
 int safe_openat(const char *const file, const int lineno,
 		const int dirfd, const char *const path, const int oflags, ...)
 {
-	va_list ap;
 	int fd;
-	mode_t mode;
+	mode_t mode = 0;
 
-	va_start(ap, oflags);
-	mode = va_arg(ap, int);
-	va_end(ap);
+	if (TST_OPEN_NEEDS_MODE(oflags)) {
+		va_list ap;
+
+		va_start(ap, oflags);
+		mode = va_arg(ap, int);
+		va_end(ap);
+	}
 
 	fd = openat(dirfd, path, oflags, mode);
 	if (fd > -1)
@@ -192,6 +195,46 @@ int safe_unlinkat(const char *const file, const int lineno,
 	tst_brk_(file, lineno, TBROK | TERRNO,
 		 "unlinkat(%d<%s>, '%s', %s)",
 		 dirfd, tst_decode_fd(dirfd), path, flags_sym);
+
+	return rval;
+}
+
+int safe_fchownat(const char *const file, const int lineno,
+		  const int dirfd, const char *const path, uid_t owner, gid_t group, int flags)
+{
+	int rval;
+
+	rval = fchownat(dirfd, path, owner, group, flags);
+
+	if (rval == -1) {
+		tst_brk_(file, lineno, TBROK | TERRNO,
+			 "fchownat(%d<%s>, '%s', %d, %d, %d) failed", dirfd,
+			 tst_decode_fd(dirfd), path, owner, group, flags);
+	} else if (rval) {
+		tst_brk_(file, lineno, TBROK | TERRNO,
+			 "Invalid fchownat(%d<%s>, '%s', %d, %d, %d) return value %d",
+			 dirfd, tst_decode_fd(dirfd), path, owner, group, flags, rval);
+	}
+
+	return rval;
+}
+
+int safe_fstatat(const char *const file, const int lineno,
+		 const int dirfd, const char *const path, struct stat *statbuf, int flags)
+{
+	int rval;
+
+	rval = fstatat(dirfd, path, statbuf, flags);
+
+	if (rval == -1) {
+		tst_brk_(file, lineno, TBROK | TERRNO,
+			 "fstatat(%d<%s>, '%s', %p, %d) failed", dirfd,
+			 tst_decode_fd(dirfd), path, statbuf, flags);
+	} else if (rval) {
+		tst_brk_(file, lineno, TBROK | TERRNO,
+			 "Invalid fstatat(%d<%s>, '%s', %p, %d) return value %d",
+			 dirfd, tst_decode_fd(dirfd), path, statbuf, flags, rval);
+	}
 
 	return rval;
 }

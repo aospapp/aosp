@@ -26,7 +26,7 @@ class DrumPlayer {
                                         // Stereo Playback, set to 1 for Mono playback
                                         // This IS NOT the channel format of the source samples
                                         // (which must be mono).
-        val NUM_SAMPLE_CHANNELS: Int = 1;   // All WAV resource must be mono
+        val NUM_SAMPLE_CHANNELS: Int = 1   // All WAV resource must be mono
 
         // Sample Buffer IDs
         val BASSDRUM: Int = 0
@@ -109,6 +109,7 @@ class DrumPlayer {
     private external fun unloadWavAssetsNative()
 
     external fun trigger(drumIndex: Int)
+    external fun stopTrigger(drumIndex: Int)
 
     external fun setPan(index: Int, pan: Float)
     external fun getPan(index: Int): Float

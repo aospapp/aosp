@@ -1,0 +1,49 @@
+From a810882085aa3781646a4942464e1d7250155b12 Mon Sep 17 00:00:00 2001
+From: Patrick Rohr <prohr@google.com>
+Date: Fri, 31 Mar 2023 12:30:06 -0700
+Subject: [PATCH] cronet: always enable memory_usage_estimator
+
+MemoryUsageEstimator does not depend on perfetto, so it is safe to
+enable (which in this case is preferable over stubbing as it creates a
+smaller diff).
+
+This change is required as crrev.com/c/4075212 in //net added a
+dependency on MemoryUsageEstimator.
+
+Test: try to build
+Change-Id: Ib17e5cdb4c9216f2d160e78fedb0b441d4d48782
+---
+ base/BUILD.gn | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/base/BUILD.gn b/base/BUILD.gn
+index e5df11c967894..712fb940ca572 100644
+--- a/base/BUILD.gn
++++ b/base/BUILD.gn
+@@ -2383,6 +2383,14 @@ component("base") {
+     ]
+   }
+ 
++  # Enable memory usage estimator independent of enable_base_tracing.
++  # MemoryUsageEstimator by itself does not depend on perfetto and enabling it
++  # creates a smaller diff over stubbing.
++  sources += [
++    "trace_event/memory_usage_estimator.cc",
++    "trace_event/memory_usage_estimator.h",
++  ]
++
+   if (enable_base_tracing) {
+     sources += [
+       "trace_event/auto_open_close_event.h",
+@@ -2413,8 +2421,6 @@ component("base") {
+       "trace_event/memory_infra_background_allowlist.h",
+       "trace_event/memory_pressure_level_proto.cc",
+       "trace_event/memory_pressure_level_proto.h",
+-      "trace_event/memory_usage_estimator.cc",
+-      "trace_event/memory_usage_estimator.h",
+       "trace_event/optional_trace_event.h",
+       "trace_event/process_memory_dump.cc",
+       "trace_event/process_memory_dump.h",
+-- 
+2.40.0.348.gf938b09366-goog
+

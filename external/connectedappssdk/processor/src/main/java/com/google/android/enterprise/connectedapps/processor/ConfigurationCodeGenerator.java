@@ -30,13 +30,12 @@ import com.google.android.enterprise.connectedapps.processor.containers.Generato
  */
 class ConfigurationCodeGenerator {
   private boolean generated = false;
-  private final CrossProfileConfigurationInfo configuration;
   private final ServiceGenerator serviceGenerator;
   private final DispatcherGenerator dispatcherGenerator;
 
   ConfigurationCodeGenerator(
       GeneratorContext generatorContext, CrossProfileConfigurationInfo configuration) {
-    this.configuration = checkNotNull(configuration);
+    checkNotNull(configuration);
     this.serviceGenerator = new ServiceGenerator(checkNotNull(generatorContext), configuration);
     this.dispatcherGenerator = new DispatcherGenerator(generatorContext, configuration);
   }
@@ -47,11 +46,6 @@ class ConfigurationCodeGenerator {
           "ConfigurationCodeGenerator#generate can only be called once");
     }
     generated = true;
-
-    if (configuration.profileConnector() == null) {
-      // Without a connector we can't line things up so don't generate
-      return;
-    }
 
     serviceGenerator.generate();
     dispatcherGenerator.generate();

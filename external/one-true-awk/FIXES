@@ -23,7 +23,38 @@ THIS SOFTWARE.
 ****************************************************************/
 
 This file lists all bug fixes, changes, etc., made since the AWK book
-was sent to the printers in August, 1987.
+was sent to the printers in August 1987.
+
+Dec 15, 2022:
+	Force hex escapes in strings to be no more than two characters,
+	as they already are in regular expressions. This brings internal
+	consistency, as well as consistency with gawk. Thanks to
+	Arnold Robbins.
+
+Sep 12, 2022:
+	adjbuf minlen error (cannot be 0) in cat, resulting in NULL pbuf.
+	discovered by todd miller. also use-after-free issue with
+	tempfree in cat, thanks to Miguel Pineiro Jr and valgrind.
+
+Aug 30, 2022:
+	Various leaks and use-after-free issues plugged/fixed.
+	Thanks to Miguel Pineiro Jr. <mpj@pineiro.cc>.
+
+May 23, 2022:
+	Memory leak when assigning a string to some of the built-in
+	variables. allocated string erroneously marked DONTFREE.
+	Thanks to Miguel Pineiro Jr. <mpj@pineiro.cc>.
+
+Mar 14, 2022:
+	Historic bug: command-line "name=value" assignment had been
+	truncating its entry in ARGV. (circa 1989) Thanks to 
+	Miguel Pineiro Jr. <mpj@pineiro.cc>.
+
+Mar 3, 2022:
+	Fixed file management memory leak that appears to have been
+	there since the files array was first initialized with stdin,
+	stdout, and stderr (circa 1992). Thanks to Miguel Pineiro Jr.
+	<mpj@pineiro.cc>.
 
 December 8, 2021:
 	The error handling in closefile and closeall was mangled. Long
@@ -309,7 +340,7 @@ Mar 3, 2019:
 	#12: Avoid undefined behaviour when using ctype(3) functions in
 	     relex(). Thanks to GitHub user iamleot.
 	#31: Make getline handle numeric strings, and update FIXES. Thanks
-	     to GitHub user arnoldrobbins.
+	     to GitHub user Arnold Robbins (arnoldrobbins)
 	#32: maketab: support build systems with read-only source. Thanks
 	     to GitHub user enh.
 

@@ -93,6 +93,11 @@ std::string StrJoin(Iterator first, Iterator last, std::string_view sep,
   return result;
 }
 
+template <typename Iterator>
+std::string StrJoin(Iterator first, Iterator last, std::string_view sep) {
+  return absl_ports::StrJoin(first, last, sep, DefaultFormatter());
+}
+
 template <typename Container, typename Formatter>
 std::string StrJoin(const Container& container, std::string_view sep,
                     Formatter&& formatter) {

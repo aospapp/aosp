@@ -206,7 +206,7 @@ def remove_injection(control_file_in):
             ch == '\n' or ch == ' ' or ch == '\t'):
         end += 1
         if end < total_length:
-          ch = control_file_in[end]
+            ch = control_file_in[end]
     return control_file_in[:start] + control_file_in[end:]
 
 
@@ -343,9 +343,9 @@ def create_job_name(build, suite, test_name):
 
     @param build: name of the build, e.g., lumpy-release/R31-1234.0.0.
     @param suite: name of the suite, e.g., bvt.
-    @param test_name: name of the test, e.g., dummy_Pass.
+    @param test_name: name of the test, e.g., stub_ServerToClientPass.
     @return: the test job's name, e.g.,
-             lumpy-release/R31-1234.0.0/bvt/dummy_Pass.
+             lumpy-release/R31-1234.0.0/bvt/stub_ServerToClientPass.
     """
     return '/'.join([build, suite, test_name])
 
@@ -359,8 +359,8 @@ def get_test_name(build, suite, test_job_name):
     @param build: name of the build, e.g., lumpy-release/R31-1234.0.0.
     @param suite: name of the suite, e.g., bvt.
     @param test_job_name: name of the test job, e.g.,
-                          lumpy-release/R31-1234.0.0/bvt/dummy_Pass_SERVER_JOB.
-    @return: the test name, e.g., dummy_Pass_SERVER_JOB.
+                          lumpy-release/R31-1234.0.0/bvt/stub_ServerToClientPass.
+    @return: the test name, e.g., stub_ServerToClientPass.
     """
     # Do not change this naming convention without updating
     # site_utils.parse_job_name.

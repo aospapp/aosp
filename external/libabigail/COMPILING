@@ -13,19 +13,19 @@ following packages:
     pkg-config
 
 If you want to build the documentation of libabigail, then you also
-need these packages (and its dependencies):
+need these packages (and their dependencies):
 
      doxygen
      python-sphinx
 
 Note that if you are installing these packages in a binary form
 provided by your distribution, then you probably need to install the
-development variant of those that have one.
+development variant of those packages if the distribution has one.
 
 Once you have installed the development packages of the dependencies,
 there are two options for compiling libabigail, depending on the two
-kinds of source code package you have: either you've got the source
-code from our Git source control management system, or you've got a
+kinds of source code packages you have: either you have the source
+code from our Git source control management system, or you have a
 released tarball.
 
 * Getting and compiling libabigail from Git
@@ -99,7 +99,7 @@ Once you've done that, type:
      make doc
 
 This will generate the documentation in html, info and man format, in
-under the doc/ subdirectory of your build directory.
+the doc/ subdirectory of your build directory.
 
 If you only want the html documentation (mainly the web site, apidoc and manuals) then just type:
 

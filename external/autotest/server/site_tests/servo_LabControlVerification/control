@@ -6,12 +6,13 @@ from autotest_lib.server import utils
 
 AUTHOR = "coconutruben"
 NAME = "servo_LabControlVerification"
-PURPOSE = "Validate basic, critial servo controls for the lab work."
+PURPOSE = "Validate basic, critical servo controls for the lab work."
 TIME = "LONG"
 CRITERIA="Run on DUT with a servo attached and a functional DUT on the servo."
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "servo"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 

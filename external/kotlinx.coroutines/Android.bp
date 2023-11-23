@@ -38,12 +38,13 @@ license {
 java_library {
     name: "kotlinx_coroutines",
     host_supported: true,
-    // This should be "core_current", but that causes nullability issues
-    // for returned platform types that are explicitly marked @Nullable in
-    // SDK 29 and current.
-    sdk_version: "28",
+    sdk_version: "current",
+    min_sdk_version: "28",
     srcs: ["kotlinx-coroutines-core/jvm/src/**/*.kt"],
-    common_srcs: ["kotlinx-coroutines-core/common/src/**/*.kt"],
+    common_srcs: [
+        "kotlinx-coroutines-core/common/src/**/*.kt",
+        "kotlinx-coroutines-core/concurrent/src/**/*.kt",
+    ],
     exclude_srcs: [
         "kotlinx-coroutines-core/jvm/src/debug/**/*.kt",
         "kotlinx-coroutines-core/jvm/src/test_/TestCoroutineContext.kt",
@@ -52,33 +53,43 @@ java_library {
     static_libs: [
         "kotlinx_atomicfu",
     ],
+    libs: ["kotlinx-coroutines-android-annotation-stubs"],
     kotlincflags: [
         "-Xmulti-platform",
-        "-Xuse-experimental=kotlin.ExperimentalMultiplatform",
-        "-Xuse-experimental=kotlin.Experimental",
-        "-Xuse-experimental=kotlin.experimental.ExperimentalTypeInference",
-        "-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi",
-        "-Xuse-experimental=kotlinx.coroutines.FlowPreview",
-        "-Xuse-experimental=kotlinx.coroutines.ObsoleteCoroutinesApi",
-        "-Xuse-experimental=kotlinx.coroutines.InternalCoroutinesApi",
+        "-opt-in=kotlin.RequiresOptIn",
+        "-opt-in=kotlin.experimental.ExperimentalTypeInference",
+        "-opt-in=kotlin.ExperimentalMultiplatform",
+        "-opt-in=kotlinx.coroutines.DelicateCoroutinesApi",
+        "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+        "-opt-in=kotlinx.coroutines.ObsoleteCoroutinesApi",
+        "-opt-in=kotlinx.coroutines.InternalCoroutinesApi",
+        "-opt-in=kotlinx.coroutines.FlowPreview",
     ],
     apex_available: [
         "//apex_available:platform",
         "//apex_available:anyapex"
     ],
+    target: {
+        host: {
+            libs: ["annotations"], // for android.annotation.SuppressLint
+        },
+    },
 }
 
 java_library {
     name: "kotlinx_coroutines_android",
-    sdk_version: "28",
+    sdk_version: "current",
+    min_sdk_version: "28",
     srcs: ["ui/kotlinx-coroutines-android/src/**/*.kt"],
     java_resource_dirs: ["ui/kotlinx-coroutines-android/resources"],
     kotlincflags: [
-        "-Xuse-experimental=kotlinx.coroutines.InternalCoroutinesApi",
-        "-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi",
+        "-opt-in=kotlinx.coroutines.InternalCoroutinesApi",
+        "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+    ],
+    static_libs: [
+        "kotlinx_coroutines",
     ],
     libs: [
-        "kotlinx_coroutines",
         "androidx.annotation_annotation",
     ],
     apex_available: [
@@ -90,11 +101,14 @@ java_library {
 java_library {
     name: "kotlinx_coroutines_test",
     host_supported: true,
-    srcs: ["kotlinx-coroutines-test/src/**/*.kt"],
-    java_resource_dirs: ["kotlinx-coroutines-test/resources"],
+    srcs: ["kotlinx-coroutines-test/jvm/src/**/*.kt"],
+    common_srcs: ["kotlinx-coroutines-test/common/src/**/*.kt"],
+    java_resource_dirs: ["kotlinx-coroutines-test/jvm/resources"],
     kotlincflags: [
-        "-Xuse-experimental=kotlinx.coroutines.InternalCoroutinesApi",
-        "-Xuse-experimental=kotlinx.coroutines.ExperimentalCoroutinesApi",
+        "-Xmulti-platform",
+        "-opt-in=kotlin.ExperimentalMultiplatform",
+        "-opt-in=kotlinx.coroutines.InternalCoroutinesApi",
+        "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
     ],
     libs: [
         "kotlinx_coroutines",
@@ -105,12 +119,23 @@ java_library {
     ],
 }
 
-// Temporary aliases for kotlinx-coroutines-core, kotlinx-coroutines-core-jvm and kotlinx-coroutines-android
+// Compile stub implementations of annotations used by kotlinx-coroutines but not present in the
+// Android tree.
+java_library {
+    name: "kotlinx-coroutines-android-annotation-stubs",
+    host_supported: true,
+    sdk_version: "core_current",
+    srcs: ["android-annotation-stubs/src/**/*.java"],
+}
+
+// Temporary aliases for kotlinx-coroutines-core, kotlinx-coroutines-core-jvm and
+// kotlinx-coroutines-android
 
 java_library {
     name: "kotlinx-coroutines-core",
     host_supported: true,
-    sdk_version: "28",
+    sdk_version: "current",
+    min_sdk_version: "28",
     static_libs: ["kotlinx_coroutines"],
     apex_available: [
         "//apex_available:platform",
@@ -121,7 +146,8 @@ java_library {
 java_library {
     name: "kotlinx-coroutines-core-jvm",
     host_supported: true,
-    sdk_version: "28",
+    sdk_version: "current",
+    min_sdk_version: "28",
     static_libs: ["kotlinx_coroutines"],
     apex_available: [
         "//apex_available:platform",
@@ -131,7 +157,8 @@ java_library {
 
 java_library {
     name: "kotlinx-coroutines-android",
-    sdk_version: "28",
+    sdk_version: "current",
+    min_sdk_version: "28",
     static_libs: [
         "kotlinx_coroutines_android",
         "kotlinx_coroutines",
@@ -145,4 +172,27 @@ java_library {
 filegroup {
     name: "kotlinx-coroutines-play-services",
     srcs: ["integration/kotlinx-coroutines-play-services/src/**/*.kt"],
+    visibility: ["//visibility:public"],
 }
+
+// Maven coordinate: org.jetbrains.kotlinx:kotlinx-coroutines-guava
+java_library {
+    name: "kotlinx_coroutines_guava",
+    host_supported: true,
+    srcs: ["integration/kotlinx-coroutines-guava/src/**/*.kt"],
+    kotlincflags: [
+        "-opt-in=kotlin.RequiresOptIn",
+        "-opt-in=kotlinx.coroutines.InternalCoroutinesApi",
+        "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+    ],
+    libs: [
+        "kotlinx_coroutines",
+        "kotlin-stdlib-jdk8",
+        "guava",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+}
+

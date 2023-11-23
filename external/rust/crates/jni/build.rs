@@ -21,6 +21,7 @@ use std::{
 #[cfg(target_os = "windows")]
 const EXPECTED_JVM_FILENAME: &str = "jvm.dll";
 #[cfg(any(
+    target_os = "android",
     target_os = "freebsd",
     target_os = "linux",
     target_os = "netbsd",
@@ -57,7 +58,7 @@ fn main() {
         // On MacOS, we need to link to libjli instead of libjvm as a workaround
         // to a Java8 bug. See here for more information:
         // https://bugs.openjdk.java.net/browse/JDK-7131356
-        if cfg!(target_os = "macos") {
+        if env::var("CARGO_CFG_TARGET_OS").unwrap() == "macos" {
             println!("cargo:rustc-link-lib=dylib=jli");
         } else {
             println!("cargo:rustc-link-lib=dylib=jvm");

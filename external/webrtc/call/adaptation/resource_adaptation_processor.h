@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "api/adaptation/resource.h"
 #include "api/rtp_parameters.h"
@@ -24,12 +25,12 @@
 #include "api/task_queue/task_queue_base.h"
 #include "api/video/video_adaptation_counters.h"
 #include "api/video/video_frame.h"
-#include "api/video/video_stream_encoder_observer.h"
 #include "call/adaptation/resource_adaptation_processor_interface.h"
 #include "call/adaptation/video_source_restrictions.h"
 #include "call/adaptation/video_stream_adapter.h"
 #include "call/adaptation/video_stream_input_state.h"
 #include "call/adaptation/video_stream_input_state_provider.h"
+#include "video/video_stream_encoder_observer.h"
 
 namespace webrtc {
 
@@ -54,13 +55,9 @@ class ResourceAdaptationProcessor : public ResourceAdaptationProcessorInterface,
                                     public VideoSourceRestrictionsListener,
                                     public ResourceListener {
  public:
-  ResourceAdaptationProcessor(
-      VideoStreamEncoderObserver* encoder_stats_observer,
+  explicit ResourceAdaptationProcessor(
       VideoStreamAdapter* video_stream_adapter);
   ~ResourceAdaptationProcessor() override;
-
-  void SetResourceAdaptationQueue(
-      TaskQueueBase* resource_adaptation_queue) override;
 
   // ResourceAdaptationProcessorInterface implementation.
   void AddResourceLimitationsListener(
@@ -92,7 +89,6 @@ class ResourceAdaptationProcessor : public ResourceAdaptationProcessorInterface,
    public:
     explicit ResourceListenerDelegate(ResourceAdaptationProcessor* processor);
 
-    void SetResourceAdaptationQueue(TaskQueueBase* resource_adaptation_queue);
     void OnProcessorDestroyed();
 
     // ResourceListener implementation.
@@ -100,9 +96,8 @@ class ResourceAdaptationProcessor : public ResourceAdaptationProcessorInterface,
                                       ResourceUsageState usage_state) override;
 
    private:
-    TaskQueueBase* resource_adaptation_queue_;
-    ResourceAdaptationProcessor* processor_
-        RTC_GUARDED_BY(resource_adaptation_queue_);
+    TaskQueueBase* task_queue_;
+    ResourceAdaptationProcessor* processor_ RTC_GUARDED_BY(task_queue_);
   };
 
   enum class MitigationResult {
@@ -114,7 +109,8 @@ class ResourceAdaptationProcessor : public ResourceAdaptationProcessorInterface,
 
   struct MitigationResultAndLogMessage {
     MitigationResultAndLogMessage();
-    MitigationResultAndLogMessage(MitigationResult result, std::string message);
+    MitigationResultAndLogMessage(MitigationResult result,
+                                  absl::string_view message);
     MitigationResult result;
     std::string message;
   };
@@ -130,56 +126,40 @@ class ResourceAdaptationProcessor : public ResourceAdaptationProcessorInterface,
   void UpdateResourceLimitations(rtc::scoped_refptr<Resource> reason_resource,
                                  const VideoSourceRestrictions& restrictions,
                                  const VideoAdaptationCounters& counters)
-      RTC_RUN_ON(resource_adaptation_queue_);
+      RTC_RUN_ON(task_queue_);
 
-  // Searches |adaptation_limits_by_resources_| for each resource with the
+  // Searches `adaptation_limits_by_resources_` for each resource with the
   // highest total adaptation counts. Adaptation up may only occur if the
   // resource performing the adaptation is the only most limited resource. This
   // function returns the list of all most limited resources as well as the
   // corresponding adaptation of that resource.
   std::pair<std::vector<rtc::scoped_refptr<Resource>>,
             VideoStreamAdapter::RestrictionsWithCounters>
-  FindMostLimitedResources() const RTC_RUN_ON(resource_adaptation_queue_);
+  FindMostLimitedResources() const RTC_RUN_ON(task_queue_);
 
   void RemoveLimitationsImposedByResource(
       rtc::scoped_refptr<Resource> resource);
 
-  TaskQueueBase* resource_adaptation_queue_;
+  TaskQueueBase* task_queue_;
   rtc::scoped_refptr<ResourceListenerDelegate> resource_listener_delegate_;
   // Input and output.
-  VideoStreamEncoderObserver* const encoder_stats_observer_
-      RTC_GUARDED_BY(resource_adaptation_queue_);
   mutable Mutex resources_lock_;
   std::vector<rtc::scoped_refptr<Resource>> resources_
       RTC_GUARDED_BY(resources_lock_);
   std::vector<ResourceLimitationsListener*> resource_limitations_listeners_
-      RTC_GUARDED_BY(resource_adaptation_queue_);
+      RTC_GUARDED_BY(task_queue_);
   // Purely used for statistics, does not ensure mapped resources stay alive.
   std::map<rtc::scoped_refptr<Resource>,
            VideoStreamAdapter::RestrictionsWithCounters>
-      adaptation_limits_by_resources_
-          RTC_GUARDED_BY(resource_adaptation_queue_);
+      adaptation_limits_by_resources_ RTC_GUARDED_BY(task_queue_);
   // Responsible for generating and applying possible adaptations.
-  VideoStreamAdapter* const stream_adapter_
-      RTC_GUARDED_BY(resource_adaptation_queue_);
+  VideoStreamAdapter* const stream_adapter_ RTC_GUARDED_BY(task_queue_);
   VideoSourceRestrictions last_reported_source_restrictions_
-      RTC_GUARDED_BY(resource_adaptation_queue_);
+      RTC_GUARDED_BY(task_queue_);
   // Keeps track of previous mitigation results per resource since the last
   // successful adaptation. Used to avoid RTC_LOG spam.
   std::map<Resource*, MitigationResult> previous_mitigation_results_
-      RTC_GUARDED_BY(resource_adaptation_queue_);
-  // Prevents recursion.
-  //
-  // This is used to prevent triggering resource adaptation in the process of
-  // already handling resouce adaptation, since that could cause the same states
-  // to be modified in unexpected ways. Example:
-  //
-  // Resource::OnResourceUsageStateMeasured() ->
-  // ResourceAdaptationProcessor::OnResourceOveruse() ->
-  // Resource::OnAdaptationApplied() ->
-  // Resource::OnResourceUsageStateMeasured() ->
-  // ResourceAdaptationProcessor::OnResourceOveruse() // Boom, not allowed.
-  bool processing_in_progress_ RTC_GUARDED_BY(resource_adaptation_queue_);
+      RTC_GUARDED_BY(task_queue_);
 };
 
 }  // namespace webrtc

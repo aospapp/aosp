@@ -1,11 +1,11 @@
 # buildifier: disable=module-docstring
 load(
     ":testdata/filter_rules_test/dep.bzl",
-    "my_rule_impl",
     dep_rule = "my_rule",
 )
 
 def my_rule_impl(ctx):
+    _ignore = [ctx]  # @unused
     return []
 
 my_rule = rule(

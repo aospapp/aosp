@@ -1,7 +1,7 @@
 #! /bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2012 FUJITSU LIMITED
-# Copyright (c) 2014-2019 Linux Test Project
+# Copyright (c) 2014-2022 Linux Test Project
 # Copyright (c) 2021 Joerg Vehlow <joerg.vehlow@aox-tech.de>
 #
 # Author: Peng Haitao <penght@cn.fujitsu.com>
@@ -10,83 +10,101 @@ TST_NEEDS_CHECKPOINTS=1
 TST_NEEDS_ROOT=1
 TST_NEEDS_TMPDIR=1
 TST_NEEDS_CMDS="killall find kill"
-TST_CLEANUP=memcg_cleanup
-TST_SETUP=memcg_setup
+TST_SETUP="${TST_SETUP:-memcg_setup}"
+TST_CLEANUP="${TST_CLEANUP:-memcg_cleanup}"
 TST_TESTFUNC=memcg_testfunc
-
-MEMCG_SHMMAX=${MEMCG_SHMMAX:-0}
-MEMCG_TESTFUNC=${MEMCG_TESTFUNC:-memcg_no_testfunc}
-
-. cgroup_lib.sh
-
-PAGESIZE=$(tst_getconf PAGESIZE)
-if [ $? -ne 0 ]; then
-	tst_brk TBROK "tst_getconf PAGESIZE failed"
-fi
-
-# Post 4.16 kernel updates stat in batch (> 32 pages) every time
-PAGESIZES=$(($PAGESIZE * 33))
-
-HUGEPAGESIZE=$(awk '/Hugepagesize/ {print $2}' /proc/meminfo)
-[ -z $HUGEPAGESIZE ] && HUGEPAGESIZE=0
-HUGEPAGESIZE=$(($HUGEPAGESIZE * 1024))
-
-orig_memory_use_hierarchy=
-orig_shmmax=
 
 memcg_require_memsw()
 {
-	if ! [ -e /dev/memcg/memory.limit_in_bytes ]; then
-		tst_brk TBROK "/dev/memcg must be mounted before calling memcg_require_memsw"
+	if ! [ -e "$mount_point/memory.limit_in_bytes" ]; then
+		tst_brk TBROK "$mount_point must be mounted before calling memcg_require_memsw"
 	fi
-	if ! [ -e /dev/memcg/memory.memsw.limit_in_bytes ]; then
+	if ! [ -e "$mount_point/memory.memsw.limit_in_bytes" ]; then
 		tst_brk TCONF "mem+swap is not enabled"
 	fi
 }
 
 memcg_require_hierarchy_disabled()
 {
-	if [ ! -e "/dev/memcg/memory.use_hierarchy" ]; then
-		tst_brk TBROK "/dev/memcg must be mounted before calling memcg_require_hierarchy_disabled"
+	if [ ! -e "$mount_point/memory.use_hierarchy" ]; then
+		tst_brk TBROK "$mount_point must be mounted before calling memcg_require_hierarchy_disabled"
 	fi
-	if [ $(cat /dev/memcg/memory.use_hierarchy) -eq 1 ]; then
+	if [ "$(cat "$mount_point/memory.use_hierarchy")" -eq 1 ]; then
 		tst_brk TCONF "Test requires root cgroup memory.use_hierarchy=0"
 	fi
 }
 
-memcg_setup()
+# Kernel memory allocated for the process is also charged.  It might depend on
+# the number of CPUs and number of nodes. For example on kernel v5.11
+# additionally total_cpus (plus 1 or 2) pages are charged to the group via
+# kernel memory.  For a two-node machine, additional 108 pages kernel memory
+# are charged to the group.
+#
+# Adjust the limit to account such per-CPU and per-node kernel memory.
+# $1 - expected cgroup memory limit value to adjust
+memcg_adjust_limit_for_kmem()
 {
-	if ! is_cgroup_subsystem_available_and_enabled "memory"; then
-		tst_brk TCONF "Either kernel does not support Memory Resource Controller or feature not enabled"
+	[ $# -ne 1 ] && tst_brk TBROK "memcg_adjust_limit_for_kmem expects 1 parameter"
+
+	local limit=$1
+
+	# Total number of CPUs
+	local total_cpus=`tst_ncpus`
+
+	# Total number of nodes
+	if [ ! -d /sys/devices/system/node/node0 ]; then
+		total_nodes=1
+	else
+		total_nodes=`ls /sys/devices/system/node/ | grep -c "node[0-9][0-9]*"`
 	fi
 
-	# Setup IPC
-	LTP_IPC_PATH="/dev/shm/ltp_${TCID}_$$"
-	LTP_IPC_SIZE=$PAGESIZE
-	ROD_SILENT dd if=/dev/zero of="$LTP_IPC_PATH" bs="$LTP_IPC_SIZE" count=1
-	ROD_SILENT chmod 600 "$LTP_IPC_PATH"
-	export LTP_IPC_PATH
-	# Setup IPC end
+	local node_mem=0
+	if [ $total_nodes -gt 1 ]; then
+		node_mem=$((total_nodes - 1))
+		node_mem=$((node_mem * PAGESIZE * 128))
+	fi
 
-	ROD mkdir /dev/memcg
-	ROD mount -t cgroup -omemory memcg /dev/memcg
+	limit=$((limit + 4 * PAGESIZE + total_cpus * PAGESIZE + node_mem))
 
-	# The default value for memory.use_hierarchy is 0 and some of tests
-	# (memcg_stat_test.sh and memcg_use_hierarchy_test.sh) expect it so
-	# while there are distributions (RHEL7U0Beta for example) that sets
-	# it to 1.
+	echo $limit
+}
+
+memcg_setup()
+{
+	cgroup_require "memory"
+	cgroup_version=$(cgroup_get_version "memory")
+
+	# Most of the tests here are testing specific parts of the cgroup v1 memory interface that is
+	# not present for cgroup2, so if it is already mounted on a cgroup v2 hierarchy we should skip
+	# the test.
+	# Some tests still make sense in v2 and should be modified in a future patch
+	if [ "$cgroup_version" = "2" ]; then
+		tst_brk TCONF "memory controller mounted on cgroup v2 hierarchy, skipping test."
+	fi
+
+	mount_point=$(cgroup_get_mountpoint "memory")
+	test_dir=$(cgroup_get_test_path "memory")
+
+	# For kernels older than v5.11 the default value for
+	# memory.use_hierarchy is 0 and some of tests (memcg_stat_test.sh and
+	# memcg_use_hierarchy_test.sh) expect it so while there are
+	# distributions (RHEL7U0Beta for example) that sets it to 1.
 	# Note: If there are already subgroups created it is not possible,
 	# to set this back to 0.
 	# This seems to be the default for all systems using systemd.
-	orig_memory_use_hierarchy=$(cat /dev/memcg/memory.use_hierarchy)
+	#
+	# Starting with kernel v5.11, the non-hierarchical mode is not
+	# available. See Linux kernel commit bef8620cd8e0 ("mm: memcg:
+	# deprecate the non-hierarchical mode").
+	orig_memory_use_hierarchy=$(cat "$mount_point/memory.use_hierarchy")
 	if [ -z "$orig_memory_use_hierarchy" ];then
-		tst_res TINFO "cat /dev/memcg/ failed"
+		tst_res TINFO "cat $mount_point failed"
 	elif [ "$orig_memory_use_hierarchy" = "0" ];then
 		orig_memory_use_hierarchy=""
 	else
-		echo 0 > /dev/memcg/memory.use_hierarchy 2>/dev/null
+		echo 0 > "$mount_point/memory.use_hierarchy" 2>/dev/null
 		if [ $? -ne 0 ];then
-			tst_res TINFO "set /dev/memcg/memory.use_hierarchy to 0 failed"
+			tst_res TINFO "set $mount_point/memory.use_hierarchy to 0 failed"
 		fi
 	fi
 
@@ -99,22 +117,19 @@ memcg_cleanup()
 
 	cd $TST_TMPDIR
 	# In order to remove all subgroups, we have to remove them recursively
-	if [ -e /dev/memcg/ltp_$$ ]; then
-		ROD find /dev/memcg/ltp_$$ -depth -type d -delete
+	if [ -e $test_dir ]; then
+		ROD find $test_dir -depth -type d -delete
 	fi
 
 	if [ -n "$orig_memory_use_hierarchy" ];then
-		echo $orig_memory_use_hierarchy > /dev/memcg/memory.use_hierarchy
+		echo $orig_memory_use_hierarchy > $mount_point/memory.use_hierarchy
 		if [ $? -ne 0 ];then
-			tst_res TINFO "restore /dev/memcg/memory.use_hierarchy failed"
+			tst_res TINFO "restore $mount_point/memory.use_hierarchy failed"
 		fi
 		orig_memory_use_hierarchy=""
 	fi
 
-	if [ -e "/dev/memcg" ]; then
-		umount /dev/memcg
-		rmdir /dev/memcg
-	fi
+	cgroup_cleanup
 
 	[ "$MEMCG_SHMMAX" = "1" ] && shmmax_cleanup
 }
@@ -140,7 +155,8 @@ shmmax_cleanup()
 
 # Check size in memcg
 # $1 - Item name
-# $2 - Expected size
+# $2 - Expected size lower bound
+# $3 - Expected size upper bound (optional)
 check_mem_stat()
 {
 	local item_size
@@ -151,7 +167,13 @@ check_mem_stat()
 		item_size=$(grep -w $1 memory.stat | cut -d " " -f 2)
 	fi
 
-	if [ "$2" = "$item_size" ]; then
+	if [ "$3" ]; then
+		if [ $item_size -ge $2 ] && [ $item_size -le $3 ]; then
+			tst_res TPASS "$1 is ${2}-${3} as expected"
+		else
+			tst_res TFAIL "$1 is $item_size, ${2}-${3} expected"
+		fi
+	elif [ "$2" = "$item_size" ]; then
 		tst_res TPASS "$1 is $2 as expected"
 	else
 		tst_res TFAIL "$1 is $item_size, $2 expected"
@@ -193,7 +215,7 @@ signal_memcg_process()
 
 		loops=$((loops - 1))
 		if [ $loops -le 0 ]; then
-			tst_brk TBROK "timed out on memory.usage_in_bytes"
+			tst_brk TBROK "timed out on memory.usage_in_bytes" $usage $usage_start $size
 		fi
 	done
 }
@@ -232,8 +254,10 @@ test_mem_stat()
 	local size=$2
 	local total_size=$3
 	local stat_name=$4
-	local exp_stat_size=$5
-	local check_after_free=$6
+	local exp_stat_size_low=$5
+	local exp_stat_size_up=$6
+	local check_after_free=$7
+	local kmem_stat_name="${stat_name##*.}"
 
 	start_memcg_process $memtypes -s $size
 
@@ -244,7 +268,20 @@ test_mem_stat()
 	echo $MEMCG_PROCESS_PID > tasks
 	signal_memcg_process $size
 
-	check_mem_stat $stat_name $exp_stat_size
+	if [ "$kmem_stat_name" = "max_usage_in_bytes" ] ||
+	   [ "$kmem_stat_name" = "usage_in_bytes" ]; then
+		local kmem=$(cat "memory.kmem.${kmem_stat_name}")
+		if [ $? -eq 0 ]; then
+			exp_stat_size_low=$((exp_stat_size_low + kmem))
+			exp_stat_size_up=$((exp_stat_size_up + kmem))
+		fi
+	fi
+
+	if [ "$exp_stat_size_low" = "$exp_stat_size_up" ]; then
+		check_mem_stat $stat_name $exp_stat_size_low
+	else
+		check_mem_stat $stat_name $exp_stat_size_low $exp_stat_size_up
+	fi
 
 	signal_memcg_process $size
 	if $check_after_free; then
@@ -314,7 +351,7 @@ test_limit_in_bytes()
 	local use_memsw=$2
 	local elimit
 
-	echo $limit > memory.limit_in_bytes
+	EXPECT_PASS echo $limit \> memory.limit_in_bytes
 	if [ $use_memsw -eq 1 ]; then
 		memcg_require_memsw
 		echo $limit > memory.memsw.limit_in_bytes
@@ -336,8 +373,8 @@ test_limit_in_bytes()
 
 memcg_testfunc()
 {
-	ROD mkdir /dev/memcg/ltp_$$
-	cd /dev/memcg/ltp_$$
+	ROD mkdir $test_dir/ltp_$$
+	cd $test_dir/ltp_$$
 
 	if type ${MEMCG_TESTFUNC}1 > /dev/null 2>&1; then
 		${MEMCG_TESTFUNC}$1 $1 "$2"
@@ -346,10 +383,46 @@ memcg_testfunc()
 	fi
 
 	cd $TST_TMPDIR
-	ROD rmdir /dev/memcg/ltp_$$
+	ROD rmdir $test_dir/ltp_$$
 }
 
 memcg_no_testfunc()
 {
 	tst_brk TBROK "No testfunc specified, set MEMCG_TESTFUNC"
 }
+
+. cgroup_lib.sh
+
+MEMCG_SHMMAX=${MEMCG_SHMMAX:-0}
+MEMCG_TESTFUNC=${MEMCG_TESTFUNC:-memcg_no_testfunc}
+
+PAGESIZE=$(tst_getconf PAGESIZE)
+if [ $? -ne 0 ]; then
+	tst_brk TBROK "tst_getconf PAGESIZE failed"
+fi
+
+# Post 4.16 kernel updates stat in batch (> 32 pages) every time
+# Post 6.1 kernel updates stat in batch (> 64 pages) every time
+# 1813e51eece0ad6 ("memcg: increase MEMCG_CHARGE_BATCH to 64")
+# has been merged since 5.14.0-191.el9.
+if tst_kvcmp -lt "6.1 RHEL9:5.14.0-191" ; then
+	PAGESIZES=$(($PAGESIZE * 33))
+else
+	PAGESIZES=$(($PAGESIZE * 65))
+fi
+
+# On recent Linux kernels (at least v5.4) updating stats happens in batches
+# (PAGESIZES) and also might depend on workload and number of CPUs.  The kernel
+# caches the data and does not prioritize stats precision.  This is especially
+# visible for max_usage_in_bytes where it usually exceeds
+# actual memory allocation.
+# When checking for usage_in_bytes and max_usage_in_bytes accept also higher values
+# from given range:
+MEM_USAGE_RANGE=$((PAGESIZES))
+
+HUGEPAGESIZE=$(awk '/Hugepagesize/ {print $2}' /proc/meminfo)
+[ -z $HUGEPAGESIZE ] && HUGEPAGESIZE=0
+HUGEPAGESIZE=$(($HUGEPAGESIZE * 1024))
+
+orig_memory_use_hierarchy=
+orig_shmmax=

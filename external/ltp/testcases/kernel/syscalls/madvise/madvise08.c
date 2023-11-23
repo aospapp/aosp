@@ -110,8 +110,7 @@ static int find_sequence(int pid)
 
 	snprintf(dumpname, 256, "dump-%d", pid);
 	tst_res(TINFO, "Dump file should be %s", dumpname);
-	if (access(dumpname, F_OK))
-		tst_brk(TBROK | TERRNO, "Dump file was not found.");
+	SAFE_ACCESS(dumpname, F_OK);
 
 	dfd = SAFE_OPEN(dumpname, O_RDONLY);
 
@@ -209,12 +208,11 @@ static struct tst_test test = {
 	.tcnt = 2,
 	.setup = setup,
 	.cleanup = cleanup,
-	.min_kver = "3.4.0",
 	.needs_tmpdir = 1,
 	.needs_root = 1,
 	.forks_child = 1,
-	.save_restore = (const char * const[]) {
-		CORE_PATTERN,
-		NULL,
+	.save_restore = (const struct tst_path_val[]) {
+		{CORE_PATTERN, NULL, TST_SR_TCONF},
+		{}
 	},
 };

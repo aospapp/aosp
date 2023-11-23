@@ -9,16 +9,18 @@ from autotest_lib.server.hosts import cros_constants
 from autotest_lib.server.hosts import repair_utils
 from autotest_lib.client.common_lib import utils
 
-from chromite.lib import timeout_util
+from autotest_lib.utils.frozen_chromite.lib import timeout_util
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
 # There are some labstations we don't want they receive auto-update,
 # e.g. labstations that used for image qualification purpose
-UPDATE_EXEMPTED_POOL = {'servo_verification', 'labstation_tryjob'}
+UPDATE_EXEMPTED_POOL = {
+        'servo_verification', 'labstation_tryjob', 'labstation_canary'
+}
 
 
 class _LabstationUpdateVerifier(hosts.Verifier):

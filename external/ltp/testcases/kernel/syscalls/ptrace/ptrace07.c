@@ -24,6 +24,10 @@
  * know about the architecture-dependent FPU state.
  */
 
+#include "tst_test.h"
+
+#ifdef __x86_64__
+
 #include <errno.h>
 #include <inttypes.h>
 #include <sched.h>
@@ -34,7 +38,8 @@
 
 #include "config.h"
 #include "ptrace.h"
-#include "tst_test.h"
+#include "tst_safe_macros.h"
+#include "lapi/cpuid.h"
 
 #ifndef PTRACE_GETREGSET
 # define PTRACE_GETREGSET 0x4204
@@ -48,7 +53,10 @@
 # define NT_X86_XSTATE 0x202
 #endif
 
-#ifdef __x86_64__
+#ifndef CPUID_LEAF_XSTATE
+# define CPUID_LEAF_XSTATE 0xd
+#endif
+
 static void check_regs_loop(uint32_t initval)
 {
 	const unsigned long num_iters = 1000000000;
@@ -82,11 +90,20 @@ static void do_test(void)
 	int i;
 	int num_cpus = tst_ncpus();
 	pid_t pid;
-	uint64_t xstate[512];
-	struct iovec iov = { .iov_base = xstate, .iov_len = sizeof(xstate) };
+	uint32_t eax = 0, ebx = 0, ecx = 0, edx = 0;
+	uint64_t *xstate;
+	/*
+	 * CPUID.(EAX=0DH, ECX=0H):EBX: maximum size (bytes, from the beginning
+	 * of the XSAVE/XRSTOR save area) required by enabled features in XCR0.
+	 */
+	__cpuid_count(CPUID_LEAF_XSTATE, ecx, eax, ebx, ecx, edx);
+	xstate = SAFE_MEMALIGN(64, ebx);
+	struct iovec iov = { .iov_base = xstate, .iov_len = ebx };
 	int status;
 	bool okay;
 
+	tst_res(TINFO, "CPUID.(EAX=%u, ECX=0):EAX=%u, EBX=%u, ECX=%u, EDX=%u",
+		CPUID_LEAF_XSTATE, eax, ebx, ecx, edx);
 	pid = SAFE_FORK();
 	if (pid == 0) {
 		TST_CHECKPOINT_WAKE(0);
@@ -101,12 +118,15 @@ static void do_test(void)
 	sched_yield();
 
 	TEST(ptrace(PTRACE_ATTACH, pid, 0, 0));
-	if (TST_RET != 0)
+	if (TST_RET != 0) {
+		free(xstate);
 		tst_brk(TBROK | TTERRNO, "PTRACE_ATTACH failed");
+	}
 
 	SAFE_WAITPID(pid, NULL, 0);
 	TEST(ptrace(PTRACE_GETREGSET, pid, NT_X86_XSTATE, &iov));
 	if (TST_RET != 0) {
+		free(xstate);
 		if (TST_ERR == EIO)
 			tst_brk(TCONF, "GETREGSET/SETREGSET is unsupported");
 
@@ -137,6 +157,7 @@ static void do_test(void)
 		tst_res(TINFO,
 			"PTRACE_SETREGSET with reserved bits failed with EINVAL");
 	} else {
+		free(xstate);
 		tst_brk(TBROK | TTERRNO,
 			"PTRACE_SETREGSET failed with unexpected error");
 	}
@@ -151,8 +172,10 @@ static void do_test(void)
 	 * worry about potential stops after this point.
 	 */
 	TEST(ptrace(PTRACE_DETACH, pid, 0, 0));
-	if (TST_RET != 0)
+	if (TST_RET != 0) {
+		free(xstate);
 		tst_brk(TBROK | TTERRNO, "PTRACE_DETACH failed");
+	}
 
 	/* If child 'pid' crashes, only report it as info. */
 	SAFE_WAITPID(pid, &status, 0);
@@ -172,12 +195,17 @@ static void do_test(void)
 	}
 	if (okay)
 		tst_res(TPASS, "wasn't able to set invalid FPU state");
+	free(xstate);
 }
 
 static struct tst_test test = {
 	.test_all = do_test,
 	.forks_child = 1,
 	.needs_checkpoints = 1,
+	.supported_archs = (const char *const []) {
+		"x86_64",
+		NULL
+	},
 	.tags = (const struct tst_tag[]) {
 		{"linux-git", "814fb7bb7db5"},
 		{"CVE", "2017-15537"},
@@ -186,6 +214,6 @@ static struct tst_test test = {
 
 };
 
-#else /* !__x86_64__ */
-	TST_TEST_TCONF("this test is only supported on x86_64");
-#endif /* __x86_64__ */
+#else
+TST_TEST_TCONF("Tests an x86_64 feature");
+#endif	/* if x86 */

@@ -11,11 +11,10 @@
 #include <linux/in.h>
 #include <linux/tcp.h>
 #include <linux/pkt_cls.h>
-#include "bpf_helpers.h"
-#include "bpf_endian.h"
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_endian.h>
 
 #define barrier() __asm__ __volatile__("": : :"memory")
-int _version SEC("version") = 1;
 
 /* llvm will optimize both subprograms into exactly the same BPF assembly
  *
@@ -47,7 +46,57 @@ int test_pkt_access_subprog2(int val, volatile struct __sk_buff *skb)
 	return skb->len * val;
 }
 
-SEC("classifier/test_pkt_access")
+#define MAX_STACK (512 - 2 * 32)
+
+__attribute__ ((noinline))
+int get_skb_len(struct __sk_buff *skb)
+{
+	volatile char buf[MAX_STACK] = {};
+
+	return skb->len;
+}
+
+__attribute__ ((noinline))
+int get_constant(long val)
+{
+	return val - 122;
+}
+
+int get_skb_ifindex(int, struct __sk_buff *skb, int);
+
+__attribute__ ((noinline))
+int test_pkt_access_subprog3(int val, struct __sk_buff *skb)
+{
+	return get_skb_len(skb) * get_skb_ifindex(val, skb, get_constant(123));
+}
+
+__attribute__ ((noinline))
+int get_skb_ifindex(int val, struct __sk_buff *skb, int var)
+{
+	volatile char buf[MAX_STACK] = {};
+
+	return skb->ifindex * val * var;
+}
+
+__attribute__ ((noinline))
+int test_pkt_write_access_subprog(struct __sk_buff *skb, __u32 off)
+{
+	void *data = (void *)(long)skb->data;
+	void *data_end = (void *)(long)skb->data_end;
+	struct tcphdr *tcp = NULL;
+
+	if (off > sizeof(struct ethhdr) + sizeof(struct ipv6hdr))
+		return -1;
+
+	tcp = data + off;
+	if (tcp + 1 > data_end)
+		return -1;
+	/* make modification to the packet data */
+	tcp->check++;
+	return 0;
+}
+
+SEC("tc")
 int test_pkt_access(struct __sk_buff *skb)
 {
 	void *data_end = (void *)(long)skb->data_end;
@@ -82,7 +131,11 @@ int test_pkt_access(struct __sk_buff *skb)
 		return TC_ACT_SHOT;
 	if (test_pkt_access_subprog2(2, skb) != skb->len * 2)
 		return TC_ACT_SHOT;
+	if (test_pkt_access_subprog3(3, skb) != skb->len * 3 * skb->ifindex)
+		return TC_ACT_SHOT;
 	if (tcp) {
+		if (test_pkt_write_access_subprog(skb, (void *)tcp - data))
+			return TC_ACT_SHOT;
 		if (((void *)(tcp) + 20) > data_end || proto != 6)
 			return TC_ACT_SHOT;
 		barrier(); /* to force ordering of checks */

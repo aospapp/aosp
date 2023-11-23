@@ -10,6 +10,9 @@ TIME = 'MEDIUM'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = 'hardware'
 TEST_TYPE = 'client'
+ATTRIBUTES = "suite:memory_qual2"
+EXTENDED_TIMEOUT = 7200 # 2 hours
+PY_VERSION = 3
 
 DOC = """
 This uses the lmbench 3 bw_mem benchmark for reads, writes, and copy

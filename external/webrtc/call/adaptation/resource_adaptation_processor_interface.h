@@ -22,7 +22,6 @@
 #include "api/video/video_adaptation_counters.h"
 #include "api/video/video_frame.h"
 #include "call/adaptation/adaptation_constraint.h"
-#include "call/adaptation/adaptation_listener.h"
 #include "call/adaptation/encoder_settings.h"
 #include "call/adaptation/video_source_restrictions.h"
 
@@ -47,9 +46,6 @@ class ResourceLimitationsListener {
 class ResourceAdaptationProcessorInterface {
  public:
   virtual ~ResourceAdaptationProcessorInterface();
-
-  virtual void SetResourceAdaptationQueue(
-      TaskQueueBase* resource_adaptation_queue) = 0;
 
   virtual void AddResourceLimitationsListener(
       ResourceLimitationsListener* limitations_listener) = 0;

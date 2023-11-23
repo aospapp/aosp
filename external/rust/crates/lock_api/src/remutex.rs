@@ -230,7 +230,7 @@ unsafe impl<R: RawMutex + Sync, G: GetThreadId + Sync, T: ?Sized + Send> Sync
 
 impl<R: RawMutex, G: GetThreadId, T> ReentrantMutex<R, G, T> {
     /// Creates a new reentrant mutex in an unlocked state ready for use.
-    #[cfg(feature = "nightly")]
+    #[cfg(has_const_fn_trait_bound)]
     #[inline]
     pub const fn new(val: T) -> ReentrantMutex<R, G, T> {
         ReentrantMutex {
@@ -245,7 +245,7 @@ impl<R: RawMutex, G: GetThreadId, T> ReentrantMutex<R, G, T> {
     }
 
     /// Creates a new reentrant mutex in an unlocked state ready for use.
-    #[cfg(not(feature = "nightly"))]
+    #[cfg(not(has_const_fn_trait_bound))]
     #[inline]
     pub fn new(val: T) -> ReentrantMutex<R, G, T> {
         ReentrantMutex {
@@ -646,7 +646,7 @@ impl<'a, R: RawMutex + 'a, G: GetThreadId + 'a, T: ?Sized + 'a> ReentrantMutexGu
     /// in already locked the mutex.
     ///
     /// This is an associated function that needs to be
-    /// used as `ReentrantMutexGuard::map(...)`. A method would interfere with methods of
+    /// used as `ReentrantMutexGuard::try_map(...)`. A method would interfere with methods of
     /// the same name on the contents of the locked data.
     #[inline]
     pub fn try_map<U: ?Sized, F>(
@@ -654,10 +654,10 @@ impl<'a, R: RawMutex + 'a, G: GetThreadId + 'a, T: ?Sized + 'a> ReentrantMutexGu
         f: F,
     ) -> Result<MappedReentrantMutexGuard<'a, R, G, U>, Self>
     where
-        F: FnOnce(&mut T) -> Option<&mut U>,
+        F: FnOnce(&T) -> Option<&U>,
     {
         let raw = &s.remutex.raw;
-        let data = match f(unsafe { &mut *s.remutex.data.get() }) {
+        let data = match f(unsafe { &*s.remutex.data.get() }) {
             Some(data) => data,
             None => return Err(s),
         };
@@ -942,7 +942,7 @@ impl<'a, R: RawMutex + 'a, G: GetThreadId + 'a, T: ?Sized + 'a>
     /// in already locked the mutex.
     ///
     /// This is an associated function that needs to be
-    /// used as `MappedReentrantMutexGuard::map(...)`. A method would interfere with methods of
+    /// used as `MappedReentrantMutexGuard::try_map(...)`. A method would interfere with methods of
     /// the same name on the contents of the locked data.
     #[inline]
     pub fn try_map<U: ?Sized, F>(

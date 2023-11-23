@@ -15,7 +15,7 @@
  */
 package com.google.android.enterprise.connectedapps.internal;
 
-import android.os.Parcel;
+import android.os.Bundle;
 import android.util.Log;
 import com.google.android.enterprise.connectedapps.ICrossProfileCallback;
 import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfileException;
@@ -42,35 +42,31 @@ public class CrossProfileFutureResultWriter<E> implements FutureResultWriter<E> 
 
   @Override
   public void onSuccess(E result) {
-    Parcel parcel = Parcel.obtain(); // Recycled in this method
-    bundler.writeToParcel(parcel, result, bundlerType, /* flags= */ 0);
+    Bundle bundle = new Bundle(Bundler.class.getClassLoader());
+    bundler.writeToBundle(bundle, "result", result, bundlerType);
 
     try {
-      CrossProfileCallbackParcelCallSender parcelCallSender =
-          new CrossProfileCallbackParcelCallSender(callback, /* methodIdentifier= */ 0);
-      parcelCallSender.makeParcelCall(parcel);
+      CrossProfileCallbackBundleCallSender bundleCallSender =
+          new CrossProfileCallbackBundleCallSender(callback, /* methodIdentifier= */ 0);
+      bundleCallSender.makeBundleCall(bundle);
     } catch (UnavailableProfileException e) {
       Log.e("FutureResult", "Connection was dropped before response");
     } catch (RuntimeException e) {
       onFailure(new UnavailableProfileException("Error when writing result of future", e));
-    } finally {
-      parcel.recycle();
     }
   }
 
   @Override
   public void onFailure(Throwable throwable) {
-    Parcel parcel = Parcel.obtain(); // Recycled in this method
-    ParcelUtilities.writeThrowableToParcel(parcel, throwable);
+    Bundle bundle = new Bundle(Bundler.class.getClassLoader());
+    BundleUtilities.writeThrowableToBundle(bundle, "throwable", throwable);
 
     try {
-      CrossProfileCallbackExceptionParcelCallSender parcelCallSender =
-          new CrossProfileCallbackExceptionParcelCallSender(callback);
-      parcelCallSender.makeParcelCall(parcel);
+      CrossProfileCallbackExceptionBundleCallSender bundleCallSender =
+          new CrossProfileCallbackExceptionBundleCallSender(callback);
+      bundleCallSender.makeBundleCall(bundle);
     } catch (UnavailableProfileException e) {
       Log.e("FutureResult", "Connection was dropped before response");
-    } finally {
-      parcel.recycle();
     }
   }
 }

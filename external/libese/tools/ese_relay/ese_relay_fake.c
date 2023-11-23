@@ -20,7 +20,8 @@
 ESE_INCLUDE_HW(ESE_HW_FAKE);
 
 /* Minimal ATR */
-const uint8_t kAtr[] = {0x00, 0x00};
+static const uint8_t kAtrBytes[] = {0x00, 0x00};
+const uint8_t *kAtr = &kAtrBytes[0];
 const size_t kAtrLength = sizeof(kAtr);
 const void *kEseOpenData = NULL;
 

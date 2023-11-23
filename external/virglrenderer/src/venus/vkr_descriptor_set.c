@@ -12,8 +12,11 @@ vkr_dispatch_vkGetDescriptorSetLayoutSupport(
    UNUSED struct vn_dispatch_context *dispatch,
    struct vn_command_vkGetDescriptorSetLayoutSupport *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkGetDescriptorSetLayoutSupport_args_handle(args);
-   vkGetDescriptorSetLayoutSupport(args->device, args->pCreateInfo, args->pSupport);
+   vk->GetDescriptorSetLayoutSupport(args->device, args->pCreateInfo, args->pSupport);
 }
 
 static void
@@ -57,8 +60,7 @@ vkr_dispatch_vkDestroyDescriptorPool(struct vn_dispatch_context *dispatch,
    if (!pool)
       return;
 
-   vkr_context_remove_objects(ctx, &pool->descriptor_sets);
-
+   vkr_descriptor_pool_release(ctx, pool);
    vkr_descriptor_pool_destroy_and_remove(ctx, args);
 }
 
@@ -66,6 +68,9 @@ static void
 vkr_dispatch_vkResetDescriptorPool(struct vn_dispatch_context *dispatch,
                                    struct vn_command_vkResetDescriptorPool *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    struct vkr_context *ctx = dispatch->data;
 
    struct vkr_descriptor_pool *pool =
@@ -76,9 +81,9 @@ vkr_dispatch_vkResetDescriptorPool(struct vn_dispatch_context *dispatch,
    }
 
    vn_replace_vkResetDescriptorPool_args_handle(args);
-   args->ret = vkResetDescriptorPool(args->device, args->descriptorPool, args->flags);
+   args->ret = vk->ResetDescriptorPool(args->device, args->descriptorPool, args->flags);
 
-   vkr_context_remove_objects(ctx, &pool->descriptor_sets);
+   vkr_descriptor_pool_release(ctx, pool);
    list_inithead(&pool->descriptor_sets);
 }
 
@@ -131,10 +136,13 @@ static void
 vkr_dispatch_vkUpdateDescriptorSets(UNUSED struct vn_dispatch_context *dispatch,
                                     struct vn_command_vkUpdateDescriptorSets *args)
 {
+   struct vkr_device *dev = vkr_device_from_handle(args->device);
+   struct vn_device_proc_table *vk = &dev->proc_table;
+
    vn_replace_vkUpdateDescriptorSets_args_handle(args);
-   vkUpdateDescriptorSets(args->device, args->descriptorWriteCount,
-                          args->pDescriptorWrites, args->descriptorCopyCount,
-                          args->pDescriptorCopies);
+   vk->UpdateDescriptorSets(args->device, args->descriptorWriteCount,
+                            args->pDescriptorWrites, args->descriptorCopyCount,
+                            args->pDescriptorCopies);
 }
 
 static void

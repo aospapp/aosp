@@ -64,6 +64,15 @@ class TestSystemMetricsCollector(unittest.TestCase):
         self.assertEqual(3, metric.values[0])
         self.assertEqual(4, metric.values[1])
 
+    def test_energy_usage_metric(self):
+        metric = system_metrics_collector.EnergyUsageMetric(FakeSystemFacade())
+        metric.collect_metric()
+        self.assertEqual(1, metric.values)
+        metric.collect_metric()
+        self.assertEqual(2, metric.values)
+        metric.collect_metric()
+        self.assertEqual(3, metric.values)
+
     def test_collector(self):
         collector = system_metrics_collector.SystemMetricsCollector(
                 FakeSystemFacade(), [TestMetric()])
@@ -197,6 +206,7 @@ class FakeSystemFacade(object):
             'written_kb': 188458,
         }
         self.bg_worker_output = ''
+        self.energy_usage = 0
 
     def get_mem_total(self):
         return self.mem_total_mb
@@ -227,6 +237,11 @@ class FakeSystemFacade(object):
 
     def stop_bg_worker(self):
         pass
+
+    def get_energy_usage(self):
+        self.energy_usage += 1
+        return str(self.energy_usage)
+
 
 class TestMetric(system_metrics_collector.Metric):
     def __init__(self):

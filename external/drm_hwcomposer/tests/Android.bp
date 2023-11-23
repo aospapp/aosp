@@ -37,10 +37,7 @@ cc_test {
     header_libs: ["libhardware_headers"],
     static_libs: ["libdrmhwc_utils"],
     shared_libs: ["hwcomposer.drm"],
-    include_dirs: [
-        "external/drm_hwcomposer",
-        "external/drm_hwcomposer/include",
-    ],
+    include_dirs: ["external/drm_hwcomposer"],
 }
 
 // Tool for listening and dumping uevents

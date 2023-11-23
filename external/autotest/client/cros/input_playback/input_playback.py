@@ -100,6 +100,7 @@ class InputPlayback(object):
             'BRIGHTNESS_CYCLE', 'BRIGHTNESS_AUTO', 'BRIGHTNESS_ZERO',
             'DISPLAY_OFF', 'WWAN', 'WIMAX', 'RFKILL', 'MICMUTE']
 
+    _WACOM_VENDOR_ID = '2d1f'
 
     def __init__(self):
         self.devices = {}
@@ -183,7 +184,7 @@ class InputPlayback(object):
         @return: string of properties.
 
         """
-        with tempfile.NamedTemporaryFile() as temp_file:
+        with tempfile.NamedTemporaryFile(mode='w+') as temp_file:
             filename = temp_file.name
             evtest_process = subprocess.Popen(['evtest', device],
                                               stdout=temp_file)
@@ -250,6 +251,20 @@ class InputPlayback(object):
         return utils.run('cat %s' % filepath).stdout.strip()
 
 
+    def _get_vendor_id(self, node_dir):
+        """Gets the vendor ID of an input device, given its node directory.
+
+        @param node_dir: the directory for the input node in sysfs (e.g.
+                         /sys/class/input/event1)
+
+        @returns: the vendor ID, as a string of four lower-case hex digits.
+        """
+        vendor_id_path = os.path.join(node_dir, 'device/id/vendor')
+        if not os.path.exists(vendor_id_path):
+            raise error.TestError('Could not read vendor ID for ' + node_dir)
+        return self._get_contents_of_file(vendor_id_path).lower()
+
+
     def _find_input_name(self, device_dir, name=None):
         """Find the associated input* name for the given device directory.
 
@@ -274,15 +289,27 @@ class InputPlayback(object):
         raise error.TestError('Could not match input* to this device!')
 
 
-    def _find_device_ids_for_styluses(self, device_dir, name=None):
+    def _find_device_ids_for_styluses(self, node_dir, device_dir, name=None):
         """Find the fw_id and hw_id for the stylus in the given directory.
 
+        @param node_dir: the directory for the input node in sysfs (e.g.
+                         /sys/class/input/event1)
         @param device_dir: the device directory.
         @param name: the device name.
 
-        @returns: firmware id, hardware id for this device.
+        @returns: firmware ID, hardware ID for this device. Since styluses don't
+                  really have hardware IDs, this will actually be 'usi' or
+                  'wacom' depending on the stylus type. Firmware ID may be None.
 
         """
+        if self._get_vendor_id(node_dir) != self._WACOM_VENDOR_ID:
+            # The stylus device only has a distinct hardware and firmware ID if
+            # it's a Wacom digitizer. Otherwise, a USI stylus is being used, in
+            # which case it's handled by the touchscreen controller. So, there's
+            # no point in looking for a firmware ID unless the stylus has a
+            # Wacom vendor ID.
+            return None, 'usi'
+
         hw_id = 'wacom' # Wacom styluses don't actually have hwids.
         fw_id = None
 
@@ -310,12 +337,14 @@ class InputPlayback(object):
         return fw_id, hw_id
 
 
-    def _find_device_ids(self, device_dir, input_type, name):
+    def _find_device_ids(self, node_dir, device_dir, input_type, name):
         """Find the fw_id and hw_id for the given device directory.
 
         Finding fw_id and hw_id applicable only for touchpads, touchscreens,
         and styluses.
 
+        @param node_dir: the directory for the input node in sysfs (e.g.
+                         /sys/class/input/event1)
         @param device_dir: the device directory.
         @param input_type: string of input type.
         @param name: string of input name.
@@ -329,7 +358,8 @@ class InputPlayback(object):
                                                 'stylus']:
             return fw_id, hw_id
         if input_type == 'stylus':
-            return self._find_device_ids_for_styluses(device_dir, name)
+            return self._find_device_ids_for_styluses(node_dir, device_dir,
+                                                      name)
 
         # Touch devices with custom drivers usually save this info as a file.
         fw_filenames = ['fw_version', 'firmware_version', 'firmware_id']
@@ -429,7 +459,8 @@ class InputPlayback(object):
                 if os.path.exists(device_dir):
                     new_device.device_dir = device_dir
                     new_device.fw_id, new_device.hw_id = self._find_device_ids(
-                            device_dir, input_type, new_device.name)
+                            class_folder, device_dir, input_type,
+                            new_device.name)
 
                 if new_device.emulated:
                     self._emulated_device = new_device

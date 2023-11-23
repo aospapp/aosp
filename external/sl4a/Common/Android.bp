@@ -34,10 +34,12 @@ java_library {
         "junit",
         "modules-utils-build",
         "aosp_test_rcs_client_base",
+	"com.uwb.support.ccc",
         "com.uwb.support.fira",
     ],
 
     sdk_version: "core_platform",
+    plugins: ["auto_value_plugin"],
     libs: [
         "framework-wifi.impl", // allow SL4A to access @hide Wifi APIs
         "framework-connectivity.impl",
@@ -45,7 +47,7 @@ java_library {
         "framework-uwb.impl",
         "framework-bluetooth.impl",
         "framework",
-
+        "auto_value_annotations",
         "telephony-common",
         "ims-common",
         "bouncycastle-repackaged-unbundled",

@@ -7,13 +7,14 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/remain/remain-0.2.2.crate"
+    value: "https://static.crates.io/crates/remain/remain-0.2.6.crate"
   }
-  version: "0.2.2"
+  version: "0.2.6"
+  # Dual-licensed, using the least restrictive per go/thirdpartylicenses#same.
   license_type: NOTICE
   last_upgrade_date {
-    year: 2020
-    month: 7
-    day: 10
+    year: 2022
+    month: 12
+    day: 19
   }
 }

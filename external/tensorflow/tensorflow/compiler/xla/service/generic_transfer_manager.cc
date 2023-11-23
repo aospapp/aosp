@@ -55,7 +55,7 @@ Status GenericTransferManager::WriteSingleTupleIndexTable(
   stream->ThenDoHostCallback([element_pointers{std::move(element_pointers)}]() {
     /* holds reference to element_pointers in closure */
   });
-  return Status::OK();
+  return OkStatus();
 }
 
 void GenericTransferManager::TransferLiteralFromDevice(
@@ -82,9 +82,9 @@ void GenericTransferManager::TransferLiteralFromDevice(
                 GetByteSizeRequirement(
                     ShapeUtil::GetSubshape(literal.shape(), index)));
           }
-          return Status::OK();
+          return OkStatus();
         }));
-    return Status::OK();
+    return OkStatus();
   }();
   if (!status.ok()) {
     done(status);
@@ -139,7 +139,7 @@ Status GenericTransferManager::TransferLiteralToDeviceAsync(
             return stream->BlockHostUntilDone();
           }
         }
-        return Status::OK();
+        return OkStatus();
       });
 }
 
@@ -160,11 +160,12 @@ Status GenericTransferManager::ResetDevices(
       "Device reset is not yet supported on this platform (b/30481585)");
 }
 
-int64 GenericTransferManager::GetByteSizeRequirement(const Shape& shape) const {
+int64_t GenericTransferManager::GetByteSizeRequirement(
+    const Shape& shape) const {
   if (shape.is_static() || shape.IsTuple()) {
     return ShapeUtil::ByteSizeOf(shape, pointer_size_);
   }
-  int64_t metadata_size = sizeof(int32) * shape.dimensions_size();
+  int64_t metadata_size = sizeof(int32_t) * shape.dimensions_size();
   return ShapeUtil::ByteSizeOf(shape, pointer_size_) + metadata_size;
 }
 

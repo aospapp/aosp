@@ -18,13 +18,12 @@
 
 #include "absl/types/optional.h"
 #include "api/scoped_refptr.h"
+#include "api/sequence_checker.h"
 #include "api/video_codecs/video_encoder.h"
 #include "rtc_base/experiments/quality_scaling_experiment.h"
 #include "rtc_base/numerics/moving_average.h"
 #include "rtc_base/ref_count.h"
-#include "rtc_base/ref_counted_object.h"
-#include "rtc_base/synchronization/sequence_checker.h"
-#include "rtc_base/task_queue.h"
+#include "rtc_base/system/no_unique_address.h"
 
 namespace webrtc {
 
@@ -37,7 +36,7 @@ class QualityScalerQpUsageHandlerInterface;
 // video stream down or up).
 class QualityScaler {
  public:
-  // Construct a QualityScaler with given |thresholds| and |handler|.
+  // Construct a QualityScaler with given `thresholds` and `handler`.
   // This starts the quality scaler periodically checking what the average QP
   // has been recently.
   QualityScaler(QualityScalerQpUsageHandlerInterface* handler,
@@ -82,7 +81,7 @@ class QualityScaler {
   std::unique_ptr<CheckQpTask> pending_qp_task_ RTC_GUARDED_BY(&task_checker_);
   QualityScalerQpUsageHandlerInterface* const handler_
       RTC_GUARDED_BY(&task_checker_);
-  SequenceChecker task_checker_;
+  RTC_NO_UNIQUE_ADDRESS SequenceChecker task_checker_;
 
   VideoEncoder::QpThresholds thresholds_ RTC_GUARDED_BY(&task_checker_);
   const int64_t sampling_period_ms_;
@@ -112,38 +111,8 @@ class QualityScalerQpUsageHandlerInterface {
  public:
   virtual ~QualityScalerQpUsageHandlerInterface();
 
-  // Reacts to QP usage being too high or too low. The |callback| MUST be
-  // invoked when the handler is done, allowing the QualityScaler to resume
-  // checking for QP.
-  virtual void OnReportQpUsageHigh(
-      rtc::scoped_refptr<QualityScalerQpUsageHandlerCallbackInterface>
-          callback) = 0;
-  virtual void OnReportQpUsageLow(
-      rtc::scoped_refptr<QualityScalerQpUsageHandlerCallbackInterface>
-          callback) = 0;
-};
-
-// When QP is reported as high or low by the QualityScaler, it pauses checking
-// for QP until the QP usage has been handled. When OnQpUsageHandled() is
-// invoked, the QualityScaler resumes checking for QP. This ensures that if the
-// stream is reconfigured in response to QP usage we do not include QP samples
-// from before the reconfiguration the next time we check for QP.
-//
-// OnQpUsageHandled() MUST be invoked exactly once before this object is
-// destroyed.
-class QualityScalerQpUsageHandlerCallbackInterface
-    : public rtc::RefCountedObject<rtc::RefCountInterface> {
- public:
-  virtual ~QualityScalerQpUsageHandlerCallbackInterface();
-
-  // If |clear_qp_samples| is true, existing QP samples are cleared before the
-  // next time QualityScaler checks for QP. This is usually a good idea when the
-  // stream is reconfigured. If |clear_qp_samples| is false, samples are not
-  // cleared and QualityScaler increases its frequency of checking for QP.
-  virtual void OnQpUsageHandled(bool clear_qp_samples) = 0;
-
- protected:
-  QualityScalerQpUsageHandlerCallbackInterface();
+  virtual void OnReportQpUsageHigh() = 0;
+  virtual void OnReportQpUsageLow() = 0;
 };
 
 }  // namespace webrtc

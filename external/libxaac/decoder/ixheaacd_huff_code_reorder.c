@@ -20,6 +20,7 @@
 #include <string.h>
 #include "ixheaacd_sbr_common.h"
 #include "ixheaacd_type_def.h"
+#include "ixheaacd_error_standards.h"
 
 #include "ixheaacd_constants.h"
 #include "ixheaacd_basic_ops32.h"
@@ -34,7 +35,9 @@
 #include "ixheaacd_pns.h"
 
 #include "ixheaacd_lt_predict.h"
-
+#include "ixheaacd_cnst.h"
+#include "ixheaacd_ec_defines.h"
+#include "ixheaacd_ec_struct_def.h"
 #include "ixheaacd_channelinfo.h"
 
 #include "ixheaacd_drc_data_struct.h"
@@ -49,7 +52,7 @@
 #include "ixheaacd_aacdec.h"
 
 #include "ixheaacd_sbrdecsettings.h"
-
+#include "ixheaacd_sbr_scale.h"
 #include "ixheaacd_env_extr_part.h"
 #include "ixheaacd_sbr_rom.h"
 #include "ixheaacd_audioobjtypes.h"
@@ -57,10 +60,16 @@
 #include "ixheaacd_latmdemux.h"
 #include "ixheaacd_mps_polyphase.h"
 #include "ixheaacd_config.h"
+#include "ixheaacd_hybrid.h"
+#include "ixheaacd_ps_dec.h"
+#include "ixheaacd_qmf_dec.h"
+#include "ixheaacd_mps_macro_def.h"
+#include "ixheaacd_mps_struct_def.h"
+#include "ixheaacd_mps_res_rom.h"
+#include "ixheaacd_mps_aac_struct.h"
 #include "ixheaacd_mps_dec.h"
 #include "ixheaacd_struct_def.h"
 
-#include "ixheaacd_cnst.h"
 #include "ixheaacd_rvlc.h"
 
 const UWORD8 ixheaacd_min_huff_cb_pair_tbl[MAX_CB_PAIRS] = {
@@ -1131,8 +1140,10 @@ static VOID ixheaacd_decode_pcw(ia_bit_buf_struct *itt_bit_buff,
 
     if (codebook <= 4) {
       WORD32 tbl_sign = 0;
-      const UWORD16 *cb_table = (UWORD16 *)(ptr_aac_tables->code_book[codebook]);
-      const UWORD32 *idx_table = (UWORD32 *)(ptr_aac_tables->index_table[codebook]);
+      const UWORD16 *cb_table =
+          (UWORD16 *)(ptr_aac_tables->code_book[codebook]);
+      const UWORD32 *idx_table =
+          (UWORD32 *)(ptr_aac_tables->index_table[codebook]);
 
       if (codebook > 2) {
         tbl_sign = 1;
@@ -1168,8 +1179,10 @@ static VOID ixheaacd_decode_pcw(ia_bit_buf_struct *itt_bit_buff,
       {
         WORD32 tbl_sign = 0;
         WORD32 huff_mode = 9;
-        const UWORD16 *cb_table = (UWORD16 *)(ptr_aac_tables->code_book[codebook]);
-        const UWORD32 *idx_table = (UWORD32 *)(ptr_aac_tables->index_table[codebook]);
+        const UWORD16 *cb_table =
+            (UWORD16 *)(ptr_aac_tables->code_book[codebook]);
+        const UWORD32 *idx_table =
+            (UWORD32 *)(ptr_aac_tables->index_table[codebook]);
         num_decoded_bits = 0;
 
         if (codebook > 6) {
@@ -1360,11 +1373,12 @@ static PLATFORM_INLINE UWORD16 ixheaacd_huff_dec_word_hcr_non_pcw(
 
   WORD32 read_word;
   WORD32 increment;
+  UWORD8 *ptr_read_next;
 
   read_word = ixheaacd_aac_showbits_32(itt_bit_buff->byte_ptr,
                                        itt_bit_buff->bit_count, &increment);
 
-  UWORD8 *ptr_read_next = itt_bit_buff->byte_ptr;
+  ptr_read_next = itt_bit_buff->byte_ptr;
   ptr_read_next += increment;
 
   ixheaacd_huff_sfb_table(read_word, &index, &length, code_book_tbl, idx_table);

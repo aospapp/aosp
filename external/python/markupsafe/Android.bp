@@ -14,20 +14,3 @@ license {
         "LICENSE.rst",
     ],
 }
-
-python_library {
-    name: "py-markupsafe",
-    host_supported: true,
-    srcs: [
-        "src/markupsafe/__init__.py",
-        "src/markupsafe/_native.py",
-    ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
-}

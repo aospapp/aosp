@@ -2599,5 +2599,10 @@
       <Test result="pass" name="testSyncFrameVP9" />
       <Test result="pass" name="testSyncFrameVP9Ndk" />
     </TestCase>
+    <TestCase name="dummy.EmptyMetricsTest">
+      <Test result="pass" name="testEmptyMetric">
+         <Metric key="CPU_Usage_Histogram_0-9_Percent">100.00</Metric>
+      </Test>
+    </TestCase>
   </Module>
 </Result>

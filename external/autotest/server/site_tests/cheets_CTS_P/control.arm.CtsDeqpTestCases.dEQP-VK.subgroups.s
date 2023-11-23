@@ -12,6 +12,7 @@ JOB_RETRIES = 1
 TEST_TYPE = 'server'
 TIME = 'MEDIUM'
 MAX_RESULT_SIZE_KB = 512000
+PY_VERSION = 3
 PRIORITY = 50
 DOC = 'Run module CtsDeqpTestCases.dEQP-VK.subgroups.s of the Android Compatibility Test Suite (CTS) using arm ABI in the ARC++ container.'
 

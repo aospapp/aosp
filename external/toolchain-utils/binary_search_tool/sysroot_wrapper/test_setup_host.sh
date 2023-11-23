@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2017 Google Inc. All Rights Reserved.
+# Copyright 2017 Google LLC
 #
 # This is a generic ChromeOS package/image test setup script. It is meant to
 # be used for either the object file or package bisection tools. This script

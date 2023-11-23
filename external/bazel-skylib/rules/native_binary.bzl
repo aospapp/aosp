@@ -72,11 +72,11 @@ def native_binary(name, src, out, data = None, **kwargs):
     You can "bazel run" this rule like any other binary rule, and use it as a tool in genrule.tools for example. You can also augment the binary with runfiles.
 
     Args:
-      name: The name of the test rule.
+      name: The name of the rule.
       src: label; path of the pre-built executable
       out: output; an output name for the copy of the binary. (Bazel requires that this rule make a copy of 'src'.)
       data: list of labels; data dependencies
-      **kwargs: The <a href="https://docs.bazel.build/versions/master/be/common-definitions.html#common-attributes-binaries">common attributes for binaries</a>.
+      **kwargs: The <a href="https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes-binaries">common attributes for binaries</a>.
     """
     _native_binary(
         name = name,
@@ -101,7 +101,7 @@ def native_test(name, src, out, data = None, **kwargs):
       src: label; path of the pre-built executable
       out: output; an output name for the copy of the binary. (Bazel requires that this rule make a copy of 'src'.)
       data: list of labels; data dependencies
-      **kwargs: The <a href="https://docs.bazel.build/versions/master/be/common-definitions.html#common-attributes-tests">common attributes for tests</a>.
+      **kwargs: The <a href="https://docs.bazel.build/versions/main/be/common-definitions.html#common-attributes-tests">common attributes for tests</a>.
     """
     _native_test(
         name = name,

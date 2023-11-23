@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -114,9 +114,7 @@ func runClangTidyForTricium(env env, clangCmd *command, cSrcFile, fixesDir strin
 	fixesFilePath := f.Name() + ".yaml"
 	fixesMetadataPath := f.Name() + ".json"
 
-	// FIXME(gbiv): Remove `-checks=*` when testing is complete; we should defer to .clang-tidy
-	// files, which are both more expressive and more approachable than `-checks=*`.
-	extraTidyFlags = append(extraTidyFlags, "-checks=*", "--export-fixes="+fixesFilePath)
+	extraTidyFlags = append(extraTidyFlags, "--export-fixes="+fixesFilePath, "--header-filter=.*")
 	clangTidyCmd, err := calcClangTidyInvocation(env, clangCmd, cSrcFile, extraTidyFlags...)
 	if err != nil {
 		return fmt.Errorf("calculating tidy invocation: %v", err)

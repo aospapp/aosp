@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE ldml SYSTEM "../../common/dtd/ldml.dtd">
-<!-- Copyright © 1991-2021 Unicode, Inc.
+<!-- Copyright © 1991-2022 Unicode, Inc.
 For terms of use, see http://www.unicode.org/copyright.html
 SPDX-License-Identifier: Unicode-DFS-2016
 CLDR data files are interpreted according to the LDML specification (http://unicode.org/reports/tr35/)
@@ -37,16 +37,19 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="am">амхарски</language>
 			<language type="an">арагонски</language>
 			<language type="ang">староенглески</language>
+			<language type="ann">оболо</language>
 			<language type="anp">ангика</language>
 			<language type="ar">арапски</language>
 			<language type="ar_001">савремени стандардни арапски</language>
 			<language type="arc">арамејски</language>
 			<language type="arn">мапуче</language>
 			<language type="arp">арапахо</language>
+			<language type="ars">најдиарапски</language>
 			<language type="arw">аравачки</language>
 			<language type="as">асамски</language>
 			<language type="asa">асу</language>
 			<language type="ast">астуријски</language>
+			<language type="atj">атикамеку</language>
 			<language type="av">аварски</language>
 			<language type="awa">авади</language>
 			<language type="ay">ајмара</language>
@@ -80,6 +83,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ca">каталонски</language>
 			<language type="cad">кадо</language>
 			<language type="car">карипски</language>
+			<language type="cay">кајуга</language>
 			<language type="cch">атсам</language>
 			<language type="ccp">чакма</language>
 			<language type="ce">чеченски</language>
@@ -98,13 +102,21 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ckb">централни курдски</language>
 			<language type="ckb" alt="menu">↑↑↑</language>
 			<language type="ckb" alt="variant">↑↑↑</language>
+			<language type="clc">чилкотин</language>
 			<language type="co">корзикански</language>
 			<language type="cop">коптски</language>
 			<language type="cr">кри</language>
+			<language type="crg">мичиф</language>
 			<language type="crh">кримскотатарски</language>
+			<language type="crj">југоисточни кри</language>
+			<language type="crk">плаинскри</language>
+			<language type="crl">североисточни кри</language>
+			<language type="crm">музкри</language>
+			<language type="crr">каролиншки алгонквијан</language>
 			<language type="crs">сејшелски креолски француски</language>
 			<language type="cs">чешки</language>
 			<language type="csb">кашупски</language>
+			<language type="csw">мочварни кри</language>
 			<language type="cu">црквенословенски</language>
 			<language type="cv">чувашки</language>
 			<language type="cy">велшки</language>
@@ -165,7 +177,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="fr">француски</language>
 			<language type="fr_CA">↑↑↑</language>
 			<language type="fr_CH">↑↑↑</language>
-			<language type="frc" draft="contributed">кајунски француски</language>
+			<language type="frc">кајунски француски</language>
 			<language type="frm">средњефранцуски</language>
 			<language type="fro">старофранцуски</language>
 			<language type="frr">севернофризијски</language>
@@ -197,8 +209,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ha">хауса</language>
 			<language type="hai">хаида</language>
 			<language type="haw">хавајски</language>
+			<language type="hax">јужни хаида</language>
 			<language type="he">хебрејски</language>
 			<language type="hi">хинди</language>
+			<language type="hi_Latn">↑↑↑</language>
+			<language type="hi_Latn" alt="variant">хинглиш</language>
 			<language type="hil">хилигајнонски</language>
 			<language type="hit">хетитски</language>
 			<language type="hmn">хмоншки</language>
@@ -208,6 +223,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ht">хаићански</language>
 			<language type="hu">мађарски</language>
 			<language type="hup">хупа</language>
+			<language type="hur">халкомелем</language>
 			<language type="hy">јерменски</language>
 			<language type="hz">хереро</language>
 			<language type="ia">интерлингва</language>
@@ -218,6 +234,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ig">игбо</language>
 			<language type="ii">сечуански ји</language>
 			<language type="ik">инупик</language>
+			<language type="ikt">западноканадски инуктитут</language>
 			<language type="ilo">илоко</language>
 			<language type="inh">ингушки</language>
 			<language type="io">идо</language>
@@ -244,6 +261,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="kea">зеленортски</language>
 			<language type="kfo">коро</language>
 			<language type="kg">конго</language>
+			<language type="kgp">каинганг</language>
 			<language type="kha">каси</language>
 			<language type="kho">котанешки</language>
 			<language type="khq">којра чиини</language>
@@ -275,6 +293,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="kut">кутенај</language>
 			<language type="kv">коми</language>
 			<language type="kw">корнволски</language>
+			<language type="kwk">кваквала</language>
 			<language type="ky">киргиски</language>
 			<language type="la">латински</language>
 			<language type="lad">ладино</language>
@@ -285,13 +304,15 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="lez">лезгински</language>
 			<language type="lg">ганда</language>
 			<language type="li">лимбуршки</language>
+			<language type="lil">лилут</language>
 			<language type="lkt">лакота</language>
 			<language type="ln">лингала</language>
 			<language type="lo">лаоски</language>
 			<language type="lol">монго</language>
-			<language type="lou" draft="contributed">луизијански креолски</language>
+			<language type="lou">луизијански креолски</language>
 			<language type="loz">лози</language>
 			<language type="lrc">северни лури</language>
+			<language type="lsm">самиа</language>
 			<language type="lt">литвански</language>
 			<language type="lu">луба-катанга</language>
 			<language type="lua">луба-лулуа</language>
@@ -325,6 +346,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="mn">монголски</language>
 			<language type="mnc">манџурски</language>
 			<language type="mni">манипурски</language>
+			<language type="moe">инуајмун</language>
 			<language type="moh">мохочки</language>
 			<language type="mos">моси</language>
 			<language type="mr">марати</language>
@@ -371,6 +393,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="nzi">нзима</language>
 			<language type="oc">окситански</language>
 			<language type="oj">оџибве</language>
+			<language type="ojb">северозападни оџибва</language>
+			<language type="ojc">централни оџибва</language>
+			<language type="ojs">оџикри</language>
+			<language type="ojw">западни оџибва</language>
+			<language type="oka">оканган</language>
 			<language type="om">оромо</language>
 			<language type="or">одија</language>
 			<language type="os">осетински</language>
@@ -386,8 +413,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="peo">староперсијски</language>
 			<language type="phn">феничански</language>
 			<language type="pi">пали</language>
+			<language type="pis">пиџин</language>
 			<language type="pl">пољски</language>
 			<language type="pon">понпејски</language>
+			<language type="pqm">малисепасамакводи</language>
 			<language type="prg">пруски</language>
 			<language type="pro">староокситански</language>
 			<language type="ps">паштунски</language>
@@ -438,6 +467,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="sid">сидамо</language>
 			<language type="sk">словачки</language>
 			<language type="sl">словеначки</language>
+			<language type="slh">јужни лашутсид</language>
 			<language type="sm">самоански</language>
 			<language type="sma">јужни сами</language>
 			<language type="smj">луле сами</language>
@@ -454,6 +484,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ss">свази</language>
 			<language type="ssy">сахо</language>
 			<language type="st">сесото</language>
+			<language type="str">стреицсалиш</language>
 			<language type="su">сундански</language>
 			<language type="suk">сукума</language>
 			<language type="sus">сусу</language>
@@ -465,13 +496,16 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="syc">сиријачки</language>
 			<language type="syr">сиријски</language>
 			<language type="ta">тамилски</language>
+			<language type="tce">јужни тачон</language>
 			<language type="te">телугу</language>
 			<language type="tem">тимне</language>
 			<language type="teo">тесо</language>
 			<language type="ter">терено</language>
 			<language type="tet">тетум</language>
 			<language type="tg">таџички</language>
+			<language type="tgx">тагиш</language>
 			<language type="th">тајски</language>
+			<language type="tht">тахлтан</language>
 			<language type="ti">тигриња</language>
 			<language type="tig">тигре</language>
 			<language type="tiv">тив</language>
@@ -484,12 +518,14 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="tn">цвана</language>
 			<language type="to">тонгански</language>
 			<language type="tog">њаса тонга</language>
+			<language type="tok">токипона</language>
 			<language type="tpi">ток писин</language>
 			<language type="tr">турски</language>
 			<language type="trv">тароко</language>
 			<language type="ts">цонга</language>
 			<language type="tsi">цимшиан</language>
 			<language type="tt">татарски</language>
+			<language type="ttm">северни тучон</language>
 			<language type="tum">тумбука</language>
 			<language type="tvl">тувалу</language>
 			<language type="tw">тви</language>
@@ -518,6 +554,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="was">вашо</language>
 			<language type="wbp">варлпири</language>
 			<language type="wo">волоф</language>
+			<language type="wuu">ву кинески</language>
 			<language type="xal">калмички</language>
 			<language type="xh">коса</language>
 			<language type="xog">сога</language>
@@ -527,6 +564,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="ybb">јемба</language>
 			<language type="yi">јидиш</language>
 			<language type="yo">јоруба</language>
+			<language type="yrl">нингату</language>
 			<language type="yue">кантонски</language>
 			<language type="yue" alt="menu">кантонски кинески</language>
 			<language type="za">џуаншки</language>
@@ -546,8 +584,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<language type="zza">заза</language>
 		</languages>
 		<scripts>
+			<script type="Adlm">адлам</script>
 			<script type="Arab">арапско писмо</script>
 			<script type="Arab" alt="variant">персијско-арапско писмо</script>
+			<script type="Aran">насталик</script>
 			<script type="Armi">империјско арамејско писмо</script>
 			<script type="Armn">јерменско писмо</script>
 			<script type="Avst">авестанско писмо</script>
@@ -560,11 +600,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<script type="Brai">брајево писмо</script>
 			<script type="Bugi">бугинско писмо</script>
 			<script type="Buhd">бухидско писмо</script>
-			<script type="Cakm">чакманско писмо</script>
+			<script type="Cakm">чакма</script>
 			<script type="Cans">уједињени канадски абориџински силабици</script>
 			<script type="Cari">каријско писмо</script>
 			<script type="Cham">чамско писмо</script>
-			<script type="Cher">Чероки</script>
+			<script type="Cher">чероки</script>
 			<script type="Cirt">цирт писмо</script>
 			<script type="Copt">коптичко писмо</script>
 			<script type="Cprt">кипарско писмо</script>
@@ -626,11 +666,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<script type="Mlym">малајаламско писмо</script>
 			<script type="Mong">монголско писмо</script>
 			<script type="Moon">месечево писмо</script>
-			<script type="Mtei">меитеи мајек писмо</script>
+			<script type="Mtei">меитеи мајек</script>
 			<script type="Mymr">мијанмарско писмо</script>
-			<script type="Nkoo">н’ко писмо</script>
+			<script type="Nkoo">нко</script>
 			<script type="Ogam">огамско писмо</script>
-			<script type="Olck">ол чики писмо</script>
+			<script type="Olck">ол чики</script>
 			<script type="Orkh">орконско писмо</script>
 			<script type="Orya">оријанско писмо</script>
 			<script type="Osma">осмањанско писмо</script>
@@ -643,6 +683,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<script type="Plrd">поралд фонетско писмо</script>
 			<script type="Prti">писани партиан</script>
 			<script type="Rjng">рејанг писмо</script>
+			<script type="Rohg">ханифи</script>
 			<script type="Roro">ронгоронго писмо</script>
 			<script type="Runr">рунско писмо</script>
 			<script type="Samr">самаританско писмо</script>
@@ -664,17 +705,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<script type="Tavt">таи виет писмо</script>
 			<script type="Telu">телугу писмо</script>
 			<script type="Teng">тенгвар писмо</script>
-			<script type="Tfng">тифинаг писмо</script>
+			<script type="Tfng">тифинаг</script>
 			<script type="Tglg">Тагалог</script>
 			<script type="Thaa">тана писмо</script>
 			<script type="Thai">тајландско писмо</script>
 			<script type="Tibt">тибетанско писмо</script>
 			<script type="Ugar">угаритско писмо</script>
-			<script type="Vaii">ваи писмо</script>
+			<script type="Vaii">ваи</script>
 			<script type="Visp">видљиви говор</script>
 			<script type="Xpeo">староперсијско писмо</script>
 			<script type="Xsux">сумерско-акадско кунеиформ писмо</script>
-			<script type="Yiii">ји писмо</script>
+			<script type="Yiii">ји</script>
 			<script type="Zinh">наследно писмо</script>
 			<script type="Zmth">математичка нотација</script>
 			<script type="Zsye">емоџи</script>
@@ -901,6 +942,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<territory type="NR">Науру</territory>
 			<territory type="NU">Ниуе</territory>
 			<territory type="NZ">Нови Зеланд</territory>
+			<territory type="NZ" alt="variant">↑↑↑</territory>
 			<territory type="OM">Оман</territory>
 			<territory type="PA">Панама</territory>
 			<territory type="PE">Перу</territory>
@@ -960,6 +1002,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<territory type="TN">Тунис</territory>
 			<territory type="TO">Тонга</territory>
 			<territory type="TR">Турска</territory>
+			<territory type="TR" alt="variant">Турска</territory>
 			<territory type="TT">Тринидад и Тобаго</territory>
 			<territory type="TV">Тувалу</territory>
 			<territory type="TW">Тајван</territory>
@@ -1033,10 +1076,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<keys>
 			<key type="calendar">календар</key>
 			<key type="cf">формат валуте</key>
-			<key type="colAlternate">Сортирање уз игнорисање симбола</key>
-			<key type="colBackwards">Сортирање према обрнутим акцентима</key>
-			<key type="colCaseFirst">Ређање према малом/великом слову</key>
-			<key type="colCaseLevel">Сортирање према малом/великом слову</key>
+			<key type="colAlternate">сортирање уз игнорисање симбола</key>
+			<key type="colBackwards">сортирање према обрнутим акцентима</key>
+			<key type="colCaseFirst">ређање према малом/великом слову</key>
+			<key type="colCaseLevel">сортирање према малом/великом слову</key>
 			<key type="collation">редослед сортирања</key>
 			<key type="colNormalization">нормализовано сортирање</key>
 			<key type="colNumeric">нумеричко сортирање</key>
@@ -1053,16 +1096,17 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<types>
 			<type key="calendar" type="buddhist">будистички календар</type>
 			<type key="calendar" type="chinese">кинески календар</type>
-			<type key="calendar" type="coptic" draft="contributed">коптски календар</type>
+			<type key="calendar" type="coptic">коптски календар</type>
 			<type key="calendar" type="dangi">данги календар</type>
 			<type key="calendar" type="ethiopic">етиопски календар</type>
-			<type key="calendar" type="ethiopic-amete-alem" draft="contributed">етиопски амет алем календар</type>
+			<type key="calendar" type="ethiopic-amete-alem">етиопски амет алем календар</type>
 			<type key="calendar" type="gregorian">грегоријански календар</type>
 			<type key="calendar" type="hebrew">хебрејски календар</type>
 			<type key="calendar" type="indian">Индијски национални календар</type>
 			<type key="calendar" type="islamic">исламски календар</type>
-			<type key="calendar" type="islamic-civil">Исламски цивилни календар</type>
-			<type key="calendar" type="islamic-umalqura" draft="contributed">исламски календар (Umm al-Qura)</type>
+			<type key="calendar" type="islamic-civil">исламски цивилни календар</type>
+			<type key="calendar" type="islamic-tbla">исламски астрономски календар</type>
+			<type key="calendar" type="islamic-umalqura">исламски календар (Umm al-Qura)</type>
 			<type key="calendar" type="iso8601">ISO-8601 календар</type>
 			<type key="calendar" type="japanese">јапански календар</type>
 			<type key="calendar" type="persian">персијски календар</type>
@@ -1078,22 +1122,23 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="colCaseFirst" type="upper" draft="contributed">Сортирај прво велика слова</type>
 			<type key="colCaseLevel" type="no" draft="contributed">Сортирај без обзира на велика и мала слова</type>
 			<type key="colCaseLevel" type="yes" draft="contributed">Сортирај мала и велика слова</type>
-			<type key="collation" type="big5han">Традиционално кинеско сортирање</type>
-			<type key="collation" type="compat" draft="contributed">претходни редослед сортирања, због компатибилности</type>
-			<type key="collation" type="dictionary" draft="contributed">Редослед сортирања у речнику</type>
+			<type key="collation" type="big5han">традиционално кинеско сортирање</type>
+			<type key="collation" type="compat">претходни редослед сортирања, због компатибилности</type>
+			<type key="collation" type="dictionary">редослед сортирања у речнику</type>
 			<type key="collation" type="ducet">подразумевани Unicode редослед сортирања</type>
 			<type key="collation" type="eor" draft="contributed">европска правила редоследа</type>
-			<type key="collation" type="gb2312han">Поједностављено кинеско сортирање</type>
-			<type key="collation" type="phonebook">Сортирање као телефонски именик</type>
-			<type key="collation" type="phonetic" draft="contributed">Фонетски редослед сортирања</type>
-			<type key="collation" type="pinyin">Пињин сортирање</type>
-			<type key="collation" type="reformed" draft="contributed">Реформисани редослед сортирања</type>
+			<type key="collation" type="gb2312han">поједностављено кинеско сортирање</type>
+			<type key="collation" type="phonebook">сортирање као телефонски именик</type>
+			<type key="collation" type="phonetic">фонетски редослед сортирања</type>
+			<type key="collation" type="pinyin">пинјин сортирање</type>
+			<type key="collation" type="reformed">реформисани редослед сортирања</type>
 			<type key="collation" type="search">претрага опште намене</type>
 			<type key="collation" type="searchjl" draft="contributed">Претрага према хангул почетном сугласнику</type>
 			<type key="collation" type="standard">стандардни редослед сортирања</type>
-			<type key="collation" type="stroke">Сортирање по броју црта</type>
-			<type key="collation" type="traditional">Традиционално сортирање</type>
-			<type key="collation" type="unihan" draft="contributed">Редослед сортирања радикалним цртицама</type>
+			<type key="collation" type="stroke">сортирање по броју потеза</type>
+			<type key="collation" type="traditional">традиционално сортирање</type>
+			<type key="collation" type="unihan">редослед сортирања радикалних потеза</type>
+			<type key="collation" type="zhuyin">жујин</type>
 			<type key="colNormalization" type="no" draft="contributed">Сортирај без нормализације</type>
 			<type key="colNormalization" type="yes" draft="contributed">Сортирај Unicode нормализовано</type>
 			<type key="colNumeric" type="no" draft="contributed">Сортирај цифре појединачно</type>
@@ -1123,6 +1168,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="armn">јерменски бројеви</type>
 			<type key="numbers" type="armnlow">мали јерменски бројеви</type>
 			<type key="numbers" type="beng">бенгалске цифре</type>
+			<type key="numbers" type="cakm">чакма цифре</type>
 			<type key="numbers" type="deva">девангари цифре</type>
 			<type key="numbers" type="ethi">етиопски бројеви</type>
 			<type key="numbers" type="finance" draft="contributed">Финансијски бројеви</type>
@@ -1138,6 +1184,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="hant">традиционални кинески бројеви</type>
 			<type key="numbers" type="hantfin">традиционални кинески финансијски бројеви</type>
 			<type key="numbers" type="hebr">хебрејски бројеви</type>
+			<type key="numbers" type="java">јаванске цифре</type>
 			<type key="numbers" type="jpan">јапански бројеви</type>
 			<type key="numbers" type="jpanfin">јапански финансијски бројеви</type>
 			<type key="numbers" type="khmr">кмерске цифре</type>
@@ -1146,8 +1193,10 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="latn">западне цифре</type>
 			<type key="numbers" type="mlym">малајалам цифре</type>
 			<type key="numbers" type="mong" draft="contributed">монголске цифре</type>
+			<type key="numbers" type="mtei">митеи мајек цифре</type>
 			<type key="numbers" type="mymr">мијанмарске цифре</type>
-			<type key="numbers" type="native" draft="contributed">Локалне цифре</type>
+			<type key="numbers" type="native">локалне цифре</type>
+			<type key="numbers" type="olck">ол чики цифре</type>
 			<type key="numbers" type="orya">орија цифре</type>
 			<type key="numbers" type="roman">римски бројеви</type>
 			<type key="numbers" type="romanlow">мали римски бројеви</type>
@@ -1157,7 +1206,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<type key="numbers" type="thai">тајске цифре</type>
 			<type key="numbers" type="tibt">тибетанске цифре</type>
 			<type key="numbers" type="traditional" draft="contributed">Традиционални бројеви</type>
-			<type key="numbers" type="vaii" draft="contributed">Ваи цифре</type>
+			<type key="numbers" type="vaii">ваи цифре</type>
 		</types>
 		<measurementSystemNames>
 			<measurementSystemName type="metric">Метрички</measurementSystemName>
@@ -1172,7 +1221,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 	</localeDisplayNames>
 	<characters>
 		<exemplarCharacters>[а б в г д ђ е ж з и ј к л љ м н њ о п р с т ћ у ф х ц ч џ ш]</exemplarCharacters>
-		<exemplarCharacters type="auxiliary">[{а\u0302} {е\u0302} ё й {и\u0302} {о\u0302} {у\u0302} щ ъ ы ь э ю я]</exemplarCharacters>
+		<exemplarCharacters type="auxiliary">[{а\u0302} {е\u0302} {и\u0302} {о\u0302} {у\u0302}]</exemplarCharacters>
 		<exemplarCharacters type="index">[А Б В Г Д Ђ Е Ж З И Ј К Л Љ М Н Њ О П Р С Т Ћ У Ф Х Ц Ч Џ Ш]</exemplarCharacters>
 		<exemplarCharacters type="numbers">[\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]</exemplarCharacters>
 		<exemplarCharacters type="punctuation">[\- ‐ ‑ – , ; \: ! ? . … ‘ ‚ “ „ ( ) \[ \] \{ \} * #]</exemplarCharacters>
@@ -1297,20 +1346,32 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateTimeFormat>
 							<pattern>{1} {0}</pattern>
 						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
+						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="long">
 						<dateTimeFormat>
 							<pattern>{1} {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="medium">
 						<dateTimeFormat>
 							<pattern>{1} {0}</pattern>
 						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
+						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="short">
 						<dateTimeFormat>
 							<pattern>{1} {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<availableFormats>
@@ -1322,20 +1383,20 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateFormatItem id="EBhm">E hh:mm B</dateFormatItem>
 						<dateFormatItem id="EBhms">E hh:mm:ss B</dateFormatItem>
 						<dateFormatItem id="Ed">E d.</dateFormatItem>
-						<dateFormatItem id="Ehm">E hh:mm a</dateFormatItem>
+						<dateFormatItem id="Ehm">E hh:mm a</dateFormatItem>
 						<dateFormatItem id="EHm">E HH:mm</dateFormatItem>
-						<dateFormatItem id="Ehms">E hh:mm:ss a</dateFormatItem>
+						<dateFormatItem id="Ehms">E hh:mm:ss a</dateFormatItem>
 						<dateFormatItem id="EHms">E HH:mm:ss</dateFormatItem>
 						<dateFormatItem id="Gy">y. G</dateFormatItem>
 						<dateFormatItem id="GyMd">d.M.y. GGGGG</dateFormatItem>
 						<dateFormatItem id="GyMMM">MMM y. G</dateFormatItem>
 						<dateFormatItem id="GyMMMd">d. MMM y. G</dateFormatItem>
 						<dateFormatItem id="GyMMMEd">E, d. MMM y. G</dateFormatItem>
-						<dateFormatItem id="h">h a</dateFormatItem>
+						<dateFormatItem id="h">h a</dateFormatItem>
 						<dateFormatItem id="H">HH</dateFormatItem>
-						<dateFormatItem id="hm">hh:mm a</dateFormatItem>
+						<dateFormatItem id="hm">hh:mm a</dateFormatItem>
 						<dateFormatItem id="Hm">HH:mm</dateFormatItem>
-						<dateFormatItem id="hms">hh:mm:ss a</dateFormatItem>
+						<dateFormatItem id="hms">hh:mm:ss a</dateFormatItem>
 						<dateFormatItem id="Hms">HH:mm:ss</dateFormatItem>
 						<dateFormatItem id="M">L</dateFormatItem>
 						<dateFormatItem id="Md">d.M.</dateFormatItem>
@@ -1415,33 +1476,33 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="y">↑↑↑</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a" draft="contributed">h a – h a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h a – h a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H" draft="contributed">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hm">
-							<greatestDifference id="a" draft="contributed">h:mm a – h:mm a</greatestDifference>
-							<greatestDifference id="h" draft="contributed">h:mm–h:mm a</greatestDifference>
-							<greatestDifference id="m" draft="contributed">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="a" draft="contributed">h:mm a – h:mm a</greatestDifference>
+							<greatestDifference id="h" draft="contributed">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="m" draft="contributed">h:mm–h:mm a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hm">
 							<greatestDifference id="H" draft="contributed">HH:mm–HH:mm</greatestDifference>
 							<greatestDifference id="m" draft="contributed">HH:mm–HH:mm</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hmv">
-							<greatestDifference id="a">h:mm a – h:mm a v</greatestDifference>
-							<greatestDifference id="h">h:mm–h:mm a v</greatestDifference>
-							<greatestDifference id="m">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="a">h:mm a – h:mm a v</greatestDifference>
+							<greatestDifference id="h">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="m">h:mm–h:mm a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hmv">
 							<greatestDifference id="H">HH:mm–HH:mm v</greatestDifference>
 							<greatestDifference id="m">HH:mm–HH:mm v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a">h a – h a v</greatestDifference>
-							<greatestDifference id="h">h–h a v</greatestDifference>
+							<greatestDifference id="a">h a – h a v</greatestDifference>
+							<greatestDifference id="h">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H">HH–HH v</greatestDifference>
@@ -1763,9 +1824,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						</dayPeriodWidth>
 						<dayPeriodWidth type="narrow">
 							<dayPeriod type="midnight">поноћ</dayPeriod>
-							<dayPeriod type="am">пре подне</dayPeriod>
+							<dayPeriod type="am">пре подне</dayPeriod>
 							<dayPeriod type="noon">подне</dayPeriod>
-							<dayPeriod type="pm">по подне</dayPeriod>
+							<dayPeriod type="pm">по подне</dayPeriod>
 							<dayPeriod type="morning1">јутро</dayPeriod>
 							<dayPeriod type="afternoon1">поподне</dayPeriod>
 							<dayPeriod type="evening1">вече</dayPeriod>
@@ -1858,20 +1919,32 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateTimeFormat>
 							<pattern>{1} {0}</pattern>
 						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
+						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="long">
 						<dateTimeFormat>
 							<pattern>{1} {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="medium">
 						<dateTimeFormat>
 							<pattern>{1} {0}</pattern>
 						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
+						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<dateTimeFormatLength type="short">
 						<dateTimeFormat>
 							<pattern>{1} {0}</pattern>
+						</dateTimeFormat>
+						<dateTimeFormat type="atTime">
+							<pattern>↑↑↑</pattern>
 						</dateTimeFormat>
 					</dateTimeFormatLength>
 					<availableFormats>
@@ -1883,28 +1956,28 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateFormatItem id="EBhm">E hh:mm B</dateFormatItem>
 						<dateFormatItem id="EBhms">E hh:mm:ss B</dateFormatItem>
 						<dateFormatItem id="Ed">E d.</dateFormatItem>
-						<dateFormatItem id="Ehm">E h:mm a</dateFormatItem>
+						<dateFormatItem id="Ehm">E h:mm a</dateFormatItem>
 						<dateFormatItem id="EHm">E HH:mm</dateFormatItem>
-						<dateFormatItem id="Ehms">E h:mm:ss a</dateFormatItem>
+						<dateFormatItem id="Ehms">E h:mm:ss a</dateFormatItem>
 						<dateFormatItem id="EHms">E HH:mm:ss</dateFormatItem>
 						<dateFormatItem id="Gy">y. G</dateFormatItem>
 						<dateFormatItem id="GyMd">d.MM.y. GGGGG</dateFormatItem>
 						<dateFormatItem id="GyMMM">MMM y. G</dateFormatItem>
 						<dateFormatItem id="GyMMMd">d. MMM y. G</dateFormatItem>
 						<dateFormatItem id="GyMMMEd">E, d. MMM y. G</dateFormatItem>
-						<dateFormatItem id="h">h a</dateFormatItem>
+						<dateFormatItem id="h">h a</dateFormatItem>
 						<dateFormatItem id="H">HH</dateFormatItem>
-						<dateFormatItem id="hm">h:mm a</dateFormatItem>
+						<dateFormatItem id="hm">h:mm a</dateFormatItem>
 						<dateFormatItem id="Hm">HH:mm</dateFormatItem>
-						<dateFormatItem id="hms">h:mm:ss a</dateFormatItem>
+						<dateFormatItem id="hms">h:mm:ss a</dateFormatItem>
 						<dateFormatItem id="Hms">HH:mm:ss</dateFormatItem>
-						<dateFormatItem id="hmsv">h:mm:ss a v</dateFormatItem>
+						<dateFormatItem id="hmsv">h:mm:ss a v</dateFormatItem>
 						<dateFormatItem id="Hmsv">HH:mm:ss v</dateFormatItem>
-						<dateFormatItem id="hmv">h:mm a v</dateFormatItem>
+						<dateFormatItem id="hmv">h:mm a v</dateFormatItem>
 						<dateFormatItem id="Hmv">HH:mm v</dateFormatItem>
 						<dateFormatItem id="M">L</dateFormatItem>
-						<dateFormatItem id="Md">d.M.</dateFormatItem>
-						<dateFormatItem id="MEd">E, d.M.</dateFormatItem>
+						<dateFormatItem id="Md">d. M.</dateFormatItem>
+						<dateFormatItem id="MEd">E, d. M.</dateFormatItem>
 						<dateFormatItem id="MMdd">dd.MM.</dateFormatItem>
 						<dateFormatItem id="MMM">LLL</dateFormatItem>
 						<dateFormatItem id="MMMd">d. MMM</dateFormatItem>
@@ -1917,9 +1990,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<dateFormatItem id="MMMMW" count="other">W. 'седмица' 'у' MMMM.</dateFormatItem>
 						<dateFormatItem id="ms">mm:ss</dateFormatItem>
 						<dateFormatItem id="y">y.</dateFormatItem>
-						<dateFormatItem id="yM">M.y.</dateFormatItem>
-						<dateFormatItem id="yMd">d.M.y.</dateFormatItem>
-						<dateFormatItem id="yMEd">E, d.M.y.</dateFormatItem>
+						<dateFormatItem id="yM">M. y.</dateFormatItem>
+						<dateFormatItem id="yMd">d. M. y.</dateFormatItem>
+						<dateFormatItem id="yMEd">E, d. M. y.</dateFormatItem>
 						<dateFormatItem id="yMM">MM.y.</dateFormatItem>
 						<dateFormatItem id="yMMdd">dd.MM.y.</dateFormatItem>
 						<dateFormatItem id="yMMM">MMM y.</dateFormatItem>
@@ -1988,33 +2061,33 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="y">↑↑↑</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="h">
-							<greatestDifference id="a">h a – h a</greatestDifference>
-							<greatestDifference id="h">h–h a</greatestDifference>
+							<greatestDifference id="a">h a – h a</greatestDifference>
+							<greatestDifference id="h">h–h a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="H">
 							<greatestDifference id="H">HH–HH</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hm">
-							<greatestDifference id="a">h:mm a – h:mm a</greatestDifference>
-							<greatestDifference id="h">h:mm–h:mm a</greatestDifference>
-							<greatestDifference id="m">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="a">h:mm a – h:mm a</greatestDifference>
+							<greatestDifference id="h">h:mm–h:mm a</greatestDifference>
+							<greatestDifference id="m">h:mm–h:mm a</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hm">
 							<greatestDifference id="H">HH:mm–HH:mm</greatestDifference>
 							<greatestDifference id="m">HH:mm–HH:mm</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hmv">
-							<greatestDifference id="a">h:mm a – h:mm a v</greatestDifference>
-							<greatestDifference id="h">h:mm–h:mm a v</greatestDifference>
-							<greatestDifference id="m">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="a">h:mm a – h:mm a v</greatestDifference>
+							<greatestDifference id="h">h:mm–h:mm a v</greatestDifference>
+							<greatestDifference id="m">h:mm–h:mm a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hmv">
 							<greatestDifference id="H">HH:mm–HH:mm v</greatestDifference>
 							<greatestDifference id="m">HH:mm–HH:mm v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="hv">
-							<greatestDifference id="a">h a – h a v</greatestDifference>
-							<greatestDifference id="h">h–h a v</greatestDifference>
+							<greatestDifference id="a">h a – h a v</greatestDifference>
+							<greatestDifference id="h">h–h a v</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Hv">
 							<greatestDifference id="H">HH–HH v</greatestDifference>
@@ -2023,12 +2096,12 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="M">M–M</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="Md">
-							<greatestDifference id="d">d.M – d.M</greatestDifference>
-							<greatestDifference id="M">d.M – d.M</greatestDifference>
+							<greatestDifference id="d">d. M. – d. M.</greatestDifference>
+							<greatestDifference id="M">d. M. – d. M.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="MEd">
-							<greatestDifference id="d">E, d.M – E, d.M</greatestDifference>
-							<greatestDifference id="M">E, d.M – E, d.M</greatestDifference>
+							<greatestDifference id="d">E, d. M. – E, d. M.</greatestDifference>
+							<greatestDifference id="M">E, d. M. – E, d. M.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="MMM">
 							<greatestDifference id="M">MMM–MMM</greatestDifference>
@@ -2045,18 +2118,18 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 							<greatestDifference id="y">y–y</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="yM">
-							<greatestDifference id="M">M – M, y</greatestDifference>
+							<greatestDifference id="M">M – M. y.</greatestDifference>
 							<greatestDifference id="y">M.y. – M.y.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="yMd">
-							<greatestDifference id="d">d.M.y. – d.M.y.</greatestDifference>
-							<greatestDifference id="M">d.M.y. – d.M.y.</greatestDifference>
-							<greatestDifference id="y">d.M.y. – d.M.y.</greatestDifference>
+							<greatestDifference id="d">d. M. y. – d. M. y.</greatestDifference>
+							<greatestDifference id="M">d. M. y. – d. M. y.</greatestDifference>
+							<greatestDifference id="y">d. M. y. – d. M. y.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="yMEd">
-							<greatestDifference id="d">E, d.M.y. – E, d.M.y.</greatestDifference>
-							<greatestDifference id="M">E, d.M.y. – E, d.M.y.</greatestDifference>
-							<greatestDifference id="y">E, d.M.y. – E, d.M.y.</greatestDifference>
+							<greatestDifference id="d">E, d. M. y. – E, d. M. y.</greatestDifference>
+							<greatestDifference id="M">E, d. M. y. – E, d. M. y.</greatestDifference>
+							<greatestDifference id="y">E, d. M. y. – E, d. M. y.</greatestDifference>
 						</intervalFormatItem>
 						<intervalFormatItem id="yMMM">
 							<greatestDifference id="M">MMM–MMM y.</greatestDifference>
@@ -2130,21 +2203,35 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<months>
 					<monthContext type="format">
 						<monthWidth type="abbreviated">
-							<month type="1" draft="provisional">Мух.</month>
-							<month type="2" draft="provisional">Саф.</month>
-							<month type="3" draft="provisional">Реб. 1</month>
-							<month type="4" draft="provisional">Реб. 2</month>
-							<month type="5" draft="provisional">Џум. 1</month>
-							<month type="6" draft="provisional">Џум. 2</month>
-							<month type="7" draft="provisional">Реџ.</month>
-							<month type="8" draft="provisional">Ша.</month>
-							<month type="9" draft="provisional">Рам.</month>
-							<month type="10" draft="provisional">Ше.</month>
-							<month type="11" draft="provisional">Зул-к.</month>
-							<month type="12" draft="provisional">Зул-х.</month>
+							<month type="1">Мух.</month>
+							<month type="2">Саф.</month>
+							<month type="3">Реб. 1</month>
+							<month type="4">Реб. 2</month>
+							<month type="5">Џум. 1</month>
+							<month type="6">Џум. 2</month>
+							<month type="7">Реџ.</month>
+							<month type="8">Ша.</month>
+							<month type="9">Рам.</month>
+							<month type="10">Ше.</month>
+							<month type="11">Зул-к.</month>
+							<month type="12">Зул-х.</month>
+						</monthWidth>
+						<monthWidth type="narrow">
+							<month type="1">↑↑↑</month>
+							<month type="2">↑↑↑</month>
+							<month type="3">↑↑↑</month>
+							<month type="4">↑↑↑</month>
+							<month type="5">↑↑↑</month>
+							<month type="6">↑↑↑</month>
+							<month type="7">↑↑↑</month>
+							<month type="8">↑↑↑</month>
+							<month type="9">↑↑↑</month>
+							<month type="10">↑↑↑</month>
+							<month type="11">↑↑↑</month>
+							<month type="12">↑↑↑</month>
 						</monthWidth>
 						<monthWidth type="wide">
-							<month type="1">Мурахам</month>
+							<month type="1">Мухарем</month>
 							<month type="2">Сафар</month>
 							<month type="3">Рабиʻ I</month>
 							<month type="4">Рабиʻ II</month>
@@ -2159,19 +2246,47 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						</monthWidth>
 					</monthContext>
 					<monthContext type="stand-alone">
+						<monthWidth type="abbreviated">
+							<month type="1">↑↑↑</month>
+							<month type="2">↑↑↑</month>
+							<month type="3">↑↑↑</month>
+							<month type="4">↑↑↑</month>
+							<month type="5">↑↑↑</month>
+							<month type="6">↑↑↑</month>
+							<month type="7">↑↑↑</month>
+							<month type="8">↑↑↑</month>
+							<month type="9">↑↑↑</month>
+							<month type="10">↑↑↑</month>
+							<month type="11">↑↑↑</month>
+							<month type="12">↑↑↑</month>
+						</monthWidth>
+						<monthWidth type="narrow">
+							<month type="1">↑↑↑</month>
+							<month type="2">↑↑↑</month>
+							<month type="3">↑↑↑</month>
+							<month type="4">↑↑↑</month>
+							<month type="5">↑↑↑</month>
+							<month type="6">↑↑↑</month>
+							<month type="7">↑↑↑</month>
+							<month type="8">↑↑↑</month>
+							<month type="9">↑↑↑</month>
+							<month type="10">↑↑↑</month>
+							<month type="11">↑↑↑</month>
+							<month type="12">↑↑↑</month>
+						</monthWidth>
 						<monthWidth type="wide">
-							<month type="1" draft="provisional">Мухарем</month>
-							<month type="2" draft="provisional">Сафер</month>
-							<month type="3" draft="provisional">Реби 1</month>
-							<month type="4" draft="provisional">Реби 2</month>
-							<month type="5" draft="provisional">Џумаде 1</month>
-							<month type="6" draft="provisional">Џумаде 2</month>
-							<month type="7" draft="provisional">Реџеб</month>
-							<month type="8" draft="provisional">Шаʻбан</month>
-							<month type="9" draft="provisional">Рамазан</month>
-							<month type="10" draft="provisional">Шевал</month>
-							<month type="11" draft="provisional">Зул-каде</month>
-							<month type="12" draft="provisional">Зул-хиџе</month>
+							<month type="1">Мухарем</month>
+							<month type="2">Сафер</month>
+							<month type="3">Реби 1</month>
+							<month type="4">Реби 2</month>
+							<month type="5">Џумаде 1</month>
+							<month type="6">Џумаде 2</month>
+							<month type="7">Реџеб</month>
+							<month type="8">Шаʻбан</month>
+							<month type="9">Рамазан</month>
+							<month type="10">Шевал</month>
+							<month type="11">Зул-каде</month>
+							<month type="12">Зул-хиџе</month>
 						</monthWidth>
 					</monthContext>
 				</months>
@@ -2180,6 +2295,59 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 						<era type="0">АХ</era>
 					</eraAbbr>
 				</eras>
+				<dateFormats>
+					<dateFormatLength type="full">
+						<dateFormat>
+							<pattern>↑↑↑</pattern>
+						</dateFormat>
+					</dateFormatLength>
+					<dateFormatLength type="long">
+						<dateFormat>
+							<pattern>↑↑↑</pattern>
+						</dateFormat>
+					</dateFormatLength>
+					<dateFormatLength type="medium">
+						<dateFormat>
+							<pattern>↑↑↑</pattern>
+						</dateFormat>
+					</dateFormatLength>
+					<dateFormatLength type="short">
+						<dateFormat>
+							<pattern>↑↑↑</pattern>
+						</dateFormat>
+					</dateFormatLength>
+				</dateFormats>
+				<dateTimeFormats>
+					<availableFormats>
+						<dateFormatItem id="d">↑↑↑</dateFormatItem>
+						<dateFormatItem id="E">↑↑↑</dateFormatItem>
+						<dateFormatItem id="Ed">↑↑↑</dateFormatItem>
+						<dateFormatItem id="Gy">↑↑↑</dateFormatItem>
+						<dateFormatItem id="GyMd">↑↑↑</dateFormatItem>
+						<dateFormatItem id="GyMMM">↑↑↑</dateFormatItem>
+						<dateFormatItem id="GyMMMd">↑↑↑</dateFormatItem>
+						<dateFormatItem id="GyMMMEd">↑↑↑</dateFormatItem>
+						<dateFormatItem id="M">↑↑↑</dateFormatItem>
+						<dateFormatItem id="Md">↑↑↑</dateFormatItem>
+						<dateFormatItem id="MEd">↑↑↑</dateFormatItem>
+						<dateFormatItem id="MMM">↑↑↑</dateFormatItem>
+						<dateFormatItem id="MMMd">↑↑↑</dateFormatItem>
+						<dateFormatItem id="MMMEd">↑↑↑</dateFormatItem>
+						<dateFormatItem id="MMMMd">↑↑↑</dateFormatItem>
+						<dateFormatItem id="MMMMEd">↑↑↑</dateFormatItem>
+						<dateFormatItem id="y">↑↑↑</dateFormatItem>
+						<dateFormatItem id="yyyy">↑↑↑</dateFormatItem>
+						<dateFormatItem id="yyyyM">↑↑↑</dateFormatItem>
+						<dateFormatItem id="yyyyMd">↑↑↑</dateFormatItem>
+						<dateFormatItem id="yyyyMEd">↑↑↑</dateFormatItem>
+						<dateFormatItem id="yyyyMMM">↑↑↑</dateFormatItem>
+						<dateFormatItem id="yyyyMMMd">↑↑↑</dateFormatItem>
+						<dateFormatItem id="yyyyMMMEd">↑↑↑</dateFormatItem>
+						<dateFormatItem id="yyyyMMMM">↑↑↑</dateFormatItem>
+						<dateFormatItem id="yyyyQQQ">↑↑↑</dateFormatItem>
+						<dateFormatItem id="yyyyQQQQ">↑↑↑</dateFormatItem>
+					</availableFormats>
+				</dateTimeFormats>
 			</calendar>
 			<calendar type="japanese">
 				<eras>
@@ -3879,6 +4047,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<zone type="Pacific/Enderbury">
 				<exemplarCity>Ендербери</exemplarCity>
 			</zone>
+			<zone type="Pacific/Kanton">
+				<exemplarCity>Кантон</exemplarCity>
+			</zone>
 			<zone type="Pacific/Kiritimati">
 				<exemplarCity>Киритимати</exemplarCity>
 			</zone>
@@ -4031,6 +4202,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</zone>
 			<zone type="America/Hermosillo">
 				<exemplarCity>Хермосиљо</exemplarCity>
+			</zone>
+			<zone type="America/Ciudad_Juarez">
+				<exemplarCity>Сиудад Хуарез</exemplarCity>
 			</zone>
 			<zone type="America/Mazatlan">
 				<exemplarCity>Мазатлан</exemplarCity>
@@ -5646,9 +5820,11 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<currencyFormatLength>
 				<currencyFormat type="standard">
 					<pattern>#,##0.00 ¤</pattern>
+					<pattern alt="noCurrency" draft="provisional">#,##0.00</pattern>
 				</currencyFormat>
 				<currencyFormat type="accounting">
 					<pattern>#,##0.00 ¤;(#,##0.00 ¤)</pattern>
+					<pattern alt="noCurrency">#,##0.00;(#,##0.00)</pattern>
 				</currencyFormat>
 			</currencyFormatLength>
 			<currencyFormatLength type="short">
@@ -5691,6 +5867,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 					<pattern type="100000000000000" count="other">000 бил'.' ¤</pattern>
 				</currencyFormat>
 			</currencyFormatLength>
+			<currencyPatternAppendISO>↑↑↑</currencyPatternAppendISO>
 			<unitPattern count="one">{0} {1}</unitPattern>
 			<unitPattern count="few">{0} {1}</unitPattern>
 			<unitPattern count="other">{0} {1}</unitPattern>
@@ -6382,7 +6559,6 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<displayName count="other">грузијских ларија</displayName>
 				<symbol>GEL</symbol>
 				<symbol alt="narrow">ლ</symbol>
-				<symbol alt="variant">ლ</symbol>
 			</currency>
 			<currency type="GHC">
 				<displayName>Гански цеди (1979–2007)</displayName>
@@ -6875,7 +7051,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<displayName count="one">мауританијска oгија (1973–2017)</displayName>
 				<displayName count="few">мауританијскe oгијe (1973–2017)</displayName>
 				<displayName count="other">мауританијских oгијa (1973–2017)</displayName>
-				<symbol draft="contributed">MRO</symbol>
+				<symbol>MRO</symbol>
 			</currency>
 			<currency type="MRU">
 				<displayName>мауританска огија</displayName>
@@ -7284,7 +7460,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<displayName count="one">саотомска добра (1977–2017)</displayName>
 				<displayName count="few">саотомске добре (1977–2017)</displayName>
 				<displayName count="other">саотомских добри (1977–2017)</displayName>
-				<symbol draft="contributed">STD</symbol>
+				<symbol>STD</symbol>
 			</currency>
 			<currency type="STN">
 				<displayName>саотомска добра</displayName>
@@ -7499,8 +7675,8 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<displayName count="one">венецуелански боливар (2008–2018)</displayName>
 				<displayName count="few">венецуеланска боливара (2008–2018)</displayName>
 				<displayName count="other">венецуеланских боливара (2008–2018)</displayName>
-				<symbol draft="contributed">VEF</symbol>
-				<symbol alt="narrow" draft="contributed">Bs</symbol>
+				<symbol>VEF</symbol>
+				<symbol alt="narrow">Bs</symbol>
 			</currency>
 			<currency type="VES">
 				<displayName>венецуелански боливар</displayName>
@@ -7959,10 +8135,20 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="acceleration-meter-per-square-second">
+				<gender>inanimate</gender>
 				<displayName>метри у секунди на квадрат</displayName>
 				<unitPattern count="one">{0} метар у секунди на квадрат</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} метра у секунди на квадрат</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} метром у секунди на квадрат</unitPattern>
 				<unitPattern count="few">{0} метра у секунди на квадрат</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} метара у секунди на квадрат</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="angle-revolution">
 				<gender>inanimate</gender>
@@ -8045,10 +8231,20 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="area-square-kilometer">
+				<gender>inanimate</gender>
 				<displayName>квадратни километри</displayName>
 				<unitPattern count="one">{0} квадратни километар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} квадратна километра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} квадратним километром</unitPattern>
 				<unitPattern count="few">{0} квадратна километра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} квадратних километара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 				<perUnitPattern>{0} по квадратном километру</perUnitPattern>
 			</unit>
 			<unit type="area-hectare">
@@ -8068,17 +8264,37 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="area-square-meter">
+				<gender>inanimate</gender>
 				<displayName>квадратни метри</displayName>
 				<unitPattern count="one">{0} квадратни метар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} квадратна метра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} квадратним метром</unitPattern>
 				<unitPattern count="few">{0} квадратна метра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} квадратних метара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 				<perUnitPattern>{0}/m²</perUnitPattern>
 			</unit>
 			<unit type="area-square-centimeter">
+				<gender>inanimate</gender>
 				<displayName>квадратни центиметри</displayName>
 				<unitPattern count="one">{0} квадратни центиметар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} квадратног центиметра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} квадратним центиметром</unitPattern>
 				<unitPattern count="few">{0} квадратна центиметра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} квадратних центиметара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 				<perUnitPattern>{0}/cm²</perUnitPattern>
 			</unit>
 			<unit type="area-square-mile">
@@ -8142,16 +8358,36 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} милиграма по децилитру</unitPattern>
 			</unit>
 			<unit type="concentr-millimole-per-liter">
+				<gender>inanimate</gender>
 				<displayName>милимол по литри</displayName>
 				<unitPattern count="one">{0} милимол по литри</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} милимола по литри</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} милимолом по литри</unitPattern>
 				<unitPattern count="few">{0} милимола по литри</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} милимола по литри</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="concentr-item">
+				<gender>feminine</gender>
 				<displayName>ставке</displayName>
 				<unitPattern count="one">{0} ставка</unitPattern>
+				<unitPattern count="one" case="accusative">{0} ставку</unitPattern>
+				<unitPattern count="one" case="genitive">{0} ставке</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} ставком</unitPattern>
 				<unitPattern count="few">{0} ставке</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} ставки</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="concentr-permillion">
 				<gender>feminine</gender>
@@ -8234,16 +8470,36 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="consumption-liter-per-kilometer">
+				<gender>inanimate</gender>
 				<displayName>литри по километру</displayName>
 				<unitPattern count="one">{0} литар по километру</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} литра по километру</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} литром по километру</unitPattern>
 				<unitPattern count="few">{0} литра по километру</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} литара по километру</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="consumption-liter-per-100-kilometer">
+				<gender>inanimate</gender>
 				<displayName>литри на 100 километара</displayName>
 				<unitPattern count="one">{0} литар на 100 километара</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} литра на 100 километара</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} литром на 100 километара</unitPattern>
 				<unitPattern count="few">{0} литра на 100 километара</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} литара на 100 километара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="consumption-mile-per-gallon">
 				<displayName>миља по галону</displayName>
@@ -8258,58 +8514,148 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} миља по империјалном галону</unitPattern>
 			</unit>
 			<unit type="digital-petabyte">
+				<gender>inanimate</gender>
 				<displayName>петабајти</displayName>
 				<unitPattern count="one">{0} петабајт</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} петабајта</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} петабајтом</unitPattern>
 				<unitPattern count="few">{0} петабајта</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} петабајтова</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-terabyte">
+				<gender>inanimate</gender>
 				<displayName>терабајти</displayName>
 				<unitPattern count="one">{0} терабајт</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} терабајта</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} терабајтом</unitPattern>
 				<unitPattern count="few">{0} терабајта</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} терабајта</unitPattern>
+				<unitPattern count="other" case="accusative">{0} терабајтова</unitPattern>
+				<unitPattern count="other" case="genitive">{0} терабајтова</unitPattern>
+				<unitPattern count="other" case="instrumental">{0} терабајтова</unitPattern>
 			</unit>
 			<unit type="digital-terabit">
+				<gender>inanimate</gender>
 				<displayName>терабитови</displayName>
 				<unitPattern count="one">{0} терабит</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} терабита</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} терабитом</unitPattern>
 				<unitPattern count="few">{0} терабита</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} терабитова</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-gigabyte">
+				<gender>inanimate</gender>
 				<displayName>гигабајти</displayName>
 				<unitPattern count="one">{0} гигабајт</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} гигабајта</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} гигабајтом</unitPattern>
 				<unitPattern count="few">{0} гигабајта</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} гигабајтова</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-gigabit">
+				<gender>inanimate</gender>
 				<displayName>гигабитови</displayName>
 				<unitPattern count="one">{0} гигабит</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} гигабита</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} гигабитом</unitPattern>
 				<unitPattern count="few">{0} гигабита</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} гигабитова</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-megabyte">
+				<gender>inanimate</gender>
 				<displayName>мегабајти</displayName>
 				<unitPattern count="one">{0} мегабајт</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} мегабајта</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} мегабајтом</unitPattern>
 				<unitPattern count="few">{0} мегабајта</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} мегабајтова</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-megabit">
+				<gender>inanimate</gender>
 				<displayName>мегабитови</displayName>
 				<unitPattern count="one">{0} мегабит</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} мегабита</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} мегабитом</unitPattern>
 				<unitPattern count="few">{0} мегабита</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} мегабитова</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-kilobyte">
+				<gender>inanimate</gender>
 				<displayName>килобајти</displayName>
 				<unitPattern count="one">{0} килобајт</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} килобајта</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} килобајтом</unitPattern>
 				<unitPattern count="few">{0} килобајта</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} килобајтова</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-kilobit">
+				<gender>inanimate</gender>
 				<displayName>килобитови</displayName>
 				<unitPattern count="one">{0} килобит</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} килобита</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} килобитом</unitPattern>
 				<unitPattern count="few">{0} килобита</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} килобитова</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="digital-byte">
 				<gender>inanimate</gender>
@@ -8391,6 +8737,23 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 				<perUnitPattern>{0} годишње</perUnitPattern>
+			</unit>
+			<unit type="duration-quarter">
+				<gender>inanimate</gender>
+				<displayName>квартали</displayName>
+				<unitPattern count="one">{0} квартал</unitPattern>
+				<unitPattern count="one" case="accusative">{0} квартал</unitPattern>
+				<unitPattern count="one" case="genitive">{0} квартала</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} кварталом</unitPattern>
+				<unitPattern count="few">{0} квартала</unitPattern>
+				<unitPattern count="few" case="accusative">{0} квартала</unitPattern>
+				<unitPattern count="few" case="genitive">{0} квартала</unitPattern>
+				<unitPattern count="few" case="instrumental">{0} кварталима</unitPattern>
+				<unitPattern count="other">{0} квартала</unitPattern>
+				<unitPattern count="other" case="accusative">{0} квартала</unitPattern>
+				<unitPattern count="other" case="genitive">{0} квартала</unitPattern>
+				<unitPattern count="other" case="instrumental">{0} квартала</unitPattern>
+				<perUnitPattern>{0}/к</perUnitPattern>
 			</unit>
 			<unit type="duration-month">
 				<gender>inanimate</gender>
@@ -8495,22 +8858,52 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0}/у секунди</perUnitPattern>
 			</unit>
 			<unit type="duration-millisecond">
+				<gender>feminine</gender>
 				<displayName>милисекунде</displayName>
 				<unitPattern count="one">{0} милисекунда</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} милисекунде</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} милисекундом</unitPattern>
 				<unitPattern count="few">{0} милисекунде</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} милисекунди</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="duration-microsecond">
+				<gender>feminine</gender>
 				<displayName>микросекунде</displayName>
 				<unitPattern count="one">{0} микросекунда</unitPattern>
+				<unitPattern count="one" case="accusative">{0} микросекунду</unitPattern>
+				<unitPattern count="one" case="genitive">{0} микросекунде</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} микросекундом</unitPattern>
 				<unitPattern count="few">{0} микросекунде</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} микросекунди</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="duration-nanosecond">
+				<gender>feminine</gender>
 				<displayName>наносекунде</displayName>
 				<unitPattern count="one">{0} наносекунда</unitPattern>
+				<unitPattern count="one" case="accusative">{0} наносекунде</unitPattern>
+				<unitPattern count="one" case="genitive">{0} наносекунде</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} наносекундом</unitPattern>
 				<unitPattern count="few">{0} наносекунде</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} наносекунди</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="electric-ampere">
 				<gender>inanimate</gender>
@@ -8529,10 +8922,20 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="electric-milliampere">
+				<gender>inanimate</gender>
 				<displayName>милиампери</displayName>
 				<unitPattern count="one">{0} милиампер</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} милиампера</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} милиампером</unitPattern>
 				<unitPattern count="few">{0} милиампера</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} милиампера</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="electric-ohm">
 				<gender>inanimate</gender>
@@ -8595,10 +8998,20 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} калорија</unitPattern>
 			</unit>
 			<unit type="energy-kilojoule">
+				<gender>inanimate</gender>
 				<displayName>килоџули</displayName>
 				<unitPattern count="one">{0} килоџул</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} килоџула</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} килоџулом</unitPattern>
 				<unitPattern count="few">{0} килоџула</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} килоџула</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-joule">
 				<gender>inanimate</gender>
@@ -8617,10 +9030,20 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-kilowatt-hour">
+				<gender>inanimate</gender>
 				<displayName>киловат-сати</displayName>
 				<unitPattern count="one">{0} киловат-сат</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} киловат-сата</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} киловат-сатом</unitPattern>
 				<unitPattern count="few">{0} киловат-сата</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} киловат-сати</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="energy-electronvolt">
 				<displayName>електронволти</displayName>
@@ -8663,28 +9086,68 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="force-kilowatt-hour-per-100-kilometer">
+				<gender>inanimate</gender>
 				<displayName>↑↑↑</displayName>
 				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="one" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="few">↑↑↑</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-gigahertz">
+				<gender>inanimate</gender>
 				<displayName>гигахерци</displayName>
 				<unitPattern count="one">{0} гигахерц</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} гигахерца</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} гигахерцом</unitPattern>
 				<unitPattern count="few">{0} гигахерца</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} гигахерца</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-megahertz">
+				<gender>inanimate</gender>
 				<displayName>мегахерци</displayName>
 				<unitPattern count="one">{0} мегахерц</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} мегахерца</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} мегахерцом</unitPattern>
 				<unitPattern count="few">{0} мегахерца</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} мегахерца</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-kilohertz">
+				<gender>inanimate</gender>
 				<displayName>килохерци</displayName>
 				<unitPattern count="one">{0} килохерц</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} килохерца</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} килохерцом</unitPattern>
 				<unitPattern count="few">{0} килохерца</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} килохерца</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-hertz">
 				<gender>inanimate</gender>
@@ -8705,7 +9168,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<unit type="graphics-em">
 				<gender>inanimate</gender>
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one">{0} em</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
 				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
 				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
 				<unitPattern count="one" case="instrumental">↑↑↑</unitPattern>
@@ -8721,30 +9184,50 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<unit type="graphics-pixel">
 				<gender>inanimate</gender>
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one">{0} px</unitPattern>
-				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
-				<unitPattern count="one" case="genitive">↑↑↑</unitPattern>
-				<unitPattern count="one" case="instrumental">↑↑↑</unitPattern>
-				<unitPattern count="few">↑↑↑</unitPattern>
-				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
-				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
-				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
-				<unitPattern count="other">↑↑↑</unitPattern>
-				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
-				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
-				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
+				<unitPattern count="one">{0} пиксел</unitPattern>
+				<unitPattern count="one" case="accusative">{0} пиксел</unitPattern>
+				<unitPattern count="one" case="genitive">{0} пиксела</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} пикселом</unitPattern>
+				<unitPattern count="few">{0} пиксела</unitPattern>
+				<unitPattern count="few" case="accusative">{0} пиксела</unitPattern>
+				<unitPattern count="few" case="genitive">{0} пиксела</unitPattern>
+				<unitPattern count="few" case="instrumental">{0} пиксела</unitPattern>
+				<unitPattern count="other">{0} пиксела</unitPattern>
+				<unitPattern count="other" case="accusative">{0} пиксела</unitPattern>
+				<unitPattern count="other" case="genitive">{0} пиксела</unitPattern>
+				<unitPattern count="other" case="instrumental">{0} пиксела</unitPattern>
 			</unit>
 			<unit type="graphics-megapixel">
-				<displayName>↑↑↑</displayName>
-				<unitPattern count="one">↑↑↑</unitPattern>
-				<unitPattern count="few">↑↑↑</unitPattern>
-				<unitPattern count="other">↑↑↑</unitPattern>
+				<gender>inanimate</gender>
+				<displayName>мегапиксели</displayName>
+				<unitPattern count="one">{0} мегапиксел</unitPattern>
+				<unitPattern count="one" case="accusative">{0} мегапиксел</unitPattern>
+				<unitPattern count="one" case="genitive">{0} мегапиксела</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} мегапикселом</unitPattern>
+				<unitPattern count="few">{0} мегапиксела</unitPattern>
+				<unitPattern count="few" case="accusative">{0} мегапиксела</unitPattern>
+				<unitPattern count="few" case="genitive">{0} мегапиксела</unitPattern>
+				<unitPattern count="few" case="instrumental">{0} мегапиксела</unitPattern>
+				<unitPattern count="other">{0} мегапиксела</unitPattern>
+				<unitPattern count="other" case="accusative">{0} мегапиксела</unitPattern>
+				<unitPattern count="other" case="genitive">{0} мегапиксела</unitPattern>
+				<unitPattern count="other" case="instrumental">{0} мегапиксела</unitPattern>
 			</unit>
 			<unit type="graphics-pixel-per-centimeter">
+				<gender>inanimate</gender>
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one">↑↑↑</unitPattern>
-				<unitPattern count="few">↑↑↑</unitPattern>
-				<unitPattern count="other">↑↑↑</unitPattern>
+				<unitPattern count="one">{0} пиксел на центиметар</unitPattern>
+				<unitPattern count="one" case="accusative">{0} пиксел на центиметар</unitPattern>
+				<unitPattern count="one" case="genitive">{0} пиксела на центиметар</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} пикселом на центиметар</unitPattern>
+				<unitPattern count="few">{0} пиксела на центиметар</unitPattern>
+				<unitPattern count="few" case="accusative">{0} пиксела на центиметар</unitPattern>
+				<unitPattern count="few" case="genitive">{0} пиксела на центиметар</unitPattern>
+				<unitPattern count="few" case="instrumental">{0} пиксела на центиметар</unitPattern>
+				<unitPattern count="other">{0} пиксела на центиметар</unitPattern>
+				<unitPattern count="other" case="accusative">{0} пиксела на центиметар</unitPattern>
+				<unitPattern count="other" case="genitive">{0} пиксела на центиметар</unitPattern>
+				<unitPattern count="other" case="instrumental">{0} пиксела на центиметар</unitPattern>
 			</unit>
 			<unit type="graphics-pixel-per-inch">
 				<displayName>↑↑↑</displayName>
@@ -8773,14 +9256,24 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			<unit type="length-earth-radius">
 				<displayName>полупречник Земље</displayName>
 				<unitPattern count="one">{0} полупречник Земље</unitPattern>
-				<unitPattern count="few">↑↑↑</unitPattern>
+				<unitPattern count="few">{0} полупречник Земље</unitPattern>
 				<unitPattern count="other">{0} полупречника Земље</unitPattern>
 			</unit>
 			<unit type="length-kilometer">
+				<gender>inanimate</gender>
 				<displayName>километри</displayName>
 				<unitPattern count="one">{0} километар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} километра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} километром</unitPattern>
 				<unitPattern count="few">{0} километра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} километара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 				<perUnitPattern>{0}/km</perUnitPattern>
 			</unit>
 			<unit type="length-meter">
@@ -8801,41 +9294,101 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0}/m</perUnitPattern>
 			</unit>
 			<unit type="length-decimeter">
+				<gender>inanimate</gender>
 				<displayName>дециметри</displayName>
 				<unitPattern count="one">{0} дециметар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} дециметра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} дециметром</unitPattern>
 				<unitPattern count="few">{0} дециметра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} дециметара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="length-centimeter">
+				<gender>inanimate</gender>
 				<displayName>центиметри</displayName>
 				<unitPattern count="one">{0} центиметар</unitPattern>
-				<unitPattern count="few">{0} центиментра</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} центиметра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} центиметром</unitPattern>
+				<unitPattern count="few">{0} центиметра</unitPattern>
+				<unitPattern count="few" case="accusative">{0} центиметра</unitPattern>
+				<unitPattern count="few" case="genitive">{0} центиметра</unitPattern>
+				<unitPattern count="few" case="instrumental">{0} центиметра</unitPattern>
 				<unitPattern count="other">{0} центиметара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 				<perUnitPattern>{0}/cm</perUnitPattern>
 			</unit>
 			<unit type="length-millimeter">
+				<gender>inanimate</gender>
 				<displayName>милиметри</displayName>
 				<unitPattern count="one">{0} милиметар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} милиметра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} милиметром</unitPattern>
 				<unitPattern count="few">{0} милиметра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} милиметара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="length-micrometer">
+				<gender>inanimate</gender>
 				<displayName>микрометри</displayName>
 				<unitPattern count="one">{0} микрометар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} микрометра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} микрометром</unitPattern>
 				<unitPattern count="few">{0} микрометра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} микрометара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="length-nanometer">
+				<gender>inanimate</gender>
 				<displayName>нанометри</displayName>
 				<unitPattern count="one">{0} нанометар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} нанометра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} нанометром</unitPattern>
 				<unitPattern count="few">{0} нанометра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} нанометара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="length-picometer">
+				<gender>inanimate</gender>
 				<displayName>пикометри</displayName>
 				<unitPattern count="one">{0} пикометар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} пикометра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} пикометром</unitPattern>
 				<unitPattern count="few">{0} пикометра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} пикометара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="length-mile">
 				<displayName>миље</displayName>
@@ -8981,7 +9534,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="few">↑↑↑</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
-			<unit type="mass-metric-ton">
+			<unit type="mass-tonne">
 				<gender>feminine</gender>
 				<displayName>метричке тоне</displayName>
 				<unitPattern count="one">{0} метричка тона</unitPattern>
@@ -9032,16 +9585,36 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0} по граму</perUnitPattern>
 			</unit>
 			<unit type="mass-milligram">
+				<gender>inanimate</gender>
 				<displayName>милиграми</displayName>
 				<unitPattern count="one">{0} милиграм</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} милиграма</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} милиграмом</unitPattern>
 				<unitPattern count="few">{0} милиграма</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} милиграма</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="mass-microgram">
+				<gender>inanimate</gender>
 				<displayName>микрограми</displayName>
 				<unitPattern count="one">{0} микрограм</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} микрограма</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} микрограмом</unitPattern>
 				<unitPattern count="few">{0} микрограма</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} микрограма</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="mass-ton">
 				<displayName>тоне</displayName>
@@ -9116,22 +9689,52 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} грејна</unitPattern>
 			</unit>
 			<unit type="power-gigawatt">
+				<gender>inanimate</gender>
 				<displayName>гигавати</displayName>
 				<unitPattern count="one">{0} гигават</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} гигавата</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} гигаватом</unitPattern>
 				<unitPattern count="few">{0} гигавата</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} гигавати</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-megawatt">
+				<gender>inanimate</gender>
 				<displayName>мегавати</displayName>
 				<unitPattern count="one">{0} мегават</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} мегавата</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} мегаватом</unitPattern>
 				<unitPattern count="few">{0} мегавата</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} мегавати</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-kilowatt">
+				<gender>inanimate</gender>
 				<displayName>киловати</displayName>
 				<unitPattern count="one">{0} киловат</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} киловата</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} киловатом</unitPattern>
 				<unitPattern count="few">{0} киловата</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} киловати</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-watt">
 				<gender>inanimate</gender>
@@ -9150,10 +9753,20 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-milliwatt">
+				<gender>inanimate</gender>
 				<displayName>миливати</displayName>
 				<unitPattern count="one">{0} миливат</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} миливата</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} миливатом</unitPattern>
 				<unitPattern count="few">{0} миливата</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} миливати</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="power-horsepower">
 				<displayName>коњске снаге</displayName>
@@ -9196,10 +9809,20 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-millibar">
+				<gender>inanimate</gender>
 				<displayName>милибари</displayName>
 				<unitPattern count="one">{0} милибар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} милибара</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} милибаром</unitPattern>
 				<unitPattern count="few">{0} милибара</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} милибара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-atmosphere">
 				<gender>feminine</gender>
@@ -9234,34 +9857,84 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-hectopascal">
+				<gender>inanimate</gender>
 				<displayName>хектопаскали</displayName>
 				<unitPattern count="one">{0} хектопаскал</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} хектопаскала</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} хектопаскалом</unitPattern>
 				<unitPattern count="few">{0} хектопаскала</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} хектопаскала</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-kilopascal">
+				<gender>inanimate</gender>
 				<displayName>килопаскали</displayName>
 				<unitPattern count="one">{0} килопаскал</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} килопаскала</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} килопаскалом</unitPattern>
 				<unitPattern count="few">{0} килопаскала</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} килопаскала</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="pressure-megapascal">
+				<gender>inanimate</gender>
 				<displayName>мегапаскали</displayName>
 				<unitPattern count="one">{0} мегапаскал</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} мегапаскала</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} мегапаскалом</unitPattern>
 				<unitPattern count="few">{0} мегапаскала</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} мегапаскала</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="speed-kilometer-per-hour">
+				<gender>inanimate</gender>
 				<displayName>километри на сат</displayName>
 				<unitPattern count="one">{0} километар на сат</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} километра на сат</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} километром на сат</unitPattern>
 				<unitPattern count="few">{0} километра на сат</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} километара на сат</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="speed-meter-per-second">
+				<gender>inanimate</gender>
 				<displayName>метри у секунди</displayName>
 				<unitPattern count="one">{0} метар у секунди</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} метра у секунди</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} метром у секунди</unitPattern>
 				<unitPattern count="few">{0} метра у секунди</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} метара у секунди</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="speed-mile-per-hour">
 				<displayName>миље на сат</displayName>
@@ -9336,29 +10009,69 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} фунти силе стопе</unitPattern>
 			</unit>
 			<unit type="torque-newton-meter">
+				<gender>inanimate</gender>
 				<displayName>њутн-метри</displayName>
 				<unitPattern count="one">{0} њутн-метар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} њутн-метра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} њутн-метром</unitPattern>
 				<unitPattern count="few">{0} њутн-метра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} њутн-метара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-cubic-kilometer">
+				<gender>inanimate</gender>
 				<displayName>кубни километри</displayName>
 				<unitPattern count="one">{0} кубни километар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} кубног километра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} кубним километром</unitPattern>
 				<unitPattern count="few">{0} кубна километра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} кубних километара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-cubic-meter">
+				<gender>inanimate</gender>
 				<displayName>кубни метри</displayName>
 				<unitPattern count="one">{0} кубни метар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} кубног метра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} кубним метром</unitPattern>
 				<unitPattern count="few">{0} кубна метра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} кубних метара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 				<perUnitPattern>{0}/m³</perUnitPattern>
 			</unit>
 			<unit type="volume-cubic-centimeter">
+				<gender>inanimate</gender>
 				<displayName>кубни центиметри</displayName>
 				<unitPattern count="one">{0} кубни центиметар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} кубног центиметра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} кубним центиметром</unitPattern>
 				<unitPattern count="few">{0} кубна центиметра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} кубних центиметара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 				<perUnitPattern>{0}/cm³</perUnitPattern>
 			</unit>
 			<unit type="volume-cubic-mile">
@@ -9386,16 +10099,36 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} кубних инча</unitPattern>
 			</unit>
 			<unit type="volume-megaliter">
+				<gender>inanimate</gender>
 				<displayName>мегалитри</displayName>
 				<unitPattern count="one">{0} мегалитар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} мегалитра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} мегалитром</unitPattern>
 				<unitPattern count="few">{0} мегалитра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} мегалитара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-hectoliter">
+				<gender>inanimate</gender>
 				<displayName>хектолитри</displayName>
 				<unitPattern count="one">{0} хектолитар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} хектолитра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} хектолитром</unitPattern>
 				<unitPattern count="few">{0} хектолитра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} хектолитара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-liter">
 				<gender>inanimate</gender>
@@ -9415,22 +10148,52 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<perUnitPattern>{0} по литри</perUnitPattern>
 			</unit>
 			<unit type="volume-deciliter">
+				<gender>inanimate</gender>
 				<displayName>децилитри</displayName>
 				<unitPattern count="one">{0} децилитар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} децилитра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} децилитром</unitPattern>
 				<unitPattern count="few">{0} децилитра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} децилитара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-centiliter">
+				<gender>inanimate</gender>
 				<displayName>центилитри</displayName>
 				<unitPattern count="one">{0} центилитар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} центилитра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} центилитром</unitPattern>
 				<unitPattern count="few">{0} центилитра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} центилитара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-milliliter">
+				<gender>inanimate</gender>
 				<displayName>милилитри</displayName>
 				<unitPattern count="one">{0} милилитар</unitPattern>
+				<unitPattern count="one" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="one" case="genitive">{0} милилитра</unitPattern>
+				<unitPattern count="one" case="instrumental">{0} милилитром</unitPattern>
 				<unitPattern count="few">{0} милилитра</unitPattern>
+				<unitPattern count="few" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="few" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="few" case="instrumental">↑↑↑</unitPattern>
 				<unitPattern count="other">{0} милилитара</unitPattern>
+				<unitPattern count="other" case="accusative">↑↑↑</unitPattern>
+				<unitPattern count="other" case="genitive">↑↑↑</unitPattern>
+				<unitPattern count="other" case="instrumental">↑↑↑</unitPattern>
 			</unit>
 			<unit type="volume-pint-metric">
 				<gender>feminine</gender>
@@ -9961,6 +10724,13 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} год.</unitPattern>
 				<perUnitPattern>{0}/год</perUnitPattern>
 			</unit>
+			<unit type="duration-quarter">
+				<displayName>кв</displayName>
+				<unitPattern count="one">{0} кв</unitPattern>
+				<unitPattern count="few">{0} кв</unitPattern>
+				<unitPattern count="other">{0} кв</unitPattern>
+				<perUnitPattern>{0}/к</perUnitPattern>
+			</unit>
 			<unit type="duration-month">
 				<displayName>месеци</displayName>
 				<unitPattern count="one">{0} мес.</unitPattern>
@@ -10350,7 +11120,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="few">↑↑↑</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
-			<unit type="mass-metric-ton">
+			<unit type="mass-tonne">
 				<displayName>t</displayName>
 				<unitPattern count="one">{0} t</unitPattern>
 				<unitPattern count="few">{0} t</unitPattern>
@@ -11190,6 +11960,13 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="other">{0} г</unitPattern>
 				<perUnitPattern>↑↑↑</perUnitPattern>
 			</unit>
+			<unit type="duration-quarter">
+				<displayName>кв</displayName>
+				<unitPattern count="one">{0} к</unitPattern>
+				<unitPattern count="few">{0} к</unitPattern>
+				<unitPattern count="other">{0} к</unitPattern>
+				<perUnitPattern>{0}/к</perUnitPattern>
+			</unit>
 			<unit type="duration-month">
 				<displayName>м.</displayName>
 				<unitPattern count="one">{0} м</unitPattern>
@@ -11342,9 +12119,9 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 			</unit>
 			<unit type="force-kilowatt-hour-per-100-kilometer">
 				<displayName>↑↑↑</displayName>
-				<unitPattern count="one" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="few" draft="contributed">↑↑↑</unitPattern>
-				<unitPattern count="other" draft="contributed">↑↑↑</unitPattern>
+				<unitPattern count="one">↑↑↑</unitPattern>
+				<unitPattern count="few">↑↑↑</unitPattern>
+				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
 			<unit type="frequency-gigahertz">
 				<displayName>↑↑↑</displayName>
@@ -11579,7 +12356,7 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 				<unitPattern count="few">↑↑↑</unitPattern>
 				<unitPattern count="other">↑↑↑</unitPattern>
 			</unit>
-			<unit type="mass-metric-ton">
+			<unit type="mass-tonne">
 				<displayName>↑↑↑</displayName>
 				<unitPattern count="one">↑↑↑</unitPattern>
 				<unitPattern count="few">↑↑↑</unitPattern>
@@ -12290,4 +13067,159 @@ Warnings: All cp values have U+FE0F characters removed. See /annotationsDerived/
 		<featureName type="tnum">табеларни бројеви</featureName>
 		<featureName type="zero">прецртана нула</featureName>
 	</typographicNames>
+	<personNames>
+		<nameOrderLocales order="givenFirst">und sr</nameOrderLocales>
+		<nameOrderLocales order="surnameFirst">ko vi yue zh</nameOrderLocales>
+		<foreignSpaceReplacement xml:space="preserve">↑↑↑</foreignSpaceReplacement>
+		<initialPattern type="initial">↑↑↑</initialPattern>
+		<initialPattern type="initialSequence">↑↑↑</initialPattern>
+		<personName order="givenFirst" length="long" usage="referring" formality="formal">
+			<namePattern>{given} {given2} {surname}, {suffix}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="referring" formality="informal">
+			<namePattern>{given-informal} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="monogram" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="givenFirst" length="long" usage="monogram" formality="informal">
+			<namePattern>{given-informal-monogram-allCaps}{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="referring" formality="formal">
+			<namePattern>{given} {given2-initial} {surname}, {suffix}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="referring" formality="informal">
+			<namePattern>{given-informal} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="monogram" formality="formal">
+			<namePattern>{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="medium" usage="monogram" formality="informal">
+			<namePattern>{given-informal-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="referring" formality="formal">
+			<namePattern>{given-initial} {given2-initial} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="referring" formality="informal">
+			<namePattern>{given-informal} {surname-initial}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="monogram" formality="formal">
+			<namePattern>{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="givenFirst" length="short" usage="monogram" formality="informal">
+			<namePattern>{given-informal-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="referring" formality="formal">
+			<namePattern>{surname} {given} {given2}, {suffix}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="referring" formality="informal">
+			<namePattern>{surname} {given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="monogram" formality="formal">
+			<namePattern>↑↑↑</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="long" usage="monogram" formality="informal">
+			<namePattern>{surname-monogram-allCaps}{given-informal-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="referring" formality="formal">
+			<namePattern>{surname} {given} {given2-initial}, {suffix}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="referring" formality="informal">
+			<namePattern>{surname} {given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="monogram" formality="formal">
+			<namePattern>{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="medium" usage="monogram" formality="informal">
+			<namePattern>{given-informal-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="referring" formality="formal">
+			<namePattern>{surname} {given-initial} {given2-initial}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="referring" formality="informal">
+			<namePattern>{surname} {given-initial}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="addressing" formality="formal">
+			<namePattern>{prefix} {surname}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="addressing" formality="informal">
+			<namePattern>{given-informal}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="monogram" formality="formal">
+			<namePattern>{surname-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="surnameFirst" length="short" usage="monogram" formality="informal">
+			<namePattern>{given-informal-monogram-allCaps}</namePattern>
+		</personName>
+		<personName order="sorting" length="long" usage="referring" formality="formal">
+			<namePattern>{surname-core}, {given} {given2} {surname-prefix}</namePattern>
+		</personName>
+		<personName order="sorting" length="long" usage="referring" formality="informal">
+			<namePattern>{surname}, {given-informal}</namePattern>
+		</personName>
+		<personName order="sorting" length="medium" usage="referring" formality="formal">
+			<namePattern>{surname-core}, {given} {given2-initial} {surname-prefix}</namePattern>
+		</personName>
+		<personName order="sorting" length="medium" usage="referring" formality="informal">
+			<namePattern>{surname}, {given-informal}</namePattern>
+		</personName>
+		<personName order="sorting" length="short" usage="referring" formality="formal">
+			<namePattern>{surname-core}, {given-initial} {given2-initial} {surname-prefix}</namePattern>
+		</personName>
+		<personName order="sorting" length="short" usage="referring" formality="informal">
+			<namePattern>{surname}, {given-informal}</namePattern>
+		</personName>
+		<sampleName item="givenOnly">
+			<nameField type="given">Иван</nameField>
+		</sampleName>
+		<sampleName item="givenSurnameOnly">
+			<nameField type="given">Ирена</nameField>
+			<nameField type="surname">Марковић</nameField>
+		</sampleName>
+		<sampleName item="given12Surname">
+			<nameField type="given">Јован</nameField>
+			<nameField type="given2">Драган</nameField>
+			<nameField type="surname">Поповић</nameField>
+		</sampleName>
+		<sampleName item="full">
+			<nameField type="prefix">проф. др</nameField>
+			<nameField type="given">Александра</nameField>
+			<nameField type="given-informal">Сања</nameField>
+			<nameField type="given2">Ева Сара</nameField>
+			<nameField type="surname-prefix">ван ден</nameField>
+			<nameField type="surname-core">Волф</nameField>
+			<nameField type="surname2">Петровић Југовић</nameField>
+			<nameField type="suffix">дипл. инж.</nameField>
+		</sampleName>
+	</personNames>
 </ldml>

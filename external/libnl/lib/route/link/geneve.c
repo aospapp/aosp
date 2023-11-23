@@ -1,12 +1,8 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/link/geneve.c      Geneve Link Info
- *         This library is free software; you can redistribute it and/or
- *         modify it under the terms of the GNU Lesser General Public
- *         License as published by the Free Software Foundation version 2.1
- *         of the License.
- *
  * Copyright (c) 2018 Wang Jian <jianjian.wang1@gmail.com>
  */
+
 /**
  * @ingroup link
  * @defgroup geneve Geneve
@@ -190,16 +186,12 @@ static void geneve_dump_details(struct rtnl_link *link, struct nl_dump_params *p
 
         if (geneve->mask & GENEVE_ATTR_REMOTE) {
                 nl_dump(p, "     remote ");
-                if (inet_ntop(AF_INET, &geneve->remote, addr, sizeof(addr)))
-                        nl_dump_line(p, "%s\n", addr);
-                else
-                        nl_dump_line(p, "%#x\n", ntohs(geneve->remote));
+                nl_dump_line(p, "%s\n",
+                             _nl_inet_ntop(AF_INET, &geneve->remote, addr));
         } else if (geneve->mask & GENEVE_ATTR_REMOTE6) {
                 nl_dump(p, "      remote ");
-                if (inet_ntop(AF_INET6, &geneve->remote6, addr, sizeof(addr)))
-                        nl_dump_line(p, "%s\n", addr);
-                else
-                        nl_dump_line(p, "%#x\n", geneve->remote6);
+                nl_dump_line(p, "%s\n",
+                             _nl_inet_ntop(AF_INET6, &geneve->remote6, addr));
         }
 
         if (geneve->mask & GENEVE_ATTR_TTL) {
@@ -240,7 +232,7 @@ static void geneve_dump_details(struct rtnl_link *link, struct nl_dump_params *p
 
         if (geneve->mask & GENEVE_ATTR_UDP_ZERO_CSUM6_RX) {
                 nl_dump(p, "      udp-zero-csum6-rx ");
-                if (geneve->udp_zero_csum6_tx)
+                if (geneve->udp_zero_csum6_rx)
                         nl_dump_line(p, "enabled (%#x)\n", geneve->udp_zero_csum6_rx);
                 else
                         nl_dump_line(p, "disabled\n");
@@ -356,12 +348,11 @@ static struct rtnl_link_info_ops geneve_info_ops = {
 struct rtnl_link *rtnl_link_geneve_alloc(void)
 {
         struct rtnl_link *link;
-        int err;
 
         if (!(link = rtnl_link_alloc()))
                 return NULL;
 
-        if ((err = rtnl_link_set_type(link, "geneve")) < 0) {
+        if (rtnl_link_set_type(link, "geneve") < 0) {
                 rtnl_link_put(link);
                 return NULL;
         }

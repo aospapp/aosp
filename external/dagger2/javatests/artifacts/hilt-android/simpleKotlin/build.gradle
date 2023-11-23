@@ -16,12 +16,12 @@
 
 buildscript {
     ext {
-        kotlin_version = '1.3.61'
-        agp_version = System.getenv('AGP_VERSION') ?: "4.2.0-beta04"
+        kotlin_version = '1.5.32'
+        agp_version = System.getenv('AGP_VERSION') ?: "4.2.0"
     }
     repositories {
         google()
-        jcenter()
+        mavenCentral()
         mavenLocal()
     }
     dependencies {
@@ -34,7 +34,6 @@ buildscript {
 allprojects {
     repositories {
       google()
-      jcenter()
       mavenCentral()
       mavenLocal()
     }

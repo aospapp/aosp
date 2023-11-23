@@ -336,6 +336,16 @@
 #   define UCONFIG_NO_NORMALIZATION 0
 #endif
 
+/**
+ * \def UCONFIG_USE_ML_PHRASE_BREAKING
+ * This switch turns on BudouX ML phrase-based line breaking, rather than using the dictionary.
+ *
+ * \xrefitem internal "Internal"  "Internal List"  Do not use. This API is for internal use only.
+ */
+#ifndef UCONFIG_USE_ML_PHRASE_BREAKING
+#   define UCONFIG_USE_ML_PHRASE_BREAKING 0
+#endif
+
 #if UCONFIG_NO_NORMALIZATION
     /* common library */
     /* ICU 50 CJK dictionary BreakIterator uses normalization */

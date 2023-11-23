@@ -100,6 +100,7 @@ LOCAL_CFLAGS += \
 	-Wno-switch \
 	-Wno-typedef-redefinition \
 	-Wno-uninitialized \
+	-Wno-implicit-const-int-float-conversion \
 
 LOCAL_CPPFLAGS += \
 	-D__STDC_CONSTANT_MACROS \

@@ -4,6 +4,9 @@
 // LICENSE file in the root directory of this source tree.
 
 
+#include <cassert>
+
+#include <xnnpack.h>
 #include <xnnpack/aarch32-assembler.h>
 #include <xnnpack/allocator.h>
 #include <xnnpack/gemm.h>
@@ -14,7 +17,7 @@ namespace {
 class Generator : public Assembler {
   using Assembler::Assembler;
  public:
-  void generate(bool prefetch, size_t nc, size_t kc, const void* params);
+  void generate(bool prefetch, size_t max_mr, size_t nc_mod_nr, size_t kc, const void* params);
 };
 
 
@@ -56,7 +59,11 @@ class Generator : public Assembler {
 //  } xnn_qs8_minmax_params.neonv8;
 
 // Converted from: src/qc8-gemm/gen/4x8-minmax-fp32-aarch32-neonv8-mlal-lane-prfm-ld64.S
-void Generator::generate(bool prefetch, size_t nc, size_t kc, const void* params) {
+void Generator::generate(bool prefetch, size_t max_mr, size_t nc_mod_nr, size_t kc, const void* params)
+{
+  assert(nc_mod_nr < 8);
+  assert(kc != 0);
+
   Label l0, l1, l2, l3, l4, l5, l6, l7;
 
   // Push 64 bytes
@@ -301,7 +308,7 @@ void Generator::generate(bool prefetch, size_t nc, size_t kc, const void* params
   vqmovn_s16(d2, q10);
   vqmovn_s16(d3, q11);
 
-  vdup_8(q13, d11[7]); // output_min
+  vdup_8(q13, d11[7]); // output_max
 
   vmax_s8(q0, q0, q12);
   vmax_s8(q1, q1, q12);
@@ -466,10 +473,10 @@ void Generator::generate(bool prefetch, size_t nc, size_t kc, const void* params
 }  // aarch32
 }  // xnnpack
 
-xnn_status xnn_generate_qc8_gemm_fp32_ukernel_4x8__aarch32_neonv8_mlal_lane_ld64(xnn_code_buffer* code, size_t nc, size_t kc, const void* params) {
+xnn_status_t xnn_generate_qc8_gemm_fp32_ukernel_4x8__aarch32_neonv8_mlal_lane_ld64(xnn_code_buffer* code, size_t max_mr, size_t nc_mod_nr, size_t kc, const void* params) {
   using namespace xnnpack::aarch32;
   Generator g(code);
-  g.generate(false, nc, kc, nullptr);
+  g.generate(false, max_mr, nc_mod_nr, kc, nullptr);
   g.finalize();
   if (g.error() != xnnpack::Error::kNoError) {
     return xnn_status_invalid_state;
@@ -477,10 +484,10 @@ xnn_status xnn_generate_qc8_gemm_fp32_ukernel_4x8__aarch32_neonv8_mlal_lane_ld64
   return xnn_status_success;
 }
 
-xnn_status xnn_generate_qc8_gemm_fp32_ukernel_4x8__aarch32_neonv8_mlal_lane_prfm_ld64(xnn_code_buffer* code, size_t nc, size_t kc, const void* params) {
+xnn_status_t xnn_generate_qc8_gemm_fp32_ukernel_4x8__aarch32_neonv8_mlal_lane_prfm_ld64(xnn_code_buffer* code, size_t max_mr, size_t nc_mod_nr, size_t kc, const void* params) {
   using namespace xnnpack::aarch32;
   Generator g(code);
-  g.generate(true, nc, kc, nullptr);
+  g.generate(true, max_mr, nc_mod_nr, kc, nullptr);
   g.finalize();
   if (g.error() != xnnpack::Error::kNoError) {
     return xnn_status_invalid_state;

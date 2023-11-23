@@ -15,11 +15,12 @@
 #include <cstdlib>
 #include <random>
 #include <set>
-#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+
+#include "pw_span/span.h"
 
 #define DUMP_KVS_CONTENTS 0
 
@@ -34,6 +35,7 @@
 #include "pw_kvs/internal/entry.h"
 #include "pw_kvs/key_value_store.h"
 #include "pw_log/log.h"
+#include "pw_string/string_builder.h"
 
 namespace pw::kvs {
 namespace {
@@ -131,10 +133,10 @@ class KvsTester {
         std::string key;
 
         // Either add a new key or replace an existing one.
-        // TODO: Using %2 (or any less than 16) fails with redundancy due to KVS
-        // filling up and not being able to write the second redundant entry,
-        // returning error. After re-init() the new key is picked up, resulting
-        // in a mis-match between KVS and the test map.
+        // TODO(davidrogers): Using %2 (or any less than 16) fails with
+        // redundancy due to KVS filling up and not being able to write the
+        // second redundant entry, returning error. After re-init() the new key
+        // is picked up, resulting in a mis-match between KVS and the test map.
         if (empty() || random_int() % 16 == 0) {
           key = random_string(random_int() %
                               (internal::Entry::kMaxKeyLength + 1));
@@ -164,8 +166,9 @@ class KvsTester {
       label << ((options == kReinitWithPartialGC) ? "PartialGC" : "");
       label << ((kvs_.redundancy() > 1) ? "Redundant" : "");
 
-      partition_.SaveStorageStats(kvs_, label.data())
-          .IgnoreError();  // TODO(pwbug/387): Handle Status properly
+      // Ignore error to allow test to pass on platforms where writing out the
+      // stats is not possible.
+      partition_.SaveStorageStats(kvs_, label.data()).IgnoreError();
     }
   }
 
@@ -250,7 +253,7 @@ class KvsTester {
 
         char value[kMaxValueLength + 1] = {};
         EXPECT_EQ(OkStatus(),
-                  item.Get(std::as_writable_bytes(std::span(value))).status());
+                  item.Get(as_writable_bytes(span(value))).status());
         EXPECT_EQ(map_entry->second, std::string(value));
       }
     }
@@ -263,7 +266,7 @@ class KvsTester {
     StartOperation("Put", key);
     EXPECT_LE(value.size(), kMaxValueLength);
 
-    Status result = kvs_.Put(key, std::as_bytes(std::span(value)));
+    Status result = kvs_.Put(key, as_bytes(span(value)));
 
     if (key.empty() || key.size() > internal::Entry::kMaxKeyLength) {
       EXPECT_EQ(Status::InvalidArgument(), result);
@@ -414,11 +417,13 @@ FakeFlashMemoryBuffer<kParams.sector_size,
                               (kParams.sector_count * kParams.redundancy)>(
             kParams.sector_alignment);
 
-#define _TEST(fixture, test, ...) \
-  _TEST_VARIANT(fixture, test, test, __VA_ARGS__)
+#define _TEST(fixture, test, ...)                  \
+  _TEST_VARIANT(fixture, test, test, __VA_ARGS__); \
+  static_assert(true, "Macros must be terminated with a semicolon")
 
-#define _TEST_VARIANT(fixture, test, variant, ...) \
-  TEST_F(fixture, test##variant) { tester_.Test_##test(__VA_ARGS__); }
+#define _TEST_VARIANT(fixture, test, variant, ...)                     \
+  TEST_F(fixture, test##variant) { tester_.Test_##test(__VA_ARGS__); } \
+  static_assert(true, "Macros must be terminated with a semicolon")
 
 // Defines a test fixture that runs all tests against a flash with the specified
 // parameters.

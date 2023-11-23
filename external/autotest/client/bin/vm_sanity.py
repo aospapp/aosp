@@ -1,1 +1,1 @@
-telemetry_sanity.py
+telemetry_check.py

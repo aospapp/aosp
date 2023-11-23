@@ -14,6 +14,9 @@
       "path": "external/rust/crates/crossbeam-queue"
     },
     {
+      "path": "external/rust/crates/hashbrown"
+    },
+    {
       "path": "external/rust/crates/once_cell"
     },
     {
@@ -27,6 +30,12 @@
     },
     {
       "path": "external/rust/crates/vulkano"
+    },
+    {
+      "path": "packages/modules/Virtualization/authfs"
+    },
+    {
+      "path": "packages/modules/Virtualization/zipfuse"
     }
   ],
   "presubmit": [

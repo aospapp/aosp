@@ -12,8 +12,9 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
-ATTRIBUTES = "suite:kernel_daily_regression"
+ATTRIBUTES = "suite:power_build"
 
 DOC = """
 This test verifies that the backlight does not get dimmed during video playback.

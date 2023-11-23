@@ -29,6 +29,9 @@ struct SharedPalmDetectionFilterState {
   base::TimeTicks latest_palm_touch_time = base::TimeTicks::UnixEpoch();
 };
 
+std::ostream& operator<<(std::ostream& out,
+                         const SharedPalmDetectionFilterState& state);
+
 }  // namespace ui
 
 #endif  // UI_EVENTS_OZONE_EVDEV_TOUCH_FILTER_SHARED_PALM_DETECTION_FILTER_STATE_H_

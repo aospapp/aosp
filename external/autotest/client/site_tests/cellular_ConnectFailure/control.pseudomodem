@@ -9,11 +9,11 @@ CRITERIA = """
 This test will fail if a connect failure does not immediately cause the
 service to enter the Failed state.
 """
-ATTRIBUTES = "suite:cellular_pseudomodem"
 TIME = "FAST"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
   Tests that 3G connect failures are handled by cromo & flimflam properly

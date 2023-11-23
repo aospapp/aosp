@@ -12,17 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as m from 'mithril';
+import m from 'mithril';
+
+import {SortDirection} from '../common/state';
+
 import {globals} from './globals';
 
-interface PopupMenuItem {
+export interface RegularPopupMenuItem {
+  itemType: 'regular';
   // Display text
   text: string;
   // Action on menu item click
   callback: () => void;
 }
 
-interface PopupMenuButtonAttrs {
+// Helper function for simplifying defining menus.
+export function menuItem(
+    text: string, action: () => void): RegularPopupMenuItem {
+  return {
+    itemType: 'regular',
+    text,
+    callback: action,
+  };
+}
+
+export interface GroupPopupMenuItem {
+  itemType: 'group';
+  text: string;
+  itemId: string;
+  children: PopupMenuItem[];
+}
+
+export type PopupMenuItem = RegularPopupMenuItem|GroupPopupMenuItem;
+
+export interface PopupMenuButtonAttrs {
   // Icon for button opening a menu
   icon: string;
   // List of popup menu items
@@ -80,9 +103,25 @@ class PopupHolder {
 // Singleton instance of PopupHolder
 const popupHolder = new PopupHolder();
 
+// For a table column that can be sorted; the standard popup icon should
+// reflect the current sorting direction. This function returns an icon
+// corresponding to optional SortDirection according to which the column is
+// sorted. (Optional because column might be unsorted)
+export function popupMenuIcon(sortDirection?: SortDirection) {
+  switch (sortDirection) {
+    case undefined:
+      return 'more_horiz';
+    case 'DESC':
+      return 'arrow_drop_down';
+    case 'ASC':
+      return 'arrow_drop_up';
+  }
+}
+
 // Component that displays a button that shows a popup menu on click.
 export class PopupMenuButton implements m.ClassComponent<PopupMenuButtonAttrs> {
   popupShown = false;
+  expandedGroups: Set<string> = new Set();
 
   setVisible(visible: boolean) {
     this.popupShown = visible;
@@ -94,27 +133,56 @@ export class PopupMenuButton implements m.ClassComponent<PopupMenuButtonAttrs> {
     globals.rafScheduler.scheduleFullRedraw();
   }
 
+  renderItem(item: PopupMenuItem): m.Child {
+    switch (item.itemType) {
+      case 'regular':
+        return m(
+            'button.open-menu',
+            {
+              onclick: () => {
+                item.callback();
+                // Hide the menu item after the action has been invoked
+                this.setVisible(false);
+              },
+            },
+            item.text);
+      case 'group':
+        const isExpanded = this.expandedGroups.has(item.itemId);
+        return m(
+            'div',
+            m('button.open-menu.disallow-selection',
+              {
+                onclick: () => {
+                  if (this.expandedGroups.has(item.itemId)) {
+                    this.expandedGroups.delete(item.itemId);
+                  } else {
+                    this.expandedGroups.add(item.itemId);
+                  }
+                  globals.rafScheduler.scheduleFullRedraw();
+                },
+              },
+              // Show text with up/down arrow, depending on expanded state.
+              item.text + (isExpanded ? ' \u25B2' : ' \u25BC')),
+            isExpanded ? m('div.nested-menu',
+                           item.children.map((item) => this.renderItem(item))) :
+                         null);
+    }
+  }
+
   view(vnode: m.Vnode<PopupMenuButtonAttrs, this>) {
     return m(
         '.dropdown',
-        m('i.material-icons',
-          {
-            onclick: () => {
-              this.setVisible(!this.popupShown);
-            }
-          },
-          vnode.attrs.icon),
+        m(
+            '.dropdown-button',
+            {
+              onclick: () => {
+                this.setVisible(!this.popupShown);
+              },
+            },
+            vnode.children,
+            m('i.material-icons', vnode.attrs.icon),
+            ),
         m(this.popupShown ? '.popup-menu.opened' : '.popup-menu.closed',
-          vnode.attrs.items.map(
-              item =>
-                  m('button',
-                    {
-                      onclick: () => {
-                        item.callback();
-                        // Hide the menu item after the action has been invoked
-                        this.setVisible(false);
-                      }
-                    },
-                    item.text))));
+          vnode.attrs.items.map((item) => this.renderItem(item))));
   }
 }

@@ -11,7 +11,7 @@
 //
 // Author: Christian Duvivier (cduvivier@google.com)
 
-#include "src/dsp/dsp.h"
+#include "src/dsp/cpu.h"
 
 #if defined(WEBP_HAVE_NEON_RTCD)
 #include <stdio.h>
@@ -212,7 +212,7 @@ VP8CPUInfo VP8GetCPUInfo = wasmCPUInfo;
 #elif defined(WEBP_HAVE_NEON)
 // In most cases this function doesn't check for NEON support (it's assumed by
 // the configuration), but enables turning off NEON at runtime, for testing
-// purposes, by setting VP8DecGetCPUInfo = NULL.
+// purposes, by setting VP8GetCPUInfo = NULL.
 static int armCPUInfo(CPUFeature feature) {
   if (feature != kNEON) return 0;
 #if defined(__linux__) && defined(WEBP_HAVE_NEON_RTCD)

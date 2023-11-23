@@ -10,12 +10,11 @@ TST_SETUP=setup
 TST_TESTFUNC=do_test
 TST_NEEDS_TMPDIR=1
 TST_NEEDS_CMDS="dd du stat"
-. tst_test.sh
 
 setup()
 {
 	ROD_SILENT mkdir basedir
-	ROD_SILENT cd basedir
+	cd basedir || tst_brk TBROK "cd basedir failed"
 
 	ROD_SILENT dd if=/dev/zero of=testfile bs=1M count=10
 
@@ -28,6 +27,9 @@ setup()
 	# BLOCKSIZE environment variables. Here we need to
 	# set DU_BLOCK_SIZE to 1024 to ensure the result is expected.
 	export DU_BLOCK_SIZE=1024
+
+	# Some subtests are language dependent
+	export LC_ALL=C
 }
 
 du_test()
@@ -108,4 +110,5 @@ do_test()
 	esac
 }
 
+. tst_test.sh
 tst_run

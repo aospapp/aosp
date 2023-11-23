@@ -15,14 +15,20 @@ java_library {
     visibility: ["//visibility:public"],
 }
 
+java_library_host {
+    name: "libauto_service_plugin",
+    srcs: ["processor/src/main/java/**/*.java"],
+    visibility: ["//visibility:public"],
+    static_libs: [
+         "auto_common",
+         "auto_service_annotations",
+         "guava",
+    ],
+}
+
 java_plugin {
     name: "auto_service_plugin",
-    srcs: ["processor/src/main/java/**/*.java"],
-    static_libs: [
-        "auto_common",
-        "auto_service_annotations",
-        "guava",
-    ],
+    static_libs: ["libauto_service_plugin"],
     processor_class: "com.google.auto.service.processor.AutoServiceProcessor",
     visibility: ["//visibility:public"],
 }

@@ -29,12 +29,34 @@
 
 struct iovec;
 struct pipe_resource;
+struct virgl_context;
 
 enum virgl_resource_fd_type {
    VIRGL_RESOURCE_FD_DMABUF,
    VIRGL_RESOURCE_FD_OPAQUE,
+   /* mmap()-able, usually memfd or shm */
+   VIRGL_RESOURCE_FD_SHM,
+
+   /**
+    * An opaque handle can be something like a GEM handle, from which a
+    * fd can be created upon demand.
+    *
+    * Renderers which use this type must implement virgl_context::export_fd
+    *
+    * Do not use this type for resources that are _BLOB_FLAG_USE_SHAREABLE,
+    * as the opaque handle can become invalid/stale any time outside of the
+    * original context.
+    */
+   VIRGL_RESOURCE_OPAQUE_HANDLE,
 
    VIRGL_RESOURCE_FD_INVALID = -1,
+};
+
+struct virgl_resource_opaque_fd_metadata {
+    uint8_t driver_uuid[16];
+    uint8_t device_uuid[16];
+    uint64_t allocation_size;
+    uint32_t memory_type_index;
 };
 
 /**
@@ -60,8 +82,16 @@ struct virgl_resource {
 
    struct pipe_resource *pipe_resource;
 
+   /* valid fd or handle type: */
    enum virgl_resource_fd_type fd_type;
    int fd;
+
+   /**
+    * For fd_type==VIRGL_RESOURCE_OPAQUE_HANDLE, the id of the context
+    * which created this resource
+    */
+   uint32_t opaque_handle_context_id;
+   uint32_t opaque_handle;
 
    const struct iovec *iov;
    int iov_count;
@@ -70,6 +100,8 @@ struct virgl_resource {
 
    uint64_t map_size;
    void *mapped;
+
+   struct virgl_resource_opaque_fd_metadata opaque_fd_metadata;
 
    void *private_data;
 };
@@ -88,6 +120,8 @@ struct virgl_resource_pipe_callbacks {
    enum virgl_resource_fd_type (*export_fd)(struct pipe_resource *pres,
                                             int *fd,
                                             void *data);
+
+   uint64_t (*get_size)(struct pipe_resource *pres, void *data);
 };
 
 int
@@ -110,7 +144,13 @@ virgl_resource_create_from_fd(uint32_t res_id,
                               enum virgl_resource_fd_type fd_type,
                               int fd,
                               const struct iovec *iov,
-                              int iov_count);
+                              int iov_count,
+                              const struct virgl_resource_opaque_fd_metadata *opaque_fd_metadata);
+
+struct virgl_resource *
+virgl_resource_create_from_opaque_handle(struct virgl_context *ctx,
+                                         uint32_t res_id,
+                                         uint32_t opaque_handle);
 
 struct virgl_resource *
 virgl_resource_create_from_iov(uint32_t res_id,
@@ -133,5 +173,8 @@ virgl_resource_detach_iov(struct virgl_resource *res);
 
 enum virgl_resource_fd_type
 virgl_resource_export_fd(struct virgl_resource *res, int *fd);
+
+uint64_t
+virgl_resource_get_size(struct virgl_resource *res);
 
 #endif /* VIRGL_RESOURCE_H */

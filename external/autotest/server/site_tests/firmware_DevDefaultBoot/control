@@ -4,20 +4,21 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_DevDefaultBoot"
 PURPOSE = "Ensure that dev_default_boot=usb actually boots usb by default"
 CRITERIA = "This test will fail if firmware does not boot USB disk by default"
-ATTRIBUTES = "suite:faft_bios, suite:faft_bios_ro_qual, suite:faft_bios_rw_qual, suite:faft_dev, suite:faft_lv2, suite:faft_bios_ec3po, suite:faft_bios_tot"
-DEPENDENCIES = "servo_state:WORKING"
+ATTRIBUTES = "suite:faft_bios, suite:faft_bios_ro_qual, suite:faft_bios_rw_qual, suite:faft_dev, suite:faft_lv2, suite:faft_bios_tot"
+DEPENDENCIES = "servo_state:WORKING, servo_usb_state:NORMAL"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
-JOB_RETRIES = 4
+JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """
-This test requires a USB disk plugged in, containing a Chrome OS test image.
+This test requires a USB disk plugged in, containing a ChromeOS test image.
 On runtime, this test first switches DUT to developer mode, and modifies
 the dev_default_boot crossystem value.
 After waiting at the dev warning, or pressing enter in the detachable UI dev

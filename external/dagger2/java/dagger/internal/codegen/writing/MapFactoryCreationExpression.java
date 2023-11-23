@@ -19,56 +19,57 @@ package dagger.internal.codegen.writing;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static dagger.internal.codegen.binding.MapKeys.getMapKeyExpression;
 import static dagger.internal.codegen.binding.SourceFiles.mapFactoryClassName;
+import static dagger.internal.codegen.extension.DaggerCollectors.toOptional;
 
-import com.google.common.collect.ImmutableSet;
+import androidx.room.compiler.processing.XProcessingEnv;
+import androidx.room.compiler.processing.XType;
 import com.squareup.javapoet.CodeBlock;
+import dagger.assisted.Assisted;
+import dagger.assisted.AssistedFactory;
+import dagger.assisted.AssistedInject;
 import dagger.internal.codegen.base.MapType;
 import dagger.internal.codegen.binding.BindingGraph;
 import dagger.internal.codegen.binding.ContributionBinding;
-import dagger.internal.codegen.langmodel.DaggerElements;
-import dagger.model.DependencyRequest;
-import dagger.producers.Produced;
-import dagger.producers.Producer;
-import javax.inject.Provider;
-import javax.lang.model.type.TypeMirror;
+import dagger.internal.codegen.javapoet.TypeNames;
+import dagger.spi.model.DependencyRequest;
+import java.util.stream.Stream;
 
 /** A factory creation expression for a multibound map. */
 final class MapFactoryCreationExpression extends MultibindingFactoryCreationExpression {
 
+  private final XProcessingEnv processingEnv;
   private final ComponentImplementation componentImplementation;
   private final BindingGraph graph;
   private final ContributionBinding binding;
-  private final DaggerElements elements;
 
+  @AssistedInject
   MapFactoryCreationExpression(
-      ContributionBinding binding,
+      @Assisted ContributionBinding binding,
+      XProcessingEnv processingEnv,
       ComponentImplementation componentImplementation,
-      ComponentBindingExpressions componentBindingExpressions,
-      BindingGraph graph,
-      DaggerElements elements) {
-    super(binding, componentImplementation, componentBindingExpressions);
+      ComponentRequestRepresentations componentRequestRepresentations,
+      BindingGraph graph) {
+    super(binding, componentImplementation, componentRequestRepresentations);
+    this.processingEnv = processingEnv;
     this.binding = checkNotNull(binding);
-    this.componentImplementation = checkNotNull(componentImplementation);
-    this.graph = checkNotNull(graph);
-    this.elements = checkNotNull(elements);
+    this.componentImplementation = componentImplementation;
+    this.graph = graph;
   }
 
   @Override
   public CodeBlock creationExpression() {
     CodeBlock.Builder builder = CodeBlock.builder().add("$T.", mapFactoryClassName(binding));
     if (!useRawType()) {
-      MapType mapType = MapType.from(binding.key().type());
+      MapType mapType = MapType.from(binding.key());
       // TODO(ronshapiro): either inline this into mapFactoryClassName, or add a
       // mapType.unwrappedValueType() method that doesn't require a framework type
-      TypeMirror valueType = mapType.valueType();
-      for (Class<?> frameworkClass :
-          ImmutableSet.of(Provider.class, Producer.class, Produced.class)) {
-        if (mapType.valuesAreTypeOf(frameworkClass)) {
-          valueType = mapType.unwrappedValueType(frameworkClass);
-          break;
-        }
-      }
-      builder.add("<$T, $T>", mapType.keyType(), valueType);
+      XType valueType =
+          Stream.of(TypeNames.PROVIDER, TypeNames.PRODUCER, TypeNames.PRODUCED)
+              .filter(mapType::valuesAreTypeOf)
+              .map(mapType::unwrappedValueType)
+              .collect(toOptional())
+              .orElseGet(mapType::valueType);
+      builder.add("<$T, $T>", mapType.keyType().getTypeName(), valueType.getTypeName());
     }
 
     builder.add("builder($L)", binding.dependencies().size());
@@ -77,11 +78,16 @@ final class MapFactoryCreationExpression extends MultibindingFactoryCreationExpr
       ContributionBinding contributionBinding = graph.contributionBinding(dependency.key());
       builder.add(
           ".put($L, $L)",
-          getMapKeyExpression(contributionBinding, componentImplementation.name(), elements),
+          getMapKeyExpression(contributionBinding, componentImplementation.name(), processingEnv),
           multibindingDependencyExpression(dependency));
     }
     builder.add(".build()");
 
     return builder.build();
+  }
+
+  @AssistedFactory
+  static interface Factory {
+    MapFactoryCreationExpression create(ContributionBinding binding);
   }
 }

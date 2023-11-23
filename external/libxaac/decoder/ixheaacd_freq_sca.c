@@ -455,7 +455,6 @@ IA_ERRORCODE ixheaacd_calc_master_frq_bnd_tbl(
         f_master_tbl[num_bands0 + k] =
             f_master_tbl[num_bands0 + k - 1] + vec_dk1[k - 1];
       num_mf_bands = add_d(num_bands0, num_bands1);
-
     } else {
       k1 = k2;
 
@@ -490,6 +489,15 @@ IA_ERRORCODE ixheaacd_calc_master_frq_bnd_tbl(
     return -1;
   }
   pstr_freq_band_data->num_mf_bands = num_mf_bands;
+
+  if (upsamp_fac == 4) {
+    for (k = 1; k < num_mf_bands; k++) {
+      if (!(f_master_tbl[k] - f_master_tbl[k - 1] <= k0 - 2)) {
+        return -1;
+      }
+    }
+  }
+
   return 0;
 }
 
@@ -523,7 +531,6 @@ static WORD16 ixheaacd_calc_freq_ratio(WORD16 k_start, WORD16 k_stop,
       if (direction == 0) step = ixheaacd_shr32(step, 1);
       direction = 1;
       bandfactor = ixheaacd_add32_sat(bandfactor, step);
-
     } else {
       if (direction == 1) step = ixheaacd_shr32(step, 1);
       direction = 0;
@@ -661,7 +668,7 @@ WORD32 ixheaacd_derive_noise_freq_bnd_tbl(
 WORD32 ixheaacd_calc_frq_bnd_tbls(ia_sbr_header_data_struct *ptr_header_data,
                                   ixheaacd_misc_tables *pstr_common_tables) {
   WORD32 err;
-  WORD16 num_lf_bands, num_hf_bands, lsb, usb;
+  WORD16 num_lf_bands, lsb, usb;
   ia_freq_band_data_struct *pstr_freq_band_data =
       ptr_header_data->pstr_freq_band_data;
 
@@ -676,7 +683,6 @@ WORD32 ixheaacd_calc_frq_bnd_tbls(ia_sbr_header_data_struct *ptr_header_data,
   ixheaacd_derive_hi_lo_freq_bnd_tbls(pstr_freq_band_data, ptr_header_data);
 
   num_lf_bands = pstr_freq_band_data->num_sf_bands[LOW];
-  num_hf_bands = pstr_freq_band_data->num_sf_bands[HIGH];
 
   if ((num_lf_bands <= 0) ||
       (num_lf_bands > ixheaacd_shr16(MAX_FREQ_COEFFS, 1))) {

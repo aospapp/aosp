@@ -49,7 +49,7 @@
     <pointer-type-def type-id='type-id-1' size-in-bits='64' alignment-in-bits='64' id='type-id-2'/>
     <pointer-type-def type-id='type-id-16' size-in-bits='64' alignment-in-bits='64' id='type-id-17'/>
     <pointer-type-def type-id='type-id-18' size-in-bits='64' alignment-in-bits='64' id='type-id-20'/>
-    <function-decl name='foo' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8'>
+    <function-decl name='foo' visibility='default' binding='global' size-in-bits='64' alignment-in-bits='8' elf-symbol-id='foo'>
       <parameter type-id='type-id-22'/>
       <return type-id='type-id-16'/>
     </function-decl>

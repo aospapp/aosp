@@ -25,11 +25,11 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <optional>
 
 #include "perfetto/base/build_config.h"
 #include "perfetto/base/logging.h"
 #include "perfetto/ext/base/file_utils.h"
-#include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/pipe.h"
 #include "perfetto/ext/base/string_utils.h"
 #include "perfetto/ext/base/subprocess.h"
@@ -97,7 +97,7 @@ struct FlamegraphNode {
   int64_t cumulative_alloc_count;
   int64_t alloc_size;
   int64_t cumulative_alloc_size;
-  base::Optional<int64_t> parent_id;
+  std::optional<int64_t> parent_id;
 };
 
 std::vector<FlamegraphNode> GetFlamegraph(trace_processor::TraceProcessor* tp) {
@@ -116,8 +116,8 @@ std::vector<FlamegraphNode> GetFlamegraph(trace_processor::TraceProcessor* tp) {
         it.Get(8).AsLong(),
         it.Get(9).AsLong(),
         it.Get(10).AsLong(),
-        it.Get(11).is_null() ? base::nullopt
-                             : base::Optional<int64_t>(it.Get(11).AsLong()),
+        it.Get(11).is_null() ? std::nullopt
+                             : std::optional<int64_t>(it.Get(11).AsLong()),
     });
   }
   PERFETTO_CHECK(it.Status().ok());
@@ -1762,10 +1762,6 @@ TEST_P(HeapprofdEndToEnd, NativeProfilingActiveAtProcessExit) {
   EXPECT_GT(total_allocated, 0u);
 }
 
-// Disable these tests when running with sanitizers. They (double) fork and that
-// seems to cause flaky crashes with sanitizers.
-#if !defined(ADDRESS_SANITIZER) && !defined(THREAD_SANITIZER) && \
-    !defined(MEMORY_SANITIZER) && !defined(LEAK_SANITIZER)
 // On in-tree Android, we use the system heapprofd in fork or central mode.
 // For Linux and out-of-tree Android, we statically include a copy of
 // heapprofd and use that. This one does not support intercepting malloc.
@@ -1774,21 +1770,19 @@ TEST_P(HeapprofdEndToEnd, NativeProfilingActiveAtProcessExit) {
 #error "Need to start daemons for Linux test."
 #endif
 
-INSTANTIATE_TEST_CASE_P(Run,
-                        HeapprofdEndToEnd,
-                        Values(std::make_tuple(TestMode::kStatic,
-                                               AllocatorMode::kCustom)),
-                        TestSuffix);
+INSTANTIATE_TEST_SUITE_P(Run,
+                         HeapprofdEndToEnd,
+                         Values(std::make_tuple(TestMode::kStatic,
+                                                AllocatorMode::kCustom)),
+                         TestSuffix);
 #elif !PERFETTO_BUILDFLAG(PERFETTO_START_DAEMONS)
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     Run,
     HeapprofdEndToEnd,
     Values(std::make_tuple(TestMode::kCentral, AllocatorMode::kMalloc),
            std::make_tuple(TestMode::kCentral, AllocatorMode::kCustom)),
     TestSuffix);
 #endif
-#endif
-
 
 }  // namespace
 }  // namespace profiling

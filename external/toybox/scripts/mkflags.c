@@ -1,5 +1,5 @@
-// Take three word input lines on stdin and produce flag #defines to stdout.
-// The three words on each input lnie are command name, option string with
+// Read three word input lines from stdin and produce flag #defines to stdout.
+// The three words on each input line are command name, option string with
 // current config, option string from allyesconfig. The three are space
 // separated and the last two are in double quotes.
 
@@ -14,9 +14,8 @@
 #include <ctype.h>
 
 struct flag {
-  struct flag *next;
+  struct flag *next, *lopt;
   char *command;
-  struct flag *lopt;
 };
 
 int chrtype(char c)
@@ -38,7 +37,7 @@ int chrtype(char c)
 char *mark_gaps(char *flags, char *all)
 {
   char *n, *new, c;
-  int bare = 2;
+  int bare = 1;
 
   // Shell feeds in " " for blank args, leading space not meaningful.
   while (isspace(*flags)) flags++;
@@ -50,7 +49,6 @@ char *mark_gaps(char *flags, char *all)
     if (*all == '(') {
       int len = 0;
 
-      if (bare) bare = 1;
       while (all[len]) if (all[len++] == ')') break;
       if (strncmp(flags, all, len)) {
         // bare longopts need their own skip placeholders
@@ -95,6 +93,10 @@ struct flag *digest(char *string)
     if (*string == '(') {
       struct flag *new = calloc(sizeof(struct flag), 1);
 
+      if (string[1]==')') {
+        fprintf(stderr, "empty () longopt in '%s'", err);
+        exit(1);
+      }
       new->command = ++string;
 
       // Attach longopt to previous short opt, if any.
@@ -131,6 +133,10 @@ struct flag *digest(char *string)
     } else {
       struct flag *new = calloc(sizeof(struct flag), 1);
 
+      if (string[0]=='~' && string[1]!='(') {
+        fprintf(stderr, "~ without (longopt) in '%s'", err);
+        exit(1);
+      }
       new->command = string++;
       new->next = list;
       list = new;
@@ -164,9 +170,8 @@ int main(int argc, char *argv[])
   // See "intentionally crappy", above.
   if (!(out = outbuf)) return 1;
 
-  printf("#undef FORCED_FLAG\n#undef FORCED_FLAGLL\n"
-    "#ifdef FORCE_FLAGS\n#define FORCED_FLAG 1\n#define FORCED_FLAGLL 1ULL\n"
-    "#else\n#define FORCED_FLAG 0\n#define FORCED_FLAGLL 0LL\n#endif\n\n");
+  printf("#undef FORCED_FLAG\n#ifdef FORCE_FLAGS\n#define FORCED_FLAG 1LL\n"
+    "#else\n#define FORCED_FLAG 0LL\n#endif\n\n");
 
   for (;;) {
     struct flag *flist, *aflist, *offlist;
@@ -208,7 +213,8 @@ int main(int argc, char *argv[])
     while (offlist) {
       char *s = (char []){0, 0, 0, 0};
 
-      if (!offlist->command) s = offlist->lopt->command;
+      if (!offlist->command || *offlist->command=='~')
+        s = offlist->lopt->command;
       else {
         *s = *offlist->command;
         if (127 < (unsigned char)*s) sprintf(s, "X%02X", 127&*s);
@@ -223,11 +229,11 @@ int main(int argc, char *argv[])
     out += strlen(out);
 
     while (aflist) {
-      char *llstr = bit>30 ? "LL" : "", *s = (char []){0, 0, 0, 0};
+      char *s = (char []){0, 0, 0, 0};
       int enabled = 0;
 
       // Output flag macro for bare longopts
-      if (!aflist->command) {
+      if (!aflist->command || *aflist->command=='~') {
         s = aflist->lopt->command;
         if (flist && flist->lopt &&
             !strcmp(flist->lopt->command, aflist->lopt->command)) enabled++;
@@ -238,8 +244,8 @@ int main(int argc, char *argv[])
         if (flist && flist->command && *aflist->command == *flist->command)
           enabled++;
       }
-      out += sprintf(out, "#define FLAG_%s (%s%s<<%d)\n",
-                       s, enabled ? "1" : "FORCED_FLAG", llstr, bit++);
+      out += sprintf(out, "#define FLAG_%s (%s<<%d)\n",
+                       s, enabled ? "1LL" : "FORCED_FLAG", bit++);
       aflist = aflist->next;
       if (enabled) flist = flist->next;
     }

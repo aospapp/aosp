@@ -39,11 +39,10 @@ license {
 
 rust_test {
     name: "arbitrary_test_src_lib",
-    // has rustc warnings
     host_supported: true,
     crate_name: "arbitrary",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.1.0",
+    cargo_pkg_version: "1.2.3",
     srcs: ["src/lib.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
@@ -60,11 +59,10 @@ rust_test {
 
 rust_test {
     name: "arbitrary_test_tests_derive",
-    // has rustc warnings
     host_supported: true,
     crate_name: "arbitrary",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.1.0",
+    cargo_pkg_version: "1.2.3",
     srcs: ["tests/derive.rs"],
     test_suites: ["general-tests"],
     auto_gen_config: true,
@@ -84,11 +82,10 @@ rust_test {
 
 rust_library_rlib {
     name: "libarbitrary",
-    // has rustc warnings
     host_supported: true,
     crate_name: "arbitrary",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.1.0",
+    cargo_pkg_version: "1.2.3",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -99,5 +96,7 @@ rust_library_rlib {
     apex_available: [
         "com.android.uwb",
     ],
+    product_available: true,
+    vendor_available: true,
     min_sdk_version: "Tiramisu",
 }

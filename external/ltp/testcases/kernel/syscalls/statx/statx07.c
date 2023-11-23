@@ -1,27 +1,26 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- *  Copyright (c) Zilogic Systems Pvt. Ltd., 2018
- *  Email : code@zilogic.com
+ * Copyright (c) Zilogic Systems Pvt. Ltd., 2018
+ * Email : code@zilogic.com
  */
 
-/*
- * Test statx
+/*\
+ * [Description]
  *
  * This code tests the following flags:
- * 1) AT_STATX_FORCE_SYNC
- * 2) AT_STATX_DONT_SYNC
+ *
+ * - AT_STATX_FORCE_SYNC
+ * - AT_STATX_DONT_SYNC
  *
  * By exportfs cmd creating NFS setup.
  *
  * A test file is created in server folder and statx is being
  * done in client folder.
  *
- * TESTCASE 1:
  * BY AT_STATX_SYNC_AS_STAT getting predefined mode value.
  * Then, by using AT_STATX_FORCE_SYNC getting new updated vaue
  * from server file changes.
  *
- * TESTCASE 2:
  * BY AT_STATX_SYNC_AS_STAT getting predefined mode value.
  * AT_STATX_FORCE_SYNC is called to create cache data of the file.
  * Then, by using DONT_SYNC_FILE getting old cached data in client folder,
@@ -29,13 +28,11 @@
  *
  * The support for SYNC flags was implemented in NFS in:
  *
- * commit 9ccee940bd5b766b6dab6c1a80908b9490a4850d
- * Author: Trond Myklebust <trond.myklebust@primarydata.com>
- * Date:   Thu Jan 4 17:46:09 2018 -0500
+ *  commit 9ccee940bd5b766b6dab6c1a80908b9490a4850d
+ *  Author: Trond Myklebust <trond.myklebust@primarydata.com>
+ *  Date:   Thu Jan 4 17:46:09 2018 -0500
  *
- *     Support statx() mask and query flags parameters
- *
- * Hence we skip the test on anything older than 4.16.
+ *  Support statx() mask and query flags parameters
  */
 
 #define _GNU_SOURCE
@@ -84,7 +81,7 @@ static int get_mode(char *file_name, int flag_type, char *flag_name)
 	return buf.stx_mode;
 }
 
-const struct test_cases {
+static const struct test_cases {
 	int flag;
 	char *flag_name;
 	char *server_file;
@@ -138,8 +135,6 @@ static void setup(void)
 	exported = 1;
 
 	ret = tst_system(cmd);
-	if (WEXITSTATUS(ret) == 127)
-		tst_brk(TCONF | TST_ERR, "%s not found", cmd);
 	if (ret)
 		tst_brk(TBROK | TST_ERR, "failed to exportfs");
 
@@ -154,6 +149,9 @@ static void setup(void)
 
 static void cleanup(void)
 {
+	if (mounted)
+		SAFE_UMOUNT(CLI_PATH);
+
 	if (!exported)
 		return;
 	snprintf(cmd, sizeof(cmd),
@@ -161,9 +159,6 @@ static void cleanup(void)
 
 	if (tst_system(cmd) == -1)
 		tst_res(TWARN | TST_ERR, "failed to clear exportfs");
-
-	if (mounted)
-		SAFE_UMOUNT(CLI_PATH);
 }
 
 static struct tst_test test = {
@@ -175,4 +170,8 @@ static struct tst_test test = {
 	.needs_tmpdir = 1,
 	.dev_fs_type = "nfs",
 	.needs_root = 1,
+	.needs_cmds = (const char *[]) {
+		"exportfs",
+		NULL
+	}
 };

@@ -16,8 +16,10 @@
 
 package dagger.internal.codegen.base;
 
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
 
+import androidx.room.compiler.processing.XElement;
 import dagger.multibindings.ElementsIntoSet;
 import dagger.multibindings.IntoMap;
 import dagger.multibindings.IntoSet;
@@ -45,6 +47,17 @@ public enum ContributionType {
   /** {@code true} if this is for a multibinding. */
   public boolean isMultibinding() {
     return !this.equals(UNIQUE);
+  }
+
+  /**
+   * The contribution type from a binding element's annotations. Presumes a well-formed binding
+   * element (at most one of @IntoSet, @IntoMap, @ElementsIntoSet and @Provides.type). {@link
+   * dagger.internal.codegen.validation.BindingMethodValidator} and {@link
+   * dagger.internal.codegen.validation.BindsInstanceProcessingStep} validate correctness on their
+   * own.
+   */
+  public static ContributionType fromBindingElement(XElement element) {
+    return fromBindingElement(toJavac(element));
   }
 
   /**

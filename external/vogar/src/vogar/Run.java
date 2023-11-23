@@ -106,6 +106,8 @@ public final class Run {
     public final boolean checkJni;
     public final boolean debugging;
     public final Integer sdkVersion;
+    public final boolean serialDexing;
+    public final boolean verboseDexStats;
 
     public Run(Vogar vogar, Toolchain toolchain, Console console, Mkdir mkdir,
             AndroidSdk androidSdk, Rm rm, Target target, File runnerDir)
@@ -186,6 +188,8 @@ public final class Run {
         this.checkJni = vogar.checkJni;
         this.debugging = (vogar.debugPort != null) || vogar.debugApp;
         this.sdkVersion = vogar.sdkVersion;
+        this.serialDexing = vogar.serialDexing;
+        this.verboseDexStats = vogar.verboseDexStats;
     }
 
     private Mode createMode(ModeId modeId, Variant variant) {

@@ -65,7 +65,11 @@ test_toy() {
   elif [ "$non_toy" = "true" ]; then
     non_toy_failures="$non_toy_failures $toy"
   else
-    failures="$failures $toy"
+    if [[ "$toy" = "vi" ]]; then
+      non_toy_failures="$non_toy_failures $toy"
+    else
+      failures="$failures $toy"
+    fi
   fi
 }
 

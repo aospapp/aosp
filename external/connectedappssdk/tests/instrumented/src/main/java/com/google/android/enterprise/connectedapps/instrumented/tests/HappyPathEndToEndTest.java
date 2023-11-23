@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Application;
 import androidx.test.core.app.ApplicationProvider;
-
 import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfileException;
 import com.google.android.enterprise.connectedapps.instrumented.utils.BlockingExceptionCallbackListener;
 import com.google.android.enterprise.connectedapps.instrumented.utils.BlockingStringCallbackListener;
@@ -32,11 +31,9 @@ import java.util.concurrent.ExecutionException;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import android.util.Log;
 
 /**
  * Tests for high level behaviour running on a correctly configured device (with a managed profile
@@ -64,7 +61,7 @@ public class HappyPathEndToEndTest {
 
   @After
   public void teardown() {
-    connector.stopManualConnectionManagement();
+    connector.clearConnectionHolders();
     utilities.waitForDisconnected();
   }
 
@@ -80,7 +77,7 @@ public class HappyPathEndToEndTest {
 
   @Test
   public void isConnected_isFalse() {
-    connector.stopManualConnectionManagement();
+    connector.clearConnectionHolders();
     utilities.waitForDisconnected();
 
     assertThat(connector.isConnected()).isFalse();
@@ -88,14 +85,14 @@ public class HappyPathEndToEndTest {
 
   @Test
   public void isConnected_hasConnected_isTrue() {
-    utilities.manuallyConnectAndWait();
+    utilities.addConnectionHolderAndWait(this);
 
     assertThat(connector.isConnected()).isTrue();
   }
 
   @Test
   public void synchronousMethod_resultIsCorrect() throws UnavailableProfileException {
-    utilities.manuallyConnectAndWait();
+    utilities.addConnectionHolderAndWait(this);
 
     assertThat(type.other().identityStringMethod(STRING)).isEqualTo(STRING);
   }
@@ -119,7 +116,7 @@ public class HappyPathEndToEndTest {
   @Test
   public void synchronousMethod_fromOtherProfile_resultIsCorrect()
       throws UnavailableProfileException {
-    utilities.manuallyConnectAndWait();
+    utilities.addConnectionHolderAndWait(this);
     typeWithContext.other().connectToOtherProfile();
     BlockingPoll.poll(
         () -> {

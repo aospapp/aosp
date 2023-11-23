@@ -37,6 +37,7 @@ subdirs = [
 cc_library {
     name: "libicuuc_stubdata",
     host_supported: true,
+    native_bridge_supported: true,
     srcs: ["stubdata/stubdata.cpp"],
     apex_available: [
         "com.android.i18n",
@@ -48,7 +49,6 @@ cc_library {
         "-Wall",
         "-Werror",
     ],
-    cppflags: ["-std=c++11"],
     target: {
         windows: {
             enabled: true,

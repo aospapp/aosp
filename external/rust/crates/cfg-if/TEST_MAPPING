@@ -8,6 +8,9 @@
       "path": "external/rust/crates/ash"
     },
     {
+      "path": "external/rust/crates/async-stream"
+    },
+    {
       "path": "external/rust/crates/base64"
     },
     {
@@ -32,6 +35,9 @@
       "path": "external/rust/crates/env_logger"
     },
     {
+      "path": "external/rust/crates/flate2"
+    },
+    {
       "path": "external/rust/crates/futures-util"
     },
     {
@@ -39,6 +45,12 @@
     },
     {
       "path": "external/rust/crates/getrandom"
+    },
+    {
+      "path": "external/rust/crates/hashbrown"
+    },
+    {
+      "path": "external/rust/crates/hashlink"
     },
     {
       "path": "external/rust/crates/jni"
@@ -95,173 +107,95 @@
       "path": "external/rust/crates/unicode-xid"
     },
     {
+      "path": "external/rust/crates/virtio-drivers"
+    },
+    {
       "path": "external/rust/crates/vulkano"
+    },
+    {
+      "path": "external/rust/crates/zerocopy"
+    },
+    {
+      "path": "external/uwb/src"
+    },
+    {
+      "path": "packages/modules/DnsResolver"
+    },
+    {
+      "path": "packages/modules/Virtualization/apkdmverity"
+    },
+    {
+      "path": "packages/modules/Virtualization/authfs"
+    },
+    {
+      "path": "packages/modules/Virtualization/avmd"
+    },
+    {
+      "path": "packages/modules/Virtualization/encryptedstore"
+    },
+    {
+      "path": "packages/modules/Virtualization/libs/apexutil"
+    },
+    {
+      "path": "packages/modules/Virtualization/libs/apkverify"
+    },
+    {
+      "path": "packages/modules/Virtualization/libs/capabilities"
+    },
+    {
+      "path": "packages/modules/Virtualization/libs/devicemapper"
+    },
+    {
+      "path": "packages/modules/Virtualization/microdroid_manager"
+    },
+    {
+      "path": "packages/modules/Virtualization/virtualizationmanager"
+    },
+    {
+      "path": "packages/modules/Virtualization/vm"
+    },
+    {
+      "path": "packages/modules/Virtualization/zipfuse"
+    },
+    {
+      "path": "system/keymint/derive"
+    },
+    {
+      "path": "system/keymint/hal"
+    },
+    {
+      "path": "system/logging/rust"
+    },
+    {
+      "path": "system/security/diced"
+    },
+    {
+      "path": "system/security/keystore2"
+    },
+    {
+      "path": "system/security/keystore2/legacykeystore"
+    },
+    {
+      "path": "system/security/keystore2/selinux"
+    },
+    {
+      "path": "system/security/keystore2/src/crypto"
     }
   ],
   "presubmit": [
     {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "apkdmverity.test"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
       "name": "cfg-if_test_src_lib"
     },
     {
       "name": "cfg-if_test_tests_xcrate"
-    },
-    {
-      "name": "diced_open_dice_cbor_test"
-    },
-    {
-      "name": "diced_sample_inputs_test"
-    },
-    {
-      "name": "diced_test"
-    },
-    {
-      "name": "diced_utils_test"
-    },
-    {
-      "name": "diced_vendor_test"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "keystore2_crypto_test_rust"
-    },
-    {
-      "name": "keystore2_selinux_concurrency_test"
-    },
-    {
-      "name": "keystore2_selinux_test"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "keystore2_test_utils_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "logger_device_unit_tests"
-    },
-    {
-      "name": "logger_test_config_log_level"
-    },
-    {
-      "name": "logger_test_default_init"
-    },
-    {
-      "name": "logger_test_env_log_level"
-    },
-    {
-      "name": "logger_test_multiple_init"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "rustBinderTest"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ],
   "presubmit-rust": [
     {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "apkdmverity.test"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
       "name": "cfg-if_test_src_lib"
     },
     {
       "name": "cfg-if_test_tests_xcrate"
-    },
-    {
-      "name": "diced_open_dice_cbor_test"
-    },
-    {
-      "name": "diced_sample_inputs_test"
-    },
-    {
-      "name": "diced_test"
-    },
-    {
-      "name": "diced_utils_test"
-    },
-    {
-      "name": "diced_vendor_test"
-    },
-    {
-      "name": "doh_unit_test"
-    },
-    {
-      "name": "keystore2_crypto_test_rust"
-    },
-    {
-      "name": "keystore2_selinux_concurrency_test"
-    },
-    {
-      "name": "keystore2_selinux_test"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "keystore2_test_utils_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "libapkverify.integration_test"
-    },
-    {
-      "name": "libapkverify.test"
-    },
-    {
-      "name": "logger_device_unit_tests"
-    },
-    {
-      "name": "logger_test_config_log_level"
-    },
-    {
-      "name": "logger_test_default_init"
-    },
-    {
-      "name": "logger_test_env_log_level"
-    },
-    {
-      "name": "logger_test_multiple_init"
-    },
-    {
-      "name": "microdroid_manager_test"
-    },
-    {
-      "name": "rustBinderTest"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ]
 }

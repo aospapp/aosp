@@ -90,7 +90,12 @@ test-abidiff/test-empty-corpus-2.xml		\
 test-abidiff/test-crc-0.xml \
 test-abidiff/test-crc-1.xml \
 test-abidiff/test-crc-2.xml \
-test-abidiff/test-crc-report.txt \
+test-abidiff/test-crc-report-0-1.txt \
+test-abidiff/test-crc-report-1-0.txt \
+test-abidiff/test-crc-report-1-2.txt \
+test-abidiff/test-namespace-0.xml \
+test-abidiff/test-namespace-1.xml \
+test-abidiff/test-namespace-report.txt \
 test-abidiff/test-PR27985-report.txt	 \
 test-abidiff/test-PR27985-v0.c		 \
 test-abidiff/test-PR27985-v0.o		 \
@@ -98,12 +103,16 @@ test-abidiff/test-PR27985-v0.o.abi	 \
 test-abidiff/test-PR27985-v1.c		 \
 test-abidiff/test-PR27985-v1.o		 \
 test-abidiff/test-PR27985-v1.o.abi	 \
+test-abidiff/test-PR27616-squished-v0.abi \
+test-abidiff/test-PR27616-squished-v1.abi \
+test-abidiff/test-PR27616-v0.xml \
+test-abidiff/test-PR27616-v1.xml \
+\
 test-abidiff-exit/test-PR28316-v0.cc     \
 test-abidiff-exit/test-PR28316-v1.cc     \
 test-abidiff-exit/test-PR28316-v0.o      \
 test-abidiff-exit/test-PR28316-v1.o      \
 test-abidiff-exit/test-PR28316-report.txt \
-\
 test-abidiff-exit/test1-voffset-change-report0.txt \
 test-abidiff-exit/test1-voffset-change-report1.txt \
 test-abidiff-exit/test1-voffset-change.abignore \
@@ -150,7 +159,6 @@ test-abidiff-exit/test-leaf-peeling-v0.o \
 test-abidiff-exit/test-leaf-peeling-v1.cc \
 test-abidiff-exit/test-leaf-peeling-v1.o \
 test-abidiff-exit/test-leaf-peeling-report.txt \
-test-abidiff-exit/test-leaf-peeling-report-indirect.txt \
 test-abidiff-exit/test-leaf-cxx-members-v0.cc \
 test-abidiff-exit/test-leaf-cxx-members-v0.o \
 test-abidiff-exit/test-leaf-cxx-members-v1.cc \
@@ -219,10 +227,12 @@ test-abidiff-exit/test-crc-v1.abi \
 test-abidiff-exit/test-missing-alias-report.txt \
 test-abidiff-exit/test-missing-alias.abi \
 test-abidiff-exit/test-missing-alias.suppr \
-test-abidiff/test-PR27616-squished-v0.abi \
-test-abidiff/test-PR27616-squished-v1.abi \
-test-abidiff/test-PR27616-v0.xml \
-test-abidiff/test-PR27616-v1.xml \
+test-abidiff-exit/test-PR29144-report-2.txt \
+test-abidiff-exit/test-PR29144-report.txt \
+test-abidiff-exit/test-PR29144-v0.cc \
+test-abidiff-exit/test-PR29144-v0.o \
+test-abidiff-exit/test-PR29144-v1.cc \
+test-abidiff-exit/test-PR29144-v1.o \
 \
 test-diff-dwarf/test0-v0.cc		\
 test-diff-dwarf/test0-v0.o			\
@@ -661,12 +671,18 @@ test-read-ctf/test-functions-declaration.o	\
 test-read-ctf/test-forward-type-decl.abi	\
 test-read-ctf/test-forward-type-decl.o	\
 test-read-ctf/test-forward-type-decl.c	\
+test-read-ctf/test-forward-undefine-type-decl.abi	\
+test-read-ctf/test-forward-undefine-type-decl.c		\
+test-read-ctf/test-forward-undefine-type-decl.o		\
 test-read-ctf/test-list-struct.c	\
 test-read-ctf/test-list-struct.o	\
 test-read-ctf/test-list-struct.abi	\
 test-read-ctf/test-callback2.c		\
 test-read-ctf/test-callback2.o		\
 test-read-ctf/test-callback2.abi	\
+test-read-ctf/test-anonymous-fields.c	\
+test-read-ctf/test-anonymous-fields.o	\
+test-read-ctf/test-anonymous-fields.o.abi	\
 \
 test-annotate/test0.abi			\
 test-annotate/test1.abi			\
@@ -1069,6 +1085,9 @@ test-diff-filter/test-PR27598-v1.o           \
 test-diff-filter/test-PR27598-report-0.txt   \
 test-diff-filter/test-PR27995-report-0.txt   \
 test-diff-filter/test-PR27995.abi	     \
+test-diff-filter/test-PR28013-fn-variadic.c.report.txt	  \
+test-diff-filter/test-PR28013-fn-variadic.c.0.abi	  \
+test-diff-filter/test-PR28013-fn-variadic.c.1.abi	  \
 \
 test-diff-suppr/test0-type-suppr-v0.cc	\
 test-diff-suppr/test0-type-suppr-v1.cc	\

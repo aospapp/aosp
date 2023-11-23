@@ -35,4 +35,9 @@ java_library_host {
     srcs: ["src/**/*.java"],
     libs: ["guava"],
     java_resource_dirs: ["src"],
+    errorprone: {
+        javacflags: [
+            "-Xep:PreconditionsInvalidPlaceholder:WARN",
+        ],
+    },
 }

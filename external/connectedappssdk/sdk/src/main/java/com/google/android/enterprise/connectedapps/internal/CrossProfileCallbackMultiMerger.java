@@ -16,6 +16,7 @@
 package com.google.android.enterprise.connectedapps.internal;
 
 import com.google.android.enterprise.connectedapps.Profile;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -35,10 +36,18 @@ public class CrossProfileCallbackMultiMerger<R> {
     void onResult(Map<Profile, R> results);
   }
 
-  private boolean hasCompleted = false;
+  private final Object lock = new Object();
   private final int expectedResults;
+
+  @GuardedBy("lock")
+  private boolean hasCompleted = false;
+
+  @GuardedBy("lock")
   private final Map<Profile, R> results = new HashMap<>();
+
+  @GuardedBy("lock")
   private final Set<Profile> missedResults = new HashSet<>();
+
   private final CrossProfileCallbackMultiMergerCompleteListener<R> listener;
 
   public CrossProfileCallbackMultiMerger(
@@ -59,39 +68,52 @@ public class CrossProfileCallbackMultiMerger<R> {
    * <p>This should be called for every missing result. For example, if a remote call fails.
    */
   public void missingResult(Profile profileId) {
-    if (hasCompleted) {
-      // Once a result has been posted we don't check any more
-      return;
-    }
+    synchronized (lock) {
+      if (hasCompleted) {
+        // Once a result has been posted we don't check any more
+        return;
+      }
 
-    if (results.containsKey(profileId) || missedResults.contains(profileId)) {
-      // Only one result per profile is accepted
-      return;
+      if (results.containsKey(profileId) || missedResults.contains(profileId)) {
+        // Only one result per profile is accepted
+        return;
+      }
+      missedResults.add(profileId);
     }
-    missedResults.add(profileId);
 
     checkIfCompleted();
   }
 
   public void onResult(Profile profileId, R value) {
-    if (hasCompleted) {
-      // Once a result has been posted we don't check any more
-      return;
-    }
-    if (results.containsKey(profileId) || missedResults.contains(profileId)) {
-      // Only one result per profile is accepted
-      return;
-    }
+    synchronized (lock) {
+      if (hasCompleted) {
+        // Once a result has been posted we don't check any more
+        return;
+      }
+      if (results.containsKey(profileId) || missedResults.contains(profileId)) {
+        // Only one result per profile is accepted
+        return;
+      }
 
-    results.put(profileId, value);
+      results.put(profileId, value);
+    }
 
     checkIfCompleted();
   }
 
   private void checkIfCompleted() {
-    if (results.size() + missedResults.size() >= expectedResults) {
-      hasCompleted = true;
-      listener.onResult(results);
+    Map<Profile, R> resultsCopy = null;
+    synchronized (lock) {
+      if (results.size() + missedResults.size() >= expectedResults) {
+        hasCompleted = true;
+        // Some tests rely on values in the map potentially being null, so using HashMap instead of
+        // ImmutableMap here as some production code may depend on this behavior.
+        resultsCopy = new HashMap<>(results);
+      }
+    }
+    // Listener notified outside the lock to avoid potential deadlocks.
+    if (resultsCopy != null) {
+      listener.onResult(resultsCopy);
     }
   }
 }

@@ -1,11 +1,17 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import re
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import six
 import time
 
 import common
+
 from autotest_lib.client.bin import utils
 from autotest_lib.client.cros.cellular import air_state_verifier
 from autotest_lib.client.cros.cellular import base_station_interface
@@ -297,7 +303,7 @@ class ConfigDictionaries(object):
     # Put each value in "" marks to quote it for GPIB
     TECHNOLOGY_TO_FORMAT = dict([
         (x, '"%s"' % y) for
-        x, y in TECHNOLOGY_TO_FORMAT_RAW.iteritems()])
+        x, y in six.iteritems(TECHNOLOGY_TO_FORMAT_RAW)])
 
     TECHNOLOGY_TO_CONFIG_STANZA = {
         cellular.Technology.CDMA_2000: ConfigStanzas.CDMA_2000_MAX,

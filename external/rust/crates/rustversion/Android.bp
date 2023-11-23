@@ -41,7 +41,9 @@ rust_proc_macro {
     name: "librustversion",
     crate_name: "rustversion",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.0.5",
+    cargo_pkg_version: "1.0.12",
     srcs: ["src/lib.rs"],
     edition: "2018",
+    product_available: true,
+    vendor_available: true,
 }

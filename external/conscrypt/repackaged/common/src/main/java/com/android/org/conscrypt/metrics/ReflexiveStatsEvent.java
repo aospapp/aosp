@@ -40,7 +40,7 @@ public class ReflexiveStatsEvent {
         }
     }
 
-    private Object statsEvent;
+    private final Object statsEvent;
 
     private ReflexiveStatsEvent(Object statsEvent) {
         this.statsEvent = statsEvent;
@@ -55,13 +55,14 @@ public class ReflexiveStatsEvent {
     }
 
     public static ReflexiveStatsEvent buildEvent(
-            int atomId, boolean success, int protocol, int cipherSuite, int duration) {
+            int atomId, boolean success, int protocol, int cipherSuite, int duration, int source) {
         ReflexiveStatsEvent.Builder builder = ReflexiveStatsEvent.newBuilder();
         builder.setAtomId(atomId);
         builder.writeBoolean(success);
         builder.writeInt(protocol);
         builder.writeInt(cipherSuite);
         builder.writeInt(duration);
+        builder.writeInt(source);
         builder.usePooledBuffer();
         return builder.build();
     }
@@ -94,10 +95,10 @@ public class ReflexiveStatsEvent {
             }
         }
 
-        private Object builder;
+        private final Object builder;
 
         private Builder() {
-            this.builder = newBuilder.invoke(null);
+            this.builder = newBuilder.invokeStatic();
         }
 
         public Builder setAtomId(final int atomId) {

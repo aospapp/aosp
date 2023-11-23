@@ -1608,7 +1608,7 @@ WORD32 ihevce_generate_sei(
             /*************************************************************************************************/
             /* NOTE: Need to terminate and start new SEI message after active parameter set SEI              */
             /* Buffering period/pic timing SEI refering to active SPS cannot be embedded in same SEI message */
-            /* This is because SPS is activated in HM deocder after completely parsing full SEI message.     */
+            /* This is because SPS is activated in HM decoder after completely parsing full SEI message.     */
             /*************************************************************************************************/
             if(1) /* Insert New SEI for buffering period after active parameter set SEI */
             {

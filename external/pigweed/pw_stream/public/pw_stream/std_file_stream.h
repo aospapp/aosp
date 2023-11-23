@@ -29,6 +29,8 @@ class StdFileReader final : public stream::SeekableReader {
  private:
   StatusWithSize DoRead(ByteSpan dest) override;
   Status DoSeek(ptrdiff_t offset, Whence origin) override;
+  size_t DoTell() override;
+  size_t ConservativeLimit(LimitType limit) const override;
 
   std::ifstream stream_;
 };
@@ -44,6 +46,7 @@ class StdFileWriter final : public stream::SeekableWriter {
  private:
   Status DoWrite(ConstByteSpan data) override;
   Status DoSeek(ptrdiff_t offset, Whence origin) override;
+  size_t DoTell() override;
 
   std::ofstream stream_;
 };

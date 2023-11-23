@@ -55,6 +55,47 @@ TEST_F(PlainTokenizerTest, CreationWithNullPointerShouldFail) {
               StatusIs(libtextclassifier3::StatusCode::FAILED_PRECONDITION));
 }
 
+TEST_F(PlainTokenizerTest, NoTokensBeforeAdvancing) {
+  language_segmenter_factory::SegmenterOptions options(ULOC_US,
+                                                       jni_cache_.get());
+  ICING_ASSERT_OK_AND_ASSIGN(
+      auto language_segmenter,
+      language_segmenter_factory::Create(std::move(options)));
+  ICING_ASSERT_OK_AND_ASSIGN(std::unique_ptr<Tokenizer> plain_tokenizer,
+                             tokenizer_factory::CreateIndexingTokenizer(
+                                 StringIndexingConfig::TokenizerType::PLAIN,
+                                 language_segmenter.get()));
+
+  constexpr std::string_view kText = "Hello, world!";
+  ICING_ASSERT_OK_AND_ASSIGN(auto token_iterator,
+                             plain_tokenizer->Tokenize(kText));
+
+  // We should get no tokens if we get the token before advancing.
+  EXPECT_THAT(token_iterator->GetTokens(), IsEmpty());
+}
+
+TEST_F(PlainTokenizerTest, LastTokenAfterFullyAdvanced) {
+  language_segmenter_factory::SegmenterOptions options(ULOC_US,
+                                                       jni_cache_.get());
+  ICING_ASSERT_OK_AND_ASSIGN(
+      auto language_segmenter,
+      language_segmenter_factory::Create(std::move(options)));
+  ICING_ASSERT_OK_AND_ASSIGN(std::unique_ptr<Tokenizer> plain_tokenizer,
+                             tokenizer_factory::CreateIndexingTokenizer(
+                                 StringIndexingConfig::TokenizerType::PLAIN,
+                                 language_segmenter.get()));
+
+  constexpr std::string_view kText = "Hello, world!";
+  ICING_ASSERT_OK_AND_ASSIGN(auto token_iterator,
+                             plain_tokenizer->Tokenize(kText));
+
+  while (token_iterator->Advance()) {}
+
+  // After advance returns false, GetTokens will stay on the last token.
+  EXPECT_THAT(token_iterator->GetTokens(),
+              ElementsAre(EqualsToken(Token::Type::REGULAR, "!")));
+}
+
 TEST_F(PlainTokenizerTest, Simple) {
   language_segmenter_factory::SegmenterOptions options(ULOC_US,
                                                        jni_cache_.get());
@@ -306,7 +347,8 @@ TEST_F(PlainTokenizerTest, ResetToTokenStartingAfterSimple) {
   auto iterator = plain_tokenizer->Tokenize(kText).ValueOrDie();
 
   EXPECT_TRUE(iterator->ResetToTokenStartingAfter(0));
-  EXPECT_THAT(iterator->GetToken(), EqualsToken(Token::Type::REGULAR, "b"));
+  EXPECT_THAT(iterator->GetTokens(),
+              ElementsAre(EqualsToken(Token::Type::REGULAR, "b")));
 
   EXPECT_FALSE(iterator->ResetToTokenStartingAfter(2));
 }
@@ -326,7 +368,8 @@ TEST_F(PlainTokenizerTest, ResetToTokenEndingBeforeSimple) {
   auto iterator = plain_tokenizer->Tokenize(kText).ValueOrDie();
 
   EXPECT_TRUE(iterator->ResetToTokenEndingBefore(2));
-  EXPECT_THAT(iterator->GetToken(), EqualsToken(Token::Type::REGULAR, "f"));
+  EXPECT_THAT(iterator->GetTokens(),
+              ElementsAre(EqualsToken(Token::Type::REGULAR, "f")));
 
   EXPECT_FALSE(iterator->ResetToTokenEndingBefore(0));
 }
@@ -371,12 +414,14 @@ TEST_F(PlainTokenizerTest, ResetToTokenStartingAfter) {
 
   auto iterator = plain_tokenizer->Tokenize(kText).ValueOrDie();
   EXPECT_TRUE(iterator->Advance());
-  EXPECT_THAT(iterator->GetToken(), EqualsToken(Token::Type::REGULAR, "foo"));
+  EXPECT_THAT(iterator->GetTokens(),
+              ElementsAre(EqualsToken(Token::Type::REGULAR, "foo")));
   for (int i = 0; i < kText.length(); ++i) {
     if (i < expected_text.size()) {
       EXPECT_TRUE(iterator->ResetToTokenStartingAfter(i));
-      EXPECT_THAT(iterator->GetToken(),
-                  EqualsToken(Token::Type::REGULAR, expected_text[i]));
+      EXPECT_THAT(
+          iterator->GetTokens(),
+          ElementsAre(EqualsToken(Token::Type::REGULAR, expected_text[i])));
     } else {
       EXPECT_FALSE(iterator->ResetToTokenStartingAfter(i));
     }
@@ -423,14 +468,15 @@ TEST_F(PlainTokenizerTest, ResetToTokenEndingBefore) {
 
   auto iterator = plain_tokenizer->Tokenize(kText).ValueOrDie();
   EXPECT_TRUE(iterator->Advance());
-  EXPECT_THAT(iterator->GetToken(), EqualsToken(Token::Type::REGULAR, "foo"));
+  EXPECT_THAT(iterator->GetTokens(),
+              ElementsAre(EqualsToken(Token::Type::REGULAR, "foo")));
   for (int i = kText.length() - 1; i >= 0; --i) {
     int expected_index = kText.length() - 1 - i;
     if (expected_index < expected_text.size()) {
       EXPECT_TRUE(iterator->ResetToTokenEndingBefore(i));
-      EXPECT_THAT(
-          iterator->GetToken(),
-          EqualsToken(Token::Type::REGULAR, expected_text[expected_index]));
+      EXPECT_THAT(iterator->GetTokens(),
+                  ElementsAre(EqualsToken(Token::Type::REGULAR,
+                                          expected_text[expected_index])));
     } else {
       EXPECT_FALSE(iterator->ResetToTokenEndingBefore(i));
     }

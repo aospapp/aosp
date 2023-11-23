@@ -19,7 +19,9 @@
 # Load Dagger repository
 ########################
 
-# TODO(bcorso): Replace with `http_archive` pointing to tagged released.
+# In a real project, this repository would use `http_archive` to link to a
+# tagged, released version of the Dagger, but we use `local_repository` so that
+# CI testing can test local changes to workspace_defs.bzl.
 local_repository(
     name = "dagger",
     path = "../../",

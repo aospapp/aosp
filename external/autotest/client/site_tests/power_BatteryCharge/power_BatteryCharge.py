@@ -1,19 +1,23 @@
-#!/usr/bin/python2
+# Lint as: python2, python3
 # Copyright (c) 2010 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 import logging, time
-from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import service_stopper
-from autotest_lib.client.cros.power import power_status, power_utils
+from autotest_lib.client.cros.power import power_status
+from autotest_lib.client.cros.power import power_test
+from autotest_lib.client.cros.power import power_utils
 
-class power_BatteryCharge(test.test):
+
+class power_BatteryCharge(power_test.power_Test):
     """class power_BatteryCharge."""
     version = 1
 
-    def initialize(self):
+    def initialize(self, pdash_note=''):
+        """Perform necessary initialization prior to test run."""
+
         if not power_utils.has_battery():
             raise error.TestNAError('DUT has no battery. Test Skipped')
 
@@ -23,10 +27,13 @@ class power_BatteryCharge(test.test):
             raise error.TestNAError(
                   'This test needs to be run with the AC power online')
 
+        super(power_BatteryCharge, self).initialize(seconds_period=20,
+                                                    pdash_note=pdash_note,
+                                                    force_discharge=False)
+
         self._services = service_stopper.ServiceStopper(
             service_stopper.ServiceStopper.POWER_DRAW_SERVICES + ['ui'])
         self._services.stop_services()
-
 
     def run_once(self, max_run_time=180, percent_charge_to_add=1,
                  percent_initial_charge_max=None,
@@ -86,6 +93,7 @@ class power_BatteryCharge(test.test):
         logging.info('initial_charge: %f', self.initial_charge)
         logging.info('target_charge: %f', target_charge)
 
+        self.start_measurements()
         while self.remaining_time and current_charge < target_charge:
             if time_to_sleep > self.remaining_time:
                 time_to_sleep = self.remaining_time
@@ -106,18 +114,26 @@ class power_BatteryCharge(test.test):
                 logging.info('Battery full, aborting!')
                 break
             elif self.status.battery.status == 'Discharging':
-                raise error.TestError('This test needs to be run with the '
-                    'battery charging on AC.')
-
+                # TestError might be raised if |use_design_charge_capacity|
+                # is True when testing with older battery.
+                if current_charge > self.charge_capacity * 0.97:
+                    logging.info('Battery full (Discharge on AC), aborting!')
+                else:
+                    raise error.TestError('This test needs to be run with the '
+                                          'battery charging on AC.')
+        self._end_time = time.time()
 
     def postprocess_iteration(self):
+        """"Collect and log keyvals."""
         keyvals = {}
         keyvals['ah_charge_full'] = self.charge_full
         keyvals['ah_charge_full_design'] = self.charge_full_design
         keyvals['ah_charge_capacity'] = self.charge_capacity
         keyvals['ah_initial_charge'] = self.initial_charge
         keyvals['ah_final_charge'] = self.status.battery.charge_now
-        keyvals['s_time_taken'] = self.max_run_time - self.remaining_time
+        s_time_taken = self.max_run_time - self.remaining_time
+        min_time_taken = s_time_taken / 60.
+        keyvals['s_time_taken'] = s_time_taken
         keyvals['percent_initial_charge'] = self.initial_charge * 100 / \
                                             keyvals['ah_charge_capacity']
         keyvals['percent_final_charge'] = keyvals['ah_final_charge'] * 100 / \
@@ -135,10 +151,25 @@ class power_BatteryCharge(test.test):
                 (keyvals['ah_final_charge'] - self.initial_charge) / \
                 hrs_charging
 
-        self.write_perf_keyval(keyvals)
+        self.keyvals.update(keyvals)
 
+        self._keyvallogger.add_item('time_to_charge_min', min_time_taken,
+                                    'point', 'perf')
+        self._keyvallogger.add_item('initial_charge_ah', self.initial_charge,
+                                    'point', 'perf')
+        self._keyvallogger.add_item('final_charge_ah',
+                                    self.status.battery.charge_now, 'point',
+                                    'perf')
+        self._keyvallogger.add_item('charge_full_ah', self.charge_full,
+                                    'point', 'perf')
+        self._keyvallogger.add_item('charge_full_design_ah',
+                                    self.charge_full_design, 'point', 'perf')
+        self._keyvallogger.set_end(self._end_time)
+
+        super(power_BatteryCharge, self).postprocess_iteration()
 
     def cleanup(self):
+        """Restore stop services and backlight level."""
         if hasattr(self, '_services') and self._services:
             self._services.restore_services()
         if hasattr(self, '_backlight') and self._backlight:

@@ -16,7 +16,7 @@
 //! trait. The `Item` associated type is the type of the values yielded from the
 //! stream. The `try_stream!` also returns an anonymous type implementing the
 //! [`Stream`] trait, but the `Item` associated type is `Result<T, Error>`. The
-//! `try_stream!` macro supports using `?` notiation as part of the
+//! `try_stream!` macro supports using `?` notation as part of the
 //! implementation.
 //!
 //! # Usage
@@ -144,7 +144,7 @@
 //! # Implementation
 //!
 //! The `stream!` and `try_stream!` macros are implemented using proc macros.
-//! The macro searches the syntax tree for instances of `sender.send($expr)` and
+//! The macro searches the syntax tree for instances of `yield $expr` and
 //! transforms them into `sender.send($expr).await`.
 //!
 //! The stream uses a lightweight sender to send values from the stream
@@ -158,15 +158,7 @@
 
 mod async_stream;
 mod next;
-#[doc(hidden)]
-pub mod yielder;
-
-// Used by the macro, but not intended to be accessed publicly.
-#[doc(hidden)]
-pub use crate::async_stream::AsyncStream;
-
-#[doc(hidden)]
-pub use async_stream_impl;
+mod yielder;
 
 /// Asynchronous stream
 ///
@@ -198,7 +190,7 @@ pub use async_stream_impl;
 #[macro_export]
 macro_rules! stream {
     ($($tt:tt)*) => {
-        $crate::async_stream_impl::stream_inner!(($crate) $($tt)*)
+        $crate::__private::stream_inner!(($crate) $($tt)*)
     }
 }
 
@@ -234,12 +226,17 @@ macro_rules! stream {
 #[macro_export]
 macro_rules! try_stream {
     ($($tt:tt)*) => {
-        $crate::async_stream_impl::try_stream_inner!(($crate) $($tt)*)
+        $crate::__private::try_stream_inner!(($crate) $($tt)*)
     }
 }
 
+// Not public API.
 #[doc(hidden)]
-pub mod reexport {
-    #[doc(hidden)]
+pub mod __private {
+    pub use crate::async_stream::AsyncStream;
     pub use crate::next::next;
+    pub use async_stream_impl::{stream_inner, try_stream_inner};
+    pub mod yielder {
+        pub use crate::yielder::pair;
+    }
 }

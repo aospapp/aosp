@@ -4,14 +4,15 @@
 
 import logging
 import multiprocessing
-import Queue
 import struct
 import time
 
 import common
+from six.moves.queue import Empty
+
 from autotest_lib.client.bin import utils
-from autotest_lib.client.cros.cellular.mbim_compliance \
-        import mbim_channel_endpoint
+from autotest_lib.client.cros.cellular.mbim_compliance import \
+    mbim_channel_endpoint
 from autotest_lib.client.cros.cellular.mbim_compliance import mbim_errors
 
 
@@ -287,7 +288,7 @@ class MBIMChannel(object):
             try:
                 first_fragment = self._response_queue.get(
                         True, self.FRAGMENT_TIMEOUT_S)
-            except Queue.Empty:
+            except Empty:
                 # *Don't fail* Just return nothing.
                 return fragments
 
@@ -306,7 +307,7 @@ class MBIMChannel(object):
             try:
                 fragment = self._response_queue.get(True,
                                                     self.FRAGMENT_TIMEOUT_S)
-            except Queue.Empty:
+            except Empty:
                 # *Don't fail* Just return the fragments we got so far.
                 break
 

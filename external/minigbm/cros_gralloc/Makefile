@@ -9,7 +9,7 @@ SRCS   += $(wildcard ../*.c)
 
 SRCS   += $(wildcard gralloc0/*.cc)
 
-SOURCES = $(filter-out ../gbm%, $(SRCS))
+SOURCES = $(filter-out ../gbm% ../minigbm%, $(SRCS))
 PKG_CONFIG ?= pkg-config
 
 VPATH = $(dir $(SOURCES))

@@ -8,6 +8,7 @@ NAME = 'network_WiFi_RoamEndToEnd'
 TEST_TYPE = 'Server'
 ATTRIBUTES = ('suite:wifi_endtoend, suite:wifi_release')
 DEPENDENCIES = 'wificell'
+PY_VERSION = 3
 
 DOC = """
 WiFi_RoamEndToEnd test configures two APs with the same ssid and runs the

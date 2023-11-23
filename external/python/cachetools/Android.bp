@@ -28,19 +28,3 @@ license {
         "LICENSE",
     ],
 }
-
-python_library {
-    name: "py-cachetools",
-    host_supported: true,
-    srcs: [
-        "src/cachetools/*.py",
-    ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
-}

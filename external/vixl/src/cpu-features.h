@@ -170,7 +170,20 @@ namespace vixl {
   V(kPAuthEnhancedPAC,    "PAuth EnhancedPAC",      NULL)                      \
   V(kPAuthEnhancedPAC2,   "PAuth EnhancedPAC2",     NULL)                      \
   V(kPAuthFPAC,           "PAuth FPAC",             NULL)                      \
-  V(kPAuthFPACCombined,   "PAuth FPACCombined",     NULL)
+  V(kPAuthFPACCombined,   "PAuth FPACCombined",     NULL)                      \
+  /* Scalable Vector Extension 2.                                           */ \
+  V(kSVE2,                "SVE2",                   "sve2")                    \
+  V(kSVESM4,              "SVE SM4",                "svesm4")                  \
+  V(kSVESHA3,             "SVE SHA3",               "svesha3")                 \
+  V(kSVEBitPerm,          "SVE BitPerm",            "svebitperm")              \
+  V(kSVEAES,              "SVE AES",                "sveaes")                  \
+  V(kSVEPmull128,         "SVE Pmull128",           "svepmull")                \
+  /* Alternate floating-point behavior                                      */ \
+  V(kAFP,                 "AFP",                    "afp")                     \
+  /* Enhanced Counter Virtualization                                        */ \
+  V(kECV,                 "ECV",                    "ecv")                     \
+  /* Increased precision of Reciprocal Estimate and Square Root Estimate    */ \
+  V(kRPRES,               "RPRES",                  "rpres")
 // clang-format on
 
 

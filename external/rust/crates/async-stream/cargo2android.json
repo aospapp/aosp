@@ -1,4 +1,11 @@
 {
   "device": true,
-  "run": true
+  "run": true,
+  "tests": true,
+  "dependency-blocklist": [
+    "trybuild"
+  ],
+  "test-blocklist": [
+    "tests/stream.rs"
+  ]
 }

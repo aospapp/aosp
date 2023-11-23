@@ -1,0 +1,372 @@
+From 580463ac3559235a64145ff443d6f1530dd20ea2 Mon Sep 17 00:00:00 2001
+From: Edward Liaw <edliaw@google.com>
+Date: Tue, 3 May 2022 19:13:03 +0000
+Subject: [PATCH 21/24] seccomp_bpf: disable incompatible tests >= 4.14
+
+Disable tests that break from newer seccomp flags and comment on why
+they failed
+
+Bug: 33027081
+Bug: 147676645
+Test: atest vts_linux_kselftest_x86_64:seccomp_seccomp_bpf_x86_64
+Signed-off-by: Edward Liaw <edliaw@google.com>
+---
+ tools/testing/selftests/seccomp/seccomp_bpf.c | 140 +++++++++++++++---
+ 1 file changed, 121 insertions(+), 19 deletions(-)
+
+diff --git a/tools/testing/selftests/seccomp/seccomp_bpf.c b/tools/testing/selftests/seccomp/seccomp_bpf.c
+index 3cd98e02fd54b..fce11f729f36e 100644
+--- a/tools/testing/selftests/seccomp/seccomp_bpf.c
++++ b/tools/testing/selftests/seccomp/seccomp_bpf.c
+@@ -567,8 +567,6 @@ TEST(empty_prog)
+ 	EXPECT_EQ(EINVAL, errno);
+ }
+ 
+-/* b/147676645 */
+-#if 0
+ TEST(log_all)
+ {
+ 	struct sock_filter filter[] = {
+@@ -590,7 +588,6 @@ TEST(log_all)
+ 	/* getppid() should succeed and be logged (no check for logging) */
+ 	EXPECT_EQ(parent, syscall(__NR_getppid));
+ }
+-#endif
+ 
+ TEST_SIGNAL(unknown_ret_is_kill_inside, SIGSYS)
+ {
+@@ -854,7 +851,7 @@ void kill_thread_or_group(struct __test_metadata *_metadata,
+ }
+ 
+ /* b/147676645 */
+-#if 0
++#ifndef __ANDROID__
+ TEST(KILL_thread)
+ {
+ 	int status;
+@@ -1442,8 +1439,6 @@ TEST_F(precedence, trace_is_fourth_in_any_order)
+ 	EXPECT_EQ(-1, syscall(__NR_getpid));
+ }
+ 
+-/* b/147676645 */
+-#if 0
+ TEST_F(precedence, log_is_fifth)
+ {
+ 	pid_t mypid, parent;
+@@ -1463,7 +1458,6 @@ TEST_F(precedence, log_is_fifth)
+ 	/* Should also work just fine */
+ 	EXPECT_EQ(mypid, syscall(__NR_getpid));
+ }
+-#endif
+ 
+ TEST_F(precedence, log_is_fifth_in_any_order)
+ {
+@@ -2051,8 +2045,15 @@ void tracer_ptrace(struct __test_metadata *_metadata, pid_t tracee,
+ 	/* Make sure we got an appropriate message. */
+ 	ret = ptrace(PTRACE_GETEVENTMSG, tracee, NULL, &msg);
+ 	EXPECT_EQ(0, ret);
+-	EXPECT_EQ(entry ? PTRACE_EVENTMSG_SYSCALL_ENTRY
+-			: PTRACE_EVENTMSG_SYSCALL_EXIT, msg);
++
++	/*
++	 * TODO: b/33027081
++	 * PTRACE_EVENTMSG_SYSCALL_ENTRY and PTRACE_EVENTMSG_SYSCALL_EXIT not
++	 * compatible < 5.3 (see 201766a)
++	 *
++	 * EXPECT_EQ(entry ? PTRACE_EVENTMSG_SYSCALL_ENTRY
++	 * 		: PTRACE_EVENTMSG_SYSCALL_EXIT, msg);
++	 */
+ 
+ 	/*
+ 	 * Some architectures only support setting return values during
+@@ -2241,11 +2242,6 @@ TEST_F_SIGNAL(TRACE_syscall, kill_immediate, SIGSYS)
+ 	EXPECT_EQ(-1, syscall(__NR_mknodat, -1, NULL, 0, 0));
+ }
+ 
+-/*
+- * TODO: b/33027081
+- * These tests do not work on kernels prior to 4.8.
+- */
+-#ifndef __ANDROID__
+ TEST_F(TRACE_syscall, skip_after)
+ {
+ 	struct sock_filter filter[] = {
+@@ -2293,7 +2289,6 @@ TEST_F_SIGNAL(TRACE_syscall, kill_after, SIGSYS)
+ 	/* Tracer will redirect getpid to getppid, and we should die. */
+ 	EXPECT_NE(self->mypid, syscall(__NR_getpid));
+ }
+-#endif
+ 
+ TEST(seccomp_syscall)
+ {
+@@ -2383,8 +2378,14 @@ TEST(seccomp_syscall_mode_lock)
+ 	}
+ }
+ 
+-/* b/147676645 */
+-#if 0
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_TSYNC_ESRCH not compatible < 5.7
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ * SECCOMP_FILTER_FLAG_SPEC_ALLOW not compatible < 4.17
++ * SECCOMP_FILTER_FLAG_LOG not compatible < 4.14
++ */
++#ifndef __ANDROID__
+ /*
+  * Test detection of known and unknown filter flags. Userspace needs to be able
+  * to check if a filter flag is supported by the current kernel and a good way
+@@ -2857,6 +2858,11 @@ TEST_F(TSYNC, two_siblings_with_one_divergence)
+ 	EXPECT_EQ(SIBLING_EXIT_UNKILLED, (long)status);
+ }
+ 
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_TSYNC_ESRCH not compatible < 5.7
++ */
++#ifndef __ANDROID__
+ TEST_F(TSYNC, two_siblings_with_one_divergence_no_tid_in_err)
+ {
+ 	long ret, flags;
+@@ -2905,6 +2911,7 @@ TEST_F(TSYNC, two_siblings_with_one_divergence_no_tid_in_err)
+ 	PTHREAD_JOIN(self->sibling[1].tid, &status);
+ 	EXPECT_EQ(SIBLING_EXIT_UNKILLED, (long)status);
+ }
++#endif
+ 
+ TEST_F(TSYNC, two_siblings_not_under_filter)
+ {
+@@ -3173,8 +3180,6 @@ TEST(syscall_restart)
+ 		_metadata->passed = 0;
+ }
+ 
+-/* b/147676645 */
+-#if 0
+ TEST_SIGNAL(filter_flag_log, SIGSYS)
+ {
+ 	struct sock_filter allow_filter[] = {
+@@ -3268,6 +3273,11 @@ TEST(get_action_avail)
+ 	EXPECT_EQ(errno, EOPNOTSUPP);
+ }
+ 
++/*
++ * b/147676645
++ * PTRACE_SECCOMP_GET_METADATA not compatible < 4.16
++ */
++#ifndef __ANDROID__
+ TEST(get_metadata)
+ {
+ 	pid_t pid;
+@@ -3338,6 +3348,11 @@ skip:
+ }
+ #endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ */
++#ifndef __ANDROID__
+ static int user_notif_syscall(int nr, unsigned int flags)
+ {
+ 	struct sock_filter filter[] = {
+@@ -3462,7 +3477,13 @@ TEST(user_notification_basic)
+ 	EXPECT_EQ(true, WIFEXITED(status));
+ 	EXPECT_EQ(0, WEXITSTATUS(status));
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ */
++#ifndef __ANDROID__
+ TEST(user_notification_with_tsync)
+ {
+ 	int ret;
+@@ -3485,7 +3506,13 @@ TEST(user_notification_with_tsync)
+ 	close(ret);
+ 	ASSERT_LE(0, ret);
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ */
++#ifndef __ANDROID__
+ TEST(user_notification_kill_in_middle)
+ {
+ 	pid_t pid;
+@@ -3536,7 +3563,13 @@ static void signal_handler(int signal)
+ 	if (write(handled, "c", 1) != 1)
+ 		perror("write from signal");
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ */
++#ifndef __ANDROID__
+ TEST(user_notification_signal)
+ {
+ 	pid_t pid;
+@@ -3611,7 +3644,13 @@ TEST(user_notification_signal)
+ 	EXPECT_EQ(true, WIFEXITED(status));
+ 	EXPECT_EQ(0, WEXITSTATUS(status));
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ */
++#ifndef __ANDROID__
+ TEST(user_notification_closed_listener)
+ {
+ 	pid_t pid;
+@@ -3644,7 +3683,15 @@ TEST(user_notification_closed_listener)
+ 	EXPECT_EQ(true, WIFEXITED(status));
+ 	EXPECT_EQ(0, WEXITSTATUS(status));
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ * unshare(CLONE_NEWUSER) returns EINVAL with Android
++ * unshare(CLONE_NEWPID) returns EINVAL with Android
++ */
++#ifndef __ANDROID__
+ /*
+  * Check that a pid in a child namespace still shows up as valid in ours.
+  */
+@@ -3684,7 +3731,14 @@ TEST(user_notification_child_pid_ns)
+ 	EXPECT_EQ(0, WEXITSTATUS(status));
+ 	close(listener);
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ * unshare(CLONE_NEWPID) returns EINVAL with Android
++ */
++#ifndef __ANDROID__
+ /*
+  * Check that a pid in a sibling (i.e. unrelated) namespace shows up as 0, i.e.
+  * invalid.
+@@ -3758,7 +3812,14 @@ TEST(user_notification_sibling_pid_ns)
+ 	EXPECT_EQ(true, WIFEXITED(status));
+ 	EXPECT_EQ(0, WEXITSTATUS(status));
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ * unshare(CLONE_NEWUSER) returns EINVAL with Android
++ */
++#ifndef __ANDROID__
+ TEST(user_notification_fault_recv)
+ {
+ 	pid_t pid;
+@@ -3796,7 +3857,13 @@ TEST(user_notification_fault_recv)
+ 	EXPECT_EQ(true, WIFEXITED(status));
+ 	EXPECT_EQ(0, WEXITSTATUS(status));
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_GET_NOTIF_SIZES not compatible < 5.0
++ */
++#ifndef __ANDROID__
+ TEST(seccomp_get_notif_sizes)
+ {
+ 	struct seccomp_notif_sizes sizes;
+@@ -3805,7 +3872,13 @@ TEST(seccomp_get_notif_sizes)
+ 	EXPECT_EQ(sizes.seccomp_notif, sizeof(struct seccomp_notif));
+ 	EXPECT_EQ(sizes.seccomp_notif_resp, sizeof(struct seccomp_notif_resp));
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ */
++#ifndef __ANDROID__
+ TEST(user_notification_continue)
+ {
+ 	pid_t pid;
+@@ -3891,7 +3964,13 @@ skip:
+ 		}
+ 	}
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ */
++#ifndef __ANDROID__
+ TEST(user_notification_filter_empty)
+ {
+ 	pid_t pid;
+@@ -3940,7 +4019,13 @@ TEST(user_notification_filter_empty)
+ 	EXPECT_GT(poll(&pollfd, 1, 2000), 0);
+ 	EXPECT_GT((pollfd.revents & POLLHUP) ?: 0, 0);
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ */
++#ifndef __ANDROID__
+ static void *do_thread(void *data)
+ {
+ 	return NULL;
+@@ -4026,7 +4111,15 @@ TEST(user_notification_filter_empty_threaded)
+ 	EXPECT_GT(poll(&pollfd, 1, 2000), 0);
+ 	EXPECT_GT((pollfd.revents & POLLHUP) ?: 0, 0);
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_ADDED_FLAG_SEND not compatible < 5.14
++ * SECCOMP_IOCTL_NOTIF_ADDFD not comptible < 5.9
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ */
++#ifndef __ANDROID__
+ TEST(user_notification_addfd)
+ {
+ 	pid_t pid;
+@@ -4184,7 +4277,15 @@ TEST(user_notification_addfd)
+ 
+ 	close(memfd);
+ }
++#endif
+ 
++/*
++ * b/147676645
++ * SECCOMP_ADDED_FLAG_SEND not compatible < 5.14
++ * SECCOMP_IOCTL_NOTIF_ADDFD not comptible < 5.9
++ * SECCOMP_FILTER_FLAG_NEW_LISTENER not compatible < 5.0
++ */
++#ifndef __ANDROID__
+ TEST(user_notification_addfd_rlimit)
+ {
+ 	pid_t pid;
+@@ -4254,6 +4355,7 @@ TEST(user_notification_addfd_rlimit)
+ 
+ 	close(memfd);
+ }
++#endif
+ 
+ /*
+  * TODO:
+-- 
+2.36.0.550.gb090851708-goog
+

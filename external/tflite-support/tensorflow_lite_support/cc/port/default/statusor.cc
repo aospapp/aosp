@@ -18,7 +18,8 @@ limitations under the License.
 
 #include <utility>
 
-#include <glog/logging.h>
+#include "absl/base/internal/raw_logging.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 
 namespace tflite {
@@ -40,23 +41,32 @@ namespace internal_statusor {
 void Helper::HandleInvalidStatusCtorArg(absl::Status* status) {
   const char* kMessage =
       "An OK status is not a valid constructor argument to StatusOr<T>";
-  LOG(DFATAL) << kMessage;
+#ifdef NDEBUG
+  ABSL_INTERNAL_LOG(ERROR, kMessage);
+#else
+  ABSL_INTERNAL_LOG(FATAL, kMessage);
+#endif
   // In optimized builds, we will fall back to ::util::error::INTERNAL.
   *status = absl::InternalError(kMessage);
 }
 
 void Helper::Crash(const absl::Status& status) {
-  LOG(FATAL) << "Attempting to fetch value instead of handling error "
-             << status;
-  _exit(1);
+  ABSL_INTERNAL_LOG(
+      FATAL,
+      absl::StrCat("Attempting to fetch value instead of handling error ",
+                   status.ToString()));
+  _Exit(1);
 }
 
 void ThrowBadStatusOrAccess(absl::Status status) {
 #ifdef ABSL_HAVE_EXCEPTIONS
   throw BadStatusOrAccess(std::move(status));
 #else
-  LOG(FATAL) << "Attempting to fetch value instead of handling error "
-             << status;
+  ABSL_INTERNAL_LOG(
+      FATAL,
+      absl::StrCat("Attempting to fetch value instead of handling error ",
+                   status.ToString()));
+  std::abort();
 #endif
 }
 

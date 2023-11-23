@@ -1,9 +1,17 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import inspect
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+try:
+    from inspect import getfullargspec as get_args
+except ImportError:
+    from inspect import getargspec as get_args
 import logging
+import six
 import sys
 
 
@@ -35,7 +43,7 @@ def deserialize(serialized, module=None):
     if module is None:
         module = sys.modules[__name__]
     klass = getattr(module, serialized[TYPE_KEY])
-    constructor_args = inspect.getargspec(klass.__init__)
+    constructor_args = get_args(klass.__init__)
     optional_args = []
     if constructor_args.defaults:
         # Valid args should now be a list of all the parameters that have
@@ -50,8 +58,7 @@ def deserialize(serialized, module=None):
             return None
 
         args.append(serialized[arg])
-    kwargs = dict(filter(lambda (k, v): k in optional_args,
-                         serialized.iteritems()))
+    kwargs = dict([k_v for k_v in six.iteritems(serialized) if k_v[0] in optional_args])
     logging.debug('Constructing %s object with args=%r, kwargs=%r',
                   serialized[TYPE_KEY], args, kwargs)
     return klass(*args, **kwargs)

@@ -16,70 +16,59 @@
 
 package dagger.internal.codegen;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
-import static javax.lang.model.util.ElementFilter.methodsIn;
-import static javax.lang.model.util.ElementFilter.typesIn;
+import static dagger.internal.codegen.extension.DaggerCollectors.toOptional;
+import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
 
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XMessager;
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XProcessingEnv;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.auto.common.BasicAnnotationProcessor.ProcessingStep;
-import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
-import dagger.Binds;
-import dagger.Module;
-import dagger.Provides;
+import com.squareup.javapoet.ClassName;
 import dagger.internal.codegen.base.SourceFileGenerator;
 import dagger.internal.codegen.binding.BindingFactory;
 import dagger.internal.codegen.binding.ContributionBinding;
 import dagger.internal.codegen.binding.DelegateDeclaration;
-import dagger.internal.codegen.binding.DelegateDeclaration.Factory;
 import dagger.internal.codegen.binding.ProductionBinding;
 import dagger.internal.codegen.binding.ProvisionBinding;
-import dagger.internal.codegen.kotlin.KotlinMetadataUtil;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.validation.ModuleValidator;
 import dagger.internal.codegen.validation.TypeCheckingProcessingStep;
 import dagger.internal.codegen.validation.ValidationReport;
 import dagger.internal.codegen.writing.InaccessibleMapKeyProxyGenerator;
 import dagger.internal.codegen.writing.ModuleGenerator;
-import dagger.producers.ProducerModule;
-import dagger.producers.Produces;
-import java.lang.annotation.Annotation;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import javax.annotation.processing.Messager;
 import javax.inject.Inject;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 
 /**
  * A {@link ProcessingStep} that validates module classes and generates factories for binding
  * methods.
  */
-final class ModuleProcessingStep extends TypeCheckingProcessingStep<TypeElement> {
-  private final Messager messager;
+final class ModuleProcessingStep extends TypeCheckingProcessingStep<XTypeElement> {
+  private final XMessager messager;
   private final ModuleValidator moduleValidator;
   private final BindingFactory bindingFactory;
   private final SourceFileGenerator<ProvisionBinding> factoryGenerator;
   private final SourceFileGenerator<ProductionBinding> producerFactoryGenerator;
-  private final SourceFileGenerator<TypeElement> moduleConstructorProxyGenerator;
+  private final SourceFileGenerator<XTypeElement> moduleConstructorProxyGenerator;
   private final InaccessibleMapKeyProxyGenerator inaccessibleMapKeyProxyGenerator;
   private final DelegateDeclaration.Factory delegateDeclarationFactory;
-  private final KotlinMetadataUtil metadataUtil;
-  private final Set<TypeElement> processedModuleElements = Sets.newLinkedHashSet();
+  private final Set<XTypeElement> processedModuleElements = Sets.newLinkedHashSet();
 
   @Inject
   ModuleProcessingStep(
-      Messager messager,
+      XMessager messager,
       ModuleValidator moduleValidator,
       BindingFactory bindingFactory,
       SourceFileGenerator<ProvisionBinding> factoryGenerator,
       SourceFileGenerator<ProductionBinding> producerFactoryGenerator,
-      @ModuleGenerator SourceFileGenerator<TypeElement> moduleConstructorProxyGenerator,
+      @ModuleGenerator SourceFileGenerator<XTypeElement> moduleConstructorProxyGenerator,
       InaccessibleMapKeyProxyGenerator inaccessibleMapKeyProxyGenerator,
-      Factory delegateDeclarationFactory,
-      KotlinMetadataUtil metadataUtil) {
-    super(MoreElements::asType);
+      DelegateDeclaration.Factory delegateDeclarationFactory) {
     this.messager = messager;
     this.moduleValidator = moduleValidator;
     this.bindingFactory = bindingFactory;
@@ -88,54 +77,57 @@ final class ModuleProcessingStep extends TypeCheckingProcessingStep<TypeElement>
     this.moduleConstructorProxyGenerator = moduleConstructorProxyGenerator;
     this.inaccessibleMapKeyProxyGenerator = inaccessibleMapKeyProxyGenerator;
     this.delegateDeclarationFactory = delegateDeclarationFactory;
-    this.metadataUtil = metadataUtil;
   }
 
   @Override
-  public Set<? extends Class<? extends Annotation>> annotations() {
-    return ImmutableSet.of(Module.class, ProducerModule.class);
+  public ImmutableSet<ClassName> annotationClassNames() {
+    return ImmutableSet.of(TypeNames.MODULE, TypeNames.PRODUCER_MODULE);
   }
 
   @Override
-  public ImmutableSet<Element> process(
-      SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
-    List<TypeElement> modules = typesIn(elementsByAnnotation.values());
-    moduleValidator.addKnownModules(modules);
-    return super.process(elementsByAnnotation);
+  public ImmutableSet<XElement> process(
+      XProcessingEnv env, Map<String, ? extends Set<? extends XElement>> elementsByAnnotation) {
+    moduleValidator.addKnownModules(
+        elementsByAnnotation.values().stream()
+            .flatMap(Set::stream)
+            // This cast is safe because @Module has @Target(ElementType.TYPE)
+            .map(XTypeElement.class::cast)
+            .collect(toImmutableSet()));
+    return super.process(env, elementsByAnnotation);
   }
 
   @Override
-  protected void process(
-      TypeElement module, ImmutableSet<Class<? extends Annotation>> annotations) {
+  protected void process(XTypeElement module, ImmutableSet<ClassName> annotations) {
     if (processedModuleElements.contains(module)) {
       return;
     }
     // For backwards compatibility, we allow a companion object to be annotated with @Module even
     // though it's no longer required. However, we skip processing the companion object itself
     // because it will now be processed when processing the companion object's enclosing class.
-    if (metadataUtil.isCompanionObjectClass(module)) {
+    if (module.isCompanionObject()) {
       // TODO(danysantiago): Be strict about annotating companion objects with @Module,
       //  i.e. tell user to annotate parent instead.
       return;
     }
-    ValidationReport<TypeElement> report = moduleValidator.validate(module);
+    ValidationReport report = moduleValidator.validate(module);
     report.printMessagesTo(messager);
     if (report.isClean()) {
       generateForMethodsIn(module);
-      if (metadataUtil.hasEnclosedCompanionObject(module)) {
-        generateForMethodsIn(metadataUtil.getEnclosedCompanionObject(module));
-      }
+      module.getEnclosedTypeElements().stream()
+          .filter(XTypeElement::isCompanionObject)
+          .collect(toOptional())
+          .ifPresent(this::generateForMethodsIn);
     }
     processedModuleElements.add(module);
   }
 
-  private void generateForMethodsIn(TypeElement module) {
-    for (ExecutableElement method : methodsIn(module.getEnclosedElements())) {
-      if (isAnnotationPresent(method, Provides.class)) {
+  private void generateForMethodsIn(XTypeElement module) {
+    for (XMethodElement method : module.getDeclaredMethods()) {
+      if (method.hasAnnotation(TypeNames.PROVIDES)) {
         generate(factoryGenerator, bindingFactory.providesMethodBinding(method, module));
-      } else if (isAnnotationPresent(method, Produces.class)) {
+      } else if (method.hasAnnotation(TypeNames.PRODUCES)) {
         generate(producerFactoryGenerator, bindingFactory.producesMethodBinding(method, module));
-      } else if (isAnnotationPresent(method, Binds.class)) {
+      } else if (method.hasAnnotation(TypeNames.BINDS)) {
         inaccessibleMapKeyProxyGenerator.generate(bindsMethodBinding(module, method), messager);
       }
     }
@@ -148,7 +140,7 @@ final class ModuleProcessingStep extends TypeCheckingProcessingStep<TypeElement>
     inaccessibleMapKeyProxyGenerator.generate(binding, messager);
   }
 
-  private ContributionBinding bindsMethodBinding(TypeElement module, ExecutableElement method) {
+  private ContributionBinding bindsMethodBinding(XTypeElement module, XMethodElement method) {
     return bindingFactory.unresolvedDelegateBinding(
         delegateDeclarationFactory.create(method, module));
   }

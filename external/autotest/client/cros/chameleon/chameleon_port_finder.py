@@ -184,7 +184,7 @@ class ChameleonVideoInputFinder(ChameleonInputFinder):
                         old_value=False)
 
                 if not output:
-                    logging.warn('Maybe flaky that no display detected. Retry.')
+                    logging.warning('Maybe flaky that no display detected. Retry.')
                     video_port.unplug()
                     time.sleep(self.REPLUG_DELAY_SEC)
                     video_port.plug()
@@ -204,7 +204,7 @@ class ChameleonVideoInputFinder(ChameleonInputFinder):
                        failed_ports.append(video_port)
                     logging.error('CrOS failed to see any external display')
                     if not video_stable:
-                        logging.warn('Chameleon timed out waiting CrOS video')
+                        logging.warning('Chameleon timed out waiting CrOS video')
             finally:
                 # Unplug the port not to interfere with other tests.
                 video_port.unplug()

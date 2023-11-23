@@ -56,6 +56,7 @@ import com.android.service.ims.presence.PresencePublication;
 import com.android.service.ims.presence.PresenceSubscriber;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class StackListener extends Handler{
     /*
@@ -436,7 +437,7 @@ public class StackListener extends Handler{
         public void listCapInfoReceived(PresRlmiInfo pRlmiInfo, PresResInfo[] pResInfo)
                 throws RemoteException {
             if(pRlmiInfo == null || pResInfo == null){
-                logger.error("pRlmiInfo=" + pRlmiInfo + " pResInfo=" + pResInfo);
+                logger.error("pRlmiInfo=" + pRlmiInfo + " pResInfo=" + Arrays.toString(pResInfo));
             }else{
                 logger.debug("pRlmiInfo.getListName "+pRlmiInfo.getListName());
                 logger.debug("pRlmiInfo.isFullState "+pRlmiInfo.isFullState());
@@ -507,8 +508,8 @@ public class StackListener extends Handler{
         public void capInfoReceived(String presentityURI, PresTupleInfo[] pTupleInfo)
                 throws RemoteException {
             logger.debug("ListenerHandler : CapInfoReceived");
-            if(presentityURI == null || presentityURI == null){
-                logger.error("presentityURI=null or presentityURI=null");
+            if(presentityURI == null) {
+                logger.error("presentityURI=null");
                 return;
             }
 

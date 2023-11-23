@@ -19,6 +19,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 The test uses the pseudo modem manager to simulate two failure scenarios of a

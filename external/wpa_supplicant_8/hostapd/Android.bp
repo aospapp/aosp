@@ -55,7 +55,6 @@ cc_defaults {
         "libcrypto",
         "libssl",
         "libnl",
-        "libkeystore-wifi-hidl",
     ],
     relative_install_path: "hw",
     soc_specific: true,
@@ -168,6 +167,35 @@ hostapd_cflags_cc_defaults {
         "-Wno-unused-parameter",
         "-Wno-unused-variable",
         "-Wno-macro-redefined",
+    ],
+    // Similar to suppressing clang compiler warnings, here we
+    // suppress clang-tidy warnings to reduce noises in Android build.log.
+    tidy_checks: [
+        "-android-cloexec-*",
+        "-bugprone-branch-clone",
+        "-bugprone-macro-parentheses",
+        "-bugprone-misplaced-widening-cast",
+        "-bugprone-signal-handler",
+        "-bugprone-signed-char-misuse",
+        "-bugprone-sizeof-expression",
+        "-bugprone-suspicious-string-compare",
+        "-bugprone-too-small-loop-variable",
+        "-cert-err34-c",
+        "-cert-msc30-c",
+        "-cert-msc50-cpp",
+        "-cert-msc54-cpp",
+        "-cert-sig30-c",
+        "-cert-str34-c",
+        "-clang-analyzer-core.NullDereference",
+        "-clang-analyzer-core.UndefinedBinaryOperatorResult",
+        "-clang-analyzer-deadcode.DeadStores",
+        "-clang-analyzer-optin.performance.Padding",
+        "-clang-analyzer-optin.portability.UnixAPI",
+        "-clang-analyzer-security.insecureAPI.UncheckedReturn",
+        "-clang-analyzer-unix.cstring.NullArg",
+        "-clang-analyzer-unix.Malloc",
+        "-clang-diagnostic-unused-but-set-variable",
+        "-misc-redundant-expression",
     ],
 }
 
@@ -287,7 +315,6 @@ filegroup {
         "src/crypto/fips_prf_openssl.c",
         "src/crypto/aes-siv.c",
         "src/crypto/aes-ctr.c",
-        "src/crypto/aes-omac1.c",
         "src/crypto/sha1-prf.c",
         "src/crypto/sha1-tlsprf.c",
         "src/crypto/sha256-prf.c",
@@ -303,6 +330,8 @@ filegroup {
         "src/utils/json.c",
         "src/ap/wmm.c",
         "src/ap/ap_list.c",
+        "src/ap/comeback_token.c",
+        "src/pasn/pasn_responder.c",
         "src/ap/ieee802_11.c",
         "src/ap/hw_features.c",
         "src/ap/dfs.c",
@@ -318,4 +347,10 @@ filegroup {
         "src/ap/acs.c",
     ],
 
+}
+
+// This manifest can used by a vendor apex module for hostapd as well.
+filegroup {
+    name: "android.hardware.wifi.hostapd.xml",
+    srcs: ["android.hardware.wifi.hostapd.xml"],
 }

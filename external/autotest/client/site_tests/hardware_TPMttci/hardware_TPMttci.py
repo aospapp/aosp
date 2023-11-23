@@ -2,12 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import datetime, logging, subprocess, time
+import datetime, logging
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error, smogcheck_ttci, smogcheck_util
 
 
 class hardware_TPMttci(test.test):
+    """
+    Autotest test case to utilized C shared library for TPM SmogCheck.
+    """
     version = 1
 
     def setup(self):
@@ -26,7 +29,7 @@ class hardware_TPMttci(test.test):
         """
         try:
             self.ttci_obj = smogcheck_ttci.TtciController()
-        except smogcheck_ttci.TtciError, e:
+        except smogcheck_ttci.TtciError as e:
             raise error.TestFail('Error creating a TtciController: %s' % e)
 
     def _getMainPowerStatus(self):

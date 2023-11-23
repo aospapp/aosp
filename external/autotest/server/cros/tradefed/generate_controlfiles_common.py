@@ -1,4 +1,5 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
+# Lint as: python2, python3
 # Copyright 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -8,6 +9,7 @@ from __future__ import print_function
 import argparse
 import contextlib
 import copy
+from enum import Enum
 import logging
 import os
 import re
@@ -20,21 +22,30 @@ import zipfile
 # Use 'sudo pip install jinja2' to install.
 from jinja2 import Template
 
+# Type of source storage from where the generated control files should
+# retrieve the xTS bundle zip file.
+#  'MOBLAB' means the bucket for moblab used by 3PL.
+#  'LATEST' means the latest official xTS release.
+#  'DEV' means the preview version build from development branch.
+SourceType = Enum('SourceType', ['MOBLAB', 'LATEST', 'DEV'])
+
 
 # TODO(ihf): Assign better TIME to control files. Scheduling uses this to run
 # LENGTHY first, then LONG, MEDIUM etc. But we need LENGTHY for the collect
 # job, downgrade all others. Make sure this still works in CQ/smoke suite.
 _CONTROLFILE_TEMPLATE = Template(
-    textwrap.dedent("""\
+        textwrap.dedent("""\
     # Copyright {{year}} The Chromium OS Authors. All rights reserved.
     # Use of this source code is governed by a BSD-style license that can be
     # found in the LICENSE file.
 
     # This file has been automatically generated. Do not edit!
     {%- if servo_support_needed %}
-
-    from autotest_lib.server import utils
-
+    from autotest_lib.server import utils as server_utils
+    {%- endif %}
+    {%- if wifi_info_needed %}
+    from autotest_lib.client.common_lib import utils, global_config
+    import pipes
     {%- endif %}
 
     AUTHOR = 'ARC++ Team'
@@ -45,6 +56,7 @@ _CONTROLFILE_TEMPLATE = Template(
     TEST_TYPE = 'server'
     TIME = '{{test_length}}'
     MAX_RESULT_SIZE_KB = {{max_result_size_kb}}
+    PY_VERSION = 3
     {%- if sync_count and sync_count > 1 %}
     SYNC_COUNT = {{sync_count}}
     {%- endif %}
@@ -56,7 +68,7 @@ _CONTROLFILE_TEMPLATE = Template(
 
     # For local debugging, if your test setup doesn't have servo, REMOVE these
     # two lines.
-    args_dict = utils.args_to_dict(args)
+    args_dict = server_utils.args_to_dict(args)
     servo_args = hosts.CrosHost.get_servo_arguments(args_dict)
 
     {%- endif %}
@@ -77,6 +89,11 @@ _CONTROLFILE_TEMPLATE = Template(
         {%- else %}
         host_list = [hosts.create_host(machine)]
         {%- endif %}
+        {%- if wifi_info_needed %}
+        ssid = utils.get_wireless_ssid(machine['hostname'])
+        wifipass = global_config.global_config.get_config_value('CLIENT',
+                    'wireless_password', default=None)
+        {%- endif %}
     {%- endif %}
         job.run_test(
             '{{base_name}}',
@@ -94,6 +111,9 @@ _CONTROLFILE_TEMPLATE = Template(
     {%- endif %}
     {%- if needs_push_media %}
             needs_push_media={{needs_push_media}},
+    {%- endif %}
+    {%- if needs_cts_helpers %}
+            use_helpers={{needs_cts_helpers}},
     {%- endif %}
             tag='{{tag}}',
             test_name='{{name}}',
@@ -123,7 +143,7 @@ _CONTROLFILE_TEMPLATE = Template(
             hard_reboot_on_failure=True,
     {%- endif %}
     {%- if camera_facing %}
-            load_waivers=False,
+            retry_manual_tests=True,
     {%- endif %}
             timeout={{timeout}})
 
@@ -142,6 +162,9 @@ CONFIG = None
 
 _COLLECT = 'tradefed-run-collect-tests-only-internal'
 _PUBLIC_COLLECT = 'tradefed-run-collect-tests-only'
+_CTSHARDWARE_COLLECT = 'tradefed-run-collect-tests-only-hardware-internal'
+_PUBLIC_CTSHARDWARE_COLLECT = 'tradefed-run-collect-tests-only-hardware'
+
 
 _TEST_LENGTH = {1: 'FAST', 2: 'SHORT', 3: 'MEDIUM', 4: 'LONG', 5: 'LENGTHY'}
 
@@ -197,7 +220,7 @@ def get_bundle_abi(filename):
     In this case we chose to guess by filename, but we could also parse the
     xml files in the module. (Maybe this needs to be done in the future.)
     """
-    if CONFIG.get('DYNAMIC_TEST_FETCH'):
+    if CONFIG.get('SINGLE_CONTROL_FILE'):
         return None
     if filename.endswith('arm.zip'):
         return 'arm'
@@ -205,45 +228,65 @@ def get_bundle_abi(filename):
         return 'arm64'
     if filename.endswith('x86.zip'):
         return 'x86'
+    if filename.endswith('x86_64.zip'):
+        return 'x86_64'
 
     assert(CONFIG['TRADEFED_CTS_COMMAND'] =='gts'), 'Only GTS has empty ABI'
     return ''
 
 
-def get_extension(module, abi, revision, is_public=False, led_provision=None, camera_facing=None):
+def get_extension(module,
+                  abi,
+                  revision,
+                  is_public=False,
+                  led_provision=None,
+                  camera_facing=None,
+                  hardware_suite=False,
+                  abi_bits=None):
     """Defines a unique string.
 
     Notice we chose module revision first, then abi, as the module revision
     changes regularly. This ordering makes it simpler to add/remove modules.
     @param module: CTS module which will be tested in the control file. If 'all'
                    is specified, the control file will runs all the tests.
-    @param public: boolean variable to specify whether or not the bundle is from
-                   public source or not.
+    @param is_public: boolean variable to specify whether or not the bundle is
+                   from public source or not.
     @param led_provision: string or None indicate whether the camerabox has led
                           light or not.
     @param camera_facing: string or None indicate whether it's camerabox tests
                           for specific camera facing or not.
+    @param abi_bits: 32 or 64 or None indicate the bitwidth for the specific
+                     abi to run.
     @return string: unique string for specific tests. If public=True then the
                     string is "<abi>.<module>", otherwise, the unique string is
-                    "<revision>.<abi>.<module>". Note that if abi is empty, the
-                    abi part is omitted.
+                    "internal.<abi>.<module>" for internal. Note that if abi is empty,
+                    the abi part is omitted.
     """
     ext_parts = []
-    if not CONFIG.get('DYNAMIC_TEST_FETCH') and not is_public:
-        ext_parts = [revision]
-    if not CONFIG.get('DYNAMIC_TEST_FETCH') and abi:
+    if not CONFIG.get('SINGLE_CONTROL_FILE') and not is_public:
+        if module == _COLLECT:
+            ext_parts = [revision]
+        else:
+            ext_parts = ['internal']
+    if not CONFIG.get('SINGLE_CONTROL_FILE') and abi:
         ext_parts += [abi]
     ext_parts += [module]
     if led_provision:
         ext_parts += [led_provision]
     if camera_facing:
         ext_parts += ['camerabox', camera_facing]
+    if hardware_suite and module not in get_collect_modules(
+            is_public, hardware_suite):
+        ext_parts += ['ctshardware']
+    if not CONFIG.get('SINGLE_CONTROL_FILE') and abi and abi_bits:
+        ext_parts += [str(abi_bits)]
     return '.'.join(ext_parts)
 
 
 def get_doc(modules, abi, is_public):
     """Defines the control file DOC string."""
-    if modules.intersection(get_collect_modules(is_public)):
+    if modules.intersection(get_collect_modules(is_public)) or CONFIG.get(
+            'SINGLE_CONTROL_FILE'):
         module_text = 'all'
     else:
         # Generate per-module DOC
@@ -258,7 +301,13 @@ def get_doc(modules, abi, is_public):
 
 def servo_support_needed(modules, is_public=True):
     """Determines if servo support is needed for a module."""
-    return not is_public and all(module in CONFIG['NEEDS_POWER_CYCLE']
+    return not is_public and any(module in CONFIG['NEEDS_POWER_CYCLE']
+                                 for module in modules)
+
+
+def wifi_info_needed(modules, is_public):
+    """Determines if Wifi AP info needs to be retrieved."""
+    return not is_public and any(module in CONFIG.get('WIFI_MODULES', [])
                                  for module in modules)
 
 
@@ -267,7 +316,9 @@ def get_controlfile_name(module,
                          revision,
                          is_public=False,
                          led_provision=None,
-                         camera_facing=None):
+                         camera_facing=None,
+                         abi_bits=None,
+                         hardware_suite=False):
     """Defines the control file name.
 
     @param module: CTS module which will be tested in the control file. If 'all'
@@ -278,20 +329,24 @@ def get_controlfile_name(module,
                           for specific camera facing or not.
     @param led_provision: string or None indicate whether the camerabox has led
                           light or not.
+    @param abi_bits: 32 or 64 or None indicate the bitwidth for the specific
+                     abi to run.
     @return string: control file for specific tests. If public=True or
                     module=all, then the name will be "control.<abi>.<module>",
                     otherwise, the name will be
                     "control.<revision>.<abi>.<module>".
     """
-    return 'control.%s' % get_extension(module, abi, revision, is_public, led_provision,
-                                        camera_facing)
+    return 'control.%s' % get_extension(module, abi, revision, is_public,
+                                        led_provision, camera_facing, hardware_suite,
+                                        abi_bits)
 
 
 def get_sync_count(_modules, _abi, _is_public):
     return 1
 
 
-def get_suites(modules, abi, is_public, camera_facing=None):
+def get_suites(modules, abi, is_public, camera_facing=None,
+               hardware_suite=False):
     """Defines the suites associated with a module.
 
     @param module: CTS module which will be tested in the control file. If 'all'
@@ -299,14 +354,18 @@ def get_suites(modules, abi, is_public, camera_facing=None):
     # TODO(ihf): Make this work with the "all" and "collect" generation,
     # which currently bypass this function.
     """
+    cts_hardware_modules = set(CONFIG.get('HARDWARE_MODULES', []))
+
     if is_public:
-        # On moblab everything runs in the same suite.
-        return [CONFIG['MOBLAB_SUITE_NAME']]
+        suites = set([CONFIG['MOBLAB_SUITE_NAME']])
+        if hardware_suite:
+            suites = set([CONFIG['MOBLAB_HARDWARE_SUITE_NAME']])
+        return sorted(list(suites))
 
     suites = set(CONFIG['INTERNAL_SUITE_NAMES'])
 
     for module in modules:
-        if module in get_collect_modules(is_public):
+        if module in get_collect_modules(is_public, hardware_suite):
             # We collect all tests both in arc-gts and arc-gts-qual as both have
             # a chance to be complete (and used for submission).
             suites |= set(CONFIG['QUAL_SUITE_NAMES'])
@@ -338,6 +397,9 @@ def get_suites(modules, abi, is_public, camera_facing=None):
             suites.add('suite:bvt-arc')
         elif module in CONFIG['BVT_PERBUILD'] and (abi == 'arm' or abi == ''):
             suites.add('suite:bvt-perbuild')
+
+    if hardware_suite:
+        suites = set([CONFIG['HARDWARE_SUITE_NAME']])
 
     if camera_facing != None:
         suites.add('suite:arc-cts-camera')
@@ -397,7 +459,7 @@ def get_job_retries(modules, is_public, suites):
         # We don't want job retries for module collection or special cases.
         if (module in get_collect_modules(is_public) or module == _ALL or
             ('CtsDeqpTestCases' in CONFIG['EXTRA_MODULES'] and
-             module in CONFIG['EXTRA_MODULES']['CtsDeqpTestCases']['SUBMODULES']
+             module in CONFIG['EXTRA_MODULES']['CtsDeqpTestCases']
              )):
             retries = 0
     return retries
@@ -473,10 +535,12 @@ def get_extra_args(modules, is_public):
     preconditions = []
     login_preconditions = []
     prerequisites = []
-    for module in modules:
+    for module in sorted(modules):
         # Remove this once JDK9 is the base JDK for lab.
         if CONFIG.get('USE_JDK9', False):
             extra_args.add('use_jdk9=True')
+        if module in CONFIG.get('USE_OLD_ADB', []):
+            extra_args.add('use_old_adb=True')
         if is_public:
             extra_args.add('warn_on_test_retry=False')
             extra_args.add('retry_manual_tests=True')
@@ -564,13 +628,16 @@ def get_authkey(is_public):
     return CONFIG['AUTHKEY']
 
 
-def _format_collect_cmd(is_public, abi_to_run, retry):
+def _format_collect_cmd(is_public, abi_to_run, retry, is_hardware=False):
     """Returns a list specifying tokens for tradefed to list all tests."""
     if retry:
         return None
     cmd = ['run', 'commandAndExit', 'collect-tests-only']
     if CONFIG['TRADEFED_DISABLE_REBOOT_ON_COLLECTION']:
         cmd += ['--disable-reboot']
+    if is_hardware:
+        cmd.append('--subplan')
+        cmd.append('cts-hardware')
     for m in CONFIG['MEDIA_MODULES']:
         cmd.append('--module-arg')
         cmd.append('%s:skip-media-download:true' % m)
@@ -594,7 +661,8 @@ def _format_modules_cmd(is_public,
                         abi_to_run,
                         modules=None,
                         retry=False,
-                        whole_module_set=None):
+                        whole_module_set=None,
+                        is_hardware=False):
     """Returns list of command tokens for tradefed."""
     if retry:
         assert(CONFIG['TRADEFED_RETRY_COMMAND'] == 'cts' or
@@ -608,10 +676,37 @@ def _format_modules_cmd(is_public,
 
         special_cmd = _get_special_command_line(modules, is_public)
         if special_cmd:
+            if is_hardware:
+                # For hardware suite we want to exclude [instant] modules.
+                filtered = []
+                i = 0
+                while i < len(special_cmd):
+                    if (special_cmd[i] == '--include-filter'
+                                and '[instant]' in special_cmd[i + 1]):
+                        i += 2
+                    elif (special_cmd[i] == '--module'
+                          and i + 3 < len(special_cmd)
+                          and special_cmd[i + 2] == '--test'):
+                        # [--module, x, --test, y] ==> [--include-filter, "x y"]
+                        # because --module implicitly include [instant] modules
+                        filtered.append('--include-filter')
+                        filtered.append(
+                                '%s %s' %
+                                (special_cmd[i + 1], special_cmd[i + 3]))
+                        i += 4
+                    elif special_cmd[i] == '--module':
+                        # [--module, x] ==> [--include-filter, x]
+                        filtered.append('--include-filter')
+                        filtered.append(special_cmd[i + 1])
+                        i += 2
+                    else:
+                        filtered.append(special_cmd[i])
+                        i += 1
+                special_cmd = filtered
             cmd.extend(special_cmd)
         elif _ALL in modules:
             pass
-        elif len(modules) == 1:
+        elif len(modules) == 1 and not is_hardware:
             cmd += ['--module', list(modules)[0]]
         else:
             if whole_module_set is None:
@@ -620,11 +715,16 @@ def _format_modules_cmd(is_public,
                 # We run each module with its own --include-filter option.
                 # https://source.android.com/compatibility/cts/run
                 for module in sorted(modules):
+                    # b/196756614 32-bit jobs should skip [parameter] modules.
+                    if is_parameterized_module(module) and abi_to_run in [
+                            'x86', 'armeabi-v7a'
+                    ]:
+                        continue
                     cmd += ['--include-filter', module]
             else:
                 # CTS-Instant does not support --include-filter due to
                 # its implementation detail. Instead, exclude the complement.
-                for module in whole_module_set - set(modules):
+                for module in sorted(whole_module_set - set(modules)):
                     cmd += ['--exclude-filter', module]
 
         # For runs create a logcat file for each individual failure.
@@ -658,19 +758,25 @@ def get_run_template(modules,
                      is_public,
                      retry=False,
                      abi_to_run=None,
-                     whole_module_set=None):
+                     whole_module_set=None,
+                     is_hardware=False):
     """Command to run the modules specified by a control file."""
-    no_intersection = not modules.intersection(get_collect_modules(is_public))
-    collect_present = (_COLLECT in modules or _PUBLIC_COLLECT in modules)
+    no_intersection = not modules.intersection(get_collect_modules(is_public,
+                          is_hardware))
+    collect_present = (_COLLECT in modules or _PUBLIC_COLLECT in modules or
+                       _CTSHARDWARE_COLLECT in modules or
+                       _PUBLIC_CTSHARDWARE_COLLECT in modules)
     all_present = _ALL in modules
     if no_intersection or (all_present and not collect_present):
         return _format_modules_cmd(is_public,
                                    abi_to_run,
                                    modules,
                                    retry=retry,
-                                   whole_module_set=whole_module_set)
+                                   whole_module_set=whole_module_set,
+                                   is_hardware=is_hardware)
     elif collect_present:
-        return _format_collect_cmd(is_public, abi_to_run, retry=retry)
+        return _format_collect_cmd(is_public, abi_to_run, retry=retry,
+                   is_hardware=is_hardware)
     return None
 
 def get_retry_template(modules, is_public):
@@ -678,22 +784,24 @@ def get_retry_template(modules, is_public):
     return get_run_template(modules, is_public, retry=True)
 
 
-def get_extra_modules_dict(is_public, abi):
-    if not is_public:
+def get_extra_modules_dict(source_type, abi):
+    if source_type != SourceType.MOBLAB:
         return CONFIG['EXTRA_MODULES']
 
     extra_modules = copy.deepcopy(CONFIG['PUBLIC_EXTRA_MODULES'])
     if abi in CONFIG['EXTRA_SUBMODULE_OVERRIDE']:
-        for _, submodules in extra_modules.items():
+        for _, config in extra_modules.items():
             for old, news in CONFIG['EXTRA_SUBMODULE_OVERRIDE'][abi].items():
-                submodules.remove(old)
-                submodules.extend(news)
-    return {
-        module: {
-            'SUBMODULES': submodules,
-            'SUITES': [CONFIG['MOBLAB_SUITE_NAME']],
-        } for module, submodules in extra_modules.items()
-    }
+                if old in config.keys():
+                    suite = config[old]
+                    config.pop(old)
+                    for module in news:
+                        config[module] = suite
+
+    return extra_modules
+
+def get_extra_hardware_modules_dict(is_public, abi):
+    return CONFIG.get('HARDWAREONLY_EXTRA_MODULES', {})
 
 
 def get_extra_artifacts(modules):
@@ -757,11 +865,25 @@ def needs_push_media(modules):
     return False
 
 
+def needs_cts_helpers(modules):
+    """Oracle to determine if CTS helpers should be downloaded from DUT."""
+    if 'NEEDS_CTS_HELPERS' not in CONFIG:
+        return False
+    if modules.intersection(set(CONFIG['NEEDS_CTS_HELPERS'])):
+        return True
+    return False
+
+
 def enable_default_apps(modules):
     """Oracle to determine if to enable default apps (eg. Files.app)."""
     if modules.intersection(set(CONFIG['ENABLE_DEFAULT_APPS'])):
         return True
     return False
+
+
+def is_parameterized_module(module):
+    """Determines if the given module is a parameterized module."""
+    return '[' in module
 
 
 def get_controlfile_content(combined,
@@ -771,10 +893,11 @@ def get_controlfile_content(combined,
                             build,
                             uri,
                             suites=None,
-                            is_public=False,
-                            is_latest=False,
+                            source_type=None,
+                            abi_bits=None,
                             led_provision=None,
                             camera_facing=None,
+                            hardware_suite=False,
                             whole_module_set=None):
     """Returns the text inside of a control file.
 
@@ -783,24 +906,38 @@ def get_controlfile_content(combined,
                    file. If 'all' is specified, the control file will run
                    all the tests.
     """
+    is_public = (source_type == SourceType.MOBLAB)
     # We tag results with full revision now to get result directories containing
     # the revision. This fits stainless/ better.
-    tag = '%s' % get_extension(combined, abi, revision, is_public, led_provision,
-                               camera_facing)
+    tag = '%s' % get_extension(combined, abi, revision, is_public,
+                               led_provision, camera_facing, hardware_suite, abi_bits)
     # For test_that the NAME should be the same as for the control file name.
     # We could try some trickery here to get shorter extensions for a default
     # suite/ARM. But with the monthly uprevs this will quickly get confusing.
     name = '%s.%s' % (CONFIG['TEST_NAME'], tag)
     if not suites:
-        suites = get_suites(modules, abi, is_public, camera_facing)
+        suites = get_suites(modules, abi, is_public, camera_facing, hardware_suite)
     attributes = ', '.join(suites)
-    uri = 'LATEST' if is_latest else (None if is_public else uri)
+    uri = {
+            SourceType.MOBLAB: None,
+            SourceType.LATEST: 'LATEST',
+            SourceType.DEV: 'DEV'
+    }.get(source_type)
     target_module = None
     if (combined not in get_collect_modules(is_public) and combined != _ALL):
         target_module = combined
-    for target, config in get_extra_modules_dict(is_public, abi).items():
-        if combined in config['SUBMODULES']:
+    for target, config in get_extra_modules_dict(source_type, abi).items():
+        if combined in config.keys():
             target_module = target
+    abi_to_run = {
+            ("arm", 32): 'armeabi-v7a',
+            ("arm", 64): 'arm64-v8a',
+            ("x86", 32): 'x86',
+            ("x86", 64): 'x86_64'
+    }.get((abi, abi_bits), None)
+    subplan = None
+    if _CTSHARDWARE_COLLECT in modules or _PUBLIC_CTSHARDWARE_COLLECT in modules:
+        subplan = 'cts-hardware'
     return _CONTROLFILE_TEMPLATE.render(
             year=CONFIG['COPYRIGHT_YEAR'],
             name=name,
@@ -817,22 +954,25 @@ def get_controlfile_content(combined,
             build=build,
             abi=abi,
             needs_push_media=needs_push_media(modules),
+            needs_cts_helpers=needs_cts_helpers(modules),
             enable_default_apps=enable_default_apps(modules),
             tag=tag,
             uri=uri,
             DOC=get_doc(modules, abi, is_public),
             servo_support_needed=servo_support_needed(modules, is_public),
+            wifi_info_needed=wifi_info_needed(modules, is_public),
             max_retries=get_max_retries(modules, abi, suites, is_public),
             timeout=calculate_timeout(modules, suites),
             run_template=get_run_template(modules,
                                           is_public,
                                           abi_to_run=CONFIG.get(
                                                   'REPRESENTATIVE_ABI',
-                                                  {}).get(abi, None),
-                                          whole_module_set=whole_module_set),
+                                                  {}).get(abi, abi_to_run),
+                                          whole_module_set=whole_module_set,
+                                          is_hardware=hardware_suite),
             retry_template=get_retry_template(modules, is_public),
             target_module=target_module,
-            target_plan=None,
+            target_plan=subplan,
             test_length=get_test_length(modules),
             priority=get_test_priority(modules, is_public),
             extra_args=get_extra_args(modules, is_public),
@@ -847,24 +987,41 @@ def get_tradefed_data(path, is_public, abi):
     Notice that the parsing gets broken at times with major new CTS drops.
     """
     tradefed = os.path.join(path, CONFIG['TRADEFED_EXECUTABLE_PATH'])
-    # Forgive me for I have sinned. Same as: chmod +x tradefed.
+    # Python's zipfle module does not set the executable bit.
+    # tradefed and java command need chmod +x.
     os.chmod(tradefed, os.stat(tradefed).st_mode | stat.S_IEXEC)
+    java = CONFIG.get('JAVA_EXECUTABLE_PATH', None)
+    if java:
+        java = os.path.join(path, java)
+        os.chmod(java, os.stat(java).st_mode | stat.S_IEXEC)
     cmd_list = [tradefed, 'list', 'modules']
     logging.info('Calling tradefed for list of modules.')
     with open(os.devnull, 'w') as devnull:
         # tradefed terminates itself if stdin is not a tty.
-        tradefed_output = subprocess.check_output(cmd_list, stdin=devnull)
+        tradefed_output = subprocess.check_output(cmd_list,
+                                                  stdin=devnull).decode()
 
-    # TODO(ihf): Get a tradefed command which terminates then refactor.
-    p = subprocess.Popen(cmd_list, stdout=subprocess.PIPE)
+    _ABI_PREFIXES = ('arm', 'x86')
+    _MODULE_PREFIXES = ('Cts', 'cts-', 'signed-Cts', 'vm-tests-tf', 'Sts')
+
+    # Some CTS/GTS versions insert extra linebreaks due to a bug b/196912758.
+    # Below is a heurestical workaround for the situation.
+    lines = []
+    prev_line_abi_prefixed = False
+    for line in tradefed_output.splitlines():
+        abi_prefixed = line.startswith(_ABI_PREFIXES)
+        end_of_modules = (len(line) == 0 or 'Saved log to' in line)
+        if prev_line_abi_prefixed and not end_of_modules and not abi_prefixed:
+            # Merge a line immediately following 'abi XtsModuleName'
+            lines[-1] += line
+        else:
+            lines.append(line)
+        prev_line_abi_prefixed = abi_prefixed
+
     modules = set()
     build = '<unknown>'
-    line = ''
     revision = None
-    is_in_intaractive_mode = True
-    # The process does not terminate, but we know the last test is vm-tests-tf.
-    while True:
-        line = p.stdout.readline().strip()
+    for line in lines:
         # Android Compatibility Test Suite 7.0 (3423912)
         if (line.startswith('Android Compatibility Test Suite ')
                     or line.startswith('Android Google ')
@@ -873,45 +1030,18 @@ def get_tradefed_data(path, is_public, abi):
             logging.info('Unpacking: %s.', line)
             build = get_tradefed_build(line)
             revision = get_tradefed_revision(line)
-        elif line.startswith('Non-interactive mode: '):
-            is_in_intaractive_mode = False
-        elif line.startswith('arm') or line.startswith('x86'):
+        elif line.startswith(_ABI_PREFIXES):
             # Newer CTS shows ABI-module pairs like "arm64-v8a CtsNetTestCases"
             line = line.split()[1]
             if line not in CONFIG.get('EXCLUDE_MODULES', []):
                 modules.add(line)
-        elif line.startswith('Cts'):
+        elif line.startswith(_MODULE_PREFIXES):
+            # Old CTS plainly lists up the module name
             modules.add(line)
-        elif line.startswith('Gts'):
-            # Older GTS plainly lists the module names
-            modules.add(line)
-        elif line.startswith('cts-'):
-            modules.add(line)
-        elif line.startswith('signed-Cts'):
-            modules.add(line)
-        elif line.startswith('vm-tests-tf'):
-            modules.add(line)
-            break  # TODO(ihf): Fix using this as EOS.
-        elif not line:
-            exit_code = p.poll()
-            if exit_code is not None:
-                # The process has automatically exited.
-                if is_in_intaractive_mode or exit_code != 0:
-                    # The process exited unexpectedly in interactive mode,
-                    # or exited with error in non-interactive mode.
-                    logging.warning(
-                        'The process has exited unexpectedly (exit code: %d)',
-                        exit_code)
-                    modules = set()
-                break
         elif line.isspace() or line.startswith('Use "help"'):
             pass
         else:
             logging.warning('Ignoring "%s"', line)
-    if p.poll() is None:
-        # Kill the process if alive.
-        p.kill()
-    p.wait()
 
     if not modules:
         raise Exception("no modules found.")
@@ -949,10 +1079,15 @@ def unzip(filename, destination):
             zf.extractall()
 
 
-def get_collect_modules(is_public):
+def get_collect_modules(is_public, is_hardware=False):
     if is_public:
+        if is_hardware:
+            return set([_PUBLIC_CTSHARDWARE_COLLECT])
         return set([_PUBLIC_COLLECT])
-    return set([_COLLECT])
+    else:
+        if is_hardware:
+            return set([_CTSHARDWARE_COLLECT])
+        return set([_COLLECT])
 
 
 @contextlib.contextmanager
@@ -971,7 +1106,7 @@ def get_word_pattern(m, l=1):
     Break after l+1 CamelCase word.
     Example: CtsDebugTestCases -> CtsDebug.
     """
-    s = re.findall('^[a-z-]+|[A-Z]*[^A-Z0-9]*', m)[0:l + 1]
+    s = re.findall('^[a-z-_]+|[A-Z]*[^A-Z0-9]*', m)[0:l + 1]
     # Ignore Test or TestCases at the end as they don't add anything.
     if len(s) > l:
         if s[l].startswith('Test') or s[l].startswith('['):
@@ -1057,7 +1192,7 @@ def combine_modules_by_bookmark(modules):
         # New name is first element '_-_' last element.
         # Notice there is a bug in $ADB_VENDOR_KEYS path name preventing
         # arbitrary characters.
-        prefix = v[0] + '_-_' + v[-1]
+        prefix = re.sub(r'\[[^]]*\]', '', v[0] + '_-_' + v[-1])
         combined[prefix] = set(v)
     return combined
 
@@ -1069,26 +1204,45 @@ def write_controlfile(name,
                       build,
                       uri,
                       suites,
-                      is_public,
-                      is_latest=False,
-                      whole_module_set=None):
-    """Write a single control file."""
-    filename = get_controlfile_name(name, abi, revision, is_public)
-    content = get_controlfile_content(name,
-                                      modules,
-                                      abi,
-                                      revision,
-                                      build,
-                                      uri,
-                                      suites,
-                                      is_public,
-                                      is_latest,
-                                      whole_module_set=whole_module_set)
-    with open(filename, 'w') as f:
-        f.write(content)
+                      source_type,
+                      whole_module_set=None,
+                      hardware_suite=False,
+                      abi_bits=None):
+    """Write control files per each ABI or combined."""
+    is_public = (source_type == SourceType.MOBLAB)
+    abi_bits_list = []
+    config_key = 'PUBLIC_SPLIT_BY_BITS_MODULES' if is_public else 'SPLIT_BY_BITS_MODULES'
+    if modules & set(CONFIG.get(config_key, [])):
+        # If |abi| is predefined (like CTS), splits the modules by
+        # 32/64-bits. If not (like GTS) generate both arm and x86 jobs.
+        for abi_arch in [abi] if abi else ['arm', 'x86']:
+            for abi_bits in [32, 64]:
+                abi_bits_list.append((abi_arch, abi_bits))
+    else:
+        abi_bits_list.append((abi, None))
+
+    for abi, abi_bits in abi_bits_list:
+        filename = get_controlfile_name(name,
+                                        abi,
+                                        revision,
+                                        is_public,
+                                        abi_bits=abi_bits)
+        content = get_controlfile_content(name,
+                                          modules,
+                                          abi,
+                                          revision,
+                                          build,
+                                          uri,
+                                          suites,
+                                          source_type,
+                                          hardware_suite=hardware_suite,
+                                          whole_module_set=whole_module_set,
+                                          abi_bits=abi_bits)
+        with open(filename, 'w') as f:
+            f.write(content)
 
 
-def write_moblab_controlfiles(modules, abi, revision, build, uri, is_public):
+def write_moblab_controlfiles(modules, abi, revision, build, uri):
     """Write all control files for moblab.
 
     Nothing gets combined.
@@ -1100,14 +1254,20 @@ def write_moblab_controlfiles(modules, abi, revision, build, uri, is_public):
     for module in modules:
         # No need to generate control files with extra suffix, since --module
         # option will cover variants with optional parameters.
-        if "[" in module:
+        if is_parameterized_module(module):
             continue
-        write_controlfile(module, set([module]), abi, revision, build, uri,
-                          [CONFIG['MOBLAB_SUITE_NAME']], is_public)
+        write_controlfile(module,
+                          set([module]),
+                          abi,
+                          revision,
+                          build,
+                          uri,
+                          None,
+                          source_type=SourceType.MOBLAB)
 
 
 def write_regression_controlfiles(modules, abi, revision, build, uri,
-                                  is_public, is_latest):
+                                  source_type):
     """Write all control files for stainless/ToT regression lab coverage.
 
     Regression coverage on tot currently relies heavily on watching stainless
@@ -1116,14 +1276,27 @@ def write_regression_controlfiles(modules, abi, revision, build, uri,
     became too much in P (more than 300 per ABI). Instead we combine modules
     with similar names and run these in the same job (alphabetically).
     """
-    combined = combine_modules_by_common_word(set(modules))
-    for key in combined:
-        write_controlfile(key, combined[key], abi, revision, build, uri, None,
-                          is_public, is_latest)
+
+    if CONFIG.get('SINGLE_CONTROL_FILE'):
+        module_set = set(modules)
+        write_controlfile('all',
+                          module_set,
+                          abi,
+                          revision,
+                          build,
+                          uri,
+                          None,
+                          source_type,
+                          whole_module_set=module_set)
+    else:
+        combined = combine_modules_by_common_word(set(modules))
+        for key in combined:
+            write_controlfile(key, combined[key], abi, revision, build, uri,
+                              None, source_type)
 
 
 def write_qualification_controlfiles(modules, abi, revision, build, uri,
-                                     is_public):
+                                     source_type):
     """Write all control files to run "all" tests for qualification.
 
     Qualification was performed on N by running all tests using tradefed
@@ -1133,12 +1306,28 @@ def write_qualification_controlfiles(modules, abi, revision, build, uri,
     """
     combined = combine_modules_by_bookmark(set(modules))
     for key in combined:
-        write_controlfile('all.' + key, combined[key], abi, revision, build,
-                          uri, CONFIG.get('QUAL_SUITE_NAMES'), is_public)
+        if combined[key] & set(CONFIG.get('SPLIT_BY_BITS_MODULES', [])):
+            # If |abi| is predefined (like CTS), splits the modules by
+            # 32/64-bits. If not (like GTS) generate both arm and x86 jobs.
+            for abi_arch in [abi] if abi else ['arm', 'x86']:
+                for abi_bits in [32, 64]:
+                    write_controlfile('all.' + key,
+                                      combined[key],
+                                      abi_arch,
+                                      revision,
+                                      build,
+                                      uri,
+                                      CONFIG.get('QUAL_SUITE_NAMES'),
+                                      source_type,
+                                      abi_bits=abi_bits)
+        else:
+            write_controlfile('all.' + key, combined[key], abi,
+                              revision, build, uri,
+                              CONFIG.get('QUAL_SUITE_NAMES'), source_type)
 
 
 def write_qualification_and_regression_controlfile(modules, abi, revision,
-                                                   build, uri, is_public):
+                                                   build, uri, source_type):
     """Write a control file to run "all" tests for qualification and regression.
     """
     # For cts-instant, qualication control files are expected to cover
@@ -1154,69 +1343,126 @@ def write_qualification_and_regression_controlfile(modules, abi, revision,
                           build,
                           uri,
                           suites,
-                          is_public,
+                          source_type,
                           whole_module_set=module_set)
 
 
-def write_collect_controlfiles(_modules, abi, revision, build, uri, is_public,
-                               is_latest):
+def write_collect_controlfiles(_modules,
+                               abi,
+                               revision,
+                               build,
+                               uri,
+                               source_type,
+                               is_hardware=False):
     """Write all control files for test collection used as reference to
 
     compute completeness (missing tests) on the CTS dashboard.
     """
+    is_public = (source_type == SourceType.MOBLAB)
     if is_public:
-        suites = [CONFIG['MOBLAB_SUITE_NAME']]
+        if is_hardware:
+            suites = [CONFIG['MOBLAB_HARDWARE_SUITE_NAME']]
+        else:
+            suites = [CONFIG['MOBLAB_SUITE_NAME']]
     else:
-        suites = CONFIG['INTERNAL_SUITE_NAMES'] \
-               + CONFIG.get('QUAL_SUITE_NAMES', [])
-    for module in get_collect_modules(is_public):
-        write_controlfile(module, set([module]), abi, revision, build, uri,
-                          suites, is_public, is_latest)
+        if is_hardware:
+            suites = [CONFIG['HARDWARE_SUITE_NAME']]
+        else:
+            suites = CONFIG['INTERNAL_SUITE_NAMES'] \
+                   + CONFIG.get('QUAL_SUITE_NAMES', [])
+    for module in get_collect_modules(is_public, is_hardware=is_hardware):
+        write_controlfile(module,
+                          set([module]),
+                          abi,
+                          revision,
+                          build,
+                          uri,
+                          suites,
+                          source_type,
+                          hardware_suite=is_hardware)
 
 
-def write_extra_controlfiles(_modules, abi, revision, build, uri, is_public,
-                             is_latest):
+def write_extra_controlfiles(_modules, abi, revision, build, uri, source_type):
     """Write all extra control files as specified in config.
 
     This is used by moblab to load balance large modules like Deqp, as well as
     making custom modules such as WM presubmit. A similar approach was also used
     during bringup of grunt to split media tests.
     """
-    for module, config in get_extra_modules_dict(is_public, abi).items():
-        for submodule in config['SUBMODULES']:
+    for module, config in get_extra_modules_dict(source_type, abi).items():
+        for submodule, suites in config.items():
             write_controlfile(submodule, set([submodule]), abi, revision,
-                              build, uri, config['SUITES'], is_public,
-                              is_latest)
+                              build, uri, suites, source_type)
 
 
-def write_extra_camera_controlfiles(abi, revision, build, uri, is_public):
-    """Control files for CtsCameraTestCases.camerabox.*"""
-    module = 'CtsCameraTestCases'
-    for facing in ['back', 'front']:
-        for led_provision in ['led', 'noled']:
-            name = get_controlfile_name(module, abi,
-                                        revision, is_public, led_provision, facing)
-            content = get_controlfile_content(module,
-                                              set([module]),
+def write_hardwaresuite_controlfiles(abi, revision, build, uri, source_type):
+    """Control files for Build variant hardware only tests."""
+    is_public = (source_type == SourceType.MOBLAB)
+    cts_hardware_modules = set(CONFIG.get('HARDWARE_MODULES', []))
+    for module in cts_hardware_modules:
+        name = get_controlfile_name(module, abi, revision, is_public,
+                                    hardware_suite=True)
+
+        content = get_controlfile_content(module,
+                                          set([module]),
+                                          abi,
+                                          revision,
+                                          build,
+                                          uri,
+                                          None,
+                                          source_type,
+                                          hardware_suite=True)
+
+        with open(name, 'w') as f:
+            f.write(content)
+
+    for module, config in get_extra_hardware_modules_dict(is_public, abi).items():
+        for submodule, suites in config.items():
+            name = get_controlfile_name(submodule, abi, revision, is_public,
+                                        hardware_suite=True)
+            content = get_controlfile_content(submodule,
+                                              set([submodule]),
                                               abi,
                                               revision,
                                               build,
                                               uri,
                                               None,
-                                              is_public,
-                                              led_provision=led_provision,
-                                              camera_facing=facing)
+                                              source_type,
+                                              hardware_suite=True)
             with open(name, 'w') as f:
                 f.write(content)
 
 
-def run(uris, is_public, is_latest, cache_dir):
+def write_extra_camera_controlfiles(abi, revision, build, uri, source_type):
+    """Control files for CtsCameraTestCases.camerabox.*"""
+    module = 'CtsCameraTestCases'
+    is_public = (source_type == SourceType.MOBLAB)
+    for facing in ['back', 'front']:
+        led_provision = 'noled'
+        name = get_controlfile_name(module, abi, revision, is_public,
+                                    led_provision, facing)
+        content = get_controlfile_content(module,
+                                          set([module]),
+                                          abi,
+                                          revision,
+                                          build,
+                                          uri,
+                                          None,
+                                          source_type,
+                                          led_provision=led_provision,
+                                          camera_facing=facing)
+        with open(name, 'w') as f:
+            f.write(content)
+
+
+def run(uris, source_type, cache_dir):
     """Downloads each bundle in |uris| and generates control files for each
 
     module as reported to us by tradefed.
     """
     for uri in uris:
         abi = get_bundle_abi(uri)
+        is_public = (source_type == SourceType.MOBLAB)
         # Get tradefed data by downloading & unzipping the files
         with TemporaryDirectory(prefix='cts-android_') as tmp:
             if cache_dir is not None:
@@ -1236,31 +1482,63 @@ def run(uris, is_public, is_latest, cache_dir):
                 raise Exception('Could not determine revision.')
 
             logging.info('Writing all control files.')
-            if is_public:
-                write_moblab_controlfiles(modules, abi, revision, build, uri,
-                                          is_public)
-            else:
-                if CONFIG['CONTROLFILE_WRITE_SIMPLE_QUAL_AND_REGRESS']:
-                    write_qualification_and_regression_controlfile(
-                            modules, abi, revision, build, uri, is_public)
-                else:
-                    write_regression_controlfiles(modules, abi, revision,
-                                                  build, uri, is_public,
-                                                  is_latest)
-                    write_qualification_controlfiles(modules, abi, revision,
-                                                     build, uri, is_public)
+            if source_type == SourceType.MOBLAB:
+                write_moblab_controlfiles(modules, abi, revision, build, uri)
 
-                if CONFIG['CONTROLFILE_WRITE_CAMERA']:
+            if CONFIG['CONTROLFILE_WRITE_SIMPLE_QUAL_AND_REGRESS']:
+                # Might be worth generating DEV control files, but since this
+                # is used for only ARC-P CTS_Instant modules whose regression
+                # is 99.99% coverved by CTS DEV runs, having only LATEST is
+                # sufficient.
+                if source_type == SourceType.LATEST:
+                    write_qualification_and_regression_controlfile(
+                            modules, abi, revision, build, uri, source_type)
+            else:
+                if source_type == SourceType.DEV:
+                    write_regression_controlfiles(modules, abi, revision,
+                                                  build, uri, source_type)
+                if source_type == SourceType.LATEST:
+                    write_qualification_controlfiles(modules, abi, revision,
+                                                     build, uri, source_type)
+
+            if CONFIG['CONTROLFILE_WRITE_CAMERA']:
+                # For now camerabox is not stable for qualification purpose.
+                # Hence, the usage is limited to DEV. In the future we need
+                # to reconsider.
+                if source_type == SourceType.DEV:
                     write_extra_camera_controlfiles(abi, revision, build, uri,
-                                                    is_public)
+                                                    source_type)
 
             if CONFIG.get('CONTROLFILE_WRITE_COLLECT', True):
-                write_collect_controlfiles(modules, abi, revision, build, uri,
-                                           is_public, is_latest)
+                # Collect-test control files are used for checking the test
+                # completeness before qualification. Not needed for DEV.
+                if source_type == SourceType.LATEST or source_type == SourceType.MOBLAB:
+                    for_hardware_suite = [False]
+                    if 'HARDWARE_MODULES' in CONFIG:
+                        for_hardware_suite.append(True)
+                    for is_hardware in for_hardware_suite:
+                        write_collect_controlfiles(modules,
+                                                   abi,
+                                                   revision,
+                                                   build,
+                                                   uri,
+                                                   source_type,
+                                                   is_hardware=is_hardware)
 
             if CONFIG['CONTROLFILE_WRITE_EXTRA']:
-                write_extra_controlfiles(None, abi, revision, build, uri,
-                                         is_public, is_latest)
+                # "EXTRA" control files are for workaround test instability
+                # by running only sub-tests. For now let's attribute them to
+                # qualification suites, since it is sometimes critical to
+                # have the stability for qualification. If needed we need to
+                # implement some way to add them to DEV suites as well.
+                if source_type == SourceType.LATEST or source_type == SourceType.MOBLAB:
+                    write_extra_controlfiles(None, abi, revision, build, uri,
+                                             source_type)
+
+            # "Hardware only" jobs are for reducing tests on qualification.
+            if source_type == SourceType.LATEST or source_type == SourceType.MOBLAB:
+                write_hardwaresuite_controlfiles(abi, revision, build, uri,
+                                                 source_type)
 
 
 def main(config):
@@ -1302,4 +1580,10 @@ def main(config):
             'bundle file if exists, or caches a downloaded file to this '
             'directory if not.')
     args = parser.parse_args()
-    run(args.uris, args.is_public, args.is_latest, args.cache_dir)
+    if args.is_public:
+        source_type = SourceType.MOBLAB
+    elif args.is_latest:
+        source_type = SourceType.LATEST
+    else:
+        source_type = SourceType.DEV
+    run(args.uris, source_type, args.cache_dir)

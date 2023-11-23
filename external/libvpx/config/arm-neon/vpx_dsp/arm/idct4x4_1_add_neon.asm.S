@@ -1,6 +1,6 @@
 @ This file was created from a .asm file
 @  using the ads2gas.pl script.
-	.syntax unified
+.syntax unified
 @
 @  Copyright (c) 2013 The WebM project authors. All Rights Reserved.
 @
@@ -11,14 +11,14 @@
 @
 
 
-    .global vpx_idct4x4_1_add_neon 
-	.type vpx_idct4x4_1_add_neon, function
-   .arm
-   .eabi_attribute 24, 1 @Tag_ABI_align_needed
-   .eabi_attribute 25, 1 @Tag_ABI_align_preserved
+    .global vpx_idct4x4_1_add_neon
+    .type vpx_idct4x4_1_add_neon, function
+    .arm
+    .eabi_attribute 24, 1 @Tag_ABI_align_needed
+    .eabi_attribute 25, 1 @Tag_ABI_align_preserved
 
-.text
-.p2align 2
+    .text
+    .p2align 2
 
 @void vpx_idct4x4_1_add_neon(int16_t *input, uint8_t *dest, int stride)
 @
@@ -26,8 +26,7 @@
 @ r1  uint8_t *dest
 @ r2  int stride)
 
-_vpx_idct4x4_1_add_neon:
-	vpx_idct4x4_1_add_neon: @ PROC
+vpx_idct4x4_1_add_neon: @ PROC
     ldrsh            r0, [r0]
 
     @ cospi_16_64 = 11585
@@ -67,6 +66,6 @@ _vpx_idct4x4_1_add_neon:
     vst1.32          {d7[1]}, [r12]
 
     bx               lr
-	.size vpx_idct4x4_1_add_neon, .-vpx_idct4x4_1_add_neon    @ ENDP             @ |vpx_idct4x4_1_add_neon|
+.size vpx_idct4x4_1_add_neon, .-vpx_idct4x4_1_add_neon    @ ENDP             @ |vpx_idct4x4_1_add_neon|
 
-	.section	.note.GNU-stack,"",%progbits
+    .section .note.GNU-stack,"",%progbits

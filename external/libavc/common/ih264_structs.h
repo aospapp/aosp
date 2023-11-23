@@ -1867,6 +1867,169 @@ typedef struct
     UWORD32 u4_ccv_avg_luminance_value;
 }sei_ccv_params_t;
 
+/**
+ * Structure to hold FGC SEI
+ */
+typedef struct
+{
+    /**
+     * Flag to control the presence of FGC SEI params
+     */
+    UWORD8 u1_film_grain_characteristics_cancel_flag;
+
+    /**
+     * Specifies the pic order count
+     */
+    WORD32 i4_poc;
+
+    /**
+     * Specifies IDR pic ID
+     */
+    UWORD32 u4_idr_pic_id;
+
+    /**
+     * Specifies film grain model for simulation
+     */
+    UWORD8 u1_film_grain_model_id;
+
+    /**
+     * Specifies separate color format for decoded samples and grain
+     */
+    UWORD8 u1_separate_colour_description_present_flag;
+
+    /**
+     * Specifies the bit depth used for the luma component
+     */
+    UWORD8 u1_film_grain_bit_depth_luma_minus8;
+
+    /**
+     * Specifies the bit depth used for the Cb and Cr components
+     */
+    UWORD8 u1_film_grain_bit_depth_chroma_minus8;
+
+    /**
+     * Specifies the colour space of the FGC in SEI
+     */
+    UWORD8 u1_film_grain_full_range_flag;
+
+    /**
+     * Specifies the colour space of the FGC in SEI
+     */
+    UWORD8 u1_film_grain_colour_primaries;
+
+    /**
+     * Specifies the colour space of the FGC in SEI
+     */
+    UWORD8 u1_film_grain_transfer_characteristics;
+
+    /**
+     * Specifies the colour space of the FGC in SEI
+     */
+    UWORD8 u1_film_grain_matrix_coefficients;
+
+    /**
+     * identifies the blending mode used to blend the simulated film grain with the decoded images
+     */
+    UWORD8 u1_blending_mode_id;
+
+    /**
+     * Specifies a scale factor used in the film grain characterization equations
+     */
+    UWORD8 u1_log2_scale_factor;
+
+    /**
+     * Indicates whether film grain is modelled or not on the colour component
+     */
+    UWORD8 au1_comp_model_present_flag[SEI_FGC_NUM_COLOUR_COMPONENTS];
+
+    /**
+     * Specifies the number of intensity intervals for which
+     * a specific set of model values has been estimated
+     */
+    UWORD8 au1_num_intensity_intervals_minus1[SEI_FGC_NUM_COLOUR_COMPONENTS];
+
+    /**
+     * Specifies the number of model values present for each intensity interval in which
+     * the film grain has been modelled
+     */
+    UWORD8 au1_num_model_values_minus1[SEI_FGC_NUM_COLOUR_COMPONENTS];
+
+    /**
+     * Specifies the lower bound of the interval of intensity levels for which
+     * the set of model values applies
+     */
+    UWORD8 au1_intensity_interval_lower_bound[SEI_FGC_NUM_COLOUR_COMPONENTS]
+                                             [SEI_FGC_MAX_NUM_INTENSITY_INTERVALS];
+
+    /**
+     * Specifies the upper bound of the interval of intensity levels for which
+     * the set of model values applies
+     */
+    UWORD8 au1_intensity_interval_upper_bound[SEI_FGC_NUM_COLOUR_COMPONENTS]
+                                             [SEI_FGC_MAX_NUM_INTENSITY_INTERVALS];
+
+    /**
+     * Represents each one of the model values present for
+     * the colour component and intensity interval
+     */
+    WORD32 ai4_comp_model_value[SEI_FGC_NUM_COLOUR_COMPONENTS][SEI_FGC_MAX_NUM_INTENSITY_INTERVALS]
+                               [SEI_FGC_MAX_NUM_MODEL_VALUES];
+
+    /**
+     * Specifies the persistence of the film grain characteristics SEI message
+     */
+    UWORD32 u4_film_grain_characteristics_repetition_period;
+
+} sei_fgc_params_t;
+
+/**
+ * Structure to hold shutter interval info SEI
+ */
+typedef struct
+{
+    /**
+     * specifies if the sei sii is enabled
+     */
+    UWORD8 u1_shutter_interval_info_present_flag;
+
+    /**
+     * specifies the shutter interval temporal sub-layer index
+     * of the current picture
+     */
+    UWORD32 u4_sii_sub_layer_idx;
+
+    /**
+     * specify the number of time units that pass in one second
+     */
+    UWORD32 u4_sii_time_scale;
+
+    /**
+     * specifies that the indicated shutter interval is the same for all
+     * pictures in the coded video sequence
+     */
+    UWORD8 u1_fixed_shutter_interval_within_cvs_flag;
+
+    /**
+     * specifies the the number of time units of a clock operating at the
+     * frequency sii_time_scale Hz that corresponds to the indicated shutter
+     * interval of each picture in the coded video sequence
+     */
+    UWORD32 u4_sii_num_units_in_shutter_interval;
+
+    /**
+     * sii_max_sub_layers_minus1 plus 1 specifies the maximum number of
+     * shutter interval temporal sub-layers indexes that may be present
+     * in the coded video sequence
+     */
+    UWORD8 u1_sii_max_sub_layers_minus1;
+
+    /*
+     * specifies the number of time units of a clock operating at the
+     * frequency sii_time_scale Hz that corresponds to the shutter
+     * interval of each picture in the coded video sequence
+     */
+    UWORD32 au4_sub_layer_num_units_in_shutter_interval[SII_MAX_SUB_LAYERS];
+} sei_sii_params_t;
 
 /**
  * Structure to hold SEI parameters Info
@@ -1912,6 +2075,26 @@ typedef struct
      * CCV parameters
      */
     sei_ccv_params_t s_sei_ccv_params;
+
+    /**
+     * film grain characteristics info present flag
+     */
+    UWORD8 u1_sei_fgc_params_present_flag;
+
+    /*
+     * Film grain parameters
+     */
+    sei_fgc_params_t s_sei_fgc_params;
+
+    /**
+     * shutter interval info present flag
+     */
+    UWORD8 u1_sei_sii_params_present_flag;
+
+    /*
+     * Shutter Interval Info parameters
+     */
+    sei_sii_params_t s_sei_sii_params;
 } sei_params_t;
 
 

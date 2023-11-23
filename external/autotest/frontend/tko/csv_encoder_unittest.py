@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 
 import unittest
 import common
@@ -26,7 +26,7 @@ class CsvEncodingTest(unittest.TestCase):
         response = encoder.encode()
         csv_result = response.content
         expected_csv = '\r\n'.join(expected_csv_rows) + '\r\n'
-        self.assertEquals(csv_result, expected_csv)
+        self.assertEquals(csv_result, expected_csv.encode())
 
 
     def test_spreadsheet_encoder(self):

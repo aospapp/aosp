@@ -90,6 +90,7 @@ HwcDisplay::HwcDisplay(hwc2_display_t handle, HWC2::DisplayType type,
     : hwc2_(hwc2),
       handle_(handle),
       type_(type),
+      client_layer_(this),
       color_transform_hint_(HAL_COLOR_TRANSFORM_IDENTITY) {
   // clang-format off
   color_transform_matrix_ = {1.0, 0.0, 0.0, 0.0,
@@ -102,24 +103,51 @@ HwcDisplay::HwcDisplay(hwc2_display_t handle, HWC2::DisplayType type,
 HwcDisplay::~HwcDisplay() = default;
 
 void HwcDisplay::SetPipeline(DrmDisplayPipeline *pipeline) {
+  Deinit();
+
   pipeline_ = pipeline;
 
-  if (pipeline != nullptr) {
-    ChosePreferredConfig();
+  if (pipeline != nullptr || handle_ == kPrimaryDisplay) {
     Init();
-
     hwc2_->ScheduleHotplugEvent(handle_, /*connected = */ true);
   } else {
-    backend_.reset();
-    vsync_worker_.Init(nullptr, [](int64_t) {});
-    SetClientTarget(nullptr, -1, 0, {});
-    if (handle_ != kPrimaryDisplay) {
-      hwc2_->ScheduleHotplugEvent(handle_, /*connected = */ false);
-    }
+    hwc2_->ScheduleHotplugEvent(handle_, /*connected = */ false);
   }
 }
 
+void HwcDisplay::Deinit() {
+  if (pipeline_ != nullptr) {
+    AtomicCommitArgs a_args{};
+    a_args.composition = std::make_shared<DrmKmsPlan>();
+    GetPipe().atomic_state_manager->ExecuteAtomicCommit(a_args);
+/*
+ *  TODO:
+ *  Unfortunately the following causes regressions on db845c
+ *  with VtsHalGraphicsComposerV2_3TargetTest due to the display
+ *  never coming back. Patches to avoiding that issue on the
+ *  the kernel side unfortunately causes further crashes in
+ *  drm_hwcomposer, because the client detach takes longer then the
+ *  1 second max VTS expects. So for now as a workaround, lets skip
+ *  deactivating the display on deinit, which matches previous
+ *  behavior prior to commit d0494d9b8097
+ */
+#if 0
+    a_args.composition = {};
+    a_args.active = false;
+    GetPipe().atomic_state_manager->ExecuteAtomicCommit(a_args);
+#endif
+
+    vsync_worker_.Init(nullptr, [](int64_t) {});
+    current_plan_.reset();
+    backend_.reset();
+  }
+
+  SetClientTarget(nullptr, -1, 0, {});
+}
+
 HWC2::Error HwcDisplay::Init() {
+  ChosePreferredConfig();
+
   int ret = vsync_worker_.Init(pipeline_, [this](int64_t timestamp) {
     const std::lock_guard<std::mutex> lock(hwc2_->GetResMan().GetMainLock());
     if (vsync_event_en_) {
@@ -176,7 +204,7 @@ HWC2::Error HwcDisplay::AcceptDisplayChanges() {
 }
 
 HWC2::Error HwcDisplay::CreateLayer(hwc2_layer_t *layer) {
-  layers_.emplace(static_cast<hwc2_layer_t>(layer_idx_), HwcLayer());
+  layers_.emplace(static_cast<hwc2_layer_t>(layer_idx_), HwcLayer(this));
   *layer = static_cast<hwc2_layer_t>(layer_idx_);
   ++layer_idx_;
   return HWC2::Error::None;
@@ -379,6 +407,9 @@ HWC2::Error HwcDisplay::GetHdrCapabilities(uint32_t *num_types,
 
 /* Find API details at:
  * https://cs.android.com/android/platform/superproject/+/android-11.0.0_r3:hardware/libhardware/include/hardware/hwcomposer2.h;l=1767
+ *
+ * Called after PresentDisplay(), CLIENT is expecting release fence for the
+ * prior buffer (not the one assigned to the layer at the moment).
  */
 HWC2::Error HwcDisplay::GetReleaseFences(uint32_t *num_elements,
                                          hwc2_layer_t *layers,
@@ -390,8 +421,13 @@ HWC2::Error HwcDisplay::GetReleaseFences(uint32_t *num_elements,
 
   uint32_t num_layers = 0;
 
-  for (std::pair<const hwc2_layer_t, HwcLayer> &l : layers_) {
+  for (auto &l : layers_) {
+    if (!l.second.GetPriorBufferScanOutFlag() || !present_fence_) {
+      continue;
+    }
+
     ++num_layers;
+
     if (layers == nullptr || fences == nullptr)
       continue;
 
@@ -401,9 +437,10 @@ HWC2::Error HwcDisplay::GetReleaseFences(uint32_t *num_elements,
     }
 
     layers[num_layers - 1] = l.first;
-    fences[num_layers - 1] = l.second.GetReleaseFence().Release();
+    fences[num_layers - 1] = UniqueFd::Dup(present_fence_.Get()).Release();
   }
   *num_elements = num_layers;
+
   return HWC2::Error::None;
 }
 
@@ -457,18 +494,26 @@ HWC2::Error HwcDisplay::CreateComposition(AtomicCommitArgs &a_args) {
   if (z_map.empty())
     return HWC2::Error::BadLayer;
 
-  std::vector<DrmHwcLayer> composition_layers;
+  std::vector<LayerData> composition_layers;
+
+  /* Import & populate */
+  for (std::pair<const uint32_t, HwcLayer *> &l : z_map) {
+    l.second->PopulateLayerData(a_args.test_only);
+  }
 
   // now that they're ordered by z, add them to the composition
   for (std::pair<const uint32_t, HwcLayer *> &l : z_map) {
-    DrmHwcLayer layer;
-    l.second->PopulateDrmLayer(&layer);
-    int ret = layer.ImportBuffer(GetPipe().device);
-    if (ret) {
-      ALOGE("Failed to import layer, ret=%d", ret);
-      return HWC2::Error::NoResources;
+    if (!l.second->IsLayerUsableAsDevice()) {
+      /* This will be normally triggered on validation of the first frame
+       * containing CLIENT layer. At this moment client buffer is not yet
+       * provided by the CLIENT.
+       * This may be triggered once in HwcLayer lifecycle in case FB can't be
+       * imported. For example when non-contiguous buffer is imported into
+       * contiguous-only DRM/KMS driver.
+       */
+      return HWC2::Error::BadLayer;
     }
-    composition_layers.emplace_back(std::move(layer));
+    composition_layers.emplace_back(l.second->GetLayerData().Clone());
   }
 
   /* Store plan to ensure shared planes won't be stolen by other display
@@ -508,9 +553,9 @@ HWC2::Error HwcDisplay::CreateComposition(AtomicCommitArgs &a_args) {
 /* Find API details at:
  * https://cs.android.com/android/platform/superproject/+/android-11.0.0_r3:hardware/libhardware/include/hardware/hwcomposer2.h;l=1805
  */
-HWC2::Error HwcDisplay::PresentDisplay(int32_t *present_fence) {
+HWC2::Error HwcDisplay::PresentDisplay(int32_t *out_present_fence) {
   if (IsInHeadlessMode()) {
-    *present_fence = -1;
+    *out_present_fence = -1;
     return HWC2::Error::None;
   }
   HWC2::Error ret{};
@@ -525,13 +570,14 @@ HWC2::Error HwcDisplay::PresentDisplay(int32_t *present_fence) {
 
   if (ret == HWC2::Error::BadLayer) {
     // Can we really have no client or device layers?
-    *present_fence = -1;
+    *out_present_fence = -1;
     return HWC2::Error::None;
   }
   if (ret != HWC2::Error::None)
     return ret;
 
-  *present_fence = a_args.out_fence.Release();
+  this->present_fence_ = UniqueFd::Dup(a_args.out_fence.Get());
+  *out_present_fence = a_args.out_fence.Release();
 
   ++frame_no_;
   return HWC2::Error::None;
@@ -571,18 +617,25 @@ HWC2::Error HwcDisplay::SetClientTarget(buffer_handle_t target,
    * https://cs.android.com/android/platform/superproject/+/master:hardware/interfaces/graphics/composer/2.1/utils/hal/include/composer-hal/2.1/ComposerClient.h;l=350;drc=944b68180b008456ed2eb4d4d329e33b19bd5166
    */
   if (target == nullptr) {
+    client_layer_.SwChainClearCache();
     return HWC2::Error::None;
   }
 
-  /* TODO: Do not update source_crop every call.
-   * It makes sense to do it once after every hotplug event. */
-  HwcDrmBo bo{};
-  BufferInfoGetter::GetInstance()->ConvertBoInfo(target, &bo);
+  if (IsInHeadlessMode()) {
+    return HWC2::Error::None;
+  }
 
+  client_layer_.PopulateLayerData(/*test = */ true);
+  if (!client_layer_.IsLayerUsableAsDevice()) {
+    ALOGE("Client layer must be always usable by DRM/KMS");
+    return HWC2::Error::BadLayer;
+  }
+
+  auto &bi = client_layer_.GetLayerData().bi;
   hwc_frect_t source_crop = {.left = 0.0F,
                              .top = 0.0F,
-                             .right = static_cast<float>(bo.width),
-                             .bottom = static_cast<float>(bo.height)};
+                             .right = static_cast<float>(bi->width),
+                             .bottom = static_cast<float>(bi->height)};
   client_layer_.SetLayerSourceCrop(source_crop);
 
   return HWC2::Error::None;
@@ -621,11 +674,8 @@ HWC2::Error HwcDisplay::SetOutputBuffer(buffer_handle_t /*buffer*/,
 }
 
 HWC2::Error HwcDisplay::SetPowerMode(int32_t mode_in) {
-  if (IsInHeadlessMode()) {
-    return HWC2::Error::None;
-  }
-
   auto mode = static_cast<HWC2::PowerMode>(mode_in);
+
   AtomicCommitArgs a_args{};
 
   switch (mode) {
@@ -633,22 +683,30 @@ HWC2::Error HwcDisplay::SetPowerMode(int32_t mode_in) {
       a_args.active = false;
       break;
     case HWC2::PowerMode::On:
-      /*
-       * Setting the display to active before we have a composition
-       * can break some drivers, so skip setting a_args.active to
-       * true, as the next composition frame will implicitly activate
-       * the display
-       */
-      return GetPipe().atomic_state_manager->ActivateDisplayUsingDPMS() == 0
-                 ? HWC2::Error::None
-                 : HWC2::Error::BadParameter;
+      a_args.active = true;
       break;
     case HWC2::PowerMode::Doze:
     case HWC2::PowerMode::DozeSuspend:
       return HWC2::Error::Unsupported;
     default:
-      ALOGI("Power mode %d is unsupported\n", mode);
+      ALOGE("Incorrect power mode value (%d)\n", mode);
       return HWC2::Error::BadParameter;
+  }
+
+  if (IsInHeadlessMode()) {
+    return HWC2::Error::None;
+  }
+
+  if (a_args.active) {
+    /*
+     * Setting the display to active before we have a composition
+     * can break some drivers, so skip setting a_args.active to
+     * true, as the next composition frame will implicitly activate
+     * the display
+     */
+    return GetPipe().atomic_state_manager->ActivateDisplayUsingDPMS() == 0
+               ? HWC2::Error::None
+               : HWC2::Error::BadParameter;
   };
 
   int err = GetPipe().atomic_state_manager->ExecuteAtomicCommit(a_args);
@@ -673,6 +731,16 @@ HWC2::Error HwcDisplay::ValidateDisplay(uint32_t *num_types,
     *num_types = *num_requests = 0;
     return HWC2::Error::None;
   }
+
+  /* In current drm_hwc design in case previous frame layer was not validated as
+   * a CLIENT, it is used by display controller (Front buffer). We have to store
+   * this state to provide the CLIENT with the release fences for such buffers.
+   */
+  for (auto &l : layers_) {
+    l.second.SetPriorBufferScanOutFlag(l.second.GetValidatedType() !=
+                                       HWC2::Composition::Client);
+  }
+
   return backend_->ValidateDisplay(this, num_types, num_requests);
 }
 
@@ -782,18 +850,15 @@ HWC2::Error HwcDisplay::GetDisplayIdentificationData(uint8_t *outPort,
                                                      uint32_t *outDataSize,
                                                      uint8_t *outData) {
   if (IsInHeadlessMode()) {
-    return HWC2::Error::None;
+    return HWC2::Error::Unsupported;
   }
+
   auto blob = GetPipe().connector->Get()->GetEdidBlob();
-
-  *outPort = handle_ - 1;
-
   if (!blob) {
-    if (outData == nullptr) {
-      *outDataSize = 0;
-    }
-    return HWC2::Error::None;
+    return HWC2::Error::Unsupported;
   }
+
+  *outPort = handle_; /* TDOD(nobody): What should be here? */
 
   if (outData) {
     *outDataSize = std::min(*outDataSize, blob->length);

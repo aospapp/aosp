@@ -109,8 +109,8 @@ void init(JavaVM* vm, JNIEnv* env) {
     buffer_positionMethod = getMethodRef(env, bufferClass, "position", "()I");
     buffer_limitMethod = getMethodRef(env, bufferClass, "limit", "()I");
     buffer_isDirectMethod = getMethodRef(env, bufferClass, "isDirect", "()Z");
-    sslHandshakeCallbacks_verifyCertificateChain = getMethodRef(
-            env, sslHandshakeCallbacksClass, "verifyCertificateChain", "([[BLjava/lang/String;)V");
+    sslHandshakeCallbacks_verifyCertificateChain =
+	    getMethodRef(env, sslHandshakeCallbacksClass, "verifyCertificateChain", "([[BLjava/lang/String;)V");
     sslHandshakeCallbacks_onSSLStateChange =
             getMethodRef(env, sslHandshakeCallbacksClass, "onSSLStateChange", "(II)V");
     sslHandshakeCallbacks_clientCertificateRequested = getMethodRef(
@@ -295,6 +295,7 @@ int throwForAsn1Error(JNIEnv* env, int reason, const char* message,
         case ASN1_R_WRONG_PUBLIC_KEY_TYPE:
             return throwInvalidKeyException(env, message);
             break;
+        case ASN1_R_DIGEST_AND_KEY_TYPE_NOT_SUPPORTED:
         case ASN1_R_UNKNOWN_SIGNATURE_ALGORITHM:
         case ASN1_R_UNKNOWN_MESSAGE_DIGEST_ALGORITHM:
             return throwNoSuchAlgorithmException(env, message);

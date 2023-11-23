@@ -65,7 +65,7 @@ public class SecondUserTest {
   public void call_hasWorkProfile_hasSecondUser_executesOnWorkProfile()
       throws UnavailableProfileException {
     utilities.ensureReadyForCrossProfileCalls();
-    utilities.manuallyConnectAndWait();
+    utilities.addConnectionHolderAndWait(this);
     int secondUserId = utilities.createUser("SecondUser");
 
     try {
@@ -83,7 +83,7 @@ public class SecondUserTest {
   public void call_hasWorkProfile_hasSecondUser_fromWorkProfile_executesOnThisUser()
       throws UnavailableProfileException {
     utilities.ensureReadyForCrossProfileCalls();
-    utilities.manuallyConnectAndWait();
+    utilities.addConnectionHolderAndWait(this);
     int secondUserId = utilities.createUser("SecondUser");
 
     try {

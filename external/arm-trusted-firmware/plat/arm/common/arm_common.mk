@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
+include common/fdt_wrappers.mk
+
 ifeq (${ARCH}, aarch64)
   # On ARM standard platorms, the TSP can execute from Trusted SRAM, Trusted
   # DRAM (if available) or the TZC secured area of DRAM.
@@ -52,9 +54,10 @@ $(eval $(call assert_boolean,ARM_RECOM_STATE_ID_ENC))
 $(eval $(call add_define,ARM_RECOM_STATE_ID_ENC))
 
 # Process ARM_DISABLE_TRUSTED_WDOG flag
-# By default, Trusted Watchdog is always enabled unless SPIN_ON_BL1_EXIT is set
+# By default, Trusted Watchdog is always enabled unless
+# SPIN_ON_BL1_EXIT or ENABLE_RME is set
 ARM_DISABLE_TRUSTED_WDOG	:=	0
-ifeq (${SPIN_ON_BL1_EXIT}, 1)
+ifneq ($(filter 1,${SPIN_ON_BL1_EXIT} ${ENABLE_RME}),)
 ARM_DISABLE_TRUSTED_WDOG	:=	1
 endif
 $(eval $(call assert_boolean,ARM_DISABLE_TRUSTED_WDOG))
@@ -94,10 +97,13 @@ ifeq (${ARM_LINUX_KERNEL_AS_BL33},1)
   ifndef PRELOADED_BL33_BASE
     $(error "PRELOADED_BL33_BASE must be set if ARM_LINUX_KERNEL_AS_BL33 is used.")
   endif
-  ifndef ARM_PRELOADED_DTB_BASE
-    $(error "ARM_PRELOADED_DTB_BASE must be set if ARM_LINUX_KERNEL_AS_BL33 is used.")
+  ifeq (${RESET_TO_BL31},1)
+    ifndef ARM_PRELOADED_DTB_BASE
+      $(error "ARM_PRELOADED_DTB_BASE must be set if ARM_LINUX_KERNEL_AS_BL33 is
+       used with RESET_TO_BL31.")
+    endif
+    $(eval $(call add_define,ARM_PRELOADED_DTB_BASE))
   endif
-  $(eval $(call add_define,ARM_PRELOADED_DTB_BASE))
 endif
 
 # Arm Ethos-N NPU SiP service
@@ -206,18 +212,22 @@ PLAT_BL_COMMON_SOURCES	+=	plat/arm/common/${ARCH}/arm_helpers.S		\
 				plat/arm/common/arm_console.c
 
 ifeq (${ARM_XLAT_TABLES_LIB_V1}, 1)
-PLAT_BL_COMMON_SOURCES	+=	lib/xlat_tables/xlat_tables_common.c		\
+PLAT_BL_COMMON_SOURCES 	+=	lib/xlat_tables/xlat_tables_common.c	      \
 				lib/xlat_tables/${ARCH}/xlat_tables.c
 else
+ifeq (${XLAT_MPU_LIB_V1}, 1)
+include lib/xlat_mpu/xlat_mpu.mk
+PLAT_BL_COMMON_SOURCES	+=	${XLAT_MPU_LIB_V1_SRCS}
+else
 include lib/xlat_tables_v2/xlat_tables.mk
-
-PLAT_BL_COMMON_SOURCES	+=	${XLAT_TABLES_LIB_SRCS}
+PLAT_BL_COMMON_SOURCES	+=      ${XLAT_TABLES_LIB_SRCS}
+endif
 endif
 
 ARM_IO_SOURCES		+=	plat/arm/common/arm_io_storage.c		\
 				plat/arm/common/fconf/arm_fconf_io.c
 ifeq (${SPD},spmd)
-    ifeq (${SPMD_SPM_AT_SEL2},1)
+    ifeq (${BL2_ENABLE_SP_LOAD},1)
          ARM_IO_SOURCES		+=	plat/arm/common/fconf/arm_fconf_sp.c
     endif
 endif
@@ -248,13 +258,17 @@ BL2_SOURCES		+=	drivers/delay_timer/delay_timer.c		\
 # Firmware Configuration Framework sources
 include lib/fconf/fconf.mk
 
+BL1_SOURCES		+=	${FCONF_SOURCES} ${FCONF_DYN_SOURCES}
+BL2_SOURCES		+=	${FCONF_SOURCES} ${FCONF_DYN_SOURCES}
+
 # Add `libfdt` and Arm common helpers required for Dynamic Config
 include lib/libfdt/libfdt.mk
 
 DYN_CFG_SOURCES		+=	plat/arm/common/arm_dyn_cfg.c		\
 				plat/arm/common/arm_dyn_cfg_helpers.c	\
-				common/fdt_wrappers.c			\
 				common/uuid.c
+
+DYN_CFG_SOURCES		+=	${FDT_WRAPPERS_SOURCES}
 
 BL1_SOURCES		+=	${DYN_CFG_SOURCES}
 BL2_SOURCES		+=	${DYN_CFG_SOURCES}
@@ -335,10 +349,10 @@ endif
 
 ifeq (${SPD},spmd)
 BL31_SOURCES		+=	plat/common/plat_spmd_manifest.c	\
-				common/fdt_wrappers.c			\
 				common/uuid.c				\
 				${LIBFDT_SRCS}
 
+BL31_SOURCES		+=	${FDT_WRAPPERS_SOURCES}
 endif
 
 ifneq (${TRUSTED_BOARD_BOOT},0)
@@ -351,7 +365,7 @@ ifneq (${TRUSTED_BOARD_BOOT},0)
 
     # Include the selected chain of trust sources.
     ifeq (${COT},tbbr)
-	BL1_SOURCES     +=      drivers/auth/tbbr/tbbr_cot_common.c		\
+            BL1_SOURCES	+=	drivers/auth/tbbr/tbbr_cot_common.c		\
 				drivers/auth/tbbr/tbbr_cot_bl1.c
         ifneq (${COT_DESC_IN_DTB},0)
             BL2_SOURCES	+=	lib/fconf/fconf_cot_getter.c
@@ -398,7 +412,7 @@ ifeq (${RECLAIM_INIT_CODE}, 1)
 endif
 
 ifeq (${MEASURED_BOOT},1)
-    MEASURED_BOOT_MK := drivers/measured_boot/measured_boot.mk
+    MEASURED_BOOT_MK := drivers/measured_boot/event_log/event_log.mk
     $(info Including ${MEASURED_BOOT_MK})
     include ${MEASURED_BOOT_MK}
 endif

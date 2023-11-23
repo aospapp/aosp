@@ -111,6 +111,7 @@ TEST_F(IcuNormalizerTest, LatinLetterRemoveAccent) {
   EXPECT_THAT(normalizer_->NormalizeTerm("ÝŶŸẎẏŷýÿ"), Eq("yyyyyyyy"));
   EXPECT_THAT(normalizer_->NormalizeTerm("ŹŻŽẐẒẔẑẓẕźżž"),
               Eq("zzzzzzzzzzzz"));
+  EXPECT_THAT(normalizer_->NormalizeTerm("Barış"), Eq("baris"));
 }
 
 // Accent / diacritic marks won't be removed in non-latin chars, e.g. in
@@ -278,6 +279,14 @@ TEST_F(IcuNormalizerTest, PrefixMatchLength) {
   term = "Buenos días";
   match_end = normalizer->FindNormalizedMatchEndPosition(term, "buenos di");
   EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("Buenos dí"));
+
+  term = "BarışIcing";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "baris");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("Barış"));
+
+  term = "ÀĄḁáIcing";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "aaaa");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("ÀĄḁá"));
 }
 
 TEST_F(IcuNormalizerTest, SharedPrefixMatchLength) {
@@ -327,6 +336,10 @@ TEST_F(IcuNormalizerTest, SharedPrefixMatchLength) {
   term = "días";
   match_end = normalizer->FindNormalizedMatchEndPosition(term, "diamond");
   EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("día"));
+
+  term = "BarışIcing";
+  match_end = normalizer->FindNormalizedMatchEndPosition(term, "barismdi");
+  EXPECT_THAT(term.substr(0, match_end.utf8_index()), Eq("Barış"));
 }
 
 }  // namespace

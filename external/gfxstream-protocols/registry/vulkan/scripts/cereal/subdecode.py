@@ -1,22 +1,21 @@
-from .common.codegen import CodeGen, VulkanWrapperGenerator, VulkanAPIWrapper
-from .common.vulkantypes import \
-    VulkanAPI, makeVulkanTypeSimple, iterateVulkanType, DISPATCHABLE_HANDLE_TYPES, NON_DISPATCHABLE_HANDLE_TYPES
+from .common.codegen import CodeGen, VulkanWrapperGenerator
+from .common.vulkantypes import VulkanAPI, iterateVulkanType, VulkanType
 
 from .reservedmarshaling import VulkanReservedMarshalingCodegen
-from .transform import TransformCodegen, genTransformsForVulkanType
+from .transform import TransformCodegen
 
-from .wrapperdefs import API_PREFIX_MARSHAL
-from .wrapperdefs import API_PREFIX_UNMARSHAL, API_PREFIX_RESERVEDUNMARSHAL
+from .wrapperdefs import API_PREFIX_RESERVEDUNMARSHAL
+from .wrapperdefs import MAX_PACKET_LENGTH
 from .wrapperdefs import ROOT_TYPE_DEFAULT_VALUE
-from .wrapperdefs import VULKAN_STREAM_TYPE
 
-from copy import copy
 
 decoder_decl_preamble = """
 """
 
 decoder_impl_preamble = """
 """
+
+global_state_prefix = "this->on_"
 
 READ_STREAM = "readStream"
 WRITE_STREAM = "vkStream"
@@ -149,20 +148,12 @@ def emit_transform(typeInfo, param, cgen, variant="tohost"):
 
 
 class DecodingParameters(object):
-    def __init__(self, api):
-        self.params = []
-        self.toRead = []
-        self.toWrite = []
+    def __init__(self, api: VulkanAPI):
+        self.params: list[VulkanType] = []
+        self.toRead: list[VulkanType] = []
+        self.toWrite: list[VulkanType] = []
 
-        i = 0
-
-        for param in api.parameters[1:]:
-            param.nonDispatchableHandleCreate = False
-            param.nonDispatchableHandleDestroy = False
-            param.dispatchHandle = False
-            param.dispatchableHandleCreate = False
-            param.dispatchableHandleDestroy = False
-
+        for i, param in enumerate(api.parameters[1:]):
             if i == 0 and param.isDispatchableHandleType():
                 param.dispatchHandle = True
 
@@ -184,8 +175,6 @@ class DecodingParameters(object):
                 self.toWrite.append(param)
 
             self.params.append(param)
-
-            i += 1
 
 
 def emit_call_log(api, cgen):
@@ -264,17 +253,22 @@ def emit_dispatch_call(api, cgen):
     if api.name in driver_workarounds_global_lock_apis:
         cgen.stmt("lock()")
 
-    cgen.vkApiCall(api, customPrefix="vk->", customParameters=customParams)
+    cgen.vkApiCall(api, customPrefix="vk->", customParameters=customParams,
+                    checkForDeviceLost=True, globalStatePrefix=global_state_prefix,
+                    checkForOutOfMemory=True)
 
     if api.name in driver_workarounds_global_lock_apis:
         cgen.stmt("unlock()")
 
 
-def emit_global_state_wrapped_call(api, cgen):
+def emit_global_state_wrapped_call(api, cgen, context=False):
     customParams = ["pool", "(VkCommandBuffer)(boxed_dispatchHandle)"] + \
         list(map(lambda p: p.paramName, api.parameters[1:]))
-    cgen.vkApiCall(api, customPrefix="this->on_",
-                   customParameters=customParams)
+    if context:
+        customParams += ["context"];
+    cgen.vkApiCall(api, customPrefix=global_state_prefix,
+                   customParameters=customParams, checkForDeviceLost=True,
+                   checkForOutOfMemory=True, globalStatePrefix=global_state_prefix)
 
 
 def emit_default_decoding(typeInfo, api, cgen):
@@ -286,19 +280,24 @@ def emit_global_state_wrapped_decoding(typeInfo, api, cgen):
     emit_decode_parameters(typeInfo, api, cgen, globalWrapped=True)
     emit_global_state_wrapped_call(api, cgen)
 
+def emit_global_state_wrapped_decoding_with_context(typeInfo, api, cgen):
+    emit_decode_parameters(typeInfo, api, cgen, globalWrapped=True)
+    emit_global_state_wrapped_call(api, cgen, context=True)
 
 custom_decodes = {
-    "vkCmdCopyBufferToImage": emit_global_state_wrapped_decoding,
+    "vkCmdCopyBufferToImage": emit_global_state_wrapped_decoding_with_context,
     "vkCmdCopyImage": emit_global_state_wrapped_decoding,
     "vkCmdCopyImageToBuffer": emit_global_state_wrapped_decoding,
     "vkCmdExecuteCommands": emit_global_state_wrapped_decoding,
-    "vkBeginCommandBuffer": emit_global_state_wrapped_decoding,
+    "vkBeginCommandBuffer": emit_global_state_wrapped_decoding_with_context,
+    "vkEndCommandBuffer": emit_global_state_wrapped_decoding_with_context,
     "vkResetCommandBuffer": emit_global_state_wrapped_decoding,
     "vkCmdPipelineBarrier": emit_global_state_wrapped_decoding,
     "vkCmdBindPipeline": emit_global_state_wrapped_decoding,
     "vkCmdBindDescriptorSets": emit_global_state_wrapped_decoding,
-    "vkBeginCommandBufferAsyncGOOGLE": emit_global_state_wrapped_decoding,
-    "vkEndCommandBufferAsyncGOOGLE": emit_global_state_wrapped_decoding,
+    "vkCmdCopyQueryPoolResults": emit_global_state_wrapped_decoding,
+    "vkBeginCommandBufferAsyncGOOGLE": emit_global_state_wrapped_decoding_with_context,
+    "vkEndCommandBufferAsyncGOOGLE": emit_global_state_wrapped_decoding_with_context,
     "vkResetCommandBufferAsyncGOOGLE": emit_global_state_wrapped_decoding,
     "vkCommandBufferHostSyncGOOGLE": emit_global_state_wrapped_decoding,
 }
@@ -315,10 +314,14 @@ class VulkanSubDecoder(VulkanWrapperGenerator):
             "#define MAX_STACK_ITEMS %s\n" % MAX_STACK_ITEMS)
 
         self.module.appendImpl(
-            "size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* boxed_dispatchHandle, void* dispatchHandle, VkDeviceSize dataSize, const void* pData)\n")
+            "#define MAX_PACKET_LENGTH %s\n" % MAX_PACKET_LENGTH)
+
+        self.module.appendImpl(
+            "size_t subDecode(VulkanMemReadingStream* readStream, VulkanDispatch* vk, void* boxed_dispatchHandle, void* dispatchHandle, VkDeviceSize dataSize, const void* pData, const VkDecoderContext& context)\n")
 
         self.cgen.beginBlock()  # function body
 
+        self.cgen.stmt("auto& metricsLogger = *context.metricsLogger")
         self.cgen.stmt("uint32_t count = 0")
         self.cgen.stmt("unsigned char *buf = (unsigned char *)pData")
         self.cgen.stmt("android::base::BumpPool* pool = readStream->pool()")
@@ -332,9 +335,16 @@ class VulkanSubDecoder(VulkanWrapperGenerator):
         self.cgen.beginBlock()  # while loop
 
         self.cgen.stmt("uint32_t opcode = *(uint32_t *)ptr")
-        self.cgen.stmt("int32_t packetLen = *(int32_t *)(ptr + 4)")
-        self.cgen.stmt(
-            "if (end - ptr < packetLen) return ptr - (unsigned char*)buf")
+        self.cgen.stmt("uint32_t packetLen = *(uint32_t *)(ptr + 4)")
+        self.cgen.line("""
+        // packetLen should be at least 8 (op code and packet length) and should not be excessively large
+        if (packetLen < 8 || packetLen > MAX_PACKET_LENGTH) {
+            WARN("Bad packet length %d detected, subdecode may fail", packetLen);
+            metricsLogger.logMetricEvent(MetricEventBadPacketLength{ .len = packetLen });
+        }
+        """)
+        self.cgen.stmt("if (end - ptr < packetLen) return ptr - (unsigned char*)buf")
+
 
         self.cgen.stmt("%s->setBuf((uint8_t*)(ptr + 8))" % READ_STREAM)
         self.cgen.stmt(
@@ -370,7 +380,7 @@ class VulkanSubDecoder(VulkanWrapperGenerator):
         self.cgen.line("default:")
         self.cgen.beginBlock()
         self.cgen.stmt(
-            "GFXSTREAM_ABORT(FatalError(ABORT_REASON_OTHER)) << \"Unrecognized opcode \" << opcode")
+            "GFXSTREAM_ABORT(::emugl::FatalError(::emugl::ABORT_REASON_OTHER)) << \"Unrecognized opcode \" << opcode")
         self.cgen.endBlock()
 
         self.cgen.endBlock()  # switch stmt

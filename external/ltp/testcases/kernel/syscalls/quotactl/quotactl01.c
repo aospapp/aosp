@@ -1,57 +1,47 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) Crackerjack Project., 2007
- * Copyright (c) 2016-2019 FUJITSU LIMITED. All rights reserved
+ * Copyright (c) 2016-2021 FUJITSU LIMITED. All rights reserved
  * Author: Xiao Yang <yangx.jy@cn.fujitsu.com>
- *
- * This testcase checks the basic flag of quotactl(2) for non-XFS filesystems:
- * 1) quotactl(2) succeeds to turn on quota with Q_QUOTAON flag for user.
- * 2) quotactl(2) succeeds to set disk quota limits with Q_SETQUOTA flag
- *    for user.
- * 3) quotactl(2) succeeds to get disk quota limits with Q_GETQUOTA flag
- *    for user.
- * 4) quotactl(2) succeeds to set information about quotafile with Q_SETINFO
- *    flag for user.
- * 5) quotactl(2) succeeds to get information about quotafile with Q_GETINFO
- *    flag for user.
- * 6) quotactl(2) succeeds to get quota format with Q_GETFMT flag for user.
- * 7) quotactl(2) succeeds to update quota usages with Q_SYNC flag for user.
- * 8) quotactl(2) succeeds to get disk quota limit greater than or equal to
- *    ID with Q_GETNEXTQUOTA flag for user.
- * 9) quotactl(2) succeeds to turn off quota with Q_QUOTAOFF flag for user.
- * 10) quotactl(2) succeeds to turn on quota with Q_QUOTAON flag for group.
- * 11) quotactl(2) succeeds to set disk quota limits with Q_SETQUOTA flag
- *     for group.
- * 12) quotactl(2) succeeds to get disk quota limits with Q_GETQUOTA flag
- *     for group.
- * 13) quotactl(2) succeeds to set information about quotafile with Q_SETINFO
- *     flag for group.
- * 14) quotactl(2) succeeds to get information about quotafile with Q_GETINFO
- *     flag for group.
- * 15) quotactl(2) succeeds to get quota format with Q_GETFMT flag for group.
- * 16) quotactl(2) succeeds to update quota usages with Q_SYNC flag for group.
- * 17) quotactl(2) succeeds to get disk quota limit greater than or equal to
- *     ID with Q_GETNEXTQUOTA flag for group.
- * 18) quotactl(2) succeeds to turn off quota with Q_QUOTAOFF flag for group.
+ * Author: Yang Xu <xuyang2018.jy@fujitsu.com>
  */
 
-#include "config.h"
+/*\
+ * [Description]
+ * This testcases checks that quotactl(2) on ext4 filesystem succeeds to:
+ *
+ * - turn on quota with Q_QUOTAON flag for user
+ * - set disk quota limits with Q_SETQUOTA flag for user
+ * - get disk quota limits with Q_GETQUOTA flag for user
+ * - set information about quotafile with Q_SETINFO flag for user
+ * - get information about quotafile with Q_GETINFO flag for user
+ * - get quota format with Q_GETFMT flag for user
+ * - update quota usages with Q_SYNC flag for user
+ * - get disk quota limit greater than or equal to ID with Q_GETNEXTQUOTA flag for user
+ * - turn off quota with Q_QUOTAOFF flag for user
+ * - turn on quota with Q_QUOTAON flag for group
+ * - set disk quota limits with Q_SETQUOTA flag for group
+ * - get disk quota limits with Q_GETQUOTA flag for group
+ * - set information about quotafile with Q_SETINFO flag for group
+ * - get information about quotafile with Q_GETINFO flag for group
+ * - get quota format with Q_GETFMT flag for group
+ * - update quota usages with Q_SYNC flag for group
+ * - get disk quota limit greater than or equal to ID with Q_GETNEXTQUOTA flag for group
+ * - turn off quota with Q_QUOTAOFF flag for group
+ */
+
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
-#include "lapi/quotactl.h"
 #include "tst_test.h"
+#include "quotactl_fmt_var.h"
 
-#ifndef QFMT_VFS_V0
-# define QFMT_VFS_V0	2
-#endif
 #define USRPATH MNTPOINT "/aquota.user"
 #define GRPPATH MNTPOINT "/aquota.group"
-#define FMTID	QFMT_VFS_V0
 #define MNTPOINT	"mntpoint"
 
-static int32_t fmt_id = FMTID;
+static int32_t fmt_id;
 static int test_id;
 static char usrpath[] = USRPATH;
 static char grppath[] = GRPPATH;
@@ -163,23 +153,27 @@ static struct tcase {
 
 static void setup(void)
 {
-	const char *const cmd[] = {"quotacheck", "-ugF", "vfsv0", MNTPOINT, NULL};
+	const struct quotactl_fmt_variant *var = &fmt_variants[tst_variant];
+	const char *const cmd[] = {"quotacheck", "-ugF", var->fmt_name, MNTPOINT, NULL};
 
+	tst_res(TINFO, "quotactl() with %s format", var->fmt_name);
 	SAFE_CMD(cmd, NULL, NULL);
+	fmt_id = var->fmt_id;
 
-	test_id = geteuid();
-	if (access(USRPATH, F_OK) == -1)
-		tst_brk(TFAIL | TERRNO, "user quotafile didn't exist");
+	SAFE_ACCESS(USRPATH, F_OK);
 
-	if (access(GRPPATH, F_OK) == -1)
-		tst_brk(TFAIL | TERRNO, "group quotafile didn't exist");
-
-	tst_require_quota_support(tst_device->dev, fmt_id, usrpath);
+	SAFE_ACCESS(GRPPATH, F_OK);
 
 	TEST(quotactl(QCMD(Q_GETNEXTQUOTA, USRQUOTA), tst_device->dev,
 		test_id, (void *) &res_ndq));
 	if (TST_ERR == EINVAL || TST_ERR == ENOSYS)
 		getnextquota_nsup = 1;
+}
+
+static void cleanup(void)
+{
+	SAFE_UNLINK(USRPATH);
+	SAFE_UNLINK(GRPPATH);
 }
 
 static void verify_quota(unsigned int n)
@@ -198,11 +192,10 @@ static void verify_quota(unsigned int n)
 		tst_res(TCONF, "current system doesn't support this cmd");
 		return;
 	}
-	TEST(quotactl(tc->cmd, tst_device->dev, *tc->id, tc->addr));
-	if (TST_RET == -1) {
-		tst_res(TFAIL | TTERRNO, "quotactl failed to %s", tc->des);
+	TST_EXP_PASS_SILENT(quotactl(tc->cmd, tst_device->dev, *tc->id, tc->addr),
+			"quotactl to %s", tc->des);
+	if (!TST_PASS)
 		return;
-	}
 
 	if (memcmp(tc->res_data, tc->set_data, tc->sz)) {
 		tst_res(TFAIL, "quotactl failed to %s", tc->des);
@@ -216,8 +209,8 @@ static void verify_quota(unsigned int n)
 
 static struct tst_test test = {
 	.needs_root = 1,
-	.needs_kconfigs = (const char *[]) {
-		"CONFIG_QFMT_V2",
+	.needs_drivers = (const char *const []) {
+		"quota_v2",
 		NULL
 	},
 	.test = verify_quota,
@@ -231,4 +224,6 @@ static struct tst_test test = {
 		NULL
 	},
 	.setup = setup,
+	.cleanup = cleanup,
+	.test_variants = QUOTACTL_FMT_VARIANTS,
 };

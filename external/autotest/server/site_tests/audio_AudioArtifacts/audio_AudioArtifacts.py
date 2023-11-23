@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -183,4 +184,3 @@ class audio_AudioArtifacts(audio_test.AudioTest):
                     check_artifacts=True,
                     mute_durations=mute_duration_in_secs,
                     volume_changes=volume_changes)
-

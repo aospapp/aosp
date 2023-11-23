@@ -20,8 +20,8 @@
 #ifndef ICING_PORTABLE_EQUALS_PROTO_H_
 #define ICING_PORTABLE_EQUALS_PROTO_H_
 
+#include "gmock/gmock.h"          // IWYU pragma: export
 #include <google/protobuf/message_lite.h>  // IWYU pragma: export
-#include "gmock/gmock.h"              // IWYU pragma: export
 
 #if defined(__ANDROID__) || defined(__APPLE__)
 namespace icing {

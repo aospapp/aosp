@@ -6,15 +6,17 @@ import logging
 import os
 import re
 import shutil
+import six
 
 import common
+
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.client.common_lib import utils
 from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 
 try:
-    from chromite.lib import metrics
+    from autotest_lib.utils.frozen_chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
 
@@ -24,13 +26,13 @@ SPECIAL_TASK_PATTERN = '.*/hosts/[^/]+/(\d+)-[^/]+'
 def is_job_expired(age_limit, timestamp):
     """Check whether a job timestamp is older than an age limit.
 
-  @param age_limit: Minimum age, measured in days.  If the value is
-                    not positive, the job is always expired.
-  @param timestamp: Timestamp of the job whose age we are checking.
-                    The format must match time_utils.TIME_FMT.
+    @param age_limit: Minimum age, measured in days.  If the value is
+                      not positive, the job is always expired.
+    @param timestamp: Timestamp of the job whose age we are checking.
+                      The format must match time_utils.TIME_FMT.
 
-  @returns True iff the job is old enough to be expired.
-  """
+    @returns True if the job is old enough to be expired.
+    """
     if age_limit <= 0:
         return True
     job_time = time_utils.time_string_to_datetime(timestamp)
@@ -89,33 +91,30 @@ def _get_swarming_run_id(path):
     return None
 
 
-class _JobDirectory(object):
+class _JobDirectory(six.with_metaclass(abc.ABCMeta, object)):
     """State associated with a job to be offloaded.
 
-  The full life-cycle of a job (including failure events that
-  normally don't occur) looks like this:
-   1. The job's results directory is discovered by
-      `get_job_directories()`, and a job instance is created for it.
-   2. Calls to `offload()` have no effect so long as the job
-      isn't complete in the database and the job isn't expired
-      according to the `age_limit` parameter.
-   3. Eventually, the job is both finished and expired.  The next
-      call to `offload()` makes the first attempt to offload the
-      directory to GS.  Offload is attempted, but fails to complete
-      (e.g. because of a GS problem).
-   4. Finally, a call to `offload()` succeeds, and the directory no
-      longer exists.  Now `is_offloaded()` is true, so the job
-      instance is deleted, and future failures will not mention this
-      directory any more.
+    The full life-cycle of a job (including failure events that
+    normally don't occur) looks like this:
+      1. The job's results directory is discovered by
+         `get_job_directories()`, and a job instance is created for it.
+      2. Calls to `offload()` have no effect so long as the job
+         isn't complete in the database and the job isn't expired
+         according to the `age_limit` parameter.
+      3. Eventually, the job is both finished and expired.  The next
+         call to `offload()` makes the first attempt to offload the
+         directory to GS.  Offload is attempted, but fails to complete
+         (e.g. because of a GS problem).
+      4. Finally, a call to `offload()` succeeds, and the directory no
+         longer exists.  Now `is_offloaded()` is true, so the job
+         instance is deleted, and future failures will not mention this
+         directory any more.
 
-  Only steps 1. and 4. are guaranteed to occur.  The others depend
-  on the timing of calls to `offload()`, and on the reliability of
-  the actual offload process.
+    Only steps 1. and 4. are guaranteed to occur.  The others depend
+    on the timing of calls to `offload()`, and on the reliability of
+    the actual offload process.
 
-  """
-
-    __metaclass__ = abc.ABCMeta
-
+    """
     GLOB_PATTERN = None  # must be redefined in subclass
 
     def __init__(self, resultsdir):
@@ -133,22 +132,22 @@ class _JobDirectory(object):
     def get_timestamp_if_finished(self):
         """Return this job's timestamp from the database.
 
-    If the database has not marked the job as finished, return
-    `None`.  Otherwise, return a timestamp for the job.  The
-    timestamp is to be used to determine expiration in
-    `is_job_expired()`.
+        If the database has not marked the job as finished, return
+        `None`.  Otherwise, return a timestamp for the job.  The
+        timestamp is to be used to determine expiration in
+        `is_job_expired()`.
 
-    @return Return `None` if the job is still running; otherwise
-            return a string with a timestamp in the appropriate
-            format.
-    """
+        @return Return `None` if the job is still running; otherwise
+                return a string with a timestamp in the appropriate
+                format.
+        """
         raise NotImplementedError("_JobDirectory.get_timestamp_if_finished")
 
     def process_gs_instructions(self):
         """Process any gs_offloader instructions for this special task.
 
-    @returns True/False if there is anything left to offload.
-    """
+        @returns True/False if there is anything left to offload.
+        """
         # Default support is to still offload the directory.
         return True
 
@@ -165,8 +164,8 @@ class RegularJobDirectory(_JobDirectory):
     def process_gs_instructions(self):
         """Process any gs_offloader instructions for this job.
 
-    @returns True/False if there is anything left to offload.
-    """
+        @returns True/False if there is anything left to offload.
+        """
         # Go through the gs_offloader instructions file for each test in this job.
         for path in glob.glob(
                 os.path.join(self.dirname, '*',
@@ -186,9 +185,9 @@ class RegularJobDirectory(_JobDirectory):
     def get_timestamp_if_finished(self):
         """Get the timestamp to use for finished jobs.
 
-    @returns the latest hqe finished_on time. If the finished_on times are null
-             returns the job's created_on time.
-    """
+        @returns the latest hqe finished_on time. If the finished_on times are null
+                 returns the job's created_on time.
+        """
         entry = _cached_afe().get_jobs(id=self._id, finished=True)
         if not entry:
             return None
@@ -276,9 +275,9 @@ class SwarmingJobDirectory(_JobDirectory):
     def get_timestamp_if_finished(self):
         """Get the timestamp to use for finished jobs.
 
-    @returns the latest hqe finished_on time. If the finished_on times are null
-             returns the job's created_on time.
-    """
+        @returns the latest hqe finished_on time. If the finished_on times are null
+                 returns the job's created_on time.
+        """
         marker_path = os.path.join(self.dirname, _OFFLOAD_MARKER)
         try:
             with open(marker_path) as f:

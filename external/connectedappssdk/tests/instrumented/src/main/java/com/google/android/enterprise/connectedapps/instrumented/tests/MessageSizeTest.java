@@ -27,7 +27,6 @@ import com.google.android.enterprise.connectedapps.instrumented.utils.Instrument
 import com.google.android.enterprise.connectedapps.testapp.connector.TestProfileConnector;
 import com.google.android.enterprise.connectedapps.testapp.types.ProfileTestCrossProfileType;
 import java.util.concurrent.ExecutionException;
-
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.Test;
@@ -58,23 +57,22 @@ public class MessageSizeTest {
   }
 
   @AfterClass
-  public static void teardown() {
+  public static void teardownClass() {
     utilities.ensureNoWorkProfile();
   }
 
   @Test
   public void synchronous_smallMessage_sends() throws UnavailableProfileException {
-    utilities.manuallyConnectAndWait();
+    utilities.addConnectionHolderAndWait(this);
 
     assertThat(type.other().identityStringMethod(SMALL_STRING)).isEqualTo(SMALL_STRING);
   }
 
   @Test
   public void synchronous_largeMessage_sends() throws UnavailableProfileException {
-    utilities.manuallyConnectAndWait();
+    utilities.addConnectionHolderAndWait(this);
 
-    // We can't use the asserts which compare Strings because of b/158998985
-    assertThat(type.other().identityStringMethod(LARGE_STRING).equals(LARGE_STRING)).isTrue();
+    assertThat(type.other().identityStringMethod(LARGE_STRING)).isEqualTo(LARGE_STRING);
   }
 
   @Test
@@ -90,8 +88,7 @@ public class MessageSizeTest {
     type.other()
         .asyncIdentityStringMethod(LARGE_STRING, stringCallbackListener, exceptionCallbackListener);
 
-    // We can't use the asserts which compare Strings because of b/158998985
-    assertThat(stringCallbackListener.await().equals(LARGE_STRING)).isTrue();
+    assertThat(stringCallbackListener.await()).isEqualTo(LARGE_STRING);
   }
 
   @Test

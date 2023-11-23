@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {assertTrue} from '../base/logging';
-import {PivotTree} from '../controller/pivot_table_redux_controller';
 import {RecordConfig} from '../controller/record_config_types';
-
 import {
-  AggregationAttrs,
-  PivotAttrs,
-  SubQueryAttrs,
-  TableAttrs
-} from './pivot_table_common';
+  Aggregation,
+  PivotTree,
+  TableColumn,
+} from '../frontend/pivot_table_types';
+import {TopLevelScrollSelection} from '../tracks/scroll_jank/scroll_track';
+
+import {Direction} from './event_set';
+import {TPDuration, TPTime} from './time';
 
 /**
  * A plain js object, holding objects of type |Class| keyed by string id.
@@ -30,16 +30,22 @@ import {
  */
 export interface ObjectById<Class extends{id: string}> { [id: string]: Class; }
 
-export type Timestamped<T> = {
-  [P in keyof T]: T[P];
-}&{lastUpdate: number};
+export interface Timestamped {
+  lastUpdate: number;
+}
 
 export type OmniboxMode = 'SEARCH'|'COMMAND';
 
-export type OmniboxState = Timestamped<{omnibox: string; mode: OmniboxMode}>;
+export interface OmniboxState {
+  omnibox: string;
+  mode: OmniboxMode;
+}
 
-export type VisibleState =
-    Timestamped<{startSec: number; endSec: number; resolution: number;}>;
+export interface VisibleState extends Timestamped {
+  start: TPTime;
+  end: TPTime;
+  resolution: TPDuration;
+}
 
 export interface AreaSelection {
   kind: 'AREA';
@@ -56,8 +62,8 @@ export interface AreaSelection {
 export type AreaById = Area&{id: string};
 
 export interface Area {
-  startSec: number;
-  endSec: number;
+  start: TPTime;
+  end: TPTime;
   tracks: string[];
 }
 
@@ -80,7 +86,25 @@ export const MAX_TIME = 180;
 // serialisation+deserialisation.
 // 15: Added state for Pivot Table V2
 // 16: Added boolean tracking if the flamegraph modal was dismissed
-export const STATE_VERSION = 16;
+// 17:
+// - add currentEngineId to track the id of the current engine
+// - remove nextNoteId, nextAreaId and use nextId as a unique counter for all
+//   indexing except the indexing of the engines
+// 18: areaSelection change see b/235869542
+// 19: Added visualisedArgs state.
+// 20: Refactored thread sorting order.
+// 21: Updated perf sample selection to include a ts range instead of single ts
+// 22: Add log selection kind.
+// 23: Add log filtering criteria for Android log entries.
+// 24: Store only a single Engine.
+// 25: Move omnibox state off VisibleState.
+// 26: Add tags for filtering Android log entries.
+// 27. Add a text entry for filtering Android log entries.
+// 28. Add a boolean indicating if non matching log entries are hidden.
+// 29. Add ftrace state. <-- Borked, state contains a non-serializable object.
+// 30. Convert ftraceFilter.excludedNames from Set<string> to string[].
+// 31. Convert all timestamps to bigints.
+export const STATE_VERSION = 31;
 
 export const SCROLLING_TRACK_GROUP = 'ScrollingTracks';
 
@@ -88,13 +112,69 @@ export type EngineMode = 'WASM'|'HTTP_RPC';
 
 export type NewEngineMode = 'USE_HTTP_RPC_IF_AVAILABLE'|'FORCE_BUILTIN_WASM';
 
-export enum TrackKindPriority {
-  'MAIN_THREAD' = 0,
-  'RENDER_THREAD' = 1,
-  'GPU_COMPLETION' = 2,
-  'CHROME_IO_THREAD' = 3,
-  'CHROME_COMPOSITOR' = 4,
-  'ORDINARY' = 5
+// Tracks within track groups (usually corresponding to processes) are sorted.
+// As we want to group all tracks related to a given thread together, we use
+// two keys:
+// - Primary key corresponds to a priority of a track block (all tracks related
+//   to a given thread or a single track if it's not thread-associated).
+// - Secondary key corresponds to a priority of a given thread-associated track
+//   within its thread track block.
+// Each track will have a sort key, which either a primary sort key
+// (for non-thread tracks) or a tid and secondary sort key (mapping of tid to
+// primary sort key is done independently).
+export enum PrimaryTrackSortKey {
+  DEBUG_SLICE_TRACK,
+  NULL_TRACK,
+  PROCESS_SCHEDULING_TRACK,
+  PROCESS_SUMMARY_TRACK,
+  EXPECTED_FRAMES_SLICE_TRACK,
+  ACTUAL_FRAMES_SLICE_TRACK,
+  PERF_SAMPLES_PROFILE_TRACK,
+  HEAP_PROFILE_TRACK,
+  MAIN_THREAD,
+  RENDER_THREAD,
+  GPU_COMPLETION_THREAD,
+  CHROME_IO_THREAD,
+  CHROME_COMPOSITOR_THREAD,
+  ORDINARY_THREAD,
+  COUNTER_TRACK,
+  ASYNC_SLICE_TRACK,
+  ORDINARY_TRACK,
+}
+
+// Key that is used to sort tracks within a block of tracks associated with a
+// given thread.
+export enum InThreadTrackSortKey {
+  THREAD_COUNTER_TRACK,
+  THREAD_SCHEDULING_STATE_TRACK,
+  CPU_STACK_SAMPLES_TRACK,
+  VISUALISED_ARGS_TRACK,
+  ORDINARY,
+  DEFAULT_TRACK,
+}
+
+// Sort key used for sorting tracks associated with a thread.
+export type ThreadTrackSortKey = {
+  utid: number,
+  priority: InThreadTrackSortKey,
+}
+
+// Sort key for all tracks: both thread-associated and non-thread associated.
+export type TrackSortKey = PrimaryTrackSortKey|ThreadTrackSortKey;
+
+// Mapping which defines order for threads within a given process.
+export type UtidToTrackSortKey = {
+  [utid: number]: {
+    tid?: number, sortKey: PrimaryTrackSortKey,
+  }
+}
+
+export enum ProfileType {
+  HEAP_PROFILE = 'heap_profile',
+  NATIVE_HEAP_PROFILE = 'heap_profile:libc.malloc',
+  JAVA_HEAP_SAMPLES = 'heap_profile:com.android.art',
+  JAVA_HEAP_GRAPH = 'graph',
+  PERF_SAMPLE = 'perf',
 }
 
 export type FlamegraphStateViewingOption =
@@ -154,7 +234,7 @@ export interface TrackState {
   kind: string;
   name: string;
   labels?: string[];
-  trackKindPriority: TrackKindPriority;
+  trackSortKey: TrackSortKey;
   trackGroup?: string;
   config: {
     trackId?: number;
@@ -180,7 +260,7 @@ export interface EngineConfig {
 
 export interface QueryConfig {
   id: string;
-  engineId: string;
+  engineId?: string;
   query: string;
 }
 
@@ -192,12 +272,11 @@ export interface PermalinkConfig {
 }
 
 export interface TraceTime {
-  startSec: number;
-  endSec: number;
+  start: TPTime;
+  end: TPTime;
 }
 
 export interface FrontendLocalState {
-  omniboxState: OmniboxState;
   visibleState: VisibleState;
 }
 
@@ -209,7 +288,7 @@ export interface Status {
 export interface Note {
   noteType: 'DEFAULT';
   id: string;
-  timestamp: number;
+  timestamp: TPTime;
   color: string;
   text: string;
 }
@@ -232,10 +311,18 @@ export interface SliceSelection {
   id: number;
 }
 
+export interface DebugSliceSelection {
+  kind: 'DEBUG_SLICE';
+  id: number;
+  sqlTableName: string;
+  start: TPTime;
+  duration: TPDuration;
+}
+
 export interface CounterSelection {
   kind: 'COUNTER';
-  leftTs: number;
-  rightTs: number;
+  leftTs: TPTime;
+  rightTs: TPTime;
   id: number;
 }
 
@@ -243,24 +330,25 @@ export interface HeapProfileSelection {
   kind: 'HEAP_PROFILE';
   id: number;
   upid: number;
-  ts: number;
-  type: string;
+  ts: TPTime;
+  type: ProfileType;
 }
 
 export interface PerfSamplesSelection {
   kind: 'PERF_SAMPLES';
   id: number;
   upid: number;
-  ts: number;
-  type: string;
+  leftTs: TPTime;
+  rightTs: TPTime;
+  type: ProfileType;
 }
 
 export interface FlamegraphState {
   kind: 'FLAMEGRAPH_STATE';
   upids: number[];
-  startNs: number;
-  endNs: number;
-  type: string;
+  start: TPTime;
+  end: TPTime;
+  type: ProfileType;
   viewingOption: FlamegraphStateViewingOption;
   focusRegex: string;
   expandedCallsite?: CallsiteInfo;
@@ -284,15 +372,28 @@ export interface ThreadStateSelection {
   id: number;
 }
 
-type Selection =
+export interface LogSelection {
+  kind: 'LOG';
+  id: number;
+  trackId: string;
+}
+
+export type Selection =
     (NoteSelection|SliceSelection|CounterSelection|HeapProfileSelection|
      CpuProfileSampleSelection|ChromeSliceSelection|ThreadStateSelection|
-     AreaSelection|PerfSamplesSelection)&{trackId?: string};
+     AreaSelection|PerfSamplesSelection|LogSelection|DebugSliceSelection|
+     TopLevelScrollSelection)&{trackId?: string};
 export type SelectionKind = Selection['kind'];  // 'THREAD_STATE' | 'SLICE' ...
 
-export interface LogsPagination {
+export interface Pagination {
   offset: number;
   count: number;
+}
+
+export type StringListPatch = ['add' | 'remove', string];
+
+export interface FtraceFilterPatch {
+  excludedNames: StringListPatch[];
 }
 
 export interface RecordingTarget {
@@ -320,57 +421,64 @@ export interface MetricsState {
   requestedMetric?: string;  // Unset after metric request is handled.
 }
 
-export interface PivotTableConfig {
-  availableColumns?: TableAttrs[];   // Undefined until list is loaded.
-  availableAggregations?: string[];  // Undefined until list is loaded.
-}
-
-export interface PivotTableState {
-  id: string;
-  name: string;
-  selectedPivots: PivotAttrs[];
-  selectedAggregations: AggregationAttrs[];
-  requestedAction?:  // Unset after pivot table column request is handled.
-      {action: string, attrs?: SubQueryAttrs};
-  isLoadingQuery: boolean;
-  traceTime?: TraceTime;
-  selectedTrackIds?: number[];
-}
-
 // Auxiliary metadata needed to parse the query result, as well as to render it
 // correctly. Generated together with the text of query and passed without the
 // change to the query response.
-export interface PivotTableReduxQueryMetadata {
-  tableName: string;
-  pivotColumns: string[];
-  aggregationColumns: string[];
+export interface PivotTableQueryMetadata {
+  pivotColumns: TableColumn[];
+  aggregationColumns: Aggregation[];
+  countIndex: number;
 }
 
 // Everything that's necessary to run the query for pivot table
-export interface PivotTableReduxQuery {
+export interface PivotTableQuery {
   text: string;
-  metadata: PivotTableReduxQueryMetadata;
+  metadata: PivotTableQueryMetadata;
 }
 
 // Pivot table query result
-export interface PivotTableReduxResult {
+export interface PivotTableResult {
   // Hierarchical pivot structure on top of rows
   tree: PivotTree;
   // Copy of the query metadata from the request, bundled up with the query
   // result to ensure the correct rendering.
-  metadata: PivotTableReduxQueryMetadata;
+  metadata: PivotTableQueryMetadata;
 }
 
-export interface PivotTableReduxState {
+// Input parameters to check whether the pivot table needs to be re-queried.
+export interface PivotTableAreaState {
+  areaId: string;
+  tracks: string[];
+}
+
+export type SortDirection = keyof typeof Direction;
+
+export interface PivotTableState {
   // Currently selected area, if null, pivot table is not going to be visible.
-  selectionArea: Area|null;
-  // Increasing identifier of the query request, used to avoid performing the
-  // same query more than once.
-  queryId: number;
-  // Query request
-  query: PivotTableReduxQuery|null;
+  selectionArea?: PivotTableAreaState;
+
   // Query response
-  queryResult: PivotTableReduxResult|null;
+  queryResult: PivotTableResult|null;
+
+  // Selected pivots for tables other than slice.
+  // Because of the query generation, pivoting happens first on non-slice
+  // pivots; therefore, those can't be put after slice pivots. In order to
+  // maintain the separation more clearly, slice and non-slice pivots are
+  // located in separate arrays.
+  selectedPivots: TableColumn[];
+
+  // Selected aggregation columns. Stored same way as pivots.
+  selectedAggregations: Aggregation[];
+
+  // Whether the pivot table results should be constrained to the selected area.
+  constrainToArea: boolean;
+
+  // Set to true by frontend to request controller to perform the query to
+  // acquire the necessary data from the engine.
+  queryRequested: boolean;
+
+  // Argument names in the current trace, used for autocompletion purposes.
+  argumentNames: string[];
 }
 
 export interface LoadedConfigNone {
@@ -389,13 +497,27 @@ export interface LoadedConfigNamed {
 export type LoadedConfig =
     LoadedConfigNone|LoadedConfigAutomatic|LoadedConfigNamed;
 
+export interface NonSerializableState {
+  pivotTable: PivotTableState;
+}
+
+export interface LogFilteringCriteria {
+  minimumLevel: number;
+  tags: string[];
+  textEntry: string;
+  hideNonMatching: boolean;
+}
+
+export interface FtraceFilterState {
+  // We use an exclude list rather than include list for filtering events, as we
+  // want to include all events by default but we won't know what names are
+  // present initially.
+  excludedNames: string[];
+}
+
 export interface State {
-  // tslint:disable-next-line:no-any
-  [key: string]: any;
   version: number;
-  nextId: number;
-  nextNoteId: number;
-  nextAreaId: number;
+  nextId: string;
 
   /**
    * State of the ConfigEditor.
@@ -408,12 +530,13 @@ export interface State {
    * Open traces.
    */
   newEngineMode: NewEngineMode;
-  engines: ObjectById<EngineConfig>;
+  engine?: EngineConfig;
   traceTime: TraceTime;
   traceUuid?: string;
   trackGroups: ObjectById<TrackGroupState>;
   tracks: ObjectById<TrackState>;
   uiTrackIdByTraceTrackId: {[key: number]: string;};
+  utidToThreadSortKey: UtidToTrackSortKey;
   areas: ObjectById<AreaById>;
   aggregatePreferences: ObjectById<AggregationState>;
   visibleTracks: string[];
@@ -428,11 +551,11 @@ export interface State {
   status: Status;
   currentSelection: Selection|null;
   currentFlamegraphState: FlamegraphState|null;
-  logsPagination: LogsPagination;
+  logsPagination: Pagination;
+  ftracePagination: Pagination;
+  ftraceFilter: FtraceFilterState;
   traceConversionInProgress: boolean;
-  pivotTableConfig: PivotTableConfig;
-  pivotTable: ObjectById<PivotTableState>;
-  pivotTableRedux: PivotTableReduxState;
+  visualisedArgs: string[];
 
   /**
    * This state is updated on the frontend at 60Hz and eventually syncronised to
@@ -451,8 +574,8 @@ export interface State {
   // Hovered and focused events
   hoveredUtid: number;
   hoveredPid: number;
-  hoveredLogsTimestamp: number;
-  hoveredNoteTimestamp: number;
+  hoverCursorTimestamp: TPTime;
+  hoveredNoteTimestamp: TPTime;
   highlightedSliceId: number;
   focusedFlowIdLeft: number;
   focusedFlowIdRight: number;
@@ -475,12 +598,22 @@ export interface State {
 
   fetchChromeCategories: boolean;
   chromeCategories: string[]|undefined;
-  analyzePageQuery?: string;
+
+  // Special key: this part of the state is not going to be serialized when
+  // using permalink. Can be used to store those parts of the state that can't
+  // be serialized at the moment, such as ES6 Set and Map.
+  nonSerializableState: NonSerializableState;
+
+  // Android logs filtering state.
+  logFilteringCriteria: LogFilteringCriteria;
+
+  // Omnibox info.
+  omniboxState: OmniboxState;
 }
 
 export const defaultTraceTime = {
-  startSec: 0,
-  endSec: 10,
+  start: 0n,
+  end: BigInt(10e9),
 };
 
 export declare type RecordMode =
@@ -488,11 +621,6 @@ export declare type RecordMode =
 
 // 'Q','P','O' for Android, 'L' for Linux, 'C' for Chrome.
 export declare type TargetOs = 'S' | 'R' | 'Q' | 'P' | 'O' | 'C' | 'L' | 'CrOS';
-
-export function isTargetOsAtLeast(target: RecordingTarget, osVersion: string) {
-  assertTrue(osVersion.length === 1);
-  return target.os >= osVersion;
-}
 
 export function isAndroidP(target: RecordingTarget) {
   return target.os === 'P';
@@ -520,8 +648,8 @@ export function isAdbTarget(target: RecordingTarget):
 }
 
 export function hasActiveProbes(config: RecordConfig) {
-  const fieldsWithEmptyResult =
-      new Set<string>(['hpBlockClient', 'allAtraceApps']);
+  const fieldsWithEmptyResult = new Set<string>(
+      ['hpBlockClient', 'allAtraceApps', 'chromePrivacyFiltering']);
   let key: keyof RecordConfig;
   for (key in config) {
     if (typeof (config[key]) === 'boolean' && config[key] === true &&
@@ -537,17 +665,17 @@ export function hasActiveProbes(config: RecordConfig) {
 
 export function getDefaultRecordingTargets(): RecordingTarget[] {
   return [
-    {os: 'Q', name: 'Android Q+'},
-    {os: 'P', name: 'Android P'},
-    {os: 'O', name: 'Android O-'},
+    {os: 'Q', name: 'Android Q+ / 10+'},
+    {os: 'P', name: 'Android P / 9'},
+    {os: 'O', name: 'Android O- / 8-'},
     {os: 'C', name: 'Chrome'},
     {os: 'CrOS', name: 'Chrome OS (system trace)'},
-    {os: 'L', name: 'Linux desktop'}
+    {os: 'L', name: 'Linux desktop'},
   ];
 }
 
 export function getBuiltinChromeCategoryList(): string[] {
-  // List of static Chrome categories, last updated at 2021-09-09 from HEAD of
+  // List of static Chrome categories, last updated at 2023-04-04 from HEAD of
   // Chromium's //base/trace_event/builtin_categories.h.
   return [
     'accessibility',
@@ -565,7 +693,6 @@ export function getBuiltinChromeCategoryList(): string[] {
     'blink.resource',
     'blink.user_timing',
     'blink.worker',
-    'blink_gc',
     'blink_style',
     'Blob',
     'browser',
@@ -573,6 +700,7 @@ export function getBuiltinChromeCategoryList(): string[] {
     'CacheStorage',
     'Calculators',
     'CameraStream',
+    'cppgc',
     'camera',
     'cast_app',
     'cast_perf_test',
@@ -587,6 +715,7 @@ export function getBuiltinChromeCategoryList(): string[] {
     'compositor',
     'content',
     'content_capture',
+    'delegated_ink_trails',
     'device',
     'devtools',
     'devtools.contrast',
@@ -600,17 +729,21 @@ export function getBuiltinChromeCategoryList(): string[] {
     'DXVA_Decoding',
     'evdev',
     'event',
+    'event_latency',
     'exo',
     'extensions',
     'explore_sites',
     'FileSystem',
     'file_system_provider',
+    'fledge',
     'fonts',
     'GAMEPAD',
     'gpu',
     'gpu.angle',
+    'gpu.angle.texture_metrics',
     'gpu.capture',
     'headless',
+    'history',
     'hwoverlays',
     'identity',
     'ime',
@@ -640,6 +773,7 @@ export function getBuiltinChromeCategoryList(): string[] {
     'offline_pages',
     'omnibox',
     'oobe',
+    'openscreen',
     'ozone',
     'partition_alloc',
     'passwords',
@@ -652,22 +786,26 @@ export function getBuiltinChromeCategoryList(): string[] {
     'ppapi',
     'ppapi_proxy',
     'print',
+    'raf_investigation',
     'rail',
     'renderer',
     'renderer_host',
     'renderer.scheduler',
+    'resources',
     'RLZ',
+    'ServiceWorker',
+    'SiteEngagement',
     'safe_browsing',
+    'scheduler',
+    'scheduler.long_tasks',
     'screenlock_monitor',
     'segmentation_platform',
     'sequence_manager',
     'service_manager',
-    'ServiceWorker',
     'sharing',
     'shell',
     'shortcut_viewer',
     'shutdown',
-    'SiteEngagement',
     'skia',
     'sql',
     'stadia_media',
@@ -676,7 +814,6 @@ export function getBuiltinChromeCategoryList(): string[] {
     'sync',
     'system_apps',
     'test_gpu',
-    'thread_pool',
     'toplevel',
     'toplevel.flow',
     'ui',
@@ -688,34 +825,43 @@ export function getBuiltinChromeCategoryList(): string[] {
     'views.frame',
     'viz',
     'vk',
+    'wakeup.flow',
     'wayland',
     'webaudio',
+    'webengine.fidl',
     'weblayer',
     'WebCore',
     'webrtc',
+    'webrtc_stats',
     'xr',
+    'disabled-by-default-android_view_hierarchy',
     'disabled-by-default-animation-worklet',
     'disabled-by-default-audio',
     'disabled-by-default-audio-worklet',
+    'disabled-by-default-audio.latency',
     'disabled-by-default-base',
     'disabled-by-default-blink.debug',
     'disabled-by-default-blink.debug.display_lock',
     'disabled-by-default-blink.debug.layout',
+    'disabled-by-default-blink.debug.layout.scrollbars',
     'disabled-by-default-blink.debug.layout.trees',
     'disabled-by-default-blink.feature_usage',
-    'disabled-by-default-blink_gc',
     'disabled-by-default-blink.image_decoding',
     'disabled-by-default-blink.invalidation',
+    'disabled-by-default-identifiability',
+    'disabled-by-default-identifiability.high_entropy_api',
     'disabled-by-default-cc',
     'disabled-by-default-cc.debug',
     'disabled-by-default-cc.debug.cdp-perf',
     'disabled-by-default-cc.debug.display_items',
+    'disabled-by-default-cc.debug.lcd_text',
     'disabled-by-default-cc.debug.picture',
     'disabled-by-default-cc.debug.scheduler',
     'disabled-by-default-cc.debug.scheduler.frames',
     'disabled-by-default-cc.debug.scheduler.now',
     'disabled-by-default-content.verbose',
     'disabled-by-default-cpu_profiler',
+    'disabled-by-default-cppgc',
     'disabled-by-default-cpu_profiler.debug',
     'disabled-by-default-devtools.screenshot',
     'disabled-by-default-devtools.timeline',
@@ -724,6 +870,7 @@ export function getBuiltinChromeCategoryList(): string[] {
     'disabled-by-default-devtools.timeline.invalidationTracking',
     'disabled-by-default-devtools.timeline.layers',
     'disabled-by-default-devtools.timeline.picture',
+    'disabled-by-default-devtools.timeline.stack',
     'disabled-by-default-file',
     'disabled-by-default-fonts',
     'disabled-by-default-gpu_cmd_queue',
@@ -749,7 +896,6 @@ export function getBuiltinChromeCategoryList(): string[] {
     'disabled-by-default-power',
     'disabled-by-default-renderer.scheduler',
     'disabled-by-default-renderer.scheduler.debug',
-    'disabled-by-default-sandbox',
     'disabled-by-default-sequence_manager',
     'disabled-by-default-sequence_manager.debug',
     'disabled-by-default-sequence_manager.verbose_snapshots',
@@ -767,6 +913,7 @@ export function getBuiltinChromeCategoryList(): string[] {
     'disabled-by-default-v8.gc',
     'disabled-by-default-v8.gc_stats',
     'disabled-by-default-v8.ic_stats',
+    'disabled-by-default-v8.inspector',
     'disabled-by-default-v8.runtime',
     'disabled-by-default-v8.runtime_stats',
     'disabled-by-default-v8.runtime_stats_sampling',
@@ -784,6 +931,7 @@ export function getBuiltinChromeCategoryList(): string[] {
     'disabled-by-default-viz.surface_lifetime',
     'disabled-by-default-viz.triangles',
     'disabled-by-default-webaudio.audionode',
+    'disabled-by-default-webgpu',
     'disabled-by-default-webrtc',
     'disabled-by-default-worker.scheduler',
     'disabled-by-default-xr.debug',

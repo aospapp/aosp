@@ -47,12 +47,12 @@ CliqueDUTSet objects to control.
 """
 
 
-# Dummy result error reason to be used when exception is encountered in a role.
+# Stub result error reason to be used when exception is encountered in a role.
 ROLE_SETUP_EXCEPTION = "Role Setup Exception! "
 ROLE_EXECUTE_EXCEPTION = "Role Execute Exception! "
 ROLE_CLEANUP_EXCEPTION = "Role Teardown Exception! "
 
-# Dummy result error reason to be used when exception is encountered in a role.
+# Stub result error reason to be used when exception is encountered in a role.
 POOL_SETUP_EXCEPTION = "Pool Setup Exception! "
 POOL_CLEANUP_EXCEPTION = "Pool Teardown Exception! "
 

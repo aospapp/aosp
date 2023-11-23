@@ -40,11 +40,10 @@ public class DateIntervalFormatTest {
         Calendar input2 = Calendar.getInstance(ULocale.US);
         input1.set(2019, 6, 20);
         input2.set(2019, 6, 25);
-        String expectedString = "July 20 \u2013 25, 2019";
         DateIntervalFormat.FormattedDateInterval result = fmt.formatToValue(input1, input2);
 
         StringWriter writer = new StringWriter();
         result.appendTo(writer);
-        assertEquals("July 20 \u2013 25, 2019", writer.toString());
+        assertEquals("July 20\u2009\u2013\u200925, 2019", writer.toString());
     }
 }

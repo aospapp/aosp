@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -36,7 +37,7 @@ def StartU2fd(client):
       attempts += 1
       try:
         return '/dev/' + client.run('ls ' + path).stdout.strip()
-      except error.AutoservRunError, e:
+      except error.AutoservRunError as e:
         logging.info('Could not find U2F device on attempt ' +
                      str(attempts))
       time.sleep(QUERY_U2F_RETRY_DELAY_SEC)

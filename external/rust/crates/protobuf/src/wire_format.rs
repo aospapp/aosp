@@ -1,105 +1,142 @@
-//! Serialization constants.
+//! Constants used in serializations.
 
-// TODO: temporary
-pub use self::WireType::*;
+use crate::descriptor::field_descriptor_proto;
+use crate::error::WireError;
 
-/// Tag occupies 3 bits
-pub const TAG_TYPE_BITS: u32 = 3;
-/// Tag mask
-pub const TAG_TYPE_MASK: u32 = (1u32 << TAG_TYPE_BITS) - 1;
+/// Tag occupies three bits.
+pub(crate) const TAG_TYPE_BITS: u32 = 3;
+/// Apply this mask to varint value to obtain a tag.
+pub(crate) const TAG_TYPE_MASK: u32 = (1u32 << TAG_TYPE_BITS as usize) - 1;
 /// Max possible field number
-pub const FIELD_NUMBER_MAX: u32 = 0x1fffffff;
+pub(crate) const FIELD_NUMBER_MAX: u32 = 0x1fffffff;
 
-/// One of six defined protobuf wire types
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub enum WireType {
-    /// Varint (e. g. `int32` or `sint64`)
-    WireTypeVarint = 0,
-    /// Fixed size 64 bit (e. g. `fixed64` or `double`)
-    WireTypeFixed64 = 1,
-    /// Length-delimited (e. g. `message` or `string`)
-    WireTypeLengthDelimited = 2,
-    /// Groups are not supported by rust-protobuf
-    WireTypeStartGroup = 3,
-    /// Groups are not supported by rust-protobuf
-    WireTypeEndGroup = 4,
-    /// Fixed size 64 bit (e. g. `fixed32` or `float`)
-    WireTypeFixed32 = 5,
+pub(crate) const MAX_MESSAGE_SIZE: u64 = i32::MAX as u64;
+
+#[inline]
+pub(crate) fn check_message_size(size: u64) -> crate::Result<u32> {
+    if size <= MAX_MESSAGE_SIZE {
+        Ok(size as u32)
+    } else {
+        #[cold]
+        fn message_too_large(size: u64) -> crate::Error {
+            WireError::MessageTooLarge(size).into()
+        }
+
+        Err(message_too_large(size))
+    }
 }
 
-impl Copy for WireType {}
+/// All supported "wire types" are listed in this enum.
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub enum WireType {
+    /// Variable-length integer
+    Varint = 0,
+    /// 32-bit field (e. g. `fixed64` or `double`)
+    Fixed64 = 1,
+    /// Length-delimited field
+    LengthDelimited = 2,
+    /// Groups are not supported in rust-protobuf
+    StartGroup = 3,
+    /// Groups are not supported in rust-protobuf
+    EndGroup = 4,
+    /// 32-bit field (e. g. `fixed32` or `float`)
+    Fixed32 = 5,
+}
 
 impl WireType {
-    /// Parse wire type
+    /// Construct `WireType` from number, or return `None` if type is unknown.
     pub fn new(n: u32) -> Option<WireType> {
         match n {
-            0 => Some(WireTypeVarint),
-            1 => Some(WireTypeFixed64),
-            2 => Some(WireTypeLengthDelimited),
-            3 => Some(WireTypeStartGroup),
-            4 => Some(WireTypeEndGroup),
-            5 => Some(WireTypeFixed32),
+            0 => Some(WireType::Varint),
+            1 => Some(WireType::Fixed64),
+            2 => Some(WireType::LengthDelimited),
+            3 => Some(WireType::StartGroup),
+            4 => Some(WireType::EndGroup),
+            5 => Some(WireType::Fixed32),
             _ => None,
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn for_type(field_type: field_descriptor_proto::Type) -> WireType {
+        use field_descriptor_proto::Type;
+        match field_type {
+            Type::TYPE_INT32 => WireType::Varint,
+            Type::TYPE_INT64 => WireType::Varint,
+            Type::TYPE_UINT32 => WireType::Varint,
+            Type::TYPE_UINT64 => WireType::Varint,
+            Type::TYPE_SINT32 => WireType::Varint,
+            Type::TYPE_SINT64 => WireType::Varint,
+            Type::TYPE_BOOL => WireType::Varint,
+            Type::TYPE_ENUM => WireType::Varint,
+            Type::TYPE_FIXED32 => WireType::Fixed32,
+            Type::TYPE_FIXED64 => WireType::Fixed64,
+            Type::TYPE_SFIXED32 => WireType::Fixed32,
+            Type::TYPE_SFIXED64 => WireType::Fixed64,
+            Type::TYPE_FLOAT => WireType::Fixed32,
+            Type::TYPE_DOUBLE => WireType::Fixed64,
+            Type::TYPE_STRING => WireType::LengthDelimited,
+            Type::TYPE_BYTES => WireType::LengthDelimited,
+            Type::TYPE_MESSAGE => WireType::LengthDelimited,
+            Type::TYPE_GROUP => WireType::LengthDelimited, // not true
         }
     }
 }
 
-/// Parsed protobuf tag, which is a pair of field number and wire type
-#[derive(Clone)]
-pub struct Tag {
+/// Parsed field tag (a pair of field number and wire type)
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct Tag {
     field_number: u32,
     wire_type: WireType,
 }
 
-impl Copy for Tag {}
-
 impl Tag {
-    /// Pack a tag to integer
-    pub fn value(self) -> u32 {
+    /// Fold tag to a number to be serialized.
+    pub(crate) fn value(self) -> u32 {
         (self.field_number << TAG_TYPE_BITS) | (self.wire_type as u32)
     }
 
-    /// Parse integer into `Tag` object
-    // TODO: should return Result instead of Option
-    pub fn new(value: u32) -> Option<Tag> {
+    /// Extract wire type and field number from integer tag
+    pub(crate) fn new(value: u32) -> crate::Result<Tag> {
         let wire_type = WireType::new(value & TAG_TYPE_MASK);
         if wire_type.is_none() {
-            return None;
+            return Err(WireError::IncorrectTag(value).into());
         }
         let field_number = value >> TAG_TYPE_BITS;
         if field_number == 0 {
-            return None;
+            return Err(WireError::IncorrectTag(value).into());
         }
-        Some(Tag {
-            field_number: field_number,
+        Ok(Tag {
+            field_number,
             wire_type: wire_type.unwrap(),
         })
     }
 
-    /// Create a tag from a field number and wire type.
+    /// Construct a tag from a field number and wire type.
     ///
     /// # Panics
     ///
-    /// If field number is outside of allowed range.
-    pub fn make(field_number: u32, wire_type: WireType) -> Tag {
+    /// If field number is outside of valid range.
+    pub(crate) fn make(field_number: u32, wire_type: WireType) -> Tag {
         assert!(field_number > 0 && field_number <= FIELD_NUMBER_MAX);
         Tag {
-            field_number: field_number,
-            wire_type: wire_type,
+            field_number,
+            wire_type,
         }
     }
 
-    /// Tag as pair of (field number, wire type)
-    pub fn unpack(self) -> (u32, WireType) {
+    /// Get field number and wire type
+    pub(crate) fn unpack(self) -> (u32, WireType) {
         (self.field_number(), self.wire_type())
     }
 
+    /// Get wire type
     fn wire_type(self) -> WireType {
         self.wire_type
     }
 
-    /// Protobuf field number
-    pub fn field_number(self) -> u32 {
+    /// Get field number
+    pub(crate) fn field_number(self) -> u32 {
         self.field_number
     }
 }

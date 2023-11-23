@@ -128,7 +128,7 @@ class TestStationHost(base_classes.Host):
                  ignore_timeout is True.
         """
         # TODO (sbasi/kevcheng) - Make teststation_host check if running
-        # on Chrome OS, rather than MobLab when prepending sudo to fastboot.
+        # on ChromeOS, rather than MobLab when prepending sudo to fastboot.
         if cmd.startswith('fastboot ') and self.is_moblab:
             cmd = 'sudo -n ' + cmd
         if force_tty:

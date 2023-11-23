@@ -1,47 +1,27 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use arch::android::create_android_fdt;
-use arch::fdt::{Error, FdtWriter};
-use data_model::DataInit;
 use std::fs::File;
-use std::mem;
-use vm_memory::{GuestAddress, GuestMemory};
+use std::path::PathBuf;
 
-use crate::bootparam::setup_data;
-use crate::{SETUP_DTB, X86_64_FDT_MAX_SIZE};
+use arch::android::create_android_fdt;
+use cros_fdt::Error;
+use cros_fdt::FdtWriter;
 
-// Like `setup_data` without the incomplete array field at the end, which allows us to safely
-// implement Copy, Clone, and DataInit.
-#[repr(C)]
-#[derive(Copy, Clone, Default)]
-struct setup_data_hdr {
-    pub next: u64,
-    pub type_: u32,
-    pub len: u32,
-}
-
-unsafe impl DataInit for setup_data_hdr {}
+use crate::SetupData;
+use crate::SetupDataType;
 
 /// Creates a flattened device tree containing all of the parameters for the
-/// kernel and loads it into the guest memory at the specified offset.
+/// kernel and returns it as `SetupData`.
 ///
 /// # Arguments
 ///
-/// * `fdt_max_size` - The amount of space reserved for the device tree
-/// * `guest_mem` - The guest memory object
-/// * `fdt_load_offset` - The offset into physical memory for the device tree
 /// * `android_fstab` - the File object for the android fstab
 pub fn create_fdt(
-    fdt_max_size: usize,
-    guest_mem: &GuestMemory,
-    fdt_load_offset: u64,
     android_fstab: File,
-) -> Result<usize, Error> {
-    // Reserve space for the setup_data
-    let fdt_data_size = fdt_max_size - mem::size_of::<setup_data>();
-
+    dump_device_tree_blob: Option<PathBuf>,
+) -> Result<SetupData, Error> {
     let mut fdt = FdtWriter::new(&[]);
 
     // The whole thing is put into one giant node with some top level properties
@@ -49,34 +29,15 @@ pub fn create_fdt(
     create_android_fdt(&mut fdt, android_fstab)?;
     fdt.end_node(root_node)?;
 
-    let fdt_final = fdt.finish(fdt_data_size)?;
+    let fdt_final = fdt.finish()?;
 
-    assert_eq!(
-        mem::size_of::<setup_data>(),
-        mem::size_of::<setup_data_hdr>()
-    );
-    let hdr = setup_data_hdr {
-        next: 0,
-        type_: SETUP_DTB,
-        len: fdt_data_size as u32,
-    };
-
-    assert!(fdt_data_size as u64 <= X86_64_FDT_MAX_SIZE);
-
-    let fdt_address = GuestAddress(fdt_load_offset);
-    guest_mem
-        .checked_offset(fdt_address, fdt_data_size as u64)
-        .ok_or(Error::FdtGuestMemoryWriteError)?;
-    guest_mem
-        .write_obj_at_addr(hdr, fdt_address)
-        .map_err(|_| Error::FdtGuestMemoryWriteError)?;
-
-    let fdt_data_address = GuestAddress(fdt_load_offset + mem::size_of::<setup_data>() as u64);
-    let written = guest_mem
-        .write_at_addr(fdt_final.as_slice(), fdt_data_address)
-        .map_err(|_| Error::FdtGuestMemoryWriteError)?;
-    if written < fdt_data_size {
-        return Err(Error::FdtGuestMemoryWriteError);
+    if let Some(file_path) = dump_device_tree_blob {
+        std::fs::write(&file_path, &fdt_final)
+            .map_err(|e| Error::FdtDumpIoError(e, file_path.clone()))?;
     }
-    Ok(fdt_data_size)
+
+    Ok(SetupData {
+        data: fdt_final,
+        type_: SetupDataType::Dtb,
+    })
 }

@@ -4,6 +4,8 @@ pub use self::os::*;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 mod os {
     use crate::sys::utsname::uname;
+    use crate::Result;
+    use std::os::unix::ffi::OsStrExt;
 
     // Features:
     // * atomic cloexec on socket: 2.6.27
@@ -11,10 +13,10 @@ mod os {
     // * accept4: 2.6.28
 
     static VERS_UNKNOWN: usize = 1;
-    static VERS_2_6_18:  usize = 2;
-    static VERS_2_6_27:  usize = 3;
-    static VERS_2_6_28:  usize = 4;
-    static VERS_3:       usize = 5;
+    static VERS_2_6_18: usize = 2;
+    static VERS_2_6_27: usize = 3;
+    static VERS_2_6_28: usize = 4;
+    static VERS_3: usize = 5;
 
     #[inline]
     fn digit(dst: &mut usize, b: u8) {
@@ -22,15 +24,15 @@ mod os {
         *dst += (b - b'0') as usize;
     }
 
-    fn parse_kernel_version() -> usize {
-        let u = uname();
+    fn parse_kernel_version() -> Result<usize> {
+        let u = uname()?;
 
-        let mut curr:  usize = 0;
+        let mut curr: usize = 0;
         let mut major: usize = 0;
         let mut minor: usize = 0;
         let mut patch: usize = 0;
 
-        for b in u.release().bytes() {
+        for &b in u.release().as_bytes() {
             if curr >= 3 {
                 break;
             }
@@ -39,18 +41,16 @@ mod os {
                 b'.' | b'-' => {
                     curr += 1;
                 }
-                b'0'..=b'9' => {
-                    match curr {
-                        0 => digit(&mut major, b),
-                        1 => digit(&mut minor, b),
-                        _ => digit(&mut patch, b),
-                    }
-                }
+                b'0'..=b'9' => match curr {
+                    0 => digit(&mut major, b),
+                    1 => digit(&mut minor, b),
+                    _ => digit(&mut patch, b),
+                },
                 _ => break,
             }
         }
 
-        if major >= 3 {
+        Ok(if major >= 3 {
             VERS_3
         } else if major >= 2 {
             if minor >= 7 {
@@ -68,29 +68,31 @@ mod os {
             }
         } else {
             VERS_UNKNOWN
-        }
+        })
     }
 
-    fn kernel_version() -> usize {
+    fn kernel_version() -> Result<usize> {
         static mut KERNEL_VERS: usize = 0;
 
         unsafe {
             if KERNEL_VERS == 0 {
-                KERNEL_VERS = parse_kernel_version();
+                KERNEL_VERS = parse_kernel_version()?;
             }
 
-            KERNEL_VERS
+            Ok(KERNEL_VERS)
         }
     }
 
     /// Check if the OS supports atomic close-on-exec for sockets
     pub fn socket_atomic_cloexec() -> bool {
-        kernel_version() >= VERS_2_6_27
+        kernel_version()
+            .map(|version| version >= VERS_2_6_27)
+            .unwrap_or(false)
     }
 
     #[test]
     pub fn test_parsing_kernel_version() {
-        assert!(kernel_version() > 0);
+        assert!(kernel_version().unwrap() > 0);
     }
 }
 
@@ -109,10 +111,13 @@ mod os {
     }
 }
 
-#[cfg(any(target_os = "macos",
-          target_os = "ios",
-          target_os = "fuchsia",
-          target_os = "solaris"))]
+#[cfg(any(
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "fuchsia",
+    target_os = "haiku",
+    target_os = "solaris"
+))]
 mod os {
     /// Check if the OS supports atomic close-on-exec for sockets
     pub const fn socket_atomic_cloexec() -> bool {

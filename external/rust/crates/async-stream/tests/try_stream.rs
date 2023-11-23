@@ -66,7 +66,7 @@ async fn multi_try() {
     fn test() -> impl Stream<Item = Result<i32, String>> {
         try_stream! {
             let a = Ok::<_,  String>(Ok::<_,  String>(123))??;
-            for _ in (1..10) {
+            for _ in 1..10 {
                 yield a;
             }
         }
@@ -77,4 +77,11 @@ async fn multi_try() {
         std::iter::repeat(123).take(9).map(Ok).collect::<Vec<_>>(),
         values
     );
+}
+
+#[allow(unused)]
+fn issue_65() -> impl Stream<Item = Result<u32, ()>> {
+    try_stream! {
+        yield Err(())?;
+    }
 }

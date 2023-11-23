@@ -19,17 +19,20 @@
 
 #include <gtest/gtest.h>
 
+#include <openssl/asn1.h>
 #include <openssl/bio.h>
 #include <openssl/bytestring.h>
 #include <openssl/crypto.h>
 #include <openssl/curve25519.h>
 #include <openssl/digest.h>
 #include <openssl/err.h>
+#include <openssl/nid.h>
 #include <openssl/pem.h>
 #include <openssl/pool.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
+#include "internal.h"
 #include "../internal.h"
 #include "../test/test_util.h"
 #include "../x509v3/internal.h"
@@ -438,6 +441,40 @@ NN/56aQz3bnT/ZSHQNciRB8U6jiD9V30t0w+FDTpGaG+7bzzUH3UVF9xf9Ctp60A
 3mfLe0scas7owSt4AEFuj2SPvcE7yvdOXbu+IEv21cEJUVExJAbhvIweHXh6yRW+
 7VVeiNzdIjkZjyTmAzoXGha4+wbxXyBRbfH+XWcO/H+8nwyG8Gktdu2QB9S9nnIp
 o/1TpfOMSGhMyMoyPrk=
+-----END X509 CRL-----
+)";
+
+// kAlgorithmMismatchCRL is kBasicCRL but with mismatched AlgorithmIdentifiers
+// in the outer structure and signed portion. The signature reflects the signed
+// portion.
+static const char kAlgorithmMismatchCRL[] = R"(
+-----BEGIN X509 CRL-----
+MIIBpzCBkAIBATANBgkqhkiG9w0BAQsFADBOMQswCQYDVQQGEwJVUzETMBEGA1UE
+CAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNTW91bnRhaW4gVmlldzESMBAGA1UECgwJ
+Qm9yaW5nU1NMFw0xNjA5MjYxNTEwNTVaFw0xNjEwMjYxNTEwNTVaoA4wDDAKBgNV
+HRQEAwIBATANBgkqhkiG9w0BAQwFAAOCAQEAnrBKKgvd9x9zwK9rtUvVeFeJ7+LN
+ZEAc+a5oxpPNEsJx6hXoApYEbzXMxuWBQoCs5iEBycSGudct21L+MVf27M38KrWo
+eOkq0a2siqViQZO2Fb/SUFR0k9zb8xl86Zf65lgPplALun0bV/HT7MJcl04Tc4os
+dsAReBs5nqTGNEd5AlC1iKHvQZkM//MD51DspKnDpsDiUVi54h9C1SpfZmX8H2Vv
+diyu0fZ/bPAM3VAGawatf/SyWfBMyKpoPXEG39oAzmjjOj8en82psn7m474IGaho
+/vBbhl1ms5qQiLYPjm4YELtnXQoFyC72tBjbdFd/ZE9k4CNKDbxFUXFbkw==
+-----END X509 CRL-----
+)";
+
+// kAlgorithmMismatchCRL2 is kBasicCRL but with mismatched AlgorithmIdentifiers
+// in the outer structure and signed portion. The signature reflects the outer
+// structure.
+static const char kAlgorithmMismatchCRL2[] = R"(
+-----BEGIN X509 CRL-----
+MIIBpzCBkAIBATANBgkqhkiG9w0BAQwFADBOMQswCQYDVQQGEwJVUzETMBEGA1UE
+CAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNTW91bnRhaW4gVmlldzESMBAGA1UECgwJ
+Qm9yaW5nU1NMFw0xNjA5MjYxNTEwNTVaFw0xNjEwMjYxNTEwNTVaoA4wDDAKBgNV
+HRQEAwIBATANBgkqhkiG9w0BAQsFAAOCAQEAjCWtU7AK8nQ5TCFfzvbU04MWNuLp
+iZfqapRSRyMta4pyRomK773rEmJmYOc/ZNeIphVOlupMgGC2wyv5Z/SD1mxccJbv
+SlUWciwjskjgvyyU9KnJ5xPgf3e3Fl3G0u9yJEFd4mg6fRavs5pEDX56b0f+SkG+
+Vl1FZU94Uylm2kCqk9fRpTxualPGP6dksj3Aitt4x2Vdni4sUfg9vIEEOx2jnisq
+iLqpT94IdETCWAciE0dgbogdOOsNzMqSASfHM/XPigYLXpYgfaR8fca6OKDwFsVH
+SrkFz8Se3F6mCHnbDzYElbmA46iKU2J12LTrso3Ewq/qHq0mebfp2z0y6g==
 -----END X509 CRL-----
 )";
 
@@ -1069,6 +1106,8 @@ static bssl::UniquePtr<STACK_OF(X509_CRL)> CRLsToStack(
   return stack;
 }
 
+static const time_t kReferenceTime = 1474934400 /* Sep 27th, 2016 */;
+
 static int Verify(X509 *leaf, const std::vector<X509 *> &roots,
                   const std::vector<X509 *> &intermediates,
                   const std::vector<X509_CRL *> &crls, unsigned long flags,
@@ -1111,7 +1150,7 @@ static int Verify(X509 *leaf, const std::vector<X509 *> &roots,
   if (param == nullptr) {
     return X509_V_ERR_UNSPECIFIED;
   }
-  X509_VERIFY_PARAM_set_time(param, 1474934400 /* Sep 27th, 2016 */);
+  X509_VERIFY_PARAM_set_time(param, kReferenceTime);
   X509_VERIFY_PARAM_set_depth(param, 16);
   if (configure_callback) {
     configure_callback(param);
@@ -1363,6 +1402,10 @@ TEST(X509Test, TestCRL) {
       CRLFromPEM(kUnknownCriticalCRL));
   bssl::UniquePtr<X509_CRL> unknown_critical_crl2(
       CRLFromPEM(kUnknownCriticalCRL2));
+  bssl::UniquePtr<X509_CRL> algorithm_mismatch_crl(
+      CRLFromPEM(kAlgorithmMismatchCRL));
+  bssl::UniquePtr<X509_CRL> algorithm_mismatch_crl2(
+      CRLFromPEM(kAlgorithmMismatchCRL2));
 
   ASSERT_TRUE(root);
   ASSERT_TRUE(leaf);
@@ -1372,30 +1415,38 @@ TEST(X509Test, TestCRL) {
   ASSERT_TRUE(known_critical_crl);
   ASSERT_TRUE(unknown_critical_crl);
   ASSERT_TRUE(unknown_critical_crl2);
+  ASSERT_TRUE(algorithm_mismatch_crl);
+  ASSERT_TRUE(algorithm_mismatch_crl2);
 
-  ASSERT_EQ(X509_V_OK, Verify(leaf.get(), {root.get()}, {root.get()},
+  EXPECT_EQ(X509_V_OK, Verify(leaf.get(), {root.get()}, {root.get()},
                               {basic_crl.get()}, X509_V_FLAG_CRL_CHECK));
-  ASSERT_EQ(
+  EXPECT_EQ(
       X509_V_ERR_CERT_REVOKED,
       Verify(leaf.get(), {root.get()}, {root.get()},
              {basic_crl.get(), revoked_crl.get()}, X509_V_FLAG_CRL_CHECK));
 
   std::vector<X509_CRL *> empty_crls;
-  ASSERT_EQ(X509_V_ERR_UNABLE_TO_GET_CRL,
+  EXPECT_EQ(X509_V_ERR_UNABLE_TO_GET_CRL,
             Verify(leaf.get(), {root.get()}, {root.get()}, empty_crls,
                    X509_V_FLAG_CRL_CHECK));
-  ASSERT_EQ(X509_V_ERR_UNABLE_TO_GET_CRL,
+  EXPECT_EQ(X509_V_ERR_UNABLE_TO_GET_CRL,
             Verify(leaf.get(), {root.get()}, {root.get()},
                    {bad_issuer_crl.get()}, X509_V_FLAG_CRL_CHECK));
-  ASSERT_EQ(X509_V_OK,
+  EXPECT_EQ(X509_V_OK,
             Verify(leaf.get(), {root.get()}, {root.get()},
                    {known_critical_crl.get()}, X509_V_FLAG_CRL_CHECK));
-  ASSERT_EQ(X509_V_ERR_UNHANDLED_CRITICAL_CRL_EXTENSION,
+  EXPECT_EQ(X509_V_ERR_UNHANDLED_CRITICAL_CRL_EXTENSION,
             Verify(leaf.get(), {root.get()}, {root.get()},
                    {unknown_critical_crl.get()}, X509_V_FLAG_CRL_CHECK));
-  ASSERT_EQ(X509_V_ERR_UNHANDLED_CRITICAL_CRL_EXTENSION,
+  EXPECT_EQ(X509_V_ERR_UNHANDLED_CRITICAL_CRL_EXTENSION,
             Verify(leaf.get(), {root.get()}, {root.get()},
                    {unknown_critical_crl2.get()}, X509_V_FLAG_CRL_CHECK));
+  EXPECT_EQ(X509_V_ERR_CRL_SIGNATURE_FAILURE,
+            Verify(leaf.get(), {root.get()}, {root.get()},
+                   {algorithm_mismatch_crl.get()}, X509_V_FLAG_CRL_CHECK));
+  EXPECT_EQ(X509_V_ERR_CRL_SIGNATURE_FAILURE,
+            Verify(leaf.get(), {root.get()}, {root.get()},
+                   {algorithm_mismatch_crl2.get()}, X509_V_FLAG_CRL_CHECK));
 
   // Parsing kBadExtensionCRL should fail.
   EXPECT_FALSE(CRLFromPEM(kBadExtensionCRL));
@@ -1440,6 +1491,211 @@ TEST(X509Test, ManyNamesAndConstraints) {
                               {many_constraints.get()}, {}));
   EXPECT_EQ(X509_V_OK, Verify(some_names3.get(), {many_constraints.get()},
                               {many_constraints.get()}, {}));
+}
+
+static bssl::UniquePtr<GENERAL_NAME> MakeGeneralName(int type,
+                                                     const std::string &value) {
+  if (type != GEN_EMAIL && type != GEN_DNS && type != GEN_URI) {
+    // This function only supports the IA5String types.
+    return nullptr;
+  }
+  bssl::UniquePtr<ASN1_IA5STRING> str(ASN1_IA5STRING_new());
+  bssl::UniquePtr<GENERAL_NAME> name(GENERAL_NAME_new());
+  if (!str || !name ||
+      !ASN1_STRING_set(str.get(), value.data(), value.size())) {
+    return nullptr;
+  }
+
+  name->type = type;
+  name->d.ia5 = str.release();
+  return name;
+}
+
+static bssl::UniquePtr<X509> MakeTestCert(const char *issuer,
+                                          const char *subject, EVP_PKEY *key) {
+  bssl::UniquePtr<X509> cert(X509_new());
+  if (!cert ||  //
+      !X509_set_version(cert.get(), X509_VERSION_3) ||
+      !X509_NAME_add_entry_by_txt(
+          X509_get_issuer_name(cert.get()), "CN", MBSTRING_UTF8,
+          reinterpret_cast<const uint8_t *>(issuer), -1, -1, 0) ||
+      !X509_NAME_add_entry_by_txt(
+          X509_get_subject_name(cert.get()), "CN", MBSTRING_UTF8,
+          reinterpret_cast<const uint8_t *>(subject), -1, -1, 0) ||
+      !X509_set_pubkey(cert.get(), key) ||
+      !ASN1_TIME_adj(X509_getm_notBefore(cert.get()), kReferenceTime, -1, 0) ||
+      !ASN1_TIME_adj(X509_getm_notAfter(cert.get()), kReferenceTime, 1, 0)) {
+    return nullptr;
+  }
+  return cert;
+}
+
+TEST(X509Test, NameConstraints) {
+  bssl::UniquePtr<EVP_PKEY> key = PrivateKeyFromPEM(kP256Key);
+  ASSERT_TRUE(key);
+
+  const struct {
+    int type;
+    std::string name;
+    std::string constraint;
+    int result;
+  } kTests[] = {
+      // Empty string matches everything.
+      {GEN_DNS, "foo.example.com", "", X509_V_OK},
+      // Name constraints match the entire subtree.
+      {GEN_DNS, "foo.example.com", "example.com", X509_V_OK},
+      {GEN_DNS, "foo.example.com", "EXAMPLE.COM", X509_V_OK},
+      {GEN_DNS, "foo.example.com", "xample.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_DNS, "foo.example.com", "unrelated.much.longer.name.example",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      // A leading dot means at least one component must be added.
+      {GEN_DNS, "foo.example.com", ".example.com", X509_V_OK},
+      {GEN_DNS, "foo.example.com", "foo.example.com", X509_V_OK},
+      {GEN_DNS, "foo.example.com", ".foo.example.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_DNS, "foo.example.com", ".xample.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_DNS, "foo.example.com", ".unrelated.much.longer.name.example",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      // NUL bytes, if not rejected, should not confuse the matching logic.
+      {GEN_DNS, std::string({'a', '\0', 'a'}), std::string({'a', '\0', 'b'}),
+       X509_V_ERR_PERMITTED_VIOLATION},
+
+      // Names must be emails.
+      {GEN_EMAIL, "not-an-email.example", "not-an-email.example",
+       X509_V_ERR_UNSUPPORTED_NAME_SYNTAX},
+      // A leading dot matches all local names and all subdomains
+      {GEN_EMAIL, "foo@bar.example.com", ".example.com", X509_V_OK},
+      {GEN_EMAIL, "foo@bar.example.com", ".EXAMPLE.COM", X509_V_OK},
+      {GEN_EMAIL, "foo@bar.example.com", ".bar.example.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      // Without a leading dot, the host must match exactly.
+      {GEN_EMAIL, "foo@example.com", "example.com", X509_V_OK},
+      {GEN_EMAIL, "foo@example.com", "EXAMPLE.COM", X509_V_OK},
+      {GEN_EMAIL, "foo@bar.example.com", "example.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      // If the constraint specifies a mailbox, it specifies the whole thing.
+      // The halves are compared insensitively.
+      {GEN_EMAIL, "foo@example.com", "foo@example.com", X509_V_OK},
+      {GEN_EMAIL, "foo@example.com", "foo@EXAMPLE.COM", X509_V_OK},
+      {GEN_EMAIL, "foo@example.com", "FOO@example.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_EMAIL, "foo@example.com", "bar@example.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      // OpenSSL ignores a stray leading @.
+      {GEN_EMAIL, "foo@example.com", "@example.com", X509_V_OK},
+      {GEN_EMAIL, "foo@example.com", "@EXAMPLE.COM", X509_V_OK},
+      {GEN_EMAIL, "foo@bar.example.com", "@example.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+
+      // Basic syntax check.
+      {GEN_URI, "not-a-url", "not-a-url", X509_V_ERR_UNSUPPORTED_NAME_SYNTAX},
+      {GEN_URI, "foo:not-a-url", "not-a-url",
+       X509_V_ERR_UNSUPPORTED_NAME_SYNTAX},
+      {GEN_URI, "foo:/not-a-url", "not-a-url",
+       X509_V_ERR_UNSUPPORTED_NAME_SYNTAX},
+      {GEN_URI, "foo:///not-a-url", "not-a-url",
+       X509_V_ERR_UNSUPPORTED_NAME_SYNTAX},
+      {GEN_URI, "foo://:not-a-url", "not-a-url",
+       X509_V_ERR_UNSUPPORTED_NAME_SYNTAX},
+      {GEN_URI, "foo://", "not-a-url", X509_V_ERR_UNSUPPORTED_NAME_SYNTAX},
+      // Hosts are an exact match.
+      {GEN_URI, "foo://example.com", "example.com", X509_V_OK},
+      {GEN_URI, "foo://example.com:443", "example.com", X509_V_OK},
+      {GEN_URI, "foo://example.com/whatever", "example.com", X509_V_OK},
+      {GEN_URI, "foo://bar.example.com", "example.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://bar.example.com:443", "example.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://bar.example.com/whatever", "example.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://bar.example.com", "xample.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://bar.example.com:443", "xample.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://bar.example.com/whatever", "xample.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://example.com", "some-other-name.example",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://example.com:443", "some-other-name.example",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://example.com/whatever", "some-other-name.example",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      // A leading dot allows components to be added.
+      {GEN_URI, "foo://example.com", ".example.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://example.com:443", ".example.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://example.com/whatever", ".example.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://bar.example.com", ".example.com", X509_V_OK},
+      {GEN_URI, "foo://bar.example.com:443", ".example.com", X509_V_OK},
+      {GEN_URI, "foo://bar.example.com/whatever", ".example.com", X509_V_OK},
+      {GEN_URI, "foo://example.com", ".some-other-name.example",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://example.com:443", ".some-other-name.example",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://example.com/whatever", ".some-other-name.example",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://example.com", ".xample.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://example.com:443", ".xample.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+      {GEN_URI, "foo://example.com/whatever", ".xample.com",
+       X509_V_ERR_PERMITTED_VIOLATION},
+  };
+  for (const auto &t : kTests) {
+    SCOPED_TRACE(t.type);
+    SCOPED_TRACE(t.name);
+    SCOPED_TRACE(t.constraint);
+
+    bssl::UniquePtr<GENERAL_NAME> name = MakeGeneralName(t.type, t.name);
+    ASSERT_TRUE(name);
+    bssl::UniquePtr<GENERAL_NAMES> names(GENERAL_NAMES_new());
+    ASSERT_TRUE(names);
+    ASSERT_TRUE(bssl::PushToStack(names.get(), std::move(name)));
+
+    bssl::UniquePtr<NAME_CONSTRAINTS> nc(NAME_CONSTRAINTS_new());
+    ASSERT_TRUE(nc);
+    nc->permittedSubtrees = sk_GENERAL_SUBTREE_new_null();
+    ASSERT_TRUE(nc->permittedSubtrees);
+    bssl::UniquePtr<GENERAL_SUBTREE> subtree(GENERAL_SUBTREE_new());
+    ASSERT_TRUE(subtree);
+    GENERAL_NAME_free(subtree->base);
+    subtree->base = MakeGeneralName(t.type, t.constraint).release();
+    ASSERT_TRUE(subtree->base);
+    ASSERT_TRUE(bssl::PushToStack(nc->permittedSubtrees, std::move(subtree)));
+
+    bssl::UniquePtr<X509> root = MakeTestCert("Root", "Root", key.get());
+    ASSERT_TRUE(root);
+    ASSERT_TRUE(X509_add1_ext_i2d(root.get(), NID_name_constraints, nc.get(),
+                                  /*crit=*/1, /*flags=*/0));
+    ASSERT_TRUE(X509_sign(root.get(), key.get(), EVP_sha256()));
+
+    bssl::UniquePtr<X509> leaf = MakeTestCert("Root", "Leaf", key.get());
+    ASSERT_TRUE(leaf);
+    ASSERT_TRUE(X509_add1_ext_i2d(leaf.get(), NID_subject_alt_name, names.get(),
+                                  /*crit=*/0, /*flags=*/0));
+    ASSERT_TRUE(X509_sign(leaf.get(), key.get(), EVP_sha256()));
+
+    int ret = Verify(leaf.get(), {root.get()}, {}, {}, 0);
+    EXPECT_EQ(t.result, ret) << X509_verify_cert_error_string(ret);
+  }
+}
+
+TEST(X509Test, PrintGeneralName) {
+  // TODO(https://crbug.com/boringssl/430): Add more tests. Also fix the
+  // external projects that use this to extract the SAN list and unexport.
+  bssl::UniquePtr<GENERAL_NAME> gen = MakeGeneralName(GEN_DNS, "example.com");
+  ASSERT_TRUE(gen);
+  bssl::UniquePtr<STACK_OF(CONF_VALUE)> values(
+      i2v_GENERAL_NAME(nullptr, gen.get(), nullptr));
+  ASSERT_TRUE(values);
+  ASSERT_EQ(1u, sk_CONF_VALUE_num(values.get()));
+  const CONF_VALUE *value = sk_CONF_VALUE_value(values.get(), 0);
+  EXPECT_STREQ(value->name, "DNS");
+  EXPECT_STREQ(value->value, "example.com");
 }
 
 TEST(X509Test, TestPSS) {
@@ -1599,7 +1855,7 @@ TEST(X509Test, RSASignManual) {
     if (new_cert) {
       cert.reset(X509_new());
       // Fill in some fields for the certificate arbitrarily.
-      EXPECT_TRUE(X509_set_version(cert.get(), 2 /* X.509v3 */));
+      EXPECT_TRUE(X509_set_version(cert.get(), X509_VERSION_3));
       EXPECT_TRUE(ASN1_INTEGER_set(X509_get_serialNumber(cert.get()), 1));
       EXPECT_TRUE(X509_gmtime_adj(X509_getm_notBefore(cert.get()), 0));
       EXPECT_TRUE(
@@ -1750,7 +2006,8 @@ TEST(X509Test, TestFromBufferModified) {
 
   ASSERT_EQ(static_cast<long>(data_len), i2d_X509(root.get(), nullptr));
 
-  X509_CINF_set_modified(root->cert_info);
+  // Re-encode the TBSCertificate.
+  i2d_re_X509_tbs(root.get(), nullptr);
 
   ASSERT_NE(static_cast<long>(data_len), i2d_X509(root.get(), nullptr));
 }
@@ -1935,65 +2192,6 @@ TEST(X509Test, X509NameSet) {
   // Check that the correct entries get incremented when inserting new entry.
   EXPECT_EQ(X509_NAME_ENTRY_set(X509_NAME_get_entry(name.get(), 1)), 1);
   EXPECT_EQ(X509_NAME_ENTRY_set(X509_NAME_get_entry(name.get(), 2)), 2);
-}
-
-TEST(X509Test, StringDecoding) {
-  static const struct {
-    std::vector<uint8_t> in;
-    int type;
-    const char *expected;
-  } kTests[] = {
-      // Non-minimal, two-byte UTF-8.
-      {{0xc0, 0x81}, V_ASN1_UTF8STRING, nullptr},
-      // Non-minimal, three-byte UTF-8.
-      {{0xe0, 0x80, 0x81}, V_ASN1_UTF8STRING, nullptr},
-      // Non-minimal, four-byte UTF-8.
-      {{0xf0, 0x80, 0x80, 0x81}, V_ASN1_UTF8STRING, nullptr},
-      // Truncated, four-byte UTF-8.
-      {{0xf0, 0x80, 0x80}, V_ASN1_UTF8STRING, nullptr},
-      // Low-surrogate value.
-      {{0xed, 0xa0, 0x80}, V_ASN1_UTF8STRING, nullptr},
-      // High-surrogate value.
-      {{0xed, 0xb0, 0x81}, V_ASN1_UTF8STRING, nullptr},
-      // Initial BOMs should be rejected from UCS-2 and UCS-4.
-      {{0xfe, 0xff, 0, 88}, V_ASN1_BMPSTRING, nullptr},
-      {{0, 0, 0xfe, 0xff, 0, 0, 0, 88}, V_ASN1_UNIVERSALSTRING, nullptr},
-      // Otherwise, BOMs should pass through.
-      {{0, 88, 0xfe, 0xff}, V_ASN1_BMPSTRING, "X\xef\xbb\xbf"},
-      {{0, 0, 0, 88, 0, 0, 0xfe, 0xff}, V_ASN1_UNIVERSALSTRING,
-       "X\xef\xbb\xbf"},
-      // The maximum code-point should pass though.
-      {{0, 16, 0xff, 0xfd}, V_ASN1_UNIVERSALSTRING, "\xf4\x8f\xbf\xbd"},
-      // Values outside the Unicode space should not.
-      {{0, 17, 0, 0}, V_ASN1_UNIVERSALSTRING, nullptr},
-      // Non-characters should be rejected.
-      {{0, 1, 0xff, 0xff}, V_ASN1_UNIVERSALSTRING, nullptr},
-      {{0, 1, 0xff, 0xfe}, V_ASN1_UNIVERSALSTRING, nullptr},
-      {{0, 0, 0xfd, 0xd5}, V_ASN1_UNIVERSALSTRING, nullptr},
-      // BMPString is UCS-2, not UTF-16, so surrogate pairs are invalid.
-      {{0xd8, 0, 0xdc, 1}, V_ASN1_BMPSTRING, nullptr},
-  };
-
-  for (size_t i = 0; i < OPENSSL_ARRAY_SIZE(kTests); i++) {
-    SCOPED_TRACE(i);
-    const auto& test = kTests[i];
-    ASN1_STRING s;
-    s.type = test.type;
-    s.data = const_cast<uint8_t*>(test.in.data());
-    s.length = test.in.size();
-
-    uint8_t *utf8;
-    const int utf8_len = ASN1_STRING_to_UTF8(&utf8, &s);
-    EXPECT_EQ(utf8_len < 0, test.expected == nullptr);
-    if (utf8_len >= 0) {
-      if (test.expected != nullptr) {
-        EXPECT_EQ(Bytes(test.expected), Bytes(utf8, utf8_len));
-      }
-      OPENSSL_free(utf8);
-    } else {
-      ERR_clear_error();
-    }
-  }
 }
 
 TEST(X509Test, NoBasicConstraintsCertSign) {
@@ -2985,4 +3183,166 @@ TEST(X509Test, GeneralName)  {
       }
     }
   }
+}
+
+// Test that extracting fields of an |X509_ALGOR| works correctly.
+TEST(X509Test, X509AlgorExtract) {
+  static const char kTestOID[] = "1.2.840.113554.4.1.72585.2";
+  const struct {
+    int param_type;
+    std::vector<uint8_t> param_der;
+  } kTests[] = {
+      // No parameter.
+      {V_ASN1_UNDEF, {}},
+      // BOOLEAN { TRUE }
+      {V_ASN1_BOOLEAN, {0x01, 0x01, 0xff}},
+      // BOOLEAN { FALSE }
+      {V_ASN1_BOOLEAN, {0x01, 0x01, 0x00}},
+      // OCTET_STRING { "a" }
+      {V_ASN1_OCTET_STRING, {0x04, 0x01, 0x61}},
+      // BIT_STRING { `01` `00` }
+      {V_ASN1_BIT_STRING, {0x03, 0x02, 0x01, 0x00}},
+      // INTEGER { -1 }
+      {V_ASN1_INTEGER, {0x02, 0x01, 0xff}},
+      // OBJECT_IDENTIFIER { 1.2.840.113554.4.1.72585.2 }
+      {V_ASN1_OBJECT,
+       {0x06, 0x0c, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x12, 0x04, 0x01, 0x84, 0xb7,
+        0x09, 0x02}},
+      // NULL {}
+      {V_ASN1_NULL, {0x05, 0x00}},
+      // SEQUENCE {}
+      {V_ASN1_SEQUENCE, {0x30, 0x00}},
+      // SET {}
+      {V_ASN1_SET, {0x31, 0x00}},
+      // [0] { UTF8String { "a" } }
+      {V_ASN1_OTHER, {0xa0, 0x03, 0x0c, 0x01, 0x61}},
+  };
+  for (const auto &t : kTests) {
+    SCOPED_TRACE(Bytes(t.param_der));
+
+    // Assemble an AlgorithmIdentifier with the parameter.
+    bssl::ScopedCBB cbb;
+    CBB seq, oid;
+    ASSERT_TRUE(CBB_init(cbb.get(), 64));
+    ASSERT_TRUE(CBB_add_asn1(cbb.get(), &seq, CBS_ASN1_SEQUENCE));
+    ASSERT_TRUE(CBB_add_asn1(&seq, &oid, CBS_ASN1_OBJECT));
+    ASSERT_TRUE(CBB_add_asn1_oid_from_text(&oid, kTestOID, strlen(kTestOID)));
+    ASSERT_TRUE(CBB_add_bytes(&seq, t.param_der.data(), t.param_der.size()));
+    ASSERT_TRUE(CBB_flush(cbb.get()));
+
+    const uint8_t *ptr = CBB_data(cbb.get());
+    bssl::UniquePtr<X509_ALGOR> alg(
+        d2i_X509_ALGOR(nullptr, &ptr, CBB_len(cbb.get())));
+    ASSERT_TRUE(alg);
+
+    const ASN1_OBJECT *obj;
+    int param_type;
+    const void *param_value;
+    X509_ALGOR_get0(&obj, &param_type, &param_value, alg.get());
+
+    EXPECT_EQ(param_type, t.param_type);
+    char oid_buf[sizeof(kTestOID)];
+    ASSERT_EQ(int(sizeof(oid_buf) - 1),
+              OBJ_obj2txt(oid_buf, sizeof(oid_buf), obj,
+                          /*always_return_oid=*/1));
+    EXPECT_STREQ(oid_buf, kTestOID);
+
+    // |param_type| and |param_value| must be consistent with |ASN1_TYPE|.
+    if (param_type == V_ASN1_UNDEF) {
+      EXPECT_EQ(nullptr, param_value);
+    } else {
+      bssl::UniquePtr<ASN1_TYPE> param(ASN1_TYPE_new());
+      ASSERT_TRUE(param);
+      ASSERT_TRUE(ASN1_TYPE_set1(param.get(), param_type, param_value));
+
+      uint8_t *param_der = nullptr;
+      int param_len = i2d_ASN1_TYPE(param.get(), &param_der);
+      ASSERT_GE(param_len, 0);
+      bssl::UniquePtr<uint8_t> free_param_der(param_der);
+
+      EXPECT_EQ(Bytes(param_der, param_len), Bytes(t.param_der));
+    }
+  }
+}
+
+// Test the various |X509_ATTRIBUTE| creation functions.
+TEST(X509Test, Attribute) {
+  // The friendlyName attribute has a BMPString value. See RFC 2985,
+  // section 5.5.1.
+  static const uint8_t kTest1[] = {0x26, 0x03};  // U+2603 SNOWMAN
+  static const uint8_t kTest1UTF8[] = {0xe2, 0x98, 0x83};
+  static const uint8_t kTest2[] = {0, 't', 0, 'e', 0, 's', 0, 't'};
+
+  auto check_attribute = [&](X509_ATTRIBUTE *attr, bool has_test2) {
+    EXPECT_EQ(NID_friendlyName, OBJ_obj2nid(X509_ATTRIBUTE_get0_object(attr)));
+
+    EXPECT_EQ(has_test2 ? 2 : 1, X509_ATTRIBUTE_count(attr));
+
+    // The first attribute should contain |kTest1|.
+    const ASN1_TYPE *value = X509_ATTRIBUTE_get0_type(attr, 0);
+    ASSERT_TRUE(value);
+    EXPECT_EQ(V_ASN1_BMPSTRING, value->type);
+    EXPECT_EQ(Bytes(kTest1),
+              Bytes(ASN1_STRING_get0_data(value->value.bmpstring),
+                    ASN1_STRING_length(value->value.bmpstring)));
+
+    // |X509_ATTRIBUTE_get0_data| requires the type match.
+    EXPECT_FALSE(
+        X509_ATTRIBUTE_get0_data(attr, 0, V_ASN1_OCTET_STRING, nullptr));
+    const ASN1_BMPSTRING *bmpstring = static_cast<const ASN1_BMPSTRING *>(
+        X509_ATTRIBUTE_get0_data(attr, 0, V_ASN1_BMPSTRING, nullptr));
+    ASSERT_TRUE(bmpstring);
+    EXPECT_EQ(Bytes(kTest1), Bytes(ASN1_STRING_get0_data(bmpstring),
+                                   ASN1_STRING_length(bmpstring)));
+
+    if (has_test2) {
+      value = X509_ATTRIBUTE_get0_type(attr, 1);
+      ASSERT_TRUE(value);
+      EXPECT_EQ(V_ASN1_BMPSTRING, value->type);
+      EXPECT_EQ(Bytes(kTest2),
+                Bytes(ASN1_STRING_get0_data(value->value.bmpstring),
+                      ASN1_STRING_length(value->value.bmpstring)));
+    } else {
+      EXPECT_FALSE(X509_ATTRIBUTE_get0_type(attr, 1));
+    }
+
+    EXPECT_FALSE(X509_ATTRIBUTE_get0_type(attr, 2));
+  };
+
+  bssl::UniquePtr<ASN1_STRING> str(ASN1_STRING_type_new(V_ASN1_BMPSTRING));
+  ASSERT_TRUE(str);
+  ASSERT_TRUE(ASN1_STRING_set(str.get(), kTest1, sizeof(kTest1)));
+
+  // Test |X509_ATTRIBUTE_create|.
+  bssl::UniquePtr<X509_ATTRIBUTE> attr(
+      X509_ATTRIBUTE_create(NID_friendlyName, V_ASN1_BMPSTRING, str.get()));
+  ASSERT_TRUE(attr);
+  str.release();  // |X509_ATTRIBUTE_create| takes ownership on success.
+  check_attribute(attr.get(), /*has_test2=*/false);
+
+  // Test the |MBSTRING_*| form of |X509_ATTRIBUTE_set1_data|.
+  attr.reset(X509_ATTRIBUTE_new());
+  ASSERT_TRUE(attr);
+  ASSERT_TRUE(
+      X509_ATTRIBUTE_set1_object(attr.get(), OBJ_nid2obj(NID_friendlyName)));
+  ASSERT_TRUE(X509_ATTRIBUTE_set1_data(attr.get(), MBSTRING_UTF8, kTest1UTF8,
+                                       sizeof(kTest1UTF8)));
+  check_attribute(attr.get(), /*has_test2=*/false);
+
+  // Test the |ASN1_STRING| form of |X509_ATTRIBUTE_set1_data|.
+  ASSERT_TRUE(X509_ATTRIBUTE_set1_data(attr.get(), V_ASN1_BMPSTRING, kTest2,
+                                       sizeof(kTest2)));
+  check_attribute(attr.get(), /*has_test2=*/true);
+
+  // Test the |ASN1_TYPE| form of |X509_ATTRIBUTE_set1_data|.
+  attr.reset(X509_ATTRIBUTE_new());
+  ASSERT_TRUE(attr);
+  ASSERT_TRUE(
+      X509_ATTRIBUTE_set1_object(attr.get(), OBJ_nid2obj(NID_friendlyName)));
+  str.reset(ASN1_STRING_type_new(V_ASN1_BMPSTRING));
+  ASSERT_TRUE(str);
+  ASSERT_TRUE(ASN1_STRING_set(str.get(), kTest1, sizeof(kTest1)));
+  ASSERT_TRUE(
+      X509_ATTRIBUTE_set1_data(attr.get(), V_ASN1_BMPSTRING, str.get(), -1));
+  check_attribute(attr.get(), /*has_test2=*/false);
 }

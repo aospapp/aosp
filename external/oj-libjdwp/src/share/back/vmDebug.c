@@ -31,6 +31,8 @@
 #include "debugLoop.h"
 #include "transport.h"
 #include "util.h"
+#include "eventHelper.h"
+#include "threadControl.h"
 
 static _Atomic(jlong) lastDebuggerActivity = ATOMIC_VAR_INIT(0LL);
 static _Atomic(jboolean) hasSeenDebuggerActivity = ATOMIC_VAR_INIT(JNI_FALSE);
@@ -68,6 +70,14 @@ static jboolean JNICALL
 VMDebug_isDebuggerConnected(JNIEnv* env, jclass klass)
 {
     return isDebuggerConnected();
+}
+
+static void JNICALL
+VMDebug_suspendAllAndSendVmStart(JNIEnv* env, jclass klass)
+{
+    jthread currentThread;
+    JVMTI_FUNC_PTR(gdata->jvmti, GetCurrentThread)(gdata->jvmti, &currentThread);
+    eventHelper_reportVMInit(getEnv(), 0, currentThread, JDWP_SUSPEND_POLICY(ALL));
 }
 
 static jboolean JNICALL
@@ -115,9 +125,9 @@ vmDebug_initalize(JNIEnv* env)
             goto finish;
         }
 
-        JNINativeMethod methods[3];
+        JNINativeMethod methods[4];
 
-        // Take over the implementation of these three functions.
+        // Take over the implementation of these functions.
         methods[0].name = "lastDebuggerActivity";
         methods[0].signature = "()J";
         methods[0].fnPtr = (void*)VMDebug_lastDebuggerActivity;
@@ -129,6 +139,10 @@ vmDebug_initalize(JNIEnv* env)
         methods[2].name = "isDebuggerConnected";
         methods[2].signature = "()Z";
         methods[2].fnPtr = (void*)VMDebug_isDebuggerConnected;
+
+        methods[3].name = "suspendAllAndSendVmStart";
+        methods[3].signature = "()V";
+        methods[3].fnPtr = (void*)VMDebug_suspendAllAndSendVmStart;
 
         jint res = JNI_FUNC_PTR(env,RegisterNatives)(env,
                                                      vmdebug_class,
